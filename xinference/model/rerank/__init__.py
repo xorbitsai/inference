@@ -63,14 +63,16 @@ for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
 user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
 if os.path.isdir(user_defined_rerank_dir):
     for f in os.listdir(user_defined_rerank_dir):
-        with codecs.open(
-            os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
-        ) as fd:
-            user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
-            try:
+        try:
+            with codecs.open(
+                os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
+            ) as fd:
+                user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(
+                    json.load(fd)
+                )
                 register_rerank(user_defined_rerank_spec, persist=False)
-            except Exception as e:
-                warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
+        except Exception as e:
+            warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
 # register model description
 for ud_rerank in get_user_defined_reranks():

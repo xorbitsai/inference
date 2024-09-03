@@ -70,16 +70,16 @@ from ...constants import XINFERENCE_MODEL_DIR
 user_defined_image_dir = os.path.join(XINFERENCE_MODEL_DIR, "image")
 if os.path.isdir(user_defined_image_dir):
     for f in os.listdir(user_defined_image_dir):
-        with codecs.open(
-            os.path.join(user_defined_image_dir, f), encoding="utf-8"
-        ) as fd:
-            user_defined_image_family = CustomImageModelFamilyV1.parse_obj(
-                json.load(fd)
-            )
-            try:
+        try:
+            with codecs.open(
+                os.path.join(user_defined_image_dir, f), encoding="utf-8"
+            ) as fd:
+                user_defined_image_family = CustomImageModelFamilyV1.parse_obj(
+                    json.load(fd)
+                )
                 register_image(user_defined_image_family, persist=False)
-            except Exception as e:
-                warnings.warn(f"{user_defined_image_dir}/{f} has error, {e}")
+        except Exception as e:
+            warnings.warn(f"{user_defined_image_dir}/{f} has error, {e}")
 
 for ud_image in get_user_defined_images():
     IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))

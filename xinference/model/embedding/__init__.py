@@ -65,14 +65,16 @@ from ...constants import XINFERENCE_MODEL_DIR
 user_defined_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
 if os.path.isdir(user_defined_embedding_dir):
     for f in os.listdir(user_defined_embedding_dir):
-        with codecs.open(
-            os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
-        ) as fd:
-            user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
-            try:
+        try:
+            with codecs.open(
+                os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
+            ) as fd:
+                user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(
+                    json.load(fd)
+                )
                 register_embedding(user_defined_llm_family, persist=False)
-            except Exception as e:
-                warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
+        except Exception as e:
+            warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 # register model description
 for ud_embedding in get_user_defined_embeddings():
