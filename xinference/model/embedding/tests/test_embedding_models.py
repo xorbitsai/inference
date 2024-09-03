@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import codecs
 import json
 import os
 import shutil
 import tempfile
-import warnings
 
 import pytest
 
@@ -220,40 +218,27 @@ def test_register_custom_embedding():
 
 
 def test_register_fault_embedding():
-    from .. import CustomEmbeddingModelSpec, register_embedding
+    from ....constants import XINFERENCE_MODEL_DIR
+    from .. import _install
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        os.makedirs(os.path.join(tmp_dir, "embedding"), exist_ok=True)
-        file_path = os.path.join(tmp_dir, "embedding/GTE.json")
-        data = {
-            "model_name": "GTE",
-            "model_id": None,
-            "model_revision": None,
-            "model_hub": "huggingface",
-            "dimensions": 768,
-            "max_tokens": 512,
-            "language": ["en", "zh"],
-            "model_uri": "/new_data/cache/gte-Qwen2",
-        }
+    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "embedding"), exist_ok=True)
+    file_path = os.path.join(XINFERENCE_MODEL_DIR, "embedding/GTE.json")
+    data = {
+        "model_name": "GTE",
+        "model_id": None,
+        "model_revision": None,
+        "model_hub": "huggingface",
+        "dimensions": 768,
+        "max_tokens": 512,
+        "language": ["en", "zh"],
+        "model_uri": "/new_data/cache/gte-Qwen2",
+    }
 
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=4)
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=4)
 
-        with pytest.warns(UserWarning):
-            XINFERENCE_MODEL_DIR = tmp_dir
-            user_defined_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
-            if os.path.isdir(user_defined_embedding_dir):
-                for f in os.listdir(user_defined_embedding_dir):
-                    try:
-                        with codecs.open(
-                            os.path.join(user_defined_embedding_dir, f),
-                            encoding="utf-8",
-                        ) as fd:
-                            user_defined_llm_family = (
-                                CustomEmbeddingModelSpec.parse_obj(json.load(fd))
-                            )
-                            register_embedding(user_defined_llm_family, persist=False)
-                    except Exception as e:
-                        warnings.warn(
-                            f"{user_defined_embedding_dir}/{f} has error, {e}"
-                        )
+    with pytest.warns(UserWarning) as record:
+        _install()
+    assert any(
+        "Invalid model URI /new_data/cache/gte-Qwen2" in str(r.message) for r in record
+    )

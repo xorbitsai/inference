@@ -14,6 +14,18 @@
 
 
 def _install():
+    from .audio import _install as audio_install
+    from .embedding import _install as embedding_install
+    from .flexible import _install as flexible_install
+    from .image import _install as image_install
     from .llm import _install as llm_install
+    from .rerank import _install as rerank_install
+    from .video import _install as video_install
 
     llm_install()
+    audio_install()
+    embedding_install()
+    flexible_install()
+    image_install()
+    rerank_install()
+    video_install()

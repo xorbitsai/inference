@@ -16,7 +16,9 @@ import codecs
 import json
 import os
 import warnings
+from typing import Any, Dict
 
+from ...constants import XINFERENCE_MODEL_DIR
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
     MODEL_NAME_TO_REVISION,
@@ -32,52 +34,63 @@ from .custom import (
     unregister_audio,
 )
 
-_model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-_model_spec_modelscope_json = os.path.join(
-    os.path.dirname(__file__), "model_spec_modelscope.json"
-)
-BUILTIN_AUDIO_MODELS = dict(
-    (spec["model_name"], AudioModelFamilyV1(**spec))
-    for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-)
-for model_name, model_spec in BUILTIN_AUDIO_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+BUILTIN_AUDIO_MODELS: Dict[str, Any] = {}
+MODELSCOPE_AUDIO_MODELS: Dict[str, Any] = {}
 
-MODELSCOPE_AUDIO_MODELS = dict(
-    (spec["model_name"], AudioModelFamilyV1(**spec))
-    for spec in json.load(
-        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+
+def register_custom_model():
+    # if persist=True, load them when init
+    user_defined_audio_dir = os.path.join(XINFERENCE_MODEL_DIR, "audio")
+    if os.path.isdir(user_defined_audio_dir):
+        for f in os.listdir(user_defined_audio_dir):
+            try:
+                with codecs.open(
+                    os.path.join(user_defined_audio_dir, f), encoding="utf-8"
+                ) as fd:
+                    user_defined_audio_family = CustomAudioModelFamilyV1.parse_obj(
+                        json.load(fd)
+                    )
+                    register_audio(user_defined_audio_family, persist=False)
+            except Exception as e:
+                warnings.warn(f"{user_defined_audio_dir}/{f} has error, {e}")
+
+
+def _install():
+    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+    _model_spec_modelscope_json = os.path.join(
+        os.path.dirname(__file__), "model_spec_modelscope.json"
     )
-)
-for model_name, model_spec in MODELSCOPE_AUDIO_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    BUILTIN_AUDIO_MODELS.update(
+        dict(
+            (spec["model_name"], AudioModelFamilyV1(**spec))
+            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+        )
+    )
+    for model_name, model_spec in BUILTIN_AUDIO_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-# register model description after recording model revision
-for model_spec_info in [BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS]:
-    for model_name, model_spec in model_spec_info.items():
-        if model_spec.model_name not in AUDIO_MODEL_DESCRIPTIONS:
-            AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(model_spec))
+    MODELSCOPE_AUDIO_MODELS.update(
+        dict(
+            (spec["model_name"], AudioModelFamilyV1(**spec))
+            for spec in json.load(
+                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+            )
+        )
+    )
+    for model_name, model_spec in MODELSCOPE_AUDIO_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-from ...constants import XINFERENCE_MODEL_DIR
+    # register model description after recording model revision
+    for model_spec_info in [BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS]:
+        for model_name, model_spec in model_spec_info.items():
+            if model_spec.model_name not in AUDIO_MODEL_DESCRIPTIONS:
+                AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(model_spec))
 
-# if persist=True, load them when init
-user_defined_audio_dir = os.path.join(XINFERENCE_MODEL_DIR, "audio")
-if os.path.isdir(user_defined_audio_dir):
-    for f in os.listdir(user_defined_audio_dir):
-        try:
-            with codecs.open(
-                os.path.join(user_defined_audio_dir, f), encoding="utf-8"
-            ) as fd:
-                user_defined_audio_family = CustomAudioModelFamilyV1.parse_obj(
-                    json.load(fd)
-                )
-                register_audio(user_defined_audio_family, persist=False)
-        except Exception as e:
-            warnings.warn(f"{user_defined_audio_dir}/{f} has error, {e}")
+    register_custom_model()
 
-# register model description
-for ud_audio in get_user_defined_audios():
-    AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
+    # register model description
+    for ud_audio in get_user_defined_audios():
+        AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
-del _model_spec_json
-del _model_spec_modelscope_json
+    del _model_spec_json
+    del _model_spec_modelscope_json
