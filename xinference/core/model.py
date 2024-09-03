@@ -434,9 +434,9 @@ class ModelActor(xo.StatelessActor):
             assert output_type == "binary", f"Unknown output type '{output_type}'"
             return ret
 
-    @log_async(logger=logger)
     @request_limit
     @xo.generator
+    @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         if self.allow_batching():
             return await self.handle_batching_request(
@@ -514,9 +514,9 @@ class ModelActor(xo.StatelessActor):
                 )
             return await asyncio.to_thread(json_dumps, result)
 
-    @log_async(logger=logger)
     @request_limit
     @xo.generator
+    @log_async(logger=logger)
     async def chat(self, prompt: str, *args, **kwargs):
         start_time = time.time()
         response = None
@@ -654,12 +654,12 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating translations."
         )
 
+    @request_limit
+    @xo.generator
     @log_async(
         logger=logger,
         args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech", None),
     )
-    @request_limit
-    @xo.generator
     async def speech(
         self,
         input: str,
