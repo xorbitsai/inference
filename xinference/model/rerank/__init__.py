@@ -15,6 +15,8 @@
 import codecs
 import json
 import os
+import warnings
+from typing import Any, Dict
 
 from ...constants import XINFERENCE_MODEL_DIR
 from .core import (
@@ -32,45 +34,65 @@ from .custom import (
     unregister_rerank,
 )
 
-_model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-_model_spec_modelscope_json = os.path.join(
-    os.path.dirname(__file__), "model_spec_modelscope.json"
-)
-BUILTIN_RERANK_MODELS = dict(
-    (spec["model_name"], RerankModelSpec(**spec))
-    for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-)
-for model_name, model_spec in BUILTIN_RERANK_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+BUILTIN_RERANK_MODELS: Dict[str, Any] = {}
+MODELSCOPE_RERANK_MODELS: Dict[str, Any] = {}
 
-MODELSCOPE_RERANK_MODELS = dict(
-    (spec["model_name"], RerankModelSpec(**spec))
-    for spec in json.load(
-        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+
+def register_custom_model():
+    # if persist=True, load them when init
+    user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
+    if os.path.isdir(user_defined_rerank_dir):
+        for f in os.listdir(user_defined_rerank_dir):
+            try:
+                with codecs.open(
+                    os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
+                ) as fd:
+                    user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(
+                        json.load(fd)
+                    )
+                    register_rerank(user_defined_rerank_spec, persist=False)
+            except Exception as e:
+                warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
+
+
+def _install():
+    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+    _model_spec_modelscope_json = os.path.join(
+        os.path.dirname(__file__), "model_spec_modelscope.json"
     )
-)
-for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    BUILTIN_RERANK_MODELS.update(
+        dict(
+            (spec["model_name"], RerankModelSpec(**spec))
+            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+        )
+    )
+    for model_name, model_spec in BUILTIN_RERANK_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-# register model description after recording model revision
-for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
-    for model_name, model_spec in model_spec_info.items():
-        if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
-            RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
+    MODELSCOPE_RERANK_MODELS.update(
+        dict(
+            (spec["model_name"], RerankModelSpec(**spec))
+            for spec in json.load(
+                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+            )
+        )
+    )
+    for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-# if persist=True, load them when init
-user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
-if os.path.isdir(user_defined_rerank_dir):
-    for f in os.listdir(user_defined_rerank_dir):
-        with codecs.open(
-            os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
-        ) as fd:
-            user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
-            register_rerank(user_defined_rerank_spec, persist=False)
+    # register model description after recording model revision
+    for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
+        for model_name, model_spec in model_spec_info.items():
+            if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
+                RERANK_MODEL_DESCRIPTIONS.update(
+                    generate_rerank_description(model_spec)
+                )
 
-# register model description
-for ud_rerank in get_user_defined_reranks():
-    RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
+    register_custom_model()
 
-del _model_spec_json
-del _model_spec_modelscope_json
+    # register model description
+    for ud_rerank in get_user_defined_reranks():
+        RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
+
+    del _model_spec_json
+    del _model_spec_modelscope_json

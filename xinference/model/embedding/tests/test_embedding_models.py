@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import shutil
 import tempfile
@@ -214,3 +215,30 @@ def test_register_custom_embedding():
         unregister_embedding("custom_test_d")
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_register_fault_embedding():
+    from ....constants import XINFERENCE_MODEL_DIR
+    from .. import _install
+
+    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "embedding"), exist_ok=True)
+    file_path = os.path.join(XINFERENCE_MODEL_DIR, "embedding/GTE.json")
+    data = {
+        "model_name": "GTE",
+        "model_id": None,
+        "model_revision": None,
+        "model_hub": "huggingface",
+        "dimensions": 768,
+        "max_tokens": 512,
+        "language": ["en", "zh"],
+        "model_uri": "/new_data/cache/gte-Qwen2",
+    }
+
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=4)
+
+    with pytest.warns(UserWarning) as record:
+        _install()
+    assert any(
+        "Invalid model URI /new_data/cache/gte-Qwen2" in str(r.message) for r in record
+    )

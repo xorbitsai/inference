@@ -112,6 +112,22 @@ def generate_engine_config_by_model_family(model_family):
     LLM_ENGINES[model_name] = engines
 
 
+def register_custom_model():
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
+    if os.path.isdir(user_defined_llm_dir):
+        for f in os.listdir(user_defined_llm_dir):
+            try:
+                with codecs.open(
+                    os.path.join(user_defined_llm_dir, f), encoding="utf-8"
+                ) as fd:
+                    user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
+                    register_llm(user_defined_llm_family, persist=False)
+            except Exception as e:
+                warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
+
+
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
@@ -267,16 +283,7 @@ def _install():
         for family in families:
             generate_engine_config_by_model_family(family)
 
-    from ...constants import XINFERENCE_MODEL_DIR
-
-    user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
-    if os.path.isdir(user_defined_llm_dir):
-        for f in os.listdir(user_defined_llm_dir):
-            with codecs.open(
-                os.path.join(user_defined_llm_dir, f), encoding="utf-8"
-            ) as fd:
-                user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
-                register_llm(user_defined_llm_family, persist=False)
+    register_custom_model()
 
     # register model description
     for ud_llm in get_user_defined_llm_families():

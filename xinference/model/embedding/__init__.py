@@ -15,6 +15,8 @@
 import codecs
 import json
 import os
+import warnings
+from typing import Any, Dict
 
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
@@ -31,46 +33,68 @@ from .custom import (
     unregister_embedding,
 )
 
-_model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-_model_spec_modelscope_json = os.path.join(
-    os.path.dirname(__file__), "model_spec_modelscope.json"
-)
-BUILTIN_EMBEDDING_MODELS = dict(
-    (spec["model_name"], EmbeddingModelSpec(**spec))
-    for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-)
-for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
+MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
 
-MODELSCOPE_EMBEDDING_MODELS = dict(
-    (spec["model_name"], EmbeddingModelSpec(**spec))
-    for spec in json.load(
-        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+
+def register_custom_model():
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    user_defined_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
+    if os.path.isdir(user_defined_embedding_dir):
+        for f in os.listdir(user_defined_embedding_dir):
+            try:
+                with codecs.open(
+                    os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
+                ) as fd:
+                    user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(
+                        json.load(fd)
+                    )
+                    register_embedding(user_defined_llm_family, persist=False)
+            except Exception as e:
+                warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
+
+
+def _install():
+    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+    _model_spec_modelscope_json = os.path.join(
+        os.path.dirname(__file__), "model_spec_modelscope.json"
     )
-)
-for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    BUILTIN_EMBEDDING_MODELS.update(
+        dict(
+            (spec["model_name"], EmbeddingModelSpec(**spec))
+            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+        )
+    )
+    for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-# register model description after recording model revision
-for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
-    for model_name, model_spec in model_spec_info.items():
-        if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
-            EMBEDDING_MODEL_DESCRIPTIONS.update(
-                generate_embedding_description(model_spec)
+    MODELSCOPE_EMBEDDING_MODELS.update(
+        dict(
+            (spec["model_name"], EmbeddingModelSpec(**spec))
+            for spec in json.load(
+                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
             )
+        )
+    )
+    for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-from ...constants import XINFERENCE_MODEL_DIR
+    # register model description after recording model revision
+    for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
+        for model_name, model_spec in model_spec_info.items():
+            if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
+                EMBEDDING_MODEL_DESCRIPTIONS.update(
+                    generate_embedding_description(model_spec)
+                )
 
-user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
-if os.path.isdir(user_defined_llm_dir):
-    for f in os.listdir(user_defined_llm_dir):
-        with codecs.open(os.path.join(user_defined_llm_dir, f), encoding="utf-8") as fd:
-            user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
-            register_embedding(user_defined_llm_family, persist=False)
+    register_custom_model()
 
-# register model description
-for ud_embedding in get_user_defined_embeddings():
-    EMBEDDING_MODEL_DESCRIPTIONS.update(generate_embedding_description(ud_embedding))
+    # register model description
+    for ud_embedding in get_user_defined_embeddings():
+        EMBEDDING_MODEL_DESCRIPTIONS.update(
+            generate_embedding_description(ud_embedding)
+        )
 
-del _model_spec_json
-del _model_spec_modelscope_json
+    del _model_spec_json
+    del _model_spec_modelscope_json

@@ -741,9 +741,9 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "rerank":
             return ["rerank"]
         elif model_type == "image":
-            return ["text_to_image"]
+            return model.model_ability
         elif model_type == "audio":
-            return [model._model_spec.ability]
+            return [model.model_ability]
         elif model_type == "video":
             return ["text_to_video"]
         elif model_type == "flexible":

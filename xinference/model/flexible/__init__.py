@@ -14,7 +14,9 @@
 
 import codecs
 import json
+import logging
 import os
+import warnings
 
 from ...constants import XINFERENCE_MODEL_DIR
 from .core import (
@@ -28,13 +30,24 @@ from .core import (
     unregister_flexible_model,
 )
 
-model_dir = os.path.join(XINFERENCE_MODEL_DIR, "flexible")
-if os.path.isdir(model_dir):
-    for f in os.listdir(model_dir):
-        with codecs.open(os.path.join(model_dir, f), encoding="utf-8") as fd:
-            model_spec = FlexibleModelSpec.parse_obj(json.load(fd))
-            register_flexible_model(model_spec, persist=False)
+logger = logging.getLogger(__name__)
 
-# register model description
-for model in get_flexible_models():
-    FLEXIBLE_MODEL_DESCRIPTIONS.update(generate_flexible_model_description(model))
+
+def register_custom_model():
+    model_dir = os.path.join(XINFERENCE_MODEL_DIR, "flexible")
+    if os.path.isdir(model_dir):
+        for f in os.listdir(model_dir):
+            try:
+                with codecs.open(os.path.join(model_dir, f), encoding="utf-8") as fd:
+                    model_spec = FlexibleModelSpec.parse_obj(json.load(fd))
+                    register_flexible_model(model_spec, persist=False)
+            except Exception as e:
+                warnings.warn(f"{model_dir}/{f} has error, {e}")
+
+
+def _install():
+    register_custom_model()
+
+    # register model description
+    for model in get_flexible_models():
+        FLEXIBLE_MODEL_DESCRIPTIONS.update(generate_flexible_model_description(model))
