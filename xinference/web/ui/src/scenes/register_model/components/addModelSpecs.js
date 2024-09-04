@@ -245,8 +245,8 @@ const AddModelSpecs = ({
 
   return (
     <>
-      <div>
-        <label style={{ marginBottom: '20px' }}>Model Specs</label>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+        <label style={{ width: '100px' }}>Model Specs</label>
         <Button
           variant="contained"
           size="small"

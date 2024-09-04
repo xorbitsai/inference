@@ -71,7 +71,7 @@ const RegisterModel = () => {
                   quantizations: ['none'],
                 },
               ],
-              model_family: '',
+              model_family: 'your_custom_model',
             }}
           />
         </TabPanel>

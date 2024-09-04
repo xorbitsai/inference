@@ -41,7 +41,7 @@ import AddModelSpecs from './components/addModelSpecs'
 import AddStop from './components/addStop'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
-const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision']
+const SUPPORTED_FEATURES = ['Generate', 'Chat',]
 const messages = [
   {
     role: 'assistant',
@@ -57,8 +57,10 @@ const messages = [
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
 
 const RegisterModelComponent = ({ modelType, customData }) => {
+  const endPoint = useContext(ApiContext).endPoint
   const { setErrorMsg } = useContext(ApiContext)
   const [formData, setFormData] = useState(customData)
+  const [family, setFamily] = useState([])
   const [languagesArr, setLanguagesArr] = useState([])
   const [isContextLengthAlert, setIsContextLengthAlert] = useState(false)
   const [isDimensionsAlert, setIsDimensionsAlert] = useState(false)
@@ -238,14 +240,56 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       navigate('/login', { replace: true })
       return
     }
+
+    const getBuiltinFamilies = async () => {
+      const response = await fetch(endPoint + '/v1/models/families', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        const errorData = await response.json() // Assuming the server returns error details in JSON format
+        setErrorMsg(
+          `Server error: ${response.status} - ${
+            errorData.detail || 'Unknown error'
+          }`
+        )
+      } else {
+        const data = await response.json()
+        setFamily([...data.chat, ...data.generate])
+      }
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(customData, 'model_ability') &&
+      Object.prototype.hasOwnProperty.call(customData, 'model_family')
+    ) {
+      if (family.length === 0) {
+        getBuiltinFamilies().catch((error) => {
+          setErrorMsg(
+            error.message ||
+              'An unexpected error occurred when getting builtin prompt styles.'
+          )
+          console.error('Error: ', error)
+        })
+      }
+    }
   }, [cookie.token])
 
   useEffect(() => {
-    setJsonData(JSON.stringify(formData, null, 4))
+    setJsonData(JSON.stringify(formData, customReplacer, 4))
     if (contrastObj.model_name) {
       deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
     }
   }, [formData])
+
+  const customReplacer = (key, value) => {
+    if (key === 'chat_template') {
+      return value.replace(/\\n/g, '\n');
+    }
+    return value;
+  }
 
   const handleClick = async () => {
     for (let key in formData) {
@@ -254,6 +298,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         key !== 'model_description' &&
         ((type === 'Array' &&
           key !== 'controlnet' &&
+          key !== 'stop_token_ids' &&
+          key !== 'stop' &&
           formData[key].length === 0) ||
           (type === 'String' && formData[key] === '') ||
           (type === 'Number' && formData[key] <= 0))
@@ -276,7 +322,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     try {
       fetchWrapper
         .post(`/v1/model_registrations/${modelType}`, {
-          model: JSON.stringify(formData),
+          model: JSON.stringify(formData, customReplacer),
           persist: true,
         })
         .then(() => {
@@ -790,6 +836,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     label="Model Family"
                     error={formData.model_family ? false : true}
                     value={formData.model_family}
+                    helperText="Not the same as the built-in model name."
                     size="small"
                     onChange={(event) =>
                       setFormData({
@@ -798,6 +845,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       })
                     }
                   />
+                  {family.includes(formData.model_family) && (
+                    <Alert severity="error">
+                      Custom model has the same name as a built-in model, please change it.
+                    </Alert>
+                  )}
                   <Box padding="15px"></Box>
                 </>
               )}
@@ -923,6 +975,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     setIsStopTokenIdsAlert(false)
                   }
                 }}
+                helperText='int type, used to control the stopping of chat models'
               />
               <Box padding="15px"></Box>
             </>
@@ -936,6 +989,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 arrItemType="string"
                 formData={formData.stop}
                 onGetData={getStop}
+                helperText='string type, used to control the stopping of chat models'
               />
               <Box padding="15px"></Box>
             </>
@@ -1058,7 +1112,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 (formData.model_ability?.includes('chat') &&
                   formData.chat_template &&
                   !isTestSuccess) ||
-                isStopTokenIdsAlert
+                isStopTokenIdsAlert ||
+                family?.includes(formData?.model_family)
               }
             >
               Register Model

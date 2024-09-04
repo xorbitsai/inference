@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react'
 
 const regex = /^[1-9]\d*$/
 
-const AddStop = ({ label, onGetData, arrItemType, formData, onGetError }) => {
+const AddStop = ({ label, onGetData, arrItemType, formData, onGetError, helperText }) => {
   const [dataArr, setDataArr] = useState(formData?.length ? formData : [''])
   const arr = []
 
@@ -52,7 +52,7 @@ const AddStop = ({ label, onGetData, arrItemType, formData, onGetError }) => {
         <div
           style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}
         >
-          <label>{label}</label>
+          <label style={{width: '100px'}}>{label}</label>
           <Button
             variant="contained"
             size="small"
@@ -80,6 +80,7 @@ const AddStop = ({ label, onGetData, arrItemType, formData, onGetError }) => {
                 <TextField
                   value={item}
                   onChange={(e) => handleChange(e.target.value, index)}
+                  label={helperText}
                   size="small"
                   style={{ width: '100%' }}
                 />
