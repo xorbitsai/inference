@@ -119,3 +119,26 @@
   font-size: 28px !important;
   color: #fff;
 }
+
+.chat_template_box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat_template_test {
+  height: 137px;
+  width: 30%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: scroll;
+}
+
+.test_res_box {
+  background-color: #eee;
+  min-height: 55px;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 4px;
+}
