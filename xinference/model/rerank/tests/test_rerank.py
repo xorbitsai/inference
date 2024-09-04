@@ -19,6 +19,50 @@ import tempfile
 import pytest
 
 from ....client import Client
+from ..core import RerankModel, RerankModelSpec, cache
+
+TEST_MODEL_SPEC = RerankModelSpec(
+    model_name="bge-reranker-base",
+    type="normal",
+    max_tokens=512,
+    language=["en", "zh"],
+    model_id="BAAI/bge-reranker-base",
+    model_revision="465b4b7ddf2be0a020c8ad6e525b9bb1dbb708ae",
+)
+
+
+def test_model():
+    model_path = None
+    try:
+        model_path = cache(TEST_MODEL_SPEC)
+        model = RerankModel(TEST_MODEL_SPEC, "mock", model_path)
+
+        query = "A man is eating pasta."
+        # With all sentences in the corpus
+        corpus = [
+            "A man is eating food.",
+            "A man is eating a piece of bread.",
+            "The girl is carrying a baby.",
+            "A man is riding a horse.",
+            "A woman is playing violin.",
+            "Two men pushed carts through the woods.",
+            "A man is riding a white horse on an enclosed ground.",
+            "A monkey is playing drums.",
+            "A cheetah is running behind its prey.",
+        ]
+        model.load()
+        scores = model.rerank(corpus, query, None, None, True, True)
+        assert scores["results"][0]["index"] == 0
+        assert scores["results"][0]["document"]["text"] == corpus[0]
+
+        n_tokens = scores["meta"]["tokens"]["input_tokens"]
+        tokenizer = model._model.tokenizer
+        expect_n_tokens = sum(len(tokenizer.tokenize([query, d])) for d in corpus)
+        assert n_tokens >= expect_n_tokens
+
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
 
 
 @pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
