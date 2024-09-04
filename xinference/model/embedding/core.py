@@ -154,8 +154,8 @@ class EmbeddingModel:
             def to(self, *args, **kwargs):
                 pass
 
-        torch_dtype_str = self._kwargs.get("torch_dtype")
-        if torch_dtype_str is not None:
+        torch_dtype = None
+        if torch_dtype_str := self._kwargs.get("torch_dtype"):
             try:
                 torch_dtype = getattr(torch, torch_dtype_str)
                 if torch_dtype not in [
@@ -172,8 +172,6 @@ class EmbeddingModel:
                     f"Load embedding model with  unknown torch dtype '{torch_dtype_str}'. Using default torch dtype: fp32."
                 )
                 torch_dtype = torch.float32
-        else:
-            torch_dtype = "auto"
 
         from ..utils import patch_trust_remote_code
 
@@ -182,10 +180,13 @@ class EmbeddingModel:
             "gte" in self._model_spec.model_name.lower()
             and "qwen2" in self._model_spec.model_name.lower()
         ):
+            model_kwargs = {"device_map": "auto"}
+            if torch_dtype:
+                model_kwargs["torch_dtype"] = torch_dtype
             self._model = XSentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs={"device_map": "auto", "torch_dtype": torch_dtype},
+                model_kwargs=model_kwargs,
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
@@ -313,7 +314,7 @@ class EmbeddingModel:
                 features.update(extra_features)
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
-                all_token_nums += features["attention_mask"].sum()
+                all_token_nums += features["attention_mask"].sum().item()
 
                 with torch.no_grad():
                     out_features = model.forward(features)
