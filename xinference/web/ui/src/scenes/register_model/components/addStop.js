@@ -5,7 +5,14 @@ import React, { useEffect, useState } from 'react'
 
 const regex = /^[1-9]\d*$/
 
-const AddStop = ({ label, onGetData, arrItemType, formData, onGetError, helperText }) => {
+const AddStop = ({
+  label,
+  onGetData,
+  arrItemType,
+  formData,
+  onGetError,
+  helperText,
+}) => {
   const [dataArr, setDataArr] = useState(formData?.length ? formData : [''])
   const arr = []
 
@@ -52,7 +59,7 @@ const AddStop = ({ label, onGetData, arrItemType, formData, onGetError, helperTe
         <div
           style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}
         >
-          <label style={{width: '100px'}}>{label}</label>
+          <label style={{ width: '100px' }}>{label}</label>
           <Button
             variant="contained"
             size="small"

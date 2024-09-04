@@ -41,7 +41,7 @@ import AddModelSpecs from './components/addModelSpecs'
 import AddStop from './components/addStop'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
-const SUPPORTED_FEATURES = ['Generate', 'Chat',]
+const SUPPORTED_FEATURES = ['Generate', 'Chat']
 const messages = [
   {
     role: 'assistant',
@@ -286,9 +286,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const customReplacer = (key, value) => {
     if (key === 'chat_template') {
-      return value.replace(/\\n/g, '\n');
+      return value.replace(/\\n/g, '\n')
     }
-    return value;
+    return value
   }
 
   const handleClick = async () => {
@@ -847,7 +847,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   />
                   {family.includes(formData.model_family) && (
                     <Alert severity="error">
-                      Custom model has the same name as a built-in model, please change it.
+                      Custom model has the same name as a built-in model, please
+                      change it.
                     </Alert>
                   )}
                   <Box padding="15px"></Box>
@@ -975,7 +976,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     setIsStopTokenIdsAlert(false)
                   }
                 }}
-                helperText='int type, used to control the stopping of chat models'
+                helperText="int type, used to control the stopping of chat models"
               />
               <Box padding="15px"></Box>
             </>
@@ -989,7 +990,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 arrItemType="string"
                 formData={formData.stop}
                 onGetData={getStop}
-                helperText='string type, used to control the stopping of chat models'
+                helperText="string type, used to control the stopping of chat models"
               />
               <Box padding="15px"></Box>
             </>
