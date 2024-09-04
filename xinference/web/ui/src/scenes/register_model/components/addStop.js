@@ -100,9 +100,7 @@ const AddStop = ({
               </div>
 
               {handleShowAlert(item) && (
-                <Alert severity="error">
-                  Please enter an integer greater than 0.
-                </Alert>
+                <Alert severity="error">Please enter an integer.</Alert>
               )}
             </div>
           ))}

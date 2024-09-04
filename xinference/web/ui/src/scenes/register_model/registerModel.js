@@ -90,7 +90,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [testRes, setTestRes] = useState('')
   const [isOpenMessages, setIsOpenMessages] = useState(false)
   const [testErrorInfo, setTestErrorInfo] = useState('')
-  const [isTestSuccess, setIsTestSuccess] = useState(false)
   const [isStopTokenIdsAlert, setIsStopTokenIdsAlert] = useState(false)
 
   useEffect(() => {
@@ -512,15 +511,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         if (test_res === '') {
           setTestRes(test_res)
           setTestErrorInfo('error')
-          setIsTestSuccess(false)
         } else {
           setTestRes(test_res)
           setTestErrorInfo('')
-          setIsTestSuccess(true)
         }
       } catch (error) {
         setTestErrorInfo(`${error}`)
-        setIsTestSuccess(false)
       }
     }
   }
@@ -894,6 +890,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   error={formData.chat_template ? false : true}
                   value={formData.chat_template}
                   size="small"
+                  helperText="Please make sure this chat_template passes the test by clicking the TEST button on the right. Please note that this test may not cover all cases and will only be used for the most basic case."
                   multiline
                   rows={6}
                   onChange={(event) =>
@@ -904,56 +901,73 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   }
                   style={{ flex: 1 }}
                 />
-                <Button variant="contained" onClick={handleTest}>
+                <Button
+                  variant="contained"
+                  onClick={handleTest}
+                  style={{ marginTop: 50 }}
+                >
                   test
                 </Button>
                 <div className="chat_template_test">
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <span style={{ fontSize: 16 }}>messages example</span>
-                    <OpenInFullIcon
-                      onClick={() => setIsOpenMessages(true)}
-                      style={{ fontSize: 14, color: '#666', cursor: 'pointer' }}
-                    />
-                  </div>
-                  <div>
-                    <span
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        fontSize: 16,
-                      }}
-                    >
-                      test result
-                      {testErrorInfo ? (
-                        <Cancel style={{ color: 'red' }} />
-                      ) : testRes ? (
-                        <CheckCircleIcon
-                          style={{ color: 'rgb(46, 125, 50)' }}
-                        />
-                      ) : (
-                        ''
-                      )}
-                    </span>
+                  <div className="chat_template_test_mainBox">
                     <div
-                      className="test_res_box"
-                      style={{
-                        backgroundColor:
-                          testErrorInfo === ''
-                            ? testRes
-                              ? 'rgb(237, 247, 237)'
-                              : ''
-                            : 'rgb(253, 237, 237)',
-                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                     >
-                      {testErrorInfo !== ''
-                        ? testErrorInfo
-                        : testRes
-                        ? testRes
-                        : 'No test results...'}
+                      <span style={{ fontSize: 16 }}>messages example</span>
+                      <OpenInFullIcon
+                        onClick={() => setIsOpenMessages(true)}
+                        style={{
+                          fontSize: 14,
+                          color: '#666',
+                          cursor: 'pointer',
+                        }}
+                      />
                     </div>
+                    <div>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          fontSize: 16,
+                        }}
+                      >
+                        test result
+                        {testErrorInfo ? (
+                          <Cancel style={{ color: 'red' }} />
+                        ) : testRes ? (
+                          <CheckCircleIcon
+                            style={{ color: 'rgb(46, 125, 50)' }}
+                          />
+                        ) : (
+                          ''
+                        )}
+                      </span>
+                      <div
+                        className="test_res_box"
+                        style={{
+                          backgroundColor:
+                            testErrorInfo === ''
+                              ? testRes
+                                ? 'rgb(237, 247, 237)'
+                                : ''
+                              : 'rgb(253, 237, 237)',
+                        }}
+                      >
+                        {testErrorInfo !== ''
+                          ? testErrorInfo
+                          : testRes
+                          ? testRes
+                          : 'No test results...'}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="chat_template_test_tip"
+                    style={{ color: testErrorInfo === '' ? '' : '#d32f2f' }}
+                  >
+                    Please note that failure to pass test may prevent chats from
+                    working properly.
                   </div>
                 </div>
               </div>
@@ -1110,9 +1124,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 (modelType === 'LLM' && !formData.model_family) ||
                 (formData.model_ability?.includes('chat') &&
                   !formData.chat_template) ||
-                (formData.model_ability?.includes('chat') &&
-                  formData.chat_template &&
-                  !isTestSuccess) ||
                 isStopTokenIdsAlert ||
                 family?.includes(formData?.model_family)
               }

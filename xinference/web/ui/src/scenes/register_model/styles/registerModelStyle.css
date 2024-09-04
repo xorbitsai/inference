@@ -122,17 +122,26 @@
 
 .chat_template_box {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: 10px;
 }
 
 .chat_template_test {
-  height: 137px;
   width: 30%;
+}
+
+.chat_template_test_mainBox {
+  height: 137px;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
   overflow: scroll;
+}
+
+.chat_template_test_tip {
+  font-size: 10px;
+  margin: 4px 14px 0;
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .test_res_box {
