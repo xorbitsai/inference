@@ -186,7 +186,7 @@ msgid ""
 "This is a Jinja template string. Usually, you can find it in the "
 "``tokenizer_config.json`` file within the model directory."
 msgstr ""
-"如果 ``model_ability`` 中包含 ``chat`` ，那么此选项必须配置以生成合适的完整提示词。这是一个 Jinja 模版字符串。"
+"chat_template：如果 ``model_ability`` 中包含 ``chat`` ，那么此选项必须配置以生成合适的完整提示词。这是一个 Jinja 模版字符串。"
 "通常，你可以在模型目录的 ``tokenizer_config.json`` 文件中找到。"
 
 #: ../../source/models/custom.rst:108
@@ -197,7 +197,7 @@ msgid ""
 "values from the ``generation_config.json`` or ``tokenizer_config.json`` "
 "file in the model directory."
 msgstr ""
-"如果 ``model_ability`` 中包含 ``chat`` ，那么推荐配置此选项以合理控制对话的停止。这是一个包含整数的列表，你可以"
+"stop_token_ids：如果 ``model_ability`` 中包含 ``chat`` ，那么推荐配置此选项以合理控制对话的停止。这是一个包含整数的列表，你可以"
 "在模型目录的 ``generation_config.json`` 和 ``tokenizer_config.json`` 文件中提取相应的值。"
 
 #: ../../source/models/custom.rst:109
@@ -208,7 +208,7 @@ msgid ""
 "``generation_config.json`` or ``tokenizer_config.json`` file in the model"
 " directory."
 msgstr ""
-"如果 ``model_ability`` 中包含 ``chat`` ，那么推荐配置此选项以合理控制对话的停止。这是一个包含字符串的列表，"
+"stop：如果 ``model_ability`` 中包含 ``chat`` ，那么推荐配置此选项以合理控制对话的停止。这是一个包含字符串的列表，"
 "你可以在模型目录的 ``tokenizer_config.json`` 文件中找到 token 值对应的字符串。"
 
 #: ../../source/models/custom.rst:112
