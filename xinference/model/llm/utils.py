@@ -34,7 +34,6 @@ from ...types import (
     CompletionChunk,
     CompletionUsage,
 )
-from ..utils import ensure_cache_cleared
 from .llm_family import (
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
@@ -249,7 +248,6 @@ class ChatModelMixin:
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
-    @ensure_cache_cleared
     def _to_chat_completion_chunks(
         cls,
         chunks: Iterator[CompletionChunk],
@@ -282,7 +280,6 @@ class ChatModelMixin:
             i += 1
 
     @staticmethod
-    @ensure_cache_cleared
     def _to_chat_completion(completion: Completion) -> ChatCompletion:
         return {
             "id": "chat" + completion["id"],
