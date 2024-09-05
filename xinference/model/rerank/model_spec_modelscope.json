@@ -47,7 +47,7 @@
     "type": "LLM-based layerwise",
     "language": ["en", "zh", "multilingual"],
     "max_tokens": 2048,
-    "model_id": "zfffff/bge-reranker-v2-minicpm-layerwise",
+    "model_id": "mirror013/bge-reranker-v2-minicpm-layerwise",
     "model_hub": "modelscope"
   }
 ]
