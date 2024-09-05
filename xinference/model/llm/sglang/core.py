@@ -21,7 +21,6 @@ from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -29,7 +28,7 @@ from ....types import (
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, generate_completion_chunk
 
 logger = logging.getLogger(__name__)
 
@@ -346,12 +345,14 @@ class SGLANGModel(LLM):
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+                finish_reason = None
                 async for meta_info, out in self._stream_generate(
                     prompt, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
                         request_id, self.model_uid, output_text=out
                     )
+                    finish_reason = meta_info["finish_reason"]
                     prompt_tokens = meta_info["prompt_tokens"]
                     completion_tokens = meta_info["completion_tokens"]
                     total_tokens = prompt_tokens + completion_tokens
@@ -361,6 +362,26 @@ class SGLANGModel(LLM):
                         total_tokens=total_tokens,
                     )
                     yield chunk
+
+                finish_reason = (
+                    "stop"
+                    if finish_reason is None
+                    or (
+                        isinstance(finish_reason, str)
+                        and finish_reason.lower() == "none"
+                    )
+                    else finish_reason
+                )
+                yield generate_completion_chunk(
+                    "",
+                    finish_reason=finish_reason,
+                    chunk_id=request_id,
+                    model_uid=self.model_uid,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+
                 if include_usage:
                     chunk = CompletionChunk(
                         id=request_id,
@@ -409,26 +430,18 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if self.model_family.prompt_style:
-            if (
-                not generate_config.get("stop")
-            ) and self.model_family.prompt_style.stop:
-                generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+        if self.model_family.stop:
+            if (not generate_config.get("stop")) and self.model_family.stop:
+                generate_config["stop"] = self.model_family.stop.copy()
         return generate_config
 
     async def async_chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
+        assert self.model_family.chat_template is not None
+        full_prompt = self.get_full_context(messages, self.model_family.chat_template)
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)

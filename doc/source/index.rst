@@ -35,14 +35,13 @@ Developing Real-world AI Applications with Xinference
 
     # Chat to LLM
     model.chat(
-       prompt="What is the largest animal?",
-       system_prompt="You are a helpful assistant",
+       messages=[{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "What is the largest animal?"}],
        generate_config={"max_tokens": 1024}
     )
     
     # Chat to VL model
     model.chat(
-       chat_history=[
+       messages=[
          {
             "role": "user",
             "content": [

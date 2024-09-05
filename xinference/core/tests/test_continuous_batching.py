@@ -48,7 +48,7 @@ class BaseThread(threading.Thread):
 class InferenceThread(BaseThread):
     def __init__(self, prompt, generate_config, client, model):
         super().__init__()
-        self._prompt = prompt
+        self._prompt = [{"role": "user", "content": prompt}]
         self._generate_config = generate_config
         self._client = client
         self._model = model
@@ -159,11 +159,12 @@ def test_continuous_batching(enable_batch, setup):
     thread2.join()
 
     # test error generate config
+    messages = [{"role": "user", "content": "你好"}]
     with pytest.raises(RuntimeError):
-        model.chat("你好", generate_config={"max_tokens": 99999999999999999})
+        model.chat(messages, generate_config={"max_tokens": 99999999999999999})
 
     with pytest.raises(RuntimeError):
-        model.chat("你好", generate_config={"stream_interval": 0})
+        model.chat(messages, generate_config={"stream_interval": 0})
 
     # test error with other correct requests
     thread1 = InferenceThread("1+1=3正确吗？", {"stream": True}, client, model)

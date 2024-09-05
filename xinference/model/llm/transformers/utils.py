@@ -321,7 +321,7 @@ def generate_stream(
 
     if stream:
         completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason=finish_reason
+            text=output, index=0, logprobs=None, finish_reason=finish_reason
         )
     else:
         completion_choice = CompletionChoice(
@@ -430,39 +430,6 @@ def pad_prefill_tokens(
     return prompt_tokens
 
 
-def _get_completion_chunk(
-    output: str,
-    chunk_id: str,
-    finish_reason: Optional[str],
-    model_uid: str,
-    r: InferenceRequest,
-    just_usage: bool,
-):
-    completion_choice = (
-        [
-            CompletionChoice(
-                text=output, index=0, logprobs=None, finish_reason=finish_reason
-            )
-        ]
-        if not just_usage
-        else []
-    )
-    completion_chunk = CompletionChunk(
-        id=chunk_id,
-        object="text_completion",
-        created=int(time.time()),
-        model=model_uid,
-        choices=completion_choice,
-    )
-    completion_usage = CompletionUsage(
-        prompt_tokens=len(r.prompt_tokens),
-        completion_tokens=len(r.new_tokens),
-        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
-    )
-    completion_chunk["usage"] = completion_usage
-    return completion_chunk
-
-
 def _get_completion(
     output: str,
     chunk_id: str,
@@ -551,6 +518,8 @@ def _batch_inference_one_step_internal(
     bos_flag: str = "<bos_stream>",
     eos_flag: str = "<eos_stream>",
 ):
+    from ..utils import generate_completion_chunk
+
     # need to judge stopped here,
     # since some requests state may change to stopped due to invalid parameters, e.g. max_src_len
     valid_req_list = [r for r in req_list if not r.stopped]
@@ -710,11 +679,28 @@ def _batch_inference_one_step_internal(
                     output = output[r.last_output_length :]
                     r.last_output_length += len(output)
 
-                    completion_chunk = _get_completion_chunk(
-                        output, r.chunk_id, r.finish_reason, model_uid, r, False
+                    completion_chunk = generate_completion_chunk(
+                        chunk_text=output,
+                        finish_reason=None,
+                        chunk_id=r.chunk_id,
+                        model_uid=model_uid,
+                        prompt_tokens=len(r.prompt_tokens),
+                        completion_tokens=len(r.new_tokens),
+                        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
                     )
                     r.completion.append(completion_chunk)
                     if r.stopped:
+                        # OpenAI compatible chunk
+                        completion_chunk = generate_completion_chunk(
+                            chunk_text="",
+                            finish_reason=r.finish_reason,
+                            chunk_id=r.chunk_id,
+                            model_uid=model_uid,
+                            prompt_tokens=len(r.prompt_tokens),
+                            completion_tokens=len(r.new_tokens),
+                            total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+                        )
+                        r.completion.append(completion_chunk)
                         r.completion.append(eos_flag)
 
                     # last round, handle stream result
@@ -723,8 +709,16 @@ def _batch_inference_one_step_internal(
                     # these tokens are real generated and should be counted.
                     if r.stopped and _i == decode_round - 1 and include_usage:
                         r.completion.append(
-                            _get_completion_chunk(
-                                "", r.chunk_id, r.finish_reason, model_uid, r, True
+                            generate_completion_chunk(
+                                chunk_text=None,
+                                finish_reason=None,
+                                chunk_id=r.chunk_id,
+                                model_uid=model_uid,
+                                prompt_tokens=len(r.prompt_tokens),
+                                completion_tokens=len(r.new_tokens),
+                                total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+                                has_choice=False,
+                                has_content=False,
                             )
                         )
             else:

@@ -108,15 +108,14 @@ We can try Chat API out either via cURL, OpenAI Client, or Xinference's python c
 
     client = RESTfulClient("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     model = client.get_model("<MODEL_UID>")
-    print(model.chat(
-        prompt="What is the largest animal?",
-        system_prompt="You are a helpful assistant.",
-        chat_history=[],
+    messages = [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "What is the largest animal?"}]
+    model.chat(
+        messages,
         generate_config={
           "max_tokens": 512,
           "temperature": 0.7
         }        
-    ))
+    )
 
   .. code-tab:: json output
 
@@ -183,7 +182,9 @@ a list of messages as input, the Generate API accepts a freeform text string nam
     client = openai.Client(api_key="cannot be empty", base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1")
     client.chat.completions.create(
         model=("<MODEL_UID>",
-        prompt="What is the largest animal?"
+        messages=[
+            {"role": "user", "content": "What is the largest animal?"}
+        ],
         max_tokens=512,
         temperature=0.7
     )

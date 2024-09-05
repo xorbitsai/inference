@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 
@@ -29,7 +29,6 @@ from ....device_utils import (
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -52,8 +51,6 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "chatglm3-128k",
     "glm4-chat",
     "glm4-chat-1m",
-    "llama-2",
-    "llama-2-chat",
     "internlm2-chat",
     "internlm2.5-chat",
     "qwen-vl-chat",
@@ -615,12 +612,17 @@ class PytorchModel(LLM):
                 r.error_msg = str(e)
 
     def get_builtin_stop_token_ids(self) -> Tuple:
-        return (
-            tuple(self.model_family.prompt_style.stop_token_ids)
-            if self.model_family.prompt_style
-            and self.model_family.prompt_style.stop_token_ids
-            else tuple()
-        )
+        from ..utils import get_stop_token_ids_from_config_file
+
+        stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+        if stop_token_ids is not None:
+            return tuple(stop_token_ids)
+        else:
+            return (
+                tuple(self.model_family.stop_token_ids)
+                if self.model_family.stop_token_ids
+                else tuple()
+            )
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
@@ -693,20 +695,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         generate_config: Optional[PytorchGenerateConfig],
     ) -> PytorchGenerateConfig:
         generate_config = super()._sanitize_generate_config(generate_config)
-        if (
-            (not generate_config.get("stop"))
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop
-        ):
-            generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+        if (not generate_config.get("stop")) and self.model_family.stop is not None:
+            generate_config["stop"] = self.model_family.stop.copy()
         if (
             generate_config.get("stop_token_ids", None) is None
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop_token_ids
+            and self.model_family.stop_token_ids is not None
         ):
-            generate_config[
-                "stop_token_ids"
-            ] = self.model_family.prompt_style.stop_token_ids.copy()
+            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
 
         return generate_config
 
@@ -725,26 +720,23 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self._get_full_prompt(prompt, system_prompt, chat_history, tools)
+        model_family = self.model_family.model_family or self.model_family.model_name
+        full_context_kwargs = {}
+        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            full_context_kwargs["tools"] = tools
+        assert self.model_family.chat_template is not None
+        full_prompt = self.get_full_context(
+            messages,
+            self.model_family.chat_template,
+            tokenizer=self._tokenizer,
+            **full_context_kwargs,
+        )
 
         generate_config = self._sanitize_generate_config(generate_config)
-        # TODO(codingl2k1): qwen hacky to set stop for function call.
-        model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
-            stop = generate_config.get("stop")
-            if isinstance(stop, str):
-                generate_config["stop"] = [stop, "Observation:"]
-            elif isinstance(stop, Iterable):
-                assert not isinstance(stop, str)
-                generate_config["stop"] = list(stop) + ["Observation:"]
-            else:
-                generate_config["stop"] = "Observation:"
 
         stream = generate_config.get("stream", False)
         if stream:
@@ -755,22 +747,16 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, c, tools
-                )
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
             return self._to_chat_completion(c)
 
     def load(self):
         super().load()
 
-    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
-        full_prompt = ChatModelMixin.get_prompt(
-            prompt, chat_history, prompt_style, tools=tools
+    def _get_full_prompt(self, messages: List[Dict], tools):
+        assert self.model_family.chat_template is not None
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, tokenizer=self._tokenizer
         )
         return full_prompt
 
@@ -779,9 +765,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         for r in req_list:
             try:
                 if not r.stopped and r.is_prefill:
-                    r.full_prompt = self._get_full_prompt(
-                        r.prompt, r.system_prompt, r.chat_history, None
-                    )
+                    r.full_prompt = self._get_full_prompt(r.prompt, None)
             except Exception as e:
                 logger.exception(f"prepare inference error with {e}")
                 r.stopped = True
@@ -790,6 +774,20 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
             if req.error_msg is None and req.completion:
+                # The `generate` function can be called for some chat models.
+                # So that we cannot convert completion chunk to chat completion chunk.
+                if req.call_ability == "generate":
+                    results = []
+                    for c in req.completion:
+                        if c == "<bos_stream>":
+                            continue
+                        elif c == "<eos_stream>":
+                            break
+                        else:
+                            results.append(c)
+                    req.completion = results
+                    continue
+
                 if req.stream:
                     results = []
                     for i, c in enumerate(req.completion):

@@ -59,25 +59,22 @@ Define a custom LLM model based on the following template:
    {
      "version": 1,
      "context_length": 2048,
-     "model_name": "custom-llama-2",
+     "model_name": "custom-llama-2-chat",
      "model_lang": [
        "en"
      ],
      "model_ability": [
-       "generate"
+       "chat"
      ],
-     "model_family": "llama-2",
+     "model_family": "my-llama-2-chat",
      "model_specs": [
        {
          "model_format": "pytorch",
          "model_size_in_billions": 7,
          "quantizations": [
-           "4-bit",
-           "8-bit",
            "none"
          ],
-         "model_id": "meta-llama/Llama-2-7b-hf",
-         "model_uri": "file:///path/to/llama-2-7b-hf"
+         "model_uri": "file:///path/to/llama-2-chat"
        },
        {
          "model_format": "ggufv2",
@@ -86,18 +83,20 @@ Define a custom LLM model based on the following template:
            "q4_0",
            "q8_0"
          ],
-         "model_id": "TheBloke/Llama-2-7B-GGUF",
-         "model_file_name_template": "llama-2-7b.{quantization}.gguf"
+         "model_file_name_template": "llama-2-chat-7b.{quantization}.gguf"
          "model_uri": "file:///path/to/gguf-file"
        }
-     ]
+     ],
+     "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
+     "stop_token_ids": [2],
+     "stop": []
    }
 
 * model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
 * context_length: context_length: An optional integer that specifies the maximum context size the model was trained to accommodate, encompassing both the input and output lengths. If not defined, the default value is 2048 tokens (~1,500 words).
 * model_lang: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
 * model_ability: A list of strings defining the abilities of the model. It could include options like "embed", "generate", and "chat". In this case, the model has the ability to "generate".
-* model_family: A required string representing the family of the model you want to register. The optional values are the model names of all :ref:`built-in models <models_llm_index>`. If the model family you register is not among the built-in models in Xinference, please fill in ``other``. Note that you should choose the model family based on the ability of the model you want to register. For example, if you want to register the ``llama-2`` model, do not fill in ``llama-2-chat`` as the model family.
+* model_family: A required string representing the family of the model you want to register. This parameter must not conflict with any builtin model names.
 * model_specs: An array of objects defining the specifications of the model. These include:
    * model_format: A string that defines the model format, like "pytorch" or "ggufv2".
    * model_size_in_billions: An integer defining the size of the model in billions of parameters.
@@ -105,106 +104,9 @@ Define a custom LLM model based on the following template:
    * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face. **If model_uri is missing, Xinference will try to download the model from the huggingface repository specified here.**.
    * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". **When the model format is ggufv2, model_uri must be the specific file path. When the model format is pytorch, model_uri must be the path to the directory containing the model files.** If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
    * model_file_name_template: Required by gguf models. An f-string template used for defining the model file name based on the quantization. **Note that this field is just a template for the format of the ggufv2 model file, do not fill in the specific path of the model file.**
-* prompt_style: If the ``model_family`` field is not ``other``, this field does not need to be filled in. ``prompt_style`` is an optional field that could be required by ``chat`` models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py. You can also specify this field as a string, which will use the builtin prompt style in Xinference. For example:
-
-.. code-block:: json
-
-    {
-        "model_specs": [...],
-        "prompt_style": "chatglm3"
-    }
-
-Xinference supports these builtin prompt styles in common usage:
-
-.. tabs::
-
-   .. tab:: baichuan-chat
-
-      .. code-block:: json
-
-        {
-          "style_name": "NO_COLON_TWO",
-          "system_prompt": "",
-          "roles": [
-            " <reserved_102> ",
-            " <reserved_103> "
-          ],
-          "intra_message_sep": "",
-          "inter_message_sep": "</s>",
-          "stop_token_ids": [
-            2,
-            195
-          ]
-        }
-
-   .. tab:: chatglm3
-
-      .. code-block:: json
-
-        {
-          "style_name": "CHATGLM3",
-          "system_prompt": "",
-          "roles": [
-            "user",
-            "assistant"
-          ]
-        }
-
-   .. tab:: qwen-chat
-
-      .. code-block:: json
-
-        {
-          "style_name": "QWEN",
-          "system_prompt": "You are a helpful assistant.",
-          "roles": [
-            "user",
-            "assistant"
-          ],
-          "intra_message_sep": "\n",
-          "stop_token_ids": [
-            151643
-          ]
-        }
-
-   .. tab:: llama-2-chat
-
-      .. code-block:: json
-
-        {
-          "style_name": "LLAMA2",
-          "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
-          "roles": [
-            "[INST]",
-            "[/INST]"
-          ],
-          "intra_message_sep": " ",
-          "inter_message_sep": " </s><s>",
-          "stop_token_ids": [
-            2
-          ],
-          "stop": [
-            "</s>"
-          ]
-        }
-
-   .. tab:: vicuna-v1.5
-
-      .. code-block:: json
-
-        {
-          "style_name": "ADD_COLON_TWO",
-          "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-          "roles": [
-            "USER",
-            "ASSISTANT"
-          ],
-          "intra_message_sep": " ",
-          "inter_message_sep": "</s>"
-        }
-
-The above lists some commonly used built-in prompt styles.
-The full list of supported prompt styles can be found on the Xinference web UI.
+* chat_template: If ``model_ability`` includes ``chat`` , you must configure this option to generate the correct full prompt during chat. This is a Jinja template string. Usually, you can find it in the ``tokenizer_config.json`` file within the model directory.
+* stop_token_ids: If ``model_ability`` includes ``chat`` , you can configure this option to control when the model stops during chat. This is a list of integers, and you can typically extract the corresponding values from the ``generation_config.json`` or ``tokenizer_config.json`` file in the model directory.
+* stop: If ``model_ability`` includes ``chat`` , you can configure this option to control when the model stops during chat. This is a list of strings, and you can typically extract the corresponding values from the ``generation_config.json`` or ``tokenizer_config.json`` file in the model directory.
 
 Define a custom embedding model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

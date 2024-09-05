@@ -13,7 +13,6 @@
 # limitations under the License.
 import json
 import typing
-import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
@@ -470,9 +469,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
     def chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        messages: List[Dict],
         tools: Optional[List[Dict]] = None,
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
@@ -483,11 +480,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
         Parameters
         ----------
-        prompt: str
-            The user's input.
-        system_prompt: Optional[str]
-            The system context provide to Model prior to any chats.
-        chat_history: Optional[List["ChatCompletionMessage"]]
+        messages: List[Dict]
             A list of messages comprising the conversation so far.
         tools: Optional[List[Dict]]
             A tool list.
@@ -509,25 +502,11 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             Report the failure to generate the chat from the server. Detailed information provided in error message.
 
         """
-        warnings.warn(
-            "The parameters `prompt`, `system_prompt` and `chat_history` will be deprecated in version v0.15.0, "
-            "and will be replaced by the parameter `messages`, "
-            "similar to the OpenAI API: https://platform.openai.com/docs/guides/chat-completions/getting-started",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-
         url = f"{self._base_url}/v1/chat/completions"
-
-        if chat_history is None:
-            chat_history = []
-
-        chat_history = handle_system_prompts(chat_history, system_prompt)
-        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,
-            "messages": chat_history,
+            "messages": messages,
         }
         if tools is not None:
             request_body["tools"] = tools

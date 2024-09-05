@@ -310,10 +310,7 @@ class SupervisorActor(xo.StatelessActor):
     async def get_builtin_prompts() -> Dict[str, Any]:
         from ..model.llm.llm_family import BUILTIN_LLM_PROMPT_STYLE
 
-        data = {}
-        for k, v in BUILTIN_LLM_PROMPT_STYLE.items():
-            data[k] = v.dict()
-        return data
+        return {k: v for k, v in BUILTIN_LLM_PROMPT_STYLE.items()}
 
     @staticmethod
     async def get_builtin_families() -> Dict[str, List[str]]:
@@ -1030,7 +1027,7 @@ class SupervisorActor(xo.StatelessActor):
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))
+            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
         return model_uid
 
     async def get_instance_info(

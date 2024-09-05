@@ -53,13 +53,11 @@ Xinference Client
                                     quantization="Q4_K")
     model = client.get_model(model_uid)
 
-    chat_history = []
-    prompt = "What is the largest animal?"
+    messages = [{"role": "user", "content": "What is the largest animal?"}]
     # If the model has "generate" capability, then you can call the
     # model.generate API.
     model.chat(
-        prompt,
-        chat_history=chat_history,
+        messages,
         generate_config={"max_tokens": 1024}
     )
 

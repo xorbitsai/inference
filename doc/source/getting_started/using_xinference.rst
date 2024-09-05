@@ -243,11 +243,11 @@ or via Xinference's python client:
     from xinference.client import RESTfulClient
     client = RESTfulClient("http://127.0.0.1:9997")
     model = client.get_model("my-llama-2")
-    print(model.chat(
-        prompt="What is the largest animal?",
-        system_prompt="You are a helpful assistant.",
-        chat_history=[]
-    ))
+    model.chat(
+        messages=[
+            {"role": "user", "content": "Who won the world series in 2020?"}
+        ]
+    )
 
   .. code-tab:: json output
 

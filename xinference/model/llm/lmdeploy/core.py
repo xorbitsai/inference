@@ -12,25 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import time
 import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
 
 import torch
 
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionChunkChoice,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
-    CompletionUsage,
-    LoRA,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, generate_chat_completion, generate_completion_chunk
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +64,8 @@ class LMDeployGenerateConfig(TypedDict, total=False):
     repetition_penalty: Optional[float]
     ignore_eos: Optional[bool]
     random_seed: Optional[int]
-    stop_words: Optional[List[str]]
-    bad_words: Optional[List[str]]
+    stop_words: Optional[List[int]]
+    bad_words: Optional[List[int]]
     min_new_tokens: Optional[int]
     skip_special_tokens: Optional[bool]
     logprobs: Optional[int]
@@ -164,9 +154,6 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
             raise ValueError(f"Can not find correct chat template.")
 
         chat_template_config = ChatTemplateConfig(chat_temp_name)
-        chat_template_config.meta_instruction = (
-            self.model_family.prompt_style.system_prompt
-        )
         count = torch.cuda.device_count()
         if count > 1:
             self._model_config.setdefault("tp", torch.cuda.device_count())
@@ -192,9 +179,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
 
     async def async_chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         stream = (
@@ -213,75 +198,69 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
             else False
         )
 
-        chat_history = chat_history or []
-
         if stream:
-            chunk = self._chat_stream(prompt, chat_history, include_usage)
+            chunk = self._chat_stream(messages, include_usage)
             return self._async_to_chat_completion_chunks(chunk)
         else:
-            chunk = await self._chat(prompt, chat_history)
-            return self._to_chat_completion(chunk)
+            return await self._chat(messages)
 
-    async def _chat_stream(self, prompt, chat_history, include_usage):
+    async def _chat_stream(self, messages, include_usage):
         from lmdeploy.messages import Response
 
         prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
         completion_id = str(uuid.uuid1())
+        finish_reason = None
         async for output in self._generate(
-            prompt,
-            chat_history,
+            messages,
             session_id=-1,
             stream_response=True,
         ):
             new_text = output.text if isinstance(output, Response) else output.response
-
-            completion_choice = ChatCompletionChunkChoice(
-                text=new_text,
-                index=0,
-                logprobs=None,
-                finish_reason=output.finish_reason,
-            )
-            chunk = ChatCompletionChunk(
-                id=completion_id,
-                object="chat.completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[completion_choice],
-            )
             prompt_tokens = output.input_token_len
             completion_tokens = output.generate_token_len
             total_tokens = prompt_tokens + completion_tokens
-            completion_usage = CompletionUsage(
+            finish_reason = output.finish_reason
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
             )
-            chunk["usage"] = completion_usage
-            print(chunk)
-            yield chunk
-        if include_usage:
-            chunk = ChatCompletionChunk(
-                id=completion_id,
-                object="chat.completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[],
-            )
-            chunk["usage"] = CompletionUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-            )
-            yield chunk
 
-    async def _chat(self, prompt, chat_history):
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason=finish_reason,
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            has_choice=True,
+            has_content=False,
+        )
+        if include_usage:
+            yield generate_completion_chunk(
+                chunk_text=None,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                has_choice=False,
+                has_content=False,
+            )
+
+    async def _chat(self, messages) -> ChatCompletion:
         from lmdeploy.messages import Response
 
-        response, finish_reason = "", ""
+        response, finish_reason = "", None
         prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
         async for output in self._generate(
-            prompt,
-            chat_history,
+            messages,
             session_id=-1,
             stream_response=False,
         ):
@@ -291,30 +270,20 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
             total_tokens = output.input_token_len + output.generate_token_len
             finish_reason = output.finish_reason
 
-        chunk = ChatCompletion(
-            id=str(uuid.uuid1()),
-            object="chat.completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[
-                CompletionChoice(
-                    index=0, text=response, finish_reason=finish_reason, logprobs=None
-                )
-            ],
-            usage=CompletionUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-            ),
+        return generate_chat_completion(
+            self.model_uid,
+            response,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            finish_reason=finish_reason,
         )
-        return chunk
 
     # copy from lmdeploy
     # Reference: lmdeploy.serve.async_engine.py
     async def _generate(
         self,
-        prompt,
-        chat_history,
+        messages: List[Dict],
         session_id: int,
         generate_config: Optional[Dict] = None,
         tools: Optional[List[object]] = None,
@@ -332,6 +301,8 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         from lmdeploy.serve.async_engine import GenOut
         from lmdeploy.tokenizer import DetokenizeState
 
+        from ..utils import get_stop_token_ids_from_config_file
+
         session_id = -1
 
         if str(session_id) not in self._model.id2step:
@@ -343,7 +314,9 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
                 generate_config, self._model.tokenizer
             )
         if generate_config.stop_words is None:  # type: ignore
-            generate_config.stop_words = self._model.stop_words  # type: ignore
+            stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+            if stop_token_ids is not None:
+                generate_config.stop_words = stop_token_ids  # type: ignore
         if generate_config.random_seed is None and sequence_start:  # type: ignore
             generate_config.random_seed = random.getrandbits(64)  # type: ignore
         if generate_config.n > 1:  # type: ignore
@@ -353,7 +326,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
             )
             generate_config.n = 1  # type: ignore
 
-        prompt_input = await self._get_prompt_input(prompt, chat_history)
+        prompt_input = await self._get_prompt_input(messages)
         prompt = prompt_input["prompt"]
         input_ids = prompt_input["input_ids"]
         finish_reason = None
@@ -482,8 +455,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     # Reference: lmdeploy.serve.vl_async_engine.py
     async def _get_prompt_input(
         self,
-        prompt: Union[str, List[Dict]],
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         sequence_start: bool = True,
         tools: Optional[List[object]] = None,
         **kwargs,
@@ -493,13 +465,9 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         IMAGE_DUMMY_TOKEN_INDEX = 0
         import numpy as np
 
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        chat_history = chat_history or []
-
-        decorated, _ = self.get_prompt(prompt, chat_history, prompt_style)  # type: ignore
-        chat_history.append(ChatCompletionMessage(role="user", content=prompt))  # type: ignore
-        prompt = chat_history  # type: ignore
+        model_family = self.model_family.model_family or self.model_family.model_name
+        decorated, _ = self.get_specific_prompt(model_family, messages)  # type: ignore
+        prompt = messages  # type: ignore
 
         decorated = decorated.replace("<image>", "<img><IMAGE_TOKEN></img>")
 

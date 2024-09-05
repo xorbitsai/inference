@@ -26,7 +26,6 @@ from ..llm_family import (
     CustomLLMFamilyV1,
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
-    PromptStyleV1,
     PytorchLLMSpecV1,
     _generate_meta_file,
     _get_cache_dir,
@@ -70,15 +69,9 @@ def test_deserialize_llm_family_v1():
          "model_id":"example/TestModel"
       }
    ],
-   "prompt_style": {
-       "style_name": "ADD_COLON_SINGLE",
-       "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-       "roles": ["user", "assistant"],
-       "intra_message_sep": "\\n### ",
-       "inter_message_sep": "\\n### ",
-       "stop": null,
-       "stop_token_ids": null
-   }
+   "chat_template": "xyz",
+   "stop_token_ids": [1, 2, 3],
+   "stop": ["hello", "world"]
 }"""
     model_family = LLMFamilyV1.parse_raw(serialized)
     assert isinstance(model_family, LLMFamilyV1)
@@ -108,17 +101,9 @@ def test_deserialize_llm_family_v1():
     assert pytorch_spec.model_hub == "huggingface"
     assert pytorch_spec.model_id == "example/TestModel"
 
-    prompt_style = PromptStyleV1(
-        style_name="ADD_COLON_SINGLE",
-        system_prompt=(
-            "A chat between a curious human and an artificial intelligence assistant. The "
-            "assistant gives helpful, detailed, and polite answers to the human's questions."
-        ),
-        roles=["user", "assistant"],
-        intra_message_sep="\n### ",
-        inter_message_sep="\n### ",
-    )
-    assert prompt_style == model_family.prompt_style
+    assert model_family.chat_template == "xyz"
+    assert model_family.stop_token_ids == [1, 2, 3]
+    assert model_family.stop == ["hello", "world"]
 
 
 def test_serialize_llm_family_v1():
@@ -139,16 +124,6 @@ def test_serialize_llm_family_v1():
         model_id="example/TestModel",
         model_revision="456",
     )
-    prompt_style = PromptStyleV1(
-        style_name="ADD_COLON_SINGLE",
-        system_prompt=(
-            "A chat between a curious human and an artificial intelligence assistant. The "
-            "assistant gives helpful, detailed, and polite answers to the human's questions."
-        ),
-        roles=["user", "assistant"],
-        intra_message_sep="\n### ",
-        inter_message_sep="\n### ",
-    )
     llm_family = LLMFamilyV1(
         version=1,
         model_type="LLM",
@@ -156,10 +131,12 @@ def test_serialize_llm_family_v1():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[gguf_spec, pytorch_spec],
-        prompt_style=prompt_style,
+        chat_template="xyz",
+        stop_token_ids=[1, 2, 3],
+        stop=["hello", "world"],
     )
 
-    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggufv2", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.bin", "model_file_name_split_template": "TestModel.{quantization}.bin.{part}", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
+    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggufv2", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.bin", "model_file_name_split_template": "TestModel.{quantization}.bin.{part}", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "chat_template": "xyz", "stop_token_ids": [1, 2, 3], "stop": ["hello", "world"]}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
     llm_family_context_length = LLMFamilyV1(
@@ -170,7 +147,9 @@ def test_serialize_llm_family_v1():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[gguf_spec, pytorch_spec],
-        prompt_style=prompt_style,
+        chat_template="xyz",
+        stop_token_ids=[1, 2, 3],
+        stop=["hello", "world"],
     )
 
     assert json.loads(llm_family_context_length.json()) == json.loads(expected)
@@ -201,7 +180,9 @@ def test_cache_from_huggingface_pytorch():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
@@ -230,7 +211,9 @@ def test_cache_from_huggingface_gguf():
         model_lang=["en"],
         model_ability=["chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_dir = _get_cache_dir(family, spec)
@@ -266,7 +249,9 @@ def test_cache_from_uri_local():
         model_lang=["en"],
         model_ability=["embed", "chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_dir = cache_from_uri(family, spec)
@@ -295,7 +280,9 @@ def test_meta_file():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
@@ -340,7 +327,9 @@ def test_legacy_cache():
         model_lang=["en"],
         model_ability=["chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_path = get_legacy_cache_path(
@@ -378,7 +367,9 @@ def test_custom_llm():
         model_lang=["en"],
         model_ability=["chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     register_llm(family, False)
@@ -408,7 +399,9 @@ def test_persistent_custom_llm():
         model_lang=["en"],
         model_ability=["chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     register_llm(family, True)
@@ -501,16 +494,6 @@ def test_skip_download_pytorch():
         model_hub="modelscope",
         model_revision="456",
     )
-    prompt_style = PromptStyleV1(
-        style_name="ADD_COLON_SINGLE",
-        system_prompt=(
-            "A chat between a curious human and an artificial intelligence assistant. The "
-            "assistant gives helpful, detailed, and polite answers to the human's questions."
-        ),
-        roles=["user", "assistant"],
-        intra_message_sep="\n### ",
-        inter_message_sep="\n### ",
-    )
     llm_family = LLMFamilyV1(
         version=1,
         model_type="LLM",
@@ -518,7 +501,9 @@ def test_skip_download_pytorch():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[hf_spec, ms_spec],
-        prompt_style=prompt_style,
+        chat_template="xyz",
+        stop_token_ids=[1, 2, 3],
+        stop=["hello", "world"],
     )
 
     cache_dir = _get_cache_dir(llm_family, hf_spec)
@@ -594,16 +579,6 @@ def test_skip_download_gguf():
         model_revision="123",
         model_file_name_template="TestModel.{quantization}.bin",
     )
-    prompt_style = PromptStyleV1(
-        style_name="ADD_COLON_SINGLE",
-        system_prompt=(
-            "A chat between a curious human and an artificial intelligence assistant. The "
-            "assistant gives helpful, detailed, and polite answers to the human's questions."
-        ),
-        roles=["user", "assistant"],
-        intra_message_sep="\n### ",
-        inter_message_sep="\n### ",
-    )
     llm_family = LLMFamilyV1(
         version=1,
         model_type="LLM",
@@ -611,7 +586,9 @@ def test_skip_download_gguf():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[hf_spec, ms_spec],
-        prompt_style=prompt_style,
+        chat_template="xyz",
+        stop_token_ids=[1, 2, 3],
+        stop=["hello", "world"],
     )
 
     cache_dir = _get_cache_dir(llm_family, hf_spec)
@@ -686,7 +663,9 @@ def test_get_cache_status_pytorch():
         model_lang=["en"],
         model_ability=["embed", "generate"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_status = get_cache_status(llm_family=family, llm_spec=spec)
@@ -722,7 +701,9 @@ def test_get_cache_status_gguf():
         model_lang=["en"],
         model_ability=["chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     cache_status = get_cache_status(llm_family=family, llm_spec=spec)
@@ -741,13 +722,13 @@ def test_get_cache_status_gguf():
     shutil.rmtree(cache_dir)
 
 
-def test_parse_prompt_style():
+def test_parse_chat_template():
     from ..llm_family import BUILTIN_LLM_PROMPT_STYLE
 
     assert len(BUILTIN_LLM_PROMPT_STYLE) > 0
     # take some examples to assert
     assert "qwen-chat" in BUILTIN_LLM_PROMPT_STYLE
-    assert "chatglm3" in BUILTIN_LLM_PROMPT_STYLE
+    assert "glm4-chat" in BUILTIN_LLM_PROMPT_STYLE
     assert "baichuan-2-chat" in BUILTIN_LLM_PROMPT_STYLE
 
     hf_spec = LlamaCppLLMSpecV1(
@@ -776,8 +757,8 @@ def test_parse_prompt_style():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
-        model_family="chatglm3",
-        prompt_style="chatglm3",
+        model_family="glm4-chat",
+        chat_template="glm4-chat",
     )
     model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
     assert model_spec.model_name == llm_family.model_name
@@ -791,7 +772,7 @@ def test_parse_prompt_style():
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
         model_family="qwen-vl-chat",
-        prompt_style="qwen-vl-chat",
+        chat_template="qwen-vl-chat",
     )
     model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf-8"))
     assert "vision" in model_spec.model_ability
@@ -804,12 +785,12 @@ def test_parse_prompt_style():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
-        prompt_style="chatglm3",
+        chat_template="glm4-chat",
     )
     with pytest.raises(ValueError):
         CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
 
-    # wrong model_family
+    # successful new model family
     llm_family = CustomLLMFamilyV1(
         version=1,
         model_type="LLM",
@@ -818,12 +799,20 @@ def test_parse_prompt_style():
         model_ability=["chat", "generate"],
         model_family="xyzz",
         model_specs=[hf_spec, ms_spec],
-        prompt_style="chatglm3",
+        chat_template="glm4-chat",
     )
-    with pytest.raises(ValueError):
-        CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    assert (
+        model_spec.chat_template
+        == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["chat_template"]
+    )
+    assert (
+        model_spec.stop_token_ids
+        == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["stop_token_ids"]
+    )
+    assert model_spec.stop == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["stop"]
 
-    # error: wrong prompt style
+    # when chat_template is None, chat_template = model_family
     llm_family = CustomLLMFamilyV1(
         version=1,
         model_type="LLM",
@@ -831,11 +820,19 @@ def test_parse_prompt_style():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
-        model_family="chatglm3",
-        prompt_style="test_xyz",
+        model_family="glm4-chat",
+        chat_template=None,
     )
-    with pytest.raises(ValueError):
-        CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    assert (
+        model_spec.chat_template
+        == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["chat_template"]
+    )
+    assert (
+        model_spec.stop_token_ids
+        == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["stop_token_ids"]
+    )
+    assert model_spec.stop == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["stop"]
 
 
 def test_match_model_size():
@@ -1073,7 +1070,9 @@ def test_query_engine_general():
         model_lang=["en"],
         model_ability=["chat"],
         model_specs=[spec],
-        prompt_style=None,
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
     )
 
     register_llm(family, False)
@@ -1107,15 +1106,9 @@ def test_query_engine_general():
         model_lang=["en", "zh"],
         model_ability=["generate", "chat"],
         model_specs=[spec],
-        prompt_style={
-            "style_name": "QWEN",
-            "system_prompt": "You are a helpful assistant.",
-            "roles": ["user", "assistant"],
-            "intra_message_sep": "\n",
-            "inter_message_sep": "",
-            "stop": ["<|endoftext|>", "<|im_start|>", "<|im_end|>"],
-            "stop_token_ids": [151643, 151644, 151645],
-        },
+        chat_template="test",
+        stop=["<|endoftext|>", "<|im_start|>", "<|im_end|>"],
+        stop_token_ids=[151643, 151644, 151645],
     )
 
     register_llm(family, False)

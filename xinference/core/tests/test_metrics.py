@@ -140,7 +140,8 @@ async def test_metrics_exporter_data(setup_cluster):
     )
 
     model = client.get_model(model_uid)
-    response = model.chat("write a poem.")
+    messages = [{"role": "user", "content": "write a poem."}]
+    response = model.chat(messages)
 
     response = requests.get(metrics_exporter_address)
     assert response.ok

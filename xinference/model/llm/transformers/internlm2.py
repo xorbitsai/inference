@@ -11,23 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from ....core.scheduler import InferenceRequest
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChoice,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-    LoRA,
-    PytorchGenerateConfig,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import generate_chat_completion, generate_completion_chunk, parse_messages
 from .core import PytorchChatModel, PytorchModelConfig
 
 
@@ -106,9 +96,7 @@ class Internlm2PytorchChatModel(PytorchChatModel):
 
     def chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         kwargs: Dict[str, Any] = {}
@@ -130,6 +118,8 @@ class Internlm2PytorchChatModel(PytorchChatModel):
             if isinstance(stream_options, dict)
             else False
         )
+
+        prompt, system_prompt, chat_history = parse_messages(messages)
         if chat_history:
             input_history = [
                 (chat_history[i]["content"], (chat_history[i + 1]["content"]))
@@ -155,54 +145,42 @@ class Internlm2PytorchChatModel(PytorchChatModel):
                     total_tokens = prompt_tokens + completion_tokens
                     chunk_text = chunk_text[last_chunk_text_length:]
                     last_chunk_text_length += len(chunk_text)
-                    completion_choice = CompletionChoice(
-                        text=chunk_text, index=0, logprobs=None, finish_reason=None
-                    )
-                    yield CompletionChunk(
-                        id=chunk_id,
-                        object="text_completion",
-                        created=int(time.time()),
-                        model=self.model_uid,
-                        choices=[completion_choice],
-                        usage=CompletionUsage(
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=total_tokens,
-                        ),
-                    )
-                if include_usage:
-                    chunk = CompletionChunk(
-                        id=chunk_id,
-                        object="text_completion",
-                        created=int(time.time()),
-                        model=self.model_uid,
-                        choices=[],
-                    )
-                    chunk["usage"] = CompletionUsage(
+
+                    yield generate_completion_chunk(
+                        chunk_text,
+                        finish_reason=None,
+                        chunk_id=chunk_id,
+                        model_uid=self.model_uid,
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
                         total_tokens=total_tokens,
                     )
-                    yield chunk
+                yield generate_completion_chunk(
+                    None,
+                    finish_reason="stop",
+                    chunk_id=chunk_id,
+                    model_uid=self.model_uid,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    has_choice=True,
+                    has_content=False,
+                )
+                if include_usage:
+                    yield generate_completion_chunk(
+                        None,
+                        finish_reason=None,
+                        chunk_id=chunk_id,
+                        model_uid=self.model_uid,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=total_tokens,
+                        has_choice=False,
+                    )
 
             return self._to_chat_completion_chunks(_stream_generator())
         else:
             response, _ = self._model.chat(
                 self._tokenizer, prompt, input_history, **kwargs
             )
-            return ChatCompletion(
-                id="chat" + str(uuid.uuid1()),
-                object="chat.completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    ChatCompletionChoice(
-                        index=0,
-                        message={"role": "assistant", "content": response},
-                        finish_reason="stop",
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
-            )
+            return generate_chat_completion(self.model_uid, response)
