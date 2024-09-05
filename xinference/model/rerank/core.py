@@ -298,8 +298,7 @@ class RerankModel:
             gc.collect()
             empty_cache()
 
-        result = Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
-        return result
+        return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
 
 def get_cache_dir(model_spec: RerankModelSpec):
