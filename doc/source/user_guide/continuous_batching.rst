@@ -70,7 +70,7 @@ In this mode, you can abort requests that are in the process of inference.
     from xinference.client import Client
     client = Client("http://127.0.0.1:9997")
     model = client.get_model("<model_uid>")
-    model.chat("<prompt>", generate_config={"request_id": "<your_unique_request_id>"})
+    model.chat([{"role": "user", "content": "<prompt>"}], generate_config={"request_id": "<your_unique_request_id>"})
 
 #. Then, abort the request using the ``request_id`` you have set. For example:
 
