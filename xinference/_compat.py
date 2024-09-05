@@ -72,7 +72,7 @@ OpenAIChatCompletionNamedToolChoiceParam = create_model_from_typeddict(
 
 class CreateChatCompletionOpenAI(BaseModel):
     """
-    Comes from source code: https://github.com/openai/openai-python/blob/v1.39.0/src/openai/types/chat/completion_create_params.py
+    Comes from source code: https://github.com/openai/openai-python/blob/main/src/openai/types/chat/completion_create_params.py
     """
 
     messages: List[Dict]
