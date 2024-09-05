@@ -15,6 +15,7 @@
 import gc
 import logging
 import os
+import threading
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
@@ -107,7 +108,15 @@ def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[D
 class _ModelWrapper:
     def __init__(self, module: nn.Module):
         self._module = module
-        self.n_tokens = 0
+        self._local_data = threading.local()
+
+    @property
+    def n_tokens(self):
+        return getattr(self._local_data, "n_tokens", 0)
+
+    @n_tokens.setter
+    def n_tokens(self, new_n_tokens):
+        self._local_data.n_tokens = new_n_tokens
 
     def __getattr__(self, attr):
         return getattr(self._module, attr)
