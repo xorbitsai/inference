@@ -76,6 +76,11 @@ def test_model():
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == 384
+        n_token = 0
+        for inp in input_texts:
+            input_ids = model._model.tokenize([inp])["input_ids"]
+            n_token += input_ids.shape[-1]
+        assert r["usage"]["total_tokens"] == n_token
 
     finally:
         if model_path is not None:
