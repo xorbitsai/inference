@@ -80,7 +80,7 @@ class Qwen2VLChatModel(PytorchChatModel):
             if isinstance(content, str):
                 new_content.append({"type": "text", "text": content})
             elif isinstance(content, List):
-                for item in content:
+                for item in content:  # type: ignore
                     if "text" in item:
                         new_content.append({"type": "text", "text": item["text"]})
                     elif "image_url" in item:
