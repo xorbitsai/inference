@@ -181,9 +181,11 @@ class DiffusionModel:
 
         # revert padding if padded
         if is_padded and origin_size:
+            new_images = []
             x, y = origin_size
             for img in images:
-                img = img.crop((0, 0, x, y))
+                new_images.append(img.crop((0, 0, x, y)))
+            images = new_images
 
         # clean cache
         gc.collect()
