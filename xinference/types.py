@@ -173,7 +173,7 @@ class Completion(TypedDict):
 
 class ChatCompletionMessage(TypedDict):
     role: str
-    content: Optional[str|List[Dict]]
+    content: Optional[str | List[Dict]]
     user: NotRequired[str]
     tool_calls: NotRequired[List]
 
