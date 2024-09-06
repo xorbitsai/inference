@@ -128,8 +128,8 @@ def _install():
     from .transformers.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
-    from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.qwen2_vl import Qwen2VLChatModel
+    from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
