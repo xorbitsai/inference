@@ -167,7 +167,7 @@ def health_check(address: str, max_attempts: int, sleep_interval: int = 3) -> bo
                 from ..core.supervisor import SupervisorActor
 
                 supervisor_ref: xo.ActorRefType[SupervisorActor] = await xo.actor_ref(  # type: ignore
-                    address=address, uid=SupervisorActor.uid()
+                    address=address, uid=SupervisorActor.default_uid()
                 )
 
                 await supervisor_ref.get_status()

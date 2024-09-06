@@ -97,7 +97,7 @@ async def test_allocate_cuda_devices(setup_pool):
     worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
         MockWorkerActor,
         address=addr,
-        uid=WorkerActor.uid(),
+        uid=WorkerActor.default_uid(),
         supervisor_address="test",
         main_pool=pool,
         cuda_devices=[i for i in range(8)],
@@ -124,7 +124,7 @@ async def test_terminate_model_flag(setup_pool):
     worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
         MockWorkerActor,
         address=addr,
-        uid=WorkerActor.uid(),
+        uid=WorkerActor.default_uid(),
         supervisor_address="test",
         main_pool=pool,
         cuda_devices=[i for i in range(8)],
@@ -174,7 +174,7 @@ async def test_launch_embedding_model(setup_pool):
     worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
         MockWorkerActor,
         address=addr,
-        uid=WorkerActor.uid(),
+        uid=WorkerActor.default_uid(),
         supervisor_address="test",
         main_pool=pool,
         cuda_devices=[i for i in range(4)],
@@ -270,11 +270,12 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
         MockWorkerActor,
         address=addr,
-        uid=WorkerActor.uid(),
+        uid=WorkerActor.default_uid(),
         supervisor_address="test",
         main_pool=pool,
         cuda_devices=[i for i in range(4)],
     )
+    assert (await xo.actor_ref(addr, WorkerActor.default_uid())).uid == b"worker"
 
     # test normal model
     await worker.launch_builtin_model(

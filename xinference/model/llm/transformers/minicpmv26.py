@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterator, List, Optional, Union
@@ -20,18 +19,15 @@ from typing import Dict, Iterator, List, Optional, Union
 import torch
 from PIL import Image
 
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import _decode_image
+from ..utils import (
+    _decode_image,
+    generate_chat_completion,
+    generate_completion_chunk,
+    parse_messages,
+)
 from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
@@ -160,13 +156,12 @@ class MiniCPMV26Model(PytorchChatModel):
 
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         stream = generate_config.get("stream", False) if generate_config else False
         videoExisted = False
+        prompt, _, chat_history = parse_messages(messages)
 
         content, images_chat, video_frames = self._message_content_to_chat(prompt)
         if len(video_frames) > 0:
@@ -216,57 +211,28 @@ class MiniCPMV26Model(PytorchChatModel):
             it = self.chat_stream(chat)
             return self._to_chat_completion_chunks(it)
         else:
-            c = Completion(
-                id=str(uuid.uuid1()),
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    CompletionChoice(
-                        index=0, text=chat, finish_reason="stop", logprobs=None
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
-            )
-            return self._to_chat_completion(c)
+            return generate_chat_completion(self.model_uid, chat)
 
     def chat_stream(self, chat) -> Iterator[CompletionChunk]:
         completion_id = str(uuid.uuid1())
         for new_text in chat:
-            completion_choice = CompletionChoice(
-                text=new_text, index=0, logprobs=None, finish_reason=None
-            )
-            chunk = CompletionChunk(
-                id=completion_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[completion_choice],
-            )
-            completion_usage = CompletionUsage(
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
                 prompt_tokens=-1,
                 completion_tokens=-1,
                 total_tokens=-1,
             )
-            chunk["usage"] = completion_usage
-            yield chunk
-
-        completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason="stop"
-        )
-        chunk = CompletionChunk(
-            id=completion_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[completion_choice],
-        )
-        completion_usage = CompletionUsage(
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
             prompt_tokens=-1,
             completion_tokens=-1,
             total_tokens=-1,
+            has_choice=True,
+            has_content=False,
         )
-        chunk["usage"] = completion_usage
-        yield chunk

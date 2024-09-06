@@ -62,6 +62,10 @@ class DiffusionModel:
         self._abilities = abilities or []
         self._kwargs = kwargs
 
+    @property
+    def model_ability(self):
+        return self._abilities
+
     def _apply_lora(self):
         if self._lora_model is not None:
             logger.info(
@@ -194,7 +198,7 @@ class DiffusionModel:
 
             with ThreadPoolExecutor() as executor:
                 results = list(map(partial(executor.submit, _gen_base64_image), images))  # type: ignore
-                image_list = [Image(url=None, b64_json=s.result()) for s in results]
+                image_list = [Image(url=None, b64_json=s.result()) for s in results]  # type: ignore
             return ImageList(created=int(time.time()), data=image_list)
         else:
             raise ValueError(f"Unsupported response format: {response_format}")

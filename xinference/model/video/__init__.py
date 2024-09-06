@@ -28,35 +28,37 @@ from .core import (
     get_video_model_descriptions,
 )
 
-_model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-_model_spec_modelscope_json = os.path.join(
-    os.path.dirname(__file__), "model_spec_modelscope.json"
-)
-BUILTIN_VIDEO_MODELS.update(
-    dict(
-        (spec["model_name"], VideoModelFamilyV1(**spec))
-        for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-    )
-)
-for model_name, model_spec in BUILTIN_VIDEO_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-MODELSCOPE_VIDEO_MODELS.update(
-    dict(
-        (spec["model_name"], VideoModelFamilyV1(**spec))
-        for spec in json.load(
-            codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+def _install():
+    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+    _model_spec_modelscope_json = os.path.join(
+        os.path.dirname(__file__), "model_spec_modelscope.json"
+    )
+    BUILTIN_VIDEO_MODELS.update(
+        dict(
+            (spec["model_name"], VideoModelFamilyV1(**spec))
+            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
         )
     )
-)
-for model_name, model_spec in MODELSCOPE_VIDEO_MODELS.items():
-    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    for model_name, model_spec in BUILTIN_VIDEO_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-# register model description
-for model_name, model_spec in chain(
-    MODELSCOPE_VIDEO_MODELS.items(), BUILTIN_VIDEO_MODELS.items()
-):
-    VIDEO_MODEL_DESCRIPTIONS.update(generate_video_description(model_spec))
+    MODELSCOPE_VIDEO_MODELS.update(
+        dict(
+            (spec["model_name"], VideoModelFamilyV1(**spec))
+            for spec in json.load(
+                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+            )
+        )
+    )
+    for model_name, model_spec in MODELSCOPE_VIDEO_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-del _model_spec_json
-del _model_spec_modelscope_json
+    # register model description
+    for model_name, model_spec in chain(
+        MODELSCOPE_VIDEO_MODELS.items(), BUILTIN_VIDEO_MODELS.items()
+    ):
+        VIDEO_MODEL_DESCRIPTIONS.update(generate_video_description(model_spec))
+
+    del _model_spec_json
+    del _model_spec_modelscope_json

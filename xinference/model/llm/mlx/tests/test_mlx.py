@@ -36,6 +36,7 @@ def test_load_mlx(setup):
     )
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
-    completion = model.chat("write a poem.")
+    messages = [{"role": "user", "content": "write a poem."}]
+    completion = model.chat(messages)
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0

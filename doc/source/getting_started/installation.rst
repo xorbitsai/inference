@@ -102,7 +102,7 @@ SGLang has a high-performance inference runtime with RadixAttention. It signific
 
 Initial setup::
 
-   pip install 'xinference[sglang]'
+   pip install "xinference[sglang]"
 
    # For CUDA 12.4 & torch 2.4 to support sliding window attention for gemma 2 and llama 3.1 style rope
    pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4
@@ -115,7 +115,7 @@ MLX-lm is designed for Apple silicon users to run LLM efficiently.
 
 Initial setup::
 
-   pip install 'xinference[mlx]'
+   pip install "xinference[mlx]"
 
 Other Platforms
 ~~~~~~~~~~~~~~~

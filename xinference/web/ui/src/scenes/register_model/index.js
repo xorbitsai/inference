@@ -63,7 +63,6 @@ const RegisterModel = () => {
               context_length: 2048,
               model_lang: ['en'],
               model_ability: ['generate'],
-              model_family: '',
               model_specs: [
                 {
                   model_uri: '/path/to/llama-1',
@@ -72,7 +71,7 @@ const RegisterModel = () => {
                   quantizations: ['none'],
                 },
               ],
-              prompt_style: undefined,
+              model_family: 'your_custom_model',
             }}
           />
         </TabPanel>

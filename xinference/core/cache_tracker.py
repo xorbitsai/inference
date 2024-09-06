@@ -25,7 +25,7 @@ class CacheTrackerActor(xo.Actor):
         self._model_name_to_version_info: Dict[str, List[Dict]] = {}  # type: ignore
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "cache_tracker"
 
     @staticmethod

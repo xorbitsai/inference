@@ -265,7 +265,7 @@ class ModelActor(xo.StatelessActor):
 
         if self._worker_ref is None:
             self._worker_ref = await xo.actor_ref(
-                address=self._worker_address, uid=WorkerActor.uid()
+                address=self._worker_address, uid=WorkerActor.default_uid()
             )
         return self._worker_ref
 
@@ -434,9 +434,9 @@ class ModelActor(xo.StatelessActor):
             assert output_type == "binary", f"Unknown output type '{output_type}'"
             return ret
 
-    @log_async(logger=logger)
     @request_limit
     @xo.generator
+    @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         if self.allow_batching():
             return await self.handle_batching_request(
@@ -481,22 +481,27 @@ class ModelActor(xo.StatelessActor):
                 yield res
 
     @staticmethod
-    def _get_stream_from_args(ability: str, *args) -> bool:
-        if ability == "chat":
-            assert args[2] is None or isinstance(args[2], dict)
-            return False if args[2] is None else args[2].get("stream", False)
-        else:
-            assert args[0] is None or isinstance(args[0], dict)
-            return False if args[0] is None else args[0].get("stream", False)
+    def _get_stream_from_args(*args) -> bool:
+        assert args[0] is None or isinstance(args[0], dict)
+        return False if args[0] is None else args[0].get("stream", False)
 
-    async def handle_batching_request(self, prompt: str, ability: str, *args, **kwargs):
-        stream = self._get_stream_from_args(ability, *args)
+    async def handle_batching_request(
+        self, prompt_or_messages: Union[str, List[Dict]], call_ability, *args, **kwargs
+    ):
+        """
+        The input parameter `prompt_or_messages`:
+        - when the model_ability is `generate`, it's `prompt`, which is str type.
+        - when the model_ability is `chat`, it's `messages`, which is List[Dict] type.
+        """
+        stream = self._get_stream_from_args(*args)
         assert self._scheduler_ref is not None
         if stream:
             assert self._scheduler_ref is not None
             queue: Queue[Any] = Queue()
             ret = self._queue_consumer(queue)
-            await self._scheduler_ref.add_request(prompt, queue, *args, **kwargs)
+            await self._scheduler_ref.add_request(
+                prompt_or_messages, queue, call_ability, *args, **kwargs
+            )
             gen = self._to_async_gen("json", ret)
             self._current_generator = weakref.ref(gen)
             return gen
@@ -505,7 +510,9 @@ class ModelActor(xo.StatelessActor):
 
             assert self._loop is not None
             future = ConcurrentFuture()
-            await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
+            await self._scheduler_ref.add_request(
+                prompt_or_messages, future, call_ability, *args, **kwargs
+            )
             fut = asyncio.wrap_future(future, loop=self._loop)
             result = await fut
             if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
@@ -514,27 +521,27 @@ class ModelActor(xo.StatelessActor):
                 )
             return await asyncio.to_thread(json_dumps, result)
 
-    @log_async(logger=logger)
     @request_limit
     @xo.generator
-    async def chat(self, prompt: str, *args, **kwargs):
+    @log_async(logger=logger)
+    async def chat(self, messages: List[Dict], *args, **kwargs):
         start_time = time.time()
         response = None
         try:
             if self.allow_batching():
                 return await self.handle_batching_request(
-                    prompt, "chat", *args, **kwargs
+                    messages, "chat", *args, **kwargs
                 )
             else:
                 kwargs.pop("raw_params", None)
                 if hasattr(self._model, "chat"):
                     response = await self._call_wrapper_json(
-                        self._model.chat, prompt, *args, **kwargs
+                        self._model.chat, messages, *args, **kwargs
                     )
                     return response
                 if hasattr(self._model, "async_chat"):
                     response = await self._call_wrapper_json(
-                        self._model.async_chat, prompt, *args, **kwargs
+                        self._model.async_chat, messages, *args, **kwargs
                     )
                     return response
                 raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
@@ -654,12 +661,12 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating translations."
         )
 
+    @request_limit
+    @xo.generator
     @log_async(
         logger=logger,
         args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech", None),
     )
-    @request_limit
-    @xo.generator
     async def speech(
         self,
         input: str,

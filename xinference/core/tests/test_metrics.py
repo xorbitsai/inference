@@ -72,7 +72,9 @@ async def test_metrics_exporter_server(setup_cluster):
     )
 
     # Check the supervisor metrics collected the RESTful API.
-    supervisor_ref = await xo.actor_ref(supervisor_address, SupervisorActor.uid())
+    supervisor_ref = await xo.actor_ref(
+        supervisor_address, SupervisorActor.default_uid()
+    )
     response = requests.get(f"{endpoint}/metrics")
     assert response.ok
     assert "/v1/models" in response.text
@@ -138,7 +140,8 @@ async def test_metrics_exporter_data(setup_cluster):
     )
 
     model = client.get_model(model_uid)
-    response = model.chat("write a poem.")
+    messages = [{"role": "user", "content": "write a poem."}]
+    response = model.chat(messages)
 
     response = requests.get(metrics_exporter_address)
     assert response.ok

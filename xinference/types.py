@@ -39,8 +39,6 @@ from .fields import (
     top_p_field,
 )
 
-SPECIAL_TOOL_PROMPT = "<TOOL>"
-
 
 class Image(TypedDict):
     url: Optional[str]
@@ -142,7 +140,7 @@ class ToolCalls(TypedDict):
 
 
 class CompletionChoice(TypedDict):
-    text: str
+    text: NotRequired[str]
     index: int
     logprobs: Optional[CompletionLogprobs]
     finish_reason: Optional[str]

@@ -12,4 +12,5 @@ global-exclude conftest.py
 include xinference/locale/*.json
 include xinference/model/llm/*.json
 include xinference/model/embedding/*.json
+graft xinference/thirdparty
 global-include xinference/web/ui/build/**/*

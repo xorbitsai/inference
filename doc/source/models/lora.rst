@@ -65,8 +65,7 @@ Specifically, specify that the ``lora_name`` parameter be configured in the ``ge
     client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     model = client.get_model("<model_uid>")
     model.chat(
-        "<prompt>",
-        <other_options>,
+        messages=[{"role": "user", "content": "<prompt>"}],
         generate_config={"lora_name": "<your_lora_name>"}
     )
 

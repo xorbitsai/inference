@@ -526,7 +526,8 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
     client = RESTfulClient(endpoint)
     model = client.get_model(model_uid_res)
-    completion = model.chat("帮我查询股票10111的价格", tools=tools)
+    messages = [{"role": "user", "content": "帮我查询股票10111的价格"}]
+    completion = model.chat(messages, tools=tools)
     assert "content" in completion["choices"][0]["message"]
     assert "tool_calls" == completion["choices"][0]["finish_reason"]
     assert (

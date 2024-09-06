@@ -45,7 +45,6 @@ from .llm_family import (
     LLMFamilyV1,
     LLMSpecV1,
     MLXLLMSpecV1,
-    PromptStyleV1,
     PytorchLLMSpecV1,
     get_cache_status,
     get_user_defined_llm_families,
@@ -112,6 +111,22 @@ def generate_engine_config_by_model_family(model_family):
     LLM_ENGINES[model_name] = engines
 
 
+def register_custom_model():
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
+    if os.path.isdir(user_defined_llm_dir):
+        for f in os.listdir(user_defined_llm_dir):
+            try:
+                with codecs.open(
+                    os.path.join(user_defined_llm_dir, f), encoding="utf-8"
+                ) as fd:
+                    user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
+                    register_llm(user_defined_llm_family, persist=False)
+            except Exception as e:
+                warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
+
+
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
@@ -125,7 +140,6 @@ def _install():
     from .transformers.glm4v import Glm4VModel
     from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
-    from .transformers.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.qwen2_vl import Qwen2VLChatModel
@@ -155,8 +169,6 @@ def _install():
     TRANSFORMERS_CLASSES.extend(
         [
             ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
             PytorchChatModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
@@ -190,13 +202,17 @@ def _install():
         model_spec = LLMFamilyV1.parse_obj(json_obj)
         BUILTIN_LLM_FAMILIES.append(model_spec)
 
-        # register prompt style
+        # register chat_template
         if "chat" in model_spec.model_ability and isinstance(
-            model_spec.prompt_style, PromptStyleV1
+            model_spec.chat_template, str
         ):
             # note that the key is the model name,
             # since there are multiple representations of the same prompt style name in json.
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
         # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
@@ -216,10 +232,14 @@ def _install():
         # if duplicated with huggingface json, keep it as the huggingface style
         if (
             "chat" in model_spec.model_ability
-            and isinstance(model_spec.prompt_style, PromptStyleV1)
+            and isinstance(model_spec.chat_template, str)
             and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
         ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
         # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
@@ -239,10 +259,14 @@ def _install():
         # if duplicated with huggingface json, keep it as the huggingface style
         if (
             "chat" in model_spec.model_ability
-            and isinstance(model_spec.prompt_style, PromptStyleV1)
+            and isinstance(model_spec.chat_template, str)
             and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
         ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
         # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
@@ -269,16 +293,7 @@ def _install():
         for family in families:
             generate_engine_config_by_model_family(family)
 
-    from ...constants import XINFERENCE_MODEL_DIR
-
-    user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
-    if os.path.isdir(user_defined_llm_dir):
-        for f in os.listdir(user_defined_llm_dir):
-            with codecs.open(
-                os.path.join(user_defined_llm_dir, f), encoding="utf-8"
-            ) as fd:
-                user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
-                register_llm(user_defined_llm_family, persist=False)
+    register_custom_model()
 
     # register model description
     for ud_llm in get_user_defined_llm_families():
