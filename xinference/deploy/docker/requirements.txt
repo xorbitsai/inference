@@ -14,7 +14,7 @@ huggingface-hub>=0.19.4
 typing_extensions
 modelscope>=1.10.0
 sse_starlette>=1.6.5  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
-openai>1,<1.40  # For typing
+openai>1  # For typing
 python-jose[cryptography]
 passlib[bcrypt]
 aioprometheus[starlette]>=23.12.0
