@@ -172,9 +172,20 @@ class DiffusionModel:
             "stable diffusion args: %s",
             kwargs,
         )
+        is_padded = kwargs.pop("is_padded", None)
+        origin_size = kwargs.pop("origin_size", None)
+
         model = model if model is not None else self._model
         assert callable(model)
         images = model(**kwargs).images
+
+        # revert padding if padded
+        if is_padded and origin_size:
+            new_images = []
+            x, y = origin_size
+            for img in images:
+                new_images.append(img.crop((0, 0, x, y)))
+            images = new_images
 
         # clean cache
         gc.collect()
@@ -265,6 +276,9 @@ class DiffusionModel:
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
             # padding the image if specified
+            origin_x, origin_y = image.size
+            kwargs["origin_size"] = (origin_x, origin_y)
+            kwargs["is_padded"] = True
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
 
         if size:
@@ -318,6 +332,9 @@ class DiffusionModel:
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 inpainting requires image's height and width is times of 16
             # padding the image if specified
+            origin_x, origin_y = image.size
+            kwargs["origin_size"] = (origin_x, origin_y)
+            kwargs["is_padded"] = True
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
             mask_image = self.pad_to_multiple(
                 mask_image, multiple=int(padding_image_to_multiple)
