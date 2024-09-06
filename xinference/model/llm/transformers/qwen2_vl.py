@@ -14,7 +14,7 @@
 import logging
 import time
 import uuid
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, Union
 
 from qwen_vl_utils import process_vision_info
 
