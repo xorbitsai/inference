@@ -13,15 +13,11 @@
 # limitations under the License.
 import logging
 import time
-import typing
 import uuid
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Union
 
-import torch
 from qwen_vl_utils import process_vision_info
-from transformers import PreTrainedTokenizer
 
-from ....core.scheduler import InferenceRequest
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
@@ -34,7 +30,6 @@ from ....types import (
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
