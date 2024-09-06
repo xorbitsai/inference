@@ -70,7 +70,7 @@ class Qwen2VLChatModel(PytorchChatModel):
 
     def _transform_messages(
         self,
-        messages: Optional[List[ChatCompletionMessage]],
+        messages: List[ChatCompletionMessage],
     ):
         transformed_messages = []
         for msg in messages:
@@ -98,7 +98,7 @@ class Qwen2VLChatModel(PytorchChatModel):
 
     def chat(
         self,
-        messages: List[Dict],
+        messages: List[ChatCompletionMessage],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         messages = self._transform_messages(messages)
