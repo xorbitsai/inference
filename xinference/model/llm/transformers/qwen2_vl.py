@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import time
 import uuid
 from typing import Iterator, List, Optional, Union
 
@@ -21,12 +20,13 @@ from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
     CompletionChunk,
-    CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import (
+    generate_chat_completion,
+    generate_completion_chunk,
+)
 from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
@@ -110,11 +110,11 @@ class Qwen2VLChatModel(PytorchChatModel):
             return self._to_chat_completion_chunks(it)
         else:
             c = self._generate(messages, generate_config)
-            return self._to_chat_completion(c)
+            return c
 
     def _generate(
         self, messages: List, config: PytorchGenerateConfig = {}
-    ) -> Completion:
+    ) -> ChatCompletion:
         from qwen_vl_utils import process_vision_info
 
         # Preparation for inference
@@ -146,22 +146,7 @@ class Qwen2VLChatModel(PytorchChatModel):
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )[0]
-        # output_text = ""
-        c = Completion(
-            id=str(uuid.uuid1()),
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[
-                CompletionChoice(
-                    index=0, text=output_text, finish_reason="stop", logprobs=None
-                )
-            ],
-            usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-            ),
-        )
-        return c
+        return generate_chat_completion(self.model_uid, output_text)
 
     def _generate_stream(
         self, messages: List, config: PytorchGenerateConfig = {}
@@ -201,33 +186,26 @@ class Qwen2VLChatModel(PytorchChatModel):
 
         completion_id = str(uuid.uuid1())
         for new_text in streamer:
-            chunk = CompletionChunk(
-                id=completion_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    CompletionChoice(
-                        index=0, text=new_text, finish_reason=None, logprobs=None
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
+                has_choice=True,
+                has_content=True,
             )
-            yield chunk
 
-        completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason="stop"
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
+            prompt_tokens=-1,
+            completion_tokens=-1,
+            total_tokens=-1,
+            has_choice=True,
+            has_content=False,
         )
-        chunk = CompletionChunk(
-            id=completion_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[completion_choice],
-            usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-            ),
-        )
-        yield chunk
