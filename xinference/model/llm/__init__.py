@@ -142,6 +142,7 @@ def _install():
     from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
+    from .transformers.qwen2_vl import Qwen2VLChatModel
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
@@ -171,6 +172,7 @@ def _install():
             PytorchChatModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
+            Qwen2VLChatModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
             InternVLChatModel,

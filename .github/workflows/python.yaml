@@ -135,6 +135,7 @@ jobs:
           pip install tensorizer
           pip install eva-decord
           pip install jj-pytorchvideo
+          pip install qwen-vl-utils
         working-directory: .
 
       - name: Test with pytest
