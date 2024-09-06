@@ -82,7 +82,7 @@ class Qwen2VLChatModel(PytorchChatModel):
             content = msg["content"]
             if isinstance(content, str):
                 new_content.append({"type": "text", "text": content})
-            else:
+            elif isinstance(content, List):
                 for item in content:
                     if "text" in item:
                         new_content.append({"type": "text", "text": item["text"]})
@@ -102,7 +102,6 @@ class Qwen2VLChatModel(PytorchChatModel):
     def chat(
         self,
         prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
@@ -120,7 +119,7 @@ class Qwen2VLChatModel(PytorchChatModel):
             return self._to_chat_completion(c)
 
     def _generate(
-        self, messages: List, config: Optional[PytorchGenerateConfig]
+        self, messages: List, config: Optional[PytorchGenerateConfig] = {}
     ) -> Completion:
         # Preparation for inference
         text = self._processor.apply_chat_template(
@@ -169,7 +168,7 @@ class Qwen2VLChatModel(PytorchChatModel):
         return c
 
     def _generate_stream(
-        self, messages: List, config: Optional[PytorchGenerateConfig]
+        self, messages: List, config: Optional[PytorchGenerateConfig] = {}
     ) -> Iterator[CompletionChunk]:
         from threading import Thread
 
