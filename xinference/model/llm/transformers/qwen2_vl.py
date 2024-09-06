@@ -23,10 +23,7 @@ from ....types import (
     CompletionChunk,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import (
-    generate_chat_completion,
-    generate_completion_chunk,
-)
+from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
