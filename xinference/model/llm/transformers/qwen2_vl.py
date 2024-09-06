@@ -98,7 +98,7 @@ class Qwen2VLChatModel(PytorchChatModel):
 
     def chat(
         self,
-        messages: List[ChatCompletionMessage],
+        messages: List[ChatCompletionMessage],  # type: ignore
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         messages = self._transform_messages(messages)
