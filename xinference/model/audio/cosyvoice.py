@@ -53,7 +53,9 @@ class CosyVoiceModel:
 
         from cosyvoice.cli.cosyvoice import CosyVoice
 
-        self._model = CosyVoice(self._model_path, load_jit=False)
+        self._model = CosyVoice(
+            self._model_path, load_jit=self._kwargs.get("load_jit", False)
+        )
 
     def _speech_handle(
         self,
