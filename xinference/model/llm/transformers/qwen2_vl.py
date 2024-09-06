@@ -71,7 +71,7 @@ class Qwen2VLChatModel(PytorchChatModel):
     def _transform_messages(
         self,
         prompt: Union[str, List[Dict]],
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        chat_history: Optional[List[ChatCompletionMessage]],
     ):
         original_messages = chat_history or []
         original_messages.append(ChatCompletionMessage(role="user", content=prompt))
@@ -108,6 +108,8 @@ class Qwen2VLChatModel(PytorchChatModel):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         messages = self._transform_messages(prompt, chat_history)
 
+        generate_config = generate_config if generate_config else {}
+
         stream = generate_config.get("stream", False) if generate_config else False
 
         if stream:
@@ -118,7 +120,7 @@ class Qwen2VLChatModel(PytorchChatModel):
             return self._to_chat_completion(c)
 
     def _generate(
-        self, messages: List, config: Optional[PytorchGenerateConfig] = {}
+        self, messages: List, config: Optional[PytorchGenerateConfig]
     ) -> Completion:
         # Preparation for inference
         text = self._processor.apply_chat_template(
@@ -167,7 +169,7 @@ class Qwen2VLChatModel(PytorchChatModel):
         return c
 
     def _generate_stream(
-        self, messages: List, config: Optional[PytorchGenerateConfig] = {}
+        self, messages: List, config: Optional[PytorchGenerateConfig]
     ) -> Iterator[CompletionChunk]:
         from threading import Thread
 
