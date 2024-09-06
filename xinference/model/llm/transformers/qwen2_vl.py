@@ -16,8 +16,6 @@ import time
 import uuid
 from typing import Iterator, List, Optional, Union
 
-from qwen_vl_utils import process_vision_info
-
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
@@ -117,6 +115,8 @@ class Qwen2VLChatModel(PytorchChatModel):
     def _generate(
         self, messages: List, config: PytorchGenerateConfig = {}
     ) -> Completion:
+        from qwen_vl_utils import process_vision_info
+
         # Preparation for inference
         text = self._processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
@@ -168,6 +168,7 @@ class Qwen2VLChatModel(PytorchChatModel):
     ) -> Iterator[CompletionChunk]:
         from threading import Thread
 
+        from qwen_vl_utils import process_vision_info
         from transformers import TextIteratorStreamer
 
         text = self._processor.apply_chat_template(
