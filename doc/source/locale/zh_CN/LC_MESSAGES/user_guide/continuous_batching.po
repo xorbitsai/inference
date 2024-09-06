@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-04 16:08+0800\n"
+"POT-Creation-Date: 2024-09-06 14:26+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -70,27 +70,23 @@ msgstr "中止请求"
 
 #: ../../source/user_guide/continuous_batching.rst:64
 msgid "In this mode, you can abort requests that are in the process of inference."
-msgstr ""
-"此功能中，你可以优雅地中止正在推理中的请求。"
+msgstr "此功能中，你可以优雅地中止正在推理中的请求。"
 
 #: ../../source/user_guide/continuous_batching.rst:66
 msgid "First, add ``request_id`` option in ``generate_config``. For example:"
-msgstr ""
-"首先，在推理请求的 ``generate_config`` 中指定 ``request_id`` 选项。例如："
+msgstr "首先，在推理请求的 ``generate_config`` 中指定 ``request_id`` 选项。例如："
 
 #: ../../source/user_guide/continuous_batching.rst:75
 msgid ""
 "Then, abort the request using the ``request_id`` you have set. For "
 "example:"
-msgstr ""
-"接着，带着你指定的 ``request_id`` 去中止该请求。例如："
+msgstr "接着，带着你指定的 ``request_id`` 去中止该请求。例如："
 
 #: ../../source/user_guide/continuous_batching.rst:83
 msgid ""
 "Note that if your request has already finished, aborting the request will"
 " be a no-op."
-msgstr ""
-"注意，如果你的请求已经结束，那么此操作将什么都不做。"
+msgstr "注意，如果你的请求已经结束，那么此操作将什么都不做。"
 
 #: ../../source/user_guide/continuous_batching.rst:86
 msgid "Note"
@@ -107,11 +103,12 @@ msgstr ""
 
 #: ../../source/user_guide/continuous_batching.rst:90
 msgid ""
-"For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, and "
-"``glm-4v`` models are supported. More models will be supported in the "
-"future. Please let us know your requirements."
+"For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, "
+"``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are "
+"supported. More models will be supported in the future. Please let us "
+"know your requirements."
 msgstr ""
-"对于多模态任务，当前支持 ``qwen-vl-chat`` ，``cogvlm2`` 和 ``glm-4v`` "
+"对于多模态任务，当前支持 ``qwen-vl-chat`` ，``cogvlm2``， ``glm-4v`` 和 ``MiniCPM-V-2.6`` (仅对于图像任务)"
 "模型。未来将加入更多模型，敬请期待。"
 
 #: ../../source/user_guide/continuous_batching.rst:92

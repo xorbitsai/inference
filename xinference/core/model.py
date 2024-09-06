@@ -65,7 +65,12 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
-XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = ["qwen-vl-chat", "cogvlm2", "glm-4v"]
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
+    "qwen-vl-chat",
+    "cogvlm2",
+    "glm-4v",
+    "MiniCPM-V-2.6",
+]
 
 
 def request_limit(fn):
