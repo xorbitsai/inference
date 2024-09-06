@@ -11,62 +11,120 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import copy
 import logging
 import os
 import random
 import string
-from typing import Dict, Generator, List, Tuple, Union
+import uuid
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import orjson
 from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
 
 from .._compat import BaseModel
+from ..constants import XINFERENCE_LOG_ARG_MAX_LENGTH
 
 logger = logging.getLogger(__name__)
 
 
-def log_async(logger, args_formatter=None):
+def truncate_log_arg(arg) -> str:
+    s = str(arg)
+    if len(s) > XINFERENCE_LOG_ARG_MAX_LENGTH:
+        s = s[0:XINFERENCE_LOG_ARG_MAX_LENGTH] + "..."
+    return s
+
+
+def log_async(
+    logger,
+    level=logging.DEBUG,
+    ignore_kwargs: Optional[List[str]] = None,
+    log_exception=True,
+):
     import time
     from functools import wraps
 
     def decorator(func):
+        func_name = func.__name__
+
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            if args_formatter is not None:
-                formatted_args, formatted_kwargs = copy.copy(args), copy.copy(kwargs)
-                args_formatter(formatted_args, formatted_kwargs)
-            else:
-                formatted_args, formatted_kwargs = args, kwargs
-            logger.debug(
-                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}"
+            request_id_str = kwargs.get("request_id", "")
+            if not request_id_str:
+                request_id_str = uuid.uuid1()
+            request_id_str = f"[request {request_id_str}]"
+            formatted_args = ",".join(map(truncate_log_arg, args))
+            formatted_kwargs = ",".join(
+                [
+                    "%s=%s" % (k, truncate_log_arg(v))
+                    for k, v in kwargs.items()
+                    if ignore_kwargs is None or k not in ignore_kwargs
+                ]
+            )
+            logger.log(
+                level,
+                f"{request_id_str} Enter {func_name}, args: {formatted_args}, kwargs: {formatted_kwargs}",
             )
             start = time.time()
-            ret = await func(*args, **kwargs)
-            logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
-            )
-            return ret
+            try:
+                ret = await func(*args, **kwargs)
+                logger.log(
+                    level,
+                    f"{request_id_str} Leave {func_name}, elapsed time: {int(time.time() - start)} s",
+                )
+                return ret
+            except Exception as e:
+                if log_exception:
+                    logger.error(
+                        f"{request_id_str} Leave {func_name}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        exc_info=True,
+                    )
+                else:
+                    logger.log(
+                        level,
+                        f"{request_id_str} Leave {func_name}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                    )
+                raise
 
         return wrapped
 
     return decorator
 
 
-def log_sync(logger):
+def log_sync(logger, level=logging.DEBUG, log_exception=True):
     import time
     from functools import wraps
 
     def decorator(func):
         @wraps(func)
         def wrapped(*args, **kwargs):
-            logger.debug(f"Enter {func.__name__}, args: {args}, kwargs: {kwargs}")
-            start = time.time()
-            ret = func(*args, **kwargs)
-            logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
+            formatted_args = ",".join(map(truncate_log_arg, args))
+            formatted_kwargs = ",".join(
+                map(lambda x: "%s=%s" % (x[0], truncate_log_arg(x[1])), kwargs.items())
             )
-            return ret
+            logger.log(
+                level,
+                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+            )
+            start = time.time()
+            try:
+                ret = func(*args, **kwargs)
+                logger.log(
+                    level,
+                    f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
+                )
+                return ret
+            except Exception as e:
+                if log_exception:
+                    logger.error(
+                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        exc_info=True,
+                    )
+                else:
+                    logger.log(
+                        level,
+                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                    )
+                raise
 
         return wrapped
 
