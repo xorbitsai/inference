@@ -47,6 +47,12 @@ class ImageList(TypedDict):
     data: List[Image]
 
 
+class SDAPITxt2imgResult(TypedDict):
+    images: List[str]
+    parameters: dict
+    info: dict
+
+
 class Video(TypedDict):
     url: Optional[str]
     b64_json: Optional[str]
@@ -421,9 +427,6 @@ class CreateChatModel(BaseModel):
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
 CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
-
-# This type is for openai API compatibility
-CreateChatCompletionOpenAI: BaseModel
 
 
 from ._compat import CreateChatCompletionOpenAI
