@@ -432,7 +432,7 @@ CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
 from ._compat import CreateChatCompletionOpenAI
 
 
-class CreateChatCompletion(
+class CreateChatCompletion(  # type: ignore
     CreateChatModel,
     CreateChatCompletionTorch,
     CreateChatCompletionLlamaCpp,
