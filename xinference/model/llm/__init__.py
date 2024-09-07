@@ -255,7 +255,7 @@ def _load_from_json_new(file_name: str):
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         model_specs: list[dict] = json_obj["model_specs"]
         hub_names = ["huggingface", "modelscope", "csghub"]
-        hub_specs = {}
+        hub_specs: dict = {}
         for hub_name in hub_names:
             hub_specs[hub_name] = []
 
@@ -279,5 +279,5 @@ def _load_from_json_new(file_name: str):
             if len(a_hub_specs) > 0:
                 model_obj = copy.deepcopy(json_obj)
                 model_obj["model_specs"] = a_hub_specs
-                model_spec = LLMFamilyV1.parse_obj(model_obj)
+                model_spec: LLMFamilyV1 = LLMFamilyV1.parse_obj(model_obj)
                 _add_model_spec(model_spec, hub_families[hub_name])
