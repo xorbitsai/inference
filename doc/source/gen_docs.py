@@ -46,6 +46,7 @@ def get_metrics_from_url(metrics_url):
         })
     return result
 
+
 def main():
     template_dir = '../templates'
     env = Environment(loader=FileSystemLoader(template_dir))
@@ -53,7 +54,7 @@ def main():
     with open('../../xinference/model/llm/llm_family.json', 'r') as model_file:
         models = json.load(model_file)
 
-        model_by_names = { m['model_name']: m for m in models}
+        model_by_names = {m['model_name']: m for m in models}
 
         sorted_models = []
         output_dir = './models/builtin/llm'
@@ -73,8 +74,8 @@ def main():
                 }]
                 if 'modelscope' in original_model_hubs:
                     model_spec['model_hubs'].append({
-                            'name': MODEL_HUB_MODELSCOPE,
-                            'url': f"https://modelscope.cn/models/{original_model_hubs['modelscope']['model_id']}"
+                        'name': MODEL_HUB_MODELSCOPE,
+                        'url': f"https://modelscope.cn/models/{original_model_hubs['modelscope']['model_id']}"
                     })
 
                 # model engines
@@ -112,16 +113,14 @@ def main():
             rendered_index = env.get_template('llm_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
-
     with open('../../xinference/model/embedding/model_spec.json', 'r') as file:
         models = json.load(file)
 
-        model_by_names = { m['model_name']: m for m in models}
+        model_by_names = {m['model_name']: m for m in models}
         model_scope_file = open('../../xinference/model/embedding/model_spec_modelscope.json')
         models_modelscope = json.load(model_scope_file)
 
-        model_by_names_modelscope = { s['model_name']: s for s in models_modelscope}
-
+        model_by_names_modelscope = {s['model_name']: s for s in models_modelscope}
 
         sorted_models = []
         output_dir = './models/builtin/embedding'

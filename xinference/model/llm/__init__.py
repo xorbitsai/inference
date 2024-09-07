@@ -222,6 +222,7 @@ def _install():
     for ud_llm in get_user_defined_llm_families():
         LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(ud_llm))
 
+
 def _add_model_spec(model_spec: LLMFamilyV1, LLM_FAMILIES: list[LLMFamilyV1]):
     LLM_FAMILIES.append(model_spec)
 
@@ -248,12 +249,11 @@ def _add_model_spec(model_spec: LLMFamilyV1, LLM_FAMILIES: list[LLMFamilyV1]):
     if "tools" in model_spec.model_ability:
         BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
+
 def _load_from_json_new(file_name: str):
-    json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), file_name
-    )
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name)
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
-        model_specs:list[dict] = json_obj["model_specs"]
+        model_specs: list[dict] = json_obj["model_specs"]
         hub_names = ["huggingface", "modelscope", "csghub"]
         hub_specs = {}
         for hub_name in hub_names:
@@ -273,7 +273,6 @@ def _load_from_json_new(file_name: str):
                     hub_spec["model_hub"] = hub_name
                     del hub_spec["model_hubs"]
                     hub_specs[hub_name].append(hub_spec)
-
 
         for hub_name in hub_names:
             a_hub_specs = hub_specs[hub_name]
