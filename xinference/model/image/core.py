@@ -47,7 +47,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     model_hub: str = "huggingface"
     model_ability: Optional[List[str]]
     controlnet: Optional[List["ImageModelFamilyV1"]]
-    default_generate_config: Optional[dict]
+    default_generate_config: Optional[dict] = {}
 
 
 class ImageModelDescription(ModelDescription):
