@@ -279,5 +279,5 @@ def _load_from_json_new(file_name: str):
             if len(a_hub_specs) > 0:
                 model_obj = copy.deepcopy(json_obj)
                 model_obj["model_specs"] = a_hub_specs
-                model_spec: LLMFamilyV1 = LLMFamilyV1.parse_obj(model_obj)
-                _add_model_spec(model_spec, hub_families[hub_name])
+                converted_model_spec = LLMFamilyV1.parse_obj(model_obj)
+                _add_model_spec(converted_model_spec, hub_families[hub_name])
