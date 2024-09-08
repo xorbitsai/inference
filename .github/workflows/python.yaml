@@ -136,8 +136,6 @@ jobs:
           pip install eva-decord
           pip install jj-pytorchvideo
           pip install qwen-vl-utils
-          pip install datamodel_code_generator
-          pip install jsonschema
         working-directory: .
 
       - name: Test with pytest
