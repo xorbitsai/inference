@@ -6851,7 +6851,7 @@
         "model_format":"awq",
         "model_size_in_billions":2,
         "quantizations":[
-          "4-bit"
+          "Int4"
         ],
         "model_id":"Qwen/Qwen2-VL-2B-Instruct-AWQ",
         "model_revision":"ea8c5854c0044e28626719292de0d9b1a671f6fc"
@@ -6887,7 +6887,7 @@
         "model_format":"awq",
         "model_size_in_billions":7,
         "quantizations":[
-          "4-bit"
+          "Int4"
         ],
         "model_id":"Qwen/Qwen2-VL-7B-Instruct-AWQ",
         "model_revision":"f94216e8b513933bccd567bcd9b7350199f32538"
