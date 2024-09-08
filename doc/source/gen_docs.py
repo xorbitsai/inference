@@ -46,17 +46,15 @@ def get_metrics_from_url(metrics_url):
         })
     return result
 
+
 def main():
-    template_dir = '../templates' 
+    template_dir = '../templates'
     env = Environment(loader=FileSystemLoader(template_dir))
 
     with open('../../xinference/model/llm/llm_family.json', 'r') as model_file:
         models = json.load(model_file)
 
-        model_by_names = { m['model_name']: m for m in models}
-        model_scope_file = open('../../xinference/model/llm/llm_family_modelscope.json')
-        models_modelscope = json.load(model_scope_file)
-        model_by_names_modelscope = { m['model_name']: m for m in models_modelscope}
+        model_by_names = {m['model_name']: m for m in models}
 
         sorted_models = []
         output_dir = './models/builtin/llm'
@@ -69,10 +67,16 @@ def main():
             sorted_models.append(model)
 
             for model_spec in model['model_specs']:
-                model_spec['model_hubs'] = [{                                                                  
-                    'name': MODEL_HUB_HUGGING_FACE, 
-                    'url': f"https://huggingface.co/{model_spec['model_id']}"
+                original_model_hubs = model_spec['model_hubs']
+                model_spec['model_hubs'] = [{
+                    'name': MODEL_HUB_HUGGING_FACE,
+                    'url': f"https://huggingface.co/{original_model_hubs['huggingface']['model_id']}"
                 }]
+                if 'modelscope' in original_model_hubs:
+                    model_spec['model_hubs'].append({
+                        'name': MODEL_HUB_MODELSCOPE,
+                        'url': f"https://modelscope.cn/models/{original_model_hubs['modelscope']['model_id']}"
+                    })
 
                 # model engines
                 engines = []
@@ -89,22 +93,6 @@ def main():
                         else:
                             engines.append(engine)
                 model_spec['engines'] = sorted(list(set(engines)), reverse=True)
-
-            # manual merge
-            if model_name in model_by_names_modelscope.keys():
-
-                def get_unique_id(spec):
-                    return spec['model_format'] + '-' + str(spec['model_size_in_billions'])
-
-                model_by_ids_modelscope = {get_unique_id(s) : s for s in model_by_names_modelscope[model_name]['model_specs']}
-
-                for model_spec in model['model_specs']:
-                    spec_id = get_unique_id(model_spec)
-                    if spec_id in model_by_ids_modelscope.keys():
-                        model_spec['model_hubs'].append({
-                            'name': MODEL_HUB_MODELSCOPE,
-                            'url': f"https://modelscope.cn/models/{model_by_ids_modelscope[spec_id]['model_id']}"
-                        })
 
             rendered = env.get_template('llm.rst.jinja').render(model)
             output_file_name = f"{model['model_name'].lower()}.rst"
@@ -125,16 +113,14 @@ def main():
             rendered_index = env.get_template('llm_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
-
     with open('../../xinference/model/embedding/model_spec.json', 'r') as file:
         models = json.load(file)
 
-        model_by_names = { m['model_name']: m for m in models}
+        model_by_names = {m['model_name']: m for m in models}
         model_scope_file = open('../../xinference/model/embedding/model_spec_modelscope.json')
         models_modelscope = json.load(model_scope_file)
 
-        model_by_names_modelscope = { s['model_name']: s for s in models_modelscope}
-
+        model_by_names_modelscope = {s['model_name']: s for s in models_modelscope}
 
         sorted_models = []
         output_dir = './models/builtin/embedding'
@@ -147,7 +133,7 @@ def main():
 
             model['model_hubs'] = [
                 {
-                    'name': MODEL_HUB_HUGGING_FACE, 
+                    'name': MODEL_HUB_HUGGING_FACE,
                     'url': f"https://huggingface.co/{model['model_id']}"
                 }
             ]
@@ -167,7 +153,7 @@ def main():
                 print(output_file_path)
 
         index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:            
+        with open(index_file_path, "w") as file:
             rendered_index = env.get_template('embedding_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
@@ -186,7 +172,7 @@ def main():
 
         index_file_path = os.path.join(output_dir, "index.rst")
         with open(index_file_path, "w") as file:
-            
+
             rendered_index = env.get_template('rerank_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
