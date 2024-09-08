@@ -6829,6 +6829,33 @@
         "model_id":"Qwen/Qwen2-VL-2B-Instruct",
         "model_revision":"096da3b96240e3d66d35be0e5ccbe282eea8d6b1"
       },
+         {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+        "model_revision":"d15fb11857ccc566903e2e71341f9db7babb567b"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+        "model_revision":"800d396518c82960ce6d231adecd07bbc474f0a9"
+      },
+         {
+        "model_format":"awq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-AWQ",
+        "model_revision":"ea8c5854c0044e28626719292de0d9b1a671f6fc"
+      },
       {
         "model_format":"pytorch",
         "model_size_in_billions":7,
@@ -6837,6 +6864,33 @@
         ],
         "model_id":"Qwen/Qwen2-VL-7B-Instruct",
         "model_revision":"6010982c1010c3b222fa98afc81575f124aa9bd6"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+        "model_revision":"3d152a77eaccfd72d59baedb0b183a1b8fd56e48"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+        "model_revision":"5ab897112fa83b9699826be8753ef9184585c77d"
+      },
+        {
+        "model_format":"awq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-AWQ",
+        "model_revision":"f94216e8b513933bccd567bcd9b7350199f32538"
       }
     ],
     "prompt_style":{

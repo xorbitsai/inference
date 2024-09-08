@@ -4522,26 +4522,86 @@
       "vision"
     ],
     "model_description": "Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
-    "model_specs": [
+    "model_specs":[
       {
-        "model_format": "pytorch",
-        "model_size_in_billions": 2,
-        "quantizations": [
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "qwen/Qwen2-VL-2B-Instruct",
-        "model_revision": "master"
+        "model_id":"qwen/Qwen2-VL-7B-Instruct",
+        "model_revision":"master"
       },
       {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+        "model_revision":"master"
+      },
+      {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+        "model_revision":"master"
+      },
+      {
+        "model_format":"awq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"qwen/Qwen2-VL-7B-Instruct-AWQ",
+        "model_revision":"master"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":2,
+        "quantizations":[
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "qwen/Qwen2-VL-7B-Instruct",
-        "model_revision": "master"
+        "model_id":"qwen/Qwen2-VL-2B-Instruct",
+        "model_revision":"master"
+      },
+      {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+        "model_revision":"master"
+      },
+      {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+        "model_revision":"master"
+      },
+      {
+        "model_format":"awq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"qwen/Qwen2-VL-2B-Instruct-AWQ",
+        "model_revision":"master"
       }
     ],
     "prompt_style": {
