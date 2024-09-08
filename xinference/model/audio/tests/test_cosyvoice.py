@@ -23,7 +23,7 @@ def test_cosyvoice_sft(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="CosyVoice-300M-SFT", model_type="audio", download_hub="modelscope"
+        model_name="CosyVoice-300M-SFT", model_type="audio", download_hub="huggingface"
     )
     model = client.get_model(model_uid)
     input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
@@ -72,7 +72,7 @@ def test_cosyvoice(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="CosyVoice-300M", model_type="audio", download_hub="modelscope"
+        model_name="CosyVoice-300M", model_type="audio", download_hub="huggingface"
     )
     model = client.get_model(model_uid)
     with open(zero_shot_prompt_file, "rb") as f:
@@ -114,7 +114,7 @@ def test_cosyvoice_instruct(setup):
     model_uid = client.launch_model(
         model_name="CosyVoice-300M-Instruct",
         model_type="audio",
-        download_hub="modelscope",
+        download_hub="huggingface",
     )
     model = client.get_model(model_uid)
 
