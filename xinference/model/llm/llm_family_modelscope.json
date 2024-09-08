@@ -4557,7 +4557,7 @@
         "model_format":"awq",
         "model_size_in_billions":7,
         "quantizations":[
-          "4-bit"
+          "Int4"
         ],
         "model_hub": "modelscope",
         "model_id":"qwen/Qwen2-VL-7B-Instruct-AWQ",
@@ -4597,7 +4597,7 @@
         "model_format":"awq",
         "model_size_in_billions":2,
         "quantizations":[
-          "4-bit"
+          "Int4"
         ],
         "model_hub": "modelscope",
         "model_id":"qwen/Qwen2-VL-2B-Instruct-AWQ",
