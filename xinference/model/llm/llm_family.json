@@ -6946,5 +6946,79 @@
       "<s>",
       "</s>"
     ]
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-audio-instruct",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "audio"
+    ],
+    "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-Audio-7B-Instruct",
+        "model_revision":"bac62d2c6808845904c709c17a0402d817558c64"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
+      "roles":[
+        "user",
+        "assistant"
+      ],
+      "stop": [
+        "<|im_end|>",
+        "<|endoftext|>"
+      ]
+    }
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-audio",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "audio"
+    ],
+    "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-Audio-7B",
+        "model_revision":"8577bc71d330c8fa32ffe9f8a1374100759f2466"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
+      "roles":[
+        "user",
+        "assistant"
+      ],
+      "stop": [
+        "<|im_end|>",
+        "<|endoftext|>"
+      ]
+    }
   }
 ]
