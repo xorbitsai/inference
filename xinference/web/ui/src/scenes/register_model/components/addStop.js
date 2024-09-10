@@ -74,7 +74,7 @@ const AddStop = ({
             borderRadius: 10,
           }}
         >
-          {(formData.length ? formData : ['']).map((item, index) => (
+          {(formData?.length ? formData : ['']).map((item, index) => (
             <div key={index}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <TextField
