@@ -16,13 +16,10 @@ from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Union
 from urllib.request import urlopen
 
+import numpy as np
+
 from ....model.utils import select_device
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    CompletionChunk,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion
 from .core import PytorchChatModel, PytorchGenerateConfig
@@ -70,14 +67,14 @@ class Qwen2AudioChatModel(PytorchChatModel):
 
     def _transform_messages(
         self,
-        messages: List[ChatCompletionMessage],
+        messages: List[Dict],
     ):
         import librosa
 
         text = self._processor.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False
         )
-        audios = []
+        audios: List[np.ndarray] = []
         for msg in messages:
             content = msg["content"]
             if isinstance(content, List):
