@@ -35,7 +35,11 @@
     "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "default_generate_config": {
+      "guidance_scale": 0.0,
+      "num_inference_steps": 1
+    }
   },
   {
     "model_name": "sdxl-turbo",
@@ -44,7 +48,11 @@
     "model_revision": "f4b0486b498f84668e828044de1d0c8ba486e05b",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "default_generate_config": {
+      "guidance_scale": 0.0,
+      "num_inference_steps": 1
+    }
   },
   {
     "model_name": "stable-diffusion-v1.5",

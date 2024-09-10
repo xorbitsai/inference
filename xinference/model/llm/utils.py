@@ -314,7 +314,7 @@ class ChatModelMixin:
     @staticmethod
     def _eval_qwen_chat_arguments(c):
         text = c["choices"][0]["text"]
-        text: str = text.strip()
+        text: str = text.strip()  # type: ignore
         if text.startswith(QWEN_TOOL_CALL_SYMBOLS[0]):
             text = text[len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
         if text.endswith(QWEN_TOOL_CALL_SYMBOLS[1]):

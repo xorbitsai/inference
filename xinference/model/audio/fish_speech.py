@@ -159,11 +159,11 @@ class FishSpeechModel:
         segments = []
 
         while True:
-            result: WrappedGenerateResponse = response_queue.get()
+            result: WrappedGenerateResponse = response_queue.get()  # type: ignore
             if result.status == "error":
                 raise Exception(str(result.response))
 
-            result: GenerateResponse = result.response
+            result: GenerateResponse = result.response  # type: ignore
             if result.action == "next":
                 break
 

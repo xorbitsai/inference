@@ -78,6 +78,7 @@ class ImageInterface:
             n: int,
             size_width: int,
             size_height: int,
+            guidance_scale: int,
             num_inference_steps: int,
             negative_prompt: Optional[str] = None,
         ) -> PIL.Image.Image:
@@ -89,6 +90,7 @@ class ImageInterface:
             assert isinstance(model, RESTfulImageModelHandle)
 
             size = f"{int(size_width)}*{int(size_height)}"
+            guidance_scale = None if guidance_scale == -1 else guidance_scale  # type: ignore
             num_inference_steps = (
                 None if num_inference_steps == -1 else num_inference_steps  # type: ignore
             )
@@ -98,6 +100,7 @@ class ImageInterface:
                 n=n,
                 size=size,
                 num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
                 negative_prompt=negative_prompt,
                 response_format="b64_json",
             )
@@ -132,6 +135,8 @@ class ImageInterface:
                     n = gr.Number(label="Number of Images", value=1)
                     size_width = gr.Number(label="Width", value=1024)
                     size_height = gr.Number(label="Height", value=1024)
+                with gr.Row():
+                    guidance_scale = gr.Number(label="Guidance scale", value=-1)
                     num_inference_steps = gr.Number(
                         label="Inference Step Number", value=-1
                     )
@@ -146,6 +151,7 @@ class ImageInterface:
                     n,
                     size_width,
                     size_height,
+                    guidance_scale,
                     num_inference_steps,
                     negative_prompt,
                 ],

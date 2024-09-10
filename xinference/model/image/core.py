@@ -47,6 +47,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     model_hub: str = "huggingface"
     model_ability: Optional[List[str]]
     controlnet: Optional[List["ImageModelFamilyV1"]]
+    default_generate_config: Optional[dict] = {}
 
 
 class ImageModelDescription(ModelDescription):
@@ -238,7 +239,7 @@ def create_image_model_instance(
         lora_model_paths=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
-        abilities=model_spec.model_ability,
+        model_spec=model_spec,
         **kwargs,
     )
     model_description = ImageModelDescription(
