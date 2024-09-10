@@ -449,9 +449,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           const data = promptStyles.filter(
             (item) => item.name === formData.model_family
           )
-          ;(obj.chat_template = data[0]?.chat_template || null),
-            (obj.stop_token_ids = data[0]?.stop_token_ids || []),
-            (obj.stop = data[0]?.stop || [])
+          obj.chat_template = data[0]?.chat_template || null
+          obj.stop_token_ids = data[0]?.stop_token_ids || []
+          obj.stop = data[0]?.stop || []
         } else {
           obj.chat_template = ''
           obj.stop_token_ids = []
