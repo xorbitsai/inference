@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import uuid
 from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Union
 from urllib.request import urlopen
@@ -21,7 +22,7 @@ import numpy as np
 from ....model.utils import select_device
 from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import generate_chat_completion
+from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
@@ -122,4 +123,46 @@ class Qwen2AudioChatModel(PytorchChatModel):
     def _generate_stream(
         self, inputs, config: PytorchGenerateConfig = {}
     ) -> Iterator[CompletionChunk]:
-        raise NotImplementedError("qwen2 audio not support stream.")
+        from threading import Thread
+
+        from transformers import TextIteratorStreamer
+
+        tokenizer = self._processor.tokenizer
+        streamer = TextIteratorStreamer(
+            tokenizer, timeout=60.0, skip_prompt=True, skip_special_tokens=True
+        )
+
+        gen_kwargs = {
+            "max_new_tokens": config.get("max_tokens", 512),
+            "streamer": streamer,
+            **inputs,
+        }
+
+        thread = Thread(target=self._model.generate, kwargs=gen_kwargs)
+        thread.start()
+
+        completion_id = str(uuid.uuid1())
+        for new_text in streamer:
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
+                has_choice=True,
+                has_content=True,
+            )
+
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
+            prompt_tokens=-1,
+            completion_tokens=-1,
+            total_tokens=-1,
+            has_choice=True,
+            has_content=False,
+        )
