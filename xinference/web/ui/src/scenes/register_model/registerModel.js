@@ -442,11 +442,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       })
     } else {
       if (ability === 'chat') {
-        if(formData.model_family !== "" && family.includes(formData.model_family)) {
-          const data = promptStyles.filter(item => item.name === formData.model_family)
-          obj.chat_template = data[0]?.chat_template || null,
-          obj.stop_token_ids = data[0]?.stop_token_ids || [],
-          obj.stop = data[0]?.stop || []
+        if (
+          formData.model_family !== '' &&
+          family.includes(formData.model_family)
+        ) {
+          const data = promptStyles.filter(
+            (item) => item.name === formData.model_family
+          )
+          ;(obj.chat_template = data[0]?.chat_template || null),
+            (obj.stop_token_ids = data[0]?.stop_token_ids || []),
+            (obj.stop = data[0]?.stop || [])
         } else {
           obj.chat_template = ''
           obj.stop_token_ids = []
@@ -461,9 +466,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleFamily = (value) => {
-    if(formData.model_ability.includes('chat')) {
-      if(family.includes(value)) {
-        const data = promptStyles.filter(item => {
+    if (formData.model_ability.includes('chat')) {
+      if (family.includes(value)) {
+        const data = promptStyles.filter((item) => {
           return item.name === value
         })
         setFormData({
@@ -477,7 +482,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         setFormData({
           ...formData,
           model_family: value,
-          chat_template: "",
+          chat_template: '',
           stop_token_ids: [],
           stop: [],
         })
@@ -905,9 +910,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     label="Model Family"
                     error={formData.model_family ? false : true}
                     value={formData.model_family}
-                    helperText={formData.model_ability.includes('chat') && family.includes(formData.model_family) ? 'Custom model has the same name as a built-in model, parameters have been automatically filled in.' : ''}
+                    helperText={
+                      formData.model_ability.includes('chat') &&
+                      family.includes(formData.model_family)
+                        ? 'Custom model has the same name as a built-in model, parameters have been automatically filled in.'
+                        : ''
+                    }
                     size="small"
-                    onChange={(event) =>{
+                    onChange={(event) => {
                       handleFamily(event.target.value)
                     }}
                   />
