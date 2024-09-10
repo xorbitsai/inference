@@ -13,8 +13,12 @@ const AddStop = ({
   onGetError,
   helperText,
 }) => {
-  const [dataArr, setDataArr] = useState(formData?.length ? formData : [''])
+  const [dataArr, setDataArr] = useState([''])
   const arr = []
+
+  useEffect(() => {
+    setDataArr(formData?.length ? formData : [''])
+  }, [formData])
 
   useEffect(() => {
     if (arrItemType === 'number') {

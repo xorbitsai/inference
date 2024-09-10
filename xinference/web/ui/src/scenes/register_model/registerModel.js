@@ -60,6 +60,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const endPoint = useContext(ApiContext).endPoint
   const { setErrorMsg } = useContext(ApiContext)
   const [formData, setFormData] = useState(customData)
+  const [promptStyles, setPromptStyles] = useState([])
   const [family, setFamily] = useState([])
   const [languagesArr, setLanguagesArr] = useState([])
   const [isContextLengthAlert, setIsContextLengthAlert] = useState(false)
@@ -256,7 +257,33 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         )
       } else {
         const data = await response.json()
-        setFamily([...data.chat, ...data.generate])
+        setFamily([...data.chat])
+      }
+    }
+
+    const getBuiltInPromptStyles = async () => {
+      const response = await fetch(endPoint + '/v1/models/prompts', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        const errorData = await response.json() // Assuming the server returns error details in JSON format
+        setErrorMsg(
+          `Server error: ${response.status} - ${
+            errorData.detail || 'Unknown error'
+          }`
+        )
+      } else {
+        const data = await response.json()
+        let res = []
+        for (const key in data) {
+          let v = data[key]
+          v['name'] = key
+          res.push(v)
+        }
+        setPromptStyles(res)
       }
     }
 
@@ -264,6 +291,15 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       Object.prototype.hasOwnProperty.call(customData, 'model_ability') &&
       Object.prototype.hasOwnProperty.call(customData, 'model_family')
     ) {
+      if (promptStyles.length === 0) {
+        getBuiltInPromptStyles().catch((error) => {
+          setErrorMsg(
+            error.message ||
+              'An unexpected error occurred when getting builtin prompt styles.'
+          )
+          console.error('Error: ', error)
+        })
+      }
       if (family.length === 0) {
         getBuiltinFamilies().catch((error) => {
           setErrorMsg(
@@ -284,7 +320,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }, [formData])
 
   const customReplacer = (key, value) => {
-    if (key === 'chat_template') {
+    if (key === 'chat_template' && value) {
       return value.replace(/\\n/g, '\n')
     }
     return value
@@ -406,13 +442,50 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       })
     } else {
       if (ability === 'chat') {
-        obj.chat_template = ''
-        obj.stop_token_ids = []
-        obj.stop = []
+        if(formData.model_family !== "" && family.includes(formData.model_family)) {
+          const data = promptStyles.filter(item => item.name === formData.model_family)
+          obj.chat_template = data[0]?.chat_template || null,
+          obj.stop_token_ids = data[0]?.stop_token_ids || [],
+          obj.stop = data[0]?.stop || []
+        } else {
+          obj.chat_template = ''
+          obj.stop_token_ids = []
+          obj.stop = []
+        }
       }
       setFormData({
         ...obj,
         model_ability: [...formData.model_ability, ability],
+      })
+    }
+  }
+
+  const handleFamily = (value) => {
+    if(formData.model_ability.includes('chat')) {
+      if(family.includes(value)) {
+        const data = promptStyles.filter(item => {
+          return item.name === value
+        })
+        setFormData({
+          ...formData,
+          model_family: value,
+          chat_template: data[0]?.chat_template || null,
+          stop_token_ids: data[0]?.stop_token_ids || [],
+          stop: data[0]?.stop || [],
+        })
+      } else {
+        setFormData({
+          ...formData,
+          model_family: value,
+          chat_template: "",
+          stop_token_ids: [],
+          stop: [],
+        })
+      }
+    } else {
+      setFormData({
+        ...formData,
+        model_family: value,
       })
     }
   }
@@ -832,21 +905,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     label="Model Family"
                     error={formData.model_family ? false : true}
                     value={formData.model_family}
-                    helperText="Not the same as the built-in model name."
+                    helperText={formData.model_ability.includes('chat') && family.includes(formData.model_family) ? 'Custom model has the same name as a built-in model, parameters have been automatically filled in.' : ''}
                     size="small"
-                    onChange={(event) =>
-                      setFormData({
-                        ...formData,
-                        model_family: event.target.value,
-                      })
-                    }
+                    onChange={(event) =>{
+                      handleFamily(event.target.value)
+                    }}
                   />
-                  {family.includes(formData.model_family) && (
-                    <Alert severity="error">
-                      Custom model has the same name as a built-in model, please
-                      change it.
-                    </Alert>
-                  )}
                   <Box padding="15px"></Box>
                 </>
               )}
@@ -1122,10 +1186,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 formData.language?.length === 0 ||
                 formData.model_ability?.length === 0 ||
                 (modelType === 'LLM' && !formData.model_family) ||
-                (formData.model_ability?.includes('chat') &&
-                  !formData.chat_template) ||
-                isStopTokenIdsAlert ||
-                family?.includes(formData?.model_family)
+                isStopTokenIdsAlert
               }
             >
               Register Model
