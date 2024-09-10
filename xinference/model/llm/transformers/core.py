@@ -65,6 +65,8 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "MiniCPM-V-2.6",
     "glm-4v",
     "qwen2-vl-instruct",
+    "qwen2-audio",
+    "qwen2-audio-instruct",
 ]
 
 

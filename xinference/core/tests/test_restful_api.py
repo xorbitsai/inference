@@ -1240,3 +1240,55 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_qwen15"
     requests.delete(url)
+
+
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_qwen_audio(setup):
+    model_name = "qwen2-audio-instruct"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_audio",
+        "model_name": model_name,
+        "model_engine": "transformers",
+        "model_size_in_billions": 7,
+        "model_format": "pytorch",
+        "quantization": "none",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_audio"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "audio",
+                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/1272-128104-0000.flac",
+                    },
+                    {"type": "text", "text": "What does the person say?"},
+                ],
+            },
+        ],
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+    print(completion)
