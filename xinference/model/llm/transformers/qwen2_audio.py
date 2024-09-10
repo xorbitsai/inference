@@ -16,8 +16,6 @@ from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Union
 from urllib.request import urlopen
 
-import torch
-
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
