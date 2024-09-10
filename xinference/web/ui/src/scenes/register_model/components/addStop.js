@@ -84,7 +84,7 @@ const AddStop = ({
                   size="small"
                   style={{ width: '100%' }}
                 />
-                {formData.length > 1 && (
+                {formData?.length > 1 && (
                   <DeleteIcon
                     onClick={() => handleDelete(index)}
                     style={{ cursor: 'pointer', color: '#1976d2' }}
