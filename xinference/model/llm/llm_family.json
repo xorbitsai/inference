@@ -6805,5 +6805,49 @@
     "stop": [
       "</s>"
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. DeepSeek-V2 adopts innovative architectures including Multi-head Latent Attention (MLA) and DeepSeekMoE. MLA guarantees efficient inference through significantly compressing the Key-Value (KV) cache into a latent vector, while DeepSeekMoE enables training strong models at an economical cost through sparse computation.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Lite-Chat",
+        "model_revision": "85864749cd611b4353ce1decdb286193298f64c7"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Chat",
+        "model_revision": "8e3f5f6c2226787e41ba3e9283a06389d178c926"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ 'User: ' + message['content'] + '\n\n' }}{% elif message['role'] == 'assistant' %}{{ 'Assistant: ' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Assistant:' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
   }
 ]
