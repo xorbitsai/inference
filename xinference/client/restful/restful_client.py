@@ -712,7 +712,9 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
                 url, data=params, files=files, headers=self.auth_headers, stream=stream
             )
         else:
-            response = requests.post(url, json=params, headers=self.auth_headers, stream=stream)
+            response = requests.post(
+                url, json=params, headers=self.auth_headers, stream=stream
+            )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to speech the text, detail: {_get_error_string(response)}"
