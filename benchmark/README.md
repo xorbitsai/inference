@@ -38,3 +38,10 @@ python benchmark/benchmark_long.py --context-length ${context_length} --tokenize
 							--model-uid ${model_uid} \
 							--num-prompts 32 -c 16
 ```
+
+## Common Options for Benchmarking Tools
+- `--stream`. You can enable streaming responses by using the option, which is useful for real-time data processing and receiving incremental data without waiting for the entire dataset to be processed. 
+
+- `--print-error`. For troubleshooting and more detailed output, the option can be used to print detailed error messages if any errors are encountered during the execution. 
+
+These options are available for use in all benchmarking tools provided in this suite, enhancing flexibility and providing essential debugging information.
