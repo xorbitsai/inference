@@ -38,6 +38,7 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
         top_n: int,
         concurrency: int,
         api_key: Optional[str] = None,
+        print_error: bool = False,
     ):
         super().__init__(
             api_url,
@@ -46,6 +47,7 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
             stream,
             concurrency,
             api_key,
+            print_error,
         )
         self.top_n = top_n
 
@@ -127,6 +129,7 @@ def main(args: argparse.Namespace):
         top_n=args.top_n,
         concurrency=args.concurrency,
         api_key=args.api_key,
+        print_error=args.print_error,
     )
     asyncio.run(benchmark.run())
 
@@ -181,6 +184,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--api-key", type=str, default=None, help="Authorization api key",
+    )
+    parser.add_argument(
+        "--print-error",
+        action="store_true",
+        help="Print detailed error messages if any errors encountered."
     )
     args = parser.parse_args()
     main(args)
