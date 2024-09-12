@@ -275,14 +275,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           })
         }
         setFamily(data)
-        setFamilyOptions(
-          data?.generate?.map((item) => {
-            return {
-              id: item,
-              label: item,
-            }
-          })
-        )
       }
     }
 
@@ -342,17 +334,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     if (contrastObj.model_name) {
       deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
     }
+    if(family?.chat?.length) handleFamilyOptions(formData.model_ability)
   }, [formData])
 
   useEffect(() => {
-    if (formData.model_family !== 'your_custom_model') {
-      setFormData({
-        ...formData,
-        model_family: '',
-      })
-    }
-    handleFamilyOptions(formData.model_ability)
-  }, [formData.model_ability])
+    if(family?.chat?.length) handleFamilyOptions(formData.model_ability)
+  }, [family])
 
   const customReplacer = (key, value) => {
     if (key === 'chat_template' && value) {
@@ -466,11 +453,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const toggleAbility = (ability) => {
     const obj = JSON.parse(JSON.stringify(formData))
     if (formData.model_ability.includes(ability)) {
-      if (['chat', 'vision', 'tools'].includes(ability)) {
-        delete obj.chat_template
-        delete obj.stop_token_ids
-        delete obj.stop
-      }
+      delete obj.chat_template
+      delete obj.stop_token_ids
+      delete obj.stop
       setFormData({
         ...obj,
         model_ability: formData.model_ability.filter((item) => {
@@ -479,6 +464,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           }
           return item !== ability
         }),
+        model_family: '',
       })
     } else {
       let model_ability = []
@@ -525,13 +511,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           model_ability = [...formData.model_ability, ability]
         }
       }
-      if (ability !== 'generate') {
-        delete obj.chat_template
-        delete obj.stop_token_ids
-        delete obj.stop
-      }
+      delete obj.chat_template
+      delete obj.stop_token_ids
+      delete obj.stop
       setFormData({
         ...obj,
+        model_family: '',
         model_ability: model_ability,
       })
     }
@@ -766,6 +751,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           }
         })
       )
+    } else {
+      setIsEditableFamily(true)
+      setFamilyOptions([])
     }
   }
 
@@ -1049,8 +1037,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               {modelType === 'LLM' && (
                 <>
                   <Autocomplete
-                    disableClearable
-                    id="combo-box-demo"
+                    id="free-solo-demo"
+                    freeSolo={isEditableFamily}
                     options={familyOptions || []}
                     size="small"
                     renderInput={(params) => (
