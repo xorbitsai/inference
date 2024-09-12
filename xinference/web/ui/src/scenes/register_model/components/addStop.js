@@ -1,9 +1,9 @@
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { Alert, Button, TextField } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 
-const regex = /^[1-9]\d*$/
+const regex = /^-?[0-9]\d*$/
 
 const AddStop = ({
   label,
@@ -13,12 +13,11 @@ const AddStop = ({
   onGetError,
   helperText,
 }) => {
-  const [dataArr, setDataArr] = useState(formData?.length ? formData : [''])
-  const arr = []
-
-  useEffect(() => {
+  const handleChange = (value, index) => {
+    const arr = [...formData]
+    arr[index] = value
     if (arrItemType === 'number') {
-      const newDataArr = dataArr.map((item) => {
+      const newDataArr = arr.map((item) => {
         if (item && regex.test(item)) {
           arr.push('true')
           return Number(item)
@@ -29,24 +28,18 @@ const AddStop = ({
       onGetError(arr)
       onGetData(newDataArr)
     } else {
-      onGetData(dataArr)
+      onGetData([...arr])
     }
-  }, [dataArr])
-
-  const handleChange = (value, index) => {
-    const arr = [...dataArr]
-    arr[index] = value
-    setDataArr([...arr])
   }
 
   const handleAdd = () => {
-    if (dataArr[dataArr.length - 1]) {
-      setDataArr([...dataArr, ''])
+    if (formData[formData.length - 1]) {
+      onGetData([...formData, ''])
     }
   }
 
   const handleDelete = (index) => {
-    setDataArr(dataArr.filter((_, subIndex) => index !== subIndex))
+    onGetData(formData.filter((_, subIndex) => index !== subIndex))
   }
 
   const handleShowAlert = (item) => {
@@ -81,7 +74,7 @@ const AddStop = ({
             borderRadius: 10,
           }}
         >
-          {dataArr.map((item, index) => (
+          {(formData?.length ? formData : ['']).map((item, index) => (
             <div key={index}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <TextField
@@ -91,7 +84,7 @@ const AddStop = ({
                   size="small"
                   style={{ width: '100%' }}
                 />
-                {dataArr.length > 1 && (
+                {formData?.length > 1 && (
                   <DeleteIcon
                     onClick={() => handleDelete(index)}
                     style={{ cursor: 'pointer', color: '#1976d2' }}
