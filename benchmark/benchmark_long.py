@@ -79,6 +79,7 @@ def main(args: argparse.Namespace):
         args.stream,
         concurrency=args.concurrency,
         api_key=args.api_key,
+        print_error=args.print_error,
     )
     asyncio.run(benchmark.run())
 
@@ -119,6 +120,11 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--stream", action="store_true", help="Enable streaming responses."
+    )
+    parser.add_argument(
+        "--print-error",
+        action="store_true",
+        help="Print detailed error messages if any errors encountered."
     )
     args = parser.parse_args()
     main(args)
