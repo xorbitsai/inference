@@ -11,12 +11,12 @@ from pathlib import Path
 import gradio as gr
 import librosa
 import numpy as np
-import pyrootutils
+# import pyrootutils
 import torch
 from loguru import logger
 from transformers import AutoTokenizer
 
-pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+# pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 
 from fish_speech.i18n import i18n

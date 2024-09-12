@@ -13,27 +13,27 @@ from typing import Annotated, Any, Literal, Optional
 
 import numpy as np
 import ormsgpack
-import pyrootutils
+# import pyrootutils
 import soundfile as sf
 import torch
 import torchaudio
-from baize.datastructures import ContentType
-from kui.asgi import (
-    Body,
-    FactoryClass,
-    HTTPException,
-    HttpRequest,
-    HttpView,
-    JSONResponse,
-    Kui,
-    OpenAPI,
-    StreamResponse,
-)
-from kui.asgi.routing import MultimethodRoutes
+# from baize.datastructures import ContentType
+# from kui.asgi import (
+#     Body,
+#     FactoryClass,
+#     HTTPException,
+#     HttpRequest,
+#     HttpView,
+#     JSONResponse,
+#     Kui,
+#     OpenAPI,
+#     StreamResponse,
+# )
+# from kui.asgi.routing import MultimethodRoutes
 from loguru import logger
 from pydantic import BaseModel, Field, conint
 
-pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+# pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 # from fish_speech.models.vqgan.lit_module import VQGAN
 from fish_speech.models.vqgan.modules.firefly import FireflyArchitecture
@@ -64,16 +64,16 @@ def wav_chunk_header(sample_rate=44100, bit_depth=16, channels=1):
 
 
 # Define utils for web server
-async def http_execption_handler(exc: HTTPException):
-    return JSONResponse(
-        dict(
-            statusCode=exc.status_code,
-            message=exc.content,
-            error=HTTPStatus(exc.status_code).phrase,
-        ),
-        exc.status_code,
-        exc.headers,
-    )
+# async def http_execption_handler(exc: HTTPException):
+#     return JSONResponse(
+#         dict(
+#             statusCode=exc.status_code,
+#             message=exc.content,
+#             error=HTTPStatus(exc.status_code).phrase,
+#         ),
+#         exc.status_code,
+#         exc.headers,
+#     )
 
 
 async def other_exception_handler(exc: "Exception"):
@@ -153,7 +153,7 @@ def decode_vq_tokens(
     raise ValueError(f"Unknown model type: {type(decoder_model)}")
 
 
-routes = MultimethodRoutes(base_class=HttpView)
+# routes = MultimethodRoutes(base_class=HttpView)
 
 
 def get_content_type(audio_format):
@@ -284,60 +284,60 @@ async def buffer_to_async_generator(buffer):
     yield buffer
 
 
-@routes.http.post("/v1/tts")
-async def api_invoke_model(
-    req: Annotated[ServeTTSRequest, Body(exclusive=True)],
-):
-    """
-    Invoke model and generate audio
-    """
-
-    if args.max_text_length > 0 and len(req.text) > args.max_text_length:
-        raise HTTPException(
-            HTTPStatus.BAD_REQUEST,
-            content=f"Text is too long, max length is {args.max_text_length}",
-        )
-
-    if req.streaming and req.format != "wav":
-        raise HTTPException(
-            HTTPStatus.BAD_REQUEST,
-            content="Streaming only supports WAV format",
-        )
-
-    if req.streaming:
-        return StreamResponse(
-            iterable=inference_async(req),
-            headers={
-                "Content-Disposition": f"attachment; filename=audio.{req.format}",
-            },
-            content_type=get_content_type(req.format),
-        )
-    else:
-        fake_audios = next(inference(req))
-        buffer = io.BytesIO()
-        sf.write(
-            buffer,
-            fake_audios,
-            decoder_model.spec_transform.sample_rate,
-            format=req.format,
-        )
-
-        return StreamResponse(
-            iterable=buffer_to_async_generator(buffer.getvalue()),
-            headers={
-                "Content-Disposition": f"attachment; filename=audio.{req.format}",
-            },
-            content_type=get_content_type(req.format),
-        )
-
-
-@routes.http.post("/v1/health")
-async def api_health():
-    """
-    Health check
-    """
-
-    return JSONResponse({"status": "ok"})
+# @routes.http.post("/v1/tts")
+# async def api_invoke_model(
+#     req: Annotated[ServeTTSRequest, Body(exclusive=True)],
+# ):
+#     """
+#     Invoke model and generate audio
+#     """
+#
+#     if args.max_text_length > 0 and len(req.text) > args.max_text_length:
+#         raise HTTPException(
+#             HTTPStatus.BAD_REQUEST,
+#             content=f"Text is too long, max length is {args.max_text_length}",
+#         )
+#
+#     if req.streaming and req.format != "wav":
+#         raise HTTPException(
+#             HTTPStatus.BAD_REQUEST,
+#             content="Streaming only supports WAV format",
+#         )
+#
+#     if req.streaming:
+#         return StreamResponse(
+#             iterable=inference_async(req),
+#             headers={
+#                 "Content-Disposition": f"attachment; filename=audio.{req.format}",
+#             },
+#             content_type=get_content_type(req.format),
+#         )
+#     else:
+#         fake_audios = next(inference(req))
+#         buffer = io.BytesIO()
+#         sf.write(
+#             buffer,
+#             fake_audios,
+#             decoder_model.spec_transform.sample_rate,
+#             format=req.format,
+#         )
+#
+#         return StreamResponse(
+#             iterable=buffer_to_async_generator(buffer.getvalue()),
+#             headers={
+#                 "Content-Disposition": f"attachment; filename=audio.{req.format}",
+#             },
+#             content_type=get_content_type(req.format),
+#         )
+#
+#
+# @routes.http.post("/v1/health")
+# async def api_health():
+#     """
+#     Health check
+#     """
+#
+#     return JSONResponse({"status": "ok"})
 
 
 def parse_args():
@@ -364,33 +364,33 @@ def parse_args():
 
 
 # Define Kui app
-openapi = OpenAPI(
-    {
-        "title": "Fish Speech API",
-    },
-).routes
-
-
-class MsgPackRequest(HttpRequest):
-    async def data(self) -> Annotated[Any, ContentType("application/msgpack")]:
-        if self.content_type == "application/msgpack":
-            return ormsgpack.unpackb(await self.body)
-
-        raise HTTPException(
-            HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
-            headers={"Accept": "application/msgpack"},
-        )
-
-
-app = Kui(
-    routes=routes + openapi[1:],  # Remove the default route
-    exception_handlers={
-        HTTPException: http_execption_handler,
-        Exception: other_exception_handler,
-    },
-    factory_class=FactoryClass(http=MsgPackRequest),
-    cors_config={},
-)
+# openapi = OpenAPI(
+#     {
+#         "title": "Fish Speech API",
+#     },
+# ).routes
+#
+#
+# class MsgPackRequest(HttpRequest):
+#     async def data(self) -> Annotated[Any, ContentType("application/msgpack")]:
+#         if self.content_type == "application/msgpack":
+#             return ormsgpack.unpackb(await self.body)
+#
+#         raise HTTPException(
+#             HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+#             headers={"Accept": "application/msgpack"},
+#         )
+#
+#
+# app = Kui(
+#     routes=routes + openapi[1:],  # Remove the default route
+#     exception_handlers={
+#         HTTPException: http_execption_handler,
+#         Exception: other_exception_handler,
+#     },
+#     factory_class=FactoryClass(http=MsgPackRequest),
+#     cors_config={},
+# )
 
 
 if __name__ == "__main__":
