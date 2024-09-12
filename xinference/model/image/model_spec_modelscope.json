@@ -39,7 +39,11 @@
     "model_revision": "master",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "default_generate_config": {
+      "guidance_scale": 0.0,
+      "num_inference_steps": 1
+    }
   },
   {
     "model_name": "sdxl-turbo",
@@ -49,7 +53,11 @@
     "model_revision": "master",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "default_generate_config": {
+      "guidance_scale": 0.0,
+      "num_inference_steps": 1
+    }
   },
   {
     "model_name": "stable-diffusion-v1.5",

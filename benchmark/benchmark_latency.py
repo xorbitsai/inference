@@ -59,6 +59,7 @@ def main(args: argparse.Namespace):
         input_requests,
         args.stream,
         args.api_key,
+        args.print_error,
     )
     asyncio.run(benchmark.run())
 
@@ -96,6 +97,10 @@ if __name__ == "__main__":
         default=None,
         help="Authorization api key",
     )
-
+    parser.add_argument(
+        "--print-error",
+        action="store_true",
+        help="Print detailed error messages if any errors encountered."
+    )
     args = parser.parse_args()
     main(args)

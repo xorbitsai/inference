@@ -15,11 +15,11 @@ boto3>=1.28.55,<1.28.65
 tensorizer~=2.9.0
 modelscope>=1.10.0
 sse_starlette>=1.6.5
-openai>1,<1.40
+openai>1
 python-jose[cryptography]
 passlib[bcrypt]
 aioprometheus[starlette]>=23.12.0
-pynvml
+nvidia-ml-py
 async-timeout
 transformers>=4.34.1
 accelerate>=0.20.3
@@ -59,10 +59,12 @@ pyarrow  # For CosyVoice, matcha
 HyperPyYAML  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
-openai-whisper  # For CosyVoice
 imageio-ffmpeg  # For video
 eva-decord  # For video in VL
 jj-pytorchvideo # For CogVLM2-video
 loguru  # For Fish Speech
 natsort  # For Fish Speech
 loralib  # For Fish Speech
+qwen-vl-utils # For qwen2-vl
+datamodel_code_generator # for minicpm-4B
+jsonschema # for minicpm-4B

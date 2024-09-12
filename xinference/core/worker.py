@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import os
 import platform
 import queue
@@ -73,15 +74,15 @@ class WorkerActor(xo.StatelessActor):
         self._supervisor_ref: Optional[xo.ActorRefType] = None
         self._main_pool = main_pool
         self._main_pool.recover_sub_pool = self.recover_sub_pool
-        self._status_guard_ref: xo.ActorRefType["StatusGuardActor"] = (  # type: ignore
-            None
-        )
+        self._status_guard_ref: xo.ActorRefType[
+            "StatusGuardActor"
+        ] = None  # type: ignore
         self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = None
-        self._cache_tracker_ref: xo.ActorRefType[CacheTrackerActor] = (  # type: ignore
-            None
-        )
+        self._cache_tracker_ref: xo.ActorRefType[
+            CacheTrackerActor
+        ] = None  # type: ignore
 
         # internal states.
         # temporary placeholder during model launch process:
@@ -770,7 +771,7 @@ class WorkerActor(xo.StatelessActor):
                 version_info["model_file_location"],
             )
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -917,7 +918,7 @@ class WorkerActor(xo.StatelessActor):
             {"model_ability": abilities, "status": LaunchStatus.READY.name},
         )
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:

@@ -24,11 +24,8 @@ from ._compat import (
 )
 from .fields import (
     echo_field,
-    frequency_penalty_field,
-    logprobs_field,
     max_tokens_field,
     none_field,
-    presence_penalty_field,
     repeat_penalty_field,
     stop_field,
     stream_field,
@@ -48,6 +45,12 @@ class Image(TypedDict):
 class ImageList(TypedDict):
     created: int
     data: List[Image]
+
+
+class SDAPITxt2imgResult(TypedDict):
+    images: List[str]
+    parameters: dict
+    info: dict
 
 
 class Video(TypedDict):
@@ -400,41 +403,12 @@ except ImportError:
 CreateCompletionOpenAI: BaseModel
 
 
-class _CreateCompletionOpenAIFallback(BaseModel):
-    # OpenAI's create completion request body, we define it by pydantic
-    # model to verify the input params.
-    # https://platform.openai.com/docs/api-reference/completions/object
-    model: str
-    prompt: str
-    best_of: Optional[int] = 1
-    echo: bool = echo_field
-    frequency_penalty: Optional[float] = frequency_penalty_field
-    logit_bias: Optional[Dict[str, float]] = none_field
-    logprobs: Optional[int] = logprobs_field
-    max_tokens: int = max_tokens_field
-    n: Optional[int] = 1
-    presence_penalty: Optional[float] = presence_penalty_field
-    seed: Optional[int] = none_field
-    stop: Optional[Union[str, List[str]]] = stop_field
-    stream: bool = stream_field
-    stream_options: Optional[Union[dict, None]] = stream_option_field
-    suffix: Optional[str] = none_field
-    temperature: float = temperature_field
-    top_p: float = top_p_field
-    user: Optional[str] = none_field
+from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
-
-try:
-    # For openai > 1
-    from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
-
-    CreateCompletionOpenAI = create_model_from_typeddict(
-        CompletionCreateParamsNonStreaming,
-    )
-    CreateCompletionOpenAI = fix_forward_ref(CreateCompletionOpenAI)
-except ImportError:
-    # TODO(codingl2k1): Remove it if openai < 1 is dropped.
-    CreateCompletionOpenAI = _CreateCompletionOpenAIFallback
+CreateCompletionOpenAI = create_model_from_typeddict(
+    CompletionCreateParamsNonStreaming,
+)
+CreateCompletionOpenAI = fix_forward_ref(CreateCompletionOpenAI)
 
 
 class CreateCompletion(
@@ -454,22 +428,11 @@ class CreateChatModel(BaseModel):
 CreateChatCompletionTorch = CreateCompletionTorch
 CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
 
-# This type is for openai API compatibility
-CreateChatCompletionOpenAI: BaseModel
+
+from ._compat import CreateChatCompletionOpenAI
 
 
-# Only support openai > 1
-from openai.types.chat.completion_create_params import (
-    CompletionCreateParamsNonStreaming,
-)
-
-CreateChatCompletionOpenAI = create_model_from_typeddict(
-    CompletionCreateParamsNonStreaming,
-)
-CreateChatCompletionOpenAI = fix_forward_ref(CreateChatCompletionOpenAI)
-
-
-class CreateChatCompletion(
+class CreateChatCompletion(  # type: ignore
     CreateChatModel,
     CreateChatCompletionTorch,
     CreateChatCompletionLlamaCpp,

@@ -6807,6 +6807,147 @@
     ]
   },
   {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-vl-instruct",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "vision"
+    ],
+    "model_description":"Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct",
+        "model_revision":"096da3b96240e3d66d35be0e5ccbe282eea8d6b1"
+      },
+         {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+        "model_revision":"d15fb11857ccc566903e2e71341f9db7babb567b"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+        "model_revision":"800d396518c82960ce6d231adecd07bbc474f0a9"
+      },
+         {
+        "model_format":"awq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-AWQ",
+        "model_revision":"ea8c5854c0044e28626719292de0d9b1a671f6fc"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct",
+        "model_revision":"6010982c1010c3b222fa98afc81575f124aa9bd6"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+        "model_revision":"3d152a77eaccfd72d59baedb0b183a1b8fd56e48"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+        "model_revision":"5ab897112fa83b9699826be8753ef9184585c77d"
+      },
+        {
+        "model_format":"awq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-AWQ",
+        "model_revision":"f94216e8b513933bccd567bcd9b7350199f32538"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
+      "roles":[
+        "user",
+        "assistant"
+      ],
+      "stop": [
+        "<|im_end|>",
+        "<|endoftext|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "minicpm3-4b",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM3-4B is the 3rd generation of MiniCPM series. The overall performance of MiniCPM3-4B surpasses Phi-3.5-mini-Instruct and GPT-3.5-Turbo-0125, being comparable with many recent 7B~9B models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM3-4B",
+        "model_revision": "75f9f1097d9d66d11f37fff49210bf940455f8ac"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM3-4B-GPTQ-Int4",
+        "model_revision": "97a66a62f7d09c1ee35b087b42694716a8113dce"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
+  },
+  {
     "version": 1,
     "context_length": 128000,
     "model_name": "deepseek-v2",

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import contextlib
 import logging
 import os
 import re
@@ -22,19 +23,43 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
-from typing import Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import PIL.Image
+import torch
 from PIL import ImageOps
 
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....device_utils import move_model_to_available_device
 from ....types import Image, ImageList, LoRA
+from ..sdapi import SDAPIDiffusionModelMixin
+
+if TYPE_CHECKING:
+    from ..core import ImageModelFamilyV1
 
 logger = logging.getLogger(__name__)
 
+SAMPLING_METHODS = [
+    "default",
+    "DPM++ 2M",
+    "DPM++ 2M Karras",
+    "DPM++ 2M SDE",
+    "DPM++ 2M SDE Karras",
+    "DPM++ SDE",
+    "DPM++ SDE Karras",
+    "DPM2",
+    "DPM2 Karras",
+    "DPM2 a",
+    "DPM2 a Karras",
+    "Euler",
+    "Euler a",
+    "Heun",
+    "LMS",
+    "LMS Karras",
+]
 
-class DiffusionModel:
+
+class DiffusionModel(SDAPIDiffusionModelMixin):
     def __init__(
         self,
         model_uid: str,
@@ -43,7 +68,7 @@ class DiffusionModel:
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
-        abilities: Optional[List[str]] = None,
+        model_spec: Optional["ImageModelFamilyV1"] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
@@ -59,7 +84,8 @@ class DiffusionModel:
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
-        self._abilities = abilities or []
+        self._model_spec = model_spec
+        self._abilities = model_spec.model_ability or []  # type: ignore
         self._kwargs = kwargs
 
     @property
@@ -80,8 +106,6 @@ class DiffusionModel:
             logger.info(f"Successfully loaded the LoRA for model {self._model_uid}.")
 
     def load(self):
-        import torch
-
         if "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
         elif "inpainting" in self._abilities:
@@ -158,6 +182,95 @@ class DiffusionModel:
         self._model.enable_attention_slicing()
         self._apply_lora()
 
+    def _get_scheduler(self, sampler_name: str):
+        if not sampler_name:
+            return
+
+        assert self._model is not None
+
+        import diffusers
+
+        # see https://github.com/huggingface/diffusers/issues/4167
+        # to get A1111 <> Diffusers Scheduler mapping
+        if sampler_name == "DPM++ 2M":
+            return diffusers.DPMSolverMultistepScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "DPM++ 2M Karras":
+            return diffusers.DPMSolverMultistepScheduler.from_config(
+                self._model.scheduler.config, use_karras_sigmas=True
+            )
+        elif sampler_name == "DPM++ 2M SDE":
+            return diffusers.DPMSolverMultistepScheduler.from_config(
+                self._model.scheduler.config, algorithm_type="sde-dpmsolver++"
+            )
+        elif sampler_name == "DPM++ 2M SDE Karras":
+            return diffusers.DPMSolverMultistepScheduler.from_config(
+                self._model.scheduler.config,
+                algorithm_type="sde-dpmsolver++",
+                use_karras_sigmas=True,
+            )
+        elif sampler_name == "DPM++ SDE":
+            return diffusers.DPMSolverSinglestepScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "DPM++ SDE Karras":
+            return diffusers.DPMSolverSinglestepScheduler.from_config(
+                self._model.scheduler.config, use_karras_sigmas=True
+            )
+        elif sampler_name == "DPM2":
+            return diffusers.KDPM2DiscreteScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "DPM2 Karras":
+            return diffusers.KDPM2DiscreteScheduler.from_config(
+                self._model.scheduler.config, use_karras_sigmas=True
+            )
+        elif sampler_name == "DPM2 a":
+            return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "DPM2 a Karras":
+            return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
+                self._model.scheduler.config, use_karras_sigmas=True
+            )
+        elif sampler_name == "Euler":
+            return diffusers.EulerDiscreteScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "Euler a":
+            return diffusers.EulerAncestralDiscreteScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "Heun":
+            return diffusers.HeunDiscreteScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "LMS":
+            return diffusers.LMSDiscreteScheduler.from_config(
+                self._model.scheduler.config
+            )
+        elif sampler_name == "LMS Karras":
+            return diffusers.LMSDiscreteScheduler.from_config(
+                self._model.scheduler.config, use_karras_sigmas=True
+            )
+        else:
+            raise ValueError(f"Unknown sampler: {sampler_name}")
+
+    @contextlib.contextmanager
+    def _reset_when_done(self, sampler_name: str):
+        assert self._model is not None
+        scheduler = self._get_scheduler(sampler_name)
+        if scheduler:
+            default_scheduler = self._model.scheduler
+            self._model.scheduler = scheduler
+            try:
+                yield
+            finally:
+                self._model.scheduler = default_scheduler
+        else:
+            yield
+
     def _call_model(
         self,
         response_format: str,
@@ -168,13 +281,30 @@ class DiffusionModel:
 
         from ....device_utils import empty_cache
 
-        logger.debug(
-            "stable diffusion args: %s",
-            kwargs,
-        )
         model = model if model is not None else self._model
+        is_padded = kwargs.pop("is_padded", None)
+        origin_size = kwargs.pop("origin_size", None)
+        seed = kwargs.pop("seed", None)
+        if seed is not None:
+            kwargs["generator"] = generator = torch.Generator(device=self._model.device)  # type: ignore
+            if seed != -1:
+                kwargs["generator"] = generator.manual_seed(seed)
+        sampler_name = kwargs.pop("sampler_name", None)
         assert callable(model)
-        images = model(**kwargs).images
+        with self._reset_when_done(sampler_name):
+            logger.debug(
+                "stable diffusion args: %s",
+                kwargs,
+            )
+            images = model(**kwargs).images
+
+        # revert padding if padded
+        if is_padded and origin_size:
+            new_images = []
+            x, y = origin_size
+            for img in images:
+                new_images.append(img.crop((0, 0, x, y)))
+            images = new_images
 
         # clean cache
         gc.collect()
@@ -220,14 +350,16 @@ class DiffusionModel:
         # References:
         # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
         width, height = map(int, re.split(r"[^\d]+", size))
-        self._filter_kwargs(kwargs)
+        generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
+        generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+        self._filter_kwargs(generate_kwargs)
         return self._call_model(
             prompt=prompt,
             height=height,
             width=width,
             num_images_per_prompt=n,
             response_format=response_format,
-            **kwargs,
+            **generate_kwargs,
         )
 
     @staticmethod
@@ -265,6 +397,9 @@ class DiffusionModel:
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
             # padding the image if specified
+            origin_x, origin_y = image.size
+            kwargs["origin_size"] = (origin_x, origin_y)
+            kwargs["is_padded"] = True
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
 
         if size:
@@ -318,6 +453,9 @@ class DiffusionModel:
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 inpainting requires image's height and width is times of 16
             # padding the image if specified
+            origin_x, origin_y = image.size
+            kwargs["origin_size"] = (origin_x, origin_y)
+            kwargs["is_padded"] = True
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
             mask_image = self.pad_to_multiple(
                 mask_image, multiple=int(padding_image_to_multiple)

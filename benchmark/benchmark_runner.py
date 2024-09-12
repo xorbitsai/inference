@@ -54,7 +54,8 @@ class BenchmarkRunner:
         model_uid: str,
         input_requests: List[Tuple[str, int, int]],
         stream: bool,
-        api_key: Optional[str]=None,
+        api_key: Optional[str] = None,
+        print_error: bool = False,
     ):
         self.api_url = api_url
         self.model_uid = model_uid
@@ -63,6 +64,7 @@ class BenchmarkRunner:
         self.benchmark_time = None
         self.stream = stream
         self.api_key = api_key
+        self.print_error = print_error
 
     async def run(self):
         await self.warm_up()
@@ -361,6 +363,17 @@ class BenchmarkRunner:
             print(f"Total time: {total_time:.2f} s")
             print(f"Throughput: {len(self.outputs) / total_time:.2f} requests/s")
 
+        if completed < len(self.input_requests):
+            if self.print_error:
+                logger.info("Errors encountered during benchmark:")
+                for output in self.outputs:
+                    if not output.success:
+                        print(f"Error for prompt with length {output.prompt_len}: {output.error}")
+            else:
+                logger.info(
+                    "Errors were encountered during the benchmark. Run with --print-error to see detailed error messages."
+                )
+
 
 class ConcurrentBenchmarkRunner(BenchmarkRunner):
     def __init__(
@@ -370,9 +383,17 @@ class ConcurrentBenchmarkRunner(BenchmarkRunner):
         input_requests: List[Tuple[str, int, int]],
         stream: bool,
         concurrency: int,
-        api_key: Optional[str]=None,
+        api_key: Optional[str] = None,
+        print_error: bool = False,
     ):
-        super().__init__(api_url, model_uid, input_requests, stream, api_key)
+        super().__init__(
+            api_url,
+            model_uid,
+            input_requests,
+            stream,
+            api_key,
+            print_error,
+        )
         self.concurrency = concurrency
         self.left = len(input_requests)
 

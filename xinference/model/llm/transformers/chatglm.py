@@ -317,7 +317,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
     @staticmethod
     def _get_generate_kwargs(generate_config):
-        kwargs: Dict[str, Any] = {}
+        kwargs: Dict[str, Any] = {}  # type: ignore
         generate_config = generate_config or {}
         temperature = generate_config.get("temperature")
         if temperature is not None:

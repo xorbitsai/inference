@@ -7,7 +7,7 @@ qwen-chat
 - **Context Length:** 32768
 - **Model Name:** qwen-chat
 - **Languages:** en, zh
-- **Abilities:** chat, tools
+- **Abilities:** chat
 - **Description:** Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.
 
 Specifications

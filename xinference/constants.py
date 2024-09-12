@@ -38,6 +38,10 @@ def get_xinference_home() -> str:
         # if user has already set `XINFERENCE_HOME` env, change huggingface and modelscope default download path
         os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(home_path, "huggingface")
         os.environ["MODELSCOPE_CACHE"] = os.path.join(home_path, "modelscope")
+    # In multi-tenant mode,
+    # gradio's temporary files are stored in their respective home directories,
+    # to prevent insufficient permissions
+    os.environ["GRADIO_TEMP_DIR"] = os.path.join(home_path, "tmp", "gradio")
     return home_path
 
 
@@ -59,6 +63,7 @@ XINFERENCE_DEFAULT_ENDPOINT_PORT = 9997
 XINFERENCE_DEFAULT_LOG_FILE_NAME = "xinference.log"
 XINFERENCE_LOG_MAX_BYTES = 100 * 1024 * 1024
 XINFERENCE_LOG_BACKUP_COUNT = 30
+XINFERENCE_LOG_ARG_MAX_LENGTH = 100
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD = int(
     os.environ.get(XINFERENCE_ENV_HEALTH_CHECK_FAILURE_THRESHOLD, 5)
 )

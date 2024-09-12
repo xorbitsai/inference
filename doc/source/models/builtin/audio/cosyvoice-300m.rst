@@ -12,7 +12,7 @@ CosyVoice-300M
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** model-scope/CosyVoice-300M
+- **Model ID:** FunAudioLLM/CosyVoice-300M
 
 Execute the following command to launch the model::
 

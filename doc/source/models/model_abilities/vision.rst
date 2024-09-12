@@ -30,6 +30,7 @@ The ``vision`` ability is supported with the following models in Xinference:
 * :ref:`GLM-4V <models_llm_glm-4v>`
 * :ref:`MiniCPM-Llama3-V 2.6 <models_llm_minicpm-v-2.6>`
 * :ref:`internvl2 <models_llm_internvl2>`
+* :ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`
 
 
 Quickstart

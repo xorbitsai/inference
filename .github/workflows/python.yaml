@@ -135,6 +135,9 @@ jobs:
           pip install tensorizer
           pip install eva-decord
           pip install jj-pytorchvideo
+          pip install qwen-vl-utils
+          pip install datamodel_code_generator
+          pip install jsonschema
         working-directory: .
 
       - name: Test with pytest
@@ -142,7 +145,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1,<1.40"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar

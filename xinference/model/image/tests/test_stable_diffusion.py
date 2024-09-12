@@ -30,6 +30,7 @@ TEST_MODEL_SPEC = ImageModelFamilyV1(
     model_name="small-stable-diffusion-v0",
     model_id="OFA-Sys/small-stable-diffusion-v0",
     model_revision="38e10e5e71e8fbf717a47a81e7543cd01c1a8140",
+    model_ability=["text2image"],
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def test_model():
     model_path = None
     try:
         model_path = cache(TEST_MODEL_SPEC)
-        model = DiffusionModel("mock", model_path, abilities=["text2image"])
+        model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
         # input is a string
         input_text = "an apple"
         model.load()
