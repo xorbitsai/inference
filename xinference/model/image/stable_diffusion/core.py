@@ -39,6 +39,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+SAMPLING_METHODS = [
+    "default",
+    "DPM++ 2M",
+    "DPM++ 2M Karras",
+    "DPM++ 2M SDE",
+    "DPM++ 2M SDE Karras",
+    "DPM++ SDE",
+    "DPM++ SDE Karras",
+    "DPM2",
+    "DPM2 Karras",
+    "DPM2 a",
+    "DPM2 a Karras",
+    "Euler",
+    "Euler a",
+    "Heun",
+    "LMS",
+    "LMS Karras",
+]
+
 
 class DiffusionModel(SDAPIDiffusionModelMixin):
     def __init__(
@@ -262,10 +281,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         from ....device_utils import empty_cache
 
-        logger.debug(
-            "stable diffusion args: %s",
-            kwargs,
-        )
         model = model if model is not None else self._model
         is_padded = kwargs.pop("is_padded", None)
         origin_size = kwargs.pop("origin_size", None)
@@ -277,6 +292,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         sampler_name = kwargs.pop("sampler_name", None)
         assert callable(model)
         with self._reset_when_done(sampler_name):
+            logger.debug(
+                "stable diffusion args: %s",
+                kwargs,
+            )
             images = model(**kwargs).images
 
         # revert padding if padded
