@@ -7,6 +7,7 @@ import NotesIcon from '@mui/icons-material/Notes'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -41,7 +42,7 @@ import AddModelSpecs from './components/addModelSpecs'
 import AddStop from './components/addStop'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
-const SUPPORTED_FEATURES = ['Generate', 'Chat']
+const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision', 'Tools']
 const messages = [
   {
     role: 'assistant',
@@ -61,7 +62,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const { setErrorMsg } = useContext(ApiContext)
   const [formData, setFormData] = useState(customData)
   const [promptStyles, setPromptStyles] = useState([])
-  const [family, setFamily] = useState([])
+  const [family, setFamily] = useState({})
   const [languagesArr, setLanguagesArr] = useState([])
   const [isContextLengthAlert, setIsContextLengthAlert] = useState(false)
   const [isDimensionsAlert, setIsDimensionsAlert] = useState(false)
@@ -92,6 +93,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isOpenMessages, setIsOpenMessages] = useState(false)
   const [testErrorInfo, setTestErrorInfo] = useState('')
   const [isStopTokenIdsAlert, setIsStopTokenIdsAlert] = useState(false)
+  const [familyOptions, setFamilyOptions] = useState([])
+  const [isEditableFamily, setIsEditableFamily] = useState(true)
 
   useEffect(() => {
     if (model_name) {
@@ -257,7 +260,27 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         )
       } else {
         const data = await response.json()
-        setFamily([...data.chat])
+        for(let key in data) {
+          data[key] = data[key].sort(function(a, b) {  
+            let lowerA = a.toLowerCase();  
+            let lowerB = b.toLowerCase();  
+
+            if (lowerA < lowerB) {  
+              return -1;  
+            }  
+            if (lowerA > lowerB) {  
+                return 1;  
+            }  
+            return 0;  
+          }); 
+        }
+        setFamily(data)
+        setFamilyOptions(data?.generate?.map(item => {
+          return {
+            id: item,
+            label: item,
+          }
+        }))
       }
     }
 
@@ -300,7 +323,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           console.error('Error: ', error)
         })
       }
-      if (family.length === 0) {
+      if (family?.chat === undefined) {
         getBuiltinFamilies().catch((error) => {
           setErrorMsg(
             error.message ||
@@ -318,6 +341,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
     }
   }, [formData])
+
+  useEffect(() => {
+    if(formData.model_family !== 'your_custom_model') {
+      setFormData({
+        ...formData,
+        model_family: '',
+      })
+    }
+    handleFamilyOptions(formData.model_ability)
+  }, [formData.model_ability])
 
   const customReplacer = (key, value) => {
     if (key === 'chat_template' && value) {
@@ -431,20 +464,26 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const toggleAbility = (ability) => {
     const obj = JSON.parse(JSON.stringify(formData))
     if (formData.model_ability.includes(ability)) {
-      if (ability === 'chat') {
+      if (['chat', 'vision', 'tools'].includes(ability)) {
         delete obj.chat_template
         delete obj.stop_token_ids
         delete obj.stop
       }
       setFormData({
         ...obj,
-        model_ability: formData.model_ability.filter((a) => a !== ability),
+        model_ability: formData.model_ability.filter((item) => {
+          if(ability === 'chat') {
+            return item !== 'chat' && item !== 'vision' && item !== 'tools'
+          }
+          return item !== ability
+        }),
       })
     } else {
-      if (ability === 'chat') {
+      let model_ability = []
+      if (ability === 'chat' || (['vision', 'tools'].includes(ability) && !formData.model_ability.includes('chat'))) {
         if (
           formData.model_family !== '' &&
-          family.includes(formData.model_family)
+          family?.chat?.includes(formData.model_family)
         ) {
           const data = promptStyles.filter(
             (item) => item.name === formData.model_family
@@ -457,17 +496,31 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           obj.stop_token_ids = []
           obj.stop = []
         }
+        ability === 'chat' ? model_ability = [...formData.model_ability, ability] : model_ability = [...formData.model_ability, 'chat', ability]
+      } else {
+        if (ability === 'vision' && formData.model_ability.includes('tools')) {
+          model_ability = [...formData.model_ability.filter(item => item !== 'tools'), 'chat', ability]
+        } else if (ability === 'tools' && formData.model_ability.includes('vision')) {
+          model_ability = [...formData.model_ability.filter(item => item !== 'vision'), 'chat', ability]
+        } else {
+          model_ability = [...formData.model_ability, ability]
+        }
+      }
+      if(ability !== 'generate') {
+        delete obj.chat_template
+        delete obj.stop_token_ids
+        delete obj.stop
       }
       setFormData({
         ...obj,
-        model_ability: [...formData.model_ability, ability],
+        model_ability: model_ability,
       })
     }
   }
 
   const handleFamily = (value) => {
     if (formData.model_ability.includes('chat')) {
-      if (family.includes(value)) {
+      if (family?.chat?.includes(value)) {
         const data = promptStyles.filter((item) => {
           return item.name === value
         })
@@ -624,6 +677,58 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         ...formData,
         stop: value,
       })
+    }
+  }
+
+  const handleFamilyAlert = () => {
+    if(formData.model_ability.includes('vision') && !family?.vision?.includes(formData.model_family)) {
+      return true
+    } else if(formData.model_ability.includes('tools') && !family?.tools?.includes(formData.model_family)) {
+      return true
+    }
+    return false
+  }
+
+  const handleChatTemplateAlert = () => {
+    if(familyOptions?.filter(item => item.id === formData.model_family).length === 0 && !formData.chat_template) {
+      return true
+    }
+    return false
+  }
+
+  const handleFamilyOptions = (model_ability) => {
+    if(model_ability.includes('vision')) {
+      setIsEditableFamily(false)
+      setFamilyOptions(family?.vision?.map(item => {
+        return {
+          id: item,
+          label: item,
+        }
+      }))
+    }else if(model_ability.includes('tools')) {
+      setIsEditableFamily(false)
+      setFamilyOptions(family?.tools?.map(item => {
+        return {
+          id: item,
+          label: item,
+        }
+      }))
+    }else if(model_ability.includes('chat')) {
+      setIsEditableFamily(true)
+      setFamilyOptions(family?.chat?.map(item => {
+        return {
+          id: item,
+          label: item,
+        }
+      }))
+    }else if(model_ability.includes('generate')) {
+      setIsEditableFamily(true)
+      setFamilyOptions(family?.generate?.map(item => {
+        return {
+          id: item,
+          label: item,
+        }
+      }))
     }
   }
 
@@ -906,19 +1011,21 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             <>
               {modelType === 'LLM' && (
                 <>
-                  <TextField
-                    label="Model Family"
-                    error={formData.model_family ? false : true}
-                    value={formData.model_family}
-                    helperText={
-                      formData.model_ability.includes('chat') &&
-                      family.includes(formData.model_family)
-                        ? 'Custom model has the same name as a built-in model, parameters have been automatically filled in.'
-                        : ''
-                    }
+                  <Autocomplete
+                    disableClearable
+                    id="combo-box-demo"
+                    options={familyOptions || []}
                     size="small"
-                    onChange={(event) => {
-                      handleFamily(event.target.value)
+                    
+                    renderInput={(params) => <TextField {...params} helperText={isEditableFamily ? 'You can choose from the built-in models or input your own.' : 'You can only choose from the built-in models.'} InputProps={{...params.InputProps, disabled: !isEditableFamily}} label="Model Family" />}
+                    value={formData.model_family}
+                    onChange={(_, newValue) => {
+                      handleFamily(newValue?.id)
+                    }}
+                    onInputChange={(_, newInputValue) => {
+                      if(isEditableFamily) {
+                        handleFamily(newInputValue)
+                      }
                     }}
                   />
                   <Box padding="15px"></Box>
@@ -961,8 +1068,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               <div className="chat_template_box">
                 <TextField
                   label="Chat Template"
-                  error={formData.chat_template ? false : true}
-                  value={formData.chat_template}
+                  error={handleChatTemplateAlert()}
+                  value={formData.chat_template || ''}
                   size="small"
                   helperText="Please make sure this chat_template passes the test by clicking the TEST button on the right. Please note that this test may not cover all cases and will only be used for the most basic case."
                   multiline
@@ -1196,7 +1303,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 formData.language?.length === 0 ||
                 formData.model_ability?.length === 0 ||
                 (modelType === 'LLM' && !formData.model_family) ||
-                isStopTokenIdsAlert
+                isStopTokenIdsAlert ||
+                handleFamilyAlert()
               }
             >
               Register Model
