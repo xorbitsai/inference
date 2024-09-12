@@ -38,7 +38,7 @@ Model Spec 2 (pytorch, 2 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-2B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-2B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-2B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-2B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-2B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -54,7 +54,7 @@ Model Spec 3 (awq, 2 Billion)
 - **Quantizations:** Int4
 - **Engines**: 
 - **Model ID:** OpenGVLab/InternVL2-2B-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-2B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-2B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-2B-AWQ>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -78,23 +78,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name internvl2 --size-in-billions 4 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (awq, 4 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** awq
-- **Model Size (in billions):** 4
-- **Quantizations:** Int4
-- **Engines**: 
-- **Model ID:** OpenGVLab/InternVL2-8B-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-8B-AWQ>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name internvl2 --size-in-billions 4 --model-format awq --quantization ${quantization}
-
-
-Model Spec 6 (pytorch, 8 Billion)
+Model Spec 5 (pytorch, 8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -102,12 +86,28 @@ Model Spec 6 (pytorch, 8 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-8B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-8B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-8B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-8B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-8B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name internvl2 --size-in-billions 8 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 6 (awq, 8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 8
+- **Quantizations:** Int4
+- **Engines**: 
+- **Model ID:** OpenGVLab/InternVL2-8B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-8B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-8B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name internvl2 --size-in-billions 8 --model-format awq --quantization ${quantization}
 
 
 Model Spec 7 (pytorch, 26 Billion)
@@ -118,7 +118,7 @@ Model Spec 7 (pytorch, 26 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-26B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-26B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-26B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-26B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-26B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -134,7 +134,7 @@ Model Spec 8 (awq, 26 Billion)
 - **Quantizations:** Int4
 - **Engines**: 
 - **Model ID:** OpenGVLab/InternVL2-26B-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-26B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-26B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-26B-AWQ>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -150,7 +150,7 @@ Model Spec 9 (pytorch, 40 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-40B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-40B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-40B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-40B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-40B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -166,7 +166,7 @@ Model Spec 10 (awq, 40 Billion)
 - **Quantizations:** Int4
 - **Engines**: 
 - **Model ID:** OpenGVLab/InternVL2-40B-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-40B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-40B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-40B-AWQ>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -182,7 +182,7 @@ Model Spec 11 (pytorch, 76 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-Llama3-76B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-Llama3-76B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-Llama3-76B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-Llama3-76B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-Llama3-76B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -198,7 +198,7 @@ Model Spec 12 (awq, 76 Billion)
 - **Quantizations:** Int4
 - **Engines**: 
 - **Model ID:** OpenGVLab/InternVL2-Llama3-76B-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-Llama3-76B-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-Llama3-76B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-Llama3-76B-AWQ>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
