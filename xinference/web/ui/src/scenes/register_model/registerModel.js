@@ -334,11 +334,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     if (contrastObj.model_name) {
       deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
     }
-    if(family?.chat?.length) handleFamilyOptions(formData.model_ability)
+    if (family?.chat?.length) handleFamilyOptions(formData.model_ability)
   }, [formData])
 
   useEffect(() => {
-    if(family?.chat?.length) handleFamilyOptions(formData.model_ability)
+    if (family?.chat?.length) handleFamilyOptions(formData.model_ability)
   }, [family])
 
   const customReplacer = (key, value) => {
