@@ -136,7 +136,10 @@ def _install():
     from .transformers.cogvlm2 import CogVLM2Model
     from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchModel
-    from .transformers.deepseek_v2 import DeepSeekV2PytorchChatModel
+    from .transformers.deepseek_v2 import (
+        DeepSeekV2PytorchChatModel,
+        DeepSeekV2PytorchModel,
+    )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.intern_vl import InternVLChatModel
@@ -181,6 +184,7 @@ def _install():
             MiniCPMV25Model,
             MiniCPMV26Model,
             Glm4VModel,
+            DeepSeekV2PytorchModel,
             DeepSeekV2PytorchChatModel,
         ]
     )
