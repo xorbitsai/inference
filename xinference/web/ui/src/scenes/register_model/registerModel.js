@@ -260,27 +260,29 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         )
       } else {
         const data = await response.json()
-        for(let key in data) {
-          data[key] = data[key].sort(function(a, b) {  
-            let lowerA = a.toLowerCase();  
-            let lowerB = b.toLowerCase();  
+        for (let key in data) {
+          data[key] = data[key].sort(function (a, b) {
+            let lowerA = a.toLowerCase()
+            let lowerB = b.toLowerCase()
 
-            if (lowerA < lowerB) {  
-              return -1;  
-            }  
-            if (lowerA > lowerB) {  
-                return 1;  
-            }  
-            return 0;  
-          }); 
+            if (lowerA < lowerB) {
+              return -1
+            }
+            if (lowerA > lowerB) {
+              return 1
+            }
+            return 0
+          })
         }
         setFamily(data)
-        setFamilyOptions(data?.generate?.map(item => {
-          return {
-            id: item,
-            label: item,
-          }
-        }))
+        setFamilyOptions(
+          data?.generate?.map((item) => {
+            return {
+              id: item,
+              label: item,
+            }
+          })
+        )
       }
     }
 
@@ -343,7 +345,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }, [formData])
 
   useEffect(() => {
-    if(formData.model_family !== 'your_custom_model') {
+    if (formData.model_family !== 'your_custom_model') {
       setFormData({
         ...formData,
         model_family: '',
@@ -472,7 +474,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       setFormData({
         ...obj,
         model_ability: formData.model_ability.filter((item) => {
-          if(ability === 'chat') {
+          if (ability === 'chat') {
             return item !== 'chat' && item !== 'vision' && item !== 'tools'
           }
           return item !== ability
@@ -480,7 +482,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       })
     } else {
       let model_ability = []
-      if (ability === 'chat' || (['vision', 'tools'].includes(ability) && !formData.model_ability.includes('chat'))) {
+      if (
+        ability === 'chat' ||
+        (['vision', 'tools'].includes(ability) &&
+          !formData.model_ability.includes('chat'))
+      ) {
         if (
           formData.model_family !== '' &&
           family?.chat?.includes(formData.model_family)
@@ -496,17 +502,30 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           obj.stop_token_ids = []
           obj.stop = []
         }
-        ability === 'chat' ? model_ability = [...formData.model_ability, ability] : model_ability = [...formData.model_ability, 'chat', ability]
+        ability === 'chat'
+          ? (model_ability = [...formData.model_ability, ability])
+          : (model_ability = [...formData.model_ability, 'chat', ability])
       } else {
         if (ability === 'vision' && formData.model_ability.includes('tools')) {
-          model_ability = [...formData.model_ability.filter(item => item !== 'tools'), 'chat', ability]
-        } else if (ability === 'tools' && formData.model_ability.includes('vision')) {
-          model_ability = [...formData.model_ability.filter(item => item !== 'vision'), 'chat', ability]
+          model_ability = [
+            ...formData.model_ability.filter((item) => item !== 'tools'),
+            'chat',
+            ability,
+          ]
+        } else if (
+          ability === 'tools' &&
+          formData.model_ability.includes('vision')
+        ) {
+          model_ability = [
+            ...formData.model_ability.filter((item) => item !== 'vision'),
+            'chat',
+            ability,
+          ]
         } else {
           model_ability = [...formData.model_ability, ability]
         }
       }
-      if(ability !== 'generate') {
+      if (ability !== 'generate') {
         delete obj.chat_template
         delete obj.stop_token_ids
         delete obj.stop
@@ -681,54 +700,72 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleFamilyAlert = () => {
-    if(formData.model_ability.includes('vision') && !family?.vision?.includes(formData.model_family)) {
+    if (
+      formData.model_ability.includes('vision') &&
+      !family?.vision?.includes(formData.model_family)
+    ) {
       return true
-    } else if(formData.model_ability.includes('tools') && !family?.tools?.includes(formData.model_family)) {
+    } else if (
+      formData.model_ability.includes('tools') &&
+      !family?.tools?.includes(formData.model_family)
+    ) {
       return true
     }
     return false
   }
 
   const handleChatTemplateAlert = () => {
-    if(familyOptions?.filter(item => item.id === formData.model_family).length === 0 && !formData.chat_template) {
+    if (
+      familyOptions?.filter((item) => item.id === formData.model_family)
+        .length === 0 &&
+      !formData.chat_template
+    ) {
       return true
     }
     return false
   }
 
   const handleFamilyOptions = (model_ability) => {
-    if(model_ability.includes('vision')) {
+    if (model_ability.includes('vision')) {
       setIsEditableFamily(false)
-      setFamilyOptions(family?.vision?.map(item => {
-        return {
-          id: item,
-          label: item,
-        }
-      }))
-    }else if(model_ability.includes('tools')) {
+      setFamilyOptions(
+        family?.vision?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else if (model_ability.includes('tools')) {
       setIsEditableFamily(false)
-      setFamilyOptions(family?.tools?.map(item => {
-        return {
-          id: item,
-          label: item,
-        }
-      }))
-    }else if(model_ability.includes('chat')) {
+      setFamilyOptions(
+        family?.tools?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else if (model_ability.includes('chat')) {
       setIsEditableFamily(true)
-      setFamilyOptions(family?.chat?.map(item => {
-        return {
-          id: item,
-          label: item,
-        }
-      }))
-    }else if(model_ability.includes('generate')) {
+      setFamilyOptions(
+        family?.chat?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else if (model_ability.includes('generate')) {
       setIsEditableFamily(true)
-      setFamilyOptions(family?.generate?.map(item => {
-        return {
-          id: item,
-          label: item,
-        }
-      }))
+      setFamilyOptions(
+        family?.generate?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
     }
   }
 
@@ -1016,14 +1053,27 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     id="combo-box-demo"
                     options={familyOptions || []}
                     size="small"
-                    
-                    renderInput={(params) => <TextField {...params} helperText={isEditableFamily ? 'You can choose from the built-in models or input your own.' : 'You can only choose from the built-in models.'} InputProps={{...params.InputProps, disabled: !isEditableFamily}} label="Model Family" />}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        helperText={
+                          isEditableFamily
+                            ? 'You can choose from the built-in models or input your own.'
+                            : 'You can only choose from the built-in models.'
+                        }
+                        InputProps={{
+                          ...params.InputProps,
+                          disabled: !isEditableFamily,
+                        }}
+                        label="Model Family"
+                      />
+                    )}
                     value={formData.model_family}
                     onChange={(_, newValue) => {
                       handleFamily(newValue?.id)
                     }}
                     onInputChange={(_, newInputValue) => {
-                      if(isEditableFamily) {
+                      if (isEditableFamily) {
                         handleFamily(newInputValue)
                       }
                     }}
