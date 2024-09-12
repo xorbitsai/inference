@@ -793,6 +793,20 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @request_limit
+    @log_async(logger=logger)
+    async def img2img(
+        self,
+        **kwargs,
+    ):
+        kwargs.pop("request_id", None)
+        if hasattr(self._model, "img2img"):
+            return await self._call_wrapper_json(
+                self._model.img2img,
+                **kwargs,
+            )
+        raise AttributeError(f"Model {self._model.model_spec} is not for img2img.")
+
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
