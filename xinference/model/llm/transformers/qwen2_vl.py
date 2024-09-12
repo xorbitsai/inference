@@ -13,6 +13,7 @@
 # limitations under the License.
 import logging
 import uuid
+import importlib.util
 from typing import Iterator, List, Optional, Union
 
 from ....model.utils import select_device
@@ -59,9 +60,15 @@ class Qwen2VLChatModel(PytorchChatModel):
             self.model_path, trust_remote_code=True
         )
         self._tokenizer = self._processor.tokenizer
-        self._model = Qwen2VLForConditionalGeneration.from_pretrained(
-            self.model_path, device_map=device, trust_remote_code=True
-        ).eval()
+        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+        if flash_attn_installed:
+            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+                self.model_path, torch_dtype="bfloat16", device_map=device, attn_implementation="flash_attention_2", trust_remote_code=True
+            ).eval()
+        else:
+            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+                self.model_path, device_map=device, trust_remote_code=True
+            ).eval()
 
     def _transform_messages(
         self,
