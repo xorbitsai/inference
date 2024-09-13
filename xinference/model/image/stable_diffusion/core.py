@@ -24,7 +24,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import PIL.Image
 import torch
@@ -168,7 +168,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 self._kwargs[text_encoder_name] = text_encoder
                 self._kwargs["device_map"] = "balanced"
 
-        logger.debug("Loading model %s", AutoPipelineModel)
+        logger.debug(
+            "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
+        )
         self._model = AutoPipelineModel.from_pretrained(
             self._model_path,
             **self._kwargs,
@@ -183,11 +185,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._model.enable_attention_slicing()
         self._apply_lora()
 
-    def _get_scheduler(self, sampler_name: str):
+    @staticmethod
+    def _get_scheduler(model: Any, sampler_name: str):
         if not sampler_name:
             return
 
-        assert self._model is not None
+        assert model is not None
 
         import diffusers
 
@@ -195,80 +198,73 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         # to get A1111 <> Diffusers Scheduler mapping
         if sampler_name == "DPM++ 2M":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                self._model.scheduler.config
+                model.scheduler.config
             )
         elif sampler_name == "DPM++ 2M Karras":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                self._model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True
             )
         elif sampler_name == "DPM++ 2M SDE":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                self._model.scheduler.config, algorithm_type="sde-dpmsolver++"
+                model.scheduler.config, algorithm_type="sde-dpmsolver++"
             )
         elif sampler_name == "DPM++ 2M SDE Karras":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                self._model.scheduler.config,
+                model.scheduler.config,
                 algorithm_type="sde-dpmsolver++",
                 use_karras_sigmas=True,
             )
         elif sampler_name == "DPM++ SDE":
             return diffusers.DPMSolverSinglestepScheduler.from_config(
-                self._model.scheduler.config
+                model.scheduler.config
             )
         elif sampler_name == "DPM++ SDE Karras":
             return diffusers.DPMSolverSinglestepScheduler.from_config(
-                self._model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True
             )
         elif sampler_name == "DPM2":
-            return diffusers.KDPM2DiscreteScheduler.from_config(
-                self._model.scheduler.config
-            )
+            return diffusers.KDPM2DiscreteScheduler.from_config(model.scheduler.config)
         elif sampler_name == "DPM2 Karras":
             return diffusers.KDPM2DiscreteScheduler.from_config(
-                self._model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True
             )
         elif sampler_name == "DPM2 a":
             return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
-                self._model.scheduler.config
+                model.scheduler.config
             )
         elif sampler_name == "DPM2 a Karras":
             return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
-                self._model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True
             )
         elif sampler_name == "Euler":
-            return diffusers.EulerDiscreteScheduler.from_config(
-                self._model.scheduler.config
-            )
+            return diffusers.EulerDiscreteScheduler.from_config(model.scheduler.config)
         elif sampler_name == "Euler a":
             return diffusers.EulerAncestralDiscreteScheduler.from_config(
-                self._model.scheduler.config
+                model.scheduler.config
             )
         elif sampler_name == "Heun":
-            return diffusers.HeunDiscreteScheduler.from_config(
-                self._model.scheduler.config
-            )
+            return diffusers.HeunDiscreteScheduler.from_config(model.scheduler.config)
         elif sampler_name == "LMS":
-            return diffusers.LMSDiscreteScheduler.from_config(
-                self._model.scheduler.config
-            )
+            return diffusers.LMSDiscreteScheduler.from_config(model.scheduler.config)
         elif sampler_name == "LMS Karras":
             return diffusers.LMSDiscreteScheduler.from_config(
-                self._model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True
             )
         else:
             raise ValueError(f"Unknown sampler: {sampler_name}")
 
+    @staticmethod
     @contextlib.contextmanager
-    def _reset_when_done(self, sampler_name: str):
-        assert self._model is not None
-        scheduler = self._get_scheduler(sampler_name)
+    def _reset_when_done(model: Any, sampler_name: str):
+        assert model is not None
+        scheduler = DiffusionModel._get_scheduler(model, sampler_name)
         if scheduler:
-            default_scheduler = self._model.scheduler
-            self._model.scheduler = scheduler
+            default_scheduler = model.scheduler
+            model.scheduler = scheduler
             try:
                 yield
             finally:
-                self._model.scheduler = default_scheduler
+                model.scheduler = default_scheduler
         else:
             yield
 
@@ -292,11 +288,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
         assert callable(model)
-        with self._reset_when_done(sampler_name):
-            logger.debug(
-                "stable diffusion args: %s",
-                kwargs,
-            )
+        with self._reset_when_done(model, sampler_name):
+            logger.debug("stable diffusion args: %s, model: %s", kwargs, model)
             images = model(**kwargs).images
 
         # revert padding if padded
