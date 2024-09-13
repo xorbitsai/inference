@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** TheBloke/Llama-2-7B-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-GPTQ>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 7 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** TheBloke/Llama-2-7B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-AWQ>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (gptq, 13 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 13
 - **Quantizations:** Int4
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** TheBloke/Llama-2-13B-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-GPTQ>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (awq, 13 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 13
 - **Quantizations:** Int4
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** TheBloke/Llama-2-13B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-AWQ>`__
 
@@ -180,7 +180,7 @@ Model Spec 11 (gptq, 70 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** TheBloke/Llama-2-70B-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-GPTQ>`__
 
@@ -196,7 +196,7 @@ Model Spec 12 (awq, 70 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** TheBloke/Llama-2-70B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-AWQ>`__
 

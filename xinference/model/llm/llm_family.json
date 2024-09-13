@@ -7020,5 +7020,152 @@
         "<|endoftext|>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Lite",
+        "model_revision": "604d5664dddd88a0433dbae533b7fe9472482de0"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2",
+        "model_revision": "4461458f186c35188585855f28f77af5661ad489"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Lite-Chat",
+        "model_revision": "85864749cd611b4353ce1decdb286193298f64c7"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Chat",
+        "model_revision": "8e3f5f6c2226787e41ba3e9283a06389d178c926"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ 'User: ' + message['content'] + '\n\n' }}{% elif message['role'] == 'assistant' %}{{ 'Assistant: ' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Assistant:' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2-chat-0628",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2-Chat-0628 is an improved version of DeepSeek-V2-Chat. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
+        "model_revision": "5d09e272c2b223830f4e84359cd9dd047a5d7c78"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ '<｜User｜>' + message['content'] }}{% elif message['role'] == 'assistant' %}{{ '<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<｜Assistant｜>' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2.5 is an upgraded version that combines DeepSeek-V2-Chat and DeepSeek-Coder-V2-Instruct. The new model integrates the general and coding abilities of the two previous versions.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2.5",
+        "model_revision": "24b08cb750e0c2757de112d2e16327cb21ed4833"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='') %}{%- for message in messages %}    {%- if message['role'] == 'system' %}        {% set ns.system_prompt = message['content'] %}    {%- endif %}{%- endfor %}{{'<｜begin▁of▁sentence｜>'}}{{ns.system_prompt}}{%- for message in messages %}    {%- if message['role'] == 'user' %}    {%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}    {%- endif %}    {%- if message['role'] == 'assistant' and message['content'] is none %}        {%- set ns.is_tool = false -%}        {%- for tool in message['tool_calls']%}            {%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}            {%- set ns.is_first = true -%}            {%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}                   {%- endif %}        {%- endfor %}    {%- endif %}    {%- if message['role'] == 'assistant' and message['content'] is not none %}        {%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}        {%- set ns.is_tool = false -%}        {%- else %}{{'<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}        {%- endif %}    {%- endif %}    {%- if message['role'] == 'tool' %}        {%- set ns.is_tool = true -%}        {%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}        {%- set ns.is_output_first = false %}        {%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}        {%- endif %}    {%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜>'}}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
   }
 ]

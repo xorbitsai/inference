@@ -38,6 +38,7 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
         concurrency: int,
         request_rate: float,
         api_key: Optional[str] = None,
+        print_error: bool = False,
     ):
         super().__init__(
             api_url,
@@ -46,6 +47,7 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
             stream,
             concurrency,
             api_key,
+            print_error,
         )
         self.request_rate = request_rate
         self.queue = None  # delay the creation of the queue
@@ -118,6 +120,7 @@ def main(args: argparse.Namespace):
         request_rate=args.request_rate,
         concurrency=args.concurrency,
         api_key=args.api_key,
+        print_error=args.print_error,
     )
     asyncio.run(benchmark.run())
 
@@ -173,6 +176,11 @@ if __name__ == "__main__":
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
     parser.add_argument(
         "--stream", action="store_true", help="Enable streaming responses."
+    )
+    parser.add_argument(
+        "--print-error",
+        action="store_true",
+        help="Print detailed error messages if any errors encountered."
     )
     args = parser.parse_args()
     main(args)

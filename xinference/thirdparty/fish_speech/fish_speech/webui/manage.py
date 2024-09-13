@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
+
+os.environ["USE_LIBUV"] = "0"
 import datetime
 import html
 import json
-import os
 import platform
 import shutil
 import signal
@@ -469,7 +471,7 @@ def train_process(
                 "--config-name",
                 "firefly_gan_vq",
                 "--checkpoint-path",
-                "checkpoints/fish-speech-1.2-sft/firefly-gan-vq-fsq-4x1024-42hz-generator.pth",
+                "checkpoints/fish-speech-1.4/firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
             ]
         )
 
@@ -485,7 +487,7 @@ def train_process(
                 "16",
             ]
         )
-        ckpt_path = "checkpoints/fish-speech-1.2-sft/model.pth"
+        ckpt_path = "checkpoints/fish-speech-1.4/model.pth"
         lora_prefix = "lora_" if llama_use_lora else ""
         llama_name = lora_prefix + "text2semantic_" + new_project
         latest = next(
@@ -862,7 +864,7 @@ with gr.Blocks(
                                     minimum=1,
                                     maximum=32,
                                     step=1,
-                                    value=4,
+                                    value=2,
                                 )
                                 llama_data_max_length_slider = gr.Slider(
                                     label=i18n("Maximum Length per Sample"),
@@ -870,7 +872,7 @@ with gr.Blocks(
                                     minimum=1024,
                                     maximum=4096,
                                     step=128,
-                                    value=1024,
+                                    value=2048,
                                 )
                             with gr.Row(equal_height=False):
                                 llama_precision_dropdown = gr.Dropdown(
@@ -925,9 +927,9 @@ with gr.Blocks(
                                         "Type the path or select from the dropdown"
                                     ),
                                     choices=[
-                                        "checkpoints/fish-speech-1.2-sft/model.pth",
+                                        "checkpoints/fish-speech-1.4/model.pth",
                                     ],
-                                    value="checkpoints/fish-speech-1.2-sft/model.pth",
+                                    value="checkpoints/fish-speech-1.4/model.pth",
                                     allow_custom_value=True,
                                     interactive=True,
                                 )
@@ -979,7 +981,7 @@ with gr.Blocks(
                                         "Type the path or select from the dropdown"
                                     ),
                                     choices=list_llama_models(),
-                                    value="checkpoints/fish-speech-1.2-sft",
+                                    value="checkpoints/fish-speech-1.4",
                                     allow_custom_value=True,
                                     interactive=True,
                                 )
@@ -1042,7 +1044,7 @@ with gr.Blocks(
                                         "Type the path or select from the dropdown"
                                     ),
                                     choices=list_decoder_models(),
-                                    value="checkpoints/fish-speech-1.2-sft/firefly-gan-vq-fsq-4x1024-42hz-generator.pth",
+                                    value="checkpoints/fish-speech-1.4/firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
                                     allow_custom_value=True,
                                 )
                                 infer_decoder_config = gr.Dropdown(
@@ -1060,7 +1062,7 @@ with gr.Blocks(
                                     info=i18n(
                                         "Type the path or select from the dropdown"
                                     ),
-                                    value="checkpoints/fish-speech-1.2-sft",
+                                    value="checkpoints/fish-speech-1.4",
                                     choices=list_llama_models(),
                                     allow_custom_value=True,
                                 )

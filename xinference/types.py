@@ -47,7 +47,7 @@ class ImageList(TypedDict):
     data: List[Image]
 
 
-class SDAPITxt2imgResult(TypedDict):
+class SDAPIResult(TypedDict):
     images: List[str]
     parameters: dict
     info: dict

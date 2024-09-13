@@ -67,6 +67,10 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "qwen2-vl-instruct",
     "qwen2-audio",
     "qwen2-audio-instruct",
+    "deepseek-v2",
+    "deepseek-v2-chat",
+    "deepseek-v2.5",
+    "deepseek-v2-chat-0628",
 ]
 
 

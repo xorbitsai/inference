@@ -13,3 +13,5 @@ The following is a list of built-in video models in Xinference:
   
    cogvideox-2b
   
+   cogvideox-5b
+  

@@ -5,7 +5,9 @@
     "model_id": "black-forest-labs/FLUX.1-schnell",
     "model_revision": "768d12a373ed5cc9ef9a9dea7504dc09fcc14842",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image",
+      "inpainting"
     ]
   },
   {
@@ -14,7 +16,9 @@
     "model_id": "black-forest-labs/FLUX.1-dev",
     "model_revision": "01aa605f2c300568dd6515476f04565a954fcb59",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image",
+      "inpainting"
     ]
   },
   {

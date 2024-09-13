@@ -14,6 +14,7 @@
 
 import base64
 import contextlib
+import inspect
 import logging
 import os
 import re
@@ -38,6 +39,25 @@ if TYPE_CHECKING:
     from ..core import ImageModelFamilyV1
 
 logger = logging.getLogger(__name__)
+
+SAMPLING_METHODS = [
+    "default",
+    "DPM++ 2M",
+    "DPM++ 2M Karras",
+    "DPM++ 2M SDE",
+    "DPM++ 2M SDE Karras",
+    "DPM++ SDE",
+    "DPM++ SDE Karras",
+    "DPM2",
+    "DPM2 Karras",
+    "DPM2 a",
+    "DPM2 a Karras",
+    "Euler",
+    "Euler a",
+    "Heun",
+    "LMS",
+    "LMS Karras",
+]
 
 
 class DiffusionModel(SDAPIDiffusionModelMixin):
@@ -262,10 +282,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         from ....device_utils import empty_cache
 
-        logger.debug(
-            "stable diffusion args: %s",
-            kwargs,
-        )
         model = model if model is not None else self._model
         is_padded = kwargs.pop("is_padded", None)
         origin_size = kwargs.pop("origin_size", None)
@@ -277,6 +293,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         sampler_name = kwargs.pop("sampler_name", None)
         assert callable(model)
         with self._reset_when_done(sampler_name):
+            logger.debug(
+                "stable diffusion args: %s",
+                kwargs,
+            )
             images = model(**kwargs).images
 
         # revert padding if padded
@@ -389,12 +409,24 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 width, height = image.size
             kwargs["width"] = width
             kwargs["height"] = height
+        else:
+            # SD3 image2image cannot accept width and height
+            parameters = inspect.signature(model.__call__).parameters  # type: ignore
+            allow_width_height = False
+            for param in parameters.values():
+                if param.kind == inspect.Parameter.VAR_KEYWORD:
+                    allow_width_height = True
+                    break
+            if "width" in parameters or "height" in parameters:
+                allow_width_height = True
+            if allow_width_height:
+                kwargs["width"], kwargs["height"] = image.size
 
+        kwargs["negative_prompt"] = negative_prompt
         self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
             prompt=prompt,
-            negative_prompt=negative_prompt,
             num_images_per_prompt=n,
             response_format=response_format,
             model=model,
@@ -444,11 +476,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             # calculate actual image size after padding
             width, height = image.size
 
+        kwargs["negative_prompt"] = negative_prompt
+        self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
             mask_image=mask_image,
             prompt=prompt,
-            negative_prompt=negative_prompt,
             height=height,
             width=width,
             num_images_per_prompt=n,

@@ -315,6 +315,7 @@ class SupervisorActor(xo.StatelessActor):
     @staticmethod
     async def get_builtin_families() -> Dict[str, List[str]]:
         from ..model.llm.llm_family import (
+            BUILTIN_LLM_FAMILIES,
             BUILTIN_LLM_MODEL_CHAT_FAMILIES,
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
@@ -324,6 +325,11 @@ class SupervisorActor(xo.StatelessActor):
             "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
             "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
             "tools": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
+            "vision": [
+                family.model_name
+                for family in BUILTIN_LLM_FAMILIES
+                if "vision" in family.model_ability
+            ],
         }
 
     async def get_devices_count(self) -> int:
