@@ -549,6 +549,32 @@ def generate_completion_chunk(
     )
 
 
+def generate_completion(
+    model_uid: str,
+    response: str,
+    prompt_tokens=-1,
+    completion_tokens=-1,
+    total_tokens=-1,
+    finish_reason="stop",
+) -> Completion:
+    return Completion(
+        id=str(uuid.uuid1()),
+        object="text_completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=[
+            CompletionChoice(
+                text=response, index=0, logprobs=None, finish_reason=finish_reason
+            )
+        ],
+        usage=CompletionUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        ),
+    )
+
+
 def generate_chat_completion(
     model_uid: str,
     response: str,
