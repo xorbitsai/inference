@@ -104,6 +104,7 @@ VLLM_SUPPORTED_MODELS = [
     "code-llama-python",
     "deepseek",
     "deepseek-coder",
+    "yi-coder",
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
@@ -130,6 +131,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "codegeex4",
     "deepseek-chat",
     "deepseek-coder-instruct",
+    "yi-coder-chat",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
