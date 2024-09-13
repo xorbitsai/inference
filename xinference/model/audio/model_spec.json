@@ -148,10 +148,10 @@
     "multilingual": true
   },
   {
-    "model_name": "FishSpeech-1.2-SFT",
+    "model_name": "FishSpeech-1.4",
     "model_family": "FishAudio",
-    "model_id": "fishaudio/fish-speech-1.2-sft",
-    "model_revision": "180288e21ec5c50cfc564023a22f789e4b88a0e0",
+    "model_id": "fishaudio/fish-speech-1.4",
+    "model_revision": "3c49651b8e583b6b13f55e375432e0d57e1aa84d",
     "model_ability": "text-to-audio",
     "multilingual": true
   }
