@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-import uuid
 import importlib.util
+import logging
+import sys
+import uuid
 from typing import Iterator, List, Optional, Union
 
 from ....model.utils import select_device
@@ -63,7 +64,11 @@ class Qwen2VLChatModel(PytorchChatModel):
         flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
         if flash_attn_installed:
             self._model = Qwen2VLForConditionalGeneration.from_pretrained(
-                self.model_path, torch_dtype="bfloat16", device_map=device, attn_implementation="flash_attention_2", trust_remote_code=True
+                self.model_path,
+                torch_dtype="bfloat16",
+                device_map=device,
+                attn_implementation="flash_attention_2",
+                trust_remote_code=True,
             ).eval()
         else:
             self._model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -184,8 +189,18 @@ class Qwen2VLChatModel(PytorchChatModel):
             "streamer": streamer,
             **inputs,
         }
+        error = None
 
-        thread = Thread(target=self._model.generate, kwargs=gen_kwargs)
+        def model_generate():
+            try:
+                return self._model.generate(**gen_kwargs)
+            except Exception:
+                nonlocal error
+                error = sys.exc_info()
+                streamer.end()
+                raise
+
+        thread = Thread(target=model_generate)
         thread.start()
 
         completion_id = str(uuid.uuid1())
@@ -201,6 +216,10 @@ class Qwen2VLChatModel(PytorchChatModel):
                 has_choice=True,
                 has_content=True,
             )
+
+        if error:
+            _, err, tb = error  # type: ignore
+            raise err.with_traceback(tb)
 
         yield generate_completion_chunk(
             chunk_text=None,
