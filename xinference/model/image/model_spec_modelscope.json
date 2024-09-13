@@ -6,7 +6,9 @@
     "model_id": "AI-ModelScope/FLUX.1-schnell",
     "model_revision": "master",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image",
+      "inpainting"
     ]
   },
   {
@@ -16,7 +18,9 @@
     "model_id": "AI-ModelScope/FLUX.1-dev",
     "model_revision": "master",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image",
+      "inpainting"
     ]
   },
   {

@@ -14,6 +14,7 @@
 
 import base64
 import contextlib
+import inspect
 import logging
 import os
 import re
@@ -408,12 +409,24 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 width, height = image.size
             kwargs["width"] = width
             kwargs["height"] = height
+        else:
+            # SD3 image2image cannot accept width and height
+            parameters = inspect.signature(model.__call__).parameters  # type: ignore
+            allow_width_height = False
+            for param in parameters.values():
+                if param.kind == inspect.Parameter.VAR_KEYWORD:
+                    allow_width_height = True
+                    break
+            if "width" in parameters or "height" in parameters:
+                allow_width_height = True
+            if allow_width_height:
+                kwargs["width"], kwargs["height"] = image.size
 
+        kwargs["negative_prompt"] = negative_prompt
         self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
             prompt=prompt,
-            negative_prompt=negative_prompt,
             num_images_per_prompt=n,
             response_format=response_format,
             model=model,
@@ -463,11 +476,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             # calculate actual image size after padding
             width, height = image.size
 
+        kwargs["negative_prompt"] = negative_prompt
+        self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
             mask_image=mask_image,
             prompt=prompt,
-            negative_prompt=negative_prompt,
             height=height,
             width=width,
             num_images_per_prompt=n,
