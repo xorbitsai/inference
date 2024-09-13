@@ -104,6 +104,7 @@ VLLM_SUPPORTED_MODELS = [
     "code-llama-python",
     "deepseek",
     "deepseek-coder",
+    "yi-coder-chat"
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
