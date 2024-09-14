@@ -136,12 +136,17 @@ def _install():
     from .transformers.cogvlm2 import CogVLM2Model
     from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchModel
+    from .transformers.deepseek_v2 import (
+        DeepSeekV2PytorchChatModel,
+        DeepSeekV2PytorchModel,
+    )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
+    from .transformers.qwen2_audio import Qwen2AudioChatModel
     from .transformers.qwen2_vl import Qwen2VLChatModel
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
@@ -173,6 +178,7 @@ def _install():
             Internlm2PytorchChatModel,
             QwenVLChatModel,
             Qwen2VLChatModel,
+            Qwen2AudioChatModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
             InternVLChatModel,
@@ -182,6 +188,8 @@ def _install():
             MiniCPMV25Model,
             MiniCPMV26Model,
             Glm4VModel,
+            DeepSeekV2PytorchModel,
+            DeepSeekV2PytorchChatModel,
         ]
     )
     if OmniLMMModel:  # type: ignore
