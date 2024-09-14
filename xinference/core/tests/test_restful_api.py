@@ -1277,6 +1277,28 @@ def test_restful_api_for_qwen_audio(setup):
     payload = {
         "model": model_uid_res,
         "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "audio",
+                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/glass-breaking-151256.mp3",
+                    },
+                    {"type": "text", "text": "What's that sound?"},
+                ],
+            },
+            {"role": "assistant", "content": "It is the sound of glass shattering."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What can you do when you hear that?"},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": "Stay alert and cautious, and check if anyone is hurt or if there is any damage to property.",
+            },
             {
                 "role": "user",
                 "content": [
@@ -1291,4 +1313,4 @@ def test_restful_api_for_qwen_audio(setup):
     }
     response = requests.post(url, json=payload)
     completion = response.json()
-    print(completion)
+    assert len(completion["choices"][0]["message"]) > 0
