@@ -30,7 +30,7 @@ class SDAPIToDiffusersConverter:
     txt2img_arg_mapping = {
         "steps": "num_inference_steps",
         "cfg_scale": "guidance_scale",
-        "denoising_strength": "strength",
+        # "denoising_strength": "strength",
     }
     img2img_identical_args = {
         "prompt",
