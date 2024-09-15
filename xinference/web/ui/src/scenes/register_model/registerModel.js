@@ -686,12 +686,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const handleFamilyAlert = () => {
     if (
-      formData.model_ability.includes('vision') &&
+      formData.model_ability?.includes('vision') &&
       !family?.vision?.includes(formData.model_family)
     ) {
       return true
     } else if (
-      formData.model_ability.includes('tools') &&
+      formData.model_ability?.includes('tools') &&
       !family?.tools?.includes(formData.model_family)
     ) {
       return true
