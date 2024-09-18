@@ -132,13 +132,13 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "deepseek-chat",
     "deepseek-coder-instruct",
     "yi-coder-chat",
-    "qwen2.5-instruct",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
     VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -151,6 +151,12 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
+
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
