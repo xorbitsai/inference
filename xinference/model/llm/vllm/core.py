@@ -138,6 +138,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
