@@ -68,6 +68,7 @@ SGLANG_SUPPORTED_MODELS = [
     "llama-3.1",
     "mistral-v0.1",
     "mixtral-v0.1",
+    "qwen2.5",
     "qwen2.5-coder",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
