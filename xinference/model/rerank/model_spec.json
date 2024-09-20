@@ -54,5 +54,13 @@
     "max_tokens": 1024,
     "model_id": "jinaai/jina-reranker-v2-base-multilingual",
     "model_revision": "298e48cada4a9318650d7fbd795f63827f884087"
+  },
+  {
+    "model_name": "minicpm-reranker",
+    "type": "normal",
+    "language": ["en", "zh"],
+    "max_tokens": 1024,
+    "model_id": "openbmb/MiniCPM-Reranker",
+    "model_revision": "5d2fd7345b6444c89d4c0fa59c92272888f3f2d0"
   }
 ]
