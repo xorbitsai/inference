@@ -6898,26 +6898,7 @@
         "quantizations":[
           "none"
         ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct",
-        "model_revision":"90dedb51b95297ff7bec3885e180b83cea06089c"
-      },
-      {
-        "model_format":"gptq",
-        "model_size_in_billions":72,
-        "quantizations":[
-          "Int4"
-        ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct-GPTQ-Int4",
-        "model_revision":"06319c2091e3b7e45c205337f30012115a2291c3"
-      },
-      {
-        "model_format":"gptq",
-        "model_size_in_billions":72,
-        "quantizations":[
-          "Int8"
-        ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct-GPTQ-Int8",
-        "model_revision":"2a3f54c94da746598bb597309af114d6c3c53f8b"
+        "model_id":"Qwen/Qwen2-VL-72B-Instruct"
       },
       {
         "model_format":"awq",
@@ -6925,8 +6906,16 @@
         "quantizations":[
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct-AWQ",
-        "model_revision":"c976102246961385588c7f331f2a05850fef328c"
+        "model_id":"Qwen/Qwen2-VL-72B-Instruct-AWQ"
+      },
+      {
+        "model_format":"gptq",
+        "model_size_in_billions":72,
+        "quantizations":[
+          "Int4",
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
       }
     ],
     "prompt_style":{
