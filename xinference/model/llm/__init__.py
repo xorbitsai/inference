@@ -121,7 +121,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_llm_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
+                    user_defined_llm_family = CustomLLMFamilyV1.parse_raw(fd.read())
                     register_llm(user_defined_llm_family, persist=False)
             except Exception as e:
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
