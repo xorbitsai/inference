@@ -8008,7 +8008,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+        "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct"
       },
       {
         "model_format": "pytorch",
@@ -8018,7 +8018,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct"
       },
       {
         "model_format": "ggufv2",
