@@ -126,6 +126,26 @@ The following is a list of built-in LLM in Xinference:
      - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
+   * - :ref:`deepseek-v2 <models_llm_deepseek-v2>`
+     - generate
+     - 128000
+     - DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. 
+
+   * - :ref:`deepseek-v2-chat <models_llm_deepseek-v2-chat>`
+     - chat
+     - 128000
+     - DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. 
+
+   * - :ref:`deepseek-v2-chat-0628 <models_llm_deepseek-v2-chat-0628>`
+     - chat
+     - 128000
+     - DeepSeek-V2-Chat-0628 is an improved version of DeepSeek-V2-Chat. 
+
+   * - :ref:`deepseek-v2.5 <models_llm_deepseek-v2.5>`
+     - chat
+     - 128000
+     - DeepSeek-V2.5 is an upgraded version that combines DeepSeek-V2-Chat and DeepSeek-Coder-V2-Instruct. The new model integrates the general and coding abilities of the two previous versions.
+
    * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
      - chat, vision
      - 4096
@@ -371,6 +391,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`qwen2-audio <models_llm_qwen2-audio>`
+     - chat, audio
+     - 32768
+     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
+
+   * - :ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`
+     - chat, audio
+     - 32768
+     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
+
    * - :ref:`qwen2-instruct <models_llm_qwen2-instruct>`
      - chat, tools
      - 32768
@@ -385,6 +415,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 32768
      - Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.
+
+   * - :ref:`qwen2.5-instruct <models_llm_qwen2.5-instruct>`
+     - chat, tools
+     - 131072
+     - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
@@ -471,6 +506,16 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - The Yi series models are large language models trained from scratch by developers at 01.AI.
 
+   * - :ref:`yi-coder <models_llm_yi-coder>`
+     - generate
+     - 131072
+     - Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.Excelling in long-context understanding with a maximum context length of 128K tokens.Supporting 52 major programming languages, including popular ones such as Java, Python, JavaScript, and C++.
+
+   * - :ref:`yi-coder-chat <models_llm_yi-coder-chat>`
+     - chat
+     - 131072
+     - Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.Excelling in long-context understanding with a maximum context length of 128K tokens.Supporting 52 major programming languages, including popular ones such as Java, Python, JavaScript, and C++.
+
    * - :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
      - chat, vision
      - 4096
@@ -524,6 +569,14 @@ The following is a list of built-in LLM in Xinference:
    deepseek-coder
   
    deepseek-coder-instruct
+  
+   deepseek-v2
+  
+   deepseek-v2-chat
+  
+   deepseek-v2-chat-0628
+  
+   deepseek-v2.5
   
    deepseek-vl-chat
   
@@ -623,11 +676,17 @@ The following is a list of built-in LLM in Xinference:
   
    qwen1.5-moe-chat
   
+   qwen2-audio
+  
+   qwen2-audio-instruct
+  
    qwen2-instruct
   
    qwen2-moe-instruct
   
    qwen2-vl-instruct
+  
+   qwen2.5-instruct
   
    seallm_v2
   
@@ -662,6 +721,10 @@ The following is a list of built-in LLM in Xinference:
    yi-200k
   
    yi-chat
+  
+   yi-coder
+  
+   yi-coder-chat
   
    yi-vl-chat
   
