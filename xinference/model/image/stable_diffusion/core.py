@@ -32,7 +32,7 @@ import torch
 from PIL import ImageOps
 
 from ....constants import XINFERENCE_IMAGE_DIR
-from ....device_utils import move_model_to_available_device
+from ....device_utils import get_available_device, move_model_to_available_device
 from ....types import Image, ImageList, LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
 
@@ -72,8 +72,9 @@ def model_accept_param(params: Union[str, List[str]], model: Any) -> bool:
             # we treat it as it can accept any parameters
             allow_params = True
             break
-    if all(param in parameters for param in params):
-        allow_params = True
+    if not allow_params:
+        if all(param in parameters for param in params):
+            allow_params = True
     return allow_params
 
 
@@ -300,7 +301,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         origin_size = kwargs.pop("origin_size", None)
         seed = kwargs.pop("seed", None)
         if seed is not None:
-            kwargs["generator"] = generator = torch.Generator(device=model.device)  # type: ignore
+            kwargs["generator"] = generator = torch.Generator(device=get_available_device())  # type: ignore
             if seed != -1:
                 kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
