@@ -5789,6 +5789,7 @@
           "q6_k",
           "q8_0"
         ],
+        "model_hub": "modelscope",
         "model_id": "qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
         "model_file_name_template": "qwen2.5-coder-1.5b-instruct-{quantization}.gguf"
       },
@@ -5805,6 +5806,7 @@
           "q6_k",
           "q8_0"
         ],
+        "model_hub": "modelscope",
         "model_id": "qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
         "model_file_name_template": "qwen2.5-coder-7b-instruct-{quantization}.gguf",
         "model_file_name_split_template": "qwen2.5-coder-7b-instruct-{quantization}-{part}.gguf",
