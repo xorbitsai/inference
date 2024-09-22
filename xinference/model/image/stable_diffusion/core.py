@@ -15,6 +15,7 @@
 import base64
 import contextlib
 import inspect
+import itertools
 import logging
 import os
 import re
@@ -25,7 +26,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import PIL.Image
 import torch
@@ -98,8 +99,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         # for image2image and inpainting,
         # we convert to the corresponding model
         self._model = None
-        self._i2i_model = None  # image to image model
-        self._inpainting_model = None  # inpainting model
+        self._ability_to_models: Dict[Tuple[str, Any], Any] = {}
+        self._controlnet_models: Dict[str, Any] = {}
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
@@ -110,6 +111,62 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
     @property
     def model_ability(self):
         return self._abilities
+
+    @staticmethod
+    def _get_pipeline_type(ability: str) -> type:
+        if ability == "text2image":
+            from diffusers import AutoPipelineForText2Image as AutoPipelineModel
+        elif ability == "image2image":
+            from diffusers import AutoPipelineForImage2Image as AutoPipelineModel
+        elif ability == "inpainting":
+            from diffusers import AutoPipelineForInpainting as AutoPipelineModel
+        else:
+            raise ValueError(f"Unknown ability: {ability}")
+        return AutoPipelineModel
+
+    def _get_controlnet_model(self, name: str, path: str):
+        from diffusers import ControlNetModel
+
+        try:
+            return self._controlnet_models[name]
+        except KeyError:
+            logger.debug("Loading controlnet %s, from %s", name, path)
+            model = ControlNetModel.from_pretrained(path)
+            self._controlnet_models[name] = model
+            return model
+
+    def _get_model(
+        self,
+        ability: str,
+        controlnet_name: Optional[Union[str, List[str]]] = None,
+        controlnet_path: Optional[Union[str, List[str]]] = None,
+    ):
+        try:
+            return self._ability_to_models[ability, controlnet_name]
+        except KeyError:
+            model_type = self._get_pipeline_type(ability)
+
+        assert self._model is not None
+
+        if controlnet_name:
+            assert controlnet_path
+            if isinstance(controlnet_name, (list, tuple)):
+                controlnet = []
+                # multiple controlnet
+                for name, path in itertools.zip_longest(
+                    controlnet_name, controlnet_path
+                ):
+                    controlnet.append(self._get_controlnet_model(name, path))
+            else:
+                controlnet = self._get_controlnet_model(
+                    controlnet_name, controlnet_path
+                )
+            model = model_type.from_pipe(self._model, controlnet=controlnet)
+        else:
+            model = model_type.from_pipe(self._model)
+
+        self._ability_to_models[ability, controlnet_name] = model
+        return model
 
     def _apply_lora(self):
         if self._lora_model is not None:
@@ -134,10 +191,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         controlnet = self._kwargs.get("controlnet")
         if controlnet is not None:
-            from diffusers import ControlNetModel
-
-            logger.debug("Loading controlnet %s", controlnet)
-            self._kwargs["controlnet"] = ControlNetModel.from_pretrained(controlnet)
+            if isinstance(controlnet, tuple):
+                self._kwargs["controlnet"] = self._get_controlnet_model(*controlnet)
+            else:
+                self._kwargs["controlnet"] = [
+                    self._get_controlnet_model(*cn) for cn in controlnet
+                ]
 
         torch_dtype = self._kwargs.get("torch_dtype")
         if sys.platform != "darwin" and torch_dtype is None:
@@ -412,16 +471,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if "controlnet" in self._kwargs:
             model = self._model
         else:
-            if "image2image" not in self._abilities:
+            ability = "image2image"
+            if ability not in self._abilities:
                 raise RuntimeError(f"{self._model_uid} does not support image2image")
-            if self._i2i_model is not None:
-                model = self._i2i_model
-            else:
-                from diffusers import AutoPipelineForImage2Image
-
-                self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(
-                    self._model
-                )
+            model = self._get_model(ability)
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
@@ -462,20 +515,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        if "inpainting" not in self._abilities:
+        ability = "inpainting"
+        if ability not in self._abilities:
             raise RuntimeError(f"{self._model_uid} does not support inpainting")
 
         if (
             "text2image" in self._abilities or "image2image" in self._abilities
         ) and self._model is not None:
-            from diffusers import AutoPipelineForInpainting
-
-            if self._inpainting_model is not None:
-                model = self._inpainting_model
-            else:
-                model = self._inpainting_model = AutoPipelineForInpainting.from_pipe(
-                    self._model
-                )
+            model = self._get_model(ability)
         else:
             model = self._model
 
