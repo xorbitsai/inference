@@ -280,6 +280,8 @@ const AddModelSpecs = ({
                     new Set([...quantizationAlertId, item.id])
                   )
                   setQuantizationAlertId(quantizationAlertIdArr)
+                } else {
+                  setQuantizationAlertId([])
                 }
               }}
             >
