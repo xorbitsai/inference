@@ -136,6 +136,7 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
     def _handle_request(self) -> Optional[List[Text2ImageRequest]]:
         if self._model is None:
             return None
+        # TODO: consider each request's n
         max_num_seqs = self._model.get_max_num_seqs_for_batching()
         # currently, FCFS strategy
         running_list: List[Text2ImageRequest] = []
@@ -333,18 +334,23 @@ def _batch_text_to_image(
         img_ids=static_tensors["latent_image_ids"],
         joint_attention_kwargs=None,
         return_dict=False,
-    )
-    noise_pred = noise_pred[0]
-    latents = model_cls._model.scheduler.step(
-        noise_pred, timestep, static_tensors["latents"], return_dict=False
-    )
-    latents = latents[0]
+    )[0]
     # update latents
     start_idx = 0
     for r in req_list:
         n = r.n
-        r.static_tensors["latents"] = latents[start_idx : start_idx + n, ::]
+        # handle diffusion scheduler step
+        with model_cls._reset_when_done(
+            model_cls._model, r.generate_kwargs.get("sampler_name", None)
+        ):
+            _noise_pred = noise_pred[start_idx : start_idx + n, ::]
+            _timestep = timestep[start_idx]
+            latents_out = model_cls._model.scheduler.step(
+                _noise_pred, _timestep, r.static_tensors["latents"], return_dict=False
+            )[0]
+            r.static_tensors["latents"] = latents_out
         start_idx += n
+        print(f"=====Done one step")
 
         # process result
         if r.done_steps == r.total_steps:
