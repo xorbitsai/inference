@@ -141,7 +141,15 @@ class EmbeddingModel:
 
     def load(self):
         try:
+            import sentence_transformers
             from sentence_transformers import SentenceTransformer
+
+            if sentence_transformers.__version__ < "3.1.0":
+                raise ValueError(
+                    "The sentence_transformers version must be greater than 3.1.0. "
+                    "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
+                    "https://github.com/UKPLab/sentence-transformers"
+                )
         except ImportError:
             error_message = "Failed to import module 'SentenceTransformer'"
             installation_guide = [
@@ -191,13 +199,22 @@ class EmbeddingModel:
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
             self._model = SentenceTransformer(
-                self._model_path, device=self._device, model_kwargs=model_kwargs
+                self._model_path,
+                device=self._device,
+                model_kwargs=model_kwargs,
+                trust_remote_code=True,
             )
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
+        if (
+            "jina" in self._model_spec.model_name.lower()
+            and "v3" in self._model_spec.model_name.lower()
+        ):
+            kwargs.setdefault("task", "retrieval.query")
+            kwargs.setdefault("prompt_name", "retrieval.query")
 
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
@@ -213,6 +230,7 @@ class EmbeddingModel:
             convert_to_tensor: bool = False,
             device: str = None,
             normalize_embeddings: bool = False,
+            **kwargs,
         ):
             """
             Computes sentence embeddings
@@ -317,7 +335,7 @@ class EmbeddingModel:
                 all_token_nums += features["attention_mask"].sum().item()
 
                 with torch.no_grad():
-                    out_features = model.forward(features)
+                    out_features = model.forward(features, **kwargs)
 
                     if output_value == "token_embeddings":
                         embeddings = []

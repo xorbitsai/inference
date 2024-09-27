@@ -180,7 +180,15 @@ class RerankModel:
     def load(self):
         if self._model_spec.type == "normal":
             try:
+                import sentence_transformers
                 from sentence_transformers.cross_encoder import CrossEncoder
+
+                if sentence_transformers.__version__ < "3.1.0":
+                    raise ValueError(
+                        "The sentence_transformers version must be greater than 3.1.0. "
+                        "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
+                        "https://github.com/UKPLab/sentence-transformers"
+                    )
             except ImportError:
                 error_message = "Failed to import module 'sentence-transformers'"
                 installation_guide = [
