@@ -773,8 +773,6 @@ class ModelActor(xo.StatelessActor):
         **kwargs,
     ):
         kwargs.pop("request_id", None)
-        # {'num_inference_steps': 50, 'guidance_scale': None, 'negative_prompt': '', 'sampler_name': None}
-        print(f"====== text_to_image kwargs: {kwargs}")
         if True:
             return await self.handle_image_batching_request(
                 prompt, n, size, response_format, *args, **kwargs
