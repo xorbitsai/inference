@@ -181,9 +181,6 @@ class EmbeddingModel:
                 )
                 torch_dtype = torch.float32
 
-        from ..utils import patch_trust_remote_code
-
-        patch_trust_remote_code()
         if (
             "gte" in self._model_spec.model_name.lower()
             and "qwen2" in self._model_spec.model_name.lower()
@@ -209,12 +206,6 @@ class EmbeddingModel:
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
-        if (
-            "jina" in self._model_spec.model_name.lower()
-            and "v3" in self._model_spec.model_name.lower()
-        ):
-            kwargs.setdefault("task", "retrieval.query")
-            kwargs.setdefault("prompt_name", "retrieval.query")
 
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
