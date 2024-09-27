@@ -218,8 +218,11 @@ class ModelActor(xo.StatelessActor):
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
         self._scheduler_ref = None
+        self._text_to_image_scheduler_ref = None
 
     async def __post_create__(self):
+        from ..model.image.scheduler.flux import FluxBatchSchedulerActor
+
         self._loop = asyncio.get_running_loop()
 
         if self.allow_batching():
@@ -230,6 +233,12 @@ class ModelActor(xo.StatelessActor):
                 address=self.address,
                 uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
             )
+
+        self._text_to_image_scheduler_ref = await xo.create_actor(
+            FluxBatchSchedulerActor,
+            address=self.address,
+            uid=FluxBatchSchedulerActor.gen_uid(self.model_uid()),
+        )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -334,6 +343,7 @@ class ModelActor(xo.StatelessActor):
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
             )
+        await self._text_to_image_scheduler_ref.set_model(self._model)
 
     def model_uid(self):
         return (
@@ -743,6 +753,14 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating speech."
         )
 
+    async def handle_image_batching_request(self, *args, **kwargs):
+        assert self._loop is not None
+        future = ConcurrentFuture()
+        await self._text_to_image_scheduler_ref.add_request(future, *args, **kwargs)
+        fut = asyncio.wrap_future(future, loop=self._loop)
+        result = await fut
+        return await asyncio.to_thread(json_dumps, result)
+
     @request_limit
     @log_async(logger=logger)
     async def text_to_image(
@@ -754,23 +772,31 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if hasattr(self._model, "text_to_image"):
-            progressor = kwargs["progressor"] = await self._get_progressor(
-                kwargs.pop("request_id", None)
+        kwargs.pop("request_id", None)
+        # {'num_inference_steps': 50, 'guidance_scale': None, 'negative_prompt': '', 'sampler_name': None}
+        print(f"====== text_to_image kwargs: {kwargs}")
+        if True:
+            return await self.handle_image_batching_request(
+                prompt, n, size, response_format, *args, **kwargs
             )
-            with progressor:
-                return await self._call_wrapper_json(
-                    self._model.text_to_image,
-                    prompt,
-                    n,
-                    size,
-                    response_format,
-                    *args,
-                    **kwargs,
+        else:
+            if hasattr(self._model, "text_to_image"):
+                progressor = kwargs["progressor"] = await self._get_progressor(
+                    kwargs.pop("request_id", None)
                 )
-        raise AttributeError(
-            f"Model {self._model.model_spec} is not for creating image."
-        )
+                with progressor:
+                    return await self._call_wrapper_json(
+                        self._model.text_to_image,
+                        prompt,
+                        n,
+                        size,
+                        response_format,
+                        *args,
+                        **kwargs,
+                    )
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for creating image."
+            )
 
     @request_limit
     @log_async(logger=logger)
