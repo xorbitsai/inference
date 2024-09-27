@@ -171,6 +171,10 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
+    VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
+    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.2-vision-instruct")    
+
 
 class VLLMModel(LLM):
     def __init__(
