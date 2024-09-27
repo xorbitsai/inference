@@ -32,7 +32,7 @@ bitsandbytes
 protobuf
 einops
 tiktoken
-sentence-transformers>=2.7.0
+sentence-transformers>=3.1.0
 diffusers>=0.30.0
 controlnet_aux
 orjson
