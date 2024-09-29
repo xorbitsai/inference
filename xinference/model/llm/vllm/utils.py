@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def vllm_check(fn):
-    from vllm.engine.async_llm_engine import AsyncEngineDeadError
+    try:
+        from vllm.engine.async_llm_engine import AsyncEngineDeadError
+    except:
+        return fn
 
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
