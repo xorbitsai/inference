@@ -145,25 +145,34 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         self._waiting_queue.append(req)
 
     def _handle_request(self) -> Optional[List[Text2ImageRequest]]:
+        """
+        Every request may generate `n>=1` images.
+        Here we need to decide whether to wait or not based on the value of `n` of each request.
+        """
         if self._model is None:
             return None
-        # TODO: consider each request's n
         max_num_images = self._model.get_max_num_images_for_batching()
+        cur_num_images = 0
         # currently, FCFS strategy
         running_list: List[Text2ImageRequest] = []
         while len(self._running_queue) > 0:
-            if len(running_list) == max_num_images:
-                break
             req = self._running_queue.popleft()
             running_list.append(req)
+            cur_num_images += req.n
 
         waiting_list: List[Text2ImageRequest] = []
-        if len(running_list) < max_num_images:
-            while len(self._waiting_queue) > 0:
-                req = self._waiting_queue.popleft()
-                waiting_list.append(req)
-                if len(running_list) + len(waiting_list) == max_num_images:
-                    break
+        while len(self._waiting_queue) > 0:
+            req = self._waiting_queue[0]
+            if req.n + cur_num_images <= max_num_images:
+                waiting_list.append(self._waiting_queue.popleft())
+                cur_num_images += req.n
+            else:
+                logger.warning(
+                    f"Current queue is full, with an upper limit of max_num_images: {max_num_images}. "
+                    f"Requests will continue to wait."
+                )
+                break
+
         return waiting_list + running_list
 
     @staticmethod
