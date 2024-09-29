@@ -355,7 +355,7 @@ class ModelActor(xo.StatelessActor):
         from ..model.image.stable_diffusion.core import DiffusionModel
 
         assert isinstance(self._model, DiffusionModel)
-        model_name = self._model._model_spec.model_name
+        model_name = self._model._model_spec.model_name  # type: ignore
         condition = XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None
 
         if condition:
