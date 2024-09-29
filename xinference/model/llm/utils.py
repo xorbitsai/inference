@@ -163,9 +163,6 @@ class ChatModelMixin:
                     if len(image_futures) == 0:
                         ret += role + "\n" + text + intra_message_sep + "\n"
                     else:
-                        logger.info(
-                            f"images:{type(images)}, image_futures:{type(image_futures)}"
-                        )
                         placeholders = "\n".join(
                             f"Image-{i+1}: <image>\n"
                             for i in range(
