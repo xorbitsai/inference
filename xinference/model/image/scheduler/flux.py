@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 class Text2ImageRequest:
     def __init__(
         self,
+        unique_id,
         future,
         prompt: str,
         n: int,
@@ -42,6 +43,7 @@ class Text2ImageRequest:
         *args,
         **kwargs,
     ):
+        self._unique_id = unique_id
         self.future = future
         self._prompt = prompt
         self._n = n
@@ -99,6 +101,13 @@ class Text2ImageRequest:
     def generate_kwargs(self):
         return self._generate_kwargs
 
+    @property
+    def unique_id(self):
+        """
+        For log recording.
+        """
+        return self._unique_id
+
 
 class FluxBatchSchedulerActor(xo.StatelessActor):
     @classmethod
@@ -129,8 +138,8 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         self._isolation.start()
         asyncio.run_coroutine_threadsafe(self.run(), loop=self._isolation.loop)
 
-    async def add_request(self, future, *args, **kwargs):
-        req = Text2ImageRequest(future, *args, **kwargs)
+    async def add_request(self, unique_id: str, future, *args, **kwargs):
+        req = Text2ImageRequest(unique_id, future, *args, **kwargs)
         self._waiting_queue.append(req)
 
     def _handle_request(self) -> Optional[List[Text2ImageRequest]]:
@@ -279,21 +288,28 @@ def _batch_text_to_image(
             # Prepare timesteps
             sigmas = np.linspace(1.0, 1 / num_inference_steps, num_inference_steps)
             image_seq_len = latents.shape[1]
-            mu = calculate_shift(
-                image_seq_len,
-                model_cls._model.scheduler.config.base_image_seq_len,
-                model_cls._model.scheduler.config.max_image_seq_len,
-                model_cls._model.scheduler.config.base_shift,
-                model_cls._model.scheduler.config.max_shift,
-            )
-            timesteps, num_inference_steps = retrieve_timesteps(
-                model_cls._model.scheduler,
-                num_inference_steps,
-                device,
-                timesteps,
-                sigmas,
-                mu=mu,
-            )
+
+            with model_cls._reset_when_done(
+                model_cls._model, r.generate_kwargs.get("sampler_name", None)
+            ):
+                """
+                Each request may have its own scheduler (sampler_name)
+                """
+                mu = calculate_shift(
+                    image_seq_len,
+                    model_cls._model.scheduler.config.base_image_seq_len,
+                    model_cls._model.scheduler.config.max_image_seq_len,
+                    model_cls._model.scheduler.config.base_shift,
+                    model_cls._model.scheduler.config.max_shift,
+                )
+                timesteps, num_inference_steps = retrieve_timesteps(
+                    model_cls._model.scheduler,
+                    num_inference_steps,
+                    device,
+                    timesteps,
+                    sigmas,
+                    mu=mu,
+                )
 
             # handle guidance
             if model_cls._model.transformer.config.guidance_embeds:
@@ -335,6 +351,7 @@ def _batch_text_to_image(
         joint_attention_kwargs=None,
         return_dict=False,
     )[0]
+
     # update latents
     start_idx = 0
     for r in req_list:
@@ -343,6 +360,9 @@ def _batch_text_to_image(
         with model_cls._reset_when_done(
             model_cls._model, r.generate_kwargs.get("sampler_name", None)
         ):
+            """
+            Each request may have its own scheduler (sampler_name)
+            """
             _noise_pred = noise_pred[start_idx : start_idx + n, ::]
             _timestep = timestep[start_idx]
             latents_out = model_cls._model.scheduler.step(
@@ -350,7 +370,10 @@ def _batch_text_to_image(
             )[0]
             r.static_tensors["latents"] = latents_out
         start_idx += n
-        print(f"=====Done one step")
+
+        logger.info(
+            f"Request {r.unique_id} has done {r.done_steps} / {r.total_steps} steps."
+        )
 
         # process result
         if r.done_steps == r.total_steps:
@@ -381,3 +404,6 @@ def _batch_text_to_image(
                 image = new_images
 
             r.output = FluxPipelineOutput(images=image)
+            logger.info(
+                f"Request {r.unique_id} has completed total {r.total_steps} steps."
+            )

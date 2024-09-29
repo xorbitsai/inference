@@ -41,7 +41,10 @@ from typing import (
 import sse_starlette.sse
 import xoscar as xo
 
-from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
+from ..constants import (
+    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE,
+    XINFERENCE_TRANSFORMERS_ENABLE_BATCHING,
+)
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -72,6 +75,8 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
     "glm-4v",
     "MiniCPM-V-2.6",
 ]
+
+XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
 
 
 def request_limit(fn):
@@ -152,6 +157,16 @@ class ModelActor(xo.StatelessActor):
                     f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
                 )
 
+        if self.allow_batching_for_text_to_image():
+            try:
+                assert self._text_to_image_scheduler_ref is not None
+                await xo.destroy_actor(self._text_to_image_scheduler_ref)
+                del self._text_to_image_scheduler_ref
+            except Exception as e:
+                logger.debug(
+                    f"Destroy text_to_image scheduler actor failed, address: {self.address}, error: {e}"
+                )
+
         if hasattr(self._model, "stop") and callable(self._model.stop):
             self._model.stop()
 
@@ -219,8 +234,6 @@ class ModelActor(xo.StatelessActor):
         self._text_to_image_scheduler_ref = None
 
     async def __post_create__(self):
-        from ..model.image.scheduler.flux import FluxBatchSchedulerActor
-
         self._loop = asyncio.get_running_loop()
 
         if self.allow_batching():
@@ -232,11 +245,14 @@ class ModelActor(xo.StatelessActor):
                 uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
             )
 
-        self._text_to_image_scheduler_ref = await xo.create_actor(
-            FluxBatchSchedulerActor,
-            address=self.address,
-            uid=FluxBatchSchedulerActor.gen_uid(self.model_uid()),
-        )
+        if self.allow_batching_for_text_to_image():
+            from ..model.image.scheduler.flux import FluxBatchSchedulerActor
+
+            self._text_to_image_scheduler_ref = await xo.create_actor(
+                FluxBatchSchedulerActor,
+                address=self.address,
+                uid=FluxBatchSchedulerActor.gen_uid(self.model_uid()),
+            )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -314,6 +330,22 @@ class ModelActor(xo.StatelessActor):
                 return False
         return condition
 
+    def allow_batching_for_text_to_image(self) -> bool:
+        model_name = self._model._model_spec.model_name
+        condition = XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None
+
+        if condition:
+            if model_name in XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS:
+                return True
+            else:
+                logger.warning(
+                    f"Currently for image models with text_to_image ability, "
+                    f"xinference only supports {', '.join(XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS)} for batching. "
+                    f"Your model {model_name} is disqualified."
+                )
+                return False
+        return condition
+
     async def load(self):
         self._model.load()
         if self.allow_batching():
@@ -321,7 +353,9 @@ class ModelActor(xo.StatelessActor):
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
             )
-        await self._text_to_image_scheduler_ref.set_model(self._model)
+        if self.allow_batching_for_text_to_image():
+            await self._text_to_image_scheduler_ref.set_model(self._model)
+            logger.debug(f"Batching enabled for model: {self.model_uid()}")
 
     def model_uid(self):
         return (
@@ -731,10 +765,18 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating speech."
         )
 
-    async def handle_image_batching_request(self, *args, **kwargs):
+    async def handle_image_batching_request(self, unique_id, *args, **kwargs):
+        size = args[2]
+        if XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE != size:
+            raise RuntimeError(
+                f"The image size: {size} of text_to_image for batching "
+                f"must be the same as the environment variable: {XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE} you set."
+            )
         assert self._loop is not None
         future = ConcurrentFuture()
-        await self._text_to_image_scheduler_ref.add_request(future, *args, **kwargs)
+        await self._text_to_image_scheduler_ref.add_request(
+            unique_id, future, *args, **kwargs
+        )
         fut = asyncio.wrap_future(future, loop=self._loop)
         result = await fut
         return await asyncio.to_thread(json_dumps, result)
@@ -750,13 +792,13 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
-        if True:
-            return await self.handle_image_batching_request(
-                prompt, n, size, response_format, *args, **kwargs
-            )
-        else:
-            if hasattr(self._model, "text_to_image"):
+        unique_id = kwargs.pop("request_id", None)
+        if hasattr(self._model, "text_to_image"):
+            if self.allow_batching_for_text_to_image():
+                return await self.handle_image_batching_request(
+                    unique_id, prompt, n, size, response_format, *args, **kwargs
+                )
+            else:
                 return await self._call_wrapper_json(
                     self._model.text_to_image,
                     prompt,
@@ -766,9 +808,9 @@ class ModelActor(xo.StatelessActor):
                     *args,
                     **kwargs,
                 )
-            raise AttributeError(
-                f"Model {self._model.model_spec} is not for creating image."
-            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
+        )
 
     @request_limit
     @log_async(logger=logger)
