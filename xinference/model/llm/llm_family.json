@@ -6483,8 +6483,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-1B",
-          "model_revision": "a9fc14aea824b6ea1d44f8778cad6b35512c4ce1"
+          "model_id": "OpenGVLab/InternVL2-1B"
         },
         {
           "model_format": "pytorch",
@@ -6494,8 +6493,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-2B",
-          "model_revision": "422ad7c6335917bfb514958233955512338485a6"
+          "model_id": "OpenGVLab/InternVL2-2B"
         },
         {
           "model_format": "awq",
@@ -6503,8 +6501,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-2B-AWQ",
-          "model_revision": "701bc3fc098a8a3b686b3b4135cfb77202be89e0"
+          "model_id": "OpenGVLab/InternVL2-2B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6514,8 +6511,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-4B",
-          "model_revision": "b50544dafada6c41e80bfde2f57cc9b0140fc21c"
+          "model_id": "OpenGVLab/InternVL2-4B"
         },
         {
           "model_format": "pytorch",
@@ -6525,8 +6521,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-8B",
-          "model_revision": "3bfd3664dea4f3da628785f5125d30f889701253"
+          "model_id": "OpenGVLab/InternVL2-8B"
         },
         {
           "model_format": "awq",
@@ -6534,8 +6529,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
-          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
+          "model_id": "OpenGVLab/InternVL2-8B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6545,8 +6539,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-26B",
-          "model_revision": "b9f3c7e6d575b0115e076a3ffc46fd20b7586899"
+          "model_id": "OpenGVLab/InternVL2-26B"
         },
         {
           "model_format": "awq",
@@ -6554,8 +6547,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-26B-AWQ",
-          "model_revision": "469e0019ffd251e22ff6501a5c2321964e86ef0d"
+          "model_id": "OpenGVLab/InternVL2-26B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6565,8 +6557,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-40B",
-          "model_revision": "725a12063bb855c966e30a0617d0ccd9e870d772"
+          "model_id": "OpenGVLab/InternVL2-40B"
         },
         {
           "model_format": "awq",
@@ -6574,8 +6565,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-40B-AWQ",
-          "model_revision": "d92e140f6dfe8ea9679924c6a31898f42c4e1846"
+          "model_id": "OpenGVLab/InternVL2-40B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6585,8 +6575,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-Llama3-76B",
-          "model_revision": "cf7914905f78e9e3560ddbd6f5dfc39becac494f"
+          "model_id": "OpenGVLab/InternVL2-Llama3-76B"
         },
         {
           "model_format": "awq",
@@ -6594,8 +6583,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ",
-          "model_revision": "1bc796bf80f2ebc7d6a14c15f55217a4600d50a4"
+          "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ"
         }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
