@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import logging
+import os
 import re
 import typing
 from collections import deque
@@ -62,6 +63,7 @@ class Text2ImageRequest:
         self.timesteps = None
         self.dtype = None
         self.output = None
+        self.error_msg: Optional[str] = None
 
     def _set_width_and_height(self):
         self._width, self._height = map(int, re.split(r"[^\d]+", self._size))
@@ -177,6 +179,9 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         _batch_text_to_image(self._model, req_list, self._available_device)
         # handle results
         for r in req_list:
+            if r.error_msg is not None:
+                r.future.set_exception(ValueError(r.error_msg))
+                continue
             if r.output is not None:
                 r.future.set_result(
                     handle_image_result(r.response_format, r.output.images)
@@ -208,7 +213,7 @@ def _cat_tensors(infos: List[Dict]) -> Dict:
 
 @typing.no_type_check
 @torch.inference_mode()
-def _batch_text_to_image(
+def _batch_text_to_image_internal(
     model_cls: "DiffusionModel",
     req_list: List[Text2ImageRequest],
     available_device: str,
@@ -407,3 +412,28 @@ def _batch_text_to_image(
             logger.info(
                 f"Request {r.unique_id} has completed total {r.total_steps} steps."
             )
+
+
+def _batch_text_to_image(
+    model_cls: "DiffusionModel",
+    req_list: List[Text2ImageRequest],
+    available_device: str,
+):
+    from ....core.model import OutOfMemoryError
+
+    try:
+        _batch_text_to_image_internal(model_cls, req_list, available_device)
+    except OutOfMemoryError:
+        logger.exception(
+            f"Batch inference out of memory. "
+            f"Xinference will restart the model: {model_cls._model_uid}. "
+            f"Please be patient for a few moments."
+        )
+        # Just kill the process and let xinference auto-recover the model
+        os._exit(1)
+    except Exception as e:
+        logger.exception(f"Internal error for batch inference: {e}.")
+        # If internal error happens, just skip all the requests in this batch.
+        # If not handle here, the client will hang.
+        for r in req_list:
+            r.error_msg = str(e)

@@ -354,11 +354,12 @@ class ModelActor(xo.StatelessActor):
     def allow_batching_for_text_to_image(self) -> bool:
         from ..model.image.stable_diffusion.core import DiffusionModel
 
-        assert isinstance(self._model, DiffusionModel)
-        model_name = self._model._model_spec.model_name  # type: ignore
-        condition = XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None
+        condition = XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None and isinstance(
+            self._model, DiffusionModel
+        )
 
         if condition:
+            model_name = self._model._model_spec.model_name  # type: ignore
             if model_name in XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS:
                 return True
             else:
