@@ -174,6 +174,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ormsgpack"
             ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y opencc
             ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y "faster_whisper"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U accelerate
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py && \
