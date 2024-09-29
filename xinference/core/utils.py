@@ -51,6 +51,8 @@ def log_async(
             request_id_str = kwargs.get("request_id", "")
             if not request_id_str:
                 request_id_str = uuid.uuid1()
+                if func_name == "text_to_image":
+                    kwargs["request_id"] = request_id_str
             request_id_str = f"[request {request_id_str}]"
             formatted_args = ",".join(map(truncate_log_arg, args))
             formatted_kwargs = ",".join(
