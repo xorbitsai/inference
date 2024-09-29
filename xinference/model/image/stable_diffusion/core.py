@@ -290,8 +290,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if self._kwargs.get("vae_tiling", False):
             model.enable_vae_tiling()
 
-    def get_max_num_seqs_for_batching(self):
-        return self._kwargs.get("max_num_seqs", 16)
+    def get_max_num_images_for_batching(self):
+        return self._kwargs.get("max_num_images", 16)
 
     @staticmethod
     def _get_scheduler(model: Any, sampler_name: str):

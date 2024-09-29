@@ -148,21 +148,21 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         if self._model is None:
             return None
         # TODO: consider each request's n
-        max_num_seqs = self._model.get_max_num_seqs_for_batching()
+        max_num_images = self._model.get_max_num_images_for_batching()
         # currently, FCFS strategy
         running_list: List[Text2ImageRequest] = []
         while len(self._running_queue) > 0:
-            if len(running_list) == max_num_seqs:
+            if len(running_list) == max_num_images:
                 break
             req = self._running_queue.popleft()
             running_list.append(req)
 
         waiting_list: List[Text2ImageRequest] = []
-        if len(running_list) < max_num_seqs:
+        if len(running_list) < max_num_images:
             while len(self._waiting_queue) > 0:
                 req = self._waiting_queue.popleft()
                 waiting_list.append(req)
-                if len(running_list) + len(waiting_list) == max_num_seqs:
+                if len(running_list) + len(waiting_list) == max_num_images:
                     break
         return waiting_list + running_list
 
@@ -425,14 +425,14 @@ def _batch_text_to_image(
         _batch_text_to_image_internal(model_cls, req_list, available_device)
     except OutOfMemoryError:
         logger.exception(
-            f"Batch inference out of memory. "
+            f"Batch text_to_image out of memory. "
             f"Xinference will restart the model: {model_cls._model_uid}. "
             f"Please be patient for a few moments."
         )
         # Just kill the process and let xinference auto-recover the model
         os._exit(1)
     except Exception as e:
-        logger.exception(f"Internal error for batch inference: {e}.")
+        logger.exception(f"Internal error for batch text_to_image: {e}.")
         # If internal error happens, just skip all the requests in this batch.
         # If not handle here, the client will hang.
         for r in req_list:

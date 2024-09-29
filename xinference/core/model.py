@@ -380,7 +380,9 @@ class ModelActor(xo.StatelessActor):
             )
         if self.allow_batching_for_text_to_image():
             await self._text_to_image_scheduler_ref.set_model(self._model)
-            logger.debug(f"Batching enabled for model: {self.model_uid()}")
+            logger.debug(
+                f"Batching enabled for model: {self.model_uid()}, max_num_images: {self._model.get_max_num_images_for_batching()}"
+            )
 
     def model_uid(self):
         return (
