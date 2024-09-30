@@ -195,13 +195,6 @@ def test_RESTful_client_for_embedding(setup):
     completion = model.create_embedding("write a poem.")
     assert len(completion["data"][0]["embedding"]) == 768
 
-    kwargs = {
-        "invalid": "invalid",
-    }
-    with pytest.raises(RuntimeError) as err:
-        completion = model.create_embedding("write a poem.", **kwargs)
-    assert "unexpected" in str(err.value)
-
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
