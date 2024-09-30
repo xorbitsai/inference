@@ -610,6 +610,98 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
 
 @pytest.mark.parametrize(
+    "model_format, quantization",
+    [("pytorch", None)],
+)
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_llama3_tool_calls(setup, model_format, quantization):
+    model_name = "llama-3.1-instruct"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_tool",
+        "model_engine": "transformers",
+        "model_name": model_name,
+        "model_size_in_billions": 8,
+        "model_format": model_format,
+        "quantization": quantization,
+        "download_hub": "huggingface",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    assert "model_uid" in response_data, response_data
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_tool"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    # tool
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "track_a_long_function_name_to_test",
+                "description": "追踪指定股票的实时价格",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"symbol": {"description": "需要追踪的股票代码"}},
+                    "required": ["symbol"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "text-to-speech",
+                "description": "将文本转换为语音",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"description": "需要转换成语音的文本"},
+                        "voice": {"description": "要使用的语音类型（男声、女声等）"},
+                        "speed": {"description": "语音的速度（快、中等、慢等）"},
+                    },
+                    "required": ["text"],
+                },
+            },
+        },
+    ]
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "user", "content": "帮我查询股票10111的价格"},
+        ],
+        "tools": tools,
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "track_a_long_function_name_to_test"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
+
+
+@pytest.mark.parametrize(
     "model_format, quantization", [("ggufv2", "Q4_K_S"), ("pytorch", None)]
 )
 @pytest.mark.skip(reason="Cost too many resources.")
