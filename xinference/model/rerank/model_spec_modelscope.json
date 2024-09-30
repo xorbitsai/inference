@@ -49,5 +49,13 @@
     "max_tokens": 2048,
     "model_id": "mirror013/bge-reranker-v2-minicpm-layerwise",
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "minicpm-reranker",
+    "type": "normal",
+    "language": ["en", "zh"],
+    "max_tokens": 1024,
+    "model_id": "OpenBMB/MiniCPM-Reranker",
+    "model_hub": "modelscope"
   }
 ]
