@@ -159,14 +159,25 @@ class ChatModelMixin:
                         for image_url in image_urls:
                             fut = executor.submit(_decode_image, image_url)
                             image_futures.append(fut)
-                    images = [fut.result() for fut in image_futures]
+                    images.extend([fut.result() for fut in image_futures])
                     if len(image_futures) == 0:
                         ret += role + "\n" + text + intra_message_sep + "\n"
                     else:
-                        ret += (
-                            role + "\n" + f"<image>\n{text}" + intra_message_sep + "\n"
+                        placeholders = "\n".join(
+                            f"Image-{i+1}: <image>\n"
+                            for i in range(
+                                len(images) - len(image_futures), len(images)
+                            )
                         )
-
+                        ret += (
+                            role
+                            + "\n"
+                            + f"{placeholders}\n{text}"
+                            + intra_message_sep
+                            + "\n"
+                        )
+            if len(images) == 1:
+                ret = ret.replace("Image-1: <image>\n", "<image>\n")
             return ret, images
         else:
             raise ValueError(f"Invalid model family: {model_family}")
