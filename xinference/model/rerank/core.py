@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import gc
+import importlib
 import logging
 import os
 import threading
@@ -178,6 +179,16 @@ class RerankModel:
         return rerank_type
 
     def load(self):
+        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+        if (
+            self._auto_detect_type(self._model_path) != "normal"
+            and flash_attn_installed
+        ):
+            logger.warning(
+                "flash_attn can only support fp16 and bf16, "
+                "will force set `use_fp16` to True"
+            )
+            self._use_fp16 = True
         if self._model_spec.type == "normal":
             try:
                 import sentence_transformers
