@@ -735,7 +735,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         full_context_kwargs = {}
         if tools and model_family in QWEN_TOOL_CALL_FAMILY:
             full_context_kwargs["tools"] = tools
-        assert self.model_family.chat_template is not None
+        # Allow the use of the model's embedded chat template.
+        # assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages,
             self.model_family.chat_template,

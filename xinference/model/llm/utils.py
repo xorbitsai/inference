@@ -50,6 +50,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen1.5-moe-chat",
     "qwen2-instruct",
     "qwen2-moe-instruct",
+    "qwen2.5-instruct",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -333,8 +334,9 @@ class ChatModelMixin:
         for content in contents:
             content = content.strip()
             if content:
-                if content.startswith(QWEN_TOOL_CALL_SYMBOLS[0]):
-                    content = content[len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
+                pos = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
+                if pos != -1:
+                    content = content[pos + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
                 content = content.strip()
                 try:
                     res = json.loads(content)
