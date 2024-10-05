@@ -196,15 +196,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             raise ValueError(f"Unknown ability: {self._abilities}")
 
-        controlnet = self._kwargs.get("controlnet")
-        if controlnet is not None:
-            if isinstance(controlnet, tuple):
-                self._kwargs["controlnet"] = self._get_controlnet_model(*controlnet)
-            else:
-                self._kwargs["controlnet"] = [
-                    self._get_controlnet_model(*cn) for cn in controlnet
-                ]
-
         self._torch_dtype = torch_dtype = self._kwargs.get("torch_dtype")
         if sys.platform != "darwin" and torch_dtype is None:
             # The following params crashes on Mac M2
@@ -213,6 +204,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._kwargs["use_safetensors"] = True
         if isinstance(torch_dtype, str):
             self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
+
+        controlnet = self._kwargs.get("controlnet")
+        if controlnet is not None:
+            if isinstance(controlnet, tuple):
+                self._kwargs["controlnet"] = self._get_controlnet_model(*controlnet)
+            else:
+                self._kwargs["controlnet"] = [
+                    self._get_controlnet_model(*cn) for cn in controlnet
+                ]
 
         quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
         if quantize_text_encoder:
@@ -506,7 +506,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        if self._kwargs.get("contronet"):
+        if self._kwargs.get("controlnet"):
             model = self._model
         else:
             ability = "image2image"
