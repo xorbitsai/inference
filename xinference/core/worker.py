@@ -885,6 +885,7 @@ class WorkerActor(xo.StatelessActor):
                     ModelActor,
                     address=subpool_address,
                     uid=model_uid,
+                    supervisor_address=self._supervisor_address,
                     worker_address=self.address,
                     model=model,
                     model_description=model_description,

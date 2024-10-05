@@ -1385,6 +1385,16 @@ class Client:
         response_json = response.json()
         return response_json
 
+    def get_progress(self, request_id: str):
+        url = f"{self.base_url}/v1/requests/{request_id}/progress"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get progress, detail: {_get_error_string(response)}"
+            )
+        response_json = response.json()
+        return response_json
+
     def abort_cluster(self):
         url = f"{self.base_url}/v1/clusters"
         response = requests.delete(url, headers=self._headers)

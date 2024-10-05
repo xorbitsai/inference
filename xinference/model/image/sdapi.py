@@ -26,6 +26,7 @@ class SDAPIToDiffusersConverter:
         "width",
         "height",
         "sampler_name",
+        "progressor",
     }
     txt2img_arg_mapping = {
         "steps": "num_inference_steps",
@@ -39,6 +40,7 @@ class SDAPIToDiffusersConverter:
         "width",
         "height",
         "sampler_name",
+        "progressor",
     }
     img2img_arg_mapping = {
         "init_images": "image",

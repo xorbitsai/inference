@@ -37,6 +37,7 @@ from ....types import Image, ImageList, LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
 
 if TYPE_CHECKING:
+    from ....core.progress_tracker import Progressor
     from ..core import ImageModelFamilyV1
 
 logger = logging.getLogger(__name__)
@@ -298,6 +299,26 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             yield
 
+    @staticmethod
+    def _process_progressor(kwargs: dict):
+        import diffusers
+
+        progressor: Progressor = kwargs.pop("progressor", None)
+
+        def report_status_callback(
+            pipe: diffusers.DiffusionPipeline,
+            step: int,
+            timestep: int,
+            callback_kwargs: dict,
+        ):
+            num_steps = pipe.num_timesteps
+            progressor.set_progress((step + 1) / num_steps)
+
+            return callback_kwargs
+
+        if progressor:
+            kwargs["callback_on_step_end"] = report_status_callback
+
     def _call_model(
         self,
         response_format: str,
@@ -317,6 +338,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             if seed != -1:
                 kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
+        self._process_progressor(kwargs)
         assert callable(model)
         with self._reset_when_done(model, sampler_name):
             logger.debug("stable diffusion args: %s, model: %s", kwargs, model)
