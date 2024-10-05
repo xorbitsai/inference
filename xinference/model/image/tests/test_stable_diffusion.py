@@ -11,17 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import base64
 import io
 import logging
 import os.path
 import shutil
 import tempfile
+import uuid
 from io import BytesIO
 
 import pytest
+import xoscar as xo
 from PIL import Image
 
+from ....core.progress_tracker import Progressor, ProgressTrackerActor
 from ..core import ImageModelFamilyV1, cache
 from ..stable_diffusion.core import DiffusionModel
 
@@ -56,6 +60,48 @@ def test_model():
     finally:
         if model_path is not None:
             shutil.rmtree(model_path)
+
+
+@pytest.mark.asyncio
+async def test_progressor():
+    def _run_model(**kwargs):
+        model_path = None
+        try:
+            model_path = cache(TEST_MODEL_SPEC)
+            model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
+            # input is a string
+            input_text = "an apple"
+            model.load()
+            r = model.text_to_image(input_text, size="256*256", **kwargs)
+            assert len(r["data"]) == 1
+            assert os.path.exists(r["data"][0]["url"])
+        finally:
+            if model_path is not None:
+                shutil.rmtree(model_path)
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        progress_tracker_ref = await xo.create_actor(
+            ProgressTrackerActor,
+            to_remove_interval=0,
+            check_interval=1,
+            address=pool.external_address,
+            uid=ProgressTrackerActor.default_uid(),
+        )
+        request_id = str(uuid.uuid4())
+        progressor = Progressor(
+            request_id, progress_tracker_ref, asyncio.get_running_loop()
+        )
+        await progressor.start()
+        progressor.new_sub_progress(0.0, 0.99)
+        await asyncio.to_thread(_run_model, progressor=progressor)
+        assert progressor._current_progress == 0.99
+        assert await progress_tracker_ref.get_progress(request_id) == 0.99
+        progressor.new_sub_progress(0.99, 1.0)
+        progressor.set_progress(1.0)
+        await asyncio.sleep(2)
+        with pytest.raises(KeyError):
+            await progress_tracker_ref.get_progress(request_id)
 
 
 @pytest.mark.skip(reason="Stable diffusion controlnet requires too many GRAM.")

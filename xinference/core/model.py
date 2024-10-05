@@ -44,6 +44,7 @@ import xoscar as xo
 from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
 
 if TYPE_CHECKING:
+    from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
     from ..model.llm.core import LLM
     from ..model.core import ModelDescription
@@ -177,6 +178,7 @@ class ModelActor(xo.StatelessActor):
 
     def __init__(
         self,
+        supervisor_address: str,
         worker_address: str,
         model: "LLM",
         model_description: Optional["ModelDescription"] = None,
@@ -188,6 +190,7 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.transformers.core import PytorchModel
         from ..model.llm.vllm.core import VLLMModel
 
+        self._supervisor_address = supervisor_address
         self._worker_address = worker_address
         self._model = model
         self._model_description = (
@@ -205,6 +208,7 @@ class ModelActor(xo.StatelessActor):
             else asyncio.locks.Lock()
         )
         self._worker_ref = None
+        self._progress_tracker_ref = None
         self._serve_count = 0
         self._metrics_labels = {
             "type": self._model_description.get("model_type", "unknown"),
@@ -274,6 +278,28 @@ class ModelActor(xo.StatelessActor):
                 address=self._worker_address, uid=WorkerActor.default_uid()
             )
         return self._worker_ref
+
+    async def _get_progress_tracker_ref(
+        self,
+    ) -> xo.ActorRefType["ProgressTrackerActor"]:
+        from .progress_tracker import ProgressTrackerActor
+
+        if self._progress_tracker_ref is None:
+            self._progress_tracker_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=ProgressTrackerActor.default_uid()
+            )
+        return self._progress_tracker_ref
+
+    async def _get_progressor(self, request_id: str):
+        from .progress_tracker import Progressor
+
+        progressor = Progressor(
+            request_id,
+            await self._get_progress_tracker_ref(),
+            asyncio.get_running_loop(),
+        )
+        await progressor.start()
+        return progressor
 
     def is_vllm_backend(self) -> bool:
         from ..model.llm.vllm.core import VLLMModel
@@ -732,7 +758,8 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
+        if request_id := kwargs.pop("request_id", None):
+            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "text_to_image"):
             return await self._call_wrapper_json(
                 self._model.text_to_image,
@@ -753,7 +780,8 @@ class ModelActor(xo.StatelessActor):
         self,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
+        if request_id := kwargs.pop("request_id", None):
+            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "txt2img"):
             return await self._call_wrapper_json(
                 self._model.txt2img,
@@ -776,7 +804,8 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
+        if request_id := kwargs.pop("request_id", None):
+            kwargs["progressor"] = await self._get_progressor(request_id)
         kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "image_to_image"):
             return await self._call_wrapper_json(
@@ -799,7 +828,8 @@ class ModelActor(xo.StatelessActor):
         self,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
+        if request_id := kwargs.pop("request_id", None):
+            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "img2img"):
             return await self._call_wrapper_json(
                 self._model.img2img,
@@ -823,7 +853,8 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
+        if request_id := kwargs.pop("request_id", None):
+            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "inpainting"):
             return await self._call_wrapper_json(
                 self._model.inpainting,
