@@ -404,7 +404,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
     def _process_progressor(kwargs: dict):
         import diffusers
 
-        progressor: Progressor = kwargs.pop("progressor")
+        progressor: Progressor = kwargs.pop("progressor", None)
 
         def report_status_callback(
             pipe: diffusers.DiffusionPipeline,
@@ -417,7 +417,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
             return callback_kwargs
 
-        if progressor.request_id:
+        if progressor and progressor.request_id:
             kwargs["callback_on_step_end"] = report_status_callback
 
     def _call_model(
