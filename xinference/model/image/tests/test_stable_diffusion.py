@@ -21,6 +21,7 @@ import tempfile
 import uuid
 from io import BytesIO
 
+import numpy as np
 import pytest
 import xoscar as xo
 from PIL import Image
@@ -93,12 +94,14 @@ async def test_progressor():
             request_id, progress_tracker_ref, asyncio.get_running_loop()
         )
         await progressor.start()
-        progressor.new_sub_progress(0.0, 0.99)
-        await asyncio.to_thread(_run_model, progressor=progressor)
-        assert progressor._current_progress == 0.99
-        assert await progress_tracker_ref.get_progress(request_id) == 0.99
-        progressor.new_sub_progress(0.99, 1.0)
-        progressor.set_progress(1.0)
+        with progressor:
+            progressor.split_stages(2, stage_weight=np.array([0, 0.99, 1]))
+            with progressor:
+                await asyncio.to_thread(_run_model, progressor=progressor)
+                assert progressor._current_progress == 0.99
+            assert await progress_tracker_ref.get_progress(request_id) == 0.99
+            with progressor:
+                progressor.set_progress(1.0)
         await asyncio.sleep(2)
         with pytest.raises(KeyError):
             await progress_tracker_ref.get_progress(request_id)

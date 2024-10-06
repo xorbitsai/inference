@@ -758,18 +758,20 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if request_id := kwargs.pop("request_id", None):
-            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "text_to_image"):
-            return await self._call_wrapper_json(
-                self._model.text_to_image,
-                prompt,
-                n,
-                size,
-                response_format,
-                *args,
-                **kwargs,
+            progressor = kwargs["progressor"] = await self._get_progressor(
+                kwargs.pop("request_id", None)
             )
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.text_to_image,
+                    prompt,
+                    n,
+                    size,
+                    response_format,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
         )
@@ -780,13 +782,15 @@ class ModelActor(xo.StatelessActor):
         self,
         **kwargs,
     ):
-        if request_id := kwargs.pop("request_id", None):
-            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "txt2img"):
-            return await self._call_wrapper_json(
-                self._model.txt2img,
-                **kwargs,
+            progressor = kwargs["progressor"] = await self._get_progressor(
+                kwargs.pop("request_id", None)
             )
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.txt2img,
+                    **kwargs,
+                )
         raise AttributeError(f"Model {self._model.model_spec} is not for txt2img.")
 
     @log_async(
@@ -804,20 +808,22 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if request_id := kwargs.pop("request_id", None):
-            kwargs["progressor"] = await self._get_progressor(request_id)
         kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "image_to_image"):
-            return await self._call_wrapper_json(
-                self._model.image_to_image,
-                image,
-                prompt,
-                n,
-                size,
-                response_format,
-                *args,
-                **kwargs,
+            progressor = kwargs["progressor"] = await self._get_progressor(
+                kwargs.pop("request_id", None)
             )
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.image_to_image,
+                    image,
+                    prompt,
+                    n,
+                    size,
+                    response_format,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
         )
@@ -828,13 +834,15 @@ class ModelActor(xo.StatelessActor):
         self,
         **kwargs,
     ):
-        if request_id := kwargs.pop("request_id", None):
-            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "img2img"):
-            return await self._call_wrapper_json(
-                self._model.img2img,
-                **kwargs,
+            progressor = kwargs["progressor"] = await self._get_progressor(
+                kwargs.pop("request_id", None)
             )
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.img2img,
+                    **kwargs,
+                )
         raise AttributeError(f"Model {self._model.model_spec} is not for img2img.")
 
     @log_async(
@@ -853,21 +861,23 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if request_id := kwargs.pop("request_id", None):
-            kwargs["progressor"] = await self._get_progressor(request_id)
         if hasattr(self._model, "inpainting"):
-            return await self._call_wrapper_json(
-                self._model.inpainting,
-                image,
-                mask_image,
-                prompt,
-                negative_prompt,
-                n,
-                size,
-                response_format,
-                *args,
-                **kwargs,
+            progressor = kwargs["progressor"] = await self._get_progressor(
+                kwargs.pop("request_id", None)
             )
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.inpainting,
+                    image,
+                    mask_image,
+                    prompt,
+                    negative_prompt,
+                    n,
+                    size,
+                    response_format,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
         )

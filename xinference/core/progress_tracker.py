@@ -17,8 +17,9 @@ import dataclasses
 import logging
 import os
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import xoscar as xo
 
 TO_REMOVE_PROGRESS_INTERVAL = float(
@@ -110,20 +111,25 @@ class ProgressTrackerActor(xo.StatelessActor):
 
 
 class Progressor:
+    _sub_progress_stack: List[Tuple[float, float]]
+
     def __init__(
         self,
         request_id: str,
         progress_tracker_ref: xo.ActorRefType["ProgressTrackerActor"],
         loop: asyncio.AbstractEventLoop,
+        upload_span: float = UPLOAD_PROGRESS_SPAN,
     ):
         self.request_id = request_id
         self.progress_tracker_ref = progress_tracker_ref
         self.loop = loop
         # uploading when progress changes over this span
         # to prevent from frequently uploading
+        self._upload_span = upload_span
 
         self._last_report_progress = 0.0
         self._current_progress = 0.0
+        self._sub_progress_stack = [(0.0, 1.0)]
         self._current_sub_progress_start = 0.0
         self._current_sub_progress_end = 1.0
 
@@ -131,9 +137,37 @@ class Progressor:
         if self.request_id:
             await self.progress_tracker_ref.start(self.request_id)
 
-    def new_sub_progress(self, start: float, end: float):
-        self._current_sub_progress_start = start
-        self._current_sub_progress_end = end
+    def split_stages(self, n_stage: int, stage_weight: np.ndarray = None):
+        if self.request_id:
+            if stage_weight is not None:
+                if len(stage_weight) != n_stage + 1:
+                    raise ValueError(
+                        f"stage_weight should have size {n_stage + 1}, got {len(stage_weight)}"
+                    )
+                progresses = stage_weight
+            else:
+                progresses = np.linspace(
+                    self._current_sub_progress_start,
+                    self._current_sub_progress_end,
+                    n_stage + 1,
+                )
+            spans = [(progresses[i], progresses[i + 1]) for i in range(n_stage)]
+            self._sub_progress_stack.extend(spans[::-1])
+
+    def __enter__(self):
+        if self.request_id:
+            (
+                self._current_sub_progress_start,
+                self._current_sub_progress_end,
+            ) = self._sub_progress_stack[-1]
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.request_id:
+            self._sub_progress_stack.pop()
+            # force to set progress to 1.0 for this sub progress
+            # nevertheless it is done or not
+            self.set_progress(1.0)
+        return False
 
     def set_progress(self, progress: float):
         if self.request_id:
@@ -143,8 +177,7 @@ class Progressor:
                 * progress
             )
             if (
-                self._current_progress - self._last_report_progress
-                >= UPLOAD_PROGRESS_SPAN
+                self._current_progress - self._last_report_progress >= self._upload_span
                 or 1.0 - progress < 1e-5
             ):
                 set_progress = self.progress_tracker_ref.set_progress(
