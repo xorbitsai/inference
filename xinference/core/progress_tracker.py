@@ -137,7 +137,7 @@ class Progressor:
         if self.request_id:
             await self.progress_tracker_ref.start(self.request_id)
 
-    def split_stages(self, n_stage: int, stage_weight: np.ndarray = None):
+    def split_stages(self, n_stage: int, stage_weight: Optional[List[float]] = None):
         if self.request_id:
             if stage_weight is not None:
                 if len(stage_weight) != n_stage + 1:
