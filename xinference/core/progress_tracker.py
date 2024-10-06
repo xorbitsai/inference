@@ -29,7 +29,7 @@ CHECK_PROGRESS_INTERVAL = float(
     os.getenv("XINFERENCE_CHECK_PROGRESS_INTERVAL", 1 * 60)
 )  # 1min
 UPLOAD_PROGRESS_SPAN = float(
-    os.getenv("XINFERENCE_UPLOAD_PROGRESS_SPAN", 0.1)
+    os.getenv("XINFERENCE_UPLOAD_PROGRESS_SPAN", 0.05)
 )  # not upload when change less than 0.1
 
 logger = logging.getLogger(__name__)
