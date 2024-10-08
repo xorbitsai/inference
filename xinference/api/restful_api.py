@@ -525,6 +525,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/requests/{request_id}/progress",
+            self.get_progress,
+            methods=["get"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
             methods=["POST"],
@@ -1484,6 +1494,17 @@ class RESTfulAPI:
         except Exception as e:
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_progress(self, request_id: str) -> JSONResponse:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            result = {"progress": await supervisor_ref.get_progress(request_id)}
+            return JSONResponse(content=result)
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_images(self, request: Request) -> Response:
