@@ -57,6 +57,7 @@ class Text2ImageRequest:
         self._generate_kwargs: Dict[str, Any] = {}
         self._set_width_and_height()
         self.is_encode = True
+        self.scheduler = None
         self.done_steps = 0
         self.total_steps = 0
         self.static_tensors: Dict[str, torch.Tensor] = {}
@@ -232,6 +233,9 @@ def _batch_text_to_image_internal(
         retrieve_timesteps,
     )
     from diffusers.pipelines.flux.pipeline_output import FluxPipelineOutput
+    from diffusers.schedulers.scheduling_flow_match_euler_discrete import (
+        FlowMatchEulerDiscreteScheduler,
+    )
 
     device = model_cls._model._execution_device
     height, width = req_list[0].height, req_list[0].width
@@ -257,6 +261,18 @@ def _batch_text_to_image_internal(
                     generator = generator.manual_seed(seed)
             latents = None
             timesteps = None
+
+            # Each request must build its own scheduler instance,
+            # otherwise the mixing of variables at `scheduler.STEP` will result in an error.
+            r.scheduler = FlowMatchEulerDiscreteScheduler(
+                model_cls._model.scheduler.config.num_train_timesteps,
+                model_cls._model.scheduler.config.shift,
+                model_cls._model.scheduler.config.use_dynamic_shifting,
+                model_cls._model.scheduler.config.base_shift,
+                model_cls._model.scheduler.config.max_shift,
+                model_cls._model.scheduler.config.base_image_seq_len,
+                model_cls._model.scheduler.config.max_image_seq_len,
+            )
 
             # check inputs
             model_cls._model.check_inputs(
@@ -303,27 +319,21 @@ def _batch_text_to_image_internal(
             sigmas = np.linspace(1.0, 1 / num_inference_steps, num_inference_steps)
             image_seq_len = latents.shape[1]
 
-            with model_cls._reset_when_done(
-                model_cls._model, r.generate_kwargs.get("sampler_name", None)
-            ):
-                """
-                Each request may have its own scheduler (sampler_name)
-                """
-                mu = calculate_shift(
-                    image_seq_len,
-                    model_cls._model.scheduler.config.base_image_seq_len,
-                    model_cls._model.scheduler.config.max_image_seq_len,
-                    model_cls._model.scheduler.config.base_shift,
-                    model_cls._model.scheduler.config.max_shift,
-                )
-                timesteps, num_inference_steps = retrieve_timesteps(
-                    model_cls._model.scheduler,
-                    num_inference_steps,
-                    device,
-                    timesteps,
-                    sigmas,
-                    mu=mu,
-                )
+            mu = calculate_shift(
+                image_seq_len,
+                r.scheduler.config["base_image_seq_len"],
+                r.scheduler.config["max_image_seq_len"],
+                r.scheduler.config["base_shift"],
+                r.scheduler.config["max_shift"],
+            )
+            timesteps, num_inference_steps = retrieve_timesteps(
+                r.scheduler,
+                num_inference_steps,
+                device,
+                timesteps,
+                sigmas,
+                mu=mu,
+            )
 
             # handle guidance
             if model_cls._model.transformer.config.guidance_embeds:
@@ -371,18 +381,12 @@ def _batch_text_to_image_internal(
     for r in req_list:
         n = r.n
         # handle diffusion scheduler step
-        with model_cls._reset_when_done(
-            model_cls._model, r.generate_kwargs.get("sampler_name", None)
-        ):
-            """
-            Each request may have its own scheduler (sampler_name)
-            """
-            _noise_pred = noise_pred[start_idx : start_idx + n, ::]
-            _timestep = timestep[start_idx]
-            latents_out = model_cls._model.scheduler.step(
-                _noise_pred, _timestep, r.static_tensors["latents"], return_dict=False
-            )[0]
-            r.static_tensors["latents"] = latents_out
+        _noise_pred = noise_pred[start_idx : start_idx + n, ::]
+        _timestep = timestep[start_idx]
+        latents_out = r.scheduler.step(
+            _noise_pred, _timestep, r.static_tensors["latents"], return_dict=False
+        )[0]
+        r.static_tensors["latents"] = latents_out
         start_idx += n
 
         logger.info(
