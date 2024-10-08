@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+DEFAULT_MAX_SEQUENCE_LENGTH = 512
 
 
 class Text2ImageRequest:
@@ -239,6 +240,11 @@ def _batch_text_to_image_internal(
 
     device = model_cls._model._execution_device
     height, width = req_list[0].height, req_list[0].width
+    cur_batch_max_sequence_length = [
+        r.generate_kwargs.get("max_sequence_length", DEFAULT_MAX_SEQUENCE_LENGTH)
+        for r in req_list
+        if not r.is_encode
+    ]
     for r in req_list:
         if r.is_encode:
             generate_kwargs = model_cls._model_spec.default_generate_config.copy()
@@ -246,11 +252,26 @@ def _batch_text_to_image_internal(
             model_cls._filter_kwargs(model_cls._model, generate_kwargs)
             r.set_generate_kwargs(generate_kwargs)
 
+            # check max_sequence_length
+            max_sequence_length = r.generate_kwargs.get(
+                "max_sequence_length", DEFAULT_MAX_SEQUENCE_LENGTH
+            )
+            if (
+                cur_batch_max_sequence_length
+                and max_sequence_length != cur_batch_max_sequence_length[0]
+            ):
+                r.is_encode = False
+                r.error_msg = (
+                    f"The max_sequence_length of the current request: {max_sequence_length} is "
+                    f"different from the setting in the running batch: {cur_batch_max_sequence_length[0]}, "
+                    f"please be consistent."
+                )
+                continue
+
             num_images_per_prompt = r.n
             callback_on_step_end_tensor_inputs = r.generate_kwargs.get(
                 "callback_on_step_end_tensor_inputs", ["latents"]
             )
-            max_sequence_length = r.generate_kwargs.get("max_sequence_length", 512)
             num_inference_steps = r.generate_kwargs.get("num_inference_steps", 28)
             guidance_scale = r.generate_kwargs.get("guidance_scale", 7.0)
             generator = None
@@ -355,11 +376,12 @@ def _batch_text_to_image_internal(
             r.total_steps = len(timesteps)
             r.is_encode = False
 
-    static_tensors = _cat_tensors([r.static_tensors for r in req_list])
+    running_req_list = [r for r in req_list if r.error_msg is None]
+    static_tensors = _cat_tensors([r.static_tensors for r in running_req_list])
 
     # Do a step
     timestep_tmp = []
-    for r in req_list:
+    for r in running_req_list:
         timestep_tmp.append(r.timesteps[r.done_steps].expand(r.n).to(r.dtype))
         r.done_steps += 1
     timestep = torch.cat(timestep_tmp)
@@ -378,7 +400,7 @@ def _batch_text_to_image_internal(
 
     # update latents
     start_idx = 0
-    for r in req_list:
+    for r in running_req_list:
         n = r.n
         # handle diffusion scheduler step
         _noise_pred = noise_pred[start_idx : start_idx + n, ::]
