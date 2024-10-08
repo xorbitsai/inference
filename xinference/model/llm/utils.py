@@ -82,7 +82,7 @@ class ChatModelMixin:
         return jinja_env.from_string(chat_template)
 
     def _build_from_raw_template(
-        self, messages: List, chat_template: Optional[str], **kwargs
+        self, messages: List, chat_template: str, **kwargs
     ) -> str:
         compiled_template = self._compile_jinja_template(chat_template)
         rendered = compiled_template.render(
@@ -91,7 +91,7 @@ class ChatModelMixin:
         return rendered
 
     def get_full_context(
-        self, messages: List, chat_template: Optional[str], tokenizer=None, **kwargs
+        self, messages: List, chat_template: str, tokenizer=None, **kwargs
     ) -> str:
         if tokenizer is not None:
             try:
