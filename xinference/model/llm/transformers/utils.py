@@ -126,7 +126,8 @@ def generate_stream(
     echo = bool(generate_config.get("echo", False))
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
-    stop_token_ids.append(tokenizer.eos_token_id)
+    if tokenizer.eos_token_id not in stop_token_ids:
+        stop_token_ids.append(tokenizer.eos_token_id)
     chunk_id = str(uuid.uuid4())
 
     logits_processor = prepare_logits_processor(

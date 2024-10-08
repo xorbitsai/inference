@@ -1853,10 +1853,16 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        from ..model.llm.utils import GLM4_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY
+        from ..model.llm.utils import (
+            GLM4_TOOL_CALL_FAMILY,
+            LLAMA3_TOOL_CALL_FAMILY,
+            QWEN_TOOL_CALL_FAMILY,
+        )
 
         model_family = desc.get("model_family", "")
-        function_call_models = QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
+        function_call_models = (
+            QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY + LLAMA3_TOOL_CALL_FAMILY
+        )
 
         if model_family not in function_call_models:
             if body.tools:

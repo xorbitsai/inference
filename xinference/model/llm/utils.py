@@ -57,6 +57,10 @@ GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat-1m",
 ]
 
+LLAMA3_TOOL_CALL_FAMILY = [
+    "llama-3.1-instruct",
+]
+
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 
@@ -354,12 +358,23 @@ class ChatModelMixin:
         return cls._handle_qwen_tool_result(text)
 
     @classmethod
+    def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
+        text = c["choices"][0]["text"]
+        try:
+            data = eval(text, {}, {})
+            return [(None, data["name"], data["parameters"])]
+        except Exception:
+            return [(text, None, None)]
+
+    @classmethod
     def _eval_tool_arguments(cls, model_family, c):
         family = model_family.model_family or model_family.model_name
         if family in GLM4_TOOL_CALL_FAMILY:
             result = cls._eval_glm_chat_arguments(c)
         elif family in QWEN_TOOL_CALL_FAMILY:
             result = cls._eval_qwen_chat_arguments(c)
+        elif family in LLAMA3_TOOL_CALL_FAMILY:
+            result = cls._eval_llama3_chat_arguments(c)
         else:
             raise Exception(
                 f"Model {model_family.model_name} is not support tool calls."
