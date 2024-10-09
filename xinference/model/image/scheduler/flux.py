@@ -17,7 +17,7 @@ import os
 import re
 import typing
 from collections import deque
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -66,6 +66,7 @@ class Text2ImageRequest:
         self.dtype = None
         self.output = None
         self.error_msg: Optional[str] = None
+        self.aborted = False
 
     def _set_width_and_height(self):
         self._width, self._height = map(int, re.split(r"[^\d]+", self._size))
@@ -110,7 +111,11 @@ class Text2ImageRequest:
         """
         For log recording.
         """
-        return self._unique_id
+        return self.request_id if self.request_id is not None else self._unique_id
+
+    @property
+    def request_id(self) -> Optional[str]:
+        return None if self.kwargs is None else self.kwargs.get("request_id", None)
 
 
 class FluxBatchSchedulerActor(xo.StatelessActor):
@@ -126,6 +131,7 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         self._running_queue: deque[Text2ImageRequest] = deque()  # type: ignore
         self._model = None
         self._available_device = get_available_device()
+        self._id_to_req: Dict[str, Text2ImageRequest] = {}
 
     def set_model(self, model):
         """
@@ -142,11 +148,43 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         self._isolation.start()
         asyncio.run_coroutine_threadsafe(self.run(), loop=self._isolation.loop)
 
+    async def __pre_destroy__(self):
+        try:
+            assert self._isolation is not None
+            self._isolation.stop()
+            del self._isolation
+        except Exception as e:
+            logger.debug(
+                f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
+            )
+
     async def add_request(self, unique_id: str, future, *args, **kwargs):
         req = Text2ImageRequest(unique_id, future, *args, **kwargs)
+        rid = req.request_id
+        if rid is not None:
+            if rid in self._id_to_req:
+                raise KeyError(f"Request id: {rid} has already existed!")
+            self._id_to_req[rid] = req
         self._waiting_queue.append(req)
 
-    def _handle_request(self) -> Optional[List[Text2ImageRequest]]:
+    async def abort_request(self, req_id: str) -> str:
+        """
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        """
+        from ....core.utils import AbortRequestMessage
+
+        if req_id not in self._id_to_req:
+            logger.info(f"Request id: {req_id} not found. No-op for xinference.")
+            return AbortRequestMessage.NOT_FOUND.name
+        else:
+            self._id_to_req[req_id].aborted = True
+            logger.info(f"Request id: {req_id} found to be aborted.")
+            return AbortRequestMessage.DONE.name
+
+    def _handle_request(
+        self,
+    ) -> Optional[Tuple[List[Text2ImageRequest], List[Text2ImageRequest]]]:
         """
         Every request may generate `n>=1` images.
         Here we need to decide whether to wait or not based on the value of `n` of each request.
@@ -155,12 +193,26 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
             return None
         max_num_images = self._model.get_max_num_images_for_batching()
         cur_num_images = 0
+        abort_list: List[Text2ImageRequest] = []
         # currently, FCFS strategy
         running_list: List[Text2ImageRequest] = []
         while len(self._running_queue) > 0:
             req = self._running_queue.popleft()
-            running_list.append(req)
-            cur_num_images += req.n
+            if req.aborted:
+                abort_list.append(req)
+            else:
+                running_list.append(req)
+                cur_num_images += req.n
+
+        # Remove all the aborted requests in the waiting queue
+        waiting_tmp_list: List[Text2ImageRequest] = []
+        while len(self._waiting_queue) > 0:
+            req = self._waiting_queue.popleft()
+            if req.aborted:
+                abort_list.append(req)
+            else:
+                waiting_tmp_list.append(req)
+        self._waiting_queue.extend(waiting_tmp_list)
 
         waiting_list: List[Text2ImageRequest] = []
         while len(self._waiting_queue) > 0:
@@ -175,7 +227,7 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
                 )
                 break
 
-        return waiting_list + running_list
+        return waiting_list + running_list, abort_list
 
     @staticmethod
     def _empty_cache():
@@ -184,7 +236,18 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         empty_cache()
 
     async def step(self):
-        req_list = self._handle_request()
+        res = self._handle_request()
+        if res is None:
+            return
+        req_list, abort_list = res
+        # handle abort
+        if abort_list:
+            for r in abort_list:
+                r.future.set_exception(
+                    RuntimeError(
+                        f"Request: {r.request_id} has been cancelled by another `abort_request` request."
+                    )
+                )
         if not req_list:
             return
         _batch_text_to_image(self._model, req_list, self._available_device)

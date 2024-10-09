@@ -16,6 +16,7 @@ import os
 import random
 import string
 import uuid
+from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import orjson
@@ -25,6 +26,12 @@ from .._compat import BaseModel
 from ..constants import XINFERENCE_LOG_ARG_MAX_LENGTH
 
 logger = logging.getLogger(__name__)
+
+
+class AbortRequestMessage(Enum):
+    NOT_FOUND = 1
+    DONE = 2
+    NO_OP = 3
 
 
 def truncate_log_arg(arg) -> str:
