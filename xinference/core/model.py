@@ -662,12 +662,16 @@ class ModelActor(xo.StatelessActor):
                 )
 
     async def abort_request(self, request_id: str) -> str:
-        from .scheduler import AbortRequestMessage
+        from .utils import AbortRequestMessage
 
         if self.allow_batching():
             if self._scheduler_ref is None:
                 return AbortRequestMessage.NOT_FOUND.name
             return await self._scheduler_ref.abort_request(request_id)
+        elif self.allow_batching_for_text_to_image():
+            if self._text_to_image_scheduler_ref is None:
+                return AbortRequestMessage.NOT_FOUND.name
+            return await self._text_to_image_scheduler_ref.abort_request(request_id)
         return AbortRequestMessage.NO_OP.name
 
     @request_limit
