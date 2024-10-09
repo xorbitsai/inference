@@ -107,15 +107,8 @@ class Text2ImageRequest:
         return self._generate_kwargs
 
     @property
-    def unique_id(self):
-        """
-        For log recording.
-        """
-        return self.request_id if self.request_id is not None else self._unique_id
-
-    @property
-    def request_id(self) -> Optional[str]:
-        return None if self.kwargs is None else self.kwargs.get("request_id", None)
+    def request_id(self):
+        return self._unique_id
 
 
 class FluxBatchSchedulerActor(xo.StatelessActor):
@@ -248,6 +241,7 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
                         f"Request: {r.request_id} has been cancelled by another `abort_request` request."
                     )
                 )
+                self._id_to_req.pop(r.request_id, None)
         if not req_list:
             return
         _batch_text_to_image(self._model, req_list, self._available_device)
@@ -255,11 +249,13 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         for r in req_list:
             if r.error_msg is not None:
                 r.future.set_exception(ValueError(r.error_msg))
+                self._id_to_req.pop(r.request_id, None)
                 continue
             if r.output is not None:
                 r.future.set_result(
                     handle_image_result(r.response_format, r.output.images)
                 )
+                self._id_to_req.pop(r.request_id, None)
             else:
                 self._running_queue.append(r)
         self._empty_cache()
@@ -475,7 +471,7 @@ def _batch_text_to_image_internal(
         start_idx += n
 
         logger.info(
-            f"Request {r.unique_id} has done {r.done_steps} / {r.total_steps} steps."
+            f"Request {r.request_id} has done {r.done_steps} / {r.total_steps} steps."
         )
 
         # process result
@@ -508,7 +504,7 @@ def _batch_text_to_image_internal(
 
             r.output = FluxPipelineOutput(images=image)
             logger.info(
-                f"Request {r.unique_id} has completed total {r.total_steps} steps."
+                f"Request {r.request_id} has completed total {r.total_steps} steps."
             )
 
 
