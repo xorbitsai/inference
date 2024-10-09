@@ -21,8 +21,6 @@ from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .diffusers import DiffUsersVideoModel
 
-MAX_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
