@@ -72,6 +72,14 @@
     "multilingual": true
   },
   {
+    "model_name": "whisper-large-v3-turbo",
+    "model_family": "whisper",
+    "model_id": "openai/whisper-large-v3-turbo",
+    "model_revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+    "model_ability": "audio-to-text",
+    "multilingual": true
+  },
+  {
     "model_name": "Belle-distilwhisper-large-v2-zh",
     "model_family": "whisper",
     "model_id": "BELLE-2/Belle-distilwhisper-large-v2-zh",
