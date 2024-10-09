@@ -25,8 +25,6 @@ from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .whisper import WhisperModel
 
-MAX_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
