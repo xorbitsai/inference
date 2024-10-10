@@ -1338,7 +1338,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+        "model_id": "meta-llama/Llama-3.2-11B-Vision-Instruct"
       },
       {
         "model_format": "pytorch",
@@ -1346,7 +1346,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "meta-llama/Llama-3.2-90B-Vision-Instruct",
+        "model_id": "meta-llama/Llama-3.2-90B-Vision-Instruct"
       }
     ],
     "chat_template": "{% for message in messages %}{% if loop.index0 == 0 %}{{ bos_token }}{% endif %}{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' }}{% if message['content'] is string %}{{ message['content'] }}{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' %}{{ '<|image|>' }}{% elif content['type'] == 'text' %}{{ content['text'] }}{% endif %}{% endfor %}{% endif %}{{ '<|eot_id|>' }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",

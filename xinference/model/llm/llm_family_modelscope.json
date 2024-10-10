@@ -441,7 +441,7 @@
           "none"
         ],
           "model_id": "LLM-Research/Llama-3.2-11B-Vision",
-	  "model_hub": "modelscope",
+	  "model_hub": "modelscope"
       },
       {
         "model_format": "pytorch",
@@ -450,7 +450,7 @@
           "none"
         ],
           "model_id": "meta-llama/LLM-Research/Llama-3.2-90B-Vision",
-	  "model_hub": "modelscope",
+	  "model_hub": "modelscope"
       }
     ]
   },
