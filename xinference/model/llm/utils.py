@@ -393,16 +393,14 @@ class ChatModelMixin:
         for content, func, args in tool_result:
             if func:
                 tool_calls.append(
-                    [
-                        {
-                            "id": f"call_{_id}",
-                            "type": "function",
-                            "function": {
-                                "name": func,
-                                "arguments": json.dumps(args, ensure_ascii=False),
-                            },
-                        }
-                    ]
+                    {
+                        "id": f"call_{_id}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args, ensure_ascii=False),
+                        },
+                    }
                 )
             else:
                 failed_contents.append(content)
