@@ -50,11 +50,16 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen1.5-moe-chat",
     "qwen2-instruct",
     "qwen2-moe-instruct",
+    "qwen2.5-instruct",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat",
     "glm4-chat-1m",
+]
+
+LLAMA3_TOOL_CALL_FAMILY = [
+    "llama-3.1-instruct",
 ]
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
@@ -159,14 +164,25 @@ class ChatModelMixin:
                         for image_url in image_urls:
                             fut = executor.submit(_decode_image, image_url)
                             image_futures.append(fut)
-                    images = [fut.result() for fut in image_futures]
+                    images.extend([fut.result() for fut in image_futures])
                     if len(image_futures) == 0:
                         ret += role + "\n" + text + intra_message_sep + "\n"
                     else:
-                        ret += (
-                            role + "\n" + f"<image>\n{text}" + intra_message_sep + "\n"
+                        placeholders = "\n".join(
+                            f"Image-{i+1}: <image>\n"
+                            for i in range(
+                                len(images) - len(image_futures), len(images)
+                            )
                         )
-
+                        ret += (
+                            role
+                            + "\n"
+                            + f"{placeholders}\n{text}"
+                            + intra_message_sep
+                            + "\n"
+                        )
+            if len(images) == 1:
+                ret = ret.replace("Image-1: <image>\n", "<image>\n")
             return ret, images
         else:
             raise ValueError(f"Invalid model family: {model_family}")
@@ -322,8 +338,9 @@ class ChatModelMixin:
         for content in contents:
             content = content.strip()
             if content:
-                if content.startswith(QWEN_TOOL_CALL_SYMBOLS[0]):
-                    content = content[len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
+                pos = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
+                if pos != -1:
+                    content = content[pos + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
                 content = content.strip()
                 try:
                     res = json.loads(content)
@@ -343,12 +360,23 @@ class ChatModelMixin:
         return cls._handle_qwen_tool_result(text)
 
     @classmethod
+    def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
+        text = c["choices"][0]["text"]
+        try:
+            data = eval(text, {}, {})
+            return [(None, data["name"], data["parameters"])]
+        except Exception:
+            return [(text, None, None)]
+
+    @classmethod
     def _eval_tool_arguments(cls, model_family, c):
         family = model_family.model_family or model_family.model_name
         if family in GLM4_TOOL_CALL_FAMILY:
             result = cls._eval_glm_chat_arguments(c)
         elif family in QWEN_TOOL_CALL_FAMILY:
             result = cls._eval_qwen_chat_arguments(c)
+        elif family in LLAMA3_TOOL_CALL_FAMILY:
+            result = cls._eval_llama3_chat_arguments(c)
         else:
             raise Exception(
                 f"Model {model_family.model_name} is not support tool calls."

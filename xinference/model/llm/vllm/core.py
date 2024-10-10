@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import multiprocessing
 import os
@@ -47,6 +48,7 @@ from ..utils import (
     ChatModelMixin,
     generate_completion_chunk,
 )
+from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ class VLLMModelConfig(TypedDict, total=False):
     max_num_seqs: int
     quantization: Optional[str]
     max_model_len: Optional[int]
+    limit_mm_per_prompt: Optional[Dict[str, int]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -90,9 +93,7 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = [
-    "internvl2",
-]
+VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
@@ -161,7 +162,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
 
-
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
@@ -171,10 +171,12 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
+
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
     VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.2-vision-instruct")
-
 
 class VLLMModel(LLM):
     def __init__(
@@ -308,7 +310,12 @@ class VLLMModel(LLM):
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
         model_config.setdefault("quantization", None)
-        model_config.setdefault("max_model_len", 4096)
+        model_config.setdefault("max_model_len", None)
+        model_config["limit_mm_per_prompt"] = (
+            json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
+            if model_config.get("limit_mm_per_prompt")
+            else None
+        )
 
         return model_config
 
@@ -438,6 +445,7 @@ class VLLMModel(LLM):
             usage=usage,
         )
 
+    @vllm_check
     async def async_generate(
         self,
         prompt: Union[str, Dict[str, Any]],
@@ -669,6 +677,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     yield self._to_chat_completion_chunk(chunk)
             i += 1
 
+    @vllm_check
     async def async_chat(
         self,
         messages: List[Dict],
@@ -745,13 +754,13 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                     )
         return generate_config
 
+    @vllm_check
     async def async_chat(
         self,
         messages: List[Dict],
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        # only support single image, waiting vllm support multi images
         model_family = self.model_family.model_family or self.model_family.model_name
         prompt, images = self.get_specific_prompt(model_family, messages)
 
@@ -759,10 +768,15 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             inputs = {
                 "prompt": prompt,
             }
-        else:
+        elif len(images) == 1:
             inputs = {
                 "prompt": prompt,
                 "multi_modal_data": {"image": images[-1]},  # type: ignore
+            }
+        else:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images},  # type: ignore
             }
         generate_config = self._sanitize_chat_config(generate_config)
 

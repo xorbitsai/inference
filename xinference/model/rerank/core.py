@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import gc
+import importlib
 import logging
 import os
 import threading
@@ -178,9 +179,27 @@ class RerankModel:
         return rerank_type
 
     def load(self):
+        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+        if (
+            self._auto_detect_type(self._model_path) != "normal"
+            and flash_attn_installed
+        ):
+            logger.warning(
+                "flash_attn can only support fp16 and bf16, "
+                "will force set `use_fp16` to True"
+            )
+            self._use_fp16 = True
         if self._model_spec.type == "normal":
             try:
+                import sentence_transformers
                 from sentence_transformers.cross_encoder import CrossEncoder
+
+                if sentence_transformers.__version__ < "3.1.0":
+                    raise ValueError(
+                        "The sentence_transformers version must be greater than 3.1.0. "
+                        "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
+                        "https://github.com/UKPLab/sentence-transformers"
+                    )
             except ImportError:
                 error_message = "Failed to import module 'sentence-transformers'"
                 installation_guide = [
