@@ -210,18 +210,19 @@ def create_image_model_instance(
         for name in controlnet:
             for cn_model_spec in model_spec.controlnet:
                 if cn_model_spec.model_name == name:
-                    if not model_path:
-                        model_path = cache(cn_model_spec)
-                    controlnet_model_paths.append(model_path)
+                    controlnet_model_path = cache(cn_model_spec)
+                    controlnet_model_paths.append(controlnet_model_path)
                     break
             else:
                 raise ValueError(
                     f"controlnet `{name}` is not supported for model `{model_name}`."
                 )
         if len(controlnet_model_paths) == 1:
-            kwargs["controlnet"] = controlnet_model_paths[0]
+            kwargs["controlnet"] = (controlnet[0], controlnet_model_paths[0])
         else:
-            kwargs["controlnet"] = controlnet_model_paths
+            kwargs["controlnet"] = [
+                (n, path) for n, path in zip(controlnet, controlnet_model_paths)
+            ]
     if not model_path:
         model_path = cache(model_spec)
     if peft_model_config is not None:
