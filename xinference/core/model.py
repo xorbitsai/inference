@@ -861,6 +861,7 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
+        kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "inpainting"):
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.pop("request_id", None)
@@ -871,7 +872,6 @@ class ModelActor(xo.StatelessActor):
                     image,
                     mask_image,
                     prompt,
-                    negative_prompt,
                     n,
                     size,
                     response_format,

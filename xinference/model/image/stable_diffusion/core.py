@@ -276,7 +276,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
             else:
                 self._deepcache_helper = helper = DeepCacheSDHelper()
-                helper.set_params(cache_interval=3, cache_branch_id=0)
+                helper.set_params(
+                    cache_interval=self._kwargs.get("deepcache_cache_interval", 3),
+                    cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
+                )
 
     def _load_to_device(self, model):
         if self._kwargs.get("cpu_offload", False):
@@ -303,61 +306,78 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         import diffusers
 
+        kwargs = {}
+        if (
+            sampler_name.startswith("DPM++")
+            and "final_sigmas_type" not in model.scheduler.config
+        ):
+            # `final_sigmas_type` will be set as `zero` by default which will cause error
+            kwargs["final_sigmas_type"] = "sigma_min"
+
         # see https://github.com/huggingface/diffusers/issues/4167
         # to get A1111 <> Diffusers Scheduler mapping
         if sampler_name == "DPM++ 2M":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "DPM++ 2M Karras":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "DPM++ 2M SDE":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                model.scheduler.config, algorithm_type="sde-dpmsolver++"
+                model.scheduler.config, algorithm_type="sde-dpmsolver++", **kwargs
             )
         elif sampler_name == "DPM++ 2M SDE Karras":
             return diffusers.DPMSolverMultistepScheduler.from_config(
                 model.scheduler.config,
                 algorithm_type="sde-dpmsolver++",
                 use_karras_sigmas=True,
+                **kwargs,
             )
         elif sampler_name == "DPM++ SDE":
             return diffusers.DPMSolverSinglestepScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "DPM++ SDE Karras":
             return diffusers.DPMSolverSinglestepScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "DPM2":
-            return diffusers.KDPM2DiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.KDPM2DiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "DPM2 Karras":
             return diffusers.KDPM2DiscreteScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "DPM2 a":
             return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "DPM2 a Karras":
             return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "Euler":
-            return diffusers.EulerDiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.EulerDiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "Euler a":
             return diffusers.EulerAncestralDiscreteScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "Heun":
-            return diffusers.HeunDiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.HeunDiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "LMS":
-            return diffusers.LMSDiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.LMSDiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "LMS Karras":
             return diffusers.LMSDiscreteScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         else:
             raise ValueError(f"Unknown sampler: {sampler_name}")
@@ -502,10 +522,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         width, height = map(int, re.split(r"[^\d]+", size))
         generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+        generate_kwargs["width"], generate_kwargs["height"] = width, height
+
         return self._call_model(
             prompt=prompt,
-            height=height,
-            width=width,
             num_images_per_prompt=n,
             response_format=response_format,
             **generate_kwargs,
