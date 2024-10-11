@@ -174,6 +174,7 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
 
 
 class VLLMModel(LLM):
@@ -309,11 +310,14 @@ class VLLMModel(LLM):
         model_config.setdefault("max_num_seqs", 256)
         model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
-        model_config["limit_mm_per_prompt"] = (
-            json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
-            if model_config.get("limit_mm_per_prompt")
-            else None
-        )
+        if vllm.__version__ >= "0.6.1":
+            model_config["limit_mm_per_prompt"] = (
+                json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
+                if model_config.get("limit_mm_per_prompt")
+                else {
+                    "image": 2,  # default 2 images all chat
+                }
+            )
 
         return model_config
 
@@ -733,6 +737,18 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             return False
         return VLLM_INSTALLED
 
+    def load(self):
+        super().load()
+
+        self._processor = None
+        model_family = self.model_family.model_family or self.model_family.model_name
+        if "qwen2-vl" in model_family.lower():
+            from transformers import AutoProcessor
+
+            self._processor = AutoProcessor.from_pretrained(
+                self.model_path, trust_remote_code=True
+            )
+
     def _sanitize_chat_config(
         self,
         generate_config: Optional[Dict] = None,
@@ -759,8 +775,21 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        messages = self._transform_messages(messages)
+
         model_family = self.model_family.model_family or self.model_family.model_name
-        prompt, images = self.get_specific_prompt(model_family, messages)
+
+        if "qwen2-vl" in model_family.lower():
+            from qwen_vl_utils import process_vision_info
+
+            prompt = self._processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            images, video_inputs = process_vision_info(messages)
+            if video_inputs:
+                raise ValueError("Not support video input now.")
+        else:
+            prompt, images = self.get_specific_prompt(model_family, messages)
 
         if len(images) == 0:
             inputs = {

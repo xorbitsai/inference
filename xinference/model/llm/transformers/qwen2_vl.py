@@ -75,34 +75,6 @@ class Qwen2VLChatModel(PytorchChatModel):
                 self.model_path, device_map=device, trust_remote_code=True
             ).eval()
 
-    def _transform_messages(
-        self,
-        messages: List[ChatCompletionMessage],
-    ):
-        transformed_messages = []
-        for msg in messages:
-            new_content = []
-            role = msg["role"]
-            content = msg["content"]
-            if isinstance(content, str):
-                new_content.append({"type": "text", "text": content})
-            elif isinstance(content, List):
-                for item in content:  # type: ignore
-                    if "text" in item:
-                        new_content.append({"type": "text", "text": item["text"]})
-                    elif "image_url" in item:
-                        new_content.append(
-                            {"type": "image", "image": item["image_url"]["url"]}
-                        )
-                    elif "video_url" in item:
-                        new_content.append(
-                            {"type": "video", "video": item["video_url"]["url"]}
-                        )
-            new_message = {"role": role, "content": new_content}
-            transformed_messages.append(new_message)
-
-        return transformed_messages
-
     def chat(
         self,
         messages: List[ChatCompletionMessage],  # type: ignore
