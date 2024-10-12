@@ -52,10 +52,12 @@ class CosyVoice:
         return spks
 
     def inference_sft(self, tts_text, spk_id, stream=False):
+        if spk_id not in self.default_voices and os.environ["COSYVOICE_PT_PATH"] is not None:
+            newspk = torch.load(f'{os.environ["COSYVOICE_PT_PATH"]}/{spk_id}.pt')
         for i in self.frontend.text_normalize(tts_text, split=True):
-            if spk_id not in self.default_voices and os.environ["COSYVOICE_PT_PATH"] is not None:
+            if newspk is not None:
                 model_input = self.frontend.frontend_sft(i, "中文女")
-                newspk = torch.load(f'{os.environ["COSYVOICE_PT_PATH"]}/{spk_id}.pt')
+
                 model_input["flow_embedding"] = newspk["flow_embedding"]
                 model_input["llm_embedding"] = newspk["llm_embedding"]
 
@@ -107,11 +109,12 @@ class CosyVoice:
     def inference_instruct(self, tts_text, spk_id, instruct_text, stream=False):
         if self.frontend.instruct is False:
             raise ValueError('{} do not support instruct inference'.format(self.model_dir))
+        if spk_id not in self.default_voices and os.environ["COSYVOICE_PT_PATH"] is not None:
+            newspk = torch.load(f'{os.environ["COSYVOICE_PT_PATH"]}/{spk_id}.pt')
         instruct_text = self.frontend.text_normalize(instruct_text, split=False)
         for i in self.frontend.text_normalize(tts_text, split=True):
-            if spk_id not in self.default_voices and os.environ["COSYVOICE_PT_PATH"] is not None:
+            if newspk is not None:
                 model_input = self.frontend.frontend_instruct(i, "中文女", instruct_text)
-                newspk = torch.load(f'{os.environ["COSYVOICE_PT_PATH"]}/{spk_id}.pt')
 
                 model_input["flow_embedding"] = newspk["flow_embedding"]
                 model_input["llm_embedding"] = newspk["llm_embedding"]
