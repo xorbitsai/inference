@@ -489,7 +489,6 @@ class ChatModelMixin:
             "usage": usage,
         }
 
-    @classmethod
     def _transform_messages(
         self,
         messages: List[ChatCompletionMessage],
