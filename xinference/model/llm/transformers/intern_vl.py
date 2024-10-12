@@ -27,6 +27,7 @@ from ..utils import (
     parse_messages,
 )
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +327,7 @@ class InternVLChatModel(PytorchChatModel):
             use_fast=False,
         )
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

@@ -28,6 +28,7 @@ from ..utils import (
     parse_messages,
 )
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +228,7 @@ class CogVLM2VideoModel(PytorchChatModel):
 
         return query, image, video, history
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],
