@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
+import functools
 import gc
 import logging
 import os
@@ -777,3 +778,34 @@ def batch_inference_one_step(
         for r in req_list:
             r.stopped = True
             r.error_msg = str(e)
+
+
+def cache_clean(fn):
+    @functools.wraps(fn)
+    async def _async_wrapper(self, *args, **kwargs):
+        import gc
+
+        from ....device_utils import empty_cache
+
+        result = await fn(self, *args, **kwargs)
+
+        gc.collect()
+        empty_cache()
+        return result
+
+    @functools.wraps(fn)
+    def _wrapper(self, *args, **kwargs):
+        import gc
+
+        from ....device_utils import empty_cache
+
+        result = fn(self, *args, **kwargs)
+
+        gc.collect()
+        empty_cache()
+        return result
+
+    if asyncio.iscoroutinefunction(fn):
+        return _async_wrapper
+    else:
+        return _wrapper

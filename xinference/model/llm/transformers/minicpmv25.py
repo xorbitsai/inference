@@ -29,6 +29,7 @@ from ..utils import (
     parse_messages,
 )
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ class MiniCPMV25Model(PytorchChatModel):
                 raise RuntimeError("Only one image per message is supported")
         return content, []
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

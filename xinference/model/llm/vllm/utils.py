@@ -26,7 +26,6 @@ def vllm_check(fn):
 
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
-        logger.info("vllm_check")
         try:
             return await fn(self, *args, **kwargs)
         except AsyncEngineDeadError:

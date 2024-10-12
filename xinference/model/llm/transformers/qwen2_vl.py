@@ -27,6 +27,7 @@ from ....types import (
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ class Qwen2VLChatModel(PytorchChatModel):
                 self.model_path, device_map=device, trust_remote_code=True
             ).eval()
 
+    @cache_clean
     def chat(
         self,
         messages: List[ChatCompletionMessage],  # type: ignore

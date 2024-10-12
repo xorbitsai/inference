@@ -28,7 +28,7 @@ from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import pad_prefill_tokens
+from .utils import cache_clean, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +137,7 @@ class QwenVLChatModel(PytorchChatModel):
         prompt = self._message_content_to_qwen(messages[-1]["content"])
         return prompt, qwen_history
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

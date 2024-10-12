@@ -34,6 +34,7 @@ from typing import (
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -771,7 +772,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
     @vllm_check
     async def async_chat(
         self,
-        messages: List[Dict],
+        messages: List[ChatCompletionMessage],  # type: ignore
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
