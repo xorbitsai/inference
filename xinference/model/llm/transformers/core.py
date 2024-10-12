@@ -765,9 +765,20 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().load()
 
     def _get_full_prompt(self, messages: List[Dict], tools):
+        model_family = self.model_family.model_family or self.model_family.model_name
+        full_context_kwargs = {}
+        if (
+            tools
+            and model_family in QWEN_TOOL_CALL_FAMILY
+            or model_family in LLAMA3_TOOL_CALL_FAMILY
+        ):
+            full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, tokenizer=self._tokenizer
+            messages,
+            self.model_family.chat_template,
+            tokenizer=self._tokenizer,
+            **full_context_kwargs,
         )
         return full_prompt
 
@@ -776,11 +787,38 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         for r in req_list:
             try:
                 if not r.stopped and r.is_prefill:
-                    r.full_prompt = self._get_full_prompt(r.prompt, None)
+                    tools = r.generate_config.get("tools", None)
+                    r.full_prompt = self._get_full_prompt(r.prompt, tools)
+                    if tools:
+                        r.tools = tools
             except Exception as e:
                 logger.exception(f"prepare inference error with {e}")
                 r.stopped = True
                 r.error_msg = str(e)
+
+    def handle_chat_result_non_streaming(self, req: InferenceRequest):
+        if req.tools:
+            req.completion[0] = self._tool_calls_completion(
+                self.model_family, self.model_uid, req.completion[0]
+            )
+        else:
+            req.completion[0] = self._to_chat_completion(req.completion[0])
+
+    def handle_chat_result_streaming(self, req: InferenceRequest):
+        results = []
+        for i, c in enumerate(req.completion):
+            if c == "<bos_stream>":
+                results.append(
+                    self._get_first_chat_completion_chunk(req.completion[i + 1])
+                )
+            elif c == "<eos_stream>":
+                break
+            else:
+                results.append(self._to_chat_completion_chunk(c))
+
+        if req.stopped and req.include_usage:
+            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+        req.completion = results
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
@@ -800,23 +838,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     continue
 
                 if req.stream:
-                    results = []
-                    for i, c in enumerate(req.completion):
-                        if c == "<bos_stream>":
-                            results.append(
-                                self._get_first_chat_completion_chunk(
-                                    req.completion[i + 1]
-                                )
-                            )
-                        elif c == "<eos_stream>":
-                            break
-                        else:
-                            results.append(self._to_chat_completion_chunk(c))
-
-                    if req.stopped and req.include_usage:
-                        results.append(
-                            self._get_final_chat_completion_chunk(req.completion[-1])
-                        )
-                    req.completion = results
+                    self.handle_chat_result_streaming(req)
                 else:
-                    req.completion[0] = self._to_chat_completion(req.completion[0])
+                    self.handle_chat_result_non_streaming(req)

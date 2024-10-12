@@ -680,6 +680,7 @@ def _batch_inference_one_step_internal(
                     output = output.strip("�")
                     output = output[r.last_output_length :]
                     r.last_output_length += len(output)
+                    r.outputs.append(output)
 
                     completion_chunk = generate_completion_chunk(
                         chunk_text=output,
@@ -704,6 +705,7 @@ def _batch_inference_one_step_internal(
                         )
                         r.completion.append(completion_chunk)
                         r.completion.append(eos_flag)
+                        r.outputs.append(eos_flag)
 
                     # last round, handle stream result
                     # append usage information when enable `include_usage` for OPENAI API compatibility
