@@ -4395,8 +4395,7 @@
     ],
     "model_ability": [
         "chat",
-        "vision",
-        "video"
+        "vision"
     ],
     "model_description": "CogVLM2-Video achieves state-of-the-art performance on multiple video question answering tasks.",
     "model_specs": [
