@@ -806,7 +806,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)
 
-        if len(images) == 0:
+        if not images:
             inputs = {
                 "prompt": prompt,
             }
