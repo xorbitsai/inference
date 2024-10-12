@@ -119,7 +119,7 @@ class ChatModelMixin:
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod
-    def get_specific_prompt(model_family: str, messages: List[Dict]):
+    def get_specific_prompt(model_family: str, messages: List[ChatCompletionMessage]):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
         different models.
