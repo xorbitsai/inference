@@ -14,13 +14,18 @@
 import logging
 import uuid
 from io import BytesIO
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, Union
 from urllib.request import urlopen
 
 import numpy as np
 
 from ....model.utils import select_device
-from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
+from ....types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    CompletionChunk,
+)
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
@@ -69,7 +74,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
 
     def _transform_messages(
         self,
-        messages: List[Dict],
+        messages: List[ChatCompletionMessage],
     ):
         import librosa
 
@@ -93,7 +98,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
     @cache_clean
     def chat(
         self,
-        messages: List[Dict],
+        messages: List[ChatCompletionMessage],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         text, audios = self._transform_messages(messages)

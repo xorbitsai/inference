@@ -135,7 +135,7 @@ class ChatModelMixin:
             ret = (
                 "<s>"
                 if system_prompt == ""
-                else "<s><|im_start|>system\n"
+                else "<s><|im_start|>system\n"  # type: ignore
                 + system_prompt
                 + intra_message_sep
                 + "\n"
