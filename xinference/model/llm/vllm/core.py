@@ -175,6 +175,8 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
 
 
