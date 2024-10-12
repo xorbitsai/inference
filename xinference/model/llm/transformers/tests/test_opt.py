@@ -122,6 +122,7 @@ async def test_concurrent_pytorch_model(setup):
         mock_torch_model = MockPytorchModel()
         model_torch_actor = await xoscar.create_actor(
             ModelActor,
+            None,
             pool.external_address,
             mock_torch_model,
             address=next(iter(pool.sub_processes.keys())),
@@ -138,6 +139,7 @@ async def test_concurrent_pytorch_model(setup):
         mock_non_torch_model = MockNonPytorchModel()
         model_non_torch_actor = await xoscar.create_actor(
             ModelActor,
+            None,
             pool.external_address,
             mock_non_torch_model,
             address=next(iter(pool.sub_processes.keys())),

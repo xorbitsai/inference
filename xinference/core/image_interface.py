@@ -16,6 +16,9 @@ import base64
 import io
 import logging
 import os
+import threading
+import time
+import uuid
 from typing import Dict, List, Optional, Union
 
 import gradio as gr
@@ -84,6 +87,7 @@ class ImageInterface:
             num_inference_steps: int,
             negative_prompt: Optional[str] = None,
             sampler_name: Optional[str] = None,
+            progress=gr.Progress(),
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -99,19 +103,43 @@ class ImageInterface:
             )
             sampler_name = None if sampler_name == "default" else sampler_name
 
-            response = model.text_to_image(
-                prompt=prompt,
-                n=n,
-                size=size,
-                num_inference_steps=num_inference_steps,
-                guidance_scale=guidance_scale,
-                negative_prompt=negative_prompt,
-                sampler_name=sampler_name,
-                response_format="b64_json",
-            )
+            response = None
+            exc = None
+            request_id = str(uuid.uuid4())
+
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.text_to_image(
+                        request_id=request_id,
+                        prompt=prompt,
+                        n=n,
+                        size=size,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        negative_prompt=negative_prompt,
+                        sampler_name=sampler_name,
+                        response_format="b64_json",
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except (KeyError, RuntimeError):
+                    cur_progress = 0.0
+
+                progress(cur_progress, desc="Generating images")
+                time.sleep(1)
+
+            if exc:
+                raise exc
 
             images = []
-            for image_dict in response["data"]:
+            for image_dict in response["data"]:  # type: ignore
                 assert image_dict["b64_json"] is not None
                 image_data = base64.b64decode(image_dict["b64_json"])
                 image = PIL.Image.open(io.BytesIO(image_data))
@@ -184,6 +212,7 @@ class ImageInterface:
             num_inference_steps: int,
             padding_image_to_multiple: int,
             sampler_name: Optional[str] = None,
+            progress=gr.Progress(),
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -205,20 +234,44 @@ class ImageInterface:
             bio = io.BytesIO()
             image.save(bio, format="png")
 
-            response = model.image_to_image(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                n=n,
-                image=bio.getvalue(),
-                size=size,
-                response_format="b64_json",
-                num_inference_steps=num_inference_steps,
-                padding_image_to_multiple=padding_image_to_multiple,
-                sampler_name=sampler_name,
-            )
+            response = None
+            exc = None
+            request_id = str(uuid.uuid4())
+
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.image_to_image(
+                        request_id=request_id,
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        n=n,
+                        image=bio.getvalue(),
+                        size=size,
+                        response_format="b64_json",
+                        num_inference_steps=num_inference_steps,
+                        padding_image_to_multiple=padding_image_to_multiple,
+                        sampler_name=sampler_name,
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except (KeyError, RuntimeError):
+                    cur_progress = 0.0
+
+                progress(cur_progress, desc="Generating images")
+                time.sleep(1)
+
+            if exc:
+                raise exc
 
             images = []
-            for image_dict in response["data"]:
+            for image_dict in response["data"]:  # type: ignore
                 assert image_dict["b64_json"] is not None
                 image_data = base64.b64decode(image_dict["b64_json"])
                 image = PIL.Image.open(io.BytesIO(image_data))
