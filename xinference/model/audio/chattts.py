@@ -53,7 +53,8 @@ class ChatTTSModel:
         torch._dynamo.config.suppress_errors = True
         torch.set_float32_matmul_precision("high")
         self._model = ChatTTS.Chat()
-        self._model.load(source="custom", custom_path=self._model_path, compile=True)
+        logger.info("Load ChatTTS model with kwargs: %s", self._kwargs)
+        self._model.load(source="custom", custom_path=self._model_path, **self._kwargs)
 
     def speech(
         self,

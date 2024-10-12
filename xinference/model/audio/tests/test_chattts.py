@@ -25,8 +25,7 @@ def test_chattts(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="ChatTTS",
-        model_type="audio",
+        model_name="ChatTTS", model_type="audio", compile=False
     )
     model = client.get_model(model_uid)
     input_string = (
