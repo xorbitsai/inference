@@ -463,7 +463,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     )
                     r.full_prompt = self.get_full_context(
                         r.prompt,
-                        self.model_family.chat_template,
+                        self.model_family.chat_template,  # type: ignore
                         tokenizer=self._tokenizer,
                     )
                     if tools:
