@@ -104,8 +104,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 入门指南
 
-**在开始之前，请给我们一个星标，这样你就可以在 GitHub 上及时收到每个新版本的通知！**
-
 * [文档](https://inference.readthedocs.io/zh-cn/latest/index.html)
 * [内置模型](https://inference.readthedocs.io/zh-cn/latest/models/builtin/index.html)
 * [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)

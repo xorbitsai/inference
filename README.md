@@ -117,8 +117,6 @@ Star Xinference on GitHub and be instantly notified of new releases.
 
 ## Getting Started
 
-**Please give us a star before you begin, and you'll receive instant notifications for every new release on GitHub!**
-
 * [Docs](https://inference.readthedocs.io/en/latest/index.html)
 * [Built-in Models](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
 * [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
