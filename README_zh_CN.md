@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://inference.top/">Xinference 云服务</a> ·
   <a href="">Xinference 企业版</a> ·
-  <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">自托管</a> ·
+  <a href="https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#installation">自托管</a> ·
   <a href="https://inference.readthedocs.io/">文档</a>
 </p>
 
