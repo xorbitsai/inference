@@ -32,6 +32,7 @@ from ..core import PytorchModel
 class MockNonPytorchModel(object):
     def __init__(self):
         self._test_dict = {}
+        self.rep_id = 0
 
     def generate(self, prompt: str, generate_config=None):
         tid = threading.get_ident()
