@@ -174,4 +174,4 @@ $ xinference-local
 
 ## Star 历史
 
-<iframe style="width:100%;height:auto;min-width:600px;min-height:400px;" src="https://star-history.com/embed?secret=Z2hwX3ljUnM1VVhiU25kT0hoTjVxQk92RWJ5d3V1akh5aTJnV0VQRQ==#xorbitsai/inference&Date" frameBorder="0"></iframe>
+[![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)
