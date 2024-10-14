@@ -93,8 +93,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 参考 [文档](https://inference.readthedocs.io/zh-cn) 以获得参考和更多说明。
 
 - **面向企业/组织的 Xinference 版本</br>**
-我们提供额外的面向企业的功能。 [给我们发送邮件](mailto:business@xprobe.io?subject=[GitHub]Business%20License%20Inquiry) 
-- 或 [提交表单](https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh) 讨论企业需求。 </br>
+我们提供额外的面向企业的功能。 [通过企业微信联系](https://xorbits.cn/assets/images/wechat_work_qr.png)
+或 [提交表单](https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh) 讨论企业需求。 </br>
 
 ## 保持领先
 
