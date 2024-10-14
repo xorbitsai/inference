@@ -310,7 +310,7 @@ class ModelActor(xo.StatelessActor):
         model_ability = self._model_description.get("model_ability", [])
 
         condition = isinstance(self._model, PytorchModel)
-        if condition and "vision" in model_ability:
+        if condition and ("vision" in model_ability or "audio" in model_ability):
             if (
                 self._model.model_family.model_name
                 in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS

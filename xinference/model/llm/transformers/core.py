@@ -29,7 +29,6 @@ from ....device_utils import (
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    Completion,
     CompletionChoice,
     CompletionChunk,
     CreateCompletionTorch,
@@ -46,9 +45,6 @@ from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 logger = logging.getLogger(__name__)
 
 NON_DEFAULT_MODEL_LIST: List[str] = [
-    "chatglm3",
-    "chatglm3-32k",
-    "chatglm3-128k",
     "glm4-chat",
     "glm4-chat-1m",
     "internlm2-chat",
@@ -344,69 +340,6 @@ class PytorchModel(LLM):
         if "generate" not in llm_family.model_ability:
             return False
         return True
-
-    def generate(
-        self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
-    ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream
-
-        def generator_wrapper(
-            prompt: str, generate_config: PytorchGenerateConfig
-        ) -> Iterator[CompletionChunk]:
-            for completion_chunk, completion_usage in generate_stream(
-                self.model_uid,
-                self._model,
-                self._tokenizer,
-                prompt,
-                self._device,
-                generate_config,
-            ):
-                completion_chunk["usage"] = completion_usage
-                yield completion_chunk
-
-        logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
-        )
-
-        generate_config = self._sanitize_generate_config(generate_config)
-
-        assert self._model is not None
-        assert self._tokenizer is not None
-
-        lora_model = generate_config.pop("lora_name")
-
-        if lora_model is not None and self._peft_model is not None:
-            for lora in self._peft_model:
-                if lora_model == lora.lora_name:
-                    self._model.set_adapter(lora_model)
-                    logger.info(f"Set lora model to {lora_model}")
-                    break
-            else:
-                self._model.disable_adapter()
-                logger.info(f"No lora model {lora_model} found, skip setting")
-
-        stream = generate_config.get("stream", False)
-        if not stream:
-            for completion_chunk, completion_usage in generate_stream(
-                self.model_uid,
-                self._model,
-                self._tokenizer,
-                prompt,
-                self._device,
-                generate_config,
-            ):
-                pass
-            completion = Completion(
-                id=completion_chunk["id"],
-                object=completion_chunk["object"],
-                created=completion_chunk["created"],
-                model=completion_chunk["model"],
-                choices=completion_chunk["choices"],
-                usage=completion_usage,
-            )
-            return completion
-        else:
-            return generator_wrapper(prompt, generate_config)
 
     def build_prefill_attention_mask(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
@@ -730,36 +663,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        tools = generate_config.pop("tools", []) if generate_config else None
-        model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = {}
-        if (
-            tools
-            and model_family in QWEN_TOOL_CALL_FAMILY
-            or model_family in LLAMA3_TOOL_CALL_FAMILY
-        ):
-            full_context_kwargs["tools"] = tools
-        assert self.model_family.chat_template is not None
-        full_prompt = self.get_full_context(
-            messages,
-            self.model_family.chat_template,
-            tokenizer=self._tokenizer,
-            **full_context_kwargs,
-        )
-
-        generate_config = self._sanitize_generate_config(generate_config)
-
-        stream = generate_config.get("stream", False)
-        if stream:
-            it = self.generate(full_prompt, generate_config)
-            assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
-        else:
-            c = self.generate(full_prompt, generate_config)
-            assert not isinstance(c, Iterator)
-            if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
+        raise NotImplementedError
 
     def load(self):
         super().load()
