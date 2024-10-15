@@ -131,7 +131,7 @@ async def test_concurrent_pytorch_model(setup):
         coros = []
         for _ in range(3):
             co = model_torch_actor.generate(
-                "Once upon a time, there was a very old computer"
+                "Once upon a time, there was a very old computer", {}
             )
             coros.append(co)
         r = await asyncio.gather(*coros)

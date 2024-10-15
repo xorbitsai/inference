@@ -45,6 +45,7 @@ from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 logger = logging.getLogger(__name__)
 
 NON_DEFAULT_MODEL_LIST: List[str] = [
+    "opt",
     "glm4-chat",
     "glm4-chat-1m",
     "internlm2-chat",
@@ -393,14 +394,6 @@ class PytorchModel(LLM):
         Note that the parameter `seq_length` is from `input_ids`.
         Record the `max_position_id` on request for the decode phase.
         """
-
-        model_family = self.model_family.model_family or self.model_family.model_name
-        # mainly for UT
-        # transformers code in `main` branch supports `position_ids` parameter (https://github.com/huggingface/transformers/blob/main/src/transformers/models/opt/modeling_opt.py#L1076),
-        # while in release branch, it doesn't (https://github.com/huggingface/transformers/blob/v4.45.2/src/transformers/models/opt/modeling_opt.py#L886).
-        if model_family == "opt":
-            return None
-
         res = []
         for r in reqs:
             real_seq_len = seq_length - r.padding_len
