@@ -461,3 +461,339 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 72 --model-format ggufv2 --quantization ${quantization}
 
+
+Model Spec 29 (mlx, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 0_5
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-0.5B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-0.5B-Instruct-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 0_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 30 (mlx, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 0_5
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-0.5B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-0.5B-Instruct-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 0_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 31 (mlx, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 0_5
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-0.5B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-0.5B-Instruct-bf16>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 0_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 32 (mlx, 1_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 1_5
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-1.5B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-1.5B-Instruct-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 1_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 33 (mlx, 1_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 1_5
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-1.5B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-1.5B-Instruct-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 1_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 34 (mlx, 1_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 1_5
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-1.5B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-1.5B-Instruct-bf16>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 1_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 35 (mlx, 3 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 3
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-3B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-3B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 3 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 36 (mlx, 3 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 3
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-3B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-8bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-3B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 3 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 37 (mlx, 3 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 3
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-3B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-3B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 3 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 38 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-7B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-7B-Instruct-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-7B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 39 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-7B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-7B-Instruct-8bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-7B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 40 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-7B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-7B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-7B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 41 (mlx, 14 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 14
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-14B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-14B-Instruct-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-14B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 14 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 42 (mlx, 14 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 14
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-14B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-14B-Instruct-8bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-14B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 14 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 43 (mlx, 14 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 14
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-14B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-14B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-14B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 14 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 44 (mlx, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 32
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-32B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-32B-Instruct-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-32B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 32 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 45 (mlx, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 32
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-32B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-32B-Instruct-8bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-32B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 32 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 46 (mlx, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 32
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-32B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-32B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-32B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 32 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 47 (mlx, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 72
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-72B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-72B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 72 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 48 (mlx, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 72
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-72B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-8bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-72B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 72 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 49 (mlx, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 72
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-72B-Instruct-bf16
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2.5-72B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-instruct --size-in-billions 72 --model-format mlx --quantization ${quantization}
+
