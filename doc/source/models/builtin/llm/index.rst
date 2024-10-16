@@ -237,7 +237,7 @@ The following is a list of built-in LLM in Xinference:
      - Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture
 
    * - :ref:`llama-3.1-instruct <models_llm_llama-3.1-instruct>`
-     - chat
+     - chat, tools
      - 131072
      - The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
@@ -416,9 +416,24 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.
 
+   * - :ref:`qwen2.5 <models_llm_qwen2.5>`
+     - generate
+     - 32768
+     - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
+
+   * - :ref:`qwen2.5-coder <models_llm_qwen2.5-coder>`
+     - generate
+     - 32768
+     - Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).
+
+   * - :ref:`qwen2.5-coder-instruct <models_llm_qwen2.5-coder-instruct>`
+     - chat, tools
+     - 32768
+     - Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).
+
    * - :ref:`qwen2.5-instruct <models_llm_qwen2.5-instruct>`
      - chat, tools
-     - 131072
+     - 32768
      - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
@@ -685,6 +700,12 @@ The following is a list of built-in LLM in Xinference:
    qwen2-moe-instruct
   
    qwen2-vl-instruct
+  
+   qwen2.5
+  
+   qwen2.5-coder
+  
+   qwen2.5-coder-instruct
   
    qwen2.5-instruct
   
