@@ -17,10 +17,11 @@ import functools
 import logging
 import uuid
 from collections import deque
-from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
+
+from .utils import AbortRequestMessage
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,6 @@ XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
 XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 XINFERENCE_STREAMING_ABORT_FLAG = "<XINFERENCE_STREAMING_ABORT>"
 XINFERENCE_NON_STREAMING_ABORT_FLAG = "<XINFERENCE_NON_STREAMING_ABORT>"
-
-
-class AbortRequestMessage(Enum):
-    NOT_FOUND = 1
-    DONE = 2
-    NO_OP = 3
 
 
 class InferenceRequest:
