@@ -114,16 +114,15 @@ class ChatTTSModel:
                     last_pos = 0
                     with writer.open():
                         for it in iter:
-                            for itt in it:
-                                for chunk in itt:
-                                    chunk = np.array([chunk]).transpose()
-                                    writer.write_audio_chunk(i, torch.from_numpy(chunk))
-                                    new_last_pos = out.tell()
-                                    if new_last_pos != last_pos:
-                                        out.seek(last_pos)
-                                        encoded_bytes = out.read()
-                                        yield encoded_bytes
-                                        last_pos = new_last_pos
+                            for chunk in it:
+                                chunk = np.array([chunk]).transpose()
+                                writer.write_audio_chunk(i, torch.from_numpy(chunk))
+                                new_last_pos = out.tell()
+                                if new_last_pos != last_pos:
+                                    out.seek(last_pos)
+                                    encoded_bytes = out.read()
+                                    yield encoded_bytes
+                                    last_pos = new_last_pos
 
             return _generator()
         else:
@@ -131,7 +130,15 @@ class ChatTTSModel:
 
             # Save the generated audio
             with BytesIO() as out:
-                torchaudio.save(
-                    out, torch.from_numpy(wavs[0]), 24000, format=response_format
-                )
+                try:
+                    torchaudio.save(
+                        out,
+                        torch.from_numpy(wavs[0]).unsqueeze(0),
+                        24000,
+                        format=response_format,
+                    )
+                except:
+                    torchaudio.save(
+                        out, torch.from_numpy(wavs[0]), 24000, format=response_format
+                    )
                 return out.getvalue()
