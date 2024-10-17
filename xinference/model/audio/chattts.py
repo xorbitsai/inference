@@ -54,7 +54,11 @@ class ChatTTSModel:
         torch.set_float32_matmul_precision("high")
         self._model = ChatTTS.Chat()
         logger.info("Load ChatTTS model with kwargs: %s", self._kwargs)
-        self._model.load(source="custom", custom_path=self._model_path, **self._kwargs)
+        ok = self._model.load(
+            source="custom", custom_path=self._model_path, **self._kwargs
+        )
+        if not ok:
+            raise Exception(f"The ChatTTS model is not correct: {self._model_path}")
 
     def speech(
         self,
