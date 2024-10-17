@@ -206,7 +206,7 @@
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat",
-        "model_revision": "f6e0743b285dd808084530f070ad08e504386750"
+        "model_revision": "eb55a443d66541f30869f6caac5ad0d2e95bcbaa"
       },
       {
         "model_format": "ggufv2",

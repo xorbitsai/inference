@@ -41,8 +41,6 @@ from typing import (
 import sse_starlette.sse
 import xoscar as xo
 
-from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
-
 if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
@@ -311,10 +309,8 @@ class ModelActor(xo.StatelessActor):
 
         model_ability = self._model_description.get("model_ability", [])
 
-        condition = XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
-            self._model, PytorchModel
-        )
-        if condition and "vision" in model_ability:
+        condition = isinstance(self._model, PytorchModel)
+        if condition and ("vision" in model_ability or "audio" in model_ability):
             if (
                 self._model.model_family.model_name
                 in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS

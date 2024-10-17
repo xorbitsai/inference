@@ -81,6 +81,10 @@ class InferenceRequest:
         self.padding_len = 0
         # Use in stream mode
         self.last_output_length = 0
+        # For tool call
+        self.tools = None
+        # Currently, for storing tool call streaming results.
+        self.outputs: List[str] = []
         # inference results,
         # it is a list type because when stream=True,
         # self.completion contains all the results in a decode round.
@@ -111,6 +115,10 @@ class InferenceRequest:
         prompt for generate model and messages for chat model
         """
         return self._prompt
+
+    @prompt.setter
+    def prompt(self, value: str):
+        self._prompt = value
 
     @property
     def call_ability(self):
