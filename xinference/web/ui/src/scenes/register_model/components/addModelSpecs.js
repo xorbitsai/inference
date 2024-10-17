@@ -18,6 +18,7 @@ const modelFormatArr = [
   { value: 'gptq', label: 'GPTQ' },
   { value: 'awq', label: 'AWQ' },
   { value: 'fp8', label: 'FP8' },
+  { value: 'mlx', label: 'MLX' },
 ]
 
 const AddModelSpecs = ({
@@ -226,7 +227,8 @@ const AddModelSpecs = ({
     if (
       (model_format === 'gptq' ||
         model_format === 'awq' ||
-        model_format === 'fp8') &&
+        model_format === 'fp8' ||
+        model_format === 'mlx') &&
       value === ''
     ) {
       const quantizationAlertIdArr = Array.from(
@@ -274,7 +276,8 @@ const AddModelSpecs = ({
                 if (
                   e.target.value === 'gptq' ||
                   e.target.value === 'awq' ||
-                  e.target.value === 'fp8'
+                  e.target.value === 'fp8' ||
+                  e.target.value === 'mlx'
                 ) {
                   const quantizationAlertIdArr = Array.from(
                     new Set([...quantizationAlertId, item.id])
@@ -339,7 +342,8 @@ const AddModelSpecs = ({
                   label={
                     item.model_format === 'gptq' ||
                     item.model_format === 'awq' ||
-                    item.model_format === 'fp8'
+                    item.model_format === 'fp8' ||
+                    item.model_format === 'mlx'
                       ? 'Quantization'
                       : 'Quantization (Optional)'
                   }
@@ -356,8 +360,9 @@ const AddModelSpecs = ({
                   helperText={
                     item.model_format === 'gptq' ||
                     item.model_format === 'awq' ||
-                    item.model_format === 'fp8'
-                      ? 'For GPTQ/AWQ/FP8 models, please be careful to fill in the quantization corresponding to the model you want to register.'
+                    item.model_format === 'fp8' ||
+                    item.model_format === 'mlx'
+                      ? 'For GPTQ/AWQ/FP8/MLX models, please be careful to fill in the quantization corresponding to the model you want to register.'
                       : ''
                   }
                 />
