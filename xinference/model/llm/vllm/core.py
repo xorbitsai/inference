@@ -69,6 +69,7 @@ class VLLMModelConfig(TypedDict, total=False):
     quantization: Optional[str]
     max_model_len: Optional[int]
     limit_mm_per_prompt: Optional[Dict[str, int]]
+    guided_decoding_backend: Optional[str]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -85,6 +86,13 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
     stream_options: Optional[Union[dict, None]]
+    guided_json: Optional[Union[str, dict]]
+    guided_regex: Optional[str]
+    guided_choice: Optional[List[str]]
+    guided_grammar: Optional[str]
+    guided_json_object: Optional[bool]
+    guided_decoding_backend: Optional[str]
+    guided_whitespace_pattern: Optional[str]
 
 
 try:
@@ -313,6 +321,7 @@ class VLLMModel(LLM):
         model_config.setdefault("max_num_seqs", 256)
         model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
+        model_config.setdefault("guided_decoding_backend", "outlines")
 
         return model_config
 
@@ -344,6 +353,18 @@ class VLLMModel(LLM):
         sanitized.setdefault("stream", generate_config.get("stream", False))
         sanitized.setdefault(
             "stream_options", generate_config.get("stream_options", None)
+        )
+        sanitized.setdefault("guided_json", generate_config.get("guided_json", None))
+        sanitized.setdefault("guided_regex", generate_config.get("guided_regex", None))
+        sanitized.setdefault(
+            "guided_choice", generate_config.get("guided_choice", None)
+        )
+        sanitized.setdefault(
+            "guided_grammar", generate_config.get("guided_grammar", None)
+        )
+        sanitized.setdefault(
+            "guided_whitespace_pattern",
+            generate_config.get("guided_whitespace_pattern", None),
         )
 
         return sanitized
@@ -451,7 +472,7 @@ class VLLMModel(LLM):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
-            from vllm.sampling_params import SamplingParams
+            from vllm.sampling_params import GuidedDecodingParams, SamplingParams
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -482,13 +503,32 @@ class VLLMModel(LLM):
             if isinstance(stream_options, dict)
             else False
         )
-        sampling_params = SamplingParams(**sanitized_generate_config)
+
+        guided_options = GuidedDecodingParams.from_optional(
+            json=sanitized_generate_config.pop("guided_json", None),
+            regex=sanitized_generate_config.pop("guided_regex", None),
+            choice=sanitized_generate_config.pop("guided_choice", None),
+            grammar=sanitized_generate_config.pop("guided_grammar", None),
+            json_object=sanitized_generate_config.pop("guided_json_object", None),
+            backend=sanitized_generate_config.pop("guided_decoding_backend", None),
+            whitespace_pattern=sanitized_generate_config.pop(
+                "guided_whitespace_pattern", None
+            ),
+        )
+
+        sampling_params = SamplingParams(
+            guided_decoding=guided_options, **sanitized_generate_config
+        )
+
         if not request_id:
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
         results_generator = self._engine.generate(
-            prompt, sampling_params, request_id, lora_request=lora_request
+            prompt=prompt,
+            sampling_params=sampling_params,
+            request_id=request_id,
+            lora_request=lora_request,
         )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
