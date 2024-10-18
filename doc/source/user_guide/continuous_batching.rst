@@ -1,14 +1,17 @@
 .. _user_guide_continuous_batching:
 
-==================================
-Continuous Batching (experimental)
-==================================
+===================
+Continuous Batching
+===================
 
 Continuous batching, as a means to improve throughput during model serving, has already been implemented in inference engines like ``VLLM``.
 Xinference aims to provide this optimization capability when using the transformers engine as well.
 
 Usage
 =====
+
+LLM
+---
 Currently, this feature can be enabled under the following conditions:
 
 * First, set the environment variable ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting xinference. For example:
@@ -16,6 +19,12 @@ Currently, this feature can be enabled under the following conditions:
 .. code-block::
 
     XINFERENCE_TRANSFORMERS_ENABLE_BATCHING=1 xinference-local --log-level debug
+
+
+.. note::
+   Since ``v0.16.0``, this feature is turned on by default and
+   is no longer required to set the ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` environment variable.
+   This environment variable has been removed.
 
 
 * Then, ensure that the ``transformers`` engine is selected when launching the model. For example:
@@ -58,6 +67,20 @@ Once this feature is enabled, all requests for LLMs will be managed by continuou
 and the average throughput of requests made to a single model will increase.
 The usage of the LLM interface remains exactly the same as before, with no differences.
 
+Image Model
+-----------
+Currently, for image models, only the ``text_to_image`` interface is supported for ``FLUX.1`` series models.
+
+Enabling this feature requires setting the environment variable ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of the generated images.
+
+For example, starting xinference like this:
+
+.. code-block::
+
+    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE=1024*1024 xinference-local --log-level debug
+
+
+Then just use the ``text_to_image`` interface as before, and nothing else needs to be changed.
 
 Abort your request
 ==================
@@ -81,17 +104,16 @@ In this mode, you can abort requests that are in the process of inference.
     client.abort_request("<model_uid>", "<your_unique_request_id>")
 
 Note that if your request has already finished, aborting the request will be a no-op.
+Image models also support this feature.
 
 Note
 ====
 
-* Currently, this feature only supports the ``generate``, ``chat`` and ``vision`` tasks for ``LLM`` models. The ``tool call`` tasks are not supported.
+* Currently, for ``LLM`` models, this feature only supports the ``generate``, ``chat``, ``tool call`` and ``vision`` tasks.
+
+* Currently, for ``image`` models, this feature only supports the ``text_to_image`` tasks. Only ``FLUX.1`` series models are supported.
 
 * For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are supported. More models will be supported in the future. Please let us know your requirements.
 
 * If using GPU inference, this method will consume more GPU memory. Please be cautious when increasing the number of concurrent requests to the same model.
   The ``launch_model`` interface provides the ``max_num_seqs`` parameter to adjust the concurrency level, with a default value of ``16``.
-
-* This feature is still in the experimental stage, and we welcome your active feedback on any issues.
-
-* After a period of testing, this method will remain enabled by default, and the original inference method will be deprecated.
