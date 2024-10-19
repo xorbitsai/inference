@@ -42,7 +42,7 @@
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_hub": "modelscope",
-    "model_id": "pzc163/chatTTS",
+    "model_id": "AI-ModelScope/ChatTTS",
     "model_revision": "master",
     "model_ability": "text-to-audio",
     "multilingual": true
