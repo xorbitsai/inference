@@ -33,9 +33,9 @@ def test_got_ocr2(setup):
     url = "https://huggingface.co/stepfun-ai/GOT-OCR2_0/resolve/main/assets/train_sample.jpg"
     image = load_image(url)
     bio = io.BytesIO()
-    image.save(bio, format="png")
+    image.save(bio, format="JPEG")
     r = model.ocr(
         image=bio.getvalue(),
-        ocr_type="format",
+        ocr_type="ocr",
     )
     assert "Jesuits Estate" in r
