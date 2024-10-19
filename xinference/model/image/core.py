@@ -276,7 +276,7 @@ def create_image_model_instance(
         # Mac with M series silicon chips
         model_cls = MLXDiffusionModel
     else:
-        model_cls = DiffusionModel
+        model_cls = DiffusionModel  # type: ignore
 
     model = model_cls(
         model_uid,
