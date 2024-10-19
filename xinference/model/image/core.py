@@ -214,7 +214,7 @@ def create_image_model_instance(
     **kwargs,
 ) -> Tuple[Union[DiffusionModel, GotOCR2Model], ImageModelDescription]:
     model_spec = match_diffusion(model_name, download_hub)
-    if "ocr" in model_spec.model_ability:
+    if model_spec.model_ability and "ocr" in model_spec.model_ability:
         return create_ocr_model_instance(
             subpool_addr=subpool_addr,
             devices=devices,
