@@ -31,10 +31,6 @@ from .utils import health_check
 
 logger = logging.getLogger(__name__)
 
-from ..model import _install as install_model
-
-install_model()
-
 
 async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
     logging.config.dictConfig(logging_conf)  # type: ignore
