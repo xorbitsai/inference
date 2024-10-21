@@ -15,12 +15,13 @@ import collections.abc
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
+from .ocr.got_ocr2 import GotOCR2Model
 from .stable_diffusion.core import DiffusionModel
 
 logger = logging.getLogger(__name__)
@@ -180,6 +181,28 @@ def get_cache_status(
         return valid_model_revision(meta_path, model_spec.model_revision)
 
 
+def create_ocr_model_instance(
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_spec: ImageModelFamilyV1,
+    model_path: Optional[str] = None,
+    **kwargs,
+) -> Tuple[GotOCR2Model, ImageModelDescription]:
+    if not model_path:
+        model_path = cache(model_spec)
+    model = GotOCR2Model(
+        model_uid,
+        model_path,
+        model_spec=model_spec,
+        **kwargs,
+    )
+    model_description = ImageModelDescription(
+        subpool_addr, devices, model_spec, model_path=model_path
+    )
+    return model, model_description
+
+
 def create_image_model_instance(
     subpool_addr: str,
     devices: List[str],
@@ -189,8 +212,18 @@ def create_image_model_instance(
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[DiffusionModel, ImageModelDescription]:
+) -> Tuple[Union[DiffusionModel, GotOCR2Model], ImageModelDescription]:
     model_spec = match_diffusion(model_name, download_hub)
+    if model_spec.model_ability and "ocr" in model_spec.model_ability:
+        return create_ocr_model_instance(
+            subpool_addr=subpool_addr,
+            devices=devices,
+            model_uid=model_uid,
+            model_name=model_name,
+            model_spec=model_spec,
+            model_path=model_path,
+            **kwargs,
+        )
     controlnet = kwargs.get("controlnet")
     # Handle controlnet
     if controlnet is not None:

@@ -953,6 +953,25 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @log_async(
+        logger=logger,
+        ignore_kwargs=["image"],
+    )
+    async def ocr(
+        self,
+        image: "PIL.Image",
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "ocr"):
+            return await self._call_wrapper_json(
+                self._model.ocr,
+                image,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(f"Model {self._model.model_spec} is not for ocr.")
+
     @request_limit
     @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(

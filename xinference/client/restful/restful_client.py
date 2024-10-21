@@ -369,6 +369,25 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def ocr(self, image: Union[str, bytes], **kwargs):
+        url = f"{self._base_url}/v1/images/ocr"
+        params = {
+            "model": self._model_uid,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to ocr the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
 
 class RESTfulVideoModelHandle(RESTfulModelHandle):
     def text_to_video(
