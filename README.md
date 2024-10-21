@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://inference.top/">Xinference Cloud</a> ·
-  <a href="">Xinference Enterprise</a> ·
+  <a href="https://github.com/xorbitsai/enterprise-docs/blob/main/README.md">Xinference Enterprise</a> ·
   <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">Self-hosting</a> ·
   <a href="https://inference.readthedocs.io/">Documentation</a>
 </p>
