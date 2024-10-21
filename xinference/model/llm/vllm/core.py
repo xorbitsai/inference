@@ -86,6 +86,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
     stream_options: Optional[Union[dict, None]]
+    response_format: Optional[dict]
     guided_json: Optional[Union[str, dict]]
     guided_regex: Optional[str]
     guided_choice: Optional[List[str]]
@@ -353,6 +354,9 @@ class VLLMModel(LLM):
         sanitized.setdefault("stream", generate_config.get("stream", False))
         sanitized.setdefault(
             "stream_options", generate_config.get("stream_options", None)
+        )
+        sanitized.setdefault(
+            "response_format", generate_config.get("response_format", None)
         )
         sanitized.setdefault("guided_json", generate_config.get("guided_json", None))
         sanitized.setdefault("guided_regex", generate_config.get("guided_regex", None))
