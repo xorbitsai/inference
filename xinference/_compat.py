@@ -60,6 +60,7 @@ from openai.types.chat.chat_completion_stream_options_param import (
     ChatCompletionStreamOptionsParam,
 )
 from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
+from openai.types.chat.completion_create_params import ResponseFormat
 
 OpenAIChatCompletionStreamOptionsParam = create_model_from_typeddict(
     ChatCompletionStreamOptionsParam
@@ -84,8 +85,7 @@ class CreateChatCompletionOpenAI(BaseModel):
     n: Optional[int]
     parallel_tool_calls: Optional[bool]
     presence_penalty: Optional[float]
-    # we do not support this
-    # response_format: ResponseFormat
+    response_format: ResponseFormat
     seed: Optional[int]
     service_tier: Optional[Literal["auto", "default"]]
     stop: Union[Optional[str], List[str]]
