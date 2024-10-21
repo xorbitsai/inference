@@ -124,7 +124,7 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         self._running_queue: deque[Text2ImageRequest] = deque()  # type: ignore
         self._model = None
         self._available_device = get_available_device()
-        self._id_to_req: Dict[str, Text2ImageRequest] = {}
+        self._id_to_req: Dict[str, Text2ImageRequest] = {}  # type: ignore
 
     def set_model(self, model):
         """
