@@ -17,6 +17,7 @@ import functools
 import inspect
 import json
 import os
+import queue
 import time
 import types
 import uuid
@@ -209,9 +210,8 @@ class ModelActor(xo.StatelessActor):
             model_description.to_dict() if model_description else {}
         )
         self._request_limits = request_limits
-
-        self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
-        self._current_generator = lambda: None
+        self._pending_requests = asyncio.Queue()
+        self._handle_pending_requests_task = None
         self._lock = (
             None
             if isinstance(
@@ -236,6 +236,10 @@ class ModelActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
+
+        self._handle_pending_requests_task = asyncio.create_task(
+            self._handle_pending_requests()
+        )
 
         if self.allow_batching():
             from .scheduler import SchedulerActor
@@ -474,6 +478,32 @@ class ModelActor(xo.StatelessActor):
                 )
             await asyncio.gather(*coros)
 
+    async def _handle_pending_requests(self):
+        logger.info("Start requests handler.")
+        while True:
+            gen, stream_out, stop = await self._pending_requests.get()
+
+            while True:
+                async with self._lock:
+                    try:
+                        if inspect.isgenerator(gen):
+                            r = await asyncio.to_thread(next, gen)
+                        elif inspect.isasyncgen(gen):
+                            r = await gen.__anext__()
+                        else:
+                            raise Exception(
+                                f"The generator {gen} should be a generator or an async generator, "
+                                f"but a {type(gen)} is got."
+                            )
+                        stream_out.put_nowait(r)
+                        continue
+                    except (StopIteration, StopAsyncIteration):
+                        pass
+                    except Exception:
+                        logger.exception("stream encountered an error.")
+                    stream_out.put_nowait(stop)
+                    break
+
     async def _call_wrapper_json(self, fn: Callable, *args, **kwargs):
         return await self._call_wrapper("json", fn, *args, **kwargs)
 
@@ -487,6 +517,13 @@ class ModelActor(xo.StatelessActor):
                 ret = await fn(*args, **kwargs)
             else:
                 ret = await asyncio.to_thread(fn, *args, **kwargs)
+
+            if inspect.isgenerator(ret):
+                gen = self._to_generator(output_type, ret)
+                return gen
+            if inspect.isasyncgen(ret):
+                gen = self._to_async_gen(output_type, ret)
+                return gen
         else:
             async with self._lock:
                 if inspect.iscoroutinefunction(fn):
@@ -494,17 +531,38 @@ class ModelActor(xo.StatelessActor):
                 else:
                     ret = await asyncio.to_thread(fn, *args, **kwargs)
 
-        if self._lock is not None and self._current_generator():
-            raise Exception("Parallel generation is not supported by llama-cpp-python.")
+                if inspect.isgenerator(ret):
+                    gen = self._to_generator(output_type, ret)
+                    stream_out = queue.Queue()
+                    stop = object()
+                    self._pending_requests.put_nowait((gen, stream_out, stop))
 
-        if inspect.isgenerator(ret):
-            gen = self._to_generator(output_type, ret)
-            self._current_generator = weakref.ref(gen)
-            return gen
-        if inspect.isasyncgen(ret):
-            gen = self._to_async_gen(output_type, ret)
-            self._current_generator = weakref.ref(gen)
-            return gen
+                    def _stream_out_generator():
+                        while True:
+                            o = stream_out.get()
+                            if o is stop:
+                                break
+                            else:
+                                yield o
+
+                    return _stream_out_generator()
+
+                if inspect.isasyncgen(ret):
+                    gen = self._to_async_gen(output_type, ret)
+                    stream_out = asyncio.Queue()
+                    stop = object()
+                    self._pending_requests.put_nowait((gen, stream_out, stop))
+
+                    async def _stream_out_async_gen():
+                        while True:
+                            o = await stream_out.get()
+                            if o is stop:
+                                break
+                            else:
+                                yield o
+
+                    return _stream_out_async_gen()
+
         if output_type == "json":
             return await asyncio.to_thread(json_dumps, ret)
         else:
@@ -592,7 +650,6 @@ class ModelActor(xo.StatelessActor):
                 prompt_or_messages, queue, call_ability, *args, **kwargs
             )
             gen = self._to_async_gen("json", ret)
-            self._current_generator = weakref.ref(gen)
             return gen
         else:
             from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
