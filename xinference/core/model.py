@@ -208,7 +208,7 @@ class ModelActor(xo.StatelessActor):
             model_description.to_dict() if model_description else {}
         )
         self._request_limits = request_limits
-        self._pending_requests = asyncio.Queue()
+        self._pending_requests: asyncio.Queue = asyncio.Queue()
         self._handle_pending_requests_task = None
         self._lock = (
             None
@@ -528,6 +528,8 @@ class ModelActor(xo.StatelessActor):
                     ret = await fn(*args, **kwargs)
                 else:
                     ret = await asyncio.to_thread(fn, *args, **kwargs)
+
+                stream_out: Union[queue.Queue, asyncio.Queue]
 
                 if inspect.isgenerator(ret):
                     gen = self._to_generator(output_type, ret)
