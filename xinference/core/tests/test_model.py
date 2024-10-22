@@ -68,7 +68,7 @@ async def test_concurrent_call(setup_pool):
     global TEST_EVENT
     TEST_EVENT = asyncio.Event()
 
-    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+    worker: xo.ActorRefType[MockModelActor] = await xo.create_actor(  # type: ignore
         MockModelActor,
         address=addr,
         uid=MockModelActor.default_uid(),

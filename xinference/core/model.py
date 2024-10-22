@@ -21,7 +21,6 @@ import queue
 import time
 import types
 import uuid
-import weakref
 from asyncio.queues import Queue
 from asyncio.tasks import wait_for
 from concurrent.futures import Future as ConcurrentFuture
@@ -33,7 +32,6 @@ from typing import (
     Callable,
     Dict,
     Generator,
-    Iterator,
     List,
     Optional,
     Union,
