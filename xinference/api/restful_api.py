@@ -1222,6 +1222,9 @@ class RESTfulAPI:
                 "guided_whitespace_pattern"
             )
 
+        if raw_body.get("response_format") is not None:
+            kwargs["response_format"] = raw_body.get("response_format")
+
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
@@ -1871,6 +1874,8 @@ class RESTfulAPI:
             kwargs["guided_whitespace_pattern"] = raw_body.get(
                 "guided_whitespace_pattern"
             )
+        if raw_body.get("response_format") is not None:
+            kwargs["response_format"] = raw_body.get("response_format")
 
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:

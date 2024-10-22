@@ -61,6 +61,8 @@ from openai.types.chat.chat_completion_stream_options_param import (
 )
 from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 
+# from openai.types.chat.completion_create_params import ResponseFormat
+
 OpenAIChatCompletionStreamOptionsParam = create_model_from_typeddict(
     ChatCompletionStreamOptionsParam
 )
@@ -84,8 +86,10 @@ class CreateChatCompletionOpenAI(BaseModel):
     n: Optional[int]
     parallel_tool_calls: Optional[bool]
     presence_penalty: Optional[float]
-    # we do not support this
-    # response_format: ResponseFormat
+    # FIXME schema replica error in Pydantic
+    # source: ResponseFormatJSONSchema in ResponseFormat
+    # use alias
+    # _response_format: Optional[ResponseFormat] = Field(alias="response_format")
     seed: Optional[int]
     service_tier: Optional[Literal["auto", "default"]]
     stop: Union[Optional[str], List[str]]
