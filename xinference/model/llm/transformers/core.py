@@ -29,7 +29,6 @@ from ....device_utils import (
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    Completion,
     CompletionChoice,
     CompletionChunk,
     CreateCompletionTorch,
@@ -46,9 +45,7 @@ from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 logger = logging.getLogger(__name__)
 
 NON_DEFAULT_MODEL_LIST: List[str] = [
-    "chatglm3",
-    "chatglm3-32k",
-    "chatglm3-128k",
+    "opt",
     "glm4-chat",
     "glm4-chat-1m",
     "internlm2-chat",
@@ -344,69 +341,6 @@ class PytorchModel(LLM):
         if "generate" not in llm_family.model_ability:
             return False
         return True
-
-    def generate(
-        self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
-    ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream
-
-        def generator_wrapper(
-            prompt: str, generate_config: PytorchGenerateConfig
-        ) -> Iterator[CompletionChunk]:
-            for completion_chunk, completion_usage in generate_stream(
-                self.model_uid,
-                self._model,
-                self._tokenizer,
-                prompt,
-                self._device,
-                generate_config,
-            ):
-                completion_chunk["usage"] = completion_usage
-                yield completion_chunk
-
-        logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
-        )
-
-        generate_config = self._sanitize_generate_config(generate_config)
-
-        assert self._model is not None
-        assert self._tokenizer is not None
-
-        lora_model = generate_config.pop("lora_name")
-
-        if lora_model is not None and self._peft_model is not None:
-            for lora in self._peft_model:
-                if lora_model == lora.lora_name:
-                    self._model.set_adapter(lora_model)
-                    logger.info(f"Set lora model to {lora_model}")
-                    break
-            else:
-                self._model.disable_adapter()
-                logger.info(f"No lora model {lora_model} found, skip setting")
-
-        stream = generate_config.get("stream", False)
-        if not stream:
-            for completion_chunk, completion_usage in generate_stream(
-                self.model_uid,
-                self._model,
-                self._tokenizer,
-                prompt,
-                self._device,
-                generate_config,
-            ):
-                pass
-            completion = Completion(
-                id=completion_chunk["id"],
-                object=completion_chunk["object"],
-                created=completion_chunk["created"],
-                model=completion_chunk["model"],
-                choices=completion_chunk["choices"],
-                usage=completion_usage,
-            )
-            return completion
-        else:
-            return generator_wrapper(prompt, generate_config)
 
     def build_prefill_attention_mask(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
@@ -730,7 +664,12 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        tools = generate_config.pop("tools", []) if generate_config else None
+        raise NotImplementedError
+
+    def load(self):
+        super().load()
+
+    def _get_full_prompt(self, messages: List[Dict], tools):
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = {}
         if (
@@ -746,29 +685,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             tokenizer=self._tokenizer,
             **full_context_kwargs,
         )
-
-        generate_config = self._sanitize_generate_config(generate_config)
-
-        stream = generate_config.get("stream", False)
-        if stream:
-            it = self.generate(full_prompt, generate_config)
-            assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
-        else:
-            c = self.generate(full_prompt, generate_config)
-            assert not isinstance(c, Iterator)
-            if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
-
-    def load(self):
-        super().load()
-
-    def _get_full_prompt(self, messages: List[Dict], tools):
-        assert self.model_family.chat_template is not None
-        full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, tokenizer=self._tokenizer
-        )
         return full_prompt
 
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
@@ -776,11 +692,38 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         for r in req_list:
             try:
                 if not r.stopped and r.is_prefill:
-                    r.full_prompt = self._get_full_prompt(r.prompt, None)
+                    tools = r.generate_config.get("tools", None)
+                    r.full_prompt = self._get_full_prompt(r.prompt, tools)
+                    if tools:
+                        r.tools = tools
             except Exception as e:
                 logger.exception(f"prepare inference error with {e}")
                 r.stopped = True
                 r.error_msg = str(e)
+
+    def handle_chat_result_non_streaming(self, req: InferenceRequest):
+        if req.tools:
+            req.completion[0] = self._tool_calls_completion(
+                self.model_family, self.model_uid, req.completion[0]
+            )
+        else:
+            req.completion[0] = self._to_chat_completion(req.completion[0])
+
+    def handle_chat_result_streaming(self, req: InferenceRequest):
+        results = []
+        for i, c in enumerate(req.completion):
+            if c == "<bos_stream>":
+                results.append(
+                    self._get_first_chat_completion_chunk(req.completion[i + 1])
+                )
+            elif c == "<eos_stream>":
+                break
+            else:
+                results.append(self._to_chat_completion_chunk(c))
+
+        if req.stopped and req.include_usage:
+            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+        req.completion = results
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
@@ -800,23 +743,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     continue
 
                 if req.stream:
-                    results = []
-                    for i, c in enumerate(req.completion):
-                        if c == "<bos_stream>":
-                            results.append(
-                                self._get_first_chat_completion_chunk(
-                                    req.completion[i + 1]
-                                )
-                            )
-                        elif c == "<eos_stream>":
-                            break
-                        else:
-                            results.append(self._to_chat_completion_chunk(c))
-
-                    if req.stopped and req.include_usage:
-                        results.append(
-                            self._get_final_chat_completion_chunk(req.completion[-1])
-                        )
-                    req.completion = results
+                    self.handle_chat_result_streaming(req)
                 else:
-                    req.completion[0] = self._to_chat_completion(req.completion[0])
+                    self.handle_chat_result_non_streaming(req)

@@ -29,3 +29,7 @@ def _install():
     image_install()
     rerank_install()
     video_install()
+
+
+_install()
+del _install

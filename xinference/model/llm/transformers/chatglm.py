@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 import typing
 import uuid
 from threading import Thread
@@ -28,6 +29,8 @@ from ..utils import (
     generate_completion_chunk,
 )
 from .core import PytorchChatModel, PytorchModelConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ChatglmPytorchChatModel(PytorchChatModel):
@@ -445,3 +448,104 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             raw_config["top_p"] = 0.8
 
         return raw_config
+
+    def prepare_batch_inference(self, req_list: List[InferenceRequest]):
+        super(PytorchChatModel, self).prepare_batch_inference(req_list)
+        for r in req_list:
+            try:
+                if not r.stopped and r.is_prefill:
+                    tools = r.generate_config.get("tools", None)
+                    tools = list(tools) if tools is not None else None
+                    tool_choice = r.generate_config.get("tool_choice", "none")
+
+                    r.prompt = self._process_messages(
+                        r.prompt, tools=tools, tool_choice=tool_choice
+                    )
+                    r.full_prompt = self.get_full_context(
+                        r.prompt,
+                        self.model_family.chat_template,  # type: ignore
+                        tokenizer=self._tokenizer,
+                    )
+                    if tools:
+                        r.tools = tools
+            except Exception as e:
+                logger.exception(f"prepare inference error with {e}")
+                r.stopped = True
+                r.error_msg = str(e)
+
+    def handle_chat_result_non_streaming(self, req: InferenceRequest):
+        if req.tools:
+            response = req.completion[0]["choices"][0]["text"]
+            usage = req.completion[0]["usage"]
+            function_call = self._process_response_non_streaming(
+                response, req.tools, use_tool=True
+            )
+            req.completion[0] = self._tool_calls_completion(
+                self.model_family, self.model_uid, function_call
+            )
+            req.completion[0]["usage"] = usage
+        else:
+            req.completion[0] = self._to_chat_completion(req.completion[0])
+
+    def handle_chat_result_streaming(self, req: InferenceRequest):
+        results = []
+        tools = {tool["function"]["name"] for tool in req.tools} if req.tools else {}
+        response = "".join(req.outputs)
+        eos_pos = response.find("<eos_stream>")
+        if eos_pos != -1:
+            response = response[:eos_pos]
+
+        if "<bos_stream>" in req.completion:
+            bos_pos = req.completion.index("<bos_stream>")
+            results.append(
+                self._get_first_chat_completion_chunk(req.completion[bos_pos + 1])
+            )
+
+        if req.stopped:
+            if tools:
+                new_response = self._process_response_streaming(
+                    response, tools, end=True
+                )
+                if new_response:
+                    if isinstance(new_response, dict):  # tool call case
+                        chunk_id = [
+                            c for c in req.completion if not isinstance(c, str)
+                        ][0]["id"]
+                        results.append(
+                            self._tool_calls_completion_chunk(
+                                self.model_family,
+                                self.model_uid,
+                                new_response,
+                                chunk_id=chunk_id,
+                            )
+                        )
+                    else:  # normal case
+                        for c in req.completion:
+                            if c == "<bos_stream>":
+                                continue
+                            elif c == "<eos_stream>":
+                                break
+                            else:
+                                results.append(self._to_chat_completion_chunk(c))
+            else:
+                for c in req.completion:
+                    if c == "<bos_stream>":
+                        continue
+                    elif c == "<eos_stream>":
+                        break
+                    else:
+                        results.append(self._to_chat_completion_chunk(c))
+        else:
+            if response and response[-1] != "�":
+                new_response = self._process_response_streaming(
+                    response, tools, end=False
+                )
+                if new_response is not None:  # normal case
+                    for c in req.completion:
+                        if c == "<bos_stream>":
+                            continue
+                        results.append(self._to_chat_completion_chunk(c))
+
+        if req.stopped and req.include_usage:
+            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+        req.completion = results

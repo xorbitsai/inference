@@ -386,8 +386,8 @@ class ChatModelMixin:
         return result
 
     @classmethod
-    def _tool_calls_completion_chunk(cls, model_family, model_uid, c):
-        _id = str(uuid.uuid4())
+    def _tool_calls_completion_chunk(cls, model_family, model_uid, c, chunk_id=None):
+        _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
         tool_result = cls._eval_tool_arguments(model_family, c)
         tool_calls = []
         failed_contents = []

@@ -11,38 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio
 import json
 import os
-import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Union
 
 import pytest
-import xoscar
 
 from .....client import Client
 from .....client.restful.restful_client import RESTfulGenerateModelHandle
-from .....core.model import ModelActor
 from ... import BUILTIN_LLM_FAMILIES
-from ..core import PytorchModel
-
-
-class MockNonPytorchModel(object):
-    def __init__(self):
-        self._test_dict = {}
-
-    def generate(self, prompt: str, generate_config=None):
-        tid = threading.get_ident()
-        self._test_dict[tid] = True
-        time.sleep(1)
-        self._test_dict.pop(tid, None)
-        return len(self._test_dict)
-
-
-class MockPytorchModel(MockNonPytorchModel, PytorchModel):
-    pass
 
 
 @pytest.mark.asyncio
@@ -113,43 +91,3 @@ async def test_opt_pytorch_model(setup, quantization):
                 expected_revision = spec.model_revision
 
         assert expected_revision == actual_revision
-
-
-@pytest.mark.asyncio
-async def test_concurrent_pytorch_model(setup):
-    pool = await xoscar.create_actor_pool("127.0.0.1", n_process=1)
-    async with pool:
-        mock_torch_model = MockPytorchModel()
-        model_torch_actor = await xoscar.create_actor(
-            ModelActor,
-            None,
-            pool.external_address,
-            mock_torch_model,
-            address=next(iter(pool.sub_processes.keys())),
-        )
-        coros = []
-        for _ in range(3):
-            co = model_torch_actor.generate(
-                "Once upon a time, there was a very old computer"
-            )
-            coros.append(co)
-        r = await asyncio.gather(*coros)
-        assert any(r)
-
-        mock_non_torch_model = MockNonPytorchModel()
-        model_non_torch_actor = await xoscar.create_actor(
-            ModelActor,
-            None,
-            pool.external_address,
-            mock_non_torch_model,
-            address=next(iter(pool.sub_processes.keys())),
-        )
-        coros = []
-        for _ in range(3):
-            co = model_non_torch_actor.generate(
-                "Once upon a time, there was a very old computer"
-            )
-            coros.append(co)
-        r = await asyncio.gather(*coros)
-        r = [json.loads(i) for i in r]
-        assert not any(r)

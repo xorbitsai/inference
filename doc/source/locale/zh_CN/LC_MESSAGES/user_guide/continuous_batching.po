@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-09-06 14:26+0800\n"
+"POT-Creation-Date: 2024-10-17 18:49+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,8 +18,8 @@ msgstr ""
 "Generated-By: Babel 2.11.0\n"
 
 #: ../../source/user_guide/continuous_batching.rst:5
-msgid "Continuous Batching (experimental)"
-msgstr "连续批处理（实验性质）"
+msgid "Continuous Batching"
+msgstr "连续批处理"
 
 #: ../../source/user_guide/continuous_batching.rst:7
 msgid ""
@@ -35,11 +35,15 @@ msgstr ""
 msgid "Usage"
 msgstr "使用方式"
 
-#: ../../source/user_guide/continuous_batching.rst:12
+#: ../../source/user_guide/continuous_batching.rst:14
+msgid "LLM"
+msgstr "大语言模型"
+
+#: ../../source/user_guide/continuous_batching.rst:15
 msgid "Currently, this feature can be enabled under the following conditions:"
 msgstr "当前，此功能在满足以下条件时开启："
 
-#: ../../source/user_guide/continuous_batching.rst:14
+#: ../../source/user_guide/continuous_batching.rst:17
 msgid ""
 "First, set the environment variable "
 "``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting "
@@ -48,13 +52,22 @@ msgstr ""
 "首先，启动 Xinference 时需要将环境变量 ``XINFERENCE_TRANSFORMERS_ENABLE_"
 "BATCHING`` 置为 ``1`` 。"
 
-#: ../../source/user_guide/continuous_batching.rst:21
+#: ../../source/user_guide/continuous_batching.rst:25
+msgid ""
+"Since ``v0.16.0``, this feature is turned on by default and is no longer "
+"required to set the ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` "
+"environment variable. This environment variable has been removed."
+msgstr ""
+"自 ``v0.16.0`` 开始，此功能默认开启，不再需要设置 ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` 环境变量，"
+"且该环境变量已被移除。"
+
+#: ../../source/user_guide/continuous_batching.rst:30
 msgid ""
 "Then, ensure that the ``transformers`` engine is selected when launching "
 "the model. For example:"
 msgstr "然后，启动 LLM 模型时选择 ``transformers`` 推理引擎。例如："
 
-#: ../../source/user_guide/continuous_batching.rst:57
+#: ../../source/user_guide/continuous_batching.rst:66
 msgid ""
 "Once this feature is enabled, all requests for LLMs will be managed by "
 "continuous batching, and the average throughput of requests made to a "
@@ -64,54 +77,92 @@ msgstr ""
 "一旦此功能开启，LLM 模型的所有接口将被此功能接管。所有接口的使用方式没有"
 "任何变化。"
 
-#: ../../source/user_guide/continuous_batching.rst:63
+#: ../../source/user_guide/continuous_batching.rst:71
+msgid "Image Model"
+msgstr "图像模型"
+
+#: ../../source/user_guide/continuous_batching.rst:72
+msgid ""
+"Currently, for image models, only the ``text_to_image`` interface is "
+"supported for ``FLUX.1`` series models."
+msgstr ""
+"当前只有 ``FLUX.1`` 系列模型的 ``text_to_image`` （文生图）接口支持此功能。"
+
+#: ../../source/user_guide/continuous_batching.rst:74
+msgid ""
+"Enabling this feature requires setting the environment variable "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` "
+"of the generated images."
+msgstr ""
+"图像模型开启此功能需要在启动 xinference 时指定 ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` 环境变量，"
+"表示生成图片的大小。"
+
+#: ../../source/user_guide/continuous_batching.rst:76
+msgid "For example, starting xinference like this:"
+msgstr ""
+"例如，像这样启动 xinference："
+
+#: ../../source/user_guide/continuous_batching.rst:83
+msgid ""
+"Then just use the ``text_to_image`` interface as before, and nothing else"
+" needs to be changed."
+msgstr ""
+"接下来正常使用 ``text_to_image`` 接口即可，其他什么都不需要改变。"
+
+#: ../../source/user_guide/continuous_batching.rst:86
 msgid "Abort your request"
 msgstr "中止请求"
 
-#: ../../source/user_guide/continuous_batching.rst:64
+#: ../../source/user_guide/continuous_batching.rst:87
 msgid "In this mode, you can abort requests that are in the process of inference."
 msgstr "此功能中，你可以优雅地中止正在推理中的请求。"
 
-#: ../../source/user_guide/continuous_batching.rst:66
+#: ../../source/user_guide/continuous_batching.rst:89
 msgid "First, add ``request_id`` option in ``generate_config``. For example:"
 msgstr "首先，在推理请求的 ``generate_config`` 中指定 ``request_id`` 选项。例如："
 
-#: ../../source/user_guide/continuous_batching.rst:75
+#: ../../source/user_guide/continuous_batching.rst:98
 msgid ""
 "Then, abort the request using the ``request_id`` you have set. For "
 "example:"
 msgstr "接着，带着你指定的 ``request_id`` 去中止该请求。例如："
 
-#: ../../source/user_guide/continuous_batching.rst:83
+#: ../../source/user_guide/continuous_batching.rst:106
 msgid ""
 "Note that if your request has already finished, aborting the request will"
-" be a no-op."
+" be a no-op. Image models also support this feature."
 msgstr "注意，如果你的请求已经结束，那么此操作将什么都不做。"
 
-#: ../../source/user_guide/continuous_batching.rst:86
+#: ../../source/user_guide/continuous_batching.rst:110
 msgid "Note"
 msgstr "注意事项"
 
-#: ../../source/user_guide/continuous_batching.rst:88
+#: ../../source/user_guide/continuous_batching.rst:112
 msgid ""
-"Currently, this feature only supports the ``generate``, ``chat`` and "
-"``vision`` tasks for ``LLM`` models. The ``tool call`` tasks are not "
-"supported."
+"Currently, for ``LLM`` models, this feature only supports the "
+"``generate``, ``chat``, ``tool call`` and ``vision`` tasks."
 msgstr ""
-"当前，此功能仅支持 LLM 模型的 ``generate``, ``chat`` 和 ``vision`` （多"
-"模态） 功能。``tool call`` （工具调用）暂时不支持。"
+"当前，此功能仅支持 LLM 模型的 ``generate``, ``chat``, ``tool call`` （工具调用）和 ``vision`` （多"
+"模态） 功能。"
 
-#: ../../source/user_guide/continuous_batching.rst:90
+#: ../../source/user_guide/continuous_batching.rst:114
+msgid ""
+"Currently, for ``image`` models, this feature only supports the "
+"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
+msgstr ""
+"当前，对于图像模型，仅支持 `FLUX.1`` 系列模型的 ``text_to_image`` （文生图）功能。"
+
+#: ../../source/user_guide/continuous_batching.rst:116
 msgid ""
 "For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, "
 "``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are "
 "supported. More models will be supported in the future. Please let us "
 "know your requirements."
 msgstr ""
-"对于多模态任务，当前支持 ``qwen-vl-chat`` ，``cogvlm2``， ``glm-4v`` 和 ``MiniCPM-V-2.6`` (仅对于图像任务)"
-"模型。未来将加入更多模型，敬请期待。"
+"对于多模态任务，当前支持 ``qwen-vl-chat`` ，``cogvlm2``， ``glm-4v`` 和 `"
+"`MiniCPM-V-2.6`` (仅对于图像任务)模型。未来将加入更多模型，敬请期待。"
 
-#: ../../source/user_guide/continuous_batching.rst:92
+#: ../../source/user_guide/continuous_batching.rst:118
 msgid ""
 "If using GPU inference, this method will consume more GPU memory. Please "
 "be cautious when increasing the number of concurrent requests to the same"
@@ -122,18 +173,4 @@ msgstr ""
 "如果使用 GPU 推理，此功能对显存要求较高。因此请谨慎提高对同一个模型的并发"
 "请求量。``launch_model`` 接口提供可选参数 ``max_num_seqs`` 用于调整并发度"
 "，默认值为 ``16`` 。"
-
-#: ../../source/user_guide/continuous_batching.rst:95
-msgid ""
-"This feature is still in the experimental stage, and we welcome your "
-"active feedback on any issues."
-msgstr "此功能仍处于实验阶段，欢迎反馈任何问题。"
-
-#: ../../source/user_guide/continuous_batching.rst:97
-msgid ""
-"After a period of testing, this method will remain enabled by default, "
-"and the original inference method will be deprecated."
-msgstr ""
-"一段时间的测试之后，此功能将代替原来的 transformers 推理逻辑成为默认行为"
-"。原来的推理逻辑将被摒弃。"
 
