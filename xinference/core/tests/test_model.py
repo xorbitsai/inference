@@ -41,7 +41,7 @@ class MockModelActor(ModelActor):
         supervisor_address: str,
         worker_address: str,
     ):
-        super().__init__(supervisor_address, worker_address, MockModel())
+        super().__init__(supervisor_address, worker_address, MockModel())  # type: ignore
         self._lock = asyncio.locks.Lock()
 
     async def __pre_destroy__(self):
