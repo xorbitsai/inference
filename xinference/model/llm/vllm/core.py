@@ -86,6 +86,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
     stream_options: Optional[Union[dict, None]]
+    response_format: Optional[dict]
     guided_json: Optional[Union[str, dict]]
     guided_regex: Optional[str]
     guided_choice: Optional[List[str]]
@@ -334,6 +335,22 @@ class VLLMModel(LLM):
             generate_config = {}
 
         sanitized = VLLMGenerateConfig()
+
+        response_format = generate_config.pop("response_format", None)
+        guided_decoding_backend = generate_config.get("guided_decoding_backend", None)
+        guided_json_object = None
+        guided_json = None
+
+        if response_format is not None:
+            if response_format.type == "json_object":
+                guided_json_object = True
+            elif response_format.type == "json_schema":
+                json_schema = response_format.json_schema
+                assert json_schema is not None
+                guided_json = json_schema.json_schema
+                if guided_decoding_backend is None:
+                    guided_decoding_backend = "outlines"
+
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
         sanitized.setdefault("best_of", generate_config.get("best_of", None))
@@ -355,7 +372,9 @@ class VLLMModel(LLM):
         sanitized.setdefault(
             "stream_options", generate_config.get("stream_options", None)
         )
-        sanitized.setdefault("guided_json", generate_config.get("guided_json", None))
+        sanitized.setdefault(
+            "guided_json", generate_config.get("guided_json", guided_json)
+        )
         sanitized.setdefault("guided_regex", generate_config.get("guided_regex", None))
         sanitized.setdefault(
             "guided_choice", generate_config.get("guided_choice", None)
@@ -366,6 +385,14 @@ class VLLMModel(LLM):
         sanitized.setdefault(
             "guided_whitespace_pattern",
             generate_config.get("guided_whitespace_pattern", None),
+        )
+        sanitized.setdefault(
+            "guided_json_object",
+            generate_config.get("guided_json_object", guided_json_object),
+        )
+        sanitized.setdefault(
+            "guided_decoding_backend",
+            generate_config.get("guided_decoding_backend", guided_decoding_backend),
         )
 
         return sanitized
