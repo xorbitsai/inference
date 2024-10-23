@@ -481,25 +481,37 @@ class ModelActor(xo.StatelessActor):
         while True:
             gen, stream_out, stop = await self._pending_requests.get()
 
+            async def _async_wrapper(_gen):
+                try:
+                    # anext is only available for Python >= 3.10
+                    return await _gen.__anext__()  # noqa: F821
+                except StopAsyncIteration:
+                    return stop
+
+            def _wrapper(_gen):
+                # Avoid issue: https://github.com/python/cpython/issues/112182
+                try:
+                    return next(_gen)
+                except StopIteration:
+                    return stop
+
             while True:
                 async with self._lock:
                     try:
                         if inspect.isgenerator(gen):
-                            r = await asyncio.to_thread(next, gen)
+                            r = await asyncio.to_thread(_wrapper, gen)
                         elif inspect.isasyncgen(gen):
-                            r = await gen.__anext__()
+                            r = await _async_wrapper(gen)
                         else:
                             raise Exception(
                                 f"The generator {gen} should be a generator or an async generator, "
                                 f"but a {type(gen)} is got."
                             )
                         stream_out.put_nowait(r)
-                        continue
-                    except (StopIteration, StopAsyncIteration):
-                        pass
+                        if r is not stop:
+                            continue
                     except Exception:
                         logger.exception("stream encountered an error.")
-                    stream_out.put_nowait(stop)
                     break
 
     async def _call_wrapper_json(self, fn: Callable, *args, **kwargs):

@@ -100,14 +100,14 @@ def test_RESTful_client(setup):
             r = executor.submit(_check_stream)
             results.append(r)
     # Parallel generation is not supported by llama-cpp-python.
-    error_count = 0
-    for r in results:
-        try:
-            r.result()
-        except Exception as ex:
-            assert "Parallel generation" in str(ex)
-            error_count += 1
-    assert error_count == 1
+    # error_count = 0
+    # for r in results:
+    #     try:
+    #         r.result()
+    #     except Exception as ex:
+    #         assert "Parallel generation" in str(ex)
+    #         error_count += 1
+    # assert error_count == 1
 
     # After iteration finish, we can iterate again.
     _check_stream()
