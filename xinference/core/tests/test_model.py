@@ -78,6 +78,13 @@ async def test_concurrent_call(setup_pool):
 
     await worker.generate("test_prompt1")
     assert TEST_VALUE is not None
+    # This request is waiting for the TEST_EVENT, so the queue is empty.
+    pending_count = await worker.get_pending_requests_count()
+    assert pending_count == 0
+    await worker.generate("test_prompt3")
+    # This request is waiting in the queue because the previous request is waiting for TEST_EVENT.
+    pending_count = await worker.get_pending_requests_count()
+    assert pending_count == 1
 
     async def _check():
         gen = await worker.generate("test_prompt2")
@@ -94,3 +101,5 @@ async def test_concurrent_call(setup_pool):
     assert not check_task.done()
     TEST_EVENT.set()
     await check_task
+    pending_count = await worker.get_pending_requests_count()
+    assert pending_count == 0

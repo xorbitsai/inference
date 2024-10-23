@@ -496,23 +496,22 @@ class ModelActor(xo.StatelessActor):
                     return stop
 
             while True:
-                async with self._lock:
-                    try:
-                        if inspect.isgenerator(gen):
-                            r = await asyncio.to_thread(_wrapper, gen)
-                        elif inspect.isasyncgen(gen):
-                            r = await _async_wrapper(gen)
-                        else:
-                            raise Exception(
-                                f"The generator {gen} should be a generator or an async generator, "
-                                f"but a {type(gen)} is got."
-                            )
-                        stream_out.put_nowait(r)
-                        if r is not stop:
-                            continue
-                    except Exception:
-                        logger.exception("stream encountered an error.")
-                    break
+                try:
+                    if inspect.isgenerator(gen):
+                        r = await asyncio.to_thread(_wrapper, gen)
+                    elif inspect.isasyncgen(gen):
+                        r = await _async_wrapper(gen)
+                    else:
+                        raise Exception(
+                            f"The generator {gen} should be a generator or an async generator, "
+                            f"but a {type(gen)} is got."
+                        )
+                    stream_out.put_nowait(r)
+                    if r is not stop:
+                        continue
+                except Exception:
+                    logger.exception("stream encountered an error.")
+                break
 
     async def _call_wrapper_json(self, fn: Callable, *args, **kwargs):
         return await self._call_wrapper("json", fn, *args, **kwargs)
@@ -1063,3 +1062,6 @@ class ModelActor(xo.StatelessActor):
     async def record_metrics(self, name, op, kwargs):
         worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)
+
+    async def get_pending_requests_count(self):
+        return self._pending_requests.qsize()
