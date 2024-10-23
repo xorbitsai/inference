@@ -99,6 +99,9 @@ async def test_concurrent_call(setup_pool):
     check_task = asyncio.create_task(_check())
     await asyncio.sleep(2)
     assert not check_task.done()
+    # Pending 2 requests: test_prompt3 and test_prompt2
+    pending_count = await worker.get_pending_requests_count()
+    assert pending_count == 2
     TEST_EVENT.set()
     await check_task
     pending_count = await worker.get_pending_requests_count()
