@@ -11,7 +11,7 @@ gte-Qwen2
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Dimensions:** 3584
+- **Dimensions:** 4096
 - **Max Tokens:** 32000
 - **Model ID:** Alibaba-NLP/gte-Qwen2-7B-instruct
 - **Model Hubs**: `Hugging Face <https://huggingface.co/Alibaba-NLP/gte-Qwen2-7B-instruct>`__, `ModelScope <https://modelscope.cn/models/iic/gte_Qwen2-7B-instruct>`__
