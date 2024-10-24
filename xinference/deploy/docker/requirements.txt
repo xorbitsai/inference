@@ -24,14 +24,14 @@ peft
 opencv-contrib-python-headless
 
 # all
-transformers>=4.34.1
-accelerate>=0.27.2
+transformers>=4.43.2
+accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
 bitsandbytes
 protobuf
 einops
-tiktoken
+tiktoken>=0.6.0
 sentence-transformers>=3.1.0
 diffusers>=0.30.0
 controlnet_aux
@@ -75,6 +75,7 @@ qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 deepcache # for sd
+verovio>=4.3.1  # For got_ocr2
 
 # sglang
 outlines>=0.0.44
