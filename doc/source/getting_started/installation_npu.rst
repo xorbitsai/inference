@@ -8,10 +8,9 @@ Xinference can run on Ascend NPU, follow below instructions to install.
 
 .. warning::
 
-    The support for Ascend NPU in open-source is relatively weak,
-    only providing the most basic functions for getting started,
-    and there may be issues with slow operation on chips like the 310p3.
-    We offer a more powerful and compatible enterprise version to support Ascend NPU.
+    The open-source version relies on Transformers for inference,
+    which can be slow on chips like 310p3. We provide an enterprise version that supports the MindIE engine,
+    offering better performance and compatibility for Ascend NPU.
     Refer to `Xinference Enterprise <_https://github.com/xorbitsai/enterprise-docs/blob/main/README_zh_CN.md>`_
 
 
