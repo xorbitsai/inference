@@ -28,7 +28,6 @@ msgid "Xinference can run on Ascend NPU, follow below instructions to install."
 msgstr "Xinference 能在昇腾 NPU 上运行，使用如下命令安装。"
 
 #: ../../source/getting_started/installation_npu.rst:11
-#, fuzzy
 msgid ""
 "The open-source version relies on Transformers for inference, which can "
 "be slow on chips like 310p3. We provide an enterprise version that "
