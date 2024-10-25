@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import collections.abc
 import logging
 import os
+import platform
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
@@ -23,6 +25,7 @@ from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .ocr.got_ocr2 import GotOCR2Model
 from .stable_diffusion.core import DiffusionModel
+from .stable_diffusion.mlx import MLXDiffusionModel
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     model_hub: str = "huggingface"
     model_ability: Optional[List[str]]
     controlnet: Optional[List["ImageModelFamilyV1"]]
+    default_model_config: Optional[dict] = {}
     default_generate_config: Optional[dict] = {}
 
 
@@ -212,7 +216,9 @@ def create_image_model_instance(
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[Union[DiffusionModel, GotOCR2Model], ImageModelDescription]:
+) -> Tuple[
+    Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model], ImageModelDescription
+]:
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         return create_ocr_model_instance(
@@ -224,6 +230,12 @@ def create_image_model_instance(
             model_path=model_path,
             **kwargs,
         )
+
+    # use default model config
+    model_default_config = (model_spec.default_model_config or {}).copy()
+    model_default_config.update(kwargs)
+    kwargs = model_default_config
+
     controlnet = kwargs.get("controlnet")
     # Handle controlnet
     if controlnet is not None:
@@ -265,10 +277,20 @@ def create_image_model_instance(
         lora_load_kwargs = None
         lora_fuse_kwargs = None
 
-    model = DiffusionModel(
+    if (
+        platform.system() == "Darwin"
+        and "arm" in platform.machine().lower()
+        and model_name in MLXDiffusionModel.supported_models
+    ):
+        # Mac with M series silicon chips
+        model_cls = MLXDiffusionModel
+    else:
+        model_cls = DiffusionModel  # type: ignore
+
+    model = model_cls(
         model_uid,
         model_path,
-        lora_model_paths=lora_model,
+        lora_model=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
         model_spec=model_spec,
