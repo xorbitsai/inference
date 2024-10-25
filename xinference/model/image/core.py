@@ -49,6 +49,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     model_hub: str = "huggingface"
     model_ability: Optional[List[str]]
     controlnet: Optional[List["ImageModelFamilyV1"]]
+    default_model_config: Optional[dict] = {}
     default_generate_config: Optional[dict] = {}
 
 
@@ -215,7 +216,9 @@ def create_image_model_instance(
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model], ImageModelDescription]:
+) -> Tuple[
+    Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model], ImageModelDescription
+]:
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         return create_ocr_model_instance(
@@ -227,6 +230,12 @@ def create_image_model_instance(
             model_path=model_path,
             **kwargs,
         )
+
+    # use default model config
+    model_default_config = (model_spec.default_model_config or {}).copy()
+    model_default_config.update(kwargs)
+    kwargs = model_default_config
+
     controlnet = kwargs.get("controlnet")
     # Handle controlnet
     if controlnet is not None:

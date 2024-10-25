@@ -9,7 +9,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "FLUX.1-dev",
@@ -21,7 +25,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "sd3-medium",
@@ -33,7 +41,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3"
+    }
   },
   {
     "model_name": "sd-turbo",

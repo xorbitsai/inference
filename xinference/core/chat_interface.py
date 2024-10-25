@@ -74,7 +74,11 @@ class GradioInterface:
         # Gradio initiates the queue during a startup event, but since the app has already been
         # started, that event will not run, so manually invoke the startup events.
         # See: https://github.com/gradio-app/gradio/issues/5228
-        interface.startup_events()
+        try:
+            interface.run_startup_events()
+        except AttributeError:
+            # compatibility
+            interface.startup_events()
         favicon_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             os.path.pardir,
