@@ -38,7 +38,7 @@ msgid ""
 msgstr ""
 "开源版本依赖 Transformers 进行推理，在 310p3 等芯片上会存在运行慢的问题。"
 "我们提供了支持 MindIE 引擎，性能更为强大，兼容性更好的企业版本来支持 Ascend NPU。"
-"详细参考 `Xinference 企业版 <_https://github.com/"
+"详细参考 `Xinference 企业版 <https://github.com/"
 "xorbitsai/enterprise-docs/blob/main/README_zh_CN.md>`_"
 
 #: ../../source/getting_started/installation_npu.rst:18
