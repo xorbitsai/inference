@@ -283,9 +283,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             model.enable_sequential_cpu_offload()
         elif not self._kwargs.get("device_map"):
             logger.debug("Loading model to available device")
-            model = move_model_to_available_device(self._model)
-        # Recommended if your computer has < 64 GB of RAM
-        if self._kwargs.get("attention_slicing", True):
+            model = move_model_to_available_device(model)
+        if self._kwargs.get("attention_slicing", False):
             model.enable_attention_slicing()
         if self._kwargs.get("vae_tiling", False):
             model.enable_vae_tiling()
