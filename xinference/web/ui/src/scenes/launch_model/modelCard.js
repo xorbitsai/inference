@@ -1405,8 +1405,8 @@ const ModelCard = ({
                         label="(Optional) Download_hub"
                       >
                         {(csghubArr.includes(modelData.model_name)
-                          ? ['none', 'huggingface', 'modelscope', 'csghub']
-                          : ['none', 'huggingface', 'modelscope']
+                          ? ['none', 'huggingface', 'modelscope', 'openmind_hub', 'csghub']
+                          : ['none', 'huggingface', 'modelscope', 'openmind_hub']
                         ).map((item) => {
                           return (
                             <MenuItem key={item} value={item}>
@@ -1566,7 +1566,7 @@ const ModelCard = ({
                     }}
                     label="(Optional) Download_hub"
                   >
-                    {['none', 'huggingface', 'modelscope'].map((item) => {
+                    {['none', 'huggingface', 'modelscope', 'openmind_hub'].map((item) => {
                       return (
                         <MenuItem key={item} value={item}>
                           {item}

@@ -1,0 +1,35 @@
+[
+    {
+        "version": 1,
+        "context_length": 32768,
+        "model_name": "internlm2-chat",
+        "model_lang": [
+          "en",
+          "zh"
+        ],
+        "model_ability": [
+          "chat"
+        ],
+        "model_description": "The second generation of the InternLM model, InternLM2.",
+        "model_specs": [
+          {
+            "model_format": "pytorch",
+            "model_size_in_billions": 7,
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "PyTorch-NPU/internlm2_chat_7b",
+            "model_hub": "openmind_hub"
+          }
+        ],
+        "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+        "stop_token_ids": [
+          2,
+          92542
+        ],
+        "stop": [
+          "</s>",
+          "<|im_end|>"
+        ]
+      }
+]
