@@ -721,7 +721,6 @@ def cache_from_openmind_hub(
     from openmind_hub import snapshot_download
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
-    print("cache_dir", cache_dir)
     if _skip_download(
         cache_dir,
         llm_spec.model_format,
@@ -978,7 +977,6 @@ def match_llm(
             + user_defined_llm_families
         )
     elif download_hub == "openmind_hub":
-        print("openmind_hub : ", BUILTIN_OPENMIND_HUB_LLM_FAMILIES)
         all_families = (
             BUILTIN_OPENMIND_HUB_LLM_FAMILIES
             + BUILTIN_LLM_FAMILIES
@@ -999,7 +997,6 @@ def match_llm(
             + user_defined_llm_families
         )
     elif download_from_openmind_hub():
-        print("openmind_hub ???")
         all_families = (
             BUILTIN_OPENMIND_HUB_LLM_FAMILIES
             + BUILTIN_LLM_FAMILIES
