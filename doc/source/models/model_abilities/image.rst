@@ -169,8 +169,7 @@ We can try OCR API out either via cURL, or Xinference's python client:
 
     curl -X 'POST' \
       'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
-      -H 'Content-Type: application/octet-stream' \
-      -F model=<MODEL_UID>
+      -F model=<MODEL_UID> \
       -F image=@xxx.jpg
 
 
