@@ -59,7 +59,7 @@ def download_from_openmind_hub() -> bool:
         return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "openmind_hub"
     else:
         return False
-    
+
 
 def download_from_csghub() -> bool:
     if os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "csghub":
