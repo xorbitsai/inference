@@ -268,7 +268,11 @@ class RerankModel:
             similarity_scores = self._model.compute_score(sentence_combinations)
             if not isinstance(similarity_scores, Sequence):
                 similarity_scores = [similarity_scores]
-            if similarity_scores and isinstance(similarity_scores[0], Sequence):
+            elif (
+                isinstance(similarity_scores, list)
+                and len(similarity_scores) > 0
+                and isinstance(similarity_scores[0], Sequence)
+            ):
                 similarity_scores = similarity_scores[0]
 
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
