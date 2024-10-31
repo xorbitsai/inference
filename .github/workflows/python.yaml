@@ -138,7 +138,6 @@ jobs:
           pip install -e ".[dev]"
           pip install "jinja2==3.1.2"
           pip install tensorizer
-          pip install eva-decord
           pip install jj-pytorchvideo
           pip install qwen-vl-utils
           pip install datamodel_code_generator
