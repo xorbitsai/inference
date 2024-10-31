@@ -118,13 +118,13 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           if [ "$MODULE" == "metal" ]; then
-            pip install mlx-lm
+            pip install mlx-lm "FlagEmbedding<1.3.0"
           fi
           pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install transformers
           pip install attrdict
           pip install "timm>=0.9.16"
-          pip install torch
+          pip install "torch<2.5.1"
           pip install torchvision
           pip install accelerate
           pip install sentencepiece
