@@ -1,6 +1,7 @@
 [build-system]
 requires = [
-    "setuptools<64",
+    "setuptools<64; python_version<'3.12'",
+    "setuptools>=75; python_version>='3.12'"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -17,6 +18,6 @@ extend-exclude = '''
 asyncio_mode = "auto"
 
 [tool.cibuildwheel]
-build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
-skip = "pp* *musllinux* *i686 cp36* cp310-win32 cp311-win32"
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+skip = "pp* *musllinux* *i686 cp36* cp39-win32 cp310-win32 cp311-win32 cp312-win32"
 manylinux-x86_64-image = "manylinux2014"
