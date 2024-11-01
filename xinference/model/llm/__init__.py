@@ -262,7 +262,9 @@ def _install():
     openmind_hub_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_openmind_hub.json"
     )
-    for json_obj in json.load(codecs.open(openmind_hub_json_path, "r", encoding="utf-8")):
+    for json_obj in json.load(
+        codecs.open(openmind_hub_json_path, "r", encoding="utf-8")
+    ):
         model_spec = LLMFamilyV1.parse_obj(json_obj)
         BUILTIN_OPENMIND_HUB_LLM_FAMILIES.append(model_spec)
 
@@ -279,7 +281,7 @@ def _install():
                 "stop_token_ids": model_spec.stop_token_ids,
                 "stop": model_spec.stop,
             }
-         # register model family
+        # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:

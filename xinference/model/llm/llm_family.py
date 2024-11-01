@@ -945,7 +945,9 @@ def match_llm(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
-    download_hub: Optional[Literal["huggingface", "modelscope", "openmind_hub", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
