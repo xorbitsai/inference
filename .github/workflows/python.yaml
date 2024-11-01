@@ -133,7 +133,7 @@ jobs:
           pip install modelscope
           pip install diffusers
           pip install protobuf
-          pip install "FlagEmbedding<1.3.0"
+          pip install FlagEmbedding
           pip install "tenacity>=8.2.0,<8.4.0"
           pip install -e ".[dev]"
           pip install "jinja2==3.1.2"

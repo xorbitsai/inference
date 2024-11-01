@@ -30,7 +30,7 @@ protobuf
 einops
 tiktoken
 sentence-transformers>=3.1.0
-FlagEmbedding<1.3.0
+FlagEmbedding
 diffusers>=0.30.0
 controlnet_aux
 orjson
