@@ -298,8 +298,8 @@ const ModelCard = ({
           parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
             ? null
             : nGPU === 'auto'
-            ? 'auto'
-            : parseInt(nGPU, 10),
+              ? 'auto'
+              : parseInt(nGPU, 10),
         replica: replica,
         request_limits:
           String(requestLimits)?.trim() === ''
@@ -1405,8 +1405,19 @@ const ModelCard = ({
                         label="(Optional) Download_hub"
                       >
                         {(csghubArr.includes(modelData.model_name)
-                          ? ['none', 'huggingface', 'modelscope', 'openmind_hub', 'csghub']
-                          : ['none', 'huggingface', 'modelscope', 'openmind_hub']
+                          ? [
+                              'none',
+                              'huggingface',
+                              'modelscope',
+                              'openmind_hub',
+                              'csghub',
+                            ]
+                          : [
+                              'none',
+                              'huggingface',
+                              'modelscope',
+                              'openmind_hub',
+                            ]
                         ).map((item) => {
                           return (
                             <MenuItem key={item} value={item}>
@@ -1566,13 +1577,15 @@ const ModelCard = ({
                     }}
                     label="(Optional) Download_hub"
                   >
-                    {['none', 'huggingface', 'modelscope', 'openmind_hub'].map((item) => {
-                      return (
-                        <MenuItem key={item} value={item}>
-                          {item}
-                        </MenuItem>
-                      )
-                    })}
+                    {['none', 'huggingface', 'modelscope', 'openmind_hub'].map(
+                      (item) => {
+                        return (
+                          <MenuItem key={item} value={item}>
+                            {item}
+                          </MenuItem>
+                        )
+                      }
+                    )}
                   </Select>
                 </FormControl>
                 <FormControl variant="outlined" margin="normal" fullWidth>
