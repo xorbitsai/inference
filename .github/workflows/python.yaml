@@ -181,6 +181,9 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U accelerate
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U verovio
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              --disable-warnings \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
@@ -211,6 +214,6 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests xinference
           fi
         working-directory: .
