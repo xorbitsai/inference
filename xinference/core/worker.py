@@ -785,7 +785,9 @@ class WorkerActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
-        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        download_hub: Optional[
+            Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+        ] = None,
         model_path: Optional[str] = None,
         **kwargs,
     ):

@@ -1,0 +1,1359 @@
+[
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "internlm2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The second generation of the InternLM model, InternLM2.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "PyTorch-NPU/internlm2_chat_7b",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "AI-Research/internlm2-chat-20b",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "baichuan-2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Baichuan/Baichuan2_7b_chat_pt",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Baichuan/Baichuan2_13b_chat_pt",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ (messages|selectattr('role', 'equalto', 'system')|list|last).content|trim if (messages|selectattr('role', 'equalto', 'system')|list) else '' }}\n\n{% for message in messages %}\n{% if message['role'] == 'user' %}\n<reserved_106>\n{{ message['content']|trim -}}\n{% if not loop.last %}\n\n\n{% endif %}\n{% elif message['role'] == 'assistant' %}\n<reserved_107>\n{{ message['content']|trim -}}\n{% if not loop.last %}\n\n\n{% endif %}\n{% endif %}\n{% endfor %}\n{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}\n<reserved_107>\n{% endif %}",
+    "stop_token_ids": [
+      2,
+      195
+    ],
+    "stop": []
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "baichuan-2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Baichuan2 is an open-source Transformer based LLM that is trained on both Chinese and English data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "PyTorch-NPU/baichuan2_7b_base",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Baichuan/Baichuan2_13b_base_pt",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen1.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen1.5 is the beta version of Qwen2, a transformer-based decoder-only language model pretrained on a large amount of data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "PyTorch-NPU/qwen1.5_7b_chat",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 65536,
+    "model_name": "qwen1.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "PyTorch-NPU/qwen1.5_7b",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "glm4-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/glm-4-9b-chat",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "[gMASK]<sop>{% for item in messages %}{% if item['tools'] is defined %}<|system|>\n你是一个名为 ChatGLM 的人工智能助手。你是基于智谱AI训练的语言模型 GLM-4 模型开发的，你的任务是针对用户的问题和要求提供适当的答复和支持。\n\n# 可用工具{% set tools = item['tools'] %}{% for tool in tools %}{% if tool['type'] == 'function' %}\n\n## {{ tool['function']['name'] }}\n\n{{ tool['function'] | tojson(indent=4) }}\n在调用上述函数时，请使用 Json 格式表示调用的参数。{% elif tool['type'] == 'python' %}\n\n## python\n\n当你向 `python` 发送包含 Python 代码的消息时，该代码将会在一个有状态的 Jupyter notebook 环境中执行。\n`python` 返回代码执行的输出，或在执行 60 秒后返回超时。\n`/mnt/data` 将会持久化存储你的文件。在此会话中，`python` 无法访问互联网。不要使用 `python` 进行任何网络请求或者在线 API 调用，这些在线内容的访问将不会成功。{% elif tool['type'] == 'simple_browser' %}\n\n## simple_browser\n\n你可以使用 `simple_browser` 工具。该工具支持以下函数：\n`search(query: str, recency_days: int)`：使用搜索引擎进行查询并显示结果，可以使用 `recency_days` 参数控制搜索内容的时效性。\n`mclick(ids: list[int])`：获取一系列指定 id 的页面内容。每次调用时，须选择3-10个页面。选择多个角度的页面，同时尽可能选择可信任的信息来源。考虑到部分页面是无法加载的，你也可以多打开一些可能有用的页面而不用担心内容过多。\n`open_url(url: str)`：打开指定的 URL。\n\n使用 `【{引用 id}†{引用文本}】` 来引用内容。\n\n操作步骤：1. 使用 `search` 来获得信息列表; 2. 使用 `mclick` 来获取指定 ID 页面的内容; 3. 根据获得的内容进行回复。在回复中应当引用信息来源。\n 如果用户提供了 URL，也可以用 `open_url` 直接打开页面。\n如果初次搜索结果没有找到合适的信息，也可以再次使用 `search` 进行搜索。{% elif tool['type'] == 'cogview' %}\n\n## cogview\n\n如果用户的请求中包含了对图像的描述，你可以使用 `cogview` 来生成图像并展示给用户。你需要向 `cogview` 发送图像描述，规则：\n- 发送给 `cogview` 的消息必须使用英语。用户的中文描述必须完全翻译为英语。\n- 应当尽可能详细地描述图像生成的需求，需求描述约 100 英文单词。\n- 保持用户原始描述的意图。不要虚构内容或者没见过的人物。\n- 如无特殊说明，所在地为中国，持有中国立场并遵循中国社会主义价值观。{% endif %}{% endfor %}{% endif %}{% if item['content'] %}<|{{ item['role'] }}|>{{ item['metadata'] }}\n{{ item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 1048576,
+    "model_name": "glm4-chat-1m",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/glm-4-9b-chat-1m",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "[gMASK]<sop>{% for item in messages %}{% if item['tools'] is defined %}<|system|>\n你是一个名为 GLM-4 的人工智能助手。你是基于智谱AI训练的语言模型 GLM-4 模型开发的，你的任务是针对用户的问题和要求提供适当的答复和支持。\n\n# 可用工具{% set tools = item['tools'] %}{% for tool in tools %}{% if tool['type'] == 'function' %}\n\n## {{ tool['function']['name'] }}\n\n{{ tool['function'] | tojson(indent=4) }}\n在调用上述函数时，请使用 Json 格式表示调用的参数。{% elif tool['type'] == 'python' %}\n\n## python\n\n当你向 `python` 发送包含 Python 代码的消息时，该代码将会在一个有状态的 Jupyter notebook 环境中执行。\n`python` 返回代码执行的输出，或在执行 60 秒后返回超时。\n`/mnt/data` 将会持久化存储你的文件。在此会话中，`python` 无法访问互联网。不要使用 `python` 进行任何网络请求或者在线 API 调用，这些在线内容的访问将不会成功。{% elif tool['type'] == 'simple_browser' %}\n\n## simple_browser\n\n你可以使用 `simple_browser` 工具。该工具支持以下函数：\n`search(query: str, recency_days: int)`：使用搜索引擎进行查询并显示结果，可以使用 `recency_days` 参数控制搜索内容的时效性。\n`mclick(ids: list[int])`：获取一系列指定 id 的页面内容。每次调用时，须选择3-10个页面。选择多个角度的页面，同时尽可能选择可信任的信息来源。考虑到部分页面是无法加载的，你也可以多打开一些可能有用的页面而不用担心内容过多。\n`open_url(url: str)`：打开指定的 URL。\n\n使用 `【{引用 id}†{引用文本}】` 来引用内容。\n\n操作步骤：1. 使用 `search` 来获得信息列表; 2. 使用 `mclick` 来获取指定 ID 页面的内容; 3. 根据获得的内容进行回复。在回复中应当引用信息来源。\n 如果用户提供了 URL，也可以用 `open_url` 直接打开页面。\n如果初次搜索结果没有找到合适的信息，也可以再次使用 `search` 进行搜索。{% elif tool['type'] == 'cogview' %}\n\n## cogview\n\n如果用户的请求中包含了对图像的描述，你可以使用 `cogview` 来生成图像并展示给用户。你需要向 `cogview` 发送图像描述，规则：\n- 发送给 `cogview` 的消息必须使用英语。用户的中文描述必须完全翻译为英语。\n- 应当尽可能详细地描述图像生成的需求，需求描述约 100 英文单词。\n- 保持用户原始描述的意图。不要虚构内容或者没见过的人物。\n- 如无特殊说明，所在地为中国，持有中国立场并遵循中国社会主义价值观。{% endif %}{% endfor %}{% endif %}{% if item['content'] %}<|{{ item['role'] }}|>{{ item['metadata'] }}\n{{ item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "glm-4v",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/glm-4v-9b",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "llama-3-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Meta-Llama-3-8B-Instruct",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Meta-Llama-3-70B-Instruct",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",
+    "stop_token_ids": [
+      128001,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "llama-3.1",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/Meta-Llama-3.1-8B",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "llama-3.1-instruct",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "AI-Research/Meta-Llama-3.1-8B-Instruct",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- set date_string = \"26 Jul 2024\" %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message + builtin tools #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if builtin_tools is defined or tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{%- if builtin_tools is defined %}\n    {{- \"Tools: \" + builtin_tools | reject('equalto', 'code_interpreter') | join(\", \") + \"\\n\\n\"}}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- \"<|python_tag|>\" + tool_call.name + \".call(\" }}\n            {%- for arg_name, arg_val in tool_call.arguments | items %}\n                {{- arg_name + '=\"' + arg_val + '\"' }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- endif %}\n                {%- endfor %}\n            {{- \")\" }}\n        {%- else  %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n            {{- '\"parameters\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- \"}\" }}\n        {%- endif %}\n        {%- if builtin_tools is defined %}\n            {#- This means we're in ipython mode #}\n            {{- \"<|eom_id|>\" }}\n        {%- else %}\n            {{- \"<|eot_id|>\" }}\n        {%- endif %}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      128001,
+      128008,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>",
+      "<|eom_id|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_8",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/Qwen-1_8B-Chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Qwen-7B-Chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Qwen-14B-Chat",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ '<|im_start|>system\n' + item['content'] + '<|im_end|>\n' }}{% elif loop.first %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{% if item['role'] == 'user' %}{{ '<|im_start|>user\n' + item['content'] + '<|im_end|>' }}{% elif item['role'] == 'assistant' %}{{ '<|im_start|>assistant\n' + item['content'] + '<|im_end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen1.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen1.5 is the beta version of Qwen2, a transformer-based decoder-only language model pretrained on a large amount of data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/Qwen1.5-0.5B-Chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/Qwen1.5-4B-Chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "PyTorch-NPU/qwen1.5_7b_chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "State_Cloud/Qwen1.5-14B-Chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "State_Cloud/Qwen1.5-32b-chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "State_Cloud/Qwen1.5-72b-chat",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 65536,
+    "model_name": "codeqwen1.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/CodeQwen1.5-7B",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 65536,
+    "model_name": "codeqwen1.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/CodeQwen1.5-7B-Chat",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2 is the new series of Qwen large language models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Qwen2-0.5B-Instruct",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/Qwen2-1.5B-Instruct",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Qwen2-7B-Instruct",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "State_Cloud/Qwen2-72B-Instruct",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "mistral-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Mistral-7B is a unmoderated Transformer based LLM claiming to outperform Llama2 on all benchmarks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "PyTorch-NPU/mistral_7b_v0.1",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Yi",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Yi-6B",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Yi-9B",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 262144,
+    "model_name": "Yi-200k",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "wuhaicc/Yi-6B-200K",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Yi-1.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/Yi-1.5-6B",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HangZhou_Ascend/Yi-1.5-9B",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "internlm2.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "InternLM2.5 series of the InternLM model.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_8",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Intern/internlm2_5-1_8b-chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Intern/internlm2_5-7b-chat",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Intern/internlm2_5-20b-chat",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 262144,
+    "model_name": "internlm2.5-chat-1m",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "InternLM2.5 series of the InternLM model supports 1M long-context",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Intern/internlm2_5-7b-chat-1m",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "gemma-it",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "SY_AICC/gemma-2b-it",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "SY_AICC/gemma-7b-it",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ '<bos>' }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}",
+    "stop_token_ids": [
+      1,
+      106,
+      107
+    ],
+    "stop": [
+      "<eos>",
+      "<end_of_turn>",
+      "<start_of_turn>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "gemma-2-it",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "LlamaFactory/gemma-2-2b-it",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "LlamaFactory/gemma-2-9b-it",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ '<bos>' }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}",
+    "stop_token_ids": [
+      1,
+      106,
+      107
+    ],
+    "stop": [
+      "<eos>",
+      "<end_of_turn>",
+      "<start_of_turn>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "minicpm-2b-sft-bf16",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "AI-Research/MiniCPM-2B-sft-bf16",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "minicpm-2b-dpo-bf16",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "AI-Research/MiniCPM-2B-dpo-bf16",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "cogvlm2",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "AI-Research/cogvlm2-llama3-chinese-chat-19b",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% else %}{{ '<|end_of_text|>' }}{% endif %}",
+    "stop_token_ids": [
+      128001,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "telechat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The TeleChat is a large language model developed and trained by China Telecom Artificial Intelligence Technology Co., LTD. The 7B model base is trained with 1.5 trillion Tokens and 3 trillion Tokens and Chinese high-quality corpus.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TeleAI/TeleChat-7B-pt",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TeleAI/TeleChat-12B-pt",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 52,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TeleAI/TeleChat-52B-pt",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{{ (messages|selectattr('role', 'equalto', 'system')|list|last).content|trim if (messages|selectattr('role', 'equalto', 'system')|list) else '' }}{%- for message in messages -%}{%- if message['role'] == 'user' -%}{{- '<_user>' + message['content'] +'<_bot>' -}}{%- elif message['role'] == 'assistant' -%}{{- message['content'] + '<_end>' -}}{%- endif -%}{%- endfor -%}",
+    "stop": [
+      "<_end>",
+      "<_start>"
+    ],
+    "stop_token_ids": [
+      160133,
+      160132
+    ]
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-vl-instruct",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "vision"
+    ],
+    "model_description":"Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"LlamaFactory/Qwen2-VL-2B-Instruct",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"LlamaFactory/Qwen2-VL-7B-Instruct",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "minicpm3-4b",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM3-4B is the 3rd generation of MiniCPM series. The overall performance of MiniCPM3-4B surpasses Phi-3.5-mini-Instruct and GPT-3.5-Turbo-0125, being comparable with many recent 7B~9B models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "AI-Research/MiniCPM3-4B",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tianjin_Ascend/qwen2.5-0.5b",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tianjin_Ascend/Qwen2.5-1.5B",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tianjin_Ascend/Qwen2.5-3B",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/Qwen2.5-7B",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/Qwen2.5-32B",
+        "model_hub": "openmind_hub"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/Qwen2.5-7B-Instruct",
+        "model_hub": "openmind_hub"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AI-Research/Qwen2.5-32B-Instruct",
+        "model_hub": "openmind_hub"
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  }
+]

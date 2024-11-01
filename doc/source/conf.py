@@ -121,7 +121,7 @@ else:
         "type": "fontawesome",
     }])
     html_theme_options["external_links"] = [
-        {"name": "产品官网", "url": "https://xorbits.cn/inference"},
+        {"name": "产品官网", "url": "https://xorbits.cn"},
     ]
 
 html_favicon = "_static/favicon.svg"

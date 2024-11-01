@@ -32,6 +32,7 @@ from .llm_family import (
     BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
+    BUILTIN_OPENMIND_HUB_LLM_FAMILIES,
     LLAMA_CLASSES,
     LLM_ENGINES,
     LMDEPLOY_CLASSES,
@@ -258,6 +259,36 @@ def _install():
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
+    openmind_hub_json_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "llm_family_openmind_hub.json"
+    )
+    for json_obj in json.load(
+        codecs.open(openmind_hub_json_path, "r", encoding="utf-8")
+    ):
+        model_spec = LLMFamilyV1.parse_obj(json_obj)
+        BUILTIN_OPENMIND_HUB_LLM_FAMILIES.append(model_spec)
+
+        # register prompt style, in case that we have something missed
+        # if duplicated with huggingface json, keep it as the huggingface style
+
+        if (
+            "chat" in model_spec.model_ability
+            and isinstance(model_spec.chat_template, str)
+            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
+        ):
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
+        # register model family
+        if "chat" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
+        else:
+            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
+        if "tools" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+
     csghub_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_csghub.json"
     )
@@ -288,6 +319,7 @@ def _install():
     for llm_specs in [
         BUILTIN_LLM_FAMILIES,
         BUILTIN_MODELSCOPE_LLM_FAMILIES,
+        BUILTIN_OPENMIND_HUB_LLM_FAMILIES,
         BUILTIN_CSGHUB_LLM_FAMILIES,
     ]:
         for llm_spec in llm_specs:
@@ -298,6 +330,7 @@ def _install():
     for families in [
         BUILTIN_LLM_FAMILIES,
         BUILTIN_MODELSCOPE_LLM_FAMILIES,
+        BUILTIN_OPENMIND_HUB_LLM_FAMILIES,
         BUILTIN_CSGHUB_LLM_FAMILIES,
     ]:
         for family in families:

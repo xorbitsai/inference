@@ -433,7 +433,9 @@ class EmbeddingModel:
 
 def match_embedding(
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
 ) -> EmbeddingModelSpec:
     from ..utils import download_from_modelscope
     from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
@@ -469,7 +471,9 @@ def create_embedding_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
