@@ -265,7 +265,9 @@ class RerankModel:
                 similarity_scores = similarity_scores.float()
         else:
             # Related issue: https://github.com/xorbitsai/inference/issues/1775
-            similarity_scores = self._model.compute_score(sentence_combinations)
+            similarity_scores = self._model.compute_score(
+                sentence_combinations, normalize=True
+            )
             if not isinstance(similarity_scores, Sequence):
                 similarity_scores = [similarity_scores]
             elif (
