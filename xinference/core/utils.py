@@ -146,27 +146,26 @@ def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None,
     """
     replica = int(replica)
     for rep_id in range(replica):
-        yield f"{model_uid}-{replica}-{rep_id}"
+        yield f"{model_uid}-{rep_id}"
 
 
-def build_replica_model_uid(model_uid: str, replica: int, rep_id: int) -> str:
+def build_replica_model_uid(model_uid: str, rep_id: int) -> str:
     """
     Build a replica model uid.
     """
-    return f"{model_uid}-{replica}-{rep_id}"
+    return f"{model_uid}-{rep_id}"
 
 
-def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
+def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int]:
     """
-    Parse replica model uid to model uid, replica and rep id.
+    Parse replica model uid to model uid and rep id.
     """
     parts = replica_model_uid.split("-")
     if len(parts) == 1:
-        return replica_model_uid, -1, -1
+        return replica_model_uid, -1
     rep_id = int(parts.pop())
-    replica = int(parts.pop())
     model_uid = "-".join(parts)
-    return model_uid, replica, rep_id
+    return model_uid, rep_id
 
 
 def is_valid_model_uid(model_uid: str) -> bool:
@@ -261,9 +260,9 @@ def get_nvidia_gpu_info() -> Dict:
 
 
 def assign_replica_gpu(
-    _replica_model_uid: str, gpu_idx: Union[int, List[int]]
+    _replica_model_uid: str, replica: int, gpu_idx: Union[int, List[int]]
 ) -> List[int]:
-    model_uid, replica, rep_id = parse_replica_model_uid(_replica_model_uid)
+    model_uid, rep_id = parse_replica_model_uid(_replica_model_uid)
     rep_id, replica = int(rep_id), int(replica)
     if isinstance(gpu_idx, int):
         gpu_idx = [gpu_idx]

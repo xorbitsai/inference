@@ -157,7 +157,7 @@ class WorkerActor(xo.StatelessActor):
                                 model_uid,
                                 recover_count - 1,
                             )
-                            event_model_uid, _, __ = parse_replica_model_uid(model_uid)
+                            event_model_uid, _ = parse_replica_model_uid(model_uid)
                             try:
                                 if self._event_collector_ref is not None:
                                     await self._event_collector_ref.report_event(
@@ -377,7 +377,7 @@ class WorkerActor(xo.StatelessActor):
         return len(self._model_uid_to_model)
 
     async def is_model_vllm_backend(self, model_uid: str) -> bool:
-        _model_uid, _, _ = parse_replica_model_uid(model_uid)
+        _model_uid, _ = parse_replica_model_uid(model_uid)
         supervisor_ref = await self.get_supervisor_ref()
         model_ref = await supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
@@ -800,7 +800,7 @@ class WorkerActor(xo.StatelessActor):
         launch_args.update(kwargs)
 
         try:
-            origin_uid, _, _ = parse_replica_model_uid(model_uid)
+            origin_uid, _ = parse_replica_model_uid(model_uid)
         except Exception as e:
             logger.exception(e)
             raise
@@ -926,7 +926,7 @@ class WorkerActor(xo.StatelessActor):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
-        origin_uid, _, __ = parse_replica_model_uid(model_uid)
+        origin_uid, _ = parse_replica_model_uid(model_uid)
         try:
             _ = await self.get_supervisor_ref()
             if self._event_collector_ref is not None:
