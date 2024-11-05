@@ -196,8 +196,8 @@ class ModelActor(xo.StatelessActor):
         self,
         supervisor_address: str,
         worker_address: str,
-        replica_model_uid: str,
         model: "LLM",
+        replica_model_uid: str,
         model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
     ):
