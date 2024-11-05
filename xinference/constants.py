@@ -27,7 +27,8 @@ XINFERENCE_ENV_HEALTH_CHECK_INTERVAL = "XINFERENCE_HEALTH_CHECK_INTERVAL"
 XINFERENCE_ENV_HEALTH_CHECK_TIMEOUT = "XINFERENCE_HEALTH_CHECK_TIMEOUT"
 XINFERENCE_ENV_DISABLE_HEALTH_CHECK = "XINFERENCE_DISABLE_HEALTH_CHECK"
 XINFERENCE_ENV_DISABLE_METRICS = "XINFERENCE_DISABLE_METRICS"
-XINFERENCE_ENV_TRANSFORMERS_ENABLE_BATCHING = "XINFERENCE_TRANSFORMERS_ENABLE_BATCHING"
+XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS = "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE = "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
 
 
 def get_xinference_home() -> str:
@@ -38,6 +39,7 @@ def get_xinference_home() -> str:
         # if user has already set `XINFERENCE_HOME` env, change huggingface and modelscope default download path
         os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(home_path, "huggingface")
         os.environ["MODELSCOPE_CACHE"] = os.path.join(home_path, "modelscope")
+        os.environ["XDG_CACHE_HOME"] = os.path.join(home_path, "openmind_hub")
     # In multi-tenant mode,
     # gradio's temporary files are stored in their respective home directories,
     # to prevent insufficient permissions
@@ -79,6 +81,9 @@ XINFERENCE_DISABLE_HEALTH_CHECK = bool(
 XINFERENCE_DISABLE_METRICS = bool(
     int(os.environ.get(XINFERENCE_ENV_DISABLE_METRICS, 0))
 )
-XINFERENCE_TRANSFORMERS_ENABLE_BATCHING = bool(
-    int(os.environ.get(XINFERENCE_ENV_TRANSFORMERS_ENABLE_BATCHING, 0))
+XINFERENCE_DOWNLOAD_MAX_ATTEMPTS = int(
+    os.environ.get(XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS, 3)
+)
+XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE = os.environ.get(
+    XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE, None
 )

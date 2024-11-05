@@ -17,10 +17,11 @@ import functools
 import logging
 import uuid
 from collections import deque
-from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
+
+from .utils import AbortRequestMessage
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,6 @@ XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
 XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 XINFERENCE_STREAMING_ABORT_FLAG = "<XINFERENCE_STREAMING_ABORT>"
 XINFERENCE_NON_STREAMING_ABORT_FLAG = "<XINFERENCE_NON_STREAMING_ABORT>"
-
-
-class AbortRequestMessage(Enum):
-    NOT_FOUND = 1
-    DONE = 2
-    NO_OP = 3
 
 
 class InferenceRequest:
@@ -81,6 +76,10 @@ class InferenceRequest:
         self.padding_len = 0
         # Use in stream mode
         self.last_output_length = 0
+        # For tool call
+        self.tools = None
+        # Currently, for storing tool call streaming results.
+        self.outputs: List[str] = []  # type: ignore
         # inference results,
         # it is a list type because when stream=True,
         # self.completion contains all the results in a decode round.
@@ -111,6 +110,10 @@ class InferenceRequest:
         prompt for generate model and messages for chat model
         """
         return self._prompt
+
+    @prompt.setter
+    def prompt(self, value: str):
+        self._prompt = value
 
     @property
     def call_ability(self):

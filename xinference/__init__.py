@@ -26,12 +26,8 @@ except:
 def _install():
     from xoscar.backends.router import Router
 
-    from .model import _install as install_model
-
     default_router = Router.get_instance_or_empty()
     Router.set_instance(default_router)
-
-    install_model()
 
 
 _install()

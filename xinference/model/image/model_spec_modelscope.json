@@ -9,7 +9,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "FLUX.1-dev",
@@ -21,7 +25,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "sd3-medium",
@@ -33,7 +41,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3"
+    }
   },
   {
     "model_name": "sd-turbo",
@@ -147,6 +159,16 @@
         "model_id": "diffusers/controlnet-zoe-depth-sdxl-1.0",
         "model_revision": "62134b9d8e703b5d6f74f1534457287a8bba77ef"
       }
+    ]
+  },
+  {
+    "model_name": "GOT-OCR2_0",
+    "model_family": "ocr",
+    "model_id": "stepfun-ai/GOT-OCR2_0",
+    "model_revision": "master",
+    "model_hub": "modelscope",
+    "model_ability": [
+      "ocr"
     ]
   }
 ]

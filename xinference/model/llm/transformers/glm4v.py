@@ -26,7 +26,7 @@ from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import _decode_image, generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import get_max_src_len
+from .utils import cache_clean, get_max_src_len
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +129,7 @@ class Glm4VModel(PytorchChatModel):
                     res.append({"role": role, "content": text})
         return res
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

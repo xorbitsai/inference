@@ -30,6 +30,7 @@ from ..utils import (
     parse_messages,
 )
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,7 @@ class MiniCPMV26Model(PytorchChatModel):
         msgs.append({"role": "user", "content": images_chat + [content]})
         return msgs, video_existed
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

@@ -12,31 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import contextlib
+import gc
 import inspect
+import itertools
 import logging
-import os
 import re
 import sys
-import time
-import uuid
 import warnings
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-from io import BytesIO
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import PIL.Image
 import torch
 from PIL import ImageOps
 
-from ....constants import XINFERENCE_IMAGE_DIR
 from ....device_utils import get_available_device, move_model_to_available_device
-from ....types import Image, ImageList, LoRA
+from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
+from ..utils import handle_image_result
 
 if TYPE_CHECKING:
+    from ....core.progress_tracker import Progressor
     from ..core import ImageModelFamilyV1
 
 logger = logging.getLogger(__name__)
@@ -93,16 +89,21 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
+        # model info when loading
+        self._model = None
+        self._lora_model = lora_model
+        self._lora_load_kwargs = lora_load_kwargs or {}
+        self._lora_fuse_kwargs = lora_fuse_kwargs or {}
+        # deepcache
+        self._deepcache_helper = None
         # when a model has text2image ability,
         # it will be loaded as AutoPipelineForText2Image
         # for image2image and inpainting,
         # we convert to the corresponding model
-        self._model = None
-        self._i2i_model = None  # image to image model
-        self._inpainting_model = None  # inpainting model
-        self._lora_model = lora_model
-        self._lora_load_kwargs = lora_load_kwargs or {}
-        self._lora_fuse_kwargs = lora_fuse_kwargs or {}
+        self._torch_dtype = None
+        self._ability_to_models: Dict[Tuple[str, Any], Any] = {}
+        self._controlnet_models: Dict[str, Any] = {}
+        # info
         self._model_spec = model_spec
         self._abilities = model_spec.model_ability or []  # type: ignore
         self._kwargs = kwargs
@@ -110,6 +111,63 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
     @property
     def model_ability(self):
         return self._abilities
+
+    @staticmethod
+    def _get_pipeline_type(ability: str) -> type:
+        if ability == "text2image":
+            from diffusers import AutoPipelineForText2Image as AutoPipelineModel
+        elif ability == "image2image":
+            from diffusers import AutoPipelineForImage2Image as AutoPipelineModel
+        elif ability == "inpainting":
+            from diffusers import AutoPipelineForInpainting as AutoPipelineModel
+        else:
+            raise ValueError(f"Unknown ability: {ability}")
+        return AutoPipelineModel
+
+    def _get_controlnet_model(self, name: str, path: str):
+        from diffusers import ControlNetModel
+
+        try:
+            return self._controlnet_models[name]
+        except KeyError:
+            logger.debug("Loading controlnet %s, from %s", name, path)
+            model = ControlNetModel.from_pretrained(path, torch_dtype=self._torch_dtype)
+            self._controlnet_models[name] = model
+            return model
+
+    def _get_model(
+        self,
+        ability: str,
+        controlnet_name: Optional[Union[str, List[str]]] = None,
+        controlnet_path: Optional[Union[str, List[str]]] = None,
+    ):
+        try:
+            return self._ability_to_models[ability, controlnet_name]
+        except KeyError:
+            model_type = self._get_pipeline_type(ability)
+
+        assert self._model is not None
+
+        if controlnet_name:
+            assert controlnet_path
+            if isinstance(controlnet_name, (list, tuple)):
+                controlnet = []
+                # multiple controlnet
+                for name, path in itertools.zip_longest(
+                    controlnet_name, controlnet_path
+                ):
+                    controlnet.append(self._get_controlnet_model(name, path))
+            else:
+                controlnet = self._get_controlnet_model(
+                    controlnet_name, controlnet_path
+                )
+            model = model_type.from_pipe(self._model, controlnet=controlnet)
+        else:
+            model = model_type.from_pipe(self._model)
+        self._load_to_device(model)
+
+        self._ability_to_models[ability, controlnet_name] = model
+        return model
 
     def _apply_lora(self):
         if self._lora_model is not None:
@@ -132,21 +190,23 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             raise ValueError(f"Unknown ability: {self._abilities}")
 
-        controlnet = self._kwargs.get("controlnet")
-        if controlnet is not None:
-            from diffusers import ControlNetModel
-
-            logger.debug("Loading controlnet %s", controlnet)
-            self._kwargs["controlnet"] = ControlNetModel.from_pretrained(controlnet)
-
-        torch_dtype = self._kwargs.get("torch_dtype")
+        self._torch_dtype = torch_dtype = self._kwargs.get("torch_dtype")
         if sys.platform != "darwin" and torch_dtype is None:
             # The following params crashes on Mac M2
-            self._kwargs["torch_dtype"] = torch.float16
+            self._torch_dtype = self._kwargs["torch_dtype"] = torch.float16
             self._kwargs["variant"] = "fp16"
             self._kwargs["use_safetensors"] = True
         if isinstance(torch_dtype, str):
             self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
+
+        controlnet = self._kwargs.get("controlnet")
+        if controlnet is not None:
+            if isinstance(controlnet, tuple):
+                self._kwargs["controlnet"] = self._get_controlnet_model(*controlnet)
+            else:
+                self._kwargs["controlnet"] = [
+                    self._get_controlnet_model(*cn) for cn in controlnet
+                ]
 
         quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
         if quantize_text_encoder:
@@ -193,27 +253,44 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._model_path,
             **self._kwargs,
         )
-        if self._kwargs.get("deepcache", True):
-            # NOTE: DeepCache should be loaded first before cpu_offloading
+        self._load_to_device(self._model)
+        self._apply_lora()
+
+        if self._kwargs.get("deepcache", False):
             try:
                 from DeepCache import DeepCacheSDHelper
-
-                helper = DeepCacheSDHelper(pipe=self._model)
-                helper.set_params(cache_interval=3, cache_branch_id=0)
-                helper.enable()
             except ImportError:
-                logger.debug("deepcache is not installed")
-                pass
+                error_message = "Failed to import module 'deepcache' when you launch with deepcache=True"
+                installation_guide = [
+                    "Please make sure 'deepcache' is installed. ",
+                    "You can install it by `pip install deepcache`\n",
+                ]
 
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            else:
+                self._deepcache_helper = helper = DeepCacheSDHelper()
+                helper.set_params(
+                    cache_interval=self._kwargs.get("deepcache_cache_interval", 3),
+                    cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
+                )
+
+    def _load_to_device(self, model):
         if self._kwargs.get("cpu_offload", False):
             logger.debug("CPU offloading model")
-            self._model.enable_model_cpu_offload()
+            model.enable_model_cpu_offload()
+        elif self._kwargs.get("sequential_cpu_offload", False):
+            logger.debug("CPU sequential offloading model")
+            model.enable_sequential_cpu_offload()
         elif not self._kwargs.get("device_map"):
             logger.debug("Loading model to available device")
-            self._model = move_model_to_available_device(self._model)
-        # Recommended if your computer has < 64 GB of RAM
-        self._model.enable_attention_slicing()
-        self._apply_lora()
+            model = move_model_to_available_device(model)
+        if self._kwargs.get("attention_slicing", False):
+            model.enable_attention_slicing()
+        if self._kwargs.get("vae_tiling", False):
+            model.enable_vae_tiling()
+
+    def get_max_num_images_for_batching(self):
+        return self._kwargs.get("max_num_images", 16)
 
     @staticmethod
     def _get_scheduler(model: Any, sampler_name: str):
@@ -224,61 +301,78 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         import diffusers
 
+        kwargs = {}
+        if (
+            sampler_name.startswith("DPM++")
+            and "final_sigmas_type" not in model.scheduler.config
+        ):
+            # `final_sigmas_type` will be set as `zero` by default which will cause error
+            kwargs["final_sigmas_type"] = "sigma_min"
+
         # see https://github.com/huggingface/diffusers/issues/4167
         # to get A1111 <> Diffusers Scheduler mapping
         if sampler_name == "DPM++ 2M":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "DPM++ 2M Karras":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "DPM++ 2M SDE":
             return diffusers.DPMSolverMultistepScheduler.from_config(
-                model.scheduler.config, algorithm_type="sde-dpmsolver++"
+                model.scheduler.config, algorithm_type="sde-dpmsolver++", **kwargs
             )
         elif sampler_name == "DPM++ 2M SDE Karras":
             return diffusers.DPMSolverMultistepScheduler.from_config(
                 model.scheduler.config,
                 algorithm_type="sde-dpmsolver++",
                 use_karras_sigmas=True,
+                **kwargs,
             )
         elif sampler_name == "DPM++ SDE":
             return diffusers.DPMSolverSinglestepScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "DPM++ SDE Karras":
             return diffusers.DPMSolverSinglestepScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "DPM2":
-            return diffusers.KDPM2DiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.KDPM2DiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "DPM2 Karras":
             return diffusers.KDPM2DiscreteScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "DPM2 a":
             return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "DPM2 a Karras":
             return diffusers.KDPM2AncestralDiscreteScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         elif sampler_name == "Euler":
-            return diffusers.EulerDiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.EulerDiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "Euler a":
             return diffusers.EulerAncestralDiscreteScheduler.from_config(
-                model.scheduler.config
+                model.scheduler.config, **kwargs
             )
         elif sampler_name == "Heun":
-            return diffusers.HeunDiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.HeunDiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "LMS":
-            return diffusers.LMSDiscreteScheduler.from_config(model.scheduler.config)
+            return diffusers.LMSDiscreteScheduler.from_config(
+                model.scheduler.config, **kwargs
+            )
         elif sampler_name == "LMS Karras":
             return diffusers.LMSDiscreteScheduler.from_config(
-                model.scheduler.config, use_karras_sigmas=True
+                model.scheduler.config, use_karras_sigmas=True, **kwargs
             )
         else:
             raise ValueError(f"Unknown sampler: {sampler_name}")
@@ -298,27 +392,70 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             yield
 
+    @staticmethod
+    @contextlib.contextmanager
+    def _release_after():
+        from ....device_utils import empty_cache
+
+        try:
+            yield
+        finally:
+            gc.collect()
+            empty_cache()
+
+    @contextlib.contextmanager
+    def _wrap_deepcache(self, model: Any):
+        if self._deepcache_helper:
+            self._deepcache_helper.pipe = model
+            self._deepcache_helper.enable()
+        try:
+            yield
+        finally:
+            if self._deepcache_helper:
+                self._deepcache_helper.disable()
+                self._deepcache_helper.pipe = None
+
+    @staticmethod
+    def _process_progressor(kwargs: dict):
+        import diffusers
+
+        progressor: Progressor = kwargs.pop("progressor", None)
+
+        def report_status_callback(
+            pipe: diffusers.DiffusionPipeline,
+            step: int,
+            timestep: int,
+            callback_kwargs: dict,
+        ):
+            num_steps = pipe.num_timesteps
+            progressor.set_progress((step + 1) / num_steps)
+
+            return callback_kwargs
+
+        if progressor and progressor.request_id:
+            kwargs["callback_on_step_end"] = report_status_callback
+
     def _call_model(
         self,
         response_format: str,
         model=None,
         **kwargs,
     ):
-        import gc
-
-        from ....device_utils import empty_cache
-
         model = model if model is not None else self._model
         is_padded = kwargs.pop("is_padded", None)
         origin_size = kwargs.pop("origin_size", None)
         seed = kwargs.pop("seed", None)
-        if seed is not None:
+        return_images = kwargs.pop("_return_images", None)
+        if seed is not None and seed != -1:
             kwargs["generator"] = generator = torch.Generator(device=get_available_device())  # type: ignore
             if seed != -1:
                 kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
+        self._process_progressor(kwargs)
         assert callable(model)
-        with self._reset_when_done(model, sampler_name):
+        with self._reset_when_done(
+            model, sampler_name
+        ), self._release_after(), self._wrap_deepcache(model):
             logger.debug("stable diffusion args: %s, model: %s", kwargs, model)
             self._filter_kwargs(model, kwargs)
             images = model(**kwargs).images
@@ -331,32 +468,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 new_images.append(img.crop((0, 0, x, y)))
             images = new_images
 
-        # clean cache
-        gc.collect()
-        empty_cache()
+        if return_images:
+            return images
 
-        if response_format == "url":
-            os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
-            image_list = []
-            with ThreadPoolExecutor() as executor:
-                for img in images:
-                    path = os.path.join(XINFERENCE_IMAGE_DIR, uuid.uuid4().hex + ".jpg")
-                    image_list.append(Image(url=path, b64_json=None))
-                    executor.submit(img.save, path, "jpeg")
-            return ImageList(created=int(time.time()), data=image_list)
-        elif response_format == "b64_json":
-
-            def _gen_base64_image(_img):
-                buffered = BytesIO()
-                _img.save(buffered, format="jpeg")
-                return base64.b64encode(buffered.getvalue()).decode()
-
-            with ThreadPoolExecutor() as executor:
-                results = list(map(partial(executor.submit, _gen_base64_image), images))  # type: ignore
-                image_list = [Image(url=None, b64_json=s.result()) for s in results]  # type: ignore
-            return ImageList(created=int(time.time()), data=image_list)
-        else:
-            raise ValueError(f"Unsupported response format: {response_format}")
+        return handle_image_result(response_format, images)
 
     @classmethod
     def _filter_kwargs(cls, model, kwargs: dict):
@@ -378,15 +493,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        # References:
-        # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
         width, height = map(int, re.split(r"[^\d]+", size))
         generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+        generate_kwargs["width"], generate_kwargs["height"] = width, height
+
         return self._call_model(
             prompt=prompt,
-            height=height,
-            width=width,
             num_images_per_prompt=n,
             response_format=response_format,
             **generate_kwargs,
@@ -409,19 +522,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        if "controlnet" in self._kwargs:
+        if self._kwargs.get("controlnet"):
             model = self._model
         else:
-            if "image2image" not in self._abilities:
+            ability = "image2image"
+            if ability not in self._abilities:
                 raise RuntimeError(f"{self._model_uid} does not support image2image")
-            if self._i2i_model is not None:
-                model = self._i2i_model
-            else:
-                from diffusers import AutoPipelineForImage2Image
-
-                self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(
-                    self._model
-                )
+            model = self._get_model(ability)
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
@@ -462,24 +569,23 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        if "inpainting" not in self._abilities:
+        ability = "inpainting"
+        if ability not in self._abilities:
             raise RuntimeError(f"{self._model_uid} does not support inpainting")
 
         if (
             "text2image" in self._abilities or "image2image" in self._abilities
         ) and self._model is not None:
-            from diffusers import AutoPipelineForInpainting
-
-            if self._inpainting_model is not None:
-                model = self._inpainting_model
-            else:
-                model = self._inpainting_model = AutoPipelineForInpainting.from_pipe(
-                    self._model
-                )
+            model = self._get_model(ability)
         else:
             model = self._model
 
-        width, height = map(int, re.split(r"[^\d]+", size))
+        if mask_blur := kwargs.pop("mask_blur", None):
+            logger.debug("Process mask image with mask_blur: %s", mask_blur)
+            mask_image = model.mask_processor.blur(mask_image, blur_factor=mask_blur)  # type: ignore
+
+        if "width" not in kwargs:
+            kwargs["width"], kwargs["height"] = map(int, re.split(r"[^\d]+", size))
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 inpainting requires image's height and width is times of 16
@@ -492,14 +598,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 mask_image, multiple=int(padding_image_to_multiple)
             )
             # calculate actual image size after padding
-            width, height = image.size
+            kwargs["width"], kwargs["height"] = image.size
 
         return self._call_model(
             image=image,
             mask_image=mask_image,
             prompt=prompt,
-            height=height,
-            width=width,
             num_images_per_prompt=n,
             response_format=response_format,
             model=model,

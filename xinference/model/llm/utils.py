@@ -29,6 +29,7 @@ from ...types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -118,7 +119,7 @@ class ChatModelMixin:
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod
-    def get_specific_prompt(model_family: str, messages: List[Dict]):
+    def get_specific_prompt(model_family: str, messages: List[ChatCompletionMessage]):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
         different models.
@@ -134,7 +135,7 @@ class ChatModelMixin:
             ret = (
                 "<s>"
                 if system_prompt == ""
-                else "<s><|im_start|>system\n"
+                else "<s><|im_start|>system\n"  # type: ignore
                 + system_prompt
                 + intra_message_sep
                 + "\n"
@@ -385,24 +386,22 @@ class ChatModelMixin:
         return result
 
     @classmethod
-    def _tool_calls_completion_chunk(cls, model_family, model_uid, c):
-        _id = str(uuid.uuid4())
+    def _tool_calls_completion_chunk(cls, model_family, model_uid, c, chunk_id=None):
+        _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
         tool_result = cls._eval_tool_arguments(model_family, c)
         tool_calls = []
         failed_contents = []
         for content, func, args in tool_result:
             if func:
                 tool_calls.append(
-                    [
-                        {
-                            "id": f"call_{_id}",
-                            "type": "function",
-                            "function": {
-                                "name": func,
-                                "arguments": json.dumps(args, ensure_ascii=False),
-                            },
-                        }
-                    ]
+                    {
+                        "id": f"call_{_id}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args, ensure_ascii=False),
+                        },
+                    }
                 )
             else:
                 failed_contents.append(content)
@@ -487,6 +486,34 @@ class ChatModelMixin:
             ],
             "usage": usage,
         }
+
+    def _transform_messages(
+        self,
+        messages: List[ChatCompletionMessage],
+    ):
+        transformed_messages = []
+        for msg in messages:
+            new_content = []
+            role = msg["role"]
+            content = msg["content"]
+            if isinstance(content, str):
+                new_content.append({"type": "text", "text": content})
+            elif isinstance(content, List):
+                for item in content:  # type: ignore
+                    if "text" in item:
+                        new_content.append({"type": "text", "text": item["text"]})
+                    elif "image_url" in item:
+                        new_content.append(
+                            {"type": "image", "image": item["image_url"]["url"]}
+                        )
+                    elif "video_url" in item:
+                        new_content.append(
+                            {"type": "video", "video": item["video_url"]["url"]}
+                        )
+            new_message = {"role": role, "content": new_content}
+            transformed_messages.append(new_message)
+
+        return transformed_messages
 
 
 def get_file_location(

@@ -141,3 +141,51 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 7 --model-format awq --quantization ${quantization}
 
+
+Model Spec 9 (pytorch, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 72
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen2-VL-72B-Instruct
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-72B-Instruct>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 10 (awq, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 72
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen2-VL-72B-Instruct-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct-AWQ>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-72B-Instruct-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format awq --quantization ${quantization}
+
+
+Model Spec 11 (gptq, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 72
+- **Quantizations:** Int4, Int8
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format gptq --quantization ${quantization}
+

@@ -24,6 +24,7 @@ from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion, parse_messages
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class OmniLMMModel(PytorchChatModel):
             return images, other_content
         return [], [{"type": "text", "text": content}]
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

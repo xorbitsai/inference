@@ -233,7 +233,7 @@
   },
   {
     "model_name": "gte-Qwen2",
-    "dimensions": 3584,
+    "dimensions": 4096,
     "max_tokens": 32000,
     "language": ["zh", "en"],
     "model_id": "Alibaba-NLP/gte-Qwen2-7B-instruct",

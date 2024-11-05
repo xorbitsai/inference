@@ -268,6 +268,12 @@ class RerankModel:
             similarity_scores = self._model.compute_score(sentence_combinations)
             if not isinstance(similarity_scores, Sequence):
                 similarity_scores = [similarity_scores]
+            elif (
+                isinstance(similarity_scores, list)
+                and len(similarity_scores) > 0
+                and isinstance(similarity_scores[0], Sequence)
+            ):
+                similarity_scores = similarity_scores[0]
 
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
@@ -341,7 +347,9 @@ def create_rerank_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[RerankModel, RerankModelDescription]:

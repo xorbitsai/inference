@@ -28,6 +28,7 @@ from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
             return "".join(new_content), images
         return content, []
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

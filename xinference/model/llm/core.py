@@ -193,7 +193,9 @@ def create_llm_model_instance(
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:

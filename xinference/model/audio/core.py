@@ -25,8 +25,6 @@ from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .whisper import WhisperModel
 
-MAX_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
@@ -102,7 +100,9 @@ def generate_audio_description(
 
 def match_audio(
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
 ) -> AudioModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
@@ -154,7 +154,9 @@ def create_audio_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[

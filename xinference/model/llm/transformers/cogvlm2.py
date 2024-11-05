@@ -29,7 +29,7 @@ from ..utils import (
     parse_messages,
 )
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import get_max_src_len
+from .utils import cache_clean, get_max_src_len
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +176,7 @@ class CogVLM2Model(PytorchChatModel):
             query = content
         return query, image, history
 
+    @cache_clean
     def chat(
         self,
         messages: List[Dict],

@@ -21,8 +21,6 @@ from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .diffusers import DiffUsersVideoModel
 
-MAX_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
@@ -99,7 +97,9 @@ def generate_video_description(
 
 def match_diffusion(
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
 ) -> VideoModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_VIDEO_MODELS, MODELSCOPE_VIDEO_MODELS
@@ -159,7 +159,9 @@ def create_video_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[DiffUsersVideoModel, VideoModelDescription]:

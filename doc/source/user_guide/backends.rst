@@ -54,6 +54,7 @@ Currently, supported model includes:
 - ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
+- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
 - ``baichuan-2-chat``
 - ``internlm2-chat``
 - ``internlm2.5-chat``, ``internlm2.5-chat-1m``
@@ -64,7 +65,6 @@ Currently, supported model includes:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
-- ``qwen2.5-instruct``
 - ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
