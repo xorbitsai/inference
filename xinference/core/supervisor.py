@@ -970,7 +970,7 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
-            replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
+            replica_gpu_idx = assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
             nonlocal model_type
 
             worker_ref = (
@@ -1084,7 +1084,7 @@ class SupervisorActor(xo.StatelessActor):
                             dead_models,
                         )
                         for replica_model_uid in dead_models:
-                            model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
+                            model_uid, _ = parse_replica_model_uid(replica_model_uid)
                             self._model_uid_to_replica_info.pop(model_uid, None)
                             self._replica_model_uid_to_worker.pop(
                                 replica_model_uid, None
@@ -1137,7 +1137,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         replica_model_uid = build_replica_model_uid(
-            model_uid, replica_info.replica, next(replica_info.scheduler)
+            model_uid, next(replica_info.scheduler)
         )
 
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
@@ -1154,7 +1154,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         # Use rep id 0 to instead of next(replica_info.scheduler) to avoid
         # consuming the generator.
-        replica_model_uid = build_replica_model_uid(model_uid, replica_info.replica, 0)
+        replica_model_uid = build_replica_model_uid(model_uid, 0)
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
             raise ValueError(
@@ -1260,7 +1260,7 @@ class SupervisorActor(xo.StatelessActor):
                 uids_to_remove.append(model_uid)
 
         for replica_model_uid in uids_to_remove:
-            model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
+            model_uid, _ = parse_replica_model_uid(replica_model_uid)
             self._model_uid_to_replica_info.pop(model_uid, None)
             self._replica_model_uid_to_worker.pop(replica_model_uid, None)
 
