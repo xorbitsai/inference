@@ -180,6 +180,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
 
+
 class VLLMModel(LLM):
     def __init__(
         self,
