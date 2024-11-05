@@ -40,8 +40,14 @@ class MockModelActor(ModelActor):
         self,
         supervisor_address: str,
         worker_address: str,
+        replica_model_uid: str,
     ):
-        super().__init__(supervisor_address, worker_address, MockModel())  # type: ignore
+        super().__init__(
+            supervisor_address=supervisor_address,
+            worker_address=worker_address,
+            model=MockModel(),  # type: ignore
+            replica_model_uid=replica_model_uid,
+        )
         self._lock = asyncio.locks.Lock()
 
     async def __pre_destroy__(self):
@@ -74,6 +80,7 @@ async def test_concurrent_call(setup_pool):
         uid=MockModelActor.default_uid(),
         supervisor_address="test:123",
         worker_address="test:345",
+        replica_model_uid="test_model",
     )
 
     await worker.generate("test_prompt1")

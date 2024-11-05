@@ -22,6 +22,7 @@ nvidia-ml-py
 async-timeout
 peft
 opencv-contrib-python-headless
+setproctitle
 
 # all
 transformers>=4.43.2
