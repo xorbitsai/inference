@@ -1369,6 +1369,9 @@ class Client:
             Model uid.
         request_id: str
             Request id.
+        block_duration: int
+            The duration to make the request id abort. If set to 0, the abort_request will be immediate, which may
+            prevent it from taking effect if it arrives before the request operation.
         Returns
         -------
         Dict
