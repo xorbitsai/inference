@@ -49,13 +49,20 @@ def log_async(
 ):
     import time
     from functools import wraps
+    from inspect import signature
 
     def decorator(func):
         func_name = func.__name__
+        sig = signature(func)
 
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            request_id_str = kwargs.get("request_id", "")
+            try:
+                bound_args = sig.bind_partial(*args, **kwargs)
+                arguments = bound_args.arguments
+            except TypeError:
+                arguments = {}
+            request_id_str = arguments.get("request_id", "")
             if not request_id_str:
                 request_id_str = uuid.uuid1()
                 if func_name == "text_to_image":

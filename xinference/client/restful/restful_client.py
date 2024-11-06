@@ -1357,7 +1357,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def abort_request(self, model_uid: str, request_id: str):
+    def abort_request(self, model_uid: str, request_id: str, block_duration: int = 30):
         """
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
@@ -1375,7 +1375,9 @@ class Client:
             Return empty dict.
         """
         url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
-        response = requests.post(url, headers=self._headers)
+        response = requests.post(
+            url, headers=self._headers, json={"block_duration": block_duration}
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to abort request, detail: {_get_error_string(response)}"

@@ -22,6 +22,7 @@ import pprint
 import sys
 import time
 import warnings
+import weakref
 from typing import Any, Dict, List, Optional, Union
 
 import gradio as gr
@@ -223,6 +224,7 @@ class RESTfulAPI:
         self._auth_service = AuthService(auth_config_file)
         self._router = APIRouter()
         self._app = FastAPI()
+        self._running_tasks = weakref.WeakValueDictionary()
 
     def is_authenticated(self):
         return False if self._auth_service.config is None else True
@@ -1533,6 +1535,7 @@ class RESTfulAPI:
 
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            self._add_running_task(kwargs.get("request_id"))
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,
@@ -1541,6 +1544,11 @@ class RESTfulAPI:
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = "The request has been cancelled."
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1691,6 +1699,7 @@ class RESTfulAPI:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            self._add_running_task(parsed_kwargs.get("request_id"))
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
@@ -1701,6 +1710,11 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = "The request has been cancelled."
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1739,6 +1753,7 @@ class RESTfulAPI:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            self._add_running_task(parsed_kwargs.get("request_id"))
             im = Image.open(image.file)
             mask_im = Image.open(mask_image.file)
             if not size:
@@ -1755,6 +1770,11 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = "The request has been cancelled."
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1787,12 +1807,18 @@ class RESTfulAPI:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            self._add_running_task(parsed_kwargs.get("request_id"))
             im = Image.open(image.file)
             text = await model_ref.ocr(
                 image=im,
                 **parsed_kwargs,
             )
             return Response(content=text, media_type="text/plain")
+        except asyncio.CancelledError:
+            err_str = "The request has been cancelled."
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -2111,10 +2137,53 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def abort_request(self, model_uid: str, request_id: str) -> JSONResponse:
+    def _add_running_task(self, request_id: Optional[str]):
+        """Add current asyncio task to the running task.
+        :param request_id: The corresponding request id.
+        """
+        if request_id is None:
+            return
+        running_task = self._running_tasks.get(request_id)
+        if running_task is not None:
+            if running_task.get_name() == "abort_block":
+                raise Exception(f"The request has been aborted: {request_id}")
+            raise Exception(f"Duplicate reqeust id: {request_id}")
+        current_task = asyncio.current_task()
+        assert current_task is not None
+        self._running_tasks[request_id] = current_task
+
+    async def abort_request(
+        self, request: Request, model_uid: str, request_id: str
+    ) -> JSONResponse:
         try:
             supervisor_ref = await self._get_supervisor_ref()
             res = await supervisor_ref.abort_request(model_uid, request_id)
+            running_task = self._running_tasks.pop(request_id, None)
+            if running_task is not None:
+                running_task.cancel()
+
+            payload = await request.json()
+            block_duration = payload.get("block_duration", 30)
+            logger.info(
+                "Abort request with model uid: %s, request id: %s, block duration: %s",
+                model_uid,
+                request_id,
+                block_duration,
+            )
+
+            async def block_task():
+                """This task is for blocking the request for a duration."""
+                try:
+                    await asyncio.sleep(block_duration)
+                    logger.info("Abort block end for request: %s", request_id)
+                except asyncio.CancelledError:
+                    logger.info("Abort block is cancelled for request: %s", request_id)
+
+            if block_duration > 0:
+                logger.info("Abort block start for request: %s", request_id)
+                self._running_tasks[request_id] = asyncio.create_task(
+                    block_task(), name="abort_block"
+                )
             return JSONResponse(content=res)
         except Exception as e:
             logger.error(e, exc_info=True)
