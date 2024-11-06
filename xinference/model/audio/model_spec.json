@@ -127,7 +127,7 @@
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_id": "2Noise/ChatTTS",
-    "model_revision": "3b34118f6d25850440b8901cef3e71c6ef8619c8",
+    "model_revision": "1a3c04a8b0651689bd9242fbb55b1f4b5a9aef84",
     "model_ability": "text-to-audio",
     "multilingual": true
   },
