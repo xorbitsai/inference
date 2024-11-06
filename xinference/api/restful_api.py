@@ -2149,7 +2149,7 @@ class RESTfulAPI:
         if running_task is not None:
             if running_task.get_name() == "abort_block":
                 raise Exception(f"The request has been aborted: {request_id}")
-            raise Exception(f"Duplicate reqeust id: {request_id}")
+            raise Exception(f"Duplicate request id: {request_id}")
         current_task = asyncio.current_task()
         assert current_task is not None
         self._running_tasks[request_id] = current_task
