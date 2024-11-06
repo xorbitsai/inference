@@ -224,7 +224,9 @@ class RESTfulAPI:
         self._auth_service = AuthService(auth_config_file)
         self._router = APIRouter()
         self._app = FastAPI()
-        self._running_tasks = weakref.WeakValueDictionary()
+        self._running_tasks: weakref.WeakValueDictionary[
+            str, asyncio.Task
+        ] = weakref.WeakValueDictionary()
 
     def is_authenticated(self):
         return False if self._auth_service.config is None else True
