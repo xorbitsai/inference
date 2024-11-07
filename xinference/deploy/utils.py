@@ -134,10 +134,6 @@ def get_config_dict(
                 "propagate": False,
             },
         },
-        "root": {
-            "level": "WARN",
-            "handlers": ["stream_handler", "file_handler"],
-        },
     }
     return config_dict
 
@@ -220,3 +216,10 @@ def handle_click_args_type(arg: str) -> Any:
         pass
 
     return arg
+
+
+def set_envs(key: str, value: str):
+    """
+    Environment variables are set by the parent process and inherited by child processes
+    """
+    os.environ[key] = value
