@@ -25,7 +25,10 @@ import orjson
 from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
 
 from .._compat import BaseModel
-from ..constants import XINFERENCE_LOG_ARG_MAX_LENGTH
+from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    XINFERENCE_LOG_ARG_MAX_LENGTH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -303,7 +306,11 @@ class CancelMixin:
         assert current_task is not None
         self._running_tasks[request_id] = current_task
 
-    def _cancel_running_task(self, request_id: Optional[str], block_duration: int = 30):
+    def _cancel_running_task(
+        self,
+        request_id: Optional[str],
+        block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    ):
         """Cancel the running asyncio task.
         :param request_id: The request id to cancel.
         :param block_duration: The duration seconds to ensure the request can't be executed.
