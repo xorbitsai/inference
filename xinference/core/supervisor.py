@@ -35,6 +35,7 @@ from typing import (
 import xoscar as xo
 
 from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
@@ -1213,7 +1214,12 @@ class SupervisorActor(xo.StatelessActor):
         return cached_models
 
     @log_async(logger=logger)
-    async def abort_request(self, model_uid: str, request_id: str) -> Dict:
+    async def abort_request(
+        self,
+        model_uid: str,
+        request_id: str,
+        block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    ) -> Dict:
         from .scheduler import AbortRequestMessage
 
         res = {"msg": AbortRequestMessage.NO_OP.name}
@@ -1228,7 +1234,7 @@ class SupervisorActor(xo.StatelessActor):
             if worker_ref is None:
                 continue
             model_ref = await worker_ref.get_model(model_uid=rep_mid)
-            result_info = await model_ref.abort_request(request_id)
+            result_info = await model_ref.abort_request(request_id, block_duration)
             res["msg"] = result_info
             if result_info == AbortRequestMessage.DONE.name:
                 break

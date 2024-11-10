@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import logging
 import os
 import random
 import string
 import uuid
+import weakref
 from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
@@ -276,3 +278,52 @@ def assign_replica_gpu(
     if isinstance(gpu_idx, list) and gpu_idx:
         return gpu_idx[rep_id::replica]
     return gpu_idx
+
+
+class CancelMixin:
+    _CANCEL_TASK_NAME = "abort_block"
+
+    def __init__(self):
+        self._running_tasks: weakref.WeakValueDictionary[
+            str, asyncio.Task
+        ] = weakref.WeakValueDictionary()
+
+    def _add_running_task(self, request_id: Optional[str]):
+        """Add current asyncio task to the running task.
+        :param request_id: The corresponding request id.
+        """
+        if request_id is None:
+            return
+        running_task = self._running_tasks.get(request_id)
+        if running_task is not None:
+            if running_task.get_name() == self._CANCEL_TASK_NAME:
+                raise Exception(f"The request has been aborted: {request_id}")
+            raise Exception(f"Duplicate request id: {request_id}")
+        current_task = asyncio.current_task()
+        assert current_task is not None
+        self._running_tasks[request_id] = current_task
+
+    def _cancel_running_task(self, request_id: Optional[str], block_duration: int = 30):
+        """Cancel the running asyncio task.
+        :param request_id: The request id to cancel.
+        :param block_duration: The duration seconds to ensure the request can't be executed.
+        """
+        if request_id is None:
+            return
+        running_task = self._running_tasks.pop(request_id, None)
+        if running_task is not None:
+            running_task.cancel()
+
+        async def block_task():
+            """This task is for blocking the request for a duration."""
+            try:
+                await asyncio.sleep(block_duration)
+                logger.info("Abort block end for request: %s", request_id)
+            except asyncio.CancelledError:
+                logger.info("Abort block is cancelled for request: %s", request_id)
+
+        if block_duration > 0:
+            logger.info("Abort block start for request: %s", request_id)
+            self._running_tasks[request_id] = asyncio.create_task(
+                block_task(), name=self._CANCEL_TASK_NAME
+            )
