@@ -193,7 +193,10 @@ class EmbeddingModel:
                 device=self._device,
                 model_kwargs=model_kwargs,
             )
-        elif self._kwargs.get("hybird_mode") and "m3" in self._model_spec.model_name.lower():
+        elif (
+            self._kwargs.get("hybird_mode")
+            and "m3" in self._model_spec.model_name.lower()
+        ):
             try:
                 from FlagEmbedding import BGEM3FlagModel
             except ImportError:
@@ -203,7 +206,7 @@ class EmbeddingModel:
                     "You can install it by `pip install FlagEmbedding`\n",
                 ]
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-            
+
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
             self._model = BGEM3FlagModel(
                 self._model_path,
@@ -221,10 +224,14 @@ class EmbeddingModel:
             )
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
-        from sentence_transformers import SentenceTransformer
         from FlagEmbedding import BGEM3FlagModel
+        from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
+
+        if kwargs.get("return_sparse") and "m3" in self._model_spec.model_name.lower():
+            self._kwargs["return_sparse"] = True
+            self.load()
 
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
@@ -291,7 +298,10 @@ class EmbeddingModel:
                         raise ValueError(
                             f"Prompt name '{prompt_name}' not found in the configured prompts dictionary with keys {list(model.prompts.keys())!r}."
                         )
-                elif not isinstance(model, BGEM3FlagModel) and model.default_prompt_name is not None:
+                elif (
+                    not isinstance(model, BGEM3FlagModel)
+                    and model.default_prompt_name is not None
+                ):
                     prompt = model.prompts.get(model.default_prompt_name, None)
             else:
                 if prompt_name is not None:
@@ -315,6 +325,7 @@ class EmbeddingModel:
             if device is None:
                 # same as SentenceTransformer.py
                 from sentence_transformers.util import get_device_name
+
                 device = get_device_name()
                 logger.info(f"Use pytorch device_name: {device}")
 
@@ -333,14 +344,16 @@ class EmbeddingModel:
                     return len(next(iter(text.values())))
                 elif not hasattr(text, "__len__"):  # Object has no len() method
                     return 1
-                elif len(text) == 0 or isinstance(text[0], int):  # Empty string or list of ints
+                elif len(text) == 0 or isinstance(
+                    text[0], int
+                ):  # Empty string or list of ints
                     return len(text)
                 else:
-                    return sum([len(t) for t in text])  # Sum of length of individual strings
-            
-            length_sorted_idx = np.argsort(
-                [-_text_length(sen) for sen in sentences]
-            )
+                    return sum(
+                        [len(t) for t in text]
+                    )  # Sum of length of individual strings
+
+            length_sorted_idx = np.argsort([-_text_length(sen) for sen in sentences])
             sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
 
             for start_index in trange(
@@ -390,11 +403,13 @@ class EmbeddingModel:
                             }
                             embeddings.append(row)
                     # for sparse embedding
-                    elif output_value == "sentence_embedding" and isinstance(model, BGEM3FlagModel):
+                    elif output_value == "sentence_embedding" and isinstance(
+                        model, BGEM3FlagModel
+                    ):
                         if kwargs.get("return_sparse"):
-                            embeddings = out_features['lexical_weights']
+                            embeddings = out_features["lexical_weights"]
                         else:
-                            embeddings = out_features['dense_vecs']
+                            embeddings = out_features["dense_vecs"]
                         if convert_to_numpy:
                             embeddings = embeddings.cpu()
                     else:  # Sentence embeddings
@@ -452,17 +467,26 @@ class EmbeddingModel:
         for index, data in enumerate(all_embeddings):
             if kwargs.get("return_sparse") and isinstance(self._model, BGEM3FlagModel):
                 embedding_list.append(
-                    EmbeddingData(index=index, object="embedding", embedding={k: float(v) for k, v in data.items()})
+                    EmbeddingData(
+                        index=index,
+                        object="embedding",
+                        embedding={k: float(v) for k, v in data.items()},
+                    )
                 )
             else:
                 embedding_list.append(
-                    EmbeddingData(index=index, object="embedding", embedding=data.tolist())
+                    EmbeddingData(
+                        index=index, object="embedding", embedding=data.tolist()
+                    )
                 )
         usage = EmbeddingUsage(
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
         )
         result = Embedding(
-            object="list" if not isinstance(self._model, BGEM3FlagModel) and not kwargs.get("return_sparse") else "dict",
+            object="list"
+            if not isinstance(self._model, BGEM3FlagModel)
+            and not kwargs.get("return_sparse")
+            else "dict",
             model=self._model_uid,
             data=embedding_list,
             usage=usage,
@@ -484,22 +508,40 @@ class EmbeddingModel:
 
         return result
 
-    def convert_ids_to_tokens(self, token_ids: Union[List, List[List]], **kwargs):
-        from FlagEmbedding import BGEM3FlagModel
-        from sentence_transformers import SentenceTransformer
+    def convert_ids_to_tokens(
+        self,
+        batch_token_ids: Union[List[Union[int, str]], List[List[Union[int, str]]]],
+        **kwargs,
+    ) -> Union[List[str]]:
+        batch_decoded_texts: List[str] = []
 
-        decoded_texts = []
-        if isinstance(token_ids):
-            for idx, snetence_token_ids in enumerate(token_ids):
-                decoded_texts.append(self._model.tokenizer.decode(snetence_token_ids))
+        if self._model is None:
+            self.load()
+        assert self._model is not None
+
+        if isinstance(batch_token_ids, (int, str)):
+            return self._model.tokenizer.convert_ids_to_tokens(
+                [int(str(batch_token_ids))]
+            )[0]
+
+        # check if it's a nested list
+        if (
+            isinstance(batch_token_ids, list)
+            and batch_token_ids
+            and isinstance(batch_token_ids[0], list)
+        ):
+            for token_ids in batch_token_ids:
+                token_ids = [int(token_id) for token_id in token_ids]
+                batch_decoded_texts.append(
+                    self._model.tokenizer.convert_ids_to_tokens(token_ids)
+                )
         else:
-            decoded_texts = self._model.tokenizer.decode(token_ids)
-        # if isinstance(self._model, BGEM3FlagModel):
-        #     pass
-
-        # if isinstance(self._model, SentenceTransformer):
-        #     sentence = self._model.tokenizer.decode(token_ids)
-
+            batch_token_ids = [int(token_id) for token_id in batch_token_ids]
+            batch_decoded_texts = self._model.tokenizer.convert_ids_to_tokens(
+                batch_token_ids
+            )
+        print(batch_decoded_texts)
+        return batch_decoded_texts
 
 
 def match_embedding(
