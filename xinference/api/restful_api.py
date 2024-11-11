@@ -1535,9 +1535,11 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
-            self._add_running_task(kwargs.get("request_id"))
+            request_id = kwargs.get("request_id")
+            self._add_running_task(request_id)
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,
@@ -1547,7 +1549,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = "The request has been cancelled."
+            err_str = f"The request {request_id} has been cancelled."
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -1696,12 +1698,14 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
-            self._add_running_task(parsed_kwargs.get("request_id"))
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
@@ -1713,7 +1717,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = "The request has been cancelled."
+            err_str = f"The request {request_id} has been cancelled."
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -1750,12 +1754,14 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
-            self._add_running_task(parsed_kwargs.get("request_id"))
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             im = Image.open(image.file)
             mask_im = Image.open(mask_image.file)
             if not size:
@@ -1773,7 +1779,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = "The request has been cancelled."
+            err_str = f"The request {request_id} has been cancelled."
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -1804,12 +1810,14 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
-            self._add_running_task(parsed_kwargs.get("request_id"))
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             im = Image.open(image.file)
             text = await model_ref.ocr(
                 image=im,
@@ -1817,7 +1825,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=text, media_type="text/plain")
         except asyncio.CancelledError:
-            err_str = "The request has been cancelled."
+            err_str = f"The request {request_id} has been cancelled."
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
