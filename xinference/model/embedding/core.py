@@ -194,7 +194,7 @@ class EmbeddingModel:
                 model_kwargs=model_kwargs,
             )
         elif (
-            self._kwargs.get("hybird_mode")
+            self._kwargs.get("hybrid_mode")
             and "m3" in self._model_spec.model_name.lower()
         ):
             try:
@@ -230,7 +230,7 @@ class EmbeddingModel:
         kwargs.setdefault("normalize_embeddings", True)
 
         if kwargs.get("return_sparse") and "m3" in self._model_spec.model_name.lower():
-            self._kwargs["return_sparse"] = True
+            self._kwargs["hybrid_mode"] = True
             self.load()
 
         # copied from sentence-transformers, and modify it to return tokens num
@@ -375,7 +375,7 @@ class EmbeddingModel:
                     all_token_nums += features["attention_mask"].sum().item()
 
                 with torch.no_grad():
-                    # if use hybird mode and setting return_sparse==true, return sparse embedding
+                    # if use hybrid mode and setting return_sparse==true, return sparse embedding
                     # only support bge-m3 model now
                     if isinstance(model, BGEM3FlagModel):
                         out_features = model.encode(sentences_batch, **kwargs)
