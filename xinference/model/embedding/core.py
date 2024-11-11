@@ -484,6 +484,23 @@ class EmbeddingModel:
 
         return result
 
+    def convert_ids_to_tokens(self, token_ids: Union[List, List[List]], **kwargs):
+        from FlagEmbedding import BGEM3FlagModel
+        from sentence_transformers import SentenceTransformer
+
+        decoded_texts = []
+        if isinstance(token_ids):
+            for idx, snetence_token_ids in enumerate(token_ids):
+                decoded_texts.append(self._model.tokenizer.decode(snetence_token_ids))
+        else:
+            decoded_texts = self._model.tokenizer.decode(token_ids)
+        # if isinstance(self._model, BGEM3FlagModel):
+        #     pass
+
+        # if isinstance(self._model, SentenceTransformer):
+        #     sentence = self._model.tokenizer.decode(token_ids)
+
+
 
 def match_embedding(
     model_name: str,
