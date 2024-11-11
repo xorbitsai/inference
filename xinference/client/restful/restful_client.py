@@ -125,8 +125,10 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
 
         response_data = response.json()
         return response_data
-    
-    def convert_ids_to_tokens(self, input: Union[List, List[List]], **kwargs) -> List[str]:
+
+    def convert_ids_to_tokens(
+        self, input: Union[List, List[List]], **kwargs
+    ) -> List[str]:
         """
         Convert token IDs to human readable tokens via RESTful APIs.
 

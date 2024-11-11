@@ -483,10 +483,12 @@ class EmbeddingModel:
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
         )
         result = Embedding(
-            object="list"
-            if not isinstance(self._model, BGEM3FlagModel)
-            and not kwargs.get("return_sparse")
-            else "dict",
+            object=(
+                "list"  # type: ignore
+                if not isinstance(self._model, BGEM3FlagModel)
+                and not kwargs.get("return_sparse")
+                else "dict"
+            ),
             model=self._model_uid,
             data=embedding_list,
             usage=usage,

@@ -1316,6 +1316,7 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
+
     async def convert_ids_to_tokens(self, request: Request) -> Response:
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)

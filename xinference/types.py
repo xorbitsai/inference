@@ -72,7 +72,7 @@ class EmbeddingData(TypedDict):
     index: int
     object: str
     # support sparse embedding
-    embedding: List[float] | Dict[str, float]
+    embedding: Union[List[float], Dict[str, float]]
 
 
 class Embedding(TypedDict):
