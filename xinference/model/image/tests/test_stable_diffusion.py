@@ -224,7 +224,9 @@ def test_restful_api_abort(setup, model_name):
 
     request_id = str(uuid.uuid4())
     client.abort_request(model_uid, request_id)
-    with pytest.raises(RuntimeError, match="The request has been aborted"):
+    with pytest.raises(
+        RuntimeError, match=f"The request has been aborted: {request_id}"
+    ):
         model.text_to_image(
             prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
             size="512*512",
@@ -240,7 +242,9 @@ def test_restful_api_abort(setup, model_name):
 
     t = threading.Thread(target=_abort)
     t.start()
-    with pytest.raises(RuntimeError, match="The request has been cancelled"):
+    with pytest.raises(
+        RuntimeError, match=f"The request has been cancelled: {request_id}"
+    ):
         model.text_to_image(
             prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
             size="512*512",
