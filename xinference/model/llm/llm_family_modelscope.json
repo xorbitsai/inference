@@ -5909,6 +5909,18 @@
     "model_specs": [
       {
         "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-0.5B",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
           "4-bit",
@@ -5921,6 +5933,18 @@
       },
       {
         "model_format": "pytorch",
+        "model_size_in_billions": "3",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-3B",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
           "4-bit",
@@ -5928,6 +5952,30 @@
           "none"
         ],
         "model_id": "qwen/Qwen2.5-Coder-7B",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-14B",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-32B",
         "model_revision": "master",
         "model_hub": "modelscope"
       }
@@ -5949,6 +5997,18 @@
     "model_specs": [
       {
         "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-0.5B-Instruct",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
           "4-bit",
@@ -5956,6 +6016,17 @@
           "none"
         ],
         "model_id": "qwen/Qwen2.5-Coder-1.5B-Instruct",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "3",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-3B-Instruct",
         "model_revision": "master",
         "model_hub": "modelscope"
       },
@@ -5972,6 +6043,63 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-14B-Instruct",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-32B-Instruct",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-0.5B-Instruct-GPTQ-{quantization}",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-{quantization}",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-3B-Instruct-GPTQ-{quantization}",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "gptq",
         "model_size_in_billions": 7,
         "quantizations": [
@@ -5979,6 +6107,28 @@
           "Int8"
         ],
         "model_id": "qwen/Qwen2.5-Coder-7B-Instruct-GPTQ-{quantization}",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-{quantization}",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen2.5-Coder-32B-Instruct-GPTQ-{quantization}",
         "model_revision": "master",
         "model_hub": "modelscope"
       },
