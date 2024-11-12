@@ -41,6 +41,7 @@ import sse_starlette.sse
 import xoscar as xo
 
 from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LAUNCH_MODEL_RETRY,
     XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE,
 )
@@ -57,7 +58,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
-from .utils import json_dumps, log_async
+from .utils import CancelMixin, json_dumps, log_async
 
 try:
     from torch.cuda import OutOfMemoryError
@@ -136,7 +137,7 @@ def oom_check(fn):
         return _wrapper
 
 
-class ModelActor(xo.StatelessActor):
+class ModelActor(xo.StatelessActor, CancelMixin):
     _replica_model_uid: Optional[str]
 
     @classmethod
@@ -553,6 +554,7 @@ class ModelActor(xo.StatelessActor):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
+        self._add_running_task(kwargs.get("request_id"))
         if self._lock is None:
             if inspect.iscoroutinefunction(fn):
                 ret = await fn(*args, **kwargs)
@@ -761,9 +763,14 @@ class ModelActor(xo.StatelessActor):
                     prompt_tokens,
                 )
 
-    async def abort_request(self, request_id: str) -> str:
+    async def abort_request(
+        self,
+        request_id: str,
+        block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    ) -> str:
         from .utils import AbortRequestMessage
 
+        self._cancel_running_task(request_id, block_duration)
         if self.allow_batching():
             if self._scheduler_ref is None:
                 return AbortRequestMessage.NOT_FOUND.name

@@ -52,10 +52,14 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
+from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    XINFERENCE_DEFAULT_ENDPOINT_PORT,
+    XINFERENCE_DISABLE_METRICS,
+)
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
-from ..core.utils import json_dumps
+from ..core.utils import CancelMixin, json_dumps
 from ..types import (
     ChatCompletion,
     Completion,
@@ -206,7 +210,7 @@ class BuildGradioImageInterfaceRequest(BaseModel):
     model_ability: List[str]
 
 
-class RESTfulAPI:
+class RESTfulAPI(CancelMixin):
     def __init__(
         self,
         supervisor_address: str,
@@ -1531,8 +1535,11 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            request_id = kwargs.get("request_id")
+            self._add_running_task(request_id)
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,
@@ -1541,6 +1548,11 @@ class RESTfulAPI:
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1686,11 +1698,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
@@ -1701,6 +1716,11 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1734,11 +1754,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             im = Image.open(image.file)
             mask_im = Image.open(mask_image.file)
             if not size:
@@ -1755,6 +1778,11 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1782,17 +1810,25 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             im = Image.open(image.file)
             text = await model_ref.ocr(
                 image=im,
                 **parsed_kwargs,
             )
             return Response(content=text, media_type="text/plain")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -2111,10 +2147,25 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def abort_request(self, model_uid: str, request_id: str) -> JSONResponse:
+    async def abort_request(
+        self, request: Request, model_uid: str, request_id: str
+    ) -> JSONResponse:
         try:
+            payload = await request.json()
+            block_duration = payload.get(
+                "block_duration", XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION
+            )
+            logger.info(
+                "Abort request with model uid: %s, request id: %s, block duration: %s",
+                model_uid,
+                request_id,
+                block_duration,
+            )
             supervisor_ref = await self._get_supervisor_ref()
-            res = await supervisor_ref.abort_request(model_uid, request_id)
+            res = await supervisor_ref.abort_request(
+                model_uid, request_id, block_duration
+            )
+            self._cancel_running_task(request_id, block_duration)
             return JSONResponse(content=res)
         except Exception as e:
             logger.error(e, exc_info=True)
