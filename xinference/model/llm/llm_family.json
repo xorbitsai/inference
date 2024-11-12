@@ -8213,8 +8213,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-0.5B",
-        "model_revision": "master"
+        "model_id": "Qwen/Qwen2.5-Coder-0.5B"
       },
       {
         "model_format": "pytorch",
@@ -8224,8 +8223,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-1.5B",
-        "model_revision": "master"
+        "model_id": "Qwen/Qwen2.5-Coder-1.5B"
       },
       {
         "model_format": "pytorch",
@@ -8235,8 +8233,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-3B",
-        "model_revision": "master"
+        "model_id": "Qwen/Qwen2.5-Coder-3B"
       },
       {
         "model_format": "pytorch",
@@ -8246,8 +8243,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-7B",
-        "model_revision": "master"
+        "model_id": "Qwen/Qwen2.5-Coder-7B"
       },
       {
         "model_format": "pytorch",
@@ -8257,8 +8253,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-14B",
-        "model_revision": "master"
+        "model_id": "Qwen/Qwen2.5-Coder-14B"
       },
       {
         "model_format": "pytorch",
@@ -8268,8 +8263,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen2.5-Coder-32B",
-        "model_revision": "master"
+        "model_id": "Qwen/Qwen2.5-Coder-32B"
       }
     ]
   },
