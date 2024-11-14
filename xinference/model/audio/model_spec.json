@@ -159,7 +159,7 @@
     "model_name": "FishSpeech-1.4",
     "model_family": "FishAudio",
     "model_id": "fishaudio/fish-speech-1.4",
-    "model_revision": "3c49651b8e583b6b13f55e375432e0d57e1aa84d",
+    "model_revision": "069c573759936b35191d3380deb89183c0656f59",
     "model_ability": "text-to-audio",
     "multilingual": true
   }
