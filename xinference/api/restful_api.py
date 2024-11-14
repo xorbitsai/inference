@@ -1316,11 +1316,6 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
-        kwargs = {
-            key: value
-            for key, value in payload.items()
-            if key not in RerankRequest.__annotations__.keys()
-        }
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
