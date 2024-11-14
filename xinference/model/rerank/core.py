@@ -247,6 +247,7 @@ class RerankModel:
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
         return_len: Optional[bool],
+        always_normalize: Optional[bool] = False,
         **kwargs,
     ) -> Rerank:
         assert self._model is not None
@@ -265,9 +266,13 @@ class RerankModel:
                 similarity_scores = similarity_scores.float()
         else:
             # Related issue: https://github.com/xorbitsai/inference/issues/1775
-            similarity_scores = self._model.compute_score(
-                sentence_combinations, normalize=True
-            )
+            if always_normalize:
+                similarity_scores = self._model.compute_score(
+                    sentence_combinations, normalize=True
+                )
+            else:
+                similarity_scores = self._model.compute_score(sentence_combinations)
+
             if not isinstance(similarity_scores, Sequence):
                 similarity_scores = [similarity_scores]
             elif (

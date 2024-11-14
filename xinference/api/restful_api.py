@@ -115,6 +115,7 @@ class RerankRequest(BaseModel):
     return_documents: Optional[bool] = False
     return_len: Optional[bool] = False
     max_chunks_per_doc: Optional[int] = None
+    always_normalize: Optional[bool] = False
 
 
 class TextToImageRequest(BaseModel):
@@ -1340,6 +1341,7 @@ class RESTfulAPI(CancelMixin):
                 max_chunks_per_doc=body.max_chunks_per_doc,
                 return_documents=body.return_documents,
                 return_len=body.return_len,
+                always_normalize=body.always_normalize,
                 **kwargs,
             )
             return Response(scores, media_type="application/json")
