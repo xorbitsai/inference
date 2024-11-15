@@ -67,6 +67,8 @@ loguru  # For Fish Speech
 natsort  # For Fish Speech
 loralib  # For Fish Speech
 ormsgpack  # For Fish Speech
+cachetools  # For Fish Speech
+silero-vad  # For Fish Speech
 qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
