@@ -704,6 +704,8 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             The speed of the generated audio.
         stream: bool
             Use stream or not.
+        prompt_speech: bytes
+            The audio bytes to be provided to the model.
 
         Returns
         -------

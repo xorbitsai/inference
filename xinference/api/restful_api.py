@@ -1461,9 +1461,6 @@ class RESTfulAPI(CancelMixin):
         prompt_speech: Optional[UploadFile] = File(
             None, media_type="application/octet-stream"
         ),
-        reference_audio: Optional[UploadFile] = File(
-            None, media_type="application/octet-stream"
-        ),
     ) -> Response:
         if prompt_speech:
             f = await request.form()
@@ -1489,8 +1486,6 @@ class RESTfulAPI(CancelMixin):
                 parsed_kwargs = {}
             if prompt_speech is not None:
                 parsed_kwargs["prompt_speech"] = await prompt_speech.read()
-            if reference_audio is not None:
-                parsed_kwargs["reference_audio"] = await reference_audio.read()
             out = await model.speech(
                 input=body.input,
                 voice=body.voice,

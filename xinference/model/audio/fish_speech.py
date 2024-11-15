@@ -212,7 +212,7 @@ class FishSpeechModel:
             self._inference(
                 text=input,
                 enable_reference_audio=kwargs.get("enable_reference_audio", False),
-                reference_audio=kwargs.get("reference_audio"),
+                reference_audio=kwargs.get("prompt_speech"),
                 reference_text=kwargs.get("reference_text", ""),
                 max_new_tokens=kwargs.get("max_new_tokens", 1024),
                 chunk_length=kwargs.get("chunk_length", 200),
