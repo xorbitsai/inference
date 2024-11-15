@@ -338,7 +338,7 @@ class EmbeddingModel:
             all_embeddings = []
             all_token_nums = 0
 
-            # 原有的写法不支持其他推理引擎
+            # The original code does not support other inference engines
             def _text_length(text):
                 if isinstance(text, dict):  # {key: value} case
                     return len(next(iter(text.values())))
