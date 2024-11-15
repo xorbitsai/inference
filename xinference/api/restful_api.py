@@ -115,6 +115,7 @@ class RerankRequest(BaseModel):
     return_documents: Optional[bool] = False
     return_len: Optional[bool] = False
     max_chunks_per_doc: Optional[int] = None
+    kwargs: Optional[str] = None
 
 
 class TextToImageRequest(BaseModel):
@@ -1315,11 +1316,6 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
-        kwargs = {
-            key: value
-            for key, value in payload.items()
-            if key not in RerankRequest.__annotations__.keys()
-        }
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1333,6 +1329,10 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
+            if body.kwargs is not None:
+                parsed_kwargs = json.loads(body.kwargs)
+            else:
+                parsed_kwargs = {}
             scores = await model.rerank(
                 body.documents,
                 body.query,
@@ -1340,7 +1340,7 @@ class RESTfulAPI(CancelMixin):
                 max_chunks_per_doc=body.max_chunks_per_doc,
                 return_documents=body.return_documents,
                 return_len=body.return_len,
-                **kwargs,
+                **parsed_kwargs,
             )
             return Response(scores, media_type="application/json")
         except RuntimeError as re:
