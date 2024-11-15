@@ -542,7 +542,6 @@ class EmbeddingModel:
             batch_decoded_texts = self._model.tokenizer.convert_ids_to_tokens(
                 batch_token_ids
             )
-        print(batch_decoded_texts)
         return batch_decoded_texts
 
 
