@@ -7,7 +7,7 @@ click
 tqdm>=4.27
 tabulate
 requests
-pydantic
+pydantic>2
 fastapi>=0.110.3
 uvicorn
 huggingface-hub>=0.19.4
