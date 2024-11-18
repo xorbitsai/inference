@@ -81,12 +81,13 @@ class FishSpeechModel:
             if not is_device_available(self._device):
                 raise ValueError(f"Device {self._device} is not available!")
 
-        logger.info("Loading Llama model...")
+        enable_compile = self._kwargs.get("compile", False)
+        logger.info("Loading Llama model, compile=%s...", enable_compile)
         self._llama_queue = launch_thread_safe_queue(
             checkpoint_path=self._model_path,
             device=self._device,
             precision=torch.bfloat16,
-            compile=False,
+            compile=enable_compile,
         )
         logger.info("Llama model loaded, loading VQ-GAN model...")
 
@@ -208,11 +209,14 @@ class FishSpeechModel:
             logger.warning("stream mode is not implemented.")
         import torchaudio
 
+        prompt_speech = kwargs.get("prompt_speech")
         result = list(
             self._inference(
                 text=input,
-                enable_reference_audio=kwargs.get("enable_reference_audio", False),
-                reference_audio=kwargs.get("prompt_speech"),
+                enable_reference_audio=kwargs.get(
+                    "enable_reference_audio", prompt_speech is not None
+                ),
+                reference_audio=prompt_speech,
                 reference_text=kwargs.get("reference_text", ""),
                 max_new_tokens=kwargs.get("max_new_tokens", 1024),
                 chunk_length=kwargs.get("chunk_length", 200),
