@@ -247,3 +247,19 @@ def test_register_fault_embedding():
     assert any(
         "Invalid model URI /new_data/cache/gte-Qwen2" in str(r.message) for r in record
     )
+
+
+import torch
+
+
+def test_convert_ids_to_tokens():
+    from ..core import convert_ids_to_tokens
+
+    # for all embedding model, most of them has a different tokenizer.json,
+    # this test method just make sure the convert_ids_to_tokens function is callable
+    ids = torch.tensor([[1, 2, 3], [4, 5, 6]])
+    try:
+        tokens = convert_ids_to_tokens(ids)
+    except Exception as e:
+        raise e
+    assert isinstance(tokens, list)
