@@ -229,10 +229,6 @@ class EmbeddingModel:
 
         kwargs.setdefault("normalize_embeddings", True)
 
-        if kwargs.get("return_sparse") and "m3" in self._model_spec.model_name.lower():
-            self._kwargs["hybrid_mode"] = True
-            self.load()
-
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
         def encode(

@@ -253,13 +253,15 @@ import torch
 
 
 def test_convert_ids_to_tokens():
-    from ..core import convert_ids_to_tokens
+    from ..core import EmbeddingModel
 
-    # for all embedding model, most of them has a different tokenizer.json,
-    # this test method just make sure the convert_ids_to_tokens function is callable
-    ids = torch.tensor([[1, 2, 3], [4, 5, 6]])
-    try:
-        tokens = convert_ids_to_tokens(ids)
-    except Exception as e:
-        raise e
+    model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+
+    ids = torch.tensor([[8074, 8059, 8064, 8056], [144, 147, 160, 160, 158]])
+    tokens = model.convert_ids_to_tokens(ids)
+
     assert isinstance(tokens, list)
+    assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
+
+    shutil.rmtree(model_path, ignore_errors=True)
