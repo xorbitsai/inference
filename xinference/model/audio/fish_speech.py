@@ -250,7 +250,6 @@ class FishSpeechModel:
                                 if new_last_pos != last_pos:
                                     out.seek(last_pos)
                                     encoded_bytes = out.read()
-                                    print(encoded_bytes)
                                     yield encoded_bytes
                                     last_pos = new_last_pos
 
