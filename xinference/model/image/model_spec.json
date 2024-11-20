@@ -8,7 +8,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "FLUX.1-dev",
@@ -19,7 +23,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "sd3-medium",
@@ -30,7 +38,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3"
+    }
   },
   {
     "model_name": "sd-turbo",
@@ -177,6 +189,15 @@
     "model_revision": "115134f363124c53c7d878647567d04daf26e41e",
     "model_ability": [
       "inpainting"
+    ]
+  },
+  {
+    "model_name": "GOT-OCR2_0",
+    "model_family": "ocr",
+    "model_id": "stepfun-ai/GOT-OCR2_0",
+    "model_revision": "cf6b7386bc89a54f09785612ba74cb12de6fa17c",
+    "model_ability": [
+      "ocr"
     ]
   }
 ]

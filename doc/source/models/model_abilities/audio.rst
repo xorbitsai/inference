@@ -331,7 +331,7 @@ Clone voice, launch model ``CosyVoice-300M``.
 
     zero_shot_prompt_text = ""
     # The zero shot prompt file is the voice file
-    # the words said in the file shoule be identical to zero_shot_prompt_text
+    # the words said in the file should be identical to zero_shot_prompt_text
     with open(zero_shot_prompt_file, "rb") as f:
         zero_shot_prompt = f.read()
 
@@ -379,3 +379,34 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
     )
 
 More instructions and examples, could be found at https://fun-audio-llm.github.io/ .
+
+
+FishSpeech Usage
+~~~~~~~~~~~~~~~~
+
+Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
+
+Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` instead of `reference_audio`
+to provide the reference audio to the FishSpeech model.
+
+.. code-block::
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+
+    model = client.get_model("<MODEL_UID>")
+
+    reference_text = ""
+    # The reference audio file is the voice file
+    # the words said in the file should be identical to reference_text
+    with open(reference_audio_file, "rb") as f:
+        reference_audio = f.read()
+
+    speech_bytes = model.speech(
+        "<The text to generate audio for>",
+        reference_text=reference_text,
+        prompt_speech=reference_audio,
+        enable_reference_audio=True,
+    )
+-

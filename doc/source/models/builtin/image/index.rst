@@ -15,6 +15,8 @@ The following is a list of built-in image models in Xinference:
   
    flux.1-schnell
   
+   got-ocr2_0
+  
    kolors
   
    sd-turbo

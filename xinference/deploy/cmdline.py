@@ -43,6 +43,7 @@ from .utils import (
     get_log_file,
     get_timestamp_ms,
     handle_click_args_type,
+    set_envs,
 )
 
 try:
@@ -106,6 +107,8 @@ def start_local_cluster(
         XINFERENCE_LOG_MAX_BYTES,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
+    # refer to https://huggingface.co/docs/transformers/main_classes/logging
+    set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
 
     main(
         host=host,
@@ -280,6 +283,7 @@ def supervisor(
         XINFERENCE_LOG_MAX_BYTES,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
+    set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
 
     main(
         host=host,
@@ -342,6 +346,7 @@ def worker(
         XINFERENCE_LOG_MAX_BYTES,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
+    set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
 
     endpoint = get_endpoint(endpoint)
 

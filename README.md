@@ -180,6 +180,24 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg) | Collaborating with other Xorbits users.            |
 | [Twitter](https://twitter.com/xorbitsio)                                                      | Staying up-to-date on new features.                |
 
+## Citation
+
+If this work is helpful, please kindly cite as:
+
+```bibtex
+@inproceedings{lu2024xinference,
+    title = "Xinference: Making Large Model Serving Easy",
+    author = "Lu, Weizheng and Xiong, Lingfeng and Zhang, Feng and Qin, Xuye and Chen, Yueguo",
+    booktitle = "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = nov,
+    year = "2024",
+    address = "Miami, Florida, USA",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.emnlp-demo.30",
+    pages = "291--300",
+}
+```
+
 ## Contributors
 
 <a href="https://github.com/xorbitsai/inference/graphs/contributors">

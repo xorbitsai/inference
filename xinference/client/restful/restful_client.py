@@ -174,6 +174,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "max_chunks_per_doc": max_chunks_per_doc,
             "return_documents": return_documents,
             "return_len": return_len,
+            "kwargs": json.dumps(kwargs),
         }
         request_body.update(kwargs)
         response = requests.post(url, json=request_body, headers=self.auth_headers)
@@ -364,6 +365,25 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to inpaint the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def ocr(self, image: Union[str, bytes], **kwargs):
+        url = f"{self._base_url}/v1/images/ocr"
+        params = {
+            "model": self._model_uid,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to ocr the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -684,6 +704,8 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             The speed of the generated audio.
         stream: bool
             Use stream or not.
+        prompt_speech: bytes
+            The audio bytes to be provided to the model.
 
         Returns
         -------
@@ -1338,7 +1360,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def abort_request(self, model_uid: str, request_id: str):
+    def abort_request(self, model_uid: str, request_id: str, block_duration: int = 30):
         """
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
@@ -1350,13 +1372,18 @@ class Client:
             Model uid.
         request_id: str
             Request id.
+        block_duration: int
+            The duration to make the request id abort. If set to 0, the abort_request will be immediate, which may
+            prevent it from taking effect if it arrives before the request operation.
         Returns
         -------
         Dict
             Return empty dict.
         """
         url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
-        response = requests.post(url, headers=self._headers)
+        response = requests.post(
+            url, headers=self._headers, json={"block_duration": block_duration}
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to abort request, detail: {_get_error_string(response)}"

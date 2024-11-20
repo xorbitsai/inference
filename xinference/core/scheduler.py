@@ -79,7 +79,7 @@ class InferenceRequest:
         # For tool call
         self.tools = None
         # Currently, for storing tool call streaming results.
-        self.outputs: List[str] = []
+        self.outputs: List[str] = []  # type: ignore
         # inference results,
         # it is a list type because when stream=True,
         # self.completion contains all the results in a decode round.

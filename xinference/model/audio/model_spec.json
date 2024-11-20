@@ -127,7 +127,7 @@
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_id": "2Noise/ChatTTS",
-    "model_revision": "3b34118f6d25850440b8901cef3e71c6ef8619c8",
+    "model_revision": "1a3c04a8b0651689bd9242fbb55b1f4b5a9aef84",
     "model_ability": "text-to-audio",
     "multilingual": true
   },
@@ -159,7 +159,7 @@
     "model_name": "FishSpeech-1.4",
     "model_family": "FishAudio",
     "model_id": "fishaudio/fish-speech-1.4",
-    "model_revision": "3c49651b8e583b6b13f55e375432e0d57e1aa84d",
+    "model_revision": "069c573759936b35191d3380deb89183c0656f59",
     "model_ability": "text-to-audio",
     "multilingual": true
   }

@@ -40,3 +40,9 @@ def test_load_mlx(setup):
     completion = model.chat(messages)
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0
+    content = completion["choices"][0]["message"]["content"]
+    messages.append({"role": "assistant", "content": content})
+    messages.append({"role": "user", "content": "explain it"})
+    completion = model.chat(messages)
+    assert "content" in completion["choices"][0]["message"]
+    assert len(completion["choices"][0]["message"]["content"]) != 0

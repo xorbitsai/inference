@@ -17,9 +17,11 @@ import gc
 import inspect
 import itertools
 import logging
+import os
 import re
 import sys
 import warnings
+from glob import glob
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import PIL.Image
@@ -194,8 +196,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if sys.platform != "darwin" and torch_dtype is None:
             # The following params crashes on Mac M2
             self._torch_dtype = self._kwargs["torch_dtype"] = torch.float16
-            self._kwargs["variant"] = "fp16"
-            self._kwargs["use_safetensors"] = True
+            self._kwargs["use_safetensors"] = any(
+                glob(os.path.join(self._model_path, "*/*.safetensors"))
+            )
         if isinstance(torch_dtype, str):
             self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
 
@@ -283,9 +286,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             model.enable_sequential_cpu_offload()
         elif not self._kwargs.get("device_map"):
             logger.debug("Loading model to available device")
-            model = move_model_to_available_device(self._model)
-        # Recommended if your computer has < 64 GB of RAM
-        if self._kwargs.get("attention_slicing", True):
+            model = move_model_to_available_device(model)
+        if self._kwargs.get("attention_slicing", False):
             model.enable_attention_slicing()
         if self._kwargs.get("vae_tiling", False):
             model.enable_vae_tiling()

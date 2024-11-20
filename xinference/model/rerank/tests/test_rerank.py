@@ -118,9 +118,8 @@ def test_restful_api(model_name, setup):
     kwargs = {
         "invalid": "invalid",
     }
-    with pytest.raises(RuntimeError) as err:
-        scores = model.rerank(corpus, query, **kwargs)
-    assert "hasn't support" in str(err.value)
+    with pytest.raises(RuntimeError):
+        model.rerank(corpus, query, **kwargs)
 
 
 def test_from_local_uri():

@@ -35,6 +35,7 @@ from typing import (
 import xoscar as xo
 
 from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
@@ -970,7 +971,7 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
-            replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
+            replica_gpu_idx = assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
             nonlocal model_type
 
             worker_ref = (
@@ -1084,7 +1085,7 @@ class SupervisorActor(xo.StatelessActor):
                             dead_models,
                         )
                         for replica_model_uid in dead_models:
-                            model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
+                            model_uid, _ = parse_replica_model_uid(replica_model_uid)
                             self._model_uid_to_replica_info.pop(model_uid, None)
                             self._replica_model_uid_to_worker.pop(
                                 replica_model_uid, None
@@ -1137,7 +1138,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         replica_model_uid = build_replica_model_uid(
-            model_uid, replica_info.replica, next(replica_info.scheduler)
+            model_uid, next(replica_info.scheduler)
         )
 
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
@@ -1154,7 +1155,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         # Use rep id 0 to instead of next(replica_info.scheduler) to avoid
         # consuming the generator.
-        replica_model_uid = build_replica_model_uid(model_uid, replica_info.replica, 0)
+        replica_model_uid = build_replica_model_uid(model_uid, 0)
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
             raise ValueError(
@@ -1213,7 +1214,12 @@ class SupervisorActor(xo.StatelessActor):
         return cached_models
 
     @log_async(logger=logger)
-    async def abort_request(self, model_uid: str, request_id: str) -> Dict:
+    async def abort_request(
+        self,
+        model_uid: str,
+        request_id: str,
+        block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    ) -> Dict:
         from .scheduler import AbortRequestMessage
 
         res = {"msg": AbortRequestMessage.NO_OP.name}
@@ -1228,7 +1234,7 @@ class SupervisorActor(xo.StatelessActor):
             if worker_ref is None:
                 continue
             model_ref = await worker_ref.get_model(model_uid=rep_mid)
-            result_info = await model_ref.abort_request(request_id)
+            result_info = await model_ref.abort_request(request_id, block_duration)
             res["msg"] = result_info
             if result_info == AbortRequestMessage.DONE.name:
                 break
@@ -1260,7 +1266,7 @@ class SupervisorActor(xo.StatelessActor):
                 uids_to_remove.append(model_uid)
 
         for replica_model_uid in uids_to_remove:
-            model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
+            model_uid, _ = parse_replica_model_uid(replica_model_uid)
             self._model_uid_to_replica_info.pop(model_uid, None)
             self._replica_model_uid_to_worker.pop(replica_model_uid, None)
 
