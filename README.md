@@ -59,6 +59,7 @@ potential of cutting-edge AI models.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 - [RAGFlow](https://github.com/infiniflow/ragflow): is an open-source RAG engine based on deep document understanding.
+- [GPTLocalhost (Word Add-in)](https://gptlocalhost.com/demo#LocalAI): run Xinference in Microsoft Word locally.
 
 
 ## Key Features
