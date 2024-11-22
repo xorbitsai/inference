@@ -91,21 +91,26 @@ def request_limit(fn):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
-        if self._request_limits is not None:
-            if 1 + self._serve_count <= self._request_limits:
-                self._serve_count += 1
-            else:
-                raise RuntimeError(
-                    f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
-                )
+        if 1 + self._serve_count <= self._request_limits:
+            self._serve_count += 1
+        else:
+            raise RuntimeError(
+                f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
+            )
+        ret = None
         try:
             ret = await fn(self, *args, **kwargs)
         finally:
-            if self._request_limits is not None:
+            if ret is not None and (
+                inspect.isasyncgen(ret) or inspect.isgenerator(ret)
+            ):
+                # stream case, let client call model_ref to decrease self._serve_count
+                pass
+            else:
                 self._serve_count -= 1
-            logger.debug(
-                f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
-            )
+                logger.debug(
+                    f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+                )
         return ret
 
     return wrapped_func
@@ -215,7 +220,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._model_description = (
             model_description.to_dict() if model_description else {}
         )
-        self._request_limits = request_limits
+        self._request_limits = (
+            float("inf") if request_limits is None else request_limits
+        )
         self._pending_requests: asyncio.Queue = asyncio.Queue()
         self._handle_pending_requests_task = None
         self._lock = (
@@ -267,6 +274,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
+
+    def decrease_serve_count(self):
+        self._serve_count -= 1
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens

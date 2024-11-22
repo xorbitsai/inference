@@ -1264,6 +1264,8 @@ class RESTfulAPI(CancelMixin):
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
+                finally:
+                    await model.decrease_serve_count()
 
             return EventSourceResponse(stream_results())
         else:
@@ -1495,8 +1497,16 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             if body.stream:
+
+                async def stream_results():
+                    try:
+                        async for item in out:
+                            yield item
+                    finally:
+                        await model.decrease_serve_count()
+
                 return EventSourceResponse(
-                    media_type="application/octet-stream", content=out
+                    media_type="application/octet-stream", content=stream_results()
                 )
             else:
                 return Response(media_type="application/octet-stream", content=out)
@@ -2027,6 +2037,8 @@ class RESTfulAPI(CancelMixin):
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
+                finally:
+                    await model.decrease_serve_count()
 
             return EventSourceResponse(stream_results())
         else:
