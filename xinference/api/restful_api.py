@@ -2305,8 +2305,6 @@ class RESTfulAPI(CancelMixin):
             kwargs["guided_whitespace_pattern"] = raw_body.get(
                 "guided_whitespace_pattern"
             )
-        if raw_body.get("response_format") is not None:
-            kwargs["response_format"] = raw_body.get("response_format")
         return kwargs
 
 

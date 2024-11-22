@@ -342,12 +342,12 @@ class VLLMModel(LLM):
         guided_json = None
 
         if response_format is not None:
-            if response_format.type == "json_object":
+            if response_format.get("type") == "json_object":
                 guided_json_object = True
-            elif response_format.type == "json_schema":
-                json_schema = response_format.json_schema
+            elif response_format.get("type") == "json_schema":
+                json_schema = response_format.get("json_schema")
                 assert json_schema is not None
-                guided_json = json_schema.json_schema
+                guided_json = json_schema.get("json_schema")
                 if guided_decoding_backend is None:
                     guided_decoding_backend = "outlines"
 
@@ -500,7 +500,7 @@ class VLLMModel(LLM):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
-            from vllm.sampling_params import GuidedDecodingParams, SamplingParams
+            from vllm.sampling_params import SamplingParams
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -532,31 +532,45 @@ class VLLMModel(LLM):
             else False
         )
 
-        guided_options = GuidedDecodingParams.from_optional(
-            json=sanitized_generate_config.pop("guided_json", None),
-            regex=sanitized_generate_config.pop("guided_regex", None),
-            choice=sanitized_generate_config.pop("guided_choice", None),
-            grammar=sanitized_generate_config.pop("guided_grammar", None),
-            json_object=sanitized_generate_config.pop("guided_json_object", None),
-            backend=sanitized_generate_config.pop("guided_decoding_backend", None),
-            whitespace_pattern=sanitized_generate_config.pop(
-                "guided_whitespace_pattern", None
-            ),
-        )
+        if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+            # guided decoding only available for vllm >= 0.6.3
+            from vllm.sampling_params import GuidedDecodingParams
 
-        sampling_params = SamplingParams(
-            guided_decoding=guided_options, **sanitized_generate_config
-        )
+            guided_options = GuidedDecodingParams.from_optional(
+                json=sanitized_generate_config.pop("guided_json", None),
+                regex=sanitized_generate_config.pop("guided_regex", None),
+                choice=sanitized_generate_config.pop("guided_choice", None),
+                grammar=sanitized_generate_config.pop("guided_grammar", None),
+                json_object=sanitized_generate_config.pop("guided_json_object", None),
+                backend=sanitized_generate_config.pop("guided_decoding_backend", None),
+                whitespace_pattern=sanitized_generate_config.pop(
+                    "guided_whitespace_pattern", None
+                ),
+            )
+
+            sampling_params = SamplingParams(
+                guided_decoding=guided_options, **sanitized_generate_config
+            )
+        else:
+            # ignore generate configs
+            sanitized_generate_config.pop("guided_json", None)
+            sanitized_generate_config.pop("guided_regex", None)
+            sanitized_generate_config.pop("guided_choice", None)
+            sanitized_generate_config.pop("guided_grammar", None)
+            sanitized_generate_config.pop("guided_json_object", None)
+            sanitized_generate_config.pop("guided_decoding_backend", None)
+            sanitized_generate_config.pop("guided_whitespace_pattern", None)
+            sampling_params = SamplingParams(**sanitized_generate_config)
 
         if not request_id:
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
         results_generator = self._engine.generate(
-            prompt=prompt,
-            sampling_params=sampling_params,
-            request_id=request_id,
-            lora_request=lora_request,
+            prompt,
+            sampling_params,
+            request_id,
+            lora_request,
         )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
