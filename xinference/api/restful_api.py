@@ -1220,25 +1220,7 @@ class RESTfulAPI(CancelMixin):
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
         # guided_decoding params
-        if raw_body.get("guided_json") is not None:
-            kwargs["guided_json"] = raw_body.get("guided_json")
-        if raw_body.get("guided_regex") is not None:
-            kwargs["guided_regex"] = raw_body.get("guided_regex")
-        if raw_body.get("guided_choice") is not None:
-            kwargs["guided_choice"] = raw_body.get("guided_choice")
-        if raw_body.get("guided_grammar") is not None:
-            kwargs["guided_grammar"] = raw_body.get("guided_grammar")
-        if raw_body.get("guided_json_object") is not None:
-            kwargs["guided_json_object"] = raw_body.get("guided_json_object")
-        if raw_body.get("guided_decoding_backend") is not None:
-            kwargs["guided_decoding_backend"] = raw_body.get("guided_decoding_backend")
-        if raw_body.get("guided_whitespace_pattern") is not None:
-            kwargs["guided_whitespace_pattern"] = raw_body.get(
-                "guided_whitespace_pattern"
-            )
-
-        if raw_body.get("response_format") is not None:
-            kwargs["response_format"] = raw_body.get("response_format")
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
 
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
@@ -1942,24 +1924,7 @@ class RESTfulAPI(CancelMixin):
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
         # guided_decoding params
-        if raw_body.get("guided_json") is not None:
-            kwargs["guided_json"] = raw_body.get("guided_json")
-        if raw_body.get("guided_regex") is not None:
-            kwargs["guided_regex"] = raw_body.get("guided_regex")
-        if raw_body.get("guided_choice") is not None:
-            kwargs["guided_choice"] = raw_body.get("guided_choice")
-        if raw_body.get("guided_grammar") is not None:
-            kwargs["guided_grammar"] = raw_body.get("guided_grammar")
-        if raw_body.get("guided_json_object") is not None:
-            kwargs["guided_json_object"] = raw_body.get("guided_json_object")
-        if raw_body.get("guided_decoding_backend") is not None:
-            kwargs["guided_decoding_backend"] = raw_body.get("guided_decoding_backend")
-        if raw_body.get("guided_whitespace_pattern") is not None:
-            kwargs["guided_whitespace_pattern"] = raw_body.get(
-                "guided_whitespace_pattern"
-            )
-        if raw_body.get("response_format") is not None:
-            kwargs["response_format"] = raw_body.get("response_format")
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
 
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
@@ -2320,6 +2285,29 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    @staticmethod
+    def extract_guided_params(raw_body: dict) -> dict:
+        kwargs = {}
+        if raw_body.get("guided_json") is not None:
+            kwargs["guided_json"] = raw_body.get("guided_json")
+        if raw_body.get("guided_regex") is not None:
+            kwargs["guided_regex"] = raw_body.get("guided_regex")
+        if raw_body.get("guided_choice") is not None:
+            kwargs["guided_choice"] = raw_body.get("guided_choice")
+        if raw_body.get("guided_grammar") is not None:
+            kwargs["guided_grammar"] = raw_body.get("guided_grammar")
+        if raw_body.get("guided_json_object") is not None:
+            kwargs["guided_json_object"] = raw_body.get("guided_json_object")
+        if raw_body.get("guided_decoding_backend") is not None:
+            kwargs["guided_decoding_backend"] = raw_body.get("guided_decoding_backend")
+        if raw_body.get("guided_whitespace_pattern") is not None:
+            kwargs["guided_whitespace_pattern"] = raw_body.get(
+                "guided_whitespace_pattern"
+            )
+        if raw_body.get("response_format") is not None:
+            kwargs["response_format"] = raw_body.get("response_format")
+        return kwargs
 
 
 def run(
