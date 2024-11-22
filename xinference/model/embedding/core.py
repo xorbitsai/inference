@@ -376,7 +376,7 @@ class EmbeddingModel:
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
         def encode(
-            model: Union[SentenceTransformer, BGEM3FlagModel],
+            model: SentenceTransformer,
             sentences: Union[str, List[str]],
             prompt_name: Optional[str] = None,
             prompt: Optional[str] = None,
@@ -408,8 +408,7 @@ class EmbeddingModel:
             from sentence_transformers.util import batch_to_device
             from tqdm.autonotebook import trange
 
-            if not isinstance(model, BGEM3FlagModel):
-                model.eval()
+            model.eval()
             if show_progress_bar is None:
                 show_progress_bar = (
                     logger.getEffectiveLevel() == logging.INFO
@@ -438,10 +437,7 @@ class EmbeddingModel:
                         raise ValueError(
                             f"Prompt name '{prompt_name}' not found in the configured prompts dictionary with keys {list(model.prompts.keys())!r}."
                         )
-                elif (
-                    not isinstance(model, BGEM3FlagModel)
-                    and model.default_prompt_name is not None
-                ):
+                elif model.default_prompt_name is not None:
                     prompt = model.prompts.get(model.default_prompt_name, None)
             else:
                 if prompt_name is not None:
@@ -463,11 +459,7 @@ class EmbeddingModel:
                     )
 
             if device is None:
-                # same as SentenceTransformer.py
-                from sentence_transformers.util import get_device_name
-
-                device = get_device_name()
-                logger.info(f"Use pytorch device_name: {device}")
+                device = model._target_device
 
             if (
                 "gte" in self._model_spec.model_name.lower()
@@ -477,23 +469,9 @@ class EmbeddingModel:
 
             all_embeddings = []
             all_token_nums = 0
-
-            # The original code does not support other inference engines
-            def _text_length(text):
-                if isinstance(text, dict):  # {key: value} case
-                    return len(next(iter(text.values())))
-                elif not hasattr(text, "__len__"):  # Object has no len() method
-                    return 1
-                elif len(text) == 0 or isinstance(
-                    text[0], int
-                ):  # Empty string or list of ints
-                    return len(text)
-                else:
-                    return sum(
-                        [len(t) for t in text]
-                    )  # Sum of length of individual strings
-
-            length_sorted_idx = np.argsort([-_text_length(sen) for sen in sentences])
+            length_sorted_idx = np.argsort(
+                [-model._text_length(sen) for sen in sentences]
+            )
             sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
 
             for start_index in trange(
@@ -506,21 +484,15 @@ class EmbeddingModel:
                 sentences_batch = sentences_sorted[
                     start_index : start_index + batch_size
                 ]
-                if not isinstance(model, BGEM3FlagModel):
-                    features = model.tokenize(sentences_batch)
-                    features = batch_to_device(features, device)
-                    features.update(extra_features)
-                    # when batching, the attention mask 1 means there is a token
-                    # thus we just sum up it to get the total number of tokens
-                    all_token_nums += features["attention_mask"].sum().item()
+                features = model.tokenize(sentences_batch)
+                features = batch_to_device(features, device)
+                features.update(extra_features)
+                # when batching, the attention mask 1 means there is a token
+                # thus we just sum up it to get the total number of tokens
+                all_token_nums += features["attention_mask"].sum().item()
 
                 with torch.no_grad():
-                    # if use hybrid mode and setting return_sparse==true, return sparse embedding
-                    # only support bge-m3 model now
-                    if isinstance(model, BGEM3FlagModel):
-                        out_features = model.encode(sentences_batch, **kwargs)
-                    else:
-                        out_features = model.forward(features, **kwargs)
+                    out_features = model.forward(features, **kwargs)
 
                     if output_value == "token_embeddings":
                         embeddings = []
@@ -542,16 +514,6 @@ class EmbeddingModel:
                                 for name in out_features
                             }
                             embeddings.append(row)
-                    # for sparse embedding
-                    elif output_value == "sentence_embedding" and isinstance(
-                        model, BGEM3FlagModel
-                    ):
-                        if kwargs.get("return_sparse"):
-                            embeddings = out_features["lexical_weights"]
-                        else:
-                            embeddings = out_features["dense_vecs"]
-                        if convert_to_numpy:
-                            embeddings = embeddings.cpu()
                     else:  # Sentence embeddings
                         embeddings = out_features[output_value]
                         embeddings = embeddings.detach()
