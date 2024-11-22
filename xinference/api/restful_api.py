@@ -490,6 +490,16 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/convert_ids_to_tokens",
+            self.convert_ids_to_tokens,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/rerank",
             self.rerank,
             methods=["POST"],
@@ -1302,6 +1312,41 @@ class RESTfulAPI(CancelMixin):
         try:
             embedding = await model.create_embedding(body.input, **kwargs)
             return Response(embedding, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def convert_ids_to_tokens(self, request: Request) -> Response:
+        payload = await request.json()
+        body = CreateEmbeddingRequest.parse_obj(payload)
+        model_uid = body.model
+        exclude = {
+            "model",
+            "input",
+            "user",
+        }
+        kwargs = {key: value for key, value in payload.items() if key not in exclude}
+
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            decoded_texts = await model.convert_ids_to_tokens(body.input, **kwargs)
+            return Response(decoded_texts, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))

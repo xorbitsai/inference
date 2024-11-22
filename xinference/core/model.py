@@ -796,6 +796,19 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     @request_limit
     @log_async(logger=logger)
+    async def convert_ids_to_tokens(
+        self, input: Union[List, List[List]], *args, **kwargs
+    ):
+        kwargs.pop("request_id", None)
+        if hasattr(self._model, "convert_ids_to_tokens"):
+            return await self._call_wrapper_json(
+                self._model.convert_ids_to_tokens, input, *args, **kwargs
+            )
+
+        raise AttributeError(f"Model {self._model.model_spec} can convert token id.")
+
+    @request_limit
+    @log_async(logger=logger)
     async def rerank(
         self,
         documents: List[str],

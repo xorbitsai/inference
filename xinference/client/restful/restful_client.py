@@ -126,6 +126,43 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def convert_ids_to_tokens(
+        self, input: Union[List, List[List]], **kwargs
+    ) -> List[str]:
+        """
+        Convert token IDs to human readable tokens via RESTful APIs.
+
+        Parameters
+        ----------
+        input: Union[List, List[List]]
+            Input token IDs to convert, can be a single list of token IDs or a list of token ID lists.
+            To convert multiple sequences in a single request, pass a list of token ID lists.
+
+        Returns
+        -------
+        list
+            A list of decoded tokens in human readable format.
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure of token conversion and provide the error message.
+
+        """
+        url = f"{self._base_url}/v1/convert_ids_to_tokens"
+        request_body = {
+            "model": self._model_uid,
+            "input": input,
+        }
+        request_body.update(kwargs)
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to decode token ids, detail: {_get_error_string(response)}"
+            )
+        response_data = response.json()
+        return response_data
+
 
 class RESTfulRerankModelHandle(RESTfulModelHandle):
     def rerank(
