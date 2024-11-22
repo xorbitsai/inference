@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict, Iterable, List, Literal, Optional, TypeAlias, Union
+from typing import Dict, Iterable, List, Literal, Optional, Union
 
 from pydantic.version import VERSION as PYDANTIC_VERSION
-from typing_extensions import Required, TypedDict
 
 PYDANTIC_V2 = PYDANTIC_VERSION.startswith("2.")
 
@@ -75,41 +74,19 @@ OpenAIChatCompletionNamedToolChoiceParam = create_model_from_typeddict(
 )
 
 
-class JSONSchema(TypedDict, total=False):
-    name: Required[str]
-    """The name of the response format.
-
-    Must be a-z, A-Z, 0-9, or contain underscores and dashes, with a maximum length
-    of 64.
-    """
-
-    description: str
-    """
-    A description of what the response format is for, used by the model to determine
-    how to respond in the format.
-    """
-
-    schema_: Optional[Dict[str, object]] = Field(alias="schema", default=None)  # type: ignore
-    """The schema for the response format, described as a JSON Schema object."""
-
-    strict: Optional[bool]
-    """Whether to enable strict schema adherence when generating the output.
-
-    If set to true, the model will always follow the exact schema defined in the
-    `schema` field. Only a subset of JSON Schema is supported when `strict` is
-    `true`. To learn more, read the
-    [Structured Outputs guide](https://platform.openai.com/docs/guides/structured-outputs).
-    """
+class JSONSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    schema_: Optional[Dict[str, object]] = Field(alias="schema", default=None)
+    strict: Optional[bool] = None
 
 
-class ResponseFormatJSONSchema(TypedDict, total=False):
-    json_schema: Required[JSONSchema]
-
-    type: Required[Literal["json_schema"]]
-    """The type of response format being defined: `json_schema`"""
+class ResponseFormatJSONSchema(BaseModel):
+    json_schema: JSONSchema
+    type: Literal["json_schema"]
 
 
-ResponseFormat: TypeAlias = Union[
+ResponseFormat = Union[
     ResponseFormatText, ResponseFormatJSONObject, ResponseFormatJSONSchema
 ]
 
