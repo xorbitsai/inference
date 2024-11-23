@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import functools
 import itertools
 import logging
 import tempfile
@@ -38,23 +38,55 @@ class WhisperMLXModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._use_lighting = False
 
     @property
     def model_ability(self):
         return self._model_spec.model_ability
 
     def load(self):
-        try:
-            import mlx.core as mx
-            from mlx_whisper.transcribe import ModelHolder
-        except ImportError:
-            error_message = "Failed to import module 'mlx_whisper'"
-            installation_guide = [
-                "Please make sure 'mlx_whisper' is installed.\n",
-            ]
+        use_lightning = self._kwargs.get("use_lightning", "auto")
+        if use_lightning not in ("auto", True, False, None):
+            raise ValueError("use_lightning can only be True, False, None or auto")
 
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+        if use_lightning == "auto" or use_lightning is True:
+            try:
+                import mlx.core as mx
+                from lightning_whisper_mlx.transcribe import ModelHolder
+            except ImportError:
+                if use_lightning == "auto":
+                    use_lightning = False
+                else:
+                    error_message = "Failed to import module 'lightning_whisper_mlx'"
+                    installation_guide = [
+                        "Please make sure 'lightning_whisper_mlx' is installed.\n",
+                    ]
 
+                    raise ImportError(
+                        f"{error_message}\n\n{''.join(installation_guide)}"
+                    )
+            else:
+                use_lightning = True
+        if not use_lightning:
+            try:
+                import mlx.core as mx  # noqa: F811
+                from mlx_whisper.transcribe import ModelHolder  # noqa: F811
+            except ImportError:
+                error_message = "Failed to import module 'mlx_whisper'"
+                installation_guide = [
+                    "Please make sure 'mlx_whisper' is installed.\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            else:
+                use_lightning = False
+
+        logger.info(
+            "Loading MLX whisper from %s, use lightning: %s",
+            self._model_path,
+            use_lightning,
+        )
+        self._use_lighting = use_lightning
         self._model = ModelHolder.get_model(self._model_path, mx.float16)
 
     def transcriptions(
@@ -109,7 +141,14 @@ class WhisperMLXModel:
         timestamp_granularities: Optional[List[str]] = None,
         task: str = "transcribe",
     ):
-        from mlx_whisper import transcribe
+        if self._use_lighting:
+            from lightning_whisper_mlx.transcribe import transcribe_audio
+
+            transcribe = functools.partial(
+                transcribe_audio, batch_size=self._kwargs.get("batch_size", 12)
+            )
+        else:
+            from mlx_whisper import transcribe  # type: ignore
 
         with tempfile.NamedTemporaryFile(delete=True) as f:
             f.write(audio)
