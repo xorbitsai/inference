@@ -118,6 +118,7 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           if [ "$MODULE" == "metal" ]; then
+            conda install -c conda-forge "ffmpeg<7"
             pip install mlx-lm
             pip install mlx-whisper
           fi
