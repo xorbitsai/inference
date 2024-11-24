@@ -29,7 +29,8 @@ def test_restful_api_for_whisper(setup):
         model_type="audio",
     )
     model = client.get_model(model_uid)
-    with open("jfk.flac", "rb") as f:
+    audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")
+    with open(audio_path, "rb") as f:
         audio = f.read()
 
     response = model.transcriptions(audio)
@@ -90,7 +91,8 @@ def test_transcriptions_for_whisper(setup):
         model_type="audio",
     )
     model = client.get_model(model_uid)
-    with open("jfk.flac", "rb") as f:
+    audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")
+    with open(audio_path, "rb") as f:
         audio = f.read()
 
     response = model.transcriptions(audio, response_format="verbose_json")
