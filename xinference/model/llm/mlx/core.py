@@ -227,7 +227,6 @@ class MLXModel(LLM):
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
                 top_p=kwargs["top_p"],
-                logit_bias=kwargs["logit_bias"],
                 prompt_cache=self._prompt_cache.cache,  # type: ignore
             ),
             range(max_tokens),

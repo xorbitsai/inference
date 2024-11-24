@@ -13,10 +13,16 @@
 # limitations under the License.
 
 import os.path
+import platform
+import sys
 
 import pytest
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
 def test_restful_api_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
