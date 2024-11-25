@@ -8528,7 +8528,7 @@
     "model_ability": [
       "chat"
     ],
-    "model_description": "Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).",
+    "model_description": "",
     "model_specs": [
       {
         "model_format": "pytorch",
