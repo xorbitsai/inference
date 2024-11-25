@@ -44,8 +44,10 @@ Currently, supported models include:
 - ``codestral-v0.1``
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``
+- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``
+- ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
+- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
 - ``baichuan-2-chat``
 - ``internlm2-chat``
 - ``internlm2.5-chat``, ``internlm2.5-chat-1m``
@@ -102,7 +104,7 @@ SGLang has a high-performance inference runtime with RadixAttention. It signific
 
 Initial setup::
 
-   pip install 'xinference[sglang]'
+   pip install "xinference[sglang]"
 
    # For CUDA 12.4 & torch 2.4 to support sliding window attention for gemma 2 and llama 3.1 style rope
    pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4
@@ -115,7 +117,7 @@ MLX-lm is designed for Apple silicon users to run LLM efficiently.
 
 Initial setup::
 
-   pip install 'xinference[mlx]'
+   pip install "xinference[mlx]"
 
 Other Platforms
 ~~~~~~~~~~~~~~~

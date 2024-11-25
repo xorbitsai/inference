@@ -14,12 +14,11 @@
 import logging
 import os
 import time
-from typing import Iterable, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Union
 
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChunk,
     CompletionUsage,
@@ -181,13 +180,12 @@ class LlamaCppModel(LLM):
             for index, _completion_chunk in enumerate(
                 self._llm(prompt=_prompt, **_generate_config)
             ):
+                _completion_chunk["model"] = self.model_uid
                 request_id = _completion_chunk["id"]
-                choice = _completion_chunk["choices"][0]
-                if choice["finish_reason"] is not None:
-                    completion_tokens = index
+                completion_tokens = index + 1
                 total_tokens = prompt_tokens + completion_tokens
                 _completion_chunk["usage"] = CompletionUsage(
-                    prompt_tokens=total_tokens,
+                    prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
@@ -262,39 +260,26 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
         generate_config = super()._sanitize_generate_config(generate_config)
-        if self.model_family.prompt_style and self.model_family.prompt_style.stop:
-            generate_config["stop"] = self.model_family.prompt_style.stop
+        if self.model_family.stop and self.model_family.stop:
+            generate_config["stop"] = self.model_family.stop.copy()
         return generate_config
 
     def chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-
-        chat_history = chat_history or []
-        assert prompt_style is not None
+        model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        full_context_kwargs = {}
+        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            full_context_kwargs["tools"] = tools
+        assert self.model_family.chat_template is not None
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, **full_context_kwargs
+        )
 
         generate_config = self._sanitize_generate_config(generate_config)
-        # TODO(codingl2k1): qwen hacky to set stop for function call.
-        model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
-            stop = generate_config.get("stop")
-            if isinstance(stop, str):
-                generate_config["stop"] = [stop, "Observation:"]
-            elif isinstance(stop, Iterable):
-                assert not isinstance(stop, str)
-                generate_config["stop"] = stop + ["Observation:"]  # type: ignore
-            else:
-                generate_config["stop"] = "Observation:"
 
         stream = generate_config.get("stream", False)
         if stream:
@@ -305,7 +290,5 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, c, tools
-                )
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
             return self._to_chat_completion(c)

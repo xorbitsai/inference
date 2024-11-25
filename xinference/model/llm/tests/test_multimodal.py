@@ -34,16 +34,21 @@ def test_restful_api_for_qwen_vl(setup, model_format, quantization):
         quantization=quantization,
     )
     model = client.get_model(model_uid)
-    prompt = [
-        {"type": "text", "text": "What’s in this image?"},
+    messages = [
         {
-            "type": "image_url",
-            "image_url": {
-                "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-            },
-        },
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What’s in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                    },
+                },
+            ],
+        }
     ]
-    response = model.chat(prompt=prompt)
+    response = model.chat(messages)
     assert "grass" in response["choices"][0]["message"]["content"]
     assert "tree" in response["choices"][0]["message"]["content"]
     assert "sky" in response["choices"][0]["message"]["content"]
@@ -141,16 +146,21 @@ def test_restful_api_for_yi_vl(setup, model_format, quantization):
         quantization=quantization,
     )
     model = client.get_model(model_uid)
-    prompt = [
-        {"type": "text", "text": "What’s in this image?"},
+    messages = [
         {
-            "type": "image_url",
-            "image_url": {
-                "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-            },
-        },
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What’s in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                    },
+                },
+            ],
+        }
     ]
-    response = model.chat(prompt=prompt)
+    response = model.chat(messages)
     assert "green" in response["choices"][0]["message"]["content"]
     assert "tree" in response["choices"][0]["message"]["content"]
     assert "sky" in response["choices"][0]["message"]["content"]
@@ -225,16 +235,21 @@ def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
         temperature=0.0,
     )
     model = client.get_model(model_uid)
-    prompt = [
-        {"type": "text", "text": "What’s in this image?"},
+    messages = [
         {
-            "type": "image_url",
-            "image_url": {
-                "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-            },
-        },
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What’s in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                    },
+                },
+            ],
+        }
     ]
-    response = model.chat(prompt=prompt)
+    response = model.chat(messages)
     assert any(
         green in response["choices"][0]["message"]["content"]
         for green in ["grass", "green"]

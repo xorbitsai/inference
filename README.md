@@ -3,13 +3,25 @@
 
 # Xorbits Inference: Model Serving Made Easy 🤖
 
+<p align="center">
+  <a href="https://inference.top/">Xinference Cloud</a> ·
+  <a href="https://github.com/xorbitsai/enterprise-docs/blob/main/README.md">Xinference Enterprise</a> ·
+  <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">Self-hosting</a> ·
+  <a href="https://inference.readthedocs.io/">Documentation</a>
+</p>
+
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
-English | [中文介绍](README_zh_CN.md) | [日本語](README_ja_JP.md)
+<p align="center">
+  <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-454545?style=for-the-badge"></a>
+  <a href="./README_zh_CN.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/中文介绍-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_ja_JP.md"><img alt="日本語のREADME" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
+</p>
+
 </div>
 <br />
 
@@ -34,14 +46,14 @@ potential of cutting-edge AI models.
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [Qwen 2.5 Series](https://qwenlm.github.io/blog/qwen2.5/): [#2325](https://github.com/xorbitsai/inference/pull/2325)
+- Built-in support for [Fish Speech V1.4](https://huggingface.co/fishaudio/fish-speech-1.4): [#2295](https://github.com/xorbitsai/inference/pull/2295)
+- Built-in support for [DeepSeek-V2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5): [#2292](https://github.com/xorbitsai/inference/pull/2292)
+- Built-in support for [Qwen2-Audio](https://github.com/QwenLM/Qwen2-Audio): [#2271](https://github.com/xorbitsai/inference/pull/2271)
+- Built-in support for [Qwen2-vl-instruct](https://github.com/QwenLM/Qwen2-VL): [#2205](https://github.com/xorbitsai/inference/pull/2205)
+- Built-in support for [MiniCPM3-4B](https://huggingface.co/openbmb/MiniCPM3-4B): [#2263](https://github.com/xorbitsai/inference/pull/2263)
 - Built-in support for [CogVideoX](https://github.com/THUDM/CogVideo): [#2049](https://github.com/xorbitsai/inference/pull/2049)
 - Built-in support for [flux.1-schnell & flux.1-dev](https://www.basedlabs.ai/tools/flux1): [#2007](https://github.com/xorbitsai/inference/pull/2007)
-- Built-in support for [MiniCPM-V 2.6](https://github.com/OpenBMB/MiniCPM-V): [#2031](https://github.com/xorbitsai/inference/pull/2031)
-- Built-in support for [Kolors](https://huggingface.co/Kwai-Kolors/Kolors): [#2028](https://github.com/xorbitsai/inference/pull/2028)
-- Built-in support for [SenseVoice](https://github.com/FunAudioLLM/SenseVoice): [#2008](https://github.com/xorbitsai/inference/pull/2008)
-- Built-in support for [Mistral Large 2](https://mistral.ai/news/mistral-large-2407/): [#1944](https://github.com/xorbitsai/inference/pull/1944)
-- Built-in support for [llama3.1](https://ai.meta.com/blog/meta-llama-3-1/): [#1932](https://github.com/xorbitsai/inference/pull/1932)
-- Built-in support for [Mistral Nemo](https://mistral.ai/news/mistral-nemo/): [#1936](https://github.com/xorbitsai/inference/pull/1936)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
@@ -85,9 +97,25 @@ with popular third-party libraries including [LangChain](https://python.langchai
 | Audio Models                                   | ✅ | ❌ | ❌ | ❌ |
 | More OpenAI Functionalities (Function Calling) | ✅ | ❌ | ❌ | ❌ |
 
-## Getting Started
+## Using Xinference
 
-**Please give us a star before you begin, and you'll receive instant notifications for every new release on GitHub!**
+- **Cloud </br>**
+We host a [Xinference Cloud](https://inference.top) service for anyone to try with zero setup. 
+
+- **Self-hosting Xinference Community Edition</br>**
+Quickly get Xinference running in your environment with this [starter guide](#getting-started).
+Use our [documentation](https://inference.readthedocs.io/) for further references and more in-depth instructions.
+
+- **Xinference for enterprise / organizations</br>**
+We provide additional enterprise-centric features. [send us an email](mailto:business@xprobe.io?subject=[GitHub]Business%20License%20Inquiry) to discuss enterprise needs. </br>
+
+## Staying Ahead
+
+Star Xinference on GitHub and be instantly notified of new releases.
+
+![star-us](assets/stay_ahead.gif)
+
+## Getting Started
 
 * [Docs](https://inference.readthedocs.io/en/latest/index.html)
 * [Built-in Models](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
@@ -157,3 +185,7 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 <a href="https://github.com/xorbitsai/inference/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
 </a>
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)

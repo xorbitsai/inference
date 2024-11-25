@@ -11,43 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import copy
 import json
-import threading
-import time
+import logging
+import typing
 import uuid
+from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import torch
-from transformers.generation.logits_process import LogitsProcessor
-from transformers.generation.utils import LogitsProcessorList
 
 from ....core.scheduler import InferenceRequest
-from ....types import (
-    SPECIAL_TOOL_PROMPT,
-    ChatCompletion,
-    ChatCompletionChoice,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-    LoRA,
-    PytorchGenerateConfig,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import GLM4_TOOL_CALL_FAMILY
+from ..utils import (
+    GLM4_TOOL_CALL_FAMILY,
+    generate_chat_completion,
+    generate_completion_chunk,
+)
 from .core import PytorchChatModel, PytorchModelConfig
 
-
-class InvalidScoreLogitsProcessor(LogitsProcessor):
-    def __call__(
-        self, input_ids: torch.LongTensor, scores: torch.FloatTensor
-    ) -> torch.FloatTensor:
-        if torch.isnan(scores).any() or torch.isinf(scores).any():
-            scores.zero_()
-            scores[..., 198] = 5e4
-        return scores
+logger = logging.getLogger(__name__)
 
 
 class ChatglmPytorchChatModel(PytorchChatModel):
@@ -107,40 +90,28 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         if llm_spec.model_format != "pytorch":
             return False
         model_family = llm_family.model_family or llm_family.model_name
-        if "chatglm" not in model_family and "glm4" not in model_family:
+        if "glm4" not in model_family:
             return False
         if "chat" not in llm_family.model_ability:
             return False
         return True
 
-    def _handle_tools(self, chat_history, generate_config) -> bool:
+    def _handle_tools(self, messages, generate_config):
         """Convert openai tools to ChatGLM tools."""
+        if self.model_family.model_name not in GLM4_TOOL_CALL_FAMILY:
+            return None
         if generate_config is None:
-            return False
+            return None
         tools = generate_config.pop("tools", None)
         if tools is None:
-            return False
-        # Convert a iterable to a list
+            return None
+        # Convert an iterable to a list
         tools = list(tools)
         tool_choice = generate_config.pop("tool_choice", "none")
-        if self.model_family.model_name in GLM4_TOOL_CALL_FAMILY:
-            chat_history[:] = self._process_messages(
-                chat_history, tools=tools, tool_choice=tool_choice
-            )
-            return True
-        else:
-            chatglm_tools = []
-            for elem in tools:
-                if elem.get("type") != "function" or "function" not in elem:
-                    raise ValueError("ChatGLM tools only support function type.")
-                chatglm_tools.append(elem["function"])
-            tool_prompt_message = {
-                "role": "system",
-                "content": f"Answer the following questions as best as you can. You have access to the following tools:",
-                "tools": chatglm_tools,
-            }
-            chat_history.insert(0, tool_prompt_message)
-            return True
+        messages[:] = self._process_messages(
+            messages, tools=tools, tool_choice=tool_choice
+        )
+        return tools
 
     @staticmethod
     def _process_messages(messages, tools=None, tool_choice="none"):
@@ -230,12 +201,70 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         return processed_messages
 
     @staticmethod
-    def _process_response(output, history, tools, end=False):
+    @typing.no_type_check
+    def _process_response_non_streaming(
+        output: str, tools: Union[Dict, List[Dict]] = None, use_tool: bool = False
+    ) -> Union[str, dict]:
+        """
+        Copied from https://github.com/THUDM/GLM-4/blob/main/basic_demo/openai_api_server.py#L150
+        """
+        import re
+
+        lines = output.strip().split("\n")
+        arguments_json = None
+        special_tools = ["cogview", "simple_browser"]
+        tools = {tool["function"]["name"] for tool in tools} if tools else {}
+
+        # 这是一个简单的工具比较函数，不能保证拦截所有非工具输出的结果，比如参数未对齐等特殊情况。
+        ##TODO 如果你希望做更多判断，可以在这里进行逻辑完善。
+
+        if len(lines) >= 2 and lines[1].startswith("{"):
+            function_name = lines[0].strip()
+            arguments = "\n".join(lines[1:]).strip()
+            if function_name in tools or function_name in special_tools:
+                try:
+                    arguments_json = json.loads(arguments)
+                    is_tool_call = True
+                except json.JSONDecodeError:
+                    is_tool_call = function_name in special_tools
+
+                if is_tool_call and use_tool:
+                    content = {
+                        "name": function_name,
+                        "arguments": json.dumps(
+                            arguments_json
+                            if isinstance(arguments_json, dict)
+                            else arguments,
+                            ensure_ascii=False,
+                        ),
+                    }
+                    if function_name == "simple_browser":
+                        search_pattern = re.compile(
+                            r'search\("(.+?)"\s*,\s*recency_days\s*=\s*(\d+)\)'
+                        )
+                        match = search_pattern.match(arguments)
+                        if match:
+                            content["arguments"] = json.dumps(
+                                {
+                                    "query": match.group(1),
+                                    "recency_days": int(match.group(2)),
+                                },
+                                ensure_ascii=False,
+                            )
+                    elif function_name == "cogview":
+                        content["arguments"] = json.dumps(
+                            {"prompt": arguments}, ensure_ascii=False
+                        )
+
+                    return content
+        return output.strip()
+
+    @staticmethod
+    def _process_response_streaming(output, tools, end=False):
         # Copy from https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/modeling_chatglm.py
         content = ""
-        history = copy.deepcopy(history)
         if not tools and end:
-            return None, None
+            return None
         for response in output.split("<|assistant|>"):
             if "\n" in response:
                 metadata, content = response.split("\n", maxsplit=1)
@@ -244,205 +273,54 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if not metadata.strip():
                 if tools and any(t.startswith(response) for t in tools) and not end:
                     # Waiting for tool call complete.
-                    return None, None
+                    return None
                 content = content.strip()
-                history.append(
-                    {"role": "assistant", "metadata": metadata, "content": content}
-                )
                 content = content.replace("[[训练时间]]", "2023年")
             else:
                 if tools and metadata in tools and not end:
-                    return None, None
-                history.append(
-                    {"role": "assistant", "metadata": metadata, "content": content}
-                )
+                    return None
                 metadata = metadata.strip()
                 if tools and metadata in tools and end:
                     try:
                         parameters = json.loads(content)
-                        content = {"name": metadata.strip(), "parameters": parameters}
+                        content = {"name": metadata.strip(), "arguments": parameters}
                     except json.JSONDecodeError:
                         content = {"name": metadata.strip(), "content": content}
                 else:
                     content = {"name": metadata.strip(), "content": content}
-        return content, history
-
-    def _get_generate_args(
-        self,
-        tokenizer,
-        query: str,
-        history: Optional[List[Dict]] = None,
-        role: str = "user",
-        past_key_values=None,
-        max_length: int = 8192,
-        do_sample=True,
-        top_p=0.8,
-        temperature=0.8,
-        logits_processor=None,
-        **kwargs,
-    ):
-        # Copy from https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/modeling_chatglm.py
-        if history is None:
-            history = []
-        if logits_processor is None:
-            logits_processor = LogitsProcessorList()
-        logits_processor.append(InvalidScoreLogitsProcessor())
-        eos_token_id = [
-            tokenizer.eos_token_id,
-            tokenizer.convert_tokens_to_ids("<|user|>"),
-            tokenizer.convert_tokens_to_ids("<|observation|>"),
-        ]
-        gen_kwargs = {
-            "max_length": max_length,
-            "do_sample": do_sample,
-            "top_p": top_p,
-            "temperature": temperature,
-            "logits_processor": logits_processor,
-            **kwargs,
-        }
-        if past_key_values is None:
-            inputs = tokenizer.apply_chat_template(
-                history + [{"role": role, "content": query}],
-                add_generation_prompt=True,
-                tokenize=True,
-                return_tensors="pt",
-                return_dict=True,
-            )
-        else:
-            inputs = tokenizer.apply_chat_template(
-                [{"role": role, "content": query}],
-                add_special_tokens=False,
-                add_generation_prompt=True,
-                tokenize=True,
-                return_tensors="pt",
-                return_dict=True,
-            )
-        inputs = inputs.to(self._model.device)
-        if past_key_values is not None:
-            past_length = past_key_values[0][0].shape[2]
-            inputs.position_ids += past_length
-            attention_mask = inputs.attention_mask
-            attention_mask = torch.cat(
-                (attention_mask.new_ones(1, past_length), attention_mask), dim=1
-            )
-            inputs["attention_mask"] = attention_mask
-        history.append({"role": role, "content": query})
-        tools = history[0]["role"] == "system" and history[0].get("tools")
-        tools = (
-            [
-                t.get("function", {}).get("name", "")
-                for t in tools
-                if isinstance(t, dict)
-            ]
-            if tools
-            else []
-        )
-        kwargs = dict(inputs)
-        kwargs["past_key_values"] = past_key_values
-        kwargs["eos_token_id"] = eos_token_id
-        kwargs.update(gen_kwargs)
-        return kwargs, tools
+        return content
 
     @torch.inference_mode()
-    def _stream_chat(
-        self,
-        tokenizer,
-        query: str,
-        history: Optional[List[Dict]] = None,
-        role: str = "user",
-        past_key_values=None,
-        max_length: int = 8192,
-        do_sample=True,
-        top_p=0.8,
-        temperature=0.8,
-        logits_processor=None,
-        **kwargs,
-    ):
+    def _stream_chat(self, inputs, tools, **kwargs):
         from transformers import TextIteratorStreamer
 
-        kwargs, tools = self._get_generate_args(
-            tokenizer=tokenizer,
-            query=query,
-            history=history,
-            role=role,
-            past_key_values=past_key_values,
-            max_length=max_length,
-            do_sample=do_sample,
-            top_p=top_p,
-            temperature=temperature,
-            logits_processor=logits_processor,
-            **kwargs,
-        )
-
         streamer = TextIteratorStreamer(
-            tokenizer, skip_prompt=True, skip_special_tokens=True
+            self._tokenizer, skip_prompt=True, skip_special_tokens=True
         )
-        kwargs["streamer"] = streamer
-        thread = threading.Thread(target=self._model.generate, kwargs=kwargs)
+        tools = {tool["function"]["name"] for tool in tools} if tools else {}
+        generation_kwargs = dict(inputs, streamer=streamer)
+        generation_kwargs.update(kwargs)
+        thread = Thread(target=self._model.generate, kwargs=generation_kwargs)
         thread.start()
 
         response = ""
         for token in streamer:
             response += token
             if response and response[-1] != "�":
-                new_response, new_history = self._process_response(
-                    response, history, tools, end=False
+                new_response = self._process_response_streaming(
+                    response, tools, end=False
                 )
                 if new_response is None:
                     continue
-                yield new_response, new_history
+                yield new_response
         if tools:
-            new_response, new_history = self._process_response(
-                response, history, tools, end=True
-            )
+            new_response = self._process_response_streaming(response, tools, end=True)
             if new_response:
-                yield new_response, new_history
+                yield new_response
 
-    @torch.inference_mode()
-    def _non_stream_chat(
-        self,
-        tokenizer,
-        query: str,
-        history: Optional[List[Dict]] = None,
-        role: str = "user",
-        past_key_values=None,
-        max_length: int = 8192,
-        do_sample=True,
-        top_p=0.8,
-        temperature=0.8,
-        logits_processor=None,
-        **kwargs,
-    ):
-        kwargs, tools = self._get_generate_args(
-            tokenizer=tokenizer,
-            query=query,
-            history=history,
-            role=role,
-            past_key_values=past_key_values,
-            max_length=max_length,
-            do_sample=do_sample,
-            top_p=top_p,
-            temperature=temperature,
-            logits_processor=logits_processor,
-            **kwargs,
-        )
-
-        outputs = self._model.generate(**kwargs)
-        outputs = outputs[:, kwargs["input_ids"].shape[1] :]
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        if tools:
-            return self._process_response(response, history, tools, end=True)
-        else:
-            return self._process_response(response, history, tools)
-
-    def chat(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
-        generate_config: Optional[PytorchGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        kwargs: Dict[str, Any] = {}
+    @staticmethod
+    def _get_generate_kwargs(generate_config):
+        kwargs: Dict[str, Any] = {}  # type: ignore
         generate_config = generate_config or {}
         temperature = generate_config.get("temperature")
         if temperature is not None:
@@ -453,18 +331,26 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         max_new_tokens = generate_config.get("max_tokens")
         if max_new_tokens is not None:
             kwargs["max_new_tokens"] = int(max_new_tokens)
-        chat_history = chat_history or []
-        tools = self._handle_tools(chat_history, generate_config)
-        # Tool calls only works for non stream, so we call chat directly.
-        if prompt == SPECIAL_TOOL_PROMPT and chat_history:
-            tool_message = chat_history.pop()
-            content = tool_message.get("content")
-            assert content is not None
-            prompt = content
-            kwargs["role"] = "observation"
-            chat_history = [h for h in chat_history if not h.get("tool_calls")]
-        if system_prompt:
-            chat_history.append({"role": "system", "content": system_prompt})
+        do_sample = generate_config.get("do_sample")
+        if do_sample is not None:
+            kwargs["do_sample"] = bool(do_sample)
+        top_k = generate_config.get("top_k")
+        if top_k is not None:
+            kwargs["top_k"] = top_k
+        repetition_penalty = generate_config.get("repetition_penalty")
+        if repetition_penalty is not None:
+            kwargs["repetition_penalty"] = repetition_penalty
+        return kwargs
+
+    def chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[PytorchGenerateConfig] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        generate_config = generate_config or {}
+        kwargs: Dict[str, Any] = self._get_generate_kwargs(generate_config)
+        tools = self._handle_tools(messages, generate_config)
+        has_tools = tools is not None
         stream = generate_config.get("stream", False)
         stream_options = generate_config.pop("stream_options", None)
         include_usage = (
@@ -472,103 +358,82 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if isinstance(stream_options, dict)
             else False
         )
-        if stream and (
-            not tools or self.model_family.model_name in GLM4_TOOL_CALL_FAMILY
-        ):
+        inputs = self._tokenizer.apply_chat_template(
+            messages,
+            return_tensors="pt",
+            chat_template=self.model_family.chat_template,
+            add_generation_prompt=True,
+            return_dict=True,
+        )
+        inputs = inputs.to(self._model.device)
+
+        if not stream:
+            with torch.no_grad():
+                outputs = self._model.generate(**inputs, **kwargs)
+                outputs = outputs[:, inputs["input_ids"].shape[1] :]
+                response = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
+                # In some cases, the response starts with `\n`
+                if response.startswith("\n"):
+                    response = response[1:]
+            if has_tools:
+                function_call = self._process_response_non_streaming(
+                    response, tools, use_tool=True
+                )
+                return self._tool_calls_completion(
+                    self.model_family, self.model_uid, function_call
+                )
+            else:
+                return generate_chat_completion(self.model_uid, response)
+        else:
 
             def _stream_generator():
                 last_chunk_text_length = 0
                 chunk_id = "chat-" + str(uuid.uuid1())
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
-                inputs = self._tokenizer([prompt], return_tensors="pt")
-                inputs = inputs.to(self._model.device)
                 prompt_tokens = len(inputs["input_ids"][0])
-                for chunk_text, _ in self._stream_chat(
-                    self._tokenizer, prompt, chat_history, **kwargs
-                ):
+                for chunk_text in self._stream_chat(inputs, tools, **kwargs):
                     if tools and isinstance(chunk_text, dict):
                         yield self._tool_calls_completion_chunk(
-                            self.model_family, self.model_uid, [chunk_text, _], tools
+                            self.model_family, self.model_uid, chunk_text
                         )
                         return
                     completion_tokens = completion_tokens + 1
                     total_tokens = prompt_tokens + completion_tokens
                     chunk_text = chunk_text[last_chunk_text_length:]
                     last_chunk_text_length += len(chunk_text)
-                    completion_choice = CompletionChoice(
-                        text=chunk_text, index=0, logprobs=None, finish_reason=None
-                    )
-                    yield CompletionChunk(
-                        id=chunk_id,
-                        object="text_completion",
-                        created=int(time.time()),
-                        model=self.model_uid,
-                        choices=[completion_choice],
-                        usage=CompletionUsage(
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=total_tokens,
-                        ),
-                    )
-                completion_choice = CompletionChoice(
-                    text="", index=0, logprobs=None, finish_reason="stop"
-                )
-                chunk = CompletionChunk(
-                    id=chunk_id,
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=self.model_uid,
-                    choices=[completion_choice],
-                )
-                completion_usage = CompletionUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=total_tokens,
-                )
-                chunk["usage"] = completion_usage
-                yield chunk
-                if include_usage:
-                    chunk = CompletionChunk(
-                        id=chunk_id,
-                        object="text_completion",
-                        created=int(time.time()),
-                        model=self.model_uid,
-                        choices=[],
-                    )
-                    chunk["usage"] = CompletionUsage(
+                    yield generate_completion_chunk(
+                        chunk_text,
+                        finish_reason=None,
+                        chunk_id=chunk_id,
+                        model_uid=self.model_uid,
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
                         total_tokens=total_tokens,
                     )
-                    yield chunk
+                yield generate_completion_chunk(
+                    None,
+                    finish_reason="stop",
+                    chunk_id=chunk_id,
+                    model_uid=self.model_uid,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    has_choice=True,
+                    has_content=False,
+                )
+                if include_usage:
+                    yield generate_completion_chunk(
+                        None,
+                        finish_reason=None,
+                        chunk_id=chunk_id,
+                        model_uid=self.model_uid,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=total_tokens,
+                        has_choice=False,
+                    )
 
             return self._to_chat_completion_chunks(_stream_generator())
-        else:
-            response = self._non_stream_chat(
-                self._tokenizer, prompt, chat_history, **kwargs
-            )
-            if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, response, tools
-                )
-            else:
-                content, _ = response
-                return ChatCompletion(
-                    id="chat" + str(uuid.uuid1()),
-                    object="chat.completion",
-                    created=int(time.time()),
-                    model=self.model_uid,
-                    choices=[
-                        ChatCompletionChoice(
-                            index=0,
-                            message={"role": "assistant", "content": content},
-                            finish_reason="stop",
-                        )
-                    ],
-                    usage=CompletionUsage(
-                        prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                    ),
-                )
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """
@@ -583,3 +448,104 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             raw_config["top_p"] = 0.8
 
         return raw_config
+
+    def prepare_batch_inference(self, req_list: List[InferenceRequest]):
+        super(PytorchChatModel, self).prepare_batch_inference(req_list)
+        for r in req_list:
+            try:
+                if not r.stopped and r.is_prefill:
+                    tools = r.generate_config.get("tools", None)
+                    tools = list(tools) if tools is not None else None
+                    tool_choice = r.generate_config.get("tool_choice", "none")
+
+                    r.prompt = self._process_messages(
+                        r.prompt, tools=tools, tool_choice=tool_choice
+                    )
+                    r.full_prompt = self.get_full_context(
+                        r.prompt,
+                        self.model_family.chat_template,  # type: ignore
+                        tokenizer=self._tokenizer,
+                    )
+                    if tools:
+                        r.tools = tools
+            except Exception as e:
+                logger.exception(f"prepare inference error with {e}")
+                r.stopped = True
+                r.error_msg = str(e)
+
+    def handle_chat_result_non_streaming(self, req: InferenceRequest):
+        if req.tools:
+            response = req.completion[0]["choices"][0]["text"]
+            usage = req.completion[0]["usage"]
+            function_call = self._process_response_non_streaming(
+                response, req.tools, use_tool=True
+            )
+            req.completion[0] = self._tool_calls_completion(
+                self.model_family, self.model_uid, function_call
+            )
+            req.completion[0]["usage"] = usage
+        else:
+            req.completion[0] = self._to_chat_completion(req.completion[0])
+
+    def handle_chat_result_streaming(self, req: InferenceRequest):
+        results = []
+        tools = {tool["function"]["name"] for tool in req.tools} if req.tools else {}
+        response = "".join(req.outputs)
+        eos_pos = response.find("<eos_stream>")
+        if eos_pos != -1:
+            response = response[:eos_pos]
+
+        if "<bos_stream>" in req.completion:
+            bos_pos = req.completion.index("<bos_stream>")
+            results.append(
+                self._get_first_chat_completion_chunk(req.completion[bos_pos + 1])
+            )
+
+        if req.stopped:
+            if tools:
+                new_response = self._process_response_streaming(
+                    response, tools, end=True
+                )
+                if new_response:
+                    if isinstance(new_response, dict):  # tool call case
+                        chunk_id = [
+                            c for c in req.completion if not isinstance(c, str)
+                        ][0]["id"]
+                        results.append(
+                            self._tool_calls_completion_chunk(
+                                self.model_family,
+                                self.model_uid,
+                                new_response,
+                                chunk_id=chunk_id,
+                            )
+                        )
+                    else:  # normal case
+                        for c in req.completion:
+                            if c == "<bos_stream>":
+                                continue
+                            elif c == "<eos_stream>":
+                                break
+                            else:
+                                results.append(self._to_chat_completion_chunk(c))
+            else:
+                for c in req.completion:
+                    if c == "<bos_stream>":
+                        continue
+                    elif c == "<eos_stream>":
+                        break
+                    else:
+                        results.append(self._to_chat_completion_chunk(c))
+        else:
+            if response and response[-1] != "�":
+                new_response = self._process_response_streaming(
+                    response, tools, end=False
+                )
+                if new_response is not None:  # normal case
+                    for c in req.completion:
+                        if c == "<bos_stream>":
+                            continue
+                        results.append(self._to_chat_completion_chunk(c))
+
+        if req.stopped and req.include_usage:
+            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+        req.completion = results

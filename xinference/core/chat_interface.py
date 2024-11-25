@@ -16,7 +16,7 @@ import base64
 import logging
 import os
 from io import BytesIO
-from typing import Generator, List, Optional
+from typing import Dict, Generator, List, Optional
 
 import gradio as gr
 import PIL.Image
@@ -27,7 +27,6 @@ from ..client.restful.restful_client import (
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
-from ..types import ChatCompletionMessage
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,11 @@ class GradioInterface:
         # Gradio initiates the queue during a startup event, but since the app has already been
         # started, that event will not run, so manually invoke the startup events.
         # See: https://github.com/gradio-app/gradio/issues/5228
-        interface.startup_events()
+        try:
+            interface.run_startup_events()
+        except AttributeError:
+            # compatibility
+            interface.startup_events()
         favicon_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             os.path.pardir,
@@ -96,11 +99,11 @@ class GradioInterface:
                 flat_list += row
             return flat_list
 
-        def to_chat(lst: List[str]) -> List[ChatCompletionMessage]:
+        def to_chat(lst: List[str]) -> List[Dict]:
             res = []
             for i in range(len(lst)):
                 role = "assistant" if i % 2 == 1 else "user"
-                res.append(ChatCompletionMessage(role=role, content=lst[i]))
+                res.append(dict(role=role, content=lst[i]))
             return res
 
         def generate_wrapper(
@@ -116,11 +119,12 @@ class GradioInterface:
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulChatModelHandle)
+            messages = to_chat(flatten(history))
+            messages.append(dict(role="user", content=message))
 
             response_content = ""
             for chunk in model.chat(
-                prompt=message,
-                chat_history=to_chat(flatten(history)),
+                messages,
                 generate_config={
                     "max_tokens": int(max_tokens),
                     "temperature": temperature,
@@ -191,15 +195,10 @@ class GradioInterface:
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulChatModelHandle)
 
-            prompt = history[-1]
-            assert prompt["role"] == "user"
-            prompt = prompt["content"]
-            # multimodal chat does not support stream.
             if stream:
                 response_content = ""
                 for chunk in model.chat(
-                    prompt=prompt,
-                    chat_history=history[:-1],
+                    messages=history,
                     generate_config={
                         "max_tokens": max_tokens,
                         "temperature": temperature,
@@ -224,8 +223,7 @@ class GradioInterface:
                 yield history, bot
             else:
                 response = model.chat(
-                    prompt=prompt,
-                    chat_history=history[:-1],
+                    messages=history,
                     generate_config={
                         "max_tokens": max_tokens,
                         "temperature": temperature,

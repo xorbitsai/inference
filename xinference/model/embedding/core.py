@@ -19,6 +19,7 @@ from collections import defaultdict
 from typing import Dict, List, Literal, Optional, Tuple, Union, no_type_check
 
 import numpy as np
+import torch
 
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
@@ -34,7 +35,11 @@ EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 EMBEDDING_EMPTY_CACHE_COUNT = int(
     os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_COUNT", "10")
 )
+EMBEDDING_EMPTY_CACHE_TOKENS = int(
+    os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_TOKENS", "8192")
+)
 assert EMBEDDING_EMPTY_CACHE_COUNT > 0
+assert EMBEDDING_EMPTY_CACHE_TOKENS > 0
 
 
 def get_embedding_model_descriptions():
@@ -124,6 +129,7 @@ class EmbeddingModel:
         model_path: str,
         model_spec: EmbeddingModelSpec,
         device: Optional[str] = None,
+        **kwargs,
     ):
         self._model_uid = model_uid
         self._model_path = model_path
@@ -131,10 +137,19 @@ class EmbeddingModel:
         self._model = None
         self._counter = 0
         self._model_spec = model_spec
+        self._kwargs = kwargs
 
     def load(self):
         try:
+            import sentence_transformers
             from sentence_transformers import SentenceTransformer
+
+            if sentence_transformers.__version__ < "3.1.0":
+                raise ValueError(
+                    "The sentence_transformers version must be greater than 3.1.0. "
+                    "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
+                    "https://github.com/UKPLab/sentence-transformers"
+                )
         except ImportError:
             error_message = "Failed to import module 'SentenceTransformer'"
             installation_guide = [
@@ -147,49 +162,47 @@ class EmbeddingModel:
             def to(self, *args, **kwargs):
                 pass
 
-        from ..utils import patch_trust_remote_code
+        torch_dtype = None
+        if torch_dtype_str := self._kwargs.get("torch_dtype"):
+            try:
+                torch_dtype = getattr(torch, torch_dtype_str)
+                if torch_dtype not in [
+                    torch.float16,
+                    torch.float32,
+                    torch.bfloat16,
+                ]:
+                    logger.warning(
+                        f"Load embedding model with unsupported torch dtype :  {torch_dtype_str}. Using default torch dtype: fp32."
+                    )
+                    torch_dtype = torch.float32
+            except AttributeError:
+                logger.warning(
+                    f"Load embedding model with  unknown torch dtype '{torch_dtype_str}'. Using default torch dtype: fp32."
+                )
+                torch_dtype = torch.float32
 
-        patch_trust_remote_code()
         if (
             "gte" in self._model_spec.model_name.lower()
             and "qwen2" in self._model_spec.model_name.lower()
         ):
-            import torch
-
-            torch_dtype_str = self._kwargs.get("torch_dtype")
-            if torch_dtype_str is not None:
-                try:
-                    torch_dtype = getattr(torch, torch_dtype_str)
-                    if torch_dtype not in [
-                        torch.float16,
-                        torch.float32,
-                        torch.bfloat16,
-                    ]:
-                        logger.warning(
-                            f"Load embedding model with unsupported torch dtype :  {torch_dtype_str}. Using default torch dtype: fp32."
-                        )
-                        torch_dtype = torch.float32
-                except AttributeError:
-                    logger.warning(
-                        f"Load embedding model with  unknown torch dtype '{torch_dtype_str}'. Using default torch dtype: fp32."
-                    )
-                    torch_dtype = torch.float32
-            else:
-                torch_dtype = "auto"
+            model_kwargs = {"device_map": "auto"}
+            if torch_dtype:
+                model_kwargs["torch_dtype"] = torch_dtype
             self._model = XSentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs={"device_map": "auto", "torch_dtype": torch_dtype},
+                model_kwargs=model_kwargs,
             )
         else:
-            self._model = SentenceTransformer(self._model_path, device=self._device)
+            model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
+            self._model = SentenceTransformer(
+                self._model_path,
+                device=self._device,
+                model_kwargs=model_kwargs,
+                trust_remote_code=True,
+            )
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
-        self._counter += 1
-        if self._counter % EMBEDDING_EMPTY_CACHE_COUNT == 0:
-            logger.debug("Empty embedding cache.")
-            gc.collect()
-            empty_cache()
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
@@ -208,6 +221,7 @@ class EmbeddingModel:
             convert_to_tensor: bool = False,
             device: str = None,
             normalize_embeddings: bool = False,
+            **kwargs,
         ):
             """
             Computes sentence embeddings
@@ -307,10 +321,12 @@ class EmbeddingModel:
                 features = model.tokenize(sentences_batch)
                 features = batch_to_device(features, device)
                 features.update(extra_features)
-                all_token_nums += sum([len(f) for f in features])
+                # when batching, the attention mask 1 means there is a token
+                # thus we just sum up it to get the total number of tokens
+                all_token_nums += features["attention_mask"].sum().item()
 
                 with torch.no_grad():
-                    out_features = model.forward(features)
+                    out_features = model.forward(features, **kwargs)
 
                     if output_value == "token_embeddings":
                         embeddings = []
@@ -391,12 +407,28 @@ class EmbeddingModel:
         usage = EmbeddingUsage(
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
         )
-        return Embedding(
+        result = Embedding(
             object="list",
             model=self._model_uid,
             data=embedding_list,
             usage=usage,
         )
+
+        # clean cache if possible
+        self._counter += 1
+        if (
+            self._counter % EMBEDDING_EMPTY_CACHE_COUNT == 0
+            or all_token_nums >= EMBEDDING_EMPTY_CACHE_TOKENS
+        ):
+            logger.debug(
+                "Empty embedding cache, calling count %s, all_token_nums %s",
+                self._counter,
+                all_token_nums,
+            )
+            gc.collect()
+            empty_cache()
+
+        return result
 
 
 def match_embedding(

@@ -24,9 +24,9 @@ from typing import (
     Any,
     AsyncGenerator,
     Dict,
-    Iterable,
     List,
     Optional,
+    Tuple,
     TypedDict,
     Union,
 )
@@ -40,12 +40,16 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
     LoRA,
-    ToolCallFunction,
-    ToolCalls,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
-from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+from ..utils import (
+    QWEN_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_SYMBOLS,
+    ChatModelMixin,
+    generate_completion_chunk,
+)
+from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +68,7 @@ class VLLMModelConfig(TypedDict, total=False):
     max_num_seqs: int
     quantization: Optional[str]
     max_model_len: Optional[int]
+    limit_mm_per_prompt: Optional[Dict[str, int]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -89,9 +94,7 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = [
-    "internvl2",
-]
+VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
@@ -103,6 +106,7 @@ VLLM_SUPPORTED_MODELS = [
     "code-llama-python",
     "deepseek",
     "deepseek-coder",
+    "yi-coder",
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
@@ -129,12 +133,18 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "codegeex4",
     "deepseek-chat",
     "deepseek-coder-instruct",
+    "yi-coder-chat",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
     VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-instruct")
+    VLLM_SUPPORTED_MODELS.append("qwen2.5")
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
+    VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
+
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -148,6 +158,12 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
+
+
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
@@ -156,6 +172,12 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
 if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
 
 
 class VLLMModel(LLM):
@@ -290,7 +312,7 @@ class VLLMModel(LLM):
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
         model_config.setdefault("quantization", None)
-        model_config.setdefault("max_model_len", 4096)
+        model_config.setdefault("max_model_len", None)
 
         return model_config
 
@@ -363,23 +385,28 @@ class VLLMModel(LLM):
     @staticmethod
     def _convert_request_output_to_completion_chunk(
         request_id: str, model: str, request_output: "RequestOutput"
-    ) -> CompletionChunk:
+    ) -> Tuple[CompletionChunk, Optional[str]]:
         choices: List[CompletionChoice] = []
+        finish_reason = None
         for output in request_output.outputs:
             choices.append(
                 CompletionChoice(
                     text=output.text,
                     index=output.index,
                     logprobs=None,  # TODO: support logprobs.
-                    finish_reason=output.finish_reason,
+                    finish_reason=None,
                 )
             )
-        return CompletionChunk(
-            id=request_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=model,
-            choices=choices,
+            finish_reason = output.finish_reason
+        return (
+            CompletionChunk(
+                id=request_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=model,
+                choices=choices,
+            ),
+            finish_reason,
         )
 
     @staticmethod
@@ -415,11 +442,13 @@ class VLLMModel(LLM):
             usage=usage,
         )
 
+    @vllm_check
     async def async_generate(
         self,
         prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[Dict] = None,
         tools: object = False,
+        request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
             from vllm.sampling_params import SamplingParams
@@ -454,7 +483,8 @@ class VLLMModel(LLM):
             else False
         )
         sampling_params = SamplingParams(**sanitized_generate_config)
-        request_id = str(uuid.uuid1())
+        if not request_id:
+            request_id = str(uuid.uuid1())
 
         assert self._engine is not None
         results_generator = self._engine.generate(
@@ -463,10 +493,14 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
-            tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
             prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+            complete_response = ""
+            match_tool_call_tmp_results = []
+            is_match_tool_call = False
+            chunk = None
+            finish_reason = None
             async for _request_output in results_generator:
-                chunk = self._convert_request_output_to_completion_chunk(
+                chunk, finish_reason = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
                     model=self.model_uid,
                     request_output=_request_output,
@@ -476,40 +510,8 @@ class VLLMModel(LLM):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
+                    complete_response += delta
 
-                if tools:
-                    # only handle the first choice
-                    choice = chunk["choices"][0]
-                    if choice["finish_reason"] is not None:
-                        # use previous text for evaluation temporarily
-                        choice_delta = choice["text"]
-                        choice["text"] = previous_texts[0]
-                        _content, func, args = ChatModelMixin._eval_tool_arguments(
-                            self.model_family, chunk, tools
-                        )
-                        choice["text"] = tools_token_filter(
-                            tokens=previous_texts[0], delta=choice_delta
-                        )
-                        if func is not None:
-                            choice["text"] = None
-                            choice["finish_reason"] = "tool_calls"
-                            choice["tool_calls"] = [
-                                ToolCalls(
-                                    id=str(uuid.uuid4()),
-                                    type="function",
-                                    function=ToolCallFunction(
-                                        name=func,
-                                        arguments=json.dumps(args, ensure_ascii=False),
-                                    ),
-                                )
-                            ]
-                    else:
-                        # use a filter function to skip Qwen's react thought process
-                        choice["text"] = tools_token_filter(
-                            tokens=previous_texts[0], delta=choice["text"]
-                        )
-                        if not choice["text"]:
-                            continue
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
@@ -520,7 +522,59 @@ class VLLMModel(LLM):
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
+
+                if tools:
+                    """
+                    The qwen2 tool call returns format like this:
+                    <tool_call>
+                    {...}
+                    </tool_call>
+                    Here is to match this.
+                    """
+                    if (len(QWEN_TOOL_CALL_SYMBOLS[0]) > len(complete_response)) and (
+                        not QWEN_TOOL_CALL_SYMBOLS[0].startswith(complete_response)
+                    ):
+                        for c in match_tool_call_tmp_results:
+                            yield c
+                        match_tool_call_tmp_results.clear()
+                        yield chunk
+                    elif (len(QWEN_TOOL_CALL_SYMBOLS[0]) > len(complete_response)) and (
+                        QWEN_TOOL_CALL_SYMBOLS[0].startswith(complete_response)
+                    ):
+                        match_tool_call_tmp_results.append(chunk)
+                    else:
+                        assert len(QWEN_TOOL_CALL_SYMBOLS[0]) <= len(complete_response)
+                        if not is_match_tool_call and complete_response.startswith(
+                            QWEN_TOOL_CALL_SYMBOLS[0]
+                        ):
+                            is_match_tool_call = True
+                            match_tool_call_tmp_results.clear()
+
+                        if not is_match_tool_call:
+                            for c in match_tool_call_tmp_results:
+                                yield c
+                            match_tool_call_tmp_results.clear()
+                            yield chunk
+                        else:
+                            chunk["choices"][0]["text"] = complete_response
+                else:
+                    yield chunk
+
+            if is_match_tool_call:
+                assert chunk is not None
                 yield chunk
+
+            # match OpenAI API stream
+            yield generate_completion_chunk(
+                chunk_text="",
+                finish_reason=finish_reason,
+                chunk_id=request_id,
+                model_uid=self.model_uid,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+
             if include_usage:
                 chunk = CompletionChunk(
                     id=request_id,
@@ -586,105 +640,103 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if self.model_family.prompt_style:
-            if (
-                not generate_config.get("stop")
-            ) and self.model_family.prompt_style.stop:
-                generate_config["stop"] = self.model_family.prompt_style.stop.copy()
-            if self.model_family.prompt_style.stop_token_ids:
-                generate_config.setdefault(
-                    "stop_token_ids",
-                    self.model_family.prompt_style.stop_token_ids.copy(),
-                )
+        if not generate_config.get("stop") and self.model_family.stop:
+            generate_config["stop"] = self.model_family.stop.copy()
+        if (
+            not generate_config.get("stop_token_ids")
+            and self.model_family.stop_token_ids
+        ):
+            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
         return generate_config
 
+    @staticmethod
+    def is_tool_call_chunk(chunk):
+        return chunk["choices"][0]["text"].startswith(QWEN_TOOL_CALL_SYMBOLS[0])
+
+    async def _async_to_tool_completion_chunks(
+        self,
+        chunks: AsyncGenerator[CompletionChunk, None],
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        i = 0
+        async for chunk in chunks:
+            if i == 0:
+                yield self._get_first_chat_completion_chunk(chunk)
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield self._get_final_chat_completion_chunk(chunk)
+            else:
+                if self.is_tool_call_chunk(chunk):
+                    yield self._tool_calls_completion_chunk(
+                        self.model_family, self.model_uid, chunk
+                    )
+                else:
+                    yield self._to_chat_completion_chunk(chunk)
+            i += 1
+
+    @vllm_check
     async def async_chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        model_family = self.model_family.model_family or self.model_family.model_name
+        full_context_kwargs = {}
+        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            full_context_kwargs["tools"] = tools
+        assert self.model_family.chat_template is not None
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, **full_context_kwargs
+        )
 
         generate_config = self._sanitize_chat_config(generate_config)
-        # TODO(codingl2k1): qwen hacky to set stop for function call.
-        model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
-            stop = generate_config.get("stop")
-            if isinstance(stop, str):
-                generate_config["stop"] = [stop, "Observation:"]
-            elif isinstance(stop, Iterable):
-                assert not isinstance(stop, str)
-                generate_config["stop"] = list(stop) + ["Observation:"]
-            else:
-                generate_config["stop"] = "Observation:"
-
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config, tools)
+            agen = await self.async_generate(
+                full_prompt, generate_config, tools, request_id=request_id
+            )
             assert isinstance(agen, AsyncGenerator)
+            if tools:
+                return self._async_to_tool_completion_chunks(agen)
             return self._async_to_chat_completion_chunks(agen)
         else:
-            c = await self.async_generate(full_prompt, generate_config)
+            c = await self.async_generate(
+                full_prompt, generate_config, request_id=request_id
+            )
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, c, tools
-                )
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
             return self._to_chat_completion(c)
 
 
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
-    def load(self):
-        try:
-            import vllm
-            from vllm.engine.arg_utils import AsyncEngineArgs
-            from vllm.engine.async_llm_engine import AsyncLLMEngine
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-        if vllm.__version__ >= "0.3.1":
-            # from vllm v0.3.1, it uses cupy as NCCL backend
-            # in which cupy will fork a process
-            # only for xoscar >= 0.3.0, new process is allowed in subpool
-            # besides, xinference set start method as forkserver for unix
-            # we need to set it to fork to make cupy NCCL work
-            multiprocessing.set_start_method("fork", force=True)
-
-        self._model_config = self._sanitize_model_config(self._model_config)
-
-        logger.info(
-            f"Loading {self.model_uid} with following model config: {self._model_config}"
-        )
-
-        engine_args = AsyncEngineArgs(
-            model=self.model_path,
-            **self._model_config,
-        )
-        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-
     @classmethod
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format != "pytorch":
+        if not cls._has_cuda_device():
+            return False
+        if not cls._is_linux():
+            return False
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
+        if llm_spec.model_format == "awq":
+            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
+            if "4" not in quantization:
+                return False
+        if llm_spec.model_format == "gptq":
+            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+            else:
+                if "4" not in quantization:
+                    return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
                 return False
@@ -695,51 +747,107 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             return False
         return VLLM_INSTALLED
 
+    def _sanitize_model_config(
+        self, model_config: Optional[VLLMModelConfig]
+    ) -> VLLMModelConfig:
+        if model_config is None:
+            model_config = VLLMModelConfig()
+
+        cuda_count = self._get_cuda_count()
+
+        model_config.setdefault("tokenizer_mode", "auto")
+        model_config.setdefault("trust_remote_code", True)
+        model_config.setdefault("tensor_parallel_size", cuda_count)
+        model_config.setdefault("block_size", 16)
+        model_config.setdefault("swap_space", 4)
+        model_config.setdefault("gpu_memory_utilization", 0.90)
+        model_config.setdefault("max_num_seqs", 256)
+        model_config.setdefault("quantization", None)
+        model_config.setdefault("max_model_len", None)
+        model_config["limit_mm_per_prompt"] = (
+            json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
+            if model_config.get("limit_mm_per_prompt")
+            else {
+                "image": 2,  # default 2 images all chat
+            }
+        )
+
+        return model_config
+
     def _sanitize_chat_config(
         self,
         generate_config: Optional[Dict] = None,
     ) -> Dict:
+        from ..utils import get_stop_token_ids_from_config_file
+
         if not generate_config:
             generate_config = {}
-        if self.model_family.prompt_style:
-            if self.model_family.prompt_style.stop_token_ids:
-                generate_config.setdefault(
-                    "stop_token_ids",
-                    self.model_family.prompt_style.stop_token_ids.copy(),
-                )
+        if generate_config.get("stop_token_ids", None) is None:
+            stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+            if stop_token_ids is not None:
+                generate_config.setdefault("stop_token_ids", stop_token_ids)
+            else:
+                if self.model_family.stop_token_ids:
+                    generate_config.setdefault(
+                        "stop_token_ids", self.model_family.stop_token_ids.copy()
+                    )
         return generate_config
 
+    @vllm_check
     async def async_chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[ChatCompletionMessage],  # type: ignore
         generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        # only support single image, waiting vllm support multi images
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        chat_history = chat_history or []
-        prompt, images = self.get_prompt(prompt, chat_history, prompt_style)
+        messages = self._transform_messages(messages)
+        tools = generate_config.pop("tools", []) if generate_config else None
 
-        if len(images) == 0:
+        model_family = self.model_family.model_family or self.model_family.model_name
+
+        if "internvl2" not in model_family.lower():
+            from qwen_vl_utils import process_vision_info
+
+            full_context_kwargs = {}
+            if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+                full_context_kwargs["tools"] = tools
+            assert self.model_family.chat_template is not None
+            prompt = self.get_full_context(
+                messages, self.model_family.chat_template, **full_context_kwargs
+            )
+            images, video_inputs = process_vision_info(messages)
+            if video_inputs:
+                raise ValueError("Not support video input now.")
+        else:
+            prompt, images = self.get_specific_prompt(model_family, messages)
+
+        if not images:
             inputs = {
                 "prompt": prompt,
+            }
+        elif len(images) == 1:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images[-1]},  # type: ignore
             }
         else:
             inputs = {
                 "prompt": prompt,
-                "multi_modal_data": {"image": images[-1]},  # type: ignore
+                "multi_modal_data": {"image": images},  # type: ignore
             }
         generate_config = self._sanitize_chat_config(generate_config)
 
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(inputs, generate_config)
+            agen = await self.async_generate(
+                inputs, generate_config, request_id=request_id
+            )
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen)
         else:
-            c = await self.async_generate(inputs, generate_config)
+            c = await self.async_generate(
+                inputs, generate_config, request_id=request_id
+            )
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c)

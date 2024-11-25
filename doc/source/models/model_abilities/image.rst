@@ -156,3 +156,34 @@ You can find more examples of Images API in the tutorial notebook:
       
       Learn from a Stable Diffusion ControlNet example
 
+OCR
+--------------------
+
+The OCR API accepts image bytes and returns the OCR text.
+
+We can try OCR API out either via cURL, or Xinference's python client:
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
+      -F model=<MODEL_UID> \
+      -F image=@xxx.jpg
+
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+
+    model = client.get_model("<MODEL_UID>")
+    with open("xxx.jpg", "rb") as f:
+        model.ocr(f.read())
+
+
+  .. code-tab:: text output
+
+    <OCR result string>

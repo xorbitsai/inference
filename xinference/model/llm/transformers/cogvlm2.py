@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterator, List, Optional, Tuple, Union
@@ -21,19 +20,16 @@ import torch
 
 from ....core.scheduler import InferenceRequest
 from ....model.utils import select_device
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import _decode_image
+from ..utils import (
+    _decode_image,
+    generate_chat_completion,
+    generate_completion_chunk,
+    parse_messages,
+)
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import get_max_src_len
+from .utils import cache_clean, get_max_src_len
 
 logger = logging.getLogger(__name__)
 
@@ -139,9 +135,7 @@ class CogVLM2Model(PytorchChatModel):
                 )
         return content, None
 
-    def _history_content_to_cogvlm2(
-        self, system_prompt: str, chat_history: List[ChatCompletionMessage]
-    ):
+    def _history_content_to_cogvlm2(self, system_prompt: str, chat_history: List[Dict]):
         query = system_prompt
         history: List[Tuple] = []
         pixel_values = None
@@ -163,7 +157,7 @@ class CogVLM2Model(PytorchChatModel):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        chat_history: Optional[List[Dict]] = None,
     ):
         content, image = self._message_content_to_cogvlm2(prompt)
 
@@ -182,14 +176,15 @@ class CogVLM2Model(PytorchChatModel):
             query = content
         return query, image, history
 
+    @cache_clean
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        system_prompt = system_prompt if system_prompt else ""
+        system_prompt = ""
+        if messages[0]["role"] == "system":
+            system_prompt = messages[0]["content"]
         stream = generate_config.get("stream", False) if generate_config else False
 
         sanitized_config = {
@@ -199,6 +194,7 @@ class CogVLM2Model(PytorchChatModel):
             else 512,
         }
 
+        prompt, _, chat_history = parse_messages(messages)
         query, image, history = self.get_query_and_history(
             prompt, system_prompt=system_prompt, chat_history=chat_history
         )
@@ -236,21 +232,7 @@ class CogVLM2Model(PytorchChatModel):
                 response = self._tokenizer.decode(outputs[0])
                 response = response.split("<|end_of_text|>")[0]
 
-            chunk = Completion(
-                id=str(uuid.uuid1()),
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    CompletionChoice(
-                        index=0, text=response, finish_reason="stop", logprobs=None
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
-            )
-            return self._to_chat_completion(chunk)
+            return generate_chat_completion(self.model_uid, response)
 
     def _streaming_chat_response(
         self, inputs: Dict, config: Dict
@@ -277,36 +259,26 @@ class CogVLM2Model(PytorchChatModel):
 
         completion_id = str(uuid.uuid1())
         for new_text in streamer:
-            chunk = CompletionChunk(
-                id=completion_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    CompletionChoice(
-                        index=0, text=new_text, finish_reason=None, logprobs=None
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
             )
-            yield chunk
-
-        completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason="stop"
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
+            prompt_tokens=-1,
+            completion_tokens=-1,
+            total_tokens=-1,
+            has_choice=True,
+            has_content=False,
         )
-        chunk = CompletionChunk(
-            id=completion_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[completion_choice],
-            usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-            ),
-        )
-        yield chunk
 
     @staticmethod
     def build_position_ids(x, attention_mask=None):
@@ -341,7 +313,9 @@ class CogVLM2Model(PytorchChatModel):
     def get_dtype(self):
         return self._torch_type
 
-    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
+    def _get_full_prompt(self, messages: List[Dict], tools):
+        prompt, system_prompt, chat_history = parse_messages(messages)
+        system_prompt = system_prompt or ""
         query, image, history = self.get_query_and_history(
             prompt, system_prompt=system_prompt, chat_history=chat_history
         )

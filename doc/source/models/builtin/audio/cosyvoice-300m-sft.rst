@@ -12,7 +12,7 @@ CosyVoice-300M-SFT
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** model-scope/CosyVoice-300M-SFT
+- **Model ID:** FunAudioLLM/CosyVoice-300M-SFT
 
 Execute the following command to launch the model::
 

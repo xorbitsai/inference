@@ -16,6 +16,9 @@ import base64
 import io
 import logging
 import os
+import threading
+import time
+import uuid
 from typing import Dict, List, Optional, Union
 
 import gradio as gr
@@ -60,7 +63,11 @@ class ImageInterface:
         # Gradio initiates the queue during a startup event, but since the app has already been
         # started, that event will not run, so manually invoke the startup events.
         # See: https://github.com/gradio-app/gradio/issues/5228
-        interface.startup_events()
+        try:
+            interface.run_startup_events()
+        except AttributeError:
+            # compatibility
+            interface.startup_events()
         favicon_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             os.path.pardir,
@@ -73,13 +80,18 @@ class ImageInterface:
         return interface
 
     def text2image_interface(self) -> "gr.Blocks":
+        from ..model.image.stable_diffusion.core import SAMPLING_METHODS
+
         def text_generate_image(
             prompt: str,
             n: int,
             size_width: int,
             size_height: int,
+            guidance_scale: int,
             num_inference_steps: int,
             negative_prompt: Optional[str] = None,
+            sampler_name: Optional[str] = None,
+            progress=gr.Progress(),
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -89,21 +101,49 @@ class ImageInterface:
             assert isinstance(model, RESTfulImageModelHandle)
 
             size = f"{int(size_width)}*{int(size_height)}"
+            guidance_scale = None if guidance_scale == -1 else guidance_scale  # type: ignore
             num_inference_steps = (
                 None if num_inference_steps == -1 else num_inference_steps  # type: ignore
             )
+            sampler_name = None if sampler_name == "default" else sampler_name
 
-            response = model.text_to_image(
-                prompt=prompt,
-                n=n,
-                size=size,
-                num_inference_steps=num_inference_steps,
-                negative_prompt=negative_prompt,
-                response_format="b64_json",
-            )
+            response = None
+            exc = None
+            request_id = str(uuid.uuid4())
+
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.text_to_image(
+                        request_id=request_id,
+                        prompt=prompt,
+                        n=n,
+                        size=size,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        negative_prompt=negative_prompt,
+                        sampler_name=sampler_name,
+                        response_format="b64_json",
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except (KeyError, RuntimeError):
+                    cur_progress = 0.0
+
+                progress(cur_progress, desc="Generating images")
+                time.sleep(1)
+
+            if exc:
+                raise exc
 
             images = []
-            for image_dict in response["data"]:
+            for image_dict in response["data"]:  # type: ignore
                 assert image_dict["b64_json"] is not None
                 image_data = base64.b64decode(image_dict["b64_json"])
                 image = PIL.Image.open(io.BytesIO(image_data))
@@ -132,8 +172,15 @@ class ImageInterface:
                     n = gr.Number(label="Number of Images", value=1)
                     size_width = gr.Number(label="Width", value=1024)
                     size_height = gr.Number(label="Height", value=1024)
+                with gr.Row():
+                    guidance_scale = gr.Number(label="Guidance scale", value=-1)
                     num_inference_steps = gr.Number(
                         label="Inference Step Number", value=-1
+                    )
+                    sampler_name = gr.Dropdown(
+                        choices=SAMPLING_METHODS,
+                        value="default",
+                        label="Sampling method",
                     )
 
                 with gr.Column():
@@ -146,8 +193,10 @@ class ImageInterface:
                     n,
                     size_width,
                     size_height,
+                    guidance_scale,
                     num_inference_steps,
                     negative_prompt,
+                    sampler_name,
                 ],
                 outputs=image_output,
             )
@@ -155,6 +204,8 @@ class ImageInterface:
         return text2image_vl_interface
 
     def image2image_interface(self) -> "gr.Blocks":
+        from ..model.image.stable_diffusion.core import SAMPLING_METHODS
+
         def image_generate_image(
             prompt: str,
             negative_prompt: str,
@@ -164,6 +215,8 @@ class ImageInterface:
             size_height: int,
             num_inference_steps: int,
             padding_image_to_multiple: int,
+            sampler_name: Optional[str] = None,
+            progress=gr.Progress(),
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -180,23 +233,49 @@ class ImageInterface:
                 None if num_inference_steps == -1 else num_inference_steps  # type: ignore
             )
             padding_image_to_multiple = None if padding_image_to_multiple == -1 else padding_image_to_multiple  # type: ignore
+            sampler_name = None if sampler_name == "default" else sampler_name
 
             bio = io.BytesIO()
             image.save(bio, format="png")
 
-            response = model.image_to_image(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                n=n,
-                image=bio.getvalue(),
-                size=size,
-                response_format="b64_json",
-                num_inference_steps=num_inference_steps,
-                padding_image_to_multiple=padding_image_to_multiple,
-            )
+            response = None
+            exc = None
+            request_id = str(uuid.uuid4())
+
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.image_to_image(
+                        request_id=request_id,
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        n=n,
+                        image=bio.getvalue(),
+                        size=size,
+                        response_format="b64_json",
+                        num_inference_steps=num_inference_steps,
+                        padding_image_to_multiple=padding_image_to_multiple,
+                        sampler_name=sampler_name,
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except (KeyError, RuntimeError):
+                    cur_progress = 0.0
+
+                progress(cur_progress, desc="Generating images")
+                time.sleep(1)
+
+            if exc:
+                raise exc
 
             images = []
-            for image_dict in response["data"]:
+            for image_dict in response["data"]:  # type: ignore
                 assert image_dict["b64_json"] is not None
                 image_data = base64.b64decode(image_dict["b64_json"])
                 image = PIL.Image.open(io.BytesIO(image_data))
@@ -233,6 +312,11 @@ class ImageInterface:
                     padding_image_to_multiple = gr.Number(
                         label="Padding image to multiple", value=-1
                     )
+                    sampler_name = gr.Dropdown(
+                        choices=SAMPLING_METHODS,
+                        value="default",
+                        label="Sampling method",
+                    )
 
                 with gr.Row():
                     with gr.Column(scale=1):
@@ -251,6 +335,7 @@ class ImageInterface:
                     size_height,
                     num_inference_steps,
                     padding_image_to_multiple,
+                    sampler_name,
                 ],
                 outputs=output_gallery,
             )

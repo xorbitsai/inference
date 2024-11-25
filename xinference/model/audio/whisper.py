@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os
+from glob import glob
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from ...device_utils import (
@@ -42,6 +44,10 @@ class WhisperModel:
         self._model = None
         self._kwargs = kwargs
 
+    @property
+    def model_ability(self):
+        return self._model_spec.model_ability
+
     def load(self):
         from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
@@ -52,12 +58,13 @@ class WhisperModel:
                 raise ValueError(f"Device {self._device} is not available!")
 
         torch_dtype = get_device_preferred_dtype(self._device)
+        use_safetensors = any(glob(os.path.join(self._model_path, "*.safetensors")))
 
         model = AutoModelForSpeechSeq2Seq.from_pretrained(
             self._model_path,
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=True,
-            use_safetensors=True,
+            use_safetensors=use_safetensors,
         )
         model.to(self._device)
 

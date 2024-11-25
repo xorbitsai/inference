@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import os
 import platform
 import queue
@@ -73,15 +74,15 @@ class WorkerActor(xo.StatelessActor):
         self._supervisor_ref: Optional[xo.ActorRefType] = None
         self._main_pool = main_pool
         self._main_pool.recover_sub_pool = self.recover_sub_pool
-        self._status_guard_ref: xo.ActorRefType[  # type: ignore
+        self._status_guard_ref: xo.ActorRefType[
             "StatusGuardActor"
-        ] = None
+        ] = None  # type: ignore
         self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = None
-        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
+        self._cache_tracker_ref: xo.ActorRefType[
             CacheTrackerActor
-        ] = None
+        ] = None  # type: ignore
 
         # internal states.
         # temporary placeholder during model launch process:
@@ -146,7 +147,7 @@ class WorkerActor(xo.StatelessActor):
                 else:
                     recover_count = self._model_uid_to_recover_count.get(model_uid)
                     try:
-                        await self.terminate_model(model_uid)
+                        await self.terminate_model(model_uid, is_model_die=True)
                     except Exception:
                         pass
                     if recover_count is not None:
@@ -185,7 +186,7 @@ class WorkerActor(xo.StatelessActor):
                 break
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "worker"
 
     async def __post_create__(self):
@@ -270,9 +271,9 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             await self.get_supervisor_ref(add_worker=True)
-        except Exception as e:
+        except Exception:
             # Do not crash the worker if supervisor is down, auto re-connect later
-            logger.error(f"cannot connect to supervisor {e}")
+            logger.error(f"cannot connect to supervisor", exc_info=True)
 
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             from ..isolation import Isolation
@@ -324,7 +325,7 @@ class WorkerActor(xo.StatelessActor):
         if self._supervisor_ref is not None:
             return self._supervisor_ref
         supervisor_ref = await xo.actor_ref(  # type: ignore
-            address=self._supervisor_address, uid=SupervisorActor.uid()
+            address=self._supervisor_address, uid=SupervisorActor.default_uid()
         )
         # Prevent concurrent operations leads to double initialization, check again.
         if self._supervisor_ref is not None:
@@ -336,13 +337,13 @@ class WorkerActor(xo.StatelessActor):
             logger.info("Connected to supervisor as a fresh worker")
 
         self._status_guard_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=StatusGuardActor.uid()
+            address=self._supervisor_address, uid=StatusGuardActor.default_uid()
         )
         self._event_collector_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=EventCollectorActor.uid()
+            address=self._supervisor_address, uid=EventCollectorActor.default_uid()
         )
         self._cache_tracker_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=CacheTrackerActor.uid()
+            address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
         )
         # cache_tracker is on supervisor
         from ..model.audio import get_audio_model_descriptions
@@ -664,6 +665,8 @@ class WorkerActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "video":
+            return []
         elif model_type == "rerank":
             from ..model.rerank.custom import get_user_defined_reranks
 
@@ -703,6 +706,8 @@ class WorkerActor(xo.StatelessActor):
             for f in get_user_defined_audios():
                 if f.model_name == model_name:
                     return f
+        elif model_type == "video":
+            return None
         elif model_type == "rerank":
             from ..model.rerank.custom import get_user_defined_reranks
 
@@ -737,9 +742,9 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "rerank":
             return ["rerank"]
         elif model_type == "image":
-            return ["text_to_image"]
+            return model.model_ability
         elif model_type == "audio":
-            return [model._model_spec.ability]
+            return [model.model_ability]
         elif model_type == "video":
             return ["text_to_video"]
         elif model_type == "flexible":
@@ -766,7 +771,7 @@ class WorkerActor(xo.StatelessActor):
                 version_info["model_file_location"],
             )
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -810,7 +815,7 @@ class WorkerActor(xo.StatelessActor):
                 )
         except Exception as e:
             # Report callback error can be log and ignore, should not interrupt the Process
-            logger.error("report_event error: %s" % (e))
+            logger.error("report_event error: %s" % (e), exc_info=True)
 
         if gpu_idx is not None:
             logger.info(
@@ -880,6 +885,7 @@ class WorkerActor(xo.StatelessActor):
                     ModelActor,
                     address=subpool_address,
                     uid=model_uid,
+                    supervisor_address=self._supervisor_address,
                     worker_address=self.address,
                     model=model,
                     model_description=model_description,
@@ -913,8 +919,8 @@ class WorkerActor(xo.StatelessActor):
             {"model_ability": abilities, "status": LaunchStatus.READY.name},
         )
 
-    @log_async(logger=logger)
-    async def terminate_model(self, model_uid: str):
+    @log_async(logger=logger, level=logging.INFO)
+    async def terminate_model(self, model_uid: str, is_model_die=False):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
@@ -963,11 +969,16 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
 
+            if is_model_die:
+                status = LaunchStatus.ERROR.name
+            else:
+                status = LaunchStatus.TERMINATED.name
+
             if self._status_guard_ref is None:
                 _ = await self.get_supervisor_ref()
             assert self._status_guard_ref is not None
             await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.TERMINATED.name}
+                origin_uid, {"status": status}
             )
 
     # Provide an interface for future version of supervisor to call

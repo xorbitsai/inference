@@ -1,4 +1,4 @@
-FROM vllm/vllm-openai:latest
+FROM vllm/vllm-openai:v0.6.0
 
 COPY . /opt/inference
 WORKDIR /opt/inference
@@ -39,4 +39,6 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     # clean packages
     pip cache purge
 
+# Overwrite the entrypoint of vllm's base image
 ENTRYPOINT []
+CMD ["/bin/bash"]

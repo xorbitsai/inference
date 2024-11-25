@@ -105,7 +105,7 @@ class SupervisorActor(xo.StatelessActor):
         self._lock = asyncio.Lock()
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "supervisor"
 
     def _get_worker_ref_by_ip(
@@ -130,17 +130,25 @@ class SupervisorActor(xo.StatelessActor):
             )
         logger.info(f"Xinference supervisor {self.address} started")
         from .cache_tracker import CacheTrackerActor
+        from .progress_tracker import ProgressTrackerActor
         from .status_guard import StatusGuardActor
 
         self._status_guard_ref: xo.ActorRefType[  # type: ignore
             "StatusGuardActor"
         ] = await xo.create_actor(
-            StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
+            StatusGuardActor, address=self.address, uid=StatusGuardActor.default_uid()
         )
         self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
         ] = await xo.create_actor(
-            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.uid()
+            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.default_uid()
+        )
+        self._progress_tracker: xo.ActorRefType[  # type: ignore
+            "ProgressTrackerActor"
+        ] = await xo.create_actor(
+            ProgressTrackerActor,
+            address=self.address,
+            uid=ProgressTrackerActor.default_uid(),
         )
 
         from .event import EventCollectorActor
@@ -148,7 +156,9 @@ class SupervisorActor(xo.StatelessActor):
         self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = await xo.create_actor(
-            EventCollectorActor, address=self.address, uid=EventCollectorActor.uid()
+            EventCollectorActor,
+            address=self.address,
+            uid=EventCollectorActor.default_uid(),
         )
 
         from ..model.audio import (
@@ -308,14 +318,12 @@ class SupervisorActor(xo.StatelessActor):
     async def get_builtin_prompts() -> Dict[str, Any]:
         from ..model.llm.llm_family import BUILTIN_LLM_PROMPT_STYLE
 
-        data = {}
-        for k, v in BUILTIN_LLM_PROMPT_STYLE.items():
-            data[k] = v.dict()
-        return data
+        return {k: v for k, v in BUILTIN_LLM_PROMPT_STYLE.items()}
 
     @staticmethod
     async def get_builtin_families() -> Dict[str, List[str]]:
         from ..model.llm.llm_family import (
+            BUILTIN_LLM_FAMILIES,
             BUILTIN_LLM_MODEL_CHAT_FAMILIES,
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
@@ -325,6 +333,11 @@ class SupervisorActor(xo.StatelessActor):
             "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
             "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
             "tools": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
+            "vision": [
+                family.model_name
+                for family in BUILTIN_LLM_FAMILIES
+                if "vision" in family.model_ability
+            ],
         }
 
     async def get_devices_count(self) -> int:
@@ -1028,7 +1041,7 @@ class SupervisorActor(xo.StatelessActor):
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))
+            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
         return model_uid
 
     async def get_instance_info(
@@ -1233,7 +1246,9 @@ class SupervisorActor(xo.StatelessActor):
             worker_address not in self._worker_address_to_worker
         ), f"Worker {worker_address} exists"
 
-        worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
+        worker_ref = await xo.actor_ref(
+            address=worker_address, uid=WorkerActor.default_uid()
+        )
         self._worker_address_to_worker[worker_address] = worker_ref
         logger.debug("Worker %s has been added successfully", worker_address)
 
@@ -1353,3 +1368,6 @@ class SupervisorActor(xo.StatelessActor):
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
+
+    async def get_progress(self, request_id: str) -> float:
+        return await self._progress_tracker.get_progress(request_id)

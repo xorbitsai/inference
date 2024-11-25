@@ -5,7 +5,16 @@
     "model_hub": "modelscope",
     "model_id": "AI-ModelScope/whisper-large-v3",
     "model_revision": "master",
-    "ability": "audio-to-text",
+    "model_ability": "audio-to-text",
+    "multilingual": true
+  },
+  {
+    "model_name": "whisper-large-v3-turbo",
+    "model_family": "whisper",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/whisper-large-v3-turbo",
+    "model_revision": "master",
+    "model_ability": "audio-to-text",
     "multilingual": true
   },
   {
@@ -14,7 +23,7 @@
     "model_hub": "modelscope",
     "model_id": "iic/SenseVoiceSmall",
     "model_revision": "master",
-    "ability": "audio-to-text",
+    "model_ability": "audio-to-text",
     "multilingual": true,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -33,9 +42,9 @@
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_hub": "modelscope",
-    "model_id": "pzc163/chatTTS",
+    "model_id": "AI-ModelScope/ChatTTS",
     "model_revision": "master",
-    "ability": "text-to-audio",
+    "model_ability": "text-to-audio",
     "multilingual": true
   },
   {
@@ -44,7 +53,7 @@
     "model_hub": "modelscope",
     "model_id": "iic/CosyVoice-300M",
     "model_revision": "master",
-    "ability": "audio-to-audio",
+    "model_ability": "audio-to-audio",
     "multilingual": true
   },
   {
@@ -53,7 +62,7 @@
     "model_hub": "modelscope",
     "model_id": "iic/CosyVoice-300M-SFT",
     "model_revision": "master",
-    "ability": "text-to-audio",
+    "model_ability": "text-to-audio",
     "multilingual": true
   },
   {
@@ -62,7 +71,7 @@
     "model_hub": "modelscope",
     "model_id": "iic/CosyVoice-300M-Instruct",
     "model_revision": "master",
-    "ability": "text-to-audio",
+    "model_ability": "text-to-audio",
     "multilingual": true
   }
 ]

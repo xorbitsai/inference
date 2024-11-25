@@ -25,8 +25,7 @@ def test_chattts(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="ChatTTS",
-        model_type="audio",
+        model_name="ChatTTS", model_type="audio", compile=False
     )
     model = client.get_model(model_uid)
     input_string = (
@@ -47,12 +46,14 @@ def test_chattts(setup):
 
     response = model.speech(input_string, stream=True)
     assert inspect.isgenerator(response)
-    i = 0
-    for chunk in response:
-        i += 1
-        assert type(chunk) is bytes
-        assert len(chunk) > 0
-    assert i > 5
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        i = 0
+        for chunk in response:
+            f.write(chunk)
+            i += 1
+            assert type(chunk) is bytes
+            assert len(chunk) > 0
+        assert i > 5
 
     # Test openai API
     import openai

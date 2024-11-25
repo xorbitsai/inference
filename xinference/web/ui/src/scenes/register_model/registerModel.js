@@ -1,14 +1,21 @@
 import './styles/registerModelStyle.css'
 
-import CheckIcon from '@mui/icons-material/Check'
+import Cancel from '@mui/icons-material/Cancel'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
 import NotesIcon from '@mui/icons-material/Notes'
+import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -21,6 +28,7 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material'
+import nunjucks from 'nunjucks'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -31,9 +39,20 @@ import fetchWrapper from '../../components/fetchWrapper'
 import { isValidBearerToken } from '../../components/utils'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
+import AddStop from './components/addStop'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
-const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision']
+const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision', 'Tools']
+const messages = [
+  {
+    role: 'assistant',
+    content: 'This is the message content replied by the assistant previously',
+  },
+  {
+    role: 'user',
+    content: 'This is the message content sent by the user currently',
+  },
+]
 
 // Convert dictionary of supported languages into list
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
@@ -43,10 +62,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const { setErrorMsg } = useContext(ApiContext)
   const [formData, setFormData] = useState(customData)
   const [promptStyles, setPromptStyles] = useState([])
-  const [family, setFamily] = useState({
-    chat: [],
-    generate: [],
-  })
+  const [family, setFamily] = useState({})
   const [languagesArr, setLanguagesArr] = useState([])
   const [isContextLengthAlert, setIsContextLengthAlert] = useState(false)
   const [isDimensionsAlert, setIsDimensionsAlert] = useState(false)
@@ -73,6 +89,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   )
   const [contrastObj, setContrastObj] = useState({})
   const [isEqual, setIsEqual] = useState(true)
+  const [testRes, setTestRes] = useState('')
+  const [isOpenMessages, setIsOpenMessages] = useState(false)
+  const [testErrorInfo, setTestErrorInfo] = useState('')
+  const [isStopTokenIdsAlert, setIsStopTokenIdsAlert] = useState(false)
+  const [familyOptions, setFamilyOptions] = useState([])
+  const [isEditableFamily, setIsEditableFamily] = useState(true)
 
   useEffect(() => {
     if (model_name) {
@@ -93,7 +115,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           model_ability,
           model_family,
           model_specs,
-          prompt_style,
+          chat_template,
+          stop_token_ids,
+          stop,
         } = data
         const specsDataArr = model_specs.map((item) => {
           const {
@@ -120,8 +144,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           model_ability,
           model_family,
           model_specs: specsDataArr,
+          chat_template,
+          stop_token_ids,
+          stop,
         }
-        prompt_style ? (llmData.prompt_style = prompt_style) : ''
         setFormData(llmData)
         setContrastObj(llmData)
         setSpecsArr(specsDataArr)
@@ -234,8 +260,20 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         )
       } else {
         const data = await response.json()
-        data.chat.push('other')
-        data.generate.push('other')
+        for (let key in data) {
+          data[key] = data[key].sort(function (a, b) {
+            let lowerA = a.toLowerCase()
+            let lowerB = b.toLowerCase()
+
+            if (lowerA < lowerB) {
+              return -1
+            }
+            if (lowerA > lowerB) {
+              return 1
+            }
+            return 0
+          })
+        }
         setFamily(data)
       }
     }
@@ -270,7 +308,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       Object.prototype.hasOwnProperty.call(customData, 'model_ability') &&
       Object.prototype.hasOwnProperty.call(customData, 'model_family')
     ) {
-      // avoid keep requesting backend to get prompts
       if (promptStyles.length === 0) {
         getBuiltInPromptStyles().catch((error) => {
           setErrorMsg(
@@ -280,7 +317,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           console.error('Error: ', error)
         })
       }
-      if (family.chat.length === 0) {
+      if (family?.chat === undefined) {
         getBuiltinFamilies().catch((error) => {
           setErrorMsg(
             error.message ||
@@ -293,46 +330,33 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }, [cookie.token])
 
   useEffect(() => {
-    setJsonData(JSON.stringify(formData, null, 4))
+    setJsonData(JSON.stringify(formData, customReplacer, 4))
     if (contrastObj.model_name) {
       deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
     }
+    if (family?.chat?.length) handleFamilyOptions(formData.model_ability)
   }, [formData])
 
-  const getFamilyByAbility = () => {
-    if (
-      formData.model_ability.includes('chat') ||
-      formData.model_ability.includes('vision')
-    ) {
-      return family.chat
-    } else {
-      return family.generate
-    }
-  }
+  useEffect(() => {
+    if (family?.chat?.length) handleFamilyOptions(formData.model_ability)
+  }, [family])
 
-  const sortStringsByFirstLetter = (arr) => {
-    return arr.sort((a, b) => {
-      const firstCharA = a.charAt(0).toLowerCase()
-      const firstCharB = b.charAt(0).toLowerCase()
-      if (firstCharA < firstCharB) {
-        return -1
-      }
-      if (firstCharA > firstCharB) {
-        return 1
-      }
-      return 0
-    })
+  const customReplacer = (key, value) => {
+    if (key === 'chat_template' && value) {
+      return value.replace(/\\n/g, '\n')
+    }
+    return value
   }
 
   const handleClick = async () => {
-    console.log('formData', modelType, formData)
-
     for (let key in formData) {
       const type = Object.prototype.toString.call(formData[key]).slice(8, -1)
       if (
         key !== 'model_description' &&
         ((type === 'Array' &&
           key !== 'controlnet' &&
+          key !== 'stop_token_ids' &&
+          key !== 'stop' &&
           formData[key].length === 0) ||
           (type === 'String' && formData[key] === '') ||
           (type === 'Number' && formData[key] <= 0))
@@ -355,7 +379,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     try {
       fetchWrapper
         .post(`/v1/model_registrations/${modelType}`, {
-          model: JSON.stringify(formData),
+          model: JSON.stringify(formData, customReplacer),
           persist: true,
         })
         .then(() => {
@@ -427,61 +451,103 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const toggleAbility = (ability) => {
+    const obj = JSON.parse(JSON.stringify(formData))
     if (formData.model_ability.includes(ability)) {
-      const obj = JSON.parse(JSON.stringify(formData))
-      if (ability === 'chat') {
-        delete obj.prompt_style
-      }
+      delete obj.chat_template
+      delete obj.stop_token_ids
+      delete obj.stop
       setFormData({
         ...obj,
-        model_ability: formData.model_ability.filter((a) => a !== ability),
+        model_ability: formData.model_ability.filter((item) => {
+          if (ability === 'chat') {
+            return item !== 'chat' && item !== 'vision' && item !== 'tools'
+          }
+          return item !== ability
+        }),
         model_family: '',
       })
     } else {
+      let model_ability = []
+      if (
+        ability === 'chat' ||
+        (['vision', 'tools'].includes(ability) &&
+          !formData.model_ability.includes('chat'))
+      ) {
+        if (
+          formData.model_family !== '' &&
+          family?.chat?.includes(formData.model_family)
+        ) {
+          const data = promptStyles.filter(
+            (item) => item.name === formData.model_family
+          )
+          obj.chat_template = data[0]?.chat_template || null
+          obj.stop_token_ids = data[0]?.stop_token_ids || []
+          obj.stop = data[0]?.stop || []
+        } else {
+          obj.chat_template = ''
+          obj.stop_token_ids = []
+          obj.stop = []
+        }
+        ability === 'chat'
+          ? (model_ability = [...formData.model_ability, ability])
+          : (model_ability = [...formData.model_ability, 'chat', ability])
+      } else {
+        if (ability === 'vision' && formData.model_ability.includes('tools')) {
+          model_ability = [
+            ...formData.model_ability.filter((item) => item !== 'tools'),
+            'chat',
+            ability,
+          ]
+        } else if (
+          ability === 'tools' &&
+          formData.model_ability.includes('vision')
+        ) {
+          model_ability = [
+            ...formData.model_ability.filter((item) => item !== 'vision'),
+            'chat',
+            ability,
+          ]
+        } else {
+          model_ability = [...formData.model_ability, ability]
+        }
+      }
+      delete obj.chat_template
+      delete obj.stop_token_ids
+      delete obj.stop
       setFormData({
-        ...formData,
-        model_ability: [...formData.model_ability, ability],
+        ...obj,
         model_family: '',
+        model_ability: model_ability,
       })
     }
   }
 
-  const toggleFamily = (value) => {
-    const ps = promptStyles.find((item) => item.name === value)
-    if (formData.model_ability.includes('chat') && ps) {
-      const prompt_style = {
-        style_name: ps.style_name,
-        system_prompt: ps.system_prompt,
-        roles: ps.roles,
-        intra_message_sep: ps.intra_message_sep,
-        inter_message_sep: ps.inter_message_sep,
-        stop: ps.stop ?? null,
-        stop_token_ids: ps.stop_token_ids ?? null,
+  const handleFamily = (value) => {
+    if (formData.model_ability.includes('chat')) {
+      if (family?.chat?.includes(value)) {
+        const data = promptStyles.filter((item) => {
+          return item.name === value
+        })
+        setFormData({
+          ...formData,
+          model_family: value,
+          chat_template: data[0]?.chat_template || null,
+          stop_token_ids: data[0]?.stop_token_ids || [],
+          stop: data[0]?.stop || [],
+        })
+      } else {
+        setFormData({
+          ...formData,
+          model_family: value,
+          chat_template: '',
+          stop_token_ids: [],
+          stop: [],
+        })
       }
+    } else {
       setFormData({
         ...formData,
         model_family: value,
-        prompt_style,
-      })
-    } else {
-      const {
-        version,
-        model_name,
-        model_description,
-        context_length,
-        model_lang,
-        model_ability,
-        model_specs,
-      } = formData
-      setFormData({
-        version,
-        model_name,
-        model_description,
-        context_length,
-        model_lang,
-        model_ability,
-        model_family: value,
-        model_specs,
       })
     }
   }
@@ -567,6 +633,128 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       }
     }
     return true
+  }
+
+  const handleTest = () => {
+    setTestRes('')
+    if (formData.chat_template) {
+      try {
+        nunjucks.configure({ autoescape: false })
+        const test_res = nunjucks.renderString(formData.chat_template, {
+          messages: messages,
+        })
+        if (test_res === '') {
+          setTestRes(test_res)
+          setTestErrorInfo('error')
+        } else {
+          setTestRes(test_res)
+          setTestErrorInfo('')
+        }
+      } catch (error) {
+        setTestErrorInfo(`${error}`)
+      }
+    }
+  }
+
+  const getStopTokenIds = (value) => {
+    if (value.length === 1 && value[0] === '') {
+      setFormData({
+        ...formData,
+        stop_token_ids: [],
+      })
+    } else {
+      setFormData({
+        ...formData,
+        stop_token_ids: value,
+      })
+    }
+  }
+
+  const getStop = (value) => {
+    if (value.length === 1 && value[0] === '') {
+      setFormData({
+        ...formData,
+        stop: [],
+      })
+    } else {
+      setFormData({
+        ...formData,
+        stop: value,
+      })
+    }
+  }
+
+  const handleFamilyAlert = () => {
+    if (
+      formData.model_ability?.includes('vision') &&
+      !family?.vision?.includes(formData.model_family)
+    ) {
+      return true
+    } else if (
+      formData.model_ability?.includes('tools') &&
+      !family?.tools?.includes(formData.model_family)
+    ) {
+      return true
+    }
+    return false
+  }
+
+  const handleChatTemplateAlert = () => {
+    if (
+      familyOptions?.filter((item) => item.id === formData.model_family)
+        .length === 0 &&
+      !formData.chat_template
+    ) {
+      return true
+    }
+    return false
+  }
+
+  const handleFamilyOptions = (model_ability) => {
+    if (model_ability.includes('vision')) {
+      setIsEditableFamily(false)
+      setFamilyOptions(
+        family?.vision?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else if (model_ability.includes('tools')) {
+      setIsEditableFamily(false)
+      setFamilyOptions(
+        family?.tools?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else if (model_ability.includes('chat')) {
+      setIsEditableFamily(true)
+      setFamilyOptions(
+        family?.chat?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else if (model_ability.includes('generate')) {
+      setIsEditableFamily(true)
+      setFamilyOptions(
+        family?.generate?.map((item) => {
+          return {
+            id: item,
+            label: item,
+          }
+        })
+      )
+    } else {
+      setIsEditableFamily(true)
+      setFamilyOptions([])
+    }
   }
 
   return (
@@ -845,66 +1033,200 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
           {/* family */}
           {(customData.model_family === '' || customData.model_family) && (
-            <FormControl>
-              <label
-                style={{
-                  paddingLeft: 5,
-                  color: 'inherit',
-                }}
-              >
-                Model Family
-              </label>
-              {modelType === 'LLM' && formData.model_family && (
-                <Alert
-                  icon={<CheckIcon fontSize="inherit" />}
-                  severity="success"
-                >
-                  Please be careful to select the family name corresponding to
-                  the model you want to register. If not found, please choose
-                  <i style={{ fontStyle: 'italic', fontWeight: 700 }}> other</i>
-                  .
-                </Alert>
+            <>
+              {modelType === 'LLM' && (
+                <>
+                  <Autocomplete
+                    id="free-solo-demo"
+                    freeSolo={isEditableFamily}
+                    options={familyOptions || []}
+                    size="small"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        helperText={
+                          isEditableFamily
+                            ? 'You can choose from the built-in models or input your own.'
+                            : 'You can only choose from the built-in models.'
+                        }
+                        InputProps={{
+                          ...params.InputProps,
+                          disabled: !isEditableFamily,
+                        }}
+                        label="Model Family"
+                      />
+                    )}
+                    value={formData.model_family}
+                    onChange={(_, newValue) => {
+                      handleFamily(newValue?.id)
+                    }}
+                    onInputChange={(_, newInputValue) => {
+                      if (isEditableFamily) {
+                        handleFamily(newInputValue)
+                      }
+                    }}
+                  />
+                  <Box padding="15px"></Box>
+                </>
               )}
-              {modelType === 'LLM' && !formData.model_family && (
-                <Alert severity="error">
-                  Please be careful to select the family name corresponding to
-                  the model you want to register. If not found, please choose
-                  <i style={{ fontStyle: 'italic', fontWeight: 700 }}> other</i>
-                  .
-                </Alert>
-              )}
-              <RadioGroup
-                value={formData.model_family}
-                onChange={(e) => {
-                  toggleFamily(e.target.value)
-                }}
-              >
-                <Box
-                  className="checkboxWrapper"
-                  style={{ paddingLeft: '10px' }}
-                >
-                  {modelType === 'LLM' &&
-                    sortStringsByFirstLetter(getFamilyByAbility()).map((v) => (
-                      <Box sx={{ width: '20%' }} key={v}>
+              {(modelType === 'image' || modelType === 'audio') && (
+                <>
+                  <FormControl>
+                    <label
+                      style={{
+                        paddingLeft: 5,
+                        color: 'inherit',
+                      }}
+                    >
+                      Model Family
+                    </label>
+                    <RadioGroup value={formData.model_family}>
+                      <Box
+                        className="checkboxWrapper"
+                        style={{ paddingLeft: '10px' }}
+                      >
                         <FormControlLabel
-                          value={v}
+                          value={formData.model_family}
+                          checked
                           control={<Radio />}
-                          label={v}
+                          label={formData.model_family}
                         />
                       </Box>
-                    ))}
-                  {(modelType === 'image' || modelType === 'audio') && (
-                    <FormControlLabel
-                      value={formData.model_family}
-                      checked
-                      control={<Radio />}
-                      label={formData.model_family}
-                    />
-                  )}
-                </Box>
-              </RadioGroup>
+                    </RadioGroup>
+                  </FormControl>
+                  <Box padding="15px"></Box>
+                </>
+              )}
+            </>
+          )}
+
+          {/* chat_template */}
+          {formData.model_ability?.includes('chat') && (
+            <>
+              <div className="chat_template_box">
+                <TextField
+                  label="Chat Template"
+                  error={handleChatTemplateAlert()}
+                  value={formData.chat_template || ''}
+                  size="small"
+                  helperText="Please make sure this chat_template passes the test by clicking the TEST button on the right. Please note that this test may not cover all cases and will only be used for the most basic case."
+                  multiline
+                  rows={6}
+                  onChange={(event) =>
+                    setFormData({
+                      ...formData,
+                      chat_template: event.target.value,
+                    })
+                  }
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleTest}
+                  style={{ marginTop: 50 }}
+                >
+                  test
+                </Button>
+                <div className="chat_template_test">
+                  <div className="chat_template_test_mainBox">
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <span style={{ fontSize: 16 }}>messages example</span>
+                      <OpenInFullIcon
+                        onClick={() => setIsOpenMessages(true)}
+                        style={{
+                          fontSize: 14,
+                          color: '#666',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          fontSize: 16,
+                        }}
+                      >
+                        test result
+                        {testErrorInfo ? (
+                          <Cancel style={{ color: 'red' }} />
+                        ) : testRes ? (
+                          <CheckCircleIcon
+                            style={{ color: 'rgb(46, 125, 50)' }}
+                          />
+                        ) : (
+                          ''
+                        )}
+                      </span>
+                      <div
+                        className="test_res_box"
+                        style={{
+                          backgroundColor:
+                            testErrorInfo === ''
+                              ? testRes
+                                ? 'rgb(237, 247, 237)'
+                                : ''
+                              : 'rgb(253, 237, 237)',
+                        }}
+                      >
+                        {testErrorInfo !== ''
+                          ? testErrorInfo
+                          : testRes
+                          ? testRes
+                          : 'No test results...'}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="chat_template_test_tip"
+                    style={{ color: testErrorInfo === '' ? '' : '#d32f2f' }}
+                  >
+                    Please note that failure to pass test may prevent chats from
+                    working properly.
+                  </div>
+                </div>
+              </div>
               <Box padding="15px"></Box>
-            </FormControl>
+            </>
+          )}
+
+          {/* stop_token_ids */}
+          {formData.model_ability?.includes('chat') && (
+            <>
+              <AddStop
+                label="Stop Token Ids"
+                arrItemType="number"
+                formData={formData.stop_token_ids}
+                onGetData={getStopTokenIds}
+                onGetError={(value) => {
+                  if (value.includes('false')) {
+                    setIsStopTokenIdsAlert(true)
+                  } else {
+                    setIsStopTokenIdsAlert(false)
+                  }
+                }}
+                helperText="int type, used to control the stopping of chat models"
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* stop */}
+          {formData.model_ability?.includes('chat') && (
+            <>
+              <AddStop
+                label="Stop"
+                arrItemType="string"
+                formData={formData.stop}
+                onGetData={getStop}
+                helperText="string type, used to control the stopping of chat models"
+              />
+              <Box padding="15px"></Box>
+            </>
           )}
 
           {/* specs */}
@@ -1011,12 +1333,49 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               color="primary"
               type="submit"
               onClick={handleClick}
+              disabled={
+                isContextLengthAlert ||
+                isDimensionsAlert ||
+                isMaxTokensAlert ||
+                formData.model_lang?.length === 0 ||
+                formData.language?.length === 0 ||
+                formData.model_ability?.length === 0 ||
+                (modelType === 'LLM' && !formData.model_family) ||
+                isStopTokenIdsAlert ||
+                handleFamilyAlert()
+              }
             >
               Register Model
             </Button>
           </Box>
         )}
       </div>
+
+      <Dialog
+        open={isOpenMessages}
+        onClose={() => setIsOpenMessages(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">Messages Example</DialogTitle>
+        <DialogContent>
+          <textarea
+            readOnly
+            className="textarea"
+            style={{ width: 500, height: 200 }}
+            value={JSON.stringify(messages, null, 4)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={() => setIsOpenMessages(false)}
+            style={{ marginRight: 15, marginBottom: 15 }}
+          >
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* JSON */}
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>

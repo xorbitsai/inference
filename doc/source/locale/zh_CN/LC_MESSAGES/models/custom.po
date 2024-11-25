@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-15 11:39+0800\n"
+"POT-Creation-Date: 2024-09-05 13:08+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.16.0\n"
 
 #: ../../source/models/custom.rst:5
 msgid "Custom Models"
@@ -70,8 +70,8 @@ msgstr "定义自定义大语言模型"
 msgid "Define a custom LLM model based on the following template:"
 msgstr "基于以下模板定义一个自定义大语言模型："
 
-#: ../../source/models/custom.rst:96 ../../source/models/custom.rst:225
-#: ../../source/models/custom.rst:248
+#: ../../source/models/custom.rst:95 ../../source/models/custom.rst:127
+#: ../../source/models/custom.rst:150
 msgid ""
 "model_name: A string defining the name of the model. The name must start "
 "with a letter or a digit and can only contain letters, digits, "
@@ -80,7 +80,7 @@ msgstr ""
 "model_name: 模型名称。名称必须以字母或数字开头，且只能包含字母、数字、"
 "下划线或短划线。"
 
-#: ../../source/models/custom.rst:97
+#: ../../source/models/custom.rst:96
 msgid ""
 "context_length: context_length: An optional integer that specifies the "
 "maximum context size the model was trained to accommodate, encompassing "
@@ -90,7 +90,7 @@ msgstr ""
 "context_length: 一个可选的整数，模型支持的最大上下文长度，包括输入和输出"
 "长度。如果未定义，默认值为2048个token（约1,500个词）。"
 
-#: ../../source/models/custom.rst:98
+#: ../../source/models/custom.rst:97
 msgid ""
 "model_lang: A list of strings representing the supported languages for "
 "the model. Example: [\"en\"], which means that the model supports "
@@ -99,7 +99,7 @@ msgstr ""
 "model_lang: 一个字符串列表，表示模型支持的语言。例如：['en']，表示该模型"
 "支持英语。"
 
-#: ../../source/models/custom.rst:99
+#: ../../source/models/custom.rst:98
 msgid ""
 "model_ability: A list of strings defining the abilities of the model. It "
 "could include options like \"embed\", \"generate\", and \"chat\". In this"
@@ -108,40 +108,32 @@ msgstr ""
 "model_ability: 一个字符串列表，定义模型的能力。它可以包括像 'embed'、'"
 "generate' 和 'chat' 这样的选项。示例表示模型具有 'generate' 的能力。"
 
-#: ../../source/models/custom.rst:100
+#: ../../source/models/custom.rst:99
 msgid ""
 "model_family: A required string representing the family of the model you "
-"want to register. The optional values are the model names of all :ref"
-":`built-in models <models_llm_index>`. If the model family you register "
-"is not among the built-in models in Xinference, please fill in ``other``."
-" Note that you should choose the model family based on the ability of the"
-" model you want to register. For example, if you want to register the "
-"``llama-2`` model, do not fill in ``llama-2-chat`` as the model family."
+"want to register. This parameter must not conflict with any builtin model"
+" names."
 msgstr ""
-"model_family: 必需字段，表示你要注册的模型的家族（类别）。可选值来自于 "
-"Xinference :ref:`所有内置模型的模型名 <models_llm_index>`。如果你要注册的"
-"模型不在其中，填入 ``other`` 。注意，此字段的值必须根据模型能力填入。例如"
-"，如果你注册的是自定义 ``llama-2`` 模型，千万不要填入 ``llama-2-chat`` 。"
 
-#: ../../source/models/custom.rst:106
+#: ../../source/models/custom.rst:100
 msgid ""
 "model_specs: An array of objects defining the specifications of the "
 "model. These include:"
 msgstr "model_specs: 一个包含定义模型规格的对象数组。这些规格包括："
 
-#: ../../source/models/custom.rst:102
+#: ../../source/models/custom.rst:101
 msgid ""
 "model_format: A string that defines the model format, like \"pytorch\" or"
 " \"ggufv2\"."
 msgstr "model_format: 一个定义模型格式的字符串，可以是 'pytorch' 或 'ggufv2'。"
 
-#: ../../source/models/custom.rst:103
+#: ../../source/models/custom.rst:102
 msgid ""
 "model_size_in_billions: An integer defining the size of the model in "
 "billions of parameters."
 msgstr "model_size_in_billions: 一个整数，定义模型的参数量，以十亿为单位。"
 
-#: ../../source/models/custom.rst:104
+#: ../../source/models/custom.rst:103
 msgid ""
 "quantizations: A list of strings defining the available quantizations for"
 " the model. For PyTorch models, it could be \"4-bit\", \"8-bit\", or "
@@ -152,7 +144,7 @@ msgstr ""
 "可以是 \"4-bit\"、\"8-bit\" 或 \"none\"。对于 ggufv2 模型，量化方式应与 `"
 "`model_file_name_template`` 中的值对应。"
 
-#: ../../source/models/custom.rst:105
+#: ../../source/models/custom.rst:104
 msgid ""
 "model_id: A string representing the model ID, possibly referring to an "
 "identifier used by Hugging Face. **If model_uri is missing, Xinference "
@@ -163,7 +155,7 @@ msgstr ""
 "如果 model_uri 字段缺失，Xinference 将尝试从此id指示的HuggingFace仓库下载"
 "该模型。"
 
-#: ../../source/models/custom.rst:106
+#: ../../source/models/custom.rst:105
 msgid ""
 "model_uri: A string representing the URI where the model can be loaded "
 "from, such as \"file:///path/to/llama-2-7b\". **When the model format is "
@@ -173,11 +165,11 @@ msgid ""
 "the model from Hugging Face with the model ID."
 msgstr ""
 "model_uri：表示模型文件位置的字符串，例如本地目录：\"file:///path/to/"
-"llama-2-7b\"。当 model_format 是 ggufv2 ，此字段必须是具体的"
-"模型文件路径。而当 model_format 是 pytorch 时，此字段必须是一个包含所有"
-"模型文件的目录。"
+"llama-2-7b\"。当 model_format 是 ggufv2 ，此字段必须是具体的模型文件路径"
+"。而当 model_format 是 pytorch 时，此字段必须是一个包含所有模型文件的目录"
+"。"
 
-#: ../../source/models/custom.rst:107
+#: ../../source/models/custom.rst:106
 msgid ""
 "model_file_name_template: Required by gguf models. An f-string template "
 "used for defining the model file name based on the quantization. **Note "
@@ -187,73 +179,57 @@ msgstr ""
 "model_file_name_template: gguf 模型所需。一个 f-string 模板，用于根据量化"
 "定义模型文件名。注意，这里不要填入文件的路径。"
 
+#: ../../source/models/custom.rst:107
+msgid ""
+"chat_template: If ``model_ability`` includes ``chat`` , you must "
+"configure this option to generate the correct full prompt during chat. "
+"This is a Jinja template string. Usually, you can find it in the "
+"``tokenizer_config.json`` file within the model directory."
+msgstr ""
+"chat_template：如果 ``model_ability`` 中包含 ``chat`` ，那么此选项必须配置以生成合适的完整提示词。这是一个 Jinja 模版字符串。"
+"通常，你可以在模型目录的 ``tokenizer_config.json`` 文件中找到。"
+
 #: ../../source/models/custom.rst:108
 msgid ""
-"prompt_style: If the ``model_family`` field is not ``other``, this field "
-"does not need to be filled in. ``prompt_style`` is an optional field that"
-" could be required by ``chat`` models to define the style of prompts. The"
-" given example has this set to None, but additional details could be "
-"found in a referenced file xinference/model/llm/tests/test_utils.py. You "
-"can also specify this field as a string, which will use the builtin "
-"prompt style in Xinference. For example:"
+"stop_token_ids: If ``model_ability`` includes ``chat`` , you can "
+"configure this option to control when the model stops during chat. This "
+"is a list of integers, and you can typically extract the corresponding "
+"values from the ``generation_config.json`` or ``tokenizer_config.json`` "
+"file in the model directory."
 msgstr ""
-"prompt_style: 如果上述 ``model_family`` 字段不是 ``other`` ，则无需设置"
-"此字段。 ``prompt_style`` 是一个可选字段，表示 ``chat`` 模型需要的提示词"
-"样式。给定的示例将其设置为 None，但可以在引用的文件 xinference/model/llm/"
-"tests/test_utils.py 中找到更多详细信息。你也可以指定一个字符串，以使用"
-"内置模型的提示词样式。"
+"stop_token_ids：如果 ``model_ability`` 中包含 ``chat`` ，那么推荐配置此选项以合理控制对话的停止。这是一个包含整数的列表，你可以"
+"在模型目录的 ``generation_config.json`` 和 ``tokenizer_config.json`` 文件中提取相应的值。"
 
-#: ../../source/models/custom.rst:117
-msgid "Xinference supports these builtin prompt styles in common usage:"
-msgstr "Xinference 支持这些内置、常用的提示词样式："
-
-#: ../../source/models/custom.rst:121
-msgid "baichuan-chat"
-msgstr ""
-
-#: ../../source/models/custom.rst:140
-msgid "chatglm3"
-msgstr ""
-
-#: ../../source/models/custom.rst:153
-msgid "qwen-chat"
-msgstr ""
-
-#: ../../source/models/custom.rst:170
-msgid "llama-2-chat"
-msgstr ""
-
-#: ../../source/models/custom.rst:191
-msgid "vicuna-v1.5"
-msgstr ""
-
-#: ../../source/models/custom.rst:206
+#: ../../source/models/custom.rst:109
 msgid ""
-"The above lists some commonly used built-in prompt styles. The full list "
-"of supported prompt styles can be found on the Xinference web UI."
+"stop: If ``model_ability`` includes ``chat`` , you can configure this "
+"option to control when the model stops during chat. This is a list of "
+"strings, and you can typically extract the corresponding values from the "
+"``generation_config.json`` or ``tokenizer_config.json`` file in the model"
+" directory."
 msgstr ""
-"以上列举出了最常使用的提示词样式。完整的支持列表可以通过 Xinference 页面"
-"的 register model 面板查看。"
+"stop：如果 ``model_ability`` 中包含 ``chat`` ，那么推荐配置此选项以合理控制对话的停止。这是一个包含字符串的列表，"
+"你可以在模型目录的 ``tokenizer_config.json`` 文件中找到 token 值对应的字符串。"
 
-#: ../../source/models/custom.rst:210
+#: ../../source/models/custom.rst:112
 msgid "Define a custom embedding model"
 msgstr "定义自定义 embedding 模型"
 
-#: ../../source/models/custom.rst:212
+#: ../../source/models/custom.rst:114
 msgid "Define a custom embedding model based on the following template:"
 msgstr "基于以下模板定义一个自定义 embedding 模型："
 
-#: ../../source/models/custom.rst:226
+#: ../../source/models/custom.rst:128
 msgid "dimensions: A integer that specifies the embedding dimensions."
 msgstr "dimensions: 表示 embedding 维度的整型值。"
 
-#: ../../source/models/custom.rst:227
+#: ../../source/models/custom.rst:129
 msgid ""
 "max_tokens: A integer that represents the max sequence length that the "
 "embedding model supports."
 msgstr "max_tokens: 表示 embedding 模型支持的最大输入序列长度的整型值。"
 
-#: ../../source/models/custom.rst:228 ../../source/models/custom.rst:250
+#: ../../source/models/custom.rst:130 ../../source/models/custom.rst:152
 msgid ""
 "language: A list of strings representing the supported languages for the "
 "model. Example: [\"en\"], which means that the model supports English."
@@ -261,7 +237,7 @@ msgstr ""
 "model_lang: 一个字符串列表，表示模型支持的语言。例如：['en']，表示该模型"
 "支持英语。"
 
-#: ../../source/models/custom.rst:229 ../../source/models/custom.rst:251
+#: ../../source/models/custom.rst:131 ../../source/models/custom.rst:153
 msgid ""
 "model_id: A string representing the model ID, possibly referring to an "
 "identifier used by Hugging Face."
@@ -269,7 +245,7 @@ msgstr ""
 "model_id: 一个表示模型标识的字符串，类似 HuggingFace 或 ModelScope 使用的"
 "标识符。"
 
-#: ../../source/models/custom.rst:230 ../../source/models/custom.rst:252
+#: ../../source/models/custom.rst:132 ../../source/models/custom.rst:154
 msgid ""
 "model_uri: A string representing the URI where the model can be loaded "
 "from, such as \"file:///path/to/your_model\". If model URI is absent, "
@@ -280,15 +256,15 @@ msgstr ""
 "如果模型 URI 不存在，Xinference 将尝试使用 model_id 从 HuggingFace 或 "
 "ModelScope 下载模型。"
 
-#: ../../source/models/custom.rst:234
+#: ../../source/models/custom.rst:136
 msgid "Define a custom Rerank model"
 msgstr "定义自定义 rerank 模型"
 
-#: ../../source/models/custom.rst:236
+#: ../../source/models/custom.rst:138
 msgid "Define a custom rerank model based on the following template:"
 msgstr "基于以下模板定义一个自定义大语言模型："
 
-#: ../../source/models/custom.rst:249
+#: ../../source/models/custom.rst:151
 msgid ""
 "type: A string defining the type of the model, including ``normal``, "
 "``LLM-based`` and ``LLM-based layerwise``."
@@ -296,20 +272,20 @@ msgstr ""
 "type: 表示模型的类型，可选值包括 ``normal``、``LLM-based`` 和 ``LLM-based"
 " layerwise``。"
 
-#: ../../source/models/custom.rst:256
+#: ../../source/models/custom.rst:158
 msgid "Register a Custom Model"
 msgstr "注册一个自定义模型"
 
-#: ../../source/models/custom.rst:258
+#: ../../source/models/custom.rst:160
 msgid "Register a custom model programmatically:"
 msgstr "以代码的方式注册自定义模型"
 
-#: ../../source/models/custom.rst:273 ../../source/models/custom.rst:291
-#: ../../source/models/custom.rst:306 ../../source/models/custom.rst:361
+#: ../../source/models/custom.rst:175 ../../source/models/custom.rst:193
+#: ../../source/models/custom.rst:208 ../../source/models/custom.rst:263
 msgid "Or via CLI:"
 msgstr "以命令行的方式"
 
-#: ../../source/models/custom.rst:279
+#: ../../source/models/custom.rst:181
 msgid ""
 "Note that replace the ``<model_type>`` above with ``LLM``, ``embedding`` "
 "or ``rerank``. The same as below."
@@ -317,43 +293,43 @@ msgstr ""
 "注意将以下部分的 ``<model_type>`` 替换为 ``LLM``、``embedding`` 或 ``"
 "rerank`` 。"
 
-#: ../../source/models/custom.rst:283
+#: ../../source/models/custom.rst:185
 msgid "List the Built-in and Custom Models"
 msgstr "列举内置和自定义模型"
 
-#: ../../source/models/custom.rst:285
+#: ../../source/models/custom.rst:187
 msgid "List built-in and custom models programmatically:"
 msgstr "以代码的方式列举内置和自定义模型"
 
-#: ../../source/models/custom.rst:298
+#: ../../source/models/custom.rst:200
 msgid "Launch the Custom Model"
 msgstr "启动自定义模型"
 
-#: ../../source/models/custom.rst:300
+#: ../../source/models/custom.rst:202
 msgid "Launch the custom model programmatically:"
 msgstr "以代码的方式启动自定义模型"
 
-#: ../../source/models/custom.rst:313
+#: ../../source/models/custom.rst:215
 msgid "Interact with the Custom Model"
 msgstr "使用自定义模型"
 
-#: ../../source/models/custom.rst:315
+#: ../../source/models/custom.rst:217
 msgid "Invoke the model programmatically:"
 msgstr "以代码的方式调用模型"
 
-#: ../../source/models/custom.rst:322
+#: ../../source/models/custom.rst:224
 msgid "Result:"
 msgstr "结果为："
 
-#: ../../source/models/custom.rst:346
+#: ../../source/models/custom.rst:248
 msgid "Or via CLI, replace ``${UID}`` with real model UID:"
 msgstr "或者以命令行的方式，用实际的模型 UID 替换 ``${UID}``："
 
-#: ../../source/models/custom.rst:353
+#: ../../source/models/custom.rst:255
 msgid "Unregister the Custom Model"
 msgstr "注销自定义模型"
 
-#: ../../source/models/custom.rst:355
+#: ../../source/models/custom.rst:257
 msgid "Unregister the custom model programmatically:"
 msgstr "以代码的方式注销自定义模型"
 

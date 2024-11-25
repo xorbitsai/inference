@@ -57,14 +57,13 @@ from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
-    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
-    ChatCompletionMessage,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
     ImageList,
     PeftModelConfig,
+    SDAPIResult,
     VideoList,
     max_tokens_field,
 )
@@ -124,6 +123,43 @@ class TextToImageRequest(BaseModel):
     user: Optional[str] = None
 
 
+class SDAPIOptionsRequest(BaseModel):
+    sd_model_checkpoint: Optional[str] = None
+
+
+class SDAPITxt2imgRequst(BaseModel):
+    model: Optional[str]
+    prompt: Optional[str] = ""
+    negative_prompt: Optional[str] = ""
+    steps: Optional[int] = None
+    seed: Optional[int] = -1
+    cfg_scale: Optional[float] = 7.0
+    override_settings: Optional[dict] = {}
+    width: Optional[int] = 512
+    height: Optional[int] = 512
+    sampler_name: Optional[str] = None
+    denoising_strength: Optional[float] = None
+    kwargs: Optional[str] = None
+    user: Optional[str] = None
+
+
+class SDAPIImg2imgRequst(BaseModel):
+    model: Optional[str]
+    init_images: Optional[list]
+    prompt: Optional[str] = ""
+    negative_prompt: Optional[str] = ""
+    steps: Optional[int] = None
+    seed: Optional[int] = -1
+    cfg_scale: Optional[float] = 7.0
+    override_settings: Optional[dict] = {}
+    width: Optional[int] = 512
+    height: Optional[int] = 512
+    sampler_name: Optional[str] = None
+    denoising_strength: Optional[float] = None
+    kwargs: Optional[str] = None
+    user: Optional[str] = None
+
+
 class TextToVideoRequest(BaseModel):
     model: str
     prompt: Union[str, List[str]] = Field(description="The input to embed.")
@@ -165,7 +201,7 @@ class BuildGradioImageInterfaceRequest(BaseModel):
     model_name: str
     model_family: str
     model_id: str
-    controlnet: Union[None, List[Dict[str, Union[str, None]]]]
+    controlnet: Union[None, List[Dict[str, Union[str, dict, None]]]]
     model_revision: str
     model_ability: List[str]
 
@@ -199,14 +235,14 @@ class RESTfulAPI:
     async def _get_supervisor_ref(self) -> xo.ActorRefType[SupervisorActor]:
         if self._supervisor_ref is None:
             self._supervisor_ref = await xo.actor_ref(
-                address=self._supervisor_address, uid=SupervisorActor.uid()
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
             )
         return self._supervisor_ref
 
     async def _get_event_collector_ref(self) -> xo.ActorRefType[EventCollectorActor]:
         if self._event_collector_ref is None:
             self._event_collector_ref = await xo.actor_ref(
-                address=self._supervisor_address, uid=EventCollectorActor.uid()
+                address=self._supervisor_address, uid=EventCollectorActor.default_uid()
             )
         return self._event_collector_ref
 
@@ -489,6 +525,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/requests/{request_id}/progress",
+            self.get_progress,
+            methods=["get"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
             methods=["POST"],
@@ -515,6 +561,69 @@ class RESTfulAPI:
             self.create_inpainting,
             methods=["POST"],
             response_model=ImageList,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/images/ocr",
+            self.create_ocr,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        # SD WebUI API
+        self._router.add_api_route(
+            "/sdapi/v1/options",
+            self.sdapi_options,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/sdapi/v1/sd-models",
+            self.sdapi_sd_models,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/sdapi/v1/samplers",
+            self.sdapi_samplers,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/sdapi/v1/txt2img",
+            self.sdapi_txt2img,
+            methods=["POST"],
+            response_model=SDAPIResult,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/sdapi/v1/img2img",
+            self.sdapi_img2img,
+            methods=["POST"],
+            response_model=SDAPIResult,
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
                 if self.is_authenticated()
@@ -1397,6 +1506,17 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def get_progress(self, request_id: str) -> JSONResponse:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            result = {"progress": await supervisor_ref.get_progress(request_id)}
+            return JSONResponse(content=result)
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
@@ -1418,6 +1538,118 @@ class RESTfulAPI:
                 n=body.n,
                 size=body.size,
                 response_format=body.response_format,
+                **kwargs,
+            )
+            return Response(content=image_list, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_options(self, request: Request) -> Response:
+        body = SDAPIOptionsRequest.parse_obj(await request.json())
+        model_uid = body.sd_model_checkpoint
+
+        try:
+            if not model_uid:
+                raise ValueError("Unknown model")
+            await (await self._get_supervisor_ref()).get_model(model_uid)
+            return Response()
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_sd_models(self, request: Request) -> Response:
+        try:
+            models = await (await self._get_supervisor_ref()).list_models()
+            sd_models = []
+            for model_name, info in models.items():
+                if info["model_type"] != "image":
+                    continue
+                sd_models.append({"model_name": model_name, "config": None})
+            return JSONResponse(content=sd_models)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_samplers(self, request: Request) -> Response:
+        try:
+            from ..model.image.stable_diffusion.core import SAMPLING_METHODS
+
+            samplers = [
+                {"name": sample_method, "alias": [], "options": {}}
+                for sample_method in SAMPLING_METHODS
+            ]
+            return JSONResponse(content=samplers)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_txt2img(self, request: Request) -> Response:
+        body = SDAPITxt2imgRequst.parse_obj(await request.json())
+        model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+
+        try:
+            if not model_uid:
+                raise ValueError("Unknown model")
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            kwargs = dict(body)
+            kwargs.update(json.loads(body.kwargs) if body.kwargs else {})
+            image_list = await model.txt2img(
+                **kwargs,
+            )
+            return Response(content=image_list, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_img2img(self, request: Request) -> Response:
+        body = SDAPIImg2imgRequst.parse_obj(await request.json())
+        model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+
+        try:
+            if not model_uid:
+                raise ValueError("Unknown model")
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            kwargs = dict(body)
+            kwargs.update(json.loads(body.kwargs) if body.kwargs else {})
+            image_list = await model.img2img(
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
@@ -1532,6 +1764,44 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def create_ocr(
+        self,
+        model: str = Form(...),
+        image: UploadFile = File(media_type="application/octet-stream"),
+        kwargs: Optional[str] = Form(None),
+    ) -> Response:
+        model_uid = model
+        try:
+            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            if kwargs is not None:
+                parsed_kwargs = json.loads(kwargs)
+            else:
+                parsed_kwargs = {}
+            im = Image.open(image.file)
+            text = await model_ref.ocr(
+                image=im,
+                **parsed_kwargs,
+            )
+            return Response(content=text, media_type="text/plain")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_flexible_infer(self, request: Request) -> Response:
         payload = await request.json()
 
@@ -1627,33 +1897,7 @@ class RESTfulAPI:
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        system_messages: List["ChatCompletionMessage"] = []
-        system_messages_contents = []
-        non_system_messages = []
-        for msg in messages:
-            assert (
-                msg.get("content") != SPECIAL_TOOL_PROMPT
-            ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
-            if msg["role"] == "system":
-                system_messages_contents.append(msg["content"])
-            else:
-                non_system_messages.append(msg)
-        system_messages.append(
-            {"role": "system", "content": ". ".join(system_messages_contents)}
-        )
-
         has_tool_message = messages[-1].get("role") == "tool"
-        if has_tool_message:
-            prompt = SPECIAL_TOOL_PROMPT
-            system_prompt = system_messages[0]["content"] if system_messages else None
-            chat_history = non_system_messages  # exclude the prompt
-        else:
-            prompt = None
-            if non_system_messages:
-                prompt = non_system_messages[-1]["content"]
-            system_prompt = system_messages[0]["content"] if system_messages else None
-            chat_history = non_system_messages[:-1]  # exclude the prompt
-
         model_uid = body.model
 
         try:
@@ -1678,11 +1922,15 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        from ..model.llm.utils import GLM4_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY
+        from ..model.llm.utils import (
+            GLM4_TOOL_CALL_FAMILY,
+            LLAMA3_TOOL_CALL_FAMILY,
+            QWEN_TOOL_CALL_FAMILY,
+        )
 
         model_family = desc.get("model_family", "")
         function_call_models = (
-            ["gorilla-openfunctions-v1"] + QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
+            QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY + LLAMA3_TOOL_CALL_FAMILY
         )
 
         if model_family not in function_call_models:
@@ -1716,9 +1964,7 @@ class RESTfulAPI:
                 try:
                     try:
                         iterator = await model.chat(
-                            prompt,
-                            system_prompt,
-                            chat_history,
+                            messages,
                             kwargs,
                             raw_params=raw_kwargs,
                         )
@@ -1750,9 +1996,7 @@ class RESTfulAPI:
         else:
             try:
                 data = await model.chat(
-                    prompt,
-                    system_prompt,
-                    chat_history,
+                    messages,
                     kwargs,
                     raw_params=raw_kwargs,
                 )

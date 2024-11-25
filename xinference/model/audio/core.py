@@ -25,8 +25,6 @@ from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .whisper import WhisperModel
 
-MAX_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
@@ -47,7 +45,7 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: str
     multilingual: bool
-    ability: str
+    model_ability: Optional[str]
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
 

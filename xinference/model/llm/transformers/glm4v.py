@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import time
 import typing
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -22,20 +21,12 @@ from typing import Dict, Iterator, List, Optional, Union
 import torch
 
 from ....core.scheduler import InferenceRequest
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import _decode_image
+from ..utils import _decode_image, generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import get_max_src_len
+from .utils import cache_clean, get_max_src_len
 
 logger = logging.getLogger(__name__)
 
@@ -102,66 +93,46 @@ class Glm4VModel(PytorchChatModel):
         self._tokenizer = tokenizer
         self._save_tensorizer()
 
-    def _message_content_to_chat(self, content):
-        if not isinstance(content, str):
-            texts = []
-            image_urls = []
-            for c in content:
-                c_type = c.get("type")
-                if c_type == "text":
-                    texts.append(c["text"])
-                elif c_type == "image_url":
-                    image_urls.append(c["image_url"]["url"])
-            image_futures = []
-            with ThreadPoolExecutor() as executor:
-                for image_url in image_urls:
-                    fut = executor.submit(_decode_image, image_url)
-                    image_futures.append(fut)
-            images = [fut.result() for fut in image_futures]
-            text = " ".join(texts)
-            if len(images) == 0:
-                return text, []
-            elif len(images) == 1:
-                return text, images
+    @staticmethod
+    def _get_processed_msgs(messages: List[Dict]) -> List[Dict]:
+        res = []
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            if isinstance(content, str):
+                res.append({"role": role, "content": content})
             else:
-                raise RuntimeError("Only one image per message is supported")
-        return content, []
+                texts = []
+                image_urls = []
+                for c in content:
+                    c_type = c.get("type")
+                    if c_type == "text":
+                        texts.append(c["text"])
+                    else:
+                        assert (
+                            c_type == "image_url"
+                        ), "Please follow the image input of the OpenAI API."
+                        image_urls.append(c["image_url"]["url"])
+                if len(image_urls) > 1:
+                    raise RuntimeError("Only one image per message is supported")
+                image_futures = []
+                with ThreadPoolExecutor() as executor:
+                    for image_url in image_urls:
+                        fut = executor.submit(_decode_image, image_url)
+                        image_futures.append(fut)
+                images = [fut.result() for fut in image_futures]
+                assert len(images) <= 1
+                text = " ".join(texts)
+                if images:
+                    res.append({"role": role, "content": text, "image": images[0]})
+                else:
+                    res.append({"role": role, "content": text})
+        return res
 
-    def _get_chat_msgs(
-        self,
-        prompt: Union[str, List[Dict]],
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
-    ):
-        content, images_chat = self._message_content_to_chat(prompt)
-
-        msgs = []
-        query_to_response: List[Dict] = []
-        images_history = []
-        for h in chat_history or []:
-            role = h["role"]
-            content_h, images_tmp = self._message_content_to_chat(h["content"])
-            if images_tmp:
-                images_history = images_tmp
-            if len(query_to_response) == 0 and role == "user":
-                query_to_response.append({"role": "user", "content": content_h})
-            if len(query_to_response) == 1 and role == "assistant":
-                query_to_response.append({"role": "assistant", "content": content_h})
-            if len(query_to_response) == 2:
-                msgs.extend(query_to_response)
-                query_to_response = []
-        image = None
-        if len(images_chat) > 0:
-            image = images_chat[0]
-        elif len(images_history) > 0:
-            image = images_history[0]
-        msgs.append({"role": "user", "content": content, "image": image})
-        return msgs
-
+    @cache_clean
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         from transformers import TextIteratorStreamer
@@ -170,7 +141,7 @@ class Glm4VModel(PytorchChatModel):
             generate_config = {}
 
         stream = generate_config.get("stream", False)
-        msgs = self._get_chat_msgs(prompt, chat_history)
+        msgs = self._get_processed_msgs(messages)
 
         inputs = self._tokenizer.apply_chat_template(
             msgs,
@@ -213,64 +184,38 @@ class Glm4VModel(PytorchChatModel):
                 response = self._tokenizer.decode(outputs[0])
                 if response.endswith(stop_str):
                     response = response[: -len(stop_str)]
-            c = Completion(
-                id=str(uuid.uuid1()),
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    CompletionChoice(
-                        index=0, text=response, finish_reason="stop", logprobs=None
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
-            )
-            return self._to_chat_completion(c)
+            return generate_chat_completion(self.model_uid, response)
 
     def chat_stream(self, streamer, stop_str) -> Iterator[CompletionChunk]:
         completion_id = str(uuid.uuid1())
         for new_text in streamer:
             if not new_text.endswith(stop_str):
-                completion_choice = CompletionChoice(
-                    text=new_text, index=0, logprobs=None, finish_reason=None
-                )
-                chunk = CompletionChunk(
-                    id=completion_id,
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=self.model_uid,
-                    choices=[completion_choice],
-                )
-                completion_usage = CompletionUsage(
+                yield generate_completion_chunk(
+                    chunk_text=new_text,
+                    finish_reason=None,
+                    chunk_id=completion_id,
+                    model_uid=self.model_uid,
                     prompt_tokens=-1,
                     completion_tokens=-1,
                     total_tokens=-1,
+                    has_choice=True,
+                    has_content=True,
                 )
-                chunk["usage"] = completion_usage
-                yield chunk
 
-        completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason="stop"
-        )
-        chunk = CompletionChunk(
-            id=completion_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[completion_choice],
-        )
-        completion_usage = CompletionUsage(
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
             prompt_tokens=-1,
             completion_tokens=-1,
             total_tokens=-1,
+            has_choice=True,
+            has_content=False,
         )
-        chunk["usage"] = completion_usage
-        yield chunk
 
-    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
-        msgs = self._get_chat_msgs(prompt, chat_history)
+    def _get_full_prompt(self, messages, tools):
+        msgs = self._get_processed_msgs(messages)
         inputs = self._tokenizer.apply_chat_template(
             msgs,
             add_generation_prompt=True,

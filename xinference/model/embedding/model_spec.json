@@ -233,10 +233,17 @@
   },
   {
     "model_name": "gte-Qwen2",
-    "dimensions": 3584,
+    "dimensions": 4096,
     "max_tokens": 32000,
     "language": ["zh", "en"],
     "model_id": "Alibaba-NLP/gte-Qwen2-7B-instruct",
     "model_revision": "e26182b2122f4435e8b3ebecbf363990f409b45b"
+  },
+  {
+    "model_name": "jina-embeddings-v3",
+    "dimensions": 1024,
+    "max_tokens": 8192,
+    "language": ["zh", "en"],
+    "model_id": "jinaai/jina-embeddings-v3"
   }
 ]

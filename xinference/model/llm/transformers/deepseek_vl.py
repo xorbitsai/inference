@@ -15,7 +15,6 @@ import base64
 import logging
 import os.path
 import tempfile
-import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
@@ -25,17 +24,11 @@ import requests
 import torch
 
 from ....model.utils import select_device
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -145,11 +138,10 @@ class DeepSeekVLChatModel(PytorchChatModel):
             return "".join(new_content), images
         return content, []
 
+    @cache_clean
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if not generate_config:
@@ -162,44 +154,40 @@ class DeepSeekVLChatModel(PytorchChatModel):
             if isinstance(stream_options, dict)
             else False
         )
-        prompt, images = self._message_content_to_deepseek(prompt)
-        prompt_messages: List[Dict[str, Any]] = [
-            {
-                "role": "User",
-                "content": prompt,
-            },
-            {"role": "Assistant", "content": ""},
-        ]
-        if images:
-            prompt_messages[0]["images"] = images
 
-        # Convert openai history to qwen vl history
-        deepseek_history = []
-        for h in chat_history or []:
-            role = h["role"]
+        prompt = ""
+        deepseek_messages = []
+        for i, message in enumerate(messages):
+            role = message["role"]
+            content = message["content"]
             if role == "user":
-                content, images = self._message_content_to_deepseek(h["content"])
-                msg: Dict[str, Any] = {
-                    "role": "User",
-                    "content": content,
-                }
-                if images:
-                    msg["images"] = images
-                deepseek_history.append(msg)
+                if isinstance(content, str):
+                    deepseek_messages.append({"role": "User", "content": content})
+                else:
+                    content, images = self._message_content_to_deepseek(content)
+                    msg: Dict[str, Any] = {
+                        "role": "User",
+                        "content": content,
+                    }
+                    if images:
+                        msg["images"] = images
+                    deepseek_messages.append(msg)
+                if i == len(messages) - 1:
+                    prompt = content
             elif role == "assistant":
-                deepseek_history.append({"role": "Assistant", "content": h["content"]})
+                deepseek_messages.append({"role": "Assistant", "content": content})
             else:
-                logger.error("Unexpected msg in chat history: %s", h)
-
-        deepseek_history.extend(prompt_messages)
+                logger.error(
+                    f"Unexpected message in messages: role: {role}, message: {message}"
+                )
 
         from ....thirdparty.deepseek_vl.serve.inference import generate
         from ....thirdparty.deepseek_vl.utils.io import load_pil_images
 
         # load images and prepare for inputs
-        pil_images = load_pil_images(deepseek_history)
+        pil_images = load_pil_images(deepseek_messages)
         prepare_inputs = self._vl_chat_processor(
-            conversations=deepseek_history, images=pil_images, force_batchify=True
+            conversations=deepseek_messages, images=pil_images, force_batchify=True
         ).to(self._model.device, self._model.dtype)
 
         temperature = generate_config.get("temperature", 0.2)
@@ -226,31 +214,16 @@ class DeepSeekVLChatModel(PytorchChatModel):
             it = self._generate_stream(streamer, stop_str, include_usage, prompt)
             return self._to_chat_completion_chunks(it)
         else:
-            c = self._generate(streamer, stop_str)
-            return self._to_chat_completion(c)
+            return self._generate(streamer, stop_str)
 
-    def _generate(self, streamer, stop_str) -> Completion:
+    def _generate(self, streamer, stop_str) -> ChatCompletion:
         generated_text = ""
         for new_text in streamer:
             if new_text.endswith(stop_str):
                 new_text = new_text[: -len(stop_str)]
             generated_text += new_text
 
-        c = Completion(
-            id=str(uuid.uuid1()),
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[
-                CompletionChoice(
-                    index=0, text=generated_text, finish_reason="stop", logprobs=None
-                )
-            ],
-            usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-            ),
-        )
-        return c
+        return generate_chat_completion(self.model_uid, generated_text)
 
     def _generate_stream(
         self, streamer, stop_str, include_usage, prompt
@@ -262,54 +235,40 @@ class DeepSeekVLChatModel(PytorchChatModel):
         for i, new_text in enumerate(streamer):
             if new_text.endswith(stop_str):
                 new_text = new_text[: -len(stop_str)]
-            completion_choice = CompletionChoice(
-                text=new_text, index=0, logprobs=None, finish_reason=None
-            )
-            chunk = CompletionChunk(
-                id=completion_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[completion_choice],
-            )
             completion_tokens = i
             total_tokens = prompt_tokens + completion_tokens
-            completion_usage = CompletionUsage(
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
+                has_choice=True,
+                has_content=True,
             )
-            chunk["usage"] = completion_usage
-            yield chunk
-
-        completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason="stop"
-        )
-        chunk = CompletionChunk(
-            id=completion_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[completion_choice],
-        )
-        completion_usage = CompletionUsage(
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
+            has_choice=True,
+            has_content=False,
         )
-        chunk["usage"] = completion_usage
-        yield chunk
+
         if include_usage:
-            chunk = CompletionChunk(
-                id=completion_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[],
-            )
-            chunk["usage"] = CompletionUsage(
+            yield generate_completion_chunk(
+                chunk_text=None,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
+                has_choice=False,
+                has_content=False,
             )
-            yield chunk

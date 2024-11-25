@@ -2,6 +2,7 @@ import os
 import queue
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, Tuple, Union
@@ -93,15 +94,20 @@ def decode_one_token_ar(
     **sampling_kwargs,
 ) -> torch.Tensor:
     x = model.forward_generate(x, input_pos)
+
+    sampling_kwargs_main = sampling_kwargs.copy()
+    sampling_kwargs_main["temperature"] = 0.1
+    sampling_kwargs_main["top_p"] = 0.1
+    sampling_kwargs_main["repetition_penalty"] = 1.0
+
     codebooks = [
         sample(
             x.logits,
-            previous_tokens=(
-                previous_tokens[0] if previous_tokens is not None else None
-            ),  # Disable repetition penalty for the token codebook
-            **sampling_kwargs,
+            previous_tokens=None,  # Disable repetition penalty for the token codebook
+            **sampling_kwargs_main,
         )[0]
     ]
+
     x = x.hidden_states
 
     # Cleanup the cache
@@ -136,11 +142,16 @@ def decode_one_token_naive(
 ) -> torch.Tensor:
     x = model.forward_generate(x, input_pos)
 
+    sampling_kwargs_main = sampling_kwargs.copy()
+    sampling_kwargs_main["temperature"] = 0.1
+    sampling_kwargs_main["top_p"] = 0.1
+    sampling_kwargs_main["repetition_penalty"] = 1.0
+
     codebooks = [
         sample(
-            x.token_logits,
+            x.logits,
             previous_tokens=None,  # Disable repetition penalty for the token codebook
-            **sampling_kwargs,
+            **sampling_kwargs_main,
         )[0]
     ]
 
@@ -181,8 +192,12 @@ def decode_n_tokens(
         else:
             window = previous_tokens[:, i - win_size : i]
 
-        with torch.backends.cuda.sdp_kernel(
-            enable_flash=False, enable_mem_efficient=False, enable_math=True
+        with (
+            torch.backends.cuda.sdp_kernel(
+                enable_flash=False, enable_mem_efficient=False, enable_math=True
+            )
+            if torch.cuda.is_available()
+            else nullcontext()
         ):  # Actually better for Inductor to codegen attention here
             next_token = decode_one_token(
                 model=model,
@@ -222,25 +237,11 @@ def generate(
     # create an empty tensor of the expected final shape and fill in the current tokens
     T = prompt.size(1)
 
-    if max_new_tokens:
-        if T + max_new_tokens > model.config.max_seq_len:
-            max_new_tokens = model.config.max_seq_len - T
-            logger.info(f"Truncating max_new_tokens to {max_new_tokens}")
-
-        T_new = T + max_new_tokens
-    else:
-        T_new = model.config.max_seq_len
-        max_new_tokens = T_new - T
-
     device, dtype = prompt.device, prompt.dtype
-    with torch.device(device):
-        model.setup_caches(
-            max_batch_size=1, max_seq_len=T_new, dtype=next(model.parameters()).dtype
-        )
 
     codebook_dim = 1 + model.config.num_codebooks
     # create an empty tensor of the expected final shape and fill in the current tokens
-    empty = torch.empty((codebook_dim, T_new), dtype=dtype, device=device)
+    empty = torch.empty((codebook_dim, max_new_tokens), dtype=dtype, device=device)
     empty[:, :T] = prompt
     seq = empty
     input_pos = torch.arange(0, T, device=device)
@@ -560,6 +561,10 @@ def launch_thread_safe_queue(
         model, decode_one_token = load_model(
             checkpoint_path, device, precision, compile=compile
         )
+        with torch.device(device):
+            model.setup_caches(
+                max_batch_size=1, max_seq_len=2048, dtype=next(model.parameters()).dtype
+            )
         init_event.set()
 
         while True:
@@ -607,7 +612,7 @@ def launch_thread_safe_queue(
 @click.option(
     "--checkpoint-path",
     type=click.Path(path_type=Path, exists=True),
-    default="checkpoints/fish-speech-1.2-sft",
+    default="checkpoints/fish-speech-1.4",
 )
 @click.option("--device", type=str, default="cuda")
 @click.option("--compile/--no-compile", default=False)

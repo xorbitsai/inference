@@ -62,6 +62,10 @@ class FishSpeechModel:
         self._model = None
         self._kwargs = kwargs
 
+    @property
+    def model_ability(self):
+        return self._model_spec.model_ability
+
     def load(self):
         # There are too many imports from fish_speech.
         sys.path.insert(
@@ -88,7 +92,7 @@ class FishSpeechModel:
 
         checkpoint_path = os.path.join(
             self._model_path,
-            "firefly-gan-vq-fsq-4x1024-42hz-generator.pth",
+            "firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
         )
         self._model = load_decoder_model(
             config_name="firefly_gan_vq",
@@ -155,11 +159,11 @@ class FishSpeechModel:
         segments = []
 
         while True:
-            result: WrappedGenerateResponse = response_queue.get()
+            result: WrappedGenerateResponse = response_queue.get()  # type: ignore
             if result.status == "error":
                 raise Exception(str(result.response))
 
-            result: GenerateResponse = result.response
+            result: GenerateResponse = result.response  # type: ignore
             if result.action == "next":
                 break
 
@@ -209,12 +213,12 @@ class FishSpeechModel:
                 text=input,
                 enable_reference_audio=False,
                 reference_audio=None,
-                reference_text="",
-                max_new_tokens=0,
-                chunk_length=100,
-                top_p=0.7,
-                repetition_penalty=1.2,
-                temperature=0.7,
+                reference_text=kwargs.get("reference_text", ""),
+                max_new_tokens=kwargs.get("max_new_tokens", 1024),
+                chunk_length=kwargs.get("chunk_length", 200),
+                top_p=kwargs.get("top_p", 0.7),
+                repetition_penalty=kwargs.get("repetition_penalty", 1.2),
+                temperature=kwargs.get("temperature", 0.7),
             )
         )
         sample_rate, audio = result[0][1]

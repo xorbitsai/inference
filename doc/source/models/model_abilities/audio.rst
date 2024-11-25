@@ -51,6 +51,7 @@ Audio to text
 * whisper-medium
 * whisper-medium.en
 * whisper-large-v3
+* whisper-large-v3-turbo
 * Belle-distilwhisper-large-v2-zh
 * Belle-whisper-large-v2-zh
 * Belle-whisper-large-v3-zh

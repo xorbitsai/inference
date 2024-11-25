@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import os.path
 import tempfile
 
@@ -22,8 +23,7 @@ def test_cosyvoice_sft(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="CosyVoice-300M-SFT",
-        model_type="audio",
+        model_name="CosyVoice-300M-SFT", model_type="audio", download_hub="huggingface"
     )
     model = client.get_model(model_uid)
     input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
@@ -32,6 +32,18 @@ def test_cosyvoice_sft(setup):
     response = model.speech(input_string)
     assert type(response) is bytes
     assert len(response) > 0
+
+    # inference_sft
+    response = model.speech(input_string, stream=True)
+    assert inspect.isgenerator(response)
+    i = 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        for chunk in response:
+            f.write(chunk)
+            i += 1
+            assert type(chunk) is bytes
+            assert len(chunk) > 0
+        assert i > 5
 
     # Test openai API
     import openai
@@ -60,8 +72,7 @@ def test_cosyvoice(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="CosyVoice-300M",
-        model_type="audio",
+        model_name="CosyVoice-300M", model_type="audio", download_hub="huggingface"
     )
     model = client.get_model(model_uid)
     with open(zero_shot_prompt_file, "rb") as f:
@@ -103,8 +114,19 @@ def test_cosyvoice_instruct(setup):
     model_uid = client.launch_model(
         model_name="CosyVoice-300M-Instruct",
         model_type="audio",
+        download_hub="huggingface",
     )
     model = client.get_model(model_uid)
+
+    # inference without instruction
+    response = model.speech(
+        "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。", voice="中文男"
+    )
+    assert type(response) is bytes
+    assert len(response) > 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        f.write(response)
+        assert os.stat(f.name).st_size > 0
 
     # inference_instruct
     response = model.speech(

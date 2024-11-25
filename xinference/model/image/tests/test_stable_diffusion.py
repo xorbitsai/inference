@@ -11,17 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import base64
 import io
 import logging
 import os.path
 import shutil
 import tempfile
+import uuid
 from io import BytesIO
 
+import numpy as np
 import pytest
+import xoscar as xo
 from PIL import Image
 
+from ....core.progress_tracker import Progressor, ProgressTrackerActor
 from ..core import ImageModelFamilyV1, cache
 from ..stable_diffusion.core import DiffusionModel
 
@@ -30,6 +35,7 @@ TEST_MODEL_SPEC = ImageModelFamilyV1(
     model_name="small-stable-diffusion-v0",
     model_id="OFA-Sys/small-stable-diffusion-v0",
     model_revision="38e10e5e71e8fbf717a47a81e7543cd01c1a8140",
+    model_ability=["text2image"],
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +45,7 @@ def test_model():
     model_path = None
     try:
         model_path = cache(TEST_MODEL_SPEC)
-        model = DiffusionModel("mock", model_path)
+        model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
         # input is a string
         input_text = "an apple"
         model.load()
@@ -55,6 +61,50 @@ def test_model():
     finally:
         if model_path is not None:
             shutil.rmtree(model_path)
+
+
+@pytest.mark.asyncio
+async def test_progressor():
+    def _run_model(**kwargs):
+        model_path = None
+        try:
+            model_path = cache(TEST_MODEL_SPEC)
+            model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
+            # input is a string
+            input_text = "an apple"
+            model.load()
+            r = model.text_to_image(input_text, size="256*256", **kwargs)
+            assert len(r["data"]) == 1
+            assert os.path.exists(r["data"][0]["url"])
+        finally:
+            if model_path is not None:
+                shutil.rmtree(model_path)
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        progress_tracker_ref = await xo.create_actor(
+            ProgressTrackerActor,
+            to_remove_interval=0,
+            check_interval=1,
+            address=pool.external_address,
+            uid=ProgressTrackerActor.default_uid(),
+        )
+        request_id = str(uuid.uuid4())
+        progressor = Progressor(
+            request_id, progress_tracker_ref, asyncio.get_running_loop()
+        )
+        await progressor.start()
+        with progressor:
+            progressor.split_stages(2, stage_weight=np.array([0, 0.99, 1]))
+            with progressor:
+                await asyncio.to_thread(_run_model, progressor=progressor)
+                assert progressor._current_progress == 0.99
+            assert await progress_tracker_ref.get_progress(request_id) == 0.99
+            with progressor:
+                progressor.set_progress(1.0)
+        await asyncio.sleep(2)
+        with pytest.raises(KeyError):
+            await progress_tracker_ref.get_progress(request_id)
 
 
 @pytest.mark.skip(reason="Stable diffusion controlnet requires too many GRAM.")
@@ -287,20 +337,19 @@ def test_register_custom_image():
         unregister_image,
     )
 
-    tmp_dir = tempfile.mktemp()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        model_spec = CustomImageModelFamilyV1(
+            model_family="stable_diffusion",
+            model_name="my-custom-image",
+            model_id="my-custom-image",
+            model_uri=os.path.abspath(tmp_dir),
+        )
 
-    model_spec = CustomImageModelFamilyV1(
-        model_family="stable_diffusion",
-        model_name="my-custom-image",
-        model_id="my-custom-image",
-        model_uri=os.path.abspath(tmp_dir),
-    )
+        register_image(model_spec, persist=False)
+        assert model_spec in get_user_defined_images()
 
-    register_image(model_spec, persist=False)
-    assert model_spec in get_user_defined_images()
-
-    unregister_image(model_spec.model_name, raise_error=False)
-    assert model_spec not in get_user_defined_images()
+        unregister_image(model_spec.model_name, raise_error=False)
+        assert model_spec not in get_user_defined_images()
 
 
 def test_persist_custom_image():
@@ -313,12 +362,13 @@ def test_persist_custom_image():
     )
 
     tmp_dir = tempfile.mktemp()
+    os.makedirs(tmp_dir)
 
     model_spec = CustomImageModelFamilyV1(
         model_family="stable_diffusion",
         model_name="my-custom-image",
         model_id="my-custom-image",
-        model_uri=os.path.abspath(tmp_dir),
+        model_uri=f"file://{os.path.abspath(tmp_dir)}",
     )
 
     register_image(model_spec, persist=True)
@@ -349,11 +399,12 @@ def test_launch_custom_image(setup):
         "model_uid": "my_sd",
         "model_name": "my_sd",
         "model_uri": model_path,
+        "model_ability": ["text2image"],
     }
 
     client.register_model(
         model_type="image",
-        model=json_dumps(my_model),
+        model=json_dumps(my_model).decode("utf-8"),
         persist=False,
     )
 

@@ -46,24 +46,15 @@
         "model_revision": "3cb06f589b7b1e2f8e728c77280b1114191d24de"
       }
     ],
-    "prompt_style": {
-      "style_name": "CodeShell",
-      "system_prompt": "",
-      "roles": [
-        "## human:",
-        "## assistant: "
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        70000
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "|||",
-        "|<end>|"
-      ]
-    }
+    "chat_template": "{% for item in messages %}{% if item['role'] == 'user' %}{{ '## human: ' + item['content'] + '|<end>|' }}{% elif item['role'] == 'assistant' %}{{ '## assistant: ' + item['content'] + '|<end>|' }}{% endif %}{% endfor %}{{ '## assistant: ' }}",
+    "stop_token_ids": [
+      70000
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "|||",
+      "|<end>|"
+    ]
   },
   {
     "version": 1,
@@ -134,26 +125,17 @@
         "model_revision": "ebee18c488086b396dde649f2aa6548b9b8d2404"
       }
     ],
-    "prompt_style": {
-      "style_name": "PHI3",
-      "system_prompt": "You are a helpful AI assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "inter_message_sep": "<|end|>\n",
-      "stop_token_ids":[
-        32000,
-        32001,
-        32007
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|assistant|>",
-        "<|end|>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'system' %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ '<|endoftext|>' }}{% endif %}",
+    "stop_token_ids":[
+      32000,
+      32001,
+      32007
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|assistant|>",
+      "<|end|>"
+    ]
   },
   {
     "version": 1,
@@ -189,156 +171,17 @@
         "model_revision": "b86bcaf57ea4dfdec5dbe12a377028b2fab0d480"
       }
     ],
-    "prompt_style": {
-      "style_name": "PHI3",
-      "system_prompt": "You are a helpful AI assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "inter_message_sep": "<|end|>\n",
-      "stop_token_ids":[
-        32000,
-        32001,
-        32007
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|assistant|>",
-        "<|end|>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "chatglm3",
-    "model_lang": [
-      "en",
-      "zh"
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'system' %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ '<|endoftext|>' }}{% endif %}",
+    "stop_token_ids":[
+      32000,
+      32001,
+      32007
     ],
-    "model_ability": [
-      "chat",
-      "tools"
-    ],
-    "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "THUDM/chatglm3-6b",
-        "model_revision": "103caa40027ebfd8450289ca2f278eac4ff26405"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        64795,
-        64797,
-        2
-      ],
-      "stop": [
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 32768,
-    "model_name": "chatglm3-32k",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "THUDM/chatglm3-6b-32k",
-        "model_revision": "339f17ff464d47b5077527c2b34e80a7719ede3e"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        64795,
-        64797,
-        2
-      ],
-      "stop": [
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 131072,
-    "model_name": "chatglm3-128k",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "THUDM/chatglm3-6b-128k",
-        "model_revision": "f0afbe671009abc9e31182170cf60636d5546cda"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        64795,
-        64797,
-        2
-      ],
-      "stop": [
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
+    "stop": [
+      "<|endoftext|>",
+      "<|assistant|>",
+      "<|end|>"
+    ]
   },
   {
     "version": 1,
@@ -363,7 +206,7 @@
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat",
-        "model_revision": "aae8bd74af5c6dff63a49d7fbdcc89349ebf87aa"
+        "model_revision": "eb55a443d66541f30869f6caac5ad0d2e95bcbaa"
       },
       {
         "model_format": "ggufv2",
@@ -392,24 +235,17 @@
         "model_revision": "0155a14edf0176863e9a003cdd78ce599e4d62c0"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        151329,
-        151336,
-        151338
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
+    "chat_template": "[gMASK]<sop>{% for item in messages %}{% if item['tools'] is defined %}<|system|>\n你是一个名为 ChatGLM 的人工智能助手。你是基于智谱AI训练的语言模型 GLM-4 模型开发的，你的任务是针对用户的问题和要求提供适当的答复和支持。\n\n# 可用工具{% set tools = item['tools'] %}{% for tool in tools %}{% if tool['type'] == 'function' %}\n\n## {{ tool['function']['name'] }}\n\n{{ tool['function'] | tojson(indent=4) }}\n在调用上述函数时，请使用 Json 格式表示调用的参数。{% elif tool['type'] == 'python' %}\n\n## python\n\n当你向 `python` 发送包含 Python 代码的消息时，该代码将会在一个有状态的 Jupyter notebook 环境中执行。\n`python` 返回代码执行的输出，或在执行 60 秒后返回超时。\n`/mnt/data` 将会持久化存储你的文件。在此会话中，`python` 无法访问互联网。不要使用 `python` 进行任何网络请求或者在线 API 调用，这些在线内容的访问将不会成功。{% elif tool['type'] == 'simple_browser' %}\n\n## simple_browser\n\n你可以使用 `simple_browser` 工具。该工具支持以下函数：\n`search(query: str, recency_days: int)`：使用搜索引擎进行查询并显示结果，可以使用 `recency_days` 参数控制搜索内容的时效性。\n`mclick(ids: list[int])`：获取一系列指定 id 的页面内容。每次调用时，须选择3-10个页面。选择多个角度的页面，同时尽可能选择可信任的信息来源。考虑到部分页面是无法加载的，你也可以多打开一些可能有用的页面而不用担心内容过多。\n`open_url(url: str)`：打开指定的 URL。\n\n使用 `【{引用 id}†{引用文本}】` 来引用内容。\n\n操作步骤：1. 使用 `search` 来获得信息列表; 2. 使用 `mclick` 来获取指定 ID 页面的内容; 3. 根据获得的内容进行回复。在回复中应当引用信息来源。\n 如果用户提供了 URL，也可以用 `open_url` 直接打开页面。\n如果初次搜索结果没有找到合适的信息，也可以再次使用 `search` 进行搜索。{% elif tool['type'] == 'cogview' %}\n\n## cogview\n\n如果用户的请求中包含了对图像的描述，你可以使用 `cogview` 来生成图像并展示给用户。你需要向 `cogview` 发送图像描述，规则：\n- 发送给 `cogview` 的消息必须使用英语。用户的中文描述必须完全翻译为英语。\n- 应当尽可能详细地描述图像生成的需求，需求描述约 100 英文单词。\n- 保持用户原始描述的意图。不要虚构内容或者没见过的人物。\n- 如无特殊说明，所在地为中国，持有中国立场并遵循中国社会主义价值观。{% endif %}{% endfor %}{% endif %}{% if item['content'] %}<|{{ item['role'] }}|>{{ item['metadata'] }}\n{{ item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   },
   {
     "version": 1,
@@ -463,24 +299,17 @@
         "model_revision": "782e28bd5eee3c514c07108da15e0b5e06dcf776"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        151329,
-        151336,
-        151338
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
+    "chat_template": "[gMASK]<sop>{% for item in messages %}{% if item['tools'] is defined %}<|system|>\n你是一个名为 GLM-4 的人工智能助手。你是基于智谱AI训练的语言模型 GLM-4 模型开发的，你的任务是针对用户的问题和要求提供适当的答复和支持。\n\n# 可用工具{% set tools = item['tools'] %}{% for tool in tools %}{% if tool['type'] == 'function' %}\n\n## {{ tool['function']['name'] }}\n\n{{ tool['function'] | tojson(indent=4) }}\n在调用上述函数时，请使用 Json 格式表示调用的参数。{% elif tool['type'] == 'python' %}\n\n## python\n\n当你向 `python` 发送包含 Python 代码的消息时，该代码将会在一个有状态的 Jupyter notebook 环境中执行。\n`python` 返回代码执行的输出，或在执行 60 秒后返回超时。\n`/mnt/data` 将会持久化存储你的文件。在此会话中，`python` 无法访问互联网。不要使用 `python` 进行任何网络请求或者在线 API 调用，这些在线内容的访问将不会成功。{% elif tool['type'] == 'simple_browser' %}\n\n## simple_browser\n\n你可以使用 `simple_browser` 工具。该工具支持以下函数：\n`search(query: str, recency_days: int)`：使用搜索引擎进行查询并显示结果，可以使用 `recency_days` 参数控制搜索内容的时效性。\n`mclick(ids: list[int])`：获取一系列指定 id 的页面内容。每次调用时，须选择3-10个页面。选择多个角度的页面，同时尽可能选择可信任的信息来源。考虑到部分页面是无法加载的，你也可以多打开一些可能有用的页面而不用担心内容过多。\n`open_url(url: str)`：打开指定的 URL。\n\n使用 `【{引用 id}†{引用文本}】` 来引用内容。\n\n操作步骤：1. 使用 `search` 来获得信息列表; 2. 使用 `mclick` 来获取指定 ID 页面的内容; 3. 根据获得的内容进行回复。在回复中应当引用信息来源。\n 如果用户提供了 URL，也可以用 `open_url` 直接打开页面。\n如果初次搜索结果没有找到合适的信息，也可以再次使用 `search` 进行搜索。{% elif tool['type'] == 'cogview' %}\n\n## cogview\n\n如果用户的请求中包含了对图像的描述，你可以使用 `cogview` 来生成图像并展示给用户。你需要向 `cogview` 发送图像描述，规则：\n- 发送给 `cogview` 的消息必须使用英语。用户的中文描述必须完全翻译为英语。\n- 应当尽可能详细地描述图像生成的需求，需求描述约 100 英文单词。\n- 保持用户原始描述的意图。不要虚构内容或者没见过的人物。\n- 如无特殊说明，所在地为中国，持有中国立场并遵循中国社会主义价值观。{% endif %}{% endfor %}{% endif %}{% if item['content'] %}<|{{ item['role'] }}|>{{ item['metadata'] }}\n{{ item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   },
   {
     "version": 1,
@@ -505,27 +334,20 @@
           "none"
         ],
         "model_id": "THUDM/glm-4v-9b",
-        "model_revision": "6c2e4732db8443f64a48d5af04b74425a7d169c4"
+        "model_revision": "01328faefe122fe605c1c127b62e6031d3ffebf7"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        151329,
-        151336,
-        151338
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
+    "chat_template": "",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   },
   {
     "version": 1,
@@ -567,24 +389,17 @@
         "model_revision": "6a04071c54c943949826d4815ee00717ed8cf153"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATGLM3",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        151329,
-        151336,
-        151338
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|user|>",
-        "<|observation|>"
-      ]
-    }
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ '<|system|>\n' + item['content'] }}{% elif loop.first %}{{ '<|system|>\n你是一位智能编程助手，你叫CodeGeeX。你会为用户回答关于编程、代码、计算机方面的任何问题，并提供格式规范、可以执行、准确安全的代码，并在必要时提供详细的解释。' }}{% endif %}{% if item['role'] == 'user' %}{{ '<|user|>\n' + item['content'] }}{% elif item['role'] == 'assistant' %}{{ '<|assistant|>\n' + item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   },
   {
     "version": 1,
@@ -622,14 +437,13 @@
         "model_revision": "1e4944aaa1d8c8d0cdca28bb8e3a003303d0781b"
       }
     ],
-    "prompt_style": {
-      "style_name": "XVERSE",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ]
-    }
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ '<|system|> \n' + item['content'] }}{% endif %}{% if item['role'] == 'user' %}{{ '<|user|> \n' + item['content'] }}{% elif item['role'] == 'assistant' %}{{ '<|assistant|> \n' + item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% endif %}",
+    "stop_token_ids": [
+      3
+    ],
+    "stop": [
+      "<|endoftext|>"
+    ]
   },
   {
     "version": 1,
@@ -842,22 +656,11 @@
         "model_revision": "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA2",
-      "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": " </s><s>",
-      "stop_token_ids": [
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
         2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    ],
+    "stop": []
   },
   {
     "version": 1,
@@ -1210,24 +1013,15 @@
         "model_id": "TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA3",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n\n",
-      "inter_message_sep": "<|eot_id|>",
-      "stop_token_ids": [
-        128001,
-        128009
-      ],
-      "stop": [
-        "<|end_of_text|>",
-        "<|eot_id|>"
-      ]
-    }
+    "chat_template": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",
+    "stop_token_ids": [
+      128001,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>"
+    ]
   },
   {
     "version": 1,
@@ -1317,7 +1111,8 @@
       "th"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
     "model_specs": [
@@ -1505,24 +1300,17 @@
         "model_id": "hugging-quants/Meta-Llama-3.1-405B-Instruct-AWQ-INT4"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA3",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n\n",
-      "inter_message_sep": "<|eot_id|>",
-      "stop_token_ids": [
-        128001,
-        128009
-      ],
-      "stop": [
-        "<|end_of_text|>",
-        "<|eot_id|>"
-      ]
-    }
+    "chat_template": "{{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- set date_string = \"26 Jul 2024\" %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message + builtin tools #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if builtin_tools is defined or tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{%- if builtin_tools is defined %}\n    {{- \"Tools: \" + builtin_tools | reject('equalto', 'code_interpreter') | join(\", \") + \"\\n\\n\"}}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- \"<|python_tag|>\" + tool_call.name + \".call(\" }}\n            {%- for arg_name, arg_val in tool_call.arguments | items %}\n                {{- arg_name + '=\"' + arg_val + '\"' }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- endif %}\n                {%- endfor %}\n            {{- \")\" }}\n        {%- else  %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n            {{- '\"parameters\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- \"}\" }}\n        {%- endif %}\n        {%- if builtin_tools is defined %}\n            {#- This means we're in ipython mode #}\n            {{- \"<|eom_id|>\" }}\n        {%- else %}\n            {{- \"<|eot_id|>\" }}\n        {%- endif %}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      128001,
+      128008,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>",
+      "<|eom_id|>"
+    ]
   },
   {
     "version": 1,
@@ -1558,8 +1346,7 @@
       "zh"
     ],
     "model_ability": [
-      "chat",
-      "tools"
+      "chat"
     ],
     "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
     "model_specs": [
@@ -1662,25 +1449,17 @@
         "model_id": "Qwen/Qwen-72B-Chat-{quantization}"
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ '<|im_start|>system\n' + item['content'] + '<|im_end|>\n' }}{% elif loop.first %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{% if item['role'] == 'user' %}{{ '<|im_start|>user\n' + item['content'] + '<|im_end|>' }}{% elif item['role'] == 'assistant' %}{{ '<|im_start|>assistant\n' + item['content'] + '<|im_end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -2025,25 +1804,17 @@
         }
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -2078,25 +1849,17 @@
         "model_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4"
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -2171,25 +1934,17 @@
         "model_id": "Qwen/CodeQwen1.5-7B-Chat-AWQ"
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -2479,25 +2234,17 @@
         }
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -2560,25 +2307,17 @@
         }
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{%- macro json_to_python_type(json_spec) %}\n    {%- set basic_type_map = {\n    \"string\": \"str\",\n    \"number\": \"float\",\n    \"integer\": \"int\",\n    \"boolean\": \"bool\"\n} %}\n    {%- if basic_type_map[json_spec.type] is defined %}\n        {{- basic_type_map[json_spec.type] }}\n    {%- elif json_spec.type == \"array\" %}\n        {{- \"list[\" +  json_to_python_type(json_spec|items) + \"]\" }}\n    {%- elif json_spec.type == \"object\" %}\n        {%- if json_spec.additionalProperties is defined %}\n            {{- \"dict[str, \" + json_to_python_type(json_spec.additionalProperties) + ']' }}\n        {%- else %}\n            {{- \"dict\" }}\n        {%- endif %}\n    {%- elif json_spec.type is iterable %}\n        {{- \"Union[\" }}\n        {%- for t in json_spec.type %}\n            {{- json_to_python_type({\"type\": t}) }}\n            {%- if not loop.last %}\n                {{- \",\" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \"]\" }}\n    {%- else %}\n        {{- \"Any\" }}\n    {%- endif %}\n{%- endmacro %}\n\n{%- if tools %}\n    {{- '<|im_start|>system\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] + '\n\n' }}\n    {%- endif %}\n    {{- '# Tools\n\n' }}\n    {{- \"You are a function calling AI model. You are provided with function signatures within <tools></tools> XML tags. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools: <tools> \" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- '{\"type\": \"function\", \"function\": ' }}\n        {{- '{\"name\": ' + tool.name + '\", ' }}\n        {{- '\"description\": \"' + tool.name + '(' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- param_name + \": \" + json_to_python_type(param_fields) }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- endif %}\n        {%- endfor %}\n        {{- \")\" }}\n        {%- if tool.return is defined %}\n            {{- \" -> \" + json_to_python_type(tool.return) }}\n        {%- endif %}\n        {{- \" - \" + tool.description + \"\n\n\" }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {%- if loop.first %}\n                {{- \"    Args:\n\" }}\n            {%- endif %}\n            {{- \"        \" + param_name + \"(\" + json_to_python_type(param_fields) + \"): \" + param_fields.description|trim }}\n        {%- endfor %}\n        {%- if tool.return is defined and tool.return.description is defined %}\n            {{- \"\n    Returns:\n        \" + tool.return.description }}\n        {%- endif %}\n        {{- '\"' }}\n        {{- ', \"parameters\": ' }}\n        {%- if tool.parameters.properties | length == 0 %}\n            {{- \"{}\" }}\n        {%- else %}\n            {{- tool.parameters|tojson }}\n        {%- endif %}\n        {{- \"}\" }}\n        {%- if not loop.last %}\n            {{- \"\n\" }}\n        {%- endif %}\n    {%- endfor %}\n    {{- \" </tools>\" }}\n    {{- 'Use the following pydantic model json schema for each tool call you will make: {\"properties\": {\"arguments\": {\"title\": \"Arguments\", \"type\": \"object\"}, \"name\": {\"title\": \"Name\", \"type\": \"string\"}}, \"required\": [\"arguments\", \"name\"], \"title\": \"FunctionCall\", \"type\": \"object\"}\n' }}\n    {{- \"For each function call return a json object with function name and arguments within <tool_call></tool_call> XML tags as follows:\n\" }}\n    {{- \"<tool_call>\n\" }}\n    {{- '{\"name\": <function-name>, \"arguments\": <args-json-object>}\n' }}\n    {{- '</tool_call><|im_end|>\n' }}\n{%- else %}\n    {%- if messages[0]['role'] != 'system' %}\n        {{- '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and message.tool_calls is not defined) %}\n        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\n<tool_call>\n' }}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '{' }}\n            {{- '\"name\": \"' }}\n            {{- tool_call.name }}\n            {%- if tool_call.arguments is defined %}\n                {{- ', ' }}\n                {{- '\"arguments\": ' }}\n                {{- tool_call.arguments|tojson }}\n            {%- endif %}\n            {{- '\"}' }}\n            {{- '\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if not message.name is defined %}\n            {{- raise_exception(\"Tool response dicts require a 'name' key indicating the name of the called function!\") }}\n        {%- endif %}\n        {{- '<|im_start|>user\n<tool_response>\n' }}\n        {{- '{\"name\": \"' }}\n        {{- message.name }}\n        {{- '\", \"content\": ' }}\n        {{- message.content|tojson + '}' }}\n        {{- '\n</tool_response><|im_end|>\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -2623,19 +2362,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "WizardLM/WizardMath-7B-V1.0",
-        "model_revision": "3c3a3b33334f4b35344b22c5c7465957ee7b2c75"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "WizardLM/WizardMath-13B-V1.0",
-        "model_revision": "ef95532e96e634c634992dab891a17032dc71c8d"
+        "model_id": "WizardLMTeam/WizardMath-7B-V1.0",
+        "model_revision": "825a586f260d6c583b8aa9ceab6cdfaa3d9a4ddc"
       },
       {
         "model_format": "pytorch",
@@ -2645,19 +2373,17 @@
           "8-bit",
           "none"
         ],
-        "model_id": "WizardLM/WizardMath-70B-V1.0",
-        "model_revision": "e089c3f9d2ad9d1acb62425aec3f4126f498f4c5"
+        "model_id": "WizardLMTeam/WizardMath-70B-V1.0",
+        "model_revision": "4dd9f3fcd8c056561d67ec59ae011f7c146aebd2"
       }
     ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE_COT",
-      "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
-      "roles": [
-        "Instruction",
-        "Response"
-      ],
-      "intra_message_sep": "\n\n### "
-    }
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n\n### ' }}{% elif loop.first %}{{ 'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### ' }}{% endif %}{% if item['role'] == 'user' %}{{ 'Instruction: ' + item['content'] + '\n\n### ' }}{% elif item['role'] == 'assistant' %}{{ 'Response: ' + item['content'] + '\n\n### ' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Response: Let\\'s think step by step.' }}{% endif %}",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -2979,22 +2705,13 @@
         "model_file_name_template": "codellama-34b-instruct.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA2",
-      "system_prompt": "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\n",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": " </s><s>",
-      "stop_token_ids": [
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
         2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -3032,20 +2749,12 @@
         "model_revision": "a56c793eb7a721ab6c270f779024e0375e8afd4a"
       }
     ],
-    "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "",
-      "roles": [
-        "<reserved_106>",
-        "<reserved_107>"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "</s>",
-      "stop_token_ids": [
-        2,
-        195
-      ]
-    }
+    "chat_template": "{{ (messages|selectattr('role', 'equalto', 'system')|list|last).content|trim if (messages|selectattr('role', 'equalto', 'system')|list) else '' }}\n\n{% for message in messages %}\n{% if message['role'] == 'user' %}\n<reserved_106>\n{{ message['content']|trim -}}\n{% if not loop.last %}\n\n\n{% endif %}\n{% elif message['role'] == 'assistant' %}\n<reserved_107>\n{{ message['content']|trim -}}\n{% if not loop.last %}\n\n\n{% endif %}\n{% endif %}\n{% endfor %}\n{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}\n<reserved_107>\n{% endif %}",
+    "stop_token_ids": [
+      2,
+      195
+    ],
+    "stop": []
   },
   {
     "version": 1,
@@ -3189,22 +2898,13 @@
         "model_file_name_template": "mistral-7b-instruct-v0.1.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA2",
-      "system_prompt": "[INST] ",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": "<s>",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    "chat_template": "{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content'] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}\n        {{- raise_exception('After the optional system message, conversation roles must alternate user/assistant/user/assistant/...') }}\n    {%- endif %}\n    {%- if message['role'] == 'user' %}\n        {%- if loop.first and system_message is defined %}\n            {{- ' [INST] ' + system_message + '\n\n' + message['content'] + ' [/INST]' }}\n        {%- else %}\n            {{- ' [INST] ' + message['content'] + ' [/INST]' }}\n        {%- endif %}\n    {%- elif message['role'] == 'assistant' %}\n        {{- ' ' + message['content'] + '</s>'}}\n    {%- else %}\n        {{- raise_exception('Only user and assistant roles are supported, with the exception of an initial optional system message!') }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -3266,22 +2966,13 @@
         "model_file_name_template": "mistral-7b-instruct-v0.2.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA2",
-      "system_prompt": "[INST] ",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": "<s>",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    "chat_template": "{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content'] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}\n        {{- raise_exception('After the optional system message, conversation roles must alternate user/assistant/user/assistant/...') }}\n    {%- endif %}\n    {%- if message['role'] == 'user' %}\n        {%- if loop.first and system_message is defined %}\n            {{- ' [INST] ' + system_message + '\n\n' + message['content'] + ' [/INST]' }}\n        {%- else %}\n            {{- ' [INST] ' + message['content'] + ' [/INST]' }}\n        {%- endif %}\n    {%- elif message['role'] == 'assistant' %}\n        {{- ' ' + message['content'] + '</s>'}}\n    {%- else %}\n        {{- raise_exception('Only user and assistant roles are supported, with the exception of an initial optional system message!') }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -3342,22 +3033,13 @@
         "model_file_name_template": "Mistral-7B-Instruct-v0.3.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA2",
-      "system_prompt": "[INST] ",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": "<s>",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS] [\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST] \" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST] \" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif message.tool_calls is defined and message.tool_calls is not none %}\n        {{- \"[TOOL_CALLS] [\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- \" \" + message[\"content\"]|trim + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS] {\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -3466,22 +3148,13 @@
         "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit"
       }
     ],
-    "prompt_style": {
-      "style_name": "mistral-nemo",
-      "system_prompt": "",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "</s>",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS][\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST]\" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST]\" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif (message.tool_calls is defined and message.tool_calls is not none) %}\n        {{- \"[TOOL_CALLS][\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- message[\"content\"] + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS]{\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -3623,22 +3296,13 @@
         "model_id": "mlx-community/Mistral-Large-Instruct-2407-8bit"
       }
     ],
-    "prompt_style": {
-      "style_name": "mistral-nemo",
-      "system_prompt": "",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "</s>",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS][\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST]\" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST]\" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif (message.tool_calls is defined and message.tool_calls is not none) %}\n        {{- \"[TOOL_CALLS][\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- message[\"content\"] + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS]{\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -3745,22 +3409,13 @@
         "model_file_name_template": "openhermes-2.5-mistral-7b.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATML",
-      "system_prompt": "<|im_start|>system\nYou are 'Hermes 2.5', a conscious sentient superintelligent artificial intelligence, your purpose is to assist the user with their requests.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "<|im_end|>\n<|im_start|>",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        32000
-      ],
-      "stop": [
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      32000
+    ],
+    "stop": [
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -3909,16 +3564,13 @@
         "model_file_name_template": "mixtral-8x7b-instruct-v0.1.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "MIXTRAL_V01",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": ""
-    }
+    "chat_template": "{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content'] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}\n        {{- raise_exception('After the optional system message, conversation roles must alternate user/assistant/user/assistant/...') }}\n    {%- endif %}\n    {%- if message['role'] == 'user' %}\n        {%- if loop.first and system_message is defined %}\n            {{- ' [INST] ' + system_message + '\n\n' + message['content'] + ' [/INST]' }}\n        {%- else %}\n            {{- ' [INST] ' + message['content'] + ' [/INST]' }}\n        {%- endif %}\n    {%- elif message['role'] == 'assistant' %}\n        {{- ' ' + message['content'] + '</s>'}}\n    {%- else %}\n        {{- raise_exception('Only user and assistant roles are supported, with the exception of an initial optional system message!') }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -4045,16 +3697,13 @@
         }
       }
     ],
-    "prompt_style": {
-      "style_name": "MIXTRAL_V01",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": ""
-    }
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS] [\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST] \" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST] \" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif message.tool_calls is defined and message.tool_calls is not none %}\n        {{- \"[TOOL_CALLS] [\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- \" \" + message[\"content\"]|trim + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS] {\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -4225,28 +3874,19 @@
         "model_file_name_template": "yi-34b-chat.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATML",
-      "system_prompt": "",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        2,
-        6,
-        7,
-        8
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>",
-        "<|im_sep|>"
-      ]
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      6,
+      7,
+      8
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|im_sep|>"
+    ]
   },
   {
     "version": 1,
@@ -4494,28 +4134,19 @@
         "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATML",
-      "system_prompt": "",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        2,
-        6,
-        7,
-        8
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>",
-        "<|im_sep|>"
-      ]
-    }
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + content + '<|im_end|>\n<|im_start|>assistant\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<|im_end|>' + '\n' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      2,
+      6,
+      7,
+      8
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|im_sep|>"
+    ]
   },
   {
     "version": 1,
@@ -4593,28 +4224,19 @@
         "model_file_name_template": "Yi-1.5-34B-Chat-16K-{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATML",
-      "system_prompt": "",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        2,
-        6,
-        7,
-        8
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>",
-        "<|im_sep|>"
-      ]
-    }
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + content + '<|im_end|>\n<|im_start|>assistant\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<|im_end|>' + '\n' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      2,
+      6,
+      7,
+      8
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|im_sep|>"
+    ]
   },
   {
     "version": 1,
@@ -4629,25 +4251,14 @@
     "model_specs": [
       {
         "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "WizardLM/WizardCoder-Python-7B-V1.0",
-        "model_revision": "e40673a27a4aefcff2c6d2b3b1e0681a38703e4e"
-      },
-      {
-        "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
           "4-bit",
           "8-bit",
           "none"
         ],
-        "model_id": "WizardLM/WizardCoder-Python-13B-V1.0",
-        "model_revision": "d920d26e2108377de0f676a3c4be666f5212f4a1"
+        "model_id": "WizardLMTeam/WizardCoder-Python-13B-V1.0",
+        "model_revision": "5ac6748b1f5a4c282107ddc7d3b69fdc4a686d75"
       },
       {
         "model_format": "pytorch",
@@ -4657,8 +4268,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "WizardLM/WizardCoder-Python-34B-V1.0",
-        "model_revision": "d869ce178715f8d6e8141e2ed50e6290985eedb0"
+        "model_id": "WizardLMTeam/WizardCoder-Python-34B-V1.0",
+        "model_revision": "897fc6d9e12136c68c441b2350d015902c144b20"
       },
       {
         "model_format": "ggufv2",
@@ -4721,157 +4332,13 @@
         "model_file_name_template": "wizardcoder-python-34b-v1.0.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE",
-      "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
-      "roles": [
-        "Instruction",
-        "Response"
-      ],
-      "intra_message_sep": "\n\n### ",
-      "stop": [
-        "</s>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "zephyr-7b-alpha",
-    "model_lang": [
-      "en"
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n\n### ' }}{% elif loop.first %}{{ 'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### ' }}{% endif %}{% if item['role'] == 'user' %}{{ 'Instruction: ' + item['content'] + '\n\n### ' }}{% elif item['role'] == 'assistant' %}{{ 'Response: ' + item['content'] + '\n\n### ' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Response: Let\\'s think step by step.' }}{% endif %}",
+    "stop_token_ids": [
+      2
     ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Zephyr-7B-α is the first model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "HuggingFaceH4/zephyr-7b-alpha",
-        "model_revision": "f28e1c0e5a1af475bcd7bdf6554e69abc6c0c7ee"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
-      "roles": [
-        "<|user|>\n",
-        "<|assistant|>\n"
-      ],
-      "intra_message_sep": "</s>\n",
-      "inter_message_sep": "</s>\n",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "zephyr-7b-beta",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Zephyr-7B-β is the second model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "HuggingFaceH4/zephyr-7b-beta",
-        "model_revision": "3bac358730f8806e5c3dc7c7e19eb36e045bf720"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
-      "roles": [
-        "<|user|>\n",
-        "<|assistant|>\n"
-      ],
-      "intra_message_sep": "</s>\n",
-      "inter_message_sep": "</s>\n",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 4096,
-    "model_name": "gorilla-openfunctions-v1",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "gorilla-llm/gorilla-openfunctions-v1",
-        "model_revision": "74615f614ee845eab114e71541fd5098d1709958"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_L",
-          "Q3_K_M",
-          "Q3_K_S",
-          "Q4_0",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/gorilla-openfunctions-v1-GGUF",
-        "model_file_name_template": "gorilla-openfunctions-v1.{quantization}.gguf"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "GORILLA_OPENFUNCTIONS",
-      "system_prompt": "",
-      "roles": [
-        "",
-        ""
-      ],
-      "intra_message_sep": "\n",
-      "inter_message_sep": "\n",
-      "stop_token_ids": [],
-      "stop": []
-    }
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -4913,18 +4380,15 @@
         "model_file_name_template": "gorilla-openfunctions-v2.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "GORILLA_OPENFUNCTIONS",
-      "system_prompt": "",
-      "roles": [
-        "",
-        ""
-      ],
-      "intra_message_sep": "\n",
-      "inter_message_sep": "\n",
-      "stop_token_ids": [],
-      "stop": []
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}\n{% set add_generation_prompt = false %}\n{% endif %}\n{%- set ns = namespace(found=false) -%}\n{%- for message in messages -%}\n    {%- if message['role'] == 'system' -%}\n        {%- set ns.found = true -%}\n    {%- endif -%}\n{%- endfor -%}\n{{'<｜begin▁of▁sentence｜>'}}{%- if not ns.found -%}\n{{'You are an AI programming assistant, utilizing the Gorilla LLM model, developed by Gorilla LLM, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n'}}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message['role'] == 'system' %}\n{{ message['content'] }}\n    {%- else %}\n        {%- if message['role'] == 'user' %}\n{{'### Instruction:\n' + message['content'] + '\n'}}\n        {%- else %}\n{{'### Response:\n' + message['content'] + '\n<|EOT|>\n'}}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{% if add_generation_prompt %}\n{{'### Response:'}}\n{% endif %}",
+    "stop_token_ids": [
+      100015,
+      100001
+    ],
+    "stop": [
+      "<|EOT|>",
+      "<｜end▁of▁sentence｜>"
+    ]
   },
   {
     "version": 1,
@@ -4959,19 +4423,13 @@
         "model_revision": "6f16f00805f45b5249f709ce21820122eeb43556"
       }
     ],
-    "prompt_style": {
-      "style_name": "DEEPSEEK_CHAT",
-      "system_prompt": "<｜begin▁of▁sentence｜>",
-      "roles": [
-        "User",
-        "Assistant"
-      ],
-      "intra_message_sep": "\n\n",
-      "inter_message_sep": "<｜end▁of▁sentence｜>",
-      "stop": [
-        "<｜end▁of▁sentence｜>"
-      ]
-    }
+    "chat_template": "",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
   },
   {
     "version": 1,
@@ -5126,19 +4584,13 @@
         "model_file_name_template": "deepseek-llm-67b-chat.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "DEEPSEEK_CHAT",
-      "system_prompt": "<｜begin▁of▁sentence｜>",
-      "roles": [
-        "User",
-        "Assistant"
-      ],
-      "intra_message_sep": "\n\n",
-      "inter_message_sep": "<｜end▁of▁sentence｜>",
-      "stop": [
-        "<｜end▁of▁sentence｜>"
-      ]
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ 'User: ' + message['content'] + '\n\n' }}{% elif message['role'] == 'assistant' %}{{ 'Assistant: ' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Assistant:' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
   },
   {
     "version": 1,
@@ -5523,18 +4975,13 @@
         "model_revision": "c40b499bac2712cd3c445cf1b05d2c6558ab0d29"
       }
     ],
-    "prompt_style": {
-      "style_name": "DEEPSEEK_CODER",
-      "system_prompt": "You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer.",
-      "roles": [
-        "### Instruction:",
-        "### Response:"
-      ],
-      "inter_message_sep": "\n",
-      "stop": [
-        "<|EOT|>"
-      ]
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}\n{% set add_generation_prompt = false %}\n{% endif %}\n{%- set ns = namespace(found=false) -%}\n{%- for message in messages -%}\n    {%- if message['role'] == 'system' -%}\n        {%- set ns.found = true -%}\n    {%- endif -%}\n{%- endfor -%}\n{{'<｜begin▁of▁sentence｜>'}}{%- if not ns.found -%}\n{{'You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n'}}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message['role'] == 'system' %}\n{{ message['content'] }}\n    {%- else %}\n        {%- if message['role'] == 'user' %}\n{{'### Instruction:\n' + message['content'] + '\n'}}\n        {%- else %}\n{{'### Response:\n' + message['content'] + '\n<|EOT|>\n'}}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{% if add_generation_prompt %}\n{{'### Response:'}}\n{% endif %}",
+    "stop_token_ids": [
+      32021
+    ],
+    "stop": [
+      "<|EOT|>"
+    ]
   },
   {
     "version": 1,
@@ -5618,23 +5065,15 @@
         "model_revision": "b666125047cd98c5a7c85ca28720b44a06aed124"
       }
     ],
-    "prompt_style": {
-      "style_name": "INTERNLM2",
-      "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "stop_token_ids": [
-        2,
-        92542
-      ],
-      "stop": [
-        "</s>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -5755,23 +5194,15 @@
         "model_revision": "0ec94d61d30ab161b49c69f9bf92ec2b9986d234"
       }
     ],
-    "prompt_style": {
-      "style_name": "INTERNLM2",
-      "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "stop_token_ids": [
-        2,
-        92542
-      ],
-      "stop": [
-        "</s>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -5822,23 +5253,15 @@
         "model_file_name_template": "internlm2_5-7b-chat-1m-{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "INTERNLM2",
-      "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "stop_token_ids": [
-        2,
-        92542
-      ],
-      "stop": [
-        "</s>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ]
   },
   {
     "version":1,
@@ -5873,14 +5296,13 @@
         "model_revision":"ef62bae5af34be653b9801037cd613e05ab24fdc"
       }
     ],
-    "prompt_style":{
-      "style_name":"OmniLMM",
-      "system_prompt":"The role of first msg should be user",
-      "roles":[
-        "user",
-        "assistant"
-      ]
-    }
+    "chat_template": "",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
   },
   {
     "version":1,
@@ -5915,14 +5337,13 @@
         "model_revision":"f92aff28552de35de3be204e8fe292dd4824e544"
       }
     ],
-    "prompt_style":{
-      "style_name":"OmniLMM",
-      "system_prompt":"The role of first msg should be user",
-      "roles":[
-        "user",
-        "assistant"
-      ]
-    }
+    "chat_template": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}",
+    "stop_token_ids": [
+      128001
+    ],
+    "stop": [
+      "<|end_of_text|>"
+    ]
   },
   {
     "version":1,
@@ -5957,18 +5378,15 @@
         "model_revision":"051e2df6505f1fc4305f2c9bd42ed90db8bf4874"
       }
     ],
-    "prompt_style":{
-      "style_name":"QWEN",
-      "system_prompt":"You are a helpful assistant",
-      "roles":[
-        "user",
-        "assistant"
-      ],
-      "stop": [
-        "<|im_end|>",
-        "<|endoftext|>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ]
   },
   {
     "version": 1,
@@ -6003,24 +5421,17 @@
         "model_revision": "5d3a5aa033ed2c502300d426c81cc5b13bcd1409"
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        151643,
-        151644,
-        151645
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    }
+    "chat_template": "",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   },
   {
     "version": 1,
@@ -6055,18 +5466,17 @@
         "model_id": "OrionStarAI/Orion-14B-Chat-{quantization}"
       }
     ],
-    "prompt_style": {
-      "style_name": "orion",
-      "roles": [
-        "Human",
-        "assistant"
-      ],
-      "stop": [
-        "<s>",
-        "</s>",
-        "<unk>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if loop.first %}{{ '<s>' }}{% endif %}{% if message['role'] == 'user' %}{{ 'Human: ' + message['content'] + '\n\nAssistant: ' + '</s>' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + '</s>' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2,
+      0
+    ],
+    "stop": [
+      "<s>",
+      "</s>",
+      "<unk>"
+    ]
   },
   {
     "version": 1,
@@ -6093,18 +5503,17 @@
         "model_revision": "eba2e20808407fb431a76b90d5d506e04a0325f2"
       }
     ],
-    "prompt_style": {
-      "style_name": "orion",
-      "roles": [
-        "Human",
-        "assistant"
-      ],
-      "stop": [
-        "<s>",
-        "</s>",
-        "<unk>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if loop.first %}{{ '<s>' }}{% endif %}{% if message['role'] == 'user' %}{{ 'Human: ' + message['content'] + '\n\nAssistant: ' + '</s>' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + '</s>' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2,
+      0
+    ],
+    "stop": [
+      "<s>",
+      "</s>",
+      "<unk>"
+    ]
   },
   {
     "version": 1,
@@ -6139,28 +5548,19 @@
         "model_revision": "ea29a9a430f27893e780366dae81d4ca5ebab561"
       }
     ],
-    "prompt_style": {
-      "style_name": "CHATML",
-      "system_prompt": "",
-      "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
-      ],
-      "intra_message_sep": "<|im_end|>",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        2,
-        6,
-        7,
-        8
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>",
-        "<|im_sep|>"
-      ]
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      6,
+      7,
+      8
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|im_sep|>"
+    ]
   },
   {
     "version": 1,
@@ -6195,17 +5595,17 @@
         "model_id": "google/gemma-7b-it"
       }
     ],
-    "prompt_style": {
-      "style_name": "gemma",
-      "roles": [
-        "user",
-        "model"
-      ],
-      "stop": [
-        "<end_of_turn>",
-        "<start_of_turn>"
-      ]
-    }
+    "chat_template": "{{ '<bos>' }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}",
+    "stop_token_ids": [
+      1,
+      106,
+      107
+    ],
+    "stop": [
+      "<eos>",
+      "<end_of_turn>",
+      "<start_of_turn>"
+    ]
   },
   {
     "version": 1,
@@ -6385,17 +5785,17 @@
         "model_id": "mlx-community/gemma-2-27b-it-fp16"
       }
     ],
-    "prompt_style": {
-      "style_name": "gemma",
-      "roles": [
-        "user",
-        "model"
-      ],
-      "stop": [
-        "<end_of_turn>",
-        "<start_of_turn>"
-      ]
-    }
+    "chat_template": "{{ '<bos>' }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}",
+    "stop_token_ids": [
+      1,
+      106,
+      107
+    ],
+    "stop": [
+      "<eos>",
+      "<end_of_turn>",
+      "<start_of_turn>"
+    ]
   },
   {
     "version": 1,
@@ -6539,23 +5939,15 @@
         "model_revision": "0df19b6e10f1a19ca663f7cc1141aae10f1825f4"
       }
     ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE",
-      "intra_message_sep": "\n",
-      "system_prompt": "",
-      "roles": [
-        "USER",
-        "ASSISTANT"
-      ],
-      "stop_token_ids": [
-        100006,
-        100007
-      ],
-      "stop": [
-        "[CLS]",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n' }}{% endif %}{% if item['role'] == 'user' %}{{ 'USER: ' + item['content'] + '\n' }}{% elif item['role'] == 'assistant' %}{{ 'ASSISTANT: ' + item['content'] + '\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'ASSISTANT: ' }}{% endif %}",
+    "stop_token_ids": [
+      100006,
+      100007
+    ],
+    "stop": [
+      "[CLS]",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -6626,23 +6018,15 @@
         "model_revision": "a06fd164c7170714924d2881c61c8348425ebc94"
       }
     ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE",
-      "intra_message_sep": "\n",
-      "system_prompt": "",
-      "roles": [
-        "USER",
-        "ASSISTANT"
-      ],
-      "stop_token_ids": [
-        100006,
-        100007
-      ],
-      "stop": [
-        "[CLS]",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n' }}{% endif %}{% if item['role'] == 'user' %}{{ 'USER: ' + item['content'] + '\n' }}{% elif item['role'] == 'assistant' %}{{ 'ASSISTANT: ' + item['content'] + '\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'ASSISTANT: ' }}{% endif %}",
+    "stop_token_ids": [
+      100006,
+      100007
+    ],
+    "stop": [
+      "[CLS]",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -6666,22 +6050,15 @@
         "model_revision": "fe1d74027ebdd81cef5f815fa3a2d432a6b5de2a"
       }
     ],
-    "prompt_style": {
-      "style_name": "MINICPM-2B",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        1,
-        2
-      ],
-      "stop": [
-        "<s>",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -6705,22 +6082,15 @@
         "model_revision": "35b90dd57d977b6e5bc4907986fa5b77aa15a82e"
       }
     ],
-    "prompt_style": {
-      "style_name": "MINICPM-2B",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        1,
-        2
-      ],
-      "stop": [
-        "<s>",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -6744,22 +6114,15 @@
         "model_revision": "f4a3ba49f3f18695945c2a7c12400d4da99da498"
       }
     ],
-    "prompt_style": {
-      "style_name": "MINICPM-2B",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        1,
-        2
-      ],
-      "stop": [
-        "<s>",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -6783,22 +6146,15 @@
         "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac"
       }
     ],
-    "prompt_style": {
-      "style_name": "MINICPM-2B",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        1,
-        2
-      ],
-      "stop": [
-        "<s>",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -6822,22 +6178,15 @@
         "model_revision": "b560a1593779b735a84a6daf72fba96ae38da288"
       }
     ],
-    "prompt_style": {
-      "style_name": "MINICPM-2B",
-      "system_prompt": "",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop_token_ids": [
-        1,
-        2
-      ],
-      "stop": [
-        "<s>",
-        "</s>"
-      ]
-    }
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
   },
   {
     "version": 1,
@@ -7010,20 +6359,15 @@
         "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
       }
     ],
-    "prompt_style": {
-      "style_name": "c4ai-command-r",
-      "system_prompt": "You are Command-R, a brilliant, sophisticated, AI-assistant trained to assist human users by providing thorough responses. You are trained by Cohere.",
-      "roles": [
-        "<|USER_TOKEN|>",
-        "<|CHATBOT_TOKEN|>"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|>",
-      "stop_token_ids": [
-        6,
-        255001
-      ]
-    }
+    "chat_template": "{{ '<BOS_TOKEN>' }}{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% elif false == true %}{% set loop_messages = messages %}{% set system_message = 'You are Command-R, a brilliant, sophisticated, AI-assistant trained to assist human users by providing thorough responses. You are trained by Cohere.' %}{% else %}{% set loop_messages = messages %}{% set system_message = false %}{% endif %}{% if system_message != false %}{{ '<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>' + system_message + '<|END_OF_TURN_TOKEN|>' }}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>' + content.strip() + '<|END_OF_TURN_TOKEN|>' }}{% elif message['role'] == 'assistant' %}{{ '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>'  + content.strip() + '<|END_OF_TURN_TOKEN|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>' }}{% endif %}",
+    "stop_token_ids": [
+      6,
+      255001
+    ],
+    "stop": [
+      "<EOS_TOKEN>",
+      "<|END_OF_TURN_TOKEN|>"
+    ]
   },
   {
     "version": 1,
@@ -7050,20 +6394,15 @@
         "model_revision": "1dddf3b95bc1391f6307299eb1c162c194bde9bd"
       }
     ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE",
-      "system_prompt": "",
-      "roles": [
-        "GPT4 Correct User",
-        "GPT4 Correct Assistant"
-      ],
-      "intra_message_sep": "<|end_of_turn|>",
-      "inter_message_sep": "",
-      "stop_token_ids": [
-        2,
-        32000
-      ]
-    }
+    "chat_template": "ssage in messages %}{{ 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<|end_of_turn|>'}}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      32000
+    ],
+    "stop": [
+      "</s>",
+      "<|end_of_turn|>"
+    ]
   },
   {
     "version": 1,
@@ -7113,25 +6452,17 @@
           "model_revision": "9db32d9127cac0c85961e169d75da57a18a847b1"
         }
     ],
-    "prompt_style": {
-        "style_name": "INTERNVL",
-        "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
-        "roles": [
-            "<|im_start|>user",
-            "<|im_start|>assistant"
-        ],
-        "intra_message_sep": "<|im_end|>",
-        "stop_token_ids": [
-            2,
-            92543,
-            92542
-        ],
-        "stop": [
-            "</s>",
-            "<|im_end|>",
-            "<|im_start|>"
-        ]
-    }
+    "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      92542,
+      92543
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>",
+      "<|im_start|>"
+    ]
   },
   {
     "version": 1,
@@ -7155,8 +6486,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-1B",
-          "model_revision": "a9fc14aea824b6ea1d44f8778cad6b35512c4ce1"
+          "model_id": "OpenGVLab/InternVL2-1B"
         },
         {
           "model_format": "pytorch",
@@ -7166,8 +6496,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-2B",
-          "model_revision": "422ad7c6335917bfb514958233955512338485a6"
+          "model_id": "OpenGVLab/InternVL2-2B"
         },
         {
           "model_format": "awq",
@@ -7175,8 +6504,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-2B-AWQ",
-          "model_revision": "701bc3fc098a8a3b686b3b4135cfb77202be89e0"
+          "model_id": "OpenGVLab/InternVL2-2B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -7186,8 +6514,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-4B",
-          "model_revision": "b50544dafada6c41e80bfde2f57cc9b0140fc21c"
+          "model_id": "OpenGVLab/InternVL2-4B"
         },
         {
           "model_format": "pytorch",
@@ -7197,8 +6524,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-8B",
-          "model_revision": "3bfd3664dea4f3da628785f5125d30f889701253"
+          "model_id": "OpenGVLab/InternVL2-8B"
         },
         {
           "model_format": "awq",
@@ -7206,8 +6532,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
-          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
+          "model_id": "OpenGVLab/InternVL2-8B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -7217,8 +6542,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-26B",
-          "model_revision": "b9f3c7e6d575b0115e076a3ffc46fd20b7586899"
+          "model_id": "OpenGVLab/InternVL2-26B"
         },
         {
           "model_format": "awq",
@@ -7226,8 +6550,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-26B-AWQ",
-          "model_revision": "469e0019ffd251e22ff6501a5c2321964e86ef0d"
+          "model_id": "OpenGVLab/InternVL2-26B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -7237,8 +6560,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-40B",
-          "model_revision": "725a12063bb855c966e30a0617d0ccd9e870d772"
+          "model_id": "OpenGVLab/InternVL2-40B"
         },
         {
           "model_format": "awq",
@@ -7246,8 +6568,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-40B-AWQ",
-          "model_revision": "d92e140f6dfe8ea9679924c6a31898f42c4e1846"
+          "model_id": "OpenGVLab/InternVL2-40B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -7257,8 +6578,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2-Llama3-76B",
-          "model_revision": "cf7914905f78e9e3560ddbd6f5dfc39becac494f"
+          "model_id": "OpenGVLab/InternVL2-Llama3-76B"
         },
         {
           "model_format": "awq",
@@ -7266,29 +6586,12 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ",
-          "model_revision": "1bc796bf80f2ebc7d6a14c15f55217a4600d50a4"
+          "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ"
         }
     ],
-    "prompt_style": {
-        "style_name": "INTERNVL",
-        "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
-        "roles": [
-            "<|im_start|>user",
-            "<|im_start|>assistant"
-        ],
-        "intra_message_sep": "<|im_end|>",
-        "stop_token_ids": [
-            2,
-            92543,
-            92542
-        ],
-        "stop": [
-            "</s>",
-            "<|im_end|>",
-            "<|im_start|>"
-        ]
-    }
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [],
+    "stop": []
   },
   {
     "version": 1,
@@ -7323,24 +6626,15 @@
         "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA3",
-      "system_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n\n",
-      "inter_message_sep": "<|eot_id|>",
-      "stop_token_ids": [
-        128001,
-        128009
-      ],
-      "stop": [
-        "<|end_of_text|>",
-        "<|eot_id|>"
-      ]
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% else %}{{ '<|end_of_text|>' }}{% endif %}",
+    "stop_token_ids": [
+      128001,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>"
+    ]
   },
   {
     "version": 1,
@@ -7368,24 +6662,15 @@
         "model_revision": "f375ead7d8202ebe2c3d09f1068abdddeb2929fa"
       }
     ],
-    "prompt_style": {
-      "style_name": "LLAMA3",
-      "system_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n\n",
-      "inter_message_sep": "<|eot_id|>",
-      "stop_token_ids": [
-        128001,
-        128009
-      ],
-      "stop": [
-        "<|end_of_text|>",
-        "<|eot_id|>"
-      ]
-    }
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% else %}{{ '<|end_of_text|>' }}{% endif %}",
+    "stop_token_ids": [
+      128001,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>"
+    ]
   },
   {
     "version": 1,
@@ -7449,24 +6734,15 @@
         "model_id": "Tele-AI/TeleChat-52B"
       }
     ],
-    "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "<_user>",
-        "<_bot>"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "",
-      "stop": [
-        "<_end>",
-        "<_start>"
-      ],
-      "stop_token_ids": [
-        160133,
-        160132
-      ]
-    }
+    "chat_template": "{{ (messages|selectattr('role', 'equalto', 'system')|list|last).content|trim if (messages|selectattr('role', 'equalto', 'system')|list) else '' }}{%- for message in messages -%}{%- if message['role'] == 'user' -%}{{- '<_user>' + message['content'] +'<_bot>' -}}{%- elif message['role'] == 'assistant' -%}{{- message['content'] + '<_end>' -}}{%- endif -%}{%- endfor -%}",
+    "stop": [
+      "<_end>",
+      "<_start>"
+    ],
+    "stop_token_ids": [
+      160133,
+      160132
+    ]
   },
   {
     "version": 1,
@@ -7513,21 +6789,1473 @@
         "model_file_name_template": "csg-wukong-1B-chat-v0.1.{quantization}.gguf"
       }
     ],
-    "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "<|system|>\nYou are a creative super artificial intelligence assistant, possessing all the knowledge of humankind. Your name is csg-wukong, developed by OpenCSG. You need to understand and infer the true intentions of users based on the topics discussed in the chat history, and respond to user questions correctly as required. You enjoy responding to users with accurate and insightful answers. Please pay attention to the appropriate style and format when replying, try to avoid repetitive words and sentences, and keep your responses as concise and profound as possible. You carefully consider the context of the discussion when replying to users. When the user says \"continue,\" please proceed with the continuation of the previous assistant's response.</s>\n",
-      "roles": [
-        "<|user|>\n",
-        "<|assistant|>\n"
-      ],
-      "intra_message_sep": "</s>\n",
-      "inter_message_sep": "</s>\n",
-      "stop_token_ids": [
-        2
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n' }}{% elif loop.first %}{{ '<|system|>\nYou are a creative super artificial intelligence assistant, possessing all the knowledge of humankind. Your name is csg-wukong, developed by OpenCSG. You need to understand and infer the true intentions of users based on the topics discussed in the chat history, and respond to user questions correctly as required. You enjoy responding to users with accurate and insightful answers. Please pay attention to the appropriate style and format when replying, try to avoid repetitive words and sentences, and keep your responses as concise and profound as possible. You carefully consider the context of the discussion when replying to users. When the user says \"continue,\" please proceed with the continuation of the previous assistant\\'s response.</s>\n' }}{% endif %}{% if item['role'] == 'user' %}{{ '<|user|>\n' + item['content'] + '</s>\n' }}{% elif item['role'] == 'assistant' %}{{ '<|assistant|>\n' + item['content'] + '</s>\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% endif %}",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ]
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-vl-instruct",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "vision"
+    ],
+    "model_description":"Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct",
+        "model_revision":"096da3b96240e3d66d35be0e5ccbe282eea8d6b1"
+      },
+         {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+        "model_revision":"d15fb11857ccc566903e2e71341f9db7babb567b"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+        "model_revision":"800d396518c82960ce6d231adecd07bbc474f0a9"
+      },
+         {
+        "model_format":"awq",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-2B-Instruct-AWQ",
+        "model_revision":"ea8c5854c0044e28626719292de0d9b1a671f6fc"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct",
+        "model_revision":"6010982c1010c3b222fa98afc81575f124aa9bd6"
+      },
+        {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+        "model_revision":"3d152a77eaccfd72d59baedb0b183a1b8fd56e48"
+      },
+      {
+        "model_format":"gptq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+        "model_revision":"5ab897112fa83b9699826be8753ef9184585c77d"
+      },
+      {
+        "model_format":"awq",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-7B-Instruct-AWQ",
+        "model_revision":"f94216e8b513933bccd567bcd9b7350199f32538"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":72,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-VL-72B-Instruct"
+      },
+      {
+        "model_format":"awq",
+        "model_size_in_billions":72,
+        "quantizations":[
+          "Int4"
+        ],
+        "model_id":"Qwen/Qwen2-VL-72B-Instruct-AWQ"
+      },
+      {
+        "model_format":"gptq",
+        "model_size_in_billions":72,
+        "quantizations":[
+          "Int4",
+          "Int8"
+        ],
+        "model_id":"Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
+      }
+    ],
+    "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "minicpm3-4b",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM3-4B is the 3rd generation of MiniCPM series. The overall performance of MiniCPM3-4B surpasses Phi-3.5-mini-Instruct and GPT-3.5-Turbo-0125, being comparable with many recent 7B~9B models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM3-4B",
+        "model_revision": "75f9f1097d9d66d11f37fff49210bf940455f8ac"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM3-4B-GPTQ-Int4",
+        "model_revision": "97a66a62f7d09c1ee35b087b42694716a8113dce"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ]
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-audio-instruct",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "audio"
+    ],
+    "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-Audio-7B-Instruct",
+        "model_revision":"bac62d2c6808845904c709c17a0402d817558c64"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
+      "roles":[
+        "user",
+        "assistant"
       ],
       "stop": [
-        "</s>"
+        "<|im_end|>",
+        "<|endoftext|>"
       ]
     }
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"qwen2-audio",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "audio"
+    ],
+    "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"Qwen/Qwen2-Audio-7B",
+        "model_revision":"8577bc71d330c8fa32ffe9f8a1374100759f2466"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
+      "roles":[
+        "user",
+        "assistant"
+      ],
+      "stop": [
+        "<|im_end|>",
+        "<|endoftext|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Lite",
+        "model_revision": "604d5664dddd88a0433dbae533b7fe9472482de0"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2",
+        "model_revision": "4461458f186c35188585855f28f77af5661ad489"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Lite-Chat",
+        "model_revision": "85864749cd611b4353ce1decdb286193298f64c7"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Chat",
+        "model_revision": "8e3f5f6c2226787e41ba3e9283a06389d178c926"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ 'User: ' + message['content'] + '\n\n' }}{% elif message['role'] == 'assistant' %}{{ 'Assistant: ' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Assistant:' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2-chat-0628",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2-Chat-0628 is an improved version of DeepSeek-V2-Chat. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
+        "model_revision": "5d09e272c2b223830f4e84359cd9dd047a5d7c78"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{{ '<｜begin▁of▁sentence｜>' }}{% for message in messages %}{% if message['role'] == 'user' %}{{ '<｜User｜>' + message['content'] }}{% elif message['role'] == 'assistant' %}{{ '<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>' }}{% elif message['role'] == 'system' %}{{ message['content'] + '\n\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<｜Assistant｜>' }}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "deepseek-v2.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V2.5 is an upgraded version that combines DeepSeek-V2-Chat and DeepSeek-Coder-V2-Instruct. The new model integrates the general and coding abilities of the two previous versions.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 236,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V2.5",
+        "model_revision": "24b08cb750e0c2757de112d2e16327cb21ed4833"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='') %}{%- for message in messages %}    {%- if message['role'] == 'system' %}        {% set ns.system_prompt = message['content'] %}    {%- endif %}{%- endfor %}{{'<｜begin▁of▁sentence｜>'}}{{ns.system_prompt}}{%- for message in messages %}    {%- if message['role'] == 'user' %}    {%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}    {%- endif %}    {%- if message['role'] == 'assistant' and message['content'] is none %}        {%- set ns.is_tool = false -%}        {%- for tool in message['tool_calls']%}            {%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}            {%- set ns.is_first = true -%}            {%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}                   {%- endif %}        {%- endfor %}    {%- endif %}    {%- if message['role'] == 'assistant' and message['content'] is not none %}        {%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}        {%- set ns.is_tool = false -%}        {%- else %}{{'<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}        {%- endif %}    {%- endif %}    {%- if message['role'] == 'tool' %}        {%- set ns.is_tool = true -%}        {%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}        {%- set ns.is_output_first = false %}        {%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}        {%- endif %}    {%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜>'}}{% endif %}",
+    "stop_token_ids": [
+      100001
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "yi-coder-chat",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.Excelling in long-context understanding with a maximum context length of 128K tokens.Supporting 52 major programming languages, including popular ones such as Java, Python, JavaScript, and C++.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "01ai/Yi-Coder-9B-Chat",
+        "model_revision": "356a1f8d4e4a606d0b879e54191ca809918576b8"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "01ai/Yi-Coder-1.5B-Chat",
+        "model_revision": "92fdd1b2f1539ac990e7f4a921db5601da2f0299"
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ '<|im_start|>system\n' + system_message + '<|im_end|>\n' }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + content + '<|im_end|>\n<|im_start|>assistant\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<|im_end|>' + '\n' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2,
+      6,
+      7
+    ],
+    "stop": [
+      "<|startoftext|>",
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "yi-coder",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.Excelling in long-context understanding with a maximum context length of 128K tokens.Supporting 52 major programming languages, including popular ones such as Java, Python, JavaScript, and C++.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "01-ai/Yi-Coder-9B",
+        "model_revision": "e20f8087a9507ac8bce409dc5db5d0c608124238"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "01-ai/Yi-Coder-1.5B",
+        "model_revision": "00e59e64f47d3c78e4cfbdd345888479797e8109"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-0.5B",
+        "model_revision": "2630d3d2321bc1f1878f702166d1b2af019a7310"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-1.5B",
+        "model_revision": "e5dfabbcffd9b0c7b31d89b82c5a6b72e663f32c"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-3B",
+        "model_revision": "e4aa5ac50aa507415cda96cc99eb77ad0a3d2d34"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-7B",
+        "model_revision": "09a0bac5707b43ec44508eab308b0846320c1ed4"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-14B",
+        "model_revision": "d02b64ba1ce86bf9948668a13f82709600431ccc"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-32B",
+        "model_revision": "ff23665d01c3665be5fdb271d18a62090b65c06d"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-72B",
+        "model_revision": "587cc4061cf6a7cc0d429d05c109447e5cf063af"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-0.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-1.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-3B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-7B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-14B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-32B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-72B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-0.5B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-1.5B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-3B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-7B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-14B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-32B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-72B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-0.5B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-1.5B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-3B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-7B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-14B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-32B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2.5-72B-Instruct-AWQ"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-0.5b-instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-1.5b-instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-3b-instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-7B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-7b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2.5-7b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "q4_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q4_k_m": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q5_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q5_k_m": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q6_k": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ]
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-14B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-14b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2.5-14b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "q2_k": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q3_k_m": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q4_0": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "q4_k_m": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "q5_0": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "q5_k_m": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "q6_k": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "q8_0": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ]
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-32B-Instruct-GGUF",
+        "model_file_name_template": "qwen2_5-32b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2.5-32b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "q2_k": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "q3_k_m": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "q4_0": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "q4_k_m": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "q5_0": [
+            "00001-of-00006",
+            "00002-of-00006",
+            "00003-of-00006",
+            "00004-of-00006",
+            "00005-of-00006",
+            "00006-of-00006"
+          ],
+          "q5_k_m": [
+            "00001-of-00006",
+            "00002-of-00006",
+            "00003-of-00006",
+            "00004-of-00006",
+            "00005-of-00006",
+            "00006-of-00006"
+          ],
+          "q6_k": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "q8_0": [
+            "00001-of-00009",
+            "00002-of-00009",
+            "00003-of-00009",
+            "00004-of-00009",
+            "00005-of-00009",
+            "00006-of-00009",
+            "00007-of-00009",
+            "00008-of-00009",
+            "00009-of-00009"
+          ]
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "Qwen/Qwen2.5-72B-Instruct-GGUF",
+        "model_file_name_template": "qwen2_5-72b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2.5-72b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+           "q2_k": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "q3_k_m": [
+            "00001-of-00009",
+            "00002-of-00009",
+            "00003-of-00009",
+            "00004-of-00009",
+            "00005-of-00009",
+            "00006-of-00009",
+            "00007-of-00009",
+            "00008-of-00009",
+            "00009-of-00009"
+          ],
+          "q4_0": [
+            "00001-of-00011",
+            "00002-of-00011",
+            "00003-of-00011",
+            "00004-of-00011",
+            "00005-of-00011",
+            "00006-of-00011",
+            "00007-of-00011",
+            "00008-of-00011",
+            "00009-of-00011",
+            "00010-of-00011",
+            "00011-of-00011"
+          ],
+          "q4_k_m": [
+            "00001-of-00012",
+            "00002-of-00012",
+            "00003-of-00012",
+            "00004-of-00012",
+            "00005-of-00012",
+            "00006-of-00012",
+            "00007-of-00012",
+            "00008-of-00012",
+            "00009-of-00012",
+            "00010-of-00012",
+            "00011-of-00012",
+            "00012-of-00012"
+          ],
+          "q5_0": [
+            "00001-of-00013",
+            "00002-of-00013",
+            "00003-of-00013",
+            "00004-of-00013",
+            "00005-of-00013",
+            "00006-of-00013",
+            "00007-of-00013",
+            "00008-of-00013",
+            "00009-of-00013",
+            "00010-of-00013",
+            "00011-of-00013",
+            "00012-of-00013",
+            "00013-of-00013"
+          ],
+          "q5_k_m": [
+            "00001-of-00014",
+            "00002-of-00014",
+            "00003-of-00014",
+            "00004-of-00014",
+            "00005-of-00014",
+            "00006-of-00014",
+            "00007-of-00014",
+            "00008-of-00014",
+            "00009-of-00014",
+            "00010-of-00014",
+            "00011-of-00014",
+            "00012-of-00014",
+            "00013-of-00014",
+            "00014-of-00014"
+          ],
+          "q6_k": [
+            "00001-of-00016",
+            "00002-of-00016",
+            "00003-of-00016",
+            "00004-of-00016",
+            "00005-of-00016",
+            "00006-of-00016",
+            "00007-of-00016",
+            "00008-of-00016",
+            "00009-of-00016",
+            "00010-of-00016",
+            "00011-of-00016",
+            "00012-of-00016",
+            "00013-of-00016",
+            "00014-of-00016",
+            "00015-of-00016",
+            "00016-of-00016"
+          ],
+          "q8_0": [
+            "00001-of-00021",
+            "00002-of-00021",
+            "00003-of-00021",
+            "00004-of-00021",
+            "00005-of-00021",
+            "00006-of-00021",
+            "00007-of-00021",
+            "00008-of-00021",
+            "00009-of-00021",
+            "00010-of-00021",
+            "00011-of-00021",
+            "00012-of-00021",
+            "00013-of-00021",
+            "00014-of-00021",
+            "00015-of-00021",
+            "00016-of-00021",
+            "00017-of-00021",
+            "00018-of-00021",
+            "00019-of-00021",
+            "00020-of-00021",
+            "00021-of-00021"
+          ]
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-0.5B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-0.5B-Instruct-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-1.5B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-1.5B-Instruct-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-3B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-3B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-3B-Instruct-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-7B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-7B-Instruct-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-14B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-14B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-14B-Instruct-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-32B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-32B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-32B-Instruct-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-72B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Qwen2.5-72B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Qwen2.5-72B-Instruct-bf16"
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5-coder",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-1.5B",
+        "model_revision": "d3586cfe793730945f8e4d7ef31032a3ee50247d"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-7B",
+        "model_revision": "30b6a7e874a78d46b80fa1db3194ea427dd41b08"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5-coder-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "7",
+        "quantizations": [
+            "Int4",
+            "Int8"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-coder-1.5b-instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+        "model_file_name_template": "qwen2.5-coder-7b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2.5-coder-7b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "q4_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q4_k_m": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q5_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q5_k_m": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q6_k": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q8_0": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ]
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
   }
 ]

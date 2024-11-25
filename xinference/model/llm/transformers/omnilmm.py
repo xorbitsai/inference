@@ -16,21 +16,15 @@ import json
 import logging
 import operator
 import tempfile
-import time
-import uuid
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from ....thirdparty.omnilmm.chat import OmniLMMChat, img2base64
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChoice,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    CompletionUsage,
-)
+from ....types import ChatCompletion, ChatCompletionChunk
 from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import generate_chat_completion, parse_messages
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -94,17 +88,17 @@ class OmniLMMModel(PytorchChatModel):
             return images, other_content
         return [], [{"type": "text", "text": content}]
 
+    @cache_clean
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if generate_config and generate_config.get("stream"):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
+        prompt, _, chat_history = parse_messages(messages)
         image_first, prompt = self._message_content_to_OmniLMM(prompt)
 
         msgs = []
@@ -135,19 +129,4 @@ class OmniLMMModel(PytorchChatModel):
         input = {"image": im_64, "question": json.dumps(msgs, ensure_ascii=True)}
         answer = self._model.chat(input=input)
 
-        return ChatCompletion(
-            id="chat" + str(uuid.uuid1()),
-            object="chat.completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[
-                ChatCompletionChoice(
-                    index=0,
-                    message={"role": "assistant", "content": answer},
-                    finish_reason="stop",
-                )
-            ],
-            usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-            ),
-        )
+        return generate_chat_completion(self.model_uid, answer)

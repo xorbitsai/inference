@@ -46,21 +46,6 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.
 
-   * - :ref:`chatglm3 <models_llm_chatglm3>`
-     - chat, tools
-     - 8192
-     - ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
-
-   * - :ref:`chatglm3-128k <models_llm_chatglm3-128k>`
-     - chat
-     - 131072
-     - ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
-
-   * - :ref:`chatglm3-32k <models_llm_chatglm3-32k>`
-     - chat
-     - 32768
-     - ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
-
    * - :ref:`code-llama <models_llm_code-llama>`
      - generate
      - 100000
@@ -141,6 +126,26 @@ The following is a list of built-in LLM in Xinference:
      - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
+   * - :ref:`deepseek-v2 <models_llm_deepseek-v2>`
+     - generate
+     - 128000
+     - DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. 
+
+   * - :ref:`deepseek-v2-chat <models_llm_deepseek-v2-chat>`
+     - chat
+     - 128000
+     - DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. 
+
+   * - :ref:`deepseek-v2-chat-0628 <models_llm_deepseek-v2-chat-0628>`
+     - chat
+     - 128000
+     - DeepSeek-V2-Chat-0628 is an improved version of DeepSeek-V2-Chat. 
+
+   * - :ref:`deepseek-v2.5 <models_llm_deepseek-v2.5>`
+     - chat
+     - 128000
+     - DeepSeek-V2.5 is an upgraded version that combines DeepSeek-V2-Chat and DeepSeek-Coder-V2-Instruct. The new model integrates the general and coding abilities of the two previous versions.
+
    * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
      - chat, vision
      - 4096
@@ -170,11 +175,6 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 1048576
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
-
-   * - :ref:`gorilla-openfunctions-v1 <models_llm_gorilla-openfunctions-v1>`
-     - chat
-     - 4096
-     - OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.
 
    * - :ref:`gorilla-openfunctions-v2 <models_llm_gorilla-openfunctions-v2>`
      - chat
@@ -237,7 +237,7 @@ The following is a list of built-in LLM in Xinference:
      - Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture
 
    * - :ref:`llama-3.1-instruct <models_llm_llama-3.1-instruct>`
-     - chat
+     - chat, tools
      - 131072
      - The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
@@ -275,6 +275,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 32768
      - MiniCPM-V 2.6 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters.
+
+   * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
+     - chat
+     - 32768
+     - MiniCPM3-4B is the 3rd generation of MiniCPM series. The overall performance of MiniCPM3-4B surpasses Phi-3.5-mini-Instruct and GPT-3.5-Turbo-0125, being comparable with many recent 7B~9B models.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -367,7 +372,7 @@ The following is a list of built-in LLM in Xinference:
      - Platypus-70B-instruct is a merge of garage-bAInd/Platypus2-70B and upstage/Llama-2-70b-instruct-v2.
 
    * - :ref:`qwen-chat <models_llm_qwen-chat>`
-     - chat, tools
+     - chat
      - 32768
      - Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.
 
@@ -386,6 +391,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`qwen2-audio <models_llm_qwen2-audio>`
+     - chat, audio
+     - 32768
+     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
+
+   * - :ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`
+     - chat, audio
+     - 32768
+     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
+
    * - :ref:`qwen2-instruct <models_llm_qwen2-instruct>`
      - chat, tools
      - 32768
@@ -395,6 +410,31 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 32768
      - Qwen2 is the new series of Qwen large language models. 
+
+   * - :ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`
+     - chat, vision
+     - 32768
+     - Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.
+
+   * - :ref:`qwen2.5 <models_llm_qwen2.5>`
+     - generate
+     - 32768
+     - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
+
+   * - :ref:`qwen2.5-coder <models_llm_qwen2.5-coder>`
+     - generate
+     - 32768
+     - Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).
+
+   * - :ref:`qwen2.5-coder-instruct <models_llm_qwen2.5-coder-instruct>`
+     - chat, tools
+     - 32768
+     - Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).
+
+   * - :ref:`qwen2.5-instruct <models_llm_qwen2.5-instruct>`
+     - chat, tools
+     - 32768
+     - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
@@ -481,20 +521,20 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - The Yi series models are large language models trained from scratch by developers at 01.AI.
 
+   * - :ref:`yi-coder <models_llm_yi-coder>`
+     - generate
+     - 131072
+     - Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.Excelling in long-context understanding with a maximum context length of 128K tokens.Supporting 52 major programming languages, including popular ones such as Java, Python, JavaScript, and C++.
+
+   * - :ref:`yi-coder-chat <models_llm_yi-coder-chat>`
+     - chat
+     - 131072
+     - Yi-Coder is a series of open-source code language models that delivers state-of-the-art coding performance with fewer than 10 billion parameters.Excelling in long-context understanding with a maximum context length of 128K tokens.Supporting 52 major programming languages, including popular ones such as Java, Python, JavaScript, and C++.
+
    * - :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
      - chat, vision
      - 4096
      - Yi Vision Language (Yi-VL) model is the open-source, multimodal version of the Yi Large Language Model (LLM) series, enabling content comprehension, recognition, and multi-round conversations about images.
-
-   * - :ref:`zephyr-7b-alpha <models_llm_zephyr-7b-alpha>`
-     - chat
-     - 8192
-     - Zephyr-7B-α is the first model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1.
-
-   * - :ref:`zephyr-7b-beta <models_llm_zephyr-7b-beta>`
-     - chat
-     - 8192
-     - Zephyr-7B-β is the second model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1
 
 
 .. toctree::
@@ -512,12 +552,6 @@ The following is a list of built-in LLM in Xinference:
    baichuan-2-chat
   
    c4ai-command-r-v01
-  
-   chatglm3
-  
-   chatglm3-128k
-  
-   chatglm3-32k
   
    code-llama
   
@@ -551,6 +585,14 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-coder-instruct
   
+   deepseek-v2
+  
+   deepseek-v2-chat
+  
+   deepseek-v2-chat-0628
+  
+   deepseek-v2.5
+  
    deepseek-vl-chat
   
    gemma-2-it
@@ -562,8 +604,6 @@ The following is a list of built-in LLM in Xinference:
    glm4-chat
   
    glm4-chat-1m
-  
-   gorilla-openfunctions-v1
   
    gorilla-openfunctions-v2
   
@@ -604,6 +644,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm-llama3-v-2_5
   
    minicpm-v-2.6
+  
+   minicpm3-4b
   
    mistral-instruct-v0.1
   
@@ -649,9 +691,23 @@ The following is a list of built-in LLM in Xinference:
   
    qwen1.5-moe-chat
   
+   qwen2-audio
+  
+   qwen2-audio-instruct
+  
    qwen2-instruct
   
    qwen2-moe-instruct
+  
+   qwen2-vl-instruct
+  
+   qwen2.5
+  
+   qwen2.5-coder
+  
+   qwen2.5-coder-instruct
+  
+   qwen2.5-instruct
   
    seallm_v2
   
@@ -687,10 +743,10 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
+   yi-coder
+  
+   yi-coder-chat
+  
    yi-vl-chat
-  
-   zephyr-7b-alpha
-  
-   zephyr-7b-beta
   
 

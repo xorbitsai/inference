@@ -13,7 +13,7 @@
 # limitations under the License.
 import pytest
 
-from ..._compat import ValidationError, create_model_from_typeddict
+from ..._compat import ValidationError
 from ...types import (
     CreateChatCompletion,
     CreateChatCompletionLlamaCpp,
@@ -21,7 +21,6 @@ from ...types import (
     CreateCompletion,
     CreateCompletionLlamaCpp,
     CreateCompletionTorch,
-    _CreateCompletionOpenAIFallback,
 )
 
 
@@ -49,14 +48,6 @@ def check_fields(a, b):
 
 
 def test_create_completion_types():
-    from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
-
-    openai_model = create_model_from_typeddict(CompletionCreateParamsNonStreaming)
-    assert (
-        _CreateCompletionOpenAIFallback.__fields__.keys()
-        == openai_model.__fields__.keys()
-    )
-
     with pytest.raises(ValidationError):
         CreateCompletion()
 
@@ -81,9 +72,6 @@ def test_create_chat_completion_types():
 
     with pytest.raises(ValidationError):
         CreateChatCompletion(model="abc", not_exist="jdk")
-
-    # with pytest.raises(pydantic.ValidationError):
-    #     CreateChatCompletion(model="abc", messages=[{"role": "invalid"}])
 
     CreateChatCompletion(model="abc", messages=[{"role": "tool"}], max_tokens=None)
 

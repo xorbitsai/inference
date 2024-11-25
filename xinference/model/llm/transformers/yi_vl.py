@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
@@ -21,18 +20,16 @@ from typing import Dict, Iterator, List, Optional, Union
 import torch
 
 from ....model.utils import select_device
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import _decode_image
+from ..utils import (
+    _decode_image,
+    generate_chat_completion,
+    generate_completion_chunk,
+    parse_messages,
+)
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -103,16 +100,13 @@ class YiVLChatModel(PytorchChatModel):
                 raise RuntimeError("Only one image per message is supported by Yi VL.")
         return content
 
+    @cache_clean
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         from transformers import TextIteratorStreamer
-
-        # TODO(codingl2k1): implement stream mode.
 
         if not generate_config:
             generate_config = {}
@@ -134,7 +128,8 @@ class YiVLChatModel(PytorchChatModel):
 
         # Convert chat history to llava state
         state = conv_templates["mm_default"].copy()
-        for message in chat_history or []:
+        prompt, _, chat_history = parse_messages(messages)
+        for message in chat_history:
             content = self._message_content_to_yi(message["content"])
             state.append_message(message["role"], content)
         state.append_message(state.roles[0], self._message_content_to_yi(prompt))
@@ -190,31 +185,15 @@ class YiVLChatModel(PytorchChatModel):
             it = self._generate_stream(streamer, stop_str, input_ids, include_usage)
             return self._to_chat_completion_chunks(it)
         else:
-            c = self._generate(streamer, stop_str)
-            return self._to_chat_completion(c)
+            return self._generate(streamer, stop_str)
 
-    def _generate(self, streamer, stop_str) -> Completion:
+    def _generate(self, streamer, stop_str) -> ChatCompletion:
         generated_text = ""
         for new_text in streamer:
             generated_text += new_text
             if generated_text.endswith(stop_str):
                 generated_text = generated_text[: -len(stop_str)]
-
-        c = Completion(
-            id=str(uuid.uuid1()),
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[
-                CompletionChoice(
-                    index=0, text=generated_text, finish_reason="stop", logprobs=None
-                )
-            ],
-            usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-            ),
-        )
-        return c
+        return generate_chat_completion(self.model_uid, generated_text)
 
     def _generate_stream(
         self, streamer, stop_str, input_ids, include_usage
@@ -224,54 +203,37 @@ class YiVLChatModel(PytorchChatModel):
         prompt_tokens = len(input_ids[0])
         for i, new_text in enumerate(streamer):
             if not new_text.endswith(stop_str):
-                completion_choice = CompletionChoice(
-                    text=new_text, index=0, logprobs=None, finish_reason=None
-                )
-                chunk = CompletionChunk(
-                    id=completion_id,
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=self.model_uid,
-                    choices=[completion_choice],
-                )
                 completion_tokens = i
                 total_tokens = prompt_tokens + completion_tokens
-                completion_usage = CompletionUsage(
+                yield generate_completion_chunk(
+                    chunk_text=new_text,
+                    finish_reason=None,
+                    chunk_id=completion_id,
+                    model_uid=self.model_uid,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
-                chunk["usage"] = completion_usage
-                yield chunk
-
-        completion_choice = CompletionChoice(
-            text="", index=0, logprobs=None, finish_reason="stop"
-        )
-        chunk = CompletionChunk(
-            id=completion_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[completion_choice],
-        )
-        completion_usage = CompletionUsage(
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
+            has_choice=True,
+            has_content=False,
         )
-        chunk["usage"] = completion_usage
-        yield chunk
         if include_usage:
-            chunk = CompletionChunk(
-                id=completion_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[],
-            )
-            chunk["usage"] = CompletionUsage(
+            yield generate_completion_chunk(
+                chunk_text=None,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
+                has_choice=False,
+                has_content=False,
             )
-            yield chunk

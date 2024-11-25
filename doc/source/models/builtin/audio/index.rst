@@ -25,7 +25,7 @@ The following is a list of built-in audio models in Xinference:
   
    cosyvoice-300m-sft
   
-   fishspeech-1.2-sft
+   fishspeech-1.4
   
    sensevoicesmall
   
@@ -34,6 +34,8 @@ The following is a list of built-in audio models in Xinference:
    whisper-base.en
   
    whisper-large-v3
+  
+   whisper-large-v3-turbo
   
    whisper-medium
   

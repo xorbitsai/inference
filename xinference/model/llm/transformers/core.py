@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 
@@ -29,8 +29,6 @@ from ....device_utils import (
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
     CompletionChoice,
     CompletionChunk,
     CreateCompletionTorch,
@@ -41,19 +39,15 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+from ..utils import LLAMA3_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelMixin
 from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
 NON_DEFAULT_MODEL_LIST: List[str] = [
-    "chatglm3",
-    "chatglm3-32k",
-    "chatglm3-128k",
+    "opt",
     "glm4-chat",
     "glm4-chat-1m",
-    "llama-2",
-    "llama-2-chat",
     "internlm2-chat",
     "internlm2.5-chat",
     "qwen-vl-chat",
@@ -67,6 +61,13 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "MiniCPM-Llama3-V-2_5",
     "MiniCPM-V-2.6",
     "glm-4v",
+    "qwen2-vl-instruct",
+    "qwen2-audio",
+    "qwen2-audio-instruct",
+    "deepseek-v2",
+    "deepseek-v2-chat",
+    "deepseek-v2.5",
+    "deepseek-v2-chat-0628",
 ]
 
 
@@ -319,6 +320,8 @@ class PytorchModel(LLM):
         else:
             self._model, self._tokenizer = self._load_model(**kwargs)
 
+        self._apply_lora()
+
         if not is_device_map_auto:
             self._model.to(self._device)
 
@@ -338,69 +341,6 @@ class PytorchModel(LLM):
         if "generate" not in llm_family.model_ability:
             return False
         return True
-
-    def generate(
-        self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
-    ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream
-
-        def generator_wrapper(
-            prompt: str, generate_config: PytorchGenerateConfig
-        ) -> Iterator[CompletionChunk]:
-            for completion_chunk, completion_usage in generate_stream(
-                self.model_uid,
-                self._model,
-                self._tokenizer,
-                prompt,
-                self._device,
-                generate_config,
-            ):
-                completion_chunk["usage"] = completion_usage
-                yield completion_chunk
-
-        logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
-        )
-
-        generate_config = self._sanitize_generate_config(generate_config)
-
-        assert self._model is not None
-        assert self._tokenizer is not None
-
-        lora_model = generate_config.pop("lora_name")
-
-        if lora_model is not None and self._peft_model is not None:
-            for lora in self._peft_model:
-                if lora_model == lora.lora_name:
-                    self._model.set_adapter(lora_model)
-                    logger.info(f"Set lora model to {lora_model}")
-                    break
-            else:
-                self._model.disable_adapter()
-                logger.info(f"No lora model {lora_model} found, skip setting")
-
-        stream = generate_config.get("stream", False)
-        if not stream:
-            for completion_chunk, completion_usage in generate_stream(
-                self.model_uid,
-                self._model,
-                self._tokenizer,
-                prompt,
-                self._device,
-                generate_config,
-            ):
-                pass
-            completion = Completion(
-                id=completion_chunk["id"],
-                object=completion_chunk["object"],
-                created=completion_chunk["created"],
-                model=completion_chunk["model"],
-                choices=completion_chunk["choices"],
-                usage=completion_usage,
-            )
-            return completion
-        else:
-            return generator_wrapper(prompt, generate_config)
 
     def build_prefill_attention_mask(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
@@ -613,12 +553,17 @@ class PytorchModel(LLM):
                 r.error_msg = str(e)
 
     def get_builtin_stop_token_ids(self) -> Tuple:
-        return (
-            tuple(self.model_family.prompt_style.stop_token_ids)
-            if self.model_family.prompt_style
-            and self.model_family.prompt_style.stop_token_ids
-            else tuple()
-        )
+        from ..utils import get_stop_token_ids_from_config_file
+
+        stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+        if stop_token_ids is not None:
+            return tuple(stop_token_ids)
+        else:
+            return (
+                tuple(self.model_family.stop_token_ids)
+                if self.model_family.stop_token_ids
+                else tuple()
+            )
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
@@ -691,20 +636,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         generate_config: Optional[PytorchGenerateConfig],
     ) -> PytorchGenerateConfig:
         generate_config = super()._sanitize_generate_config(generate_config)
-        if (
-            (not generate_config.get("stop"))
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop
-        ):
-            generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+        if (not generate_config.get("stop")) and self.model_family.stop is not None:
+            generate_config["stop"] = self.model_family.stop.copy()
         if (
             generate_config.get("stop_token_ids", None) is None
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop_token_ids
+            and self.model_family.stop_token_ids is not None
         ):
-            generate_config[
-                "stop_token_ids"
-            ] = self.model_family.prompt_style.stop_token_ids.copy()
+            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
 
         return generate_config
 
@@ -723,52 +661,29 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self._get_full_prompt(prompt, system_prompt, chat_history, tools)
-
-        generate_config = self._sanitize_generate_config(generate_config)
-        # TODO(codingl2k1): qwen hacky to set stop for function call.
-        model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
-            stop = generate_config.get("stop")
-            if isinstance(stop, str):
-                generate_config["stop"] = [stop, "Observation:"]
-            elif isinstance(stop, Iterable):
-                assert not isinstance(stop, str)
-                generate_config["stop"] = list(stop) + ["Observation:"]
-            else:
-                generate_config["stop"] = "Observation:"
-
-        stream = generate_config.get("stream", False)
-        if stream:
-            it = self.generate(full_prompt, generate_config)
-            assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
-        else:
-            c = self.generate(full_prompt, generate_config)
-            assert not isinstance(c, Iterator)
-            if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, c, tools
-                )
-            return self._to_chat_completion(c)
+        raise NotImplementedError
 
     def load(self):
         super().load()
 
-    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
-        full_prompt = ChatModelMixin.get_prompt(
-            prompt, chat_history, prompt_style, tools=tools
+    def _get_full_prompt(self, messages: List[Dict], tools):
+        model_family = self.model_family.model_family or self.model_family.model_name
+        full_context_kwargs = {}
+        if (
+            tools
+            and model_family in QWEN_TOOL_CALL_FAMILY
+            or model_family in LLAMA3_TOOL_CALL_FAMILY
+        ):
+            full_context_kwargs["tools"] = tools
+        assert self.model_family.chat_template is not None
+        full_prompt = self.get_full_context(
+            messages,
+            self.model_family.chat_template,
+            tokenizer=self._tokenizer,
+            **full_context_kwargs,
         )
         return full_prompt
 
@@ -777,35 +692,57 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         for r in req_list:
             try:
                 if not r.stopped and r.is_prefill:
-                    r.full_prompt = self._get_full_prompt(
-                        r.prompt, r.system_prompt, r.chat_history, None
-                    )
+                    tools = r.generate_config.get("tools", None)
+                    r.full_prompt = self._get_full_prompt(r.prompt, tools)
+                    if tools:
+                        r.tools = tools
             except Exception as e:
                 logger.exception(f"prepare inference error with {e}")
                 r.stopped = True
                 r.error_msg = str(e)
 
+    def handle_chat_result_non_streaming(self, req: InferenceRequest):
+        if req.tools:
+            req.completion[0] = self._tool_calls_completion(
+                self.model_family, self.model_uid, req.completion[0]
+            )
+        else:
+            req.completion[0] = self._to_chat_completion(req.completion[0])
+
+    def handle_chat_result_streaming(self, req: InferenceRequest):
+        results = []
+        for i, c in enumerate(req.completion):
+            if c == "<bos_stream>":
+                results.append(
+                    self._get_first_chat_completion_chunk(req.completion[i + 1])
+                )
+            elif c == "<eos_stream>":
+                break
+            else:
+                results.append(self._to_chat_completion_chunk(c))
+
+        if req.stopped and req.include_usage:
+            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+        req.completion = results
+
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
             if req.error_msg is None and req.completion:
-                if req.stream:
+                # The `generate` function can be called for some chat models.
+                # So that we cannot convert completion chunk to chat completion chunk.
+                if req.call_ability == "generate":
                     results = []
-                    for i, c in enumerate(req.completion):
+                    for c in req.completion:
                         if c == "<bos_stream>":
-                            results.append(
-                                self._get_first_chat_completion_chunk(
-                                    req.completion[i + 1]
-                                )
-                            )
+                            continue
                         elif c == "<eos_stream>":
                             break
                         else:
-                            results.append(self._to_chat_completion_chunk(c))
-
-                    if req.stopped and req.include_usage:
-                        results.append(
-                            self._get_final_chat_completion_chunk(req.completion[-1])
-                        )
+                            results.append(c)
                     req.completion = results
+                    continue
+
+                if req.stream:
+                    self.handle_chat_result_streaming(req)
                 else:
-                    req.completion[0] = self._to_chat_completion(req.completion[0])
+                    self.handle_chat_result_non_streaming(req)

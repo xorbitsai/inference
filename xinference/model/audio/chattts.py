@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import base64
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
+
+from ..utils import set_all_random_seed
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
@@ -38,6 +41,10 @@ class ChatTTSModel:
         self._model = None
         self._kwargs = kwargs
 
+    @property
+    def model_ability(self):
+        return self._model_spec.model_ability
+
     def load(self):
         import ChatTTS
         import torch
@@ -46,7 +53,12 @@ class ChatTTSModel:
         torch._dynamo.config.suppress_errors = True
         torch.set_float32_matmul_precision("high")
         self._model = ChatTTS.Chat()
-        self._model.load(source="custom", custom_path=self._model_path, compile=True)
+        logger.info("Load ChatTTS model with kwargs: %s", self._kwargs)
+        ok = self._model.load(
+            source="custom", custom_path=self._model_path, **self._kwargs
+        )
+        if not ok:
+            raise Exception(f"The ChatTTS model is not correct: {self._model_path}")
 
     def speech(
         self,
@@ -78,9 +90,7 @@ class ChatTTSModel:
         if rnd_spk_emb is None:
             seed = xxhash.xxh32_intdigest(voice)
 
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            torch.cuda.manual_seed(seed)
+            set_all_random_seed(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
@@ -108,16 +118,15 @@ class ChatTTSModel:
                     last_pos = 0
                     with writer.open():
                         for it in iter:
-                            for itt in it:
-                                for chunk in itt:
-                                    chunk = np.array([chunk]).transpose()
-                                    writer.write_audio_chunk(i, torch.from_numpy(chunk))
-                                    new_last_pos = out.tell()
-                                    if new_last_pos != last_pos:
-                                        out.seek(last_pos)
-                                        encoded_bytes = out.read()
-                                        yield encoded_bytes
-                                        last_pos = new_last_pos
+                            for chunk in it:
+                                chunk = np.array([chunk]).transpose()
+                                writer.write_audio_chunk(i, torch.from_numpy(chunk))
+                                new_last_pos = out.tell()
+                                if new_last_pos != last_pos:
+                                    out.seek(last_pos)
+                                    encoded_bytes = out.read()
+                                    yield encoded_bytes
+                                    last_pos = new_last_pos
 
             return _generator()
         else:
@@ -125,7 +134,15 @@ class ChatTTSModel:
 
             # Save the generated audio
             with BytesIO() as out:
-                torchaudio.save(
-                    out, torch.from_numpy(wavs[0]), 24000, format=response_format
-                )
+                try:
+                    torchaudio.save(
+                        out,
+                        torch.from_numpy(wavs[0]).unsqueeze(0),
+                        24000,
+                        format=response_format,
+                    )
+                except:
+                    torchaudio.save(
+                        out, torch.from_numpy(wavs[0]), 24000, format=response_format
+                    )
                 return out.getvalue()

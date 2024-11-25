@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import gc
+import importlib
 import logging
 import os
+import threading
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
@@ -22,6 +24,7 @@ from typing import Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
@@ -49,6 +52,7 @@ class RerankModelSpec(CacheableModelSpec):
     model_name: str
     language: List[str]
     type: Optional[str] = "unknown"
+    max_tokens: Optional[int]
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
@@ -102,6 +106,30 @@ def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[D
     return res
 
 
+class _ModelWrapper:
+    def __init__(self, module: nn.Module):
+        self._module = module
+        self._local_data = threading.local()
+
+    @property
+    def n_tokens(self):
+        return getattr(self._local_data, "n_tokens", 0)
+
+    @n_tokens.setter
+    def n_tokens(self, new_n_tokens):
+        self._local_data.n_tokens = new_n_tokens
+
+    def __getattr__(self, attr):
+        return getattr(self._module, attr)
+
+    def __call__(self, **kwargs):
+        attention_mask = kwargs["attention_mask"]
+        # when batching, the attention mask 1 means there is a token
+        # thus we just sum up it to get the total number of tokens
+        self.n_tokens += attention_mask.sum().item()
+        return self._module(**kwargs)
+
+
 class RerankModel:
     def __init__(
         self,
@@ -151,9 +179,27 @@ class RerankModel:
         return rerank_type
 
     def load(self):
+        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+        if (
+            self._auto_detect_type(self._model_path) != "normal"
+            and flash_attn_installed
+        ):
+            logger.warning(
+                "flash_attn can only support fp16 and bf16, "
+                "will force set `use_fp16` to True"
+            )
+            self._use_fp16 = True
         if self._model_spec.type == "normal":
             try:
+                import sentence_transformers
                 from sentence_transformers.cross_encoder import CrossEncoder
+
+                if sentence_transformers.__version__ < "3.1.0":
+                    raise ValueError(
+                        "The sentence_transformers version must be greater than 3.1.0. "
+                        "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
+                        "https://github.com/UKPLab/sentence-transformers"
+                    )
             except ImportError:
                 error_message = "Failed to import module 'sentence-transformers'"
                 installation_guide = [
@@ -166,6 +212,7 @@ class RerankModel:
                 self._model_path,
                 device=self._device,
                 trust_remote_code=True,
+                max_length=getattr(self._model_spec, "max_tokens"),
                 **self._model_config,
             )
             if self._use_fp16:
@@ -189,6 +236,8 @@ class RerankModel:
 
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
             self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
+        # Wrap transformers model to record number of tokens
+        self._model.model = _ModelWrapper(self._model.model)
 
     def rerank(
         self,
@@ -200,17 +249,14 @@ class RerankModel:
         return_len: Optional[bool],
         **kwargs,
     ) -> Rerank:
-        self._counter += 1
-        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
-            logger.debug("Empty rerank cache.")
-            gc.collect()
-            empty_cache()
         assert self._model is not None
         if kwargs:
             raise ValueError("rerank hasn't support extra parameter.")
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
+        # reset n tokens
+        self._model.model.n_tokens = 0
         if self._model_spec.type == "normal":
             similarity_scores = self._model.predict(
                 sentence_combinations, convert_to_numpy=False, convert_to_tensor=True
@@ -245,9 +291,7 @@ class RerankModel:
                 for arg in sim_scores_argsort
             ]
         if return_len:
-            tokenizer = self._get_tokenizer(self._model_path)
-            input_len = sum([len(tokenizer.tokenize(t)) for t in documents])
-
+            input_len = self._model.model.n_tokens
             # Rerank Model output is just score or documents
             # while return_documents = True
             output_len = input_len
@@ -264,6 +308,14 @@ class RerankModel:
             ),
             "warnings": None,
         }
+
+        del similarity_scores
+        # clear cache if possible
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            gc.collect()
+            empty_cache()
 
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 

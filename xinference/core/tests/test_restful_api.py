@@ -526,7 +526,8 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
     client = RESTfulClient(endpoint)
     model = client.get_model(model_uid_res)
-    completion = model.chat("帮我查询股票10111的价格", tools=tools)
+    messages = [{"role": "user", "content": "帮我查询股票10111的价格"}]
+    completion = model.chat(messages, tools=tools)
     assert "content" in completion["choices"][0]["message"]
     assert "tool_calls" == completion["choices"][0]["finish_reason"]
     assert (
@@ -606,6 +607,98 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
             assert "12345" in completion.choices[0].message.content
 
     _check_invalid_tool_calls(endpoint, model_uid_res)
+
+
+@pytest.mark.parametrize(
+    "model_format, quantization",
+    [("pytorch", None)],
+)
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_llama3_tool_calls(setup, model_format, quantization):
+    model_name = "llama-3.1-instruct"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_tool",
+        "model_engine": "transformers",
+        "model_name": model_name,
+        "model_size_in_billions": 8,
+        "model_format": model_format,
+        "quantization": quantization,
+        "download_hub": "huggingface",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    assert "model_uid" in response_data, response_data
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_tool"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    # tool
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "track_a_long_function_name_to_test",
+                "description": "追踪指定股票的实时价格",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"symbol": {"description": "需要追踪的股票代码"}},
+                    "required": ["symbol"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "text-to-speech",
+                "description": "将文本转换为语音",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"description": "需要转换成语音的文本"},
+                        "voice": {"description": "要使用的语音类型（男声、女声等）"},
+                        "speed": {"description": "语音的速度（快、中等、慢等）"},
+                    },
+                    "required": ["text"],
+                },
+            },
+        },
+    ]
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "user", "content": "帮我查询股票10111的价格"},
+        ],
+        "tools": tools,
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "track_a_long_function_name_to_test"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
 
 
 @pytest.mark.parametrize(
@@ -1239,3 +1332,77 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_qwen15"
     requests.delete(url)
+
+
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_qwen_audio(setup):
+    model_name = "qwen2-audio-instruct"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_audio",
+        "model_name": model_name,
+        "model_engine": "transformers",
+        "model_size_in_billions": 7,
+        "model_format": "pytorch",
+        "quantization": "none",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_audio"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "audio",
+                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/glass-breaking-151256.mp3",
+                    },
+                    {"type": "text", "text": "What's that sound?"},
+                ],
+            },
+            {"role": "assistant", "content": "It is the sound of glass shattering."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What can you do when you hear that?"},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": "Stay alert and cautious, and check if anyone is hurt or if there is any damage to property.",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "audio",
+                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/1272-128104-0000.flac",
+                    },
+                    {"type": "text", "text": "What does the person say?"},
+                ],
+            },
+        ],
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+    assert len(completion["choices"][0]["message"]) > 0

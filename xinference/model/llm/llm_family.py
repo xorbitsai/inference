@@ -52,7 +52,7 @@ from . import LLM
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
-BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
+BUILTIN_LLM_PROMPT_STYLE: Dict[str, Dict[str, Any]] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
@@ -127,32 +127,24 @@ class MLXLLMSpecV1(BaseModel):
         return v
 
 
-class PromptStyleV1(BaseModel):
-    style_name: str
-    system_prompt: str = ""
-    roles: List[str]
-    intra_message_sep: str = ""
-    inter_message_sep: str = ""
-    stop: Optional[List[str]]
-    stop_token_ids: Optional[List[int]]
-
-
 class LLMFamilyV1(BaseModel):
     version: Literal[1]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[str]
-    model_ability: List[Literal["embed", "generate", "chat", "tools", "vision"]]
+    model_ability: List[
+        Literal["embed", "generate", "chat", "tools", "vision", "audio"]
+    ]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
     model_family: Optional[str]
     model_specs: List["LLMSpecV1"]
-    prompt_style: Optional["PromptStyleV1"]
+    chat_template: Optional[str]
+    stop_token_ids: Optional[List[int]]
+    stop: Optional[List[str]]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):
-    prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
-
     @classmethod
     def parse_raw(
         cls: Any,
@@ -176,6 +168,11 @@ class CustomLLMFamilyV1(LLMFamilyV1):
         except (ValueError, TypeError, UnicodeDecodeError) as e:
             raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
         llm_spec: CustomLLMFamilyV1 = cls.parse_obj(obj)
+        vision_model_names: Set[str] = {
+            family.model_name
+            for family in BUILTIN_LLM_FAMILIES
+            if "vision" in family.model_ability
+        }
 
         # check model_family
         if llm_spec.model_family is None:
@@ -183,61 +180,45 @@ class CustomLLMFamilyV1(LLMFamilyV1):
                 f"You must specify `model_family` when registering custom LLM models."
             )
         assert isinstance(llm_spec.model_family, str)
+        # TODO: Currently, tool call and vision models cannot be registered if it is not the builtin model_family
         if (
-            llm_spec.model_family != "other"
-            and "chat" in llm_spec.model_ability
-            and llm_spec.model_family not in BUILTIN_LLM_MODEL_CHAT_FAMILIES
-        ):
-            raise ValueError(
-                f"`model_family` for chat model must be `other` or one of the following values: \n"
-                f"{', '.join(list(BUILTIN_LLM_MODEL_CHAT_FAMILIES))}"
-            )
-        if (
-            llm_spec.model_family != "other"
-            and "tools" in llm_spec.model_ability
+            "tools" in llm_spec.model_ability
             and llm_spec.model_family not in BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES
         ):
             raise ValueError(
-                f"`model_family` for tool call model must be `other` or one of the following values: \n"
+                f"`model_family` for tool call model must be one of the following values: \n"
                 f"{', '.join(list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES))}"
             )
         if (
-            llm_spec.model_family != "other"
-            and "chat" not in llm_spec.model_ability
-            and llm_spec.model_family not in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
+            "vision" in llm_spec.model_ability
+            and llm_spec.model_family not in vision_model_names
         ):
             raise ValueError(
-                f"`model_family` for generate model must be `other` or one of the following values: \n"
-                f"{', '.join(list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES))}"
+                f"`model_family` for multimodal model must be one of the following values: \n"
+                f"{', '.join(list(vision_model_names))}"
             )
-        # set prompt style when it is the builtin model family
-        if (
-            llm_spec.prompt_style is None
-            and llm_spec.model_family != "other"
-            and "chat" in llm_spec.model_ability
-        ):
-            llm_spec.prompt_style = llm_spec.model_family
+        # set chat_template when it is the builtin model family
+        if llm_spec.chat_template is None and "chat" in llm_spec.model_ability:
+            llm_spec.chat_template = llm_spec.model_family
 
-        # handle prompt style when user choose existing style
-        if llm_spec.prompt_style is not None and isinstance(llm_spec.prompt_style, str):
-            prompt_style_name = llm_spec.prompt_style
-            if prompt_style_name not in BUILTIN_LLM_PROMPT_STYLE:
-                raise ValueError(
-                    f"Xinference does not support the prompt style name: {prompt_style_name}"
-                )
-            llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
+        # handle chat_template when user choose existing model_family
+        if (
+            llm_spec.chat_template is not None
+            and llm_spec.chat_template in BUILTIN_LLM_PROMPT_STYLE
+        ):
+            llm_spec.stop_token_ids = BUILTIN_LLM_PROMPT_STYLE[llm_spec.chat_template][
+                "stop_token_ids"
+            ]
+            llm_spec.stop = BUILTIN_LLM_PROMPT_STYLE[llm_spec.chat_template]["stop"]
+            llm_spec.chat_template = BUILTIN_LLM_PROMPT_STYLE[llm_spec.chat_template][
+                "chat_template"
+            ]
 
         # check model ability, registering LLM only provides generate and chat
         # but for vision models, we add back the abilities so that
         # gradio chat interface can be generated properly
         if (
-            llm_spec.model_family != "other"
-            and llm_spec.model_family
-            in {
-                family.model_name
-                for family in BUILTIN_LLM_FAMILIES
-                if "vision" in family.model_ability
-            }
+            llm_spec.model_family in vision_model_names
             and "vision" not in llm_spec.model_ability
         ):
             llm_spec.model_ability.append("vision")
@@ -1004,6 +985,11 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
 
+    for spec in llm_family.model_specs:
+        model_uri = spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
+
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
             if llm_family.model_name == family.model_name:
@@ -1015,12 +1001,6 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
         generate_engine_config_by_model_family(llm_family)
 
     if persist:
-        # We only validate model URL when persist is True.
-        for spec in llm_family.model_specs:
-            model_uri = spec.model_uri
-            if model_uri and not is_valid_model_uri(model_uri):
-                raise ValueError(f"Invalid model URI {model_uri}.")
-
         persist_path = os.path.join(
             XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
         )

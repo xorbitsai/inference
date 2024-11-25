@@ -5,8 +5,14 @@
     "model_id": "black-forest-labs/FLUX.1-schnell",
     "model_revision": "768d12a373ed5cc9ef9a9dea7504dc09fcc14842",
     "model_ability": [
-      "text2image"
-    ]
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "FLUX.1-dev",
@@ -14,8 +20,14 @@
     "model_id": "black-forest-labs/FLUX.1-dev",
     "model_revision": "01aa605f2c300568dd6515476f04565a954fcb59",
     "model_ability": [
-      "text2image"
-    ]
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2"
+    }
   },
   {
     "model_name": "sd3-medium",
@@ -26,7 +38,11 @@
       "text2image",
       "image2image",
       "inpainting"
-    ]
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3"
+    }
   },
   {
     "model_name": "sd-turbo",
@@ -35,7 +51,11 @@
     "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "default_generate_config": {
+      "guidance_scale": 0.0,
+      "num_inference_steps": 1
+    }
   },
   {
     "model_name": "sdxl-turbo",
@@ -44,7 +64,11 @@
     "model_revision": "f4b0486b498f84668e828044de1d0c8ba486e05b",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "default_generate_config": {
+      "guidance_scale": 0.0,
+      "num_inference_steps": 1
+    }
   },
   {
     "model_name": "stable-diffusion-v1.5",
@@ -165,6 +189,15 @@
     "model_revision": "115134f363124c53c7d878647567d04daf26e41e",
     "model_ability": [
       "inpainting"
+    ]
+  },
+  {
+    "model_name": "GOT-OCR2_0",
+    "model_family": "ocr",
+    "model_id": "stepfun-ai/GOT-OCR2_0",
+    "model_revision": "cf6b7386bc89a54f09785612ba74cb12de6fa17c",
+    "model_ability": [
+      "ocr"
     ]
   }
 ]

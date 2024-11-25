@@ -51,7 +51,7 @@ class StatusGuardActor(xo.StatelessActor):
         self._model_uid_to_info: Dict[str, InstanceInfo] = {}  # type: ignore
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "status_guard"
 
     @staticmethod

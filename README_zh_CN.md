@@ -3,13 +3,24 @@
 
 # Xorbits Inference：模型推理， 轻而易举 🤖
 
+<p align="center">
+  <a href="https://inference.top/">Xinference 云服务</a> ·
+  <a href="https://github.com/xorbitsai/enterprise-docs/blob/main/README_zh_CN.md">Xinference 企业版</a> ·
+  <a href="https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#installation">自托管</a> ·
+  <a href="https://inference.readthedocs.io/">文档</a>
+</p>
+
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![WeChat](https://img.shields.io/badge/添加微信小助手-07C160?style=for-the-badge&logo=wechat&logoColor=white)](https://xorbits.cn/assets/images/wechat_work_qr.png)
 [![Zhihu](https://img.shields.io/static/v1?style=for-the-badge&message=未来速度&color=0084FF&logo=Zhihu&logoColor=FFFFFF&label=)](https://www.zhihu.com/org/xorbits)
 
-[English](README.md) | 中文介绍 | [日本語](README_ja_JP.md)
+<p align="center">
+  <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
+  <a href="./README_zh_CN.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/中文介绍-454545?style=for-the-badge"></a>
+  <a href="./README_ja_JP.md"><img alt="日本語のREADME" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
+</p>
 </div>
 <br />
 
@@ -31,14 +42,14 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 - 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### 新模型
+- 内置 [Qwen 2.5 Series](https://qwenlm.github.io/blog/qwen2.5/): [#2325](https://github.com/xorbitsai/inference/pull/2325)
+- 内置 [Fish Speech V1.4](https://huggingface.co/fishaudio/fish-speech-1.4): [#2295](https://github.com/xorbitsai/inference/pull/2295)
+- 内置 [DeepSeek-V2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5): [#2292](https://github.com/xorbitsai/inference/pull/2292)
+- 内置 [Qwen2-Audio](https://github.com/QwenLM/Qwen2-Audio): [#2271](https://github.com/xorbitsai/inference/pull/2271)
+- 内置 [Qwen2-vl-instruct](https://github.com/QwenLM/Qwen2-VL): [#2205](https://github.com/xorbitsai/inference/pull/2205)
+- 内置 [MiniCPM3-4B](https://huggingface.co/openbmb/MiniCPM3-4B): [#2263](https://github.com/xorbitsai/inference/pull/2263)
 - 内置 [CogVideoX](https://github.com/THUDM/CogVideo): [#2049](https://github.com/xorbitsai/inference/pull/2049)
 - 内置 [flux.1-schnell & flux.1-dev](https://www.basedlabs.ai/tools/flux1): [#2007](https://github.com/xorbitsai/inference/pull/2007)
-- 内置 [MiniCPM-V 2.6](https://github.com/OpenBMB/MiniCPM-V): [#2031](https://github.com/xorbitsai/inference/pull/2031)
-- 内置 [Kolors](https://huggingface.co/Kwai-Kolors/Kolors): [#2028](https://github.com/xorbitsai/inference/pull/2028)
-- 内置 [SenseVoice](https://github.com/FunAudioLLM/SenseVoice): [#2008](https://github.com/xorbitsai/inference/pull/2008)
-- 内置 [Mistral Large 2](https://mistral.ai/news/mistral-large-2407/): [#1944](https://github.com/xorbitsai/inference/pull/1944)
-- 内置 [llama3.1](https://ai.meta.com/blog/meta-llama-3-1/): [#1932](https://github.com/xorbitsai/inference/pull/1932)
-- 内置 [Mistral Nemo](https://mistral.ai/news/mistral-nemo/): [#1936](https://github.com/xorbitsai/inference/pull/1936)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
@@ -72,10 +83,26 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 | 语音识别模型                  | ✅ | ❌ | ❌ | ❌ |
 | 更多 OpenAI 功能 (函数调用)     | ✅ | ❌ | ❌ | ❌ |
 
+## 使用 Xinference
+
+- **云 </br>**
+我们提供 [Xinference 云服务](https://inference.top)，无需任何设置。
+
+- **自托管 Xinference 社区版</br>**
+使用 [入门指南](#getting-started) 快速在你自己的环境中运行 Xinference。
+参考 [文档](https://inference.readthedocs.io/zh-cn) 以获得参考和更多说明。
+
+- **面向企业/组织的 Xinference 版本</br>**
+我们提供额外的面向企业的功能。 [通过企业微信联系](https://xorbits.cn/assets/images/wechat_work_qr.png)
+或 [提交表单](https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh) 讨论企业需求。 </br>
+
+## 保持领先
+
+在 GitHub 上给 Xinference Star，并立即收到新版本的通知。
+
+![star-us](assets/stay_ahead.gif)
 
 ## 入门指南
-
-**在开始之前，请给我们一个星标，这样你就可以在 GitHub 上及时收到每个新版本的通知！**
 
 * [文档](https://inference.readthedocs.io/zh-cn/latest/index.html)
 * [内置模型](https://inference.readthedocs.io/zh-cn/latest/models/builtin/index.html)
@@ -142,3 +169,7 @@ $ xinference-local
 <a href="https://github.com/xorbitsai/inference/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
 </a>
+
+## Star 历史
+
+[![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)
