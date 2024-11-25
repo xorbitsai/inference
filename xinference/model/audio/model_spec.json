@@ -104,6 +104,86 @@
     "multilingual": false
   },
   {
+    "model_name": "whisper-tiny-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-tiny",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-tiny.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-tiny.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-base-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-base-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-base.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-base.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-small-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-small-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-small.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-small.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-medium-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-medium-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-medium.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-medium.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-large-v3-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-large-v3-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-large-v3-turbo-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-large-v3-turbo",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
     "model_name": "SenseVoiceSmall",
     "model_family": "funasr",
     "model_id": "FunAudioLLM/SenseVoiceSmall",

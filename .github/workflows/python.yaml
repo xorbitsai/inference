@@ -118,7 +118,9 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           if [ "$MODULE" == "metal" ]; then
+            conda install -c conda-forge "ffmpeg<7"
             pip install mlx-lm
+            pip install mlx-whisper
           fi
           pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install transformers
@@ -210,7 +212,10 @@ jobs:
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py && \
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper_mlx.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
