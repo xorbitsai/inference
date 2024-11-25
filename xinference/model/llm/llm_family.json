@@ -8516,5 +8516,41 @@
       "<|im_start|>",
       "<|im_end|>"
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "glm-edge-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen2.5-Coder is the latest series of Code-Specific Qwen large language models (formerly known as CodeQwen).",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-edge-1.5b-chat"
+      }
+    ],
+    "chat_template": "{% for item in messages %}\n<|{{ item['role'] }}|>{{ item['metadata'] | default('') }}\n{{ item['content'] }}\n{% endfor %}\n{% if add_generation_prompt %}<|assistant|>{% endif %}\n",
+     "stop_token_ids": [
+      59246,
+      59253,
+      59255
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   }
 ]
