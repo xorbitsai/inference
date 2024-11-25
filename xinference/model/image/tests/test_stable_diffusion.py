@@ -18,6 +18,8 @@ import logging
 import os.path
 import shutil
 import tempfile
+import threading
+import time
 import uuid
 from io import BytesIO
 
@@ -193,6 +195,62 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
         num_inference_steps=20,
     )
     logger.info("test result %s", r)
+
+
+@pytest.mark.parametrize("model_name", ["sd-turbo"])
+def test_restful_api_abort(setup, model_name):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="my_controlnet",
+        model_name=model_name,
+        model_type="image",
+    )
+    model = client.get_model(model_uid)
+
+    request_id = str(uuid.uuid4())
+    client.abort_request(model_uid, request_id, 1)
+    time.sleep(2)
+    r = model.text_to_image(
+        prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+        size="512*512",
+        num_inference_steps=10,
+        request_id=request_id,
+    )
+    assert "created" in r
+
+    request_id = str(uuid.uuid4())
+    client.abort_request(model_uid, request_id)
+    with pytest.raises(
+        RuntimeError, match=f"The request has been aborted: {request_id}"
+    ):
+        model.text_to_image(
+            prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+            size="512*512",
+            num_inference_steps=10,
+            request_id=request_id,
+        )
+
+    request_id = str(uuid.uuid4())
+
+    def _abort():
+        time.sleep(1)
+        client.abort_request(model_uid, request_id)
+
+    t = threading.Thread(target=_abort)
+    t.start()
+    with pytest.raises(
+        RuntimeError, match=f"The request has been cancelled: {request_id}"
+    ):
+        model.text_to_image(
+            prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+            size="512*512",
+            num_inference_steps=10,
+            request_id=request_id,
+        )
 
 
 @pytest.mark.parametrize("model_name", ["sd-turbo", "sdxl-turbo"])

@@ -41,6 +41,7 @@ from ..utils import (
     create_symlink,
     download_from_csghub,
     download_from_modelscope,
+    download_from_openmind_hub,
     is_valid_model_uri,
     parse_uri,
     retry_download,
@@ -239,6 +240,7 @@ LLAMA_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
+BUILTIN_OPENMIND_HUB_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_CSGHUB_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 SGLANG_CLASSES: List[Type[LLM]] = []
@@ -301,6 +303,9 @@ def cache(
             elif llm_spec.model_hub == "modelscope":
                 logger.info(f"Caching from Modelscope: {llm_spec.model_id}")
                 return cache_from_modelscope(llm_family, llm_spec, quantization)
+            elif llm_spec.model_hub == "openmind_hub":
+                logger.info(f"Caching from openmind_hub: {llm_spec.model_id}")
+                return cache_from_openmind_hub(llm_family, llm_spec, quantization)
             elif llm_spec.model_hub == "csghub":
                 logger.info(f"Caching from CSGHub: {llm_spec.model_id}")
                 return cache_from_csghub(llm_family, llm_spec, quantization)
@@ -474,13 +479,16 @@ def _skip_download(
     model_revision: Optional[str],
     quantization: Optional[str] = None,
 ) -> bool:
-    if model_format == "pytorch":
+    if model_format in ["pytorch", "mindspore"]:
         model_hub_to_meta_path = {
             "huggingface": _get_meta_path(
                 cache_dir, model_format, "huggingface", quantization
             ),
             "modelscope": _get_meta_path(
                 cache_dir, model_format, "modelscope", quantization
+            ),
+            "openmind_hub": _get_meta_path(
+                cache_dir, model_format, "openmind_hub", quantization
             ),
             "csghub": _get_meta_path(cache_dir, model_format, "csghub", quantization),
         }
@@ -702,6 +710,50 @@ def cache_from_modelscope(
     return cache_dir
 
 
+def cache_from_openmind_hub(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from openmind_hub. Return the cache directory.
+    """
+    from openmind_hub import snapshot_download
+
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if _skip_download(
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        llm_spec.model_revision,
+        quantization,
+    ):
+        return cache_dir
+
+    if llm_spec.model_format in ["pytorch", "mindspore"]:
+        download_dir = retry_download(
+            snapshot_download,
+            llm_family.model_name,
+            {
+                "model_size": llm_spec.model_size_in_billions,
+                "model_format": llm_spec.model_format,
+            },
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+        )
+        create_symlink(download_dir, cache_dir)
+
+    else:
+        raise ValueError(f"Unsupported format: {llm_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+    )
+    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+
+    return cache_dir
+
+
 def cache_from_huggingface(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -893,7 +945,9 @@ def match_llm(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
@@ -924,6 +978,12 @@ def match_llm(
             + BUILTIN_LLM_FAMILIES
             + user_defined_llm_families
         )
+    elif download_hub == "openmind_hub":
+        all_families = (
+            BUILTIN_OPENMIND_HUB_LLM_FAMILIES
+            + BUILTIN_LLM_FAMILIES
+            + user_defined_llm_families
+        )
     elif download_hub == "csghub":
         all_families = (
             BUILTIN_CSGHUB_LLM_FAMILIES
@@ -935,6 +995,12 @@ def match_llm(
     elif download_from_modelscope():
         all_families = (
             BUILTIN_MODELSCOPE_LLM_FAMILIES
+            + BUILTIN_LLM_FAMILIES
+            + user_defined_llm_families
+        )
+    elif download_from_openmind_hub():
+        all_families = (
+            BUILTIN_OPENMIND_HUB_LLM_FAMILIES
             + BUILTIN_LLM_FAMILIES
             + user_defined_llm_families
         )

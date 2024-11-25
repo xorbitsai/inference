@@ -163,7 +163,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
 
-
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
@@ -177,6 +176,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+    VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
 
 

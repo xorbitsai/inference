@@ -39,6 +39,7 @@ def get_xinference_home() -> str:
         # if user has already set `XINFERENCE_HOME` env, change huggingface and modelscope default download path
         os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(home_path, "huggingface")
         os.environ["MODELSCOPE_CACHE"] = os.path.join(home_path, "modelscope")
+        os.environ["XDG_CACHE_HOME"] = os.path.join(home_path, "openmind_hub")
     # In multi-tenant mode,
     # gradio's temporary files are stored in their respective home directories,
     # to prevent insufficient permissions
@@ -86,3 +87,5 @@ XINFERENCE_DOWNLOAD_MAX_ATTEMPTS = int(
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE = os.environ.get(
     XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE, None
 )
+XINFERENCE_LAUNCH_MODEL_RETRY = 3
+XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION = 30

@@ -125,7 +125,9 @@ def generate_image_description(
 
 def match_diffusion(
     model_name: str,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
 ) -> ImageModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
@@ -213,7 +215,9 @@ def create_image_model_instance(
     model_uid: str,
     model_name: str,
     peft_model_config: Optional[PeftModelConfig] = None,
-    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[

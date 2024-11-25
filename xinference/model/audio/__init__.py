@@ -15,6 +15,8 @@
 import codecs
 import json
 import os
+import platform
+import sys
 import warnings
 from typing import Any, Dict
 
@@ -55,6 +57,14 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_audio_dir}/{f} has error, {e}")
 
 
+def _need_filter(spec: dict):
+    if (sys.platform != "darwin" or platform.processor() != "arm") and spec.get(
+        "engine", ""
+    ).upper() == "MLX":
+        return True
+    return False
+
+
 def _install():
     _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
     _model_spec_modelscope_json = os.path.join(
@@ -64,6 +74,7 @@ def _install():
         dict(
             (spec["model_name"], AudioModelFamilyV1(**spec))
             for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+            if not _need_filter(spec)
         )
     )
     for model_name, model_spec in BUILTIN_AUDIO_MODELS.items():
@@ -75,6 +86,7 @@ def _install():
             for spec in json.load(
                 codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
             )
+            if not _need_filter(spec)
         )
     )
     for model_name, model_spec in MODELSCOPE_AUDIO_MODELS.items():

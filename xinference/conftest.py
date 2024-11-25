@@ -58,10 +58,6 @@ TEST_LOGGING_CONF = {
             "propagate": False,
         }
     },
-    "root": {
-        "level": "WARN",
-        "handlers": ["stream_handler"],
-    },
 }
 
 TEST_LOG_FILE_PATH = get_log_file(f"test_{get_timestamp_ms()}")
@@ -101,10 +97,6 @@ TEST_FILE_LOGGING_CONF = {
             "level": "DEBUG",
             "propagate": False,
         }
-    },
-    "root": {
-        "level": "WARN",
-        "handlers": ["stream_handler", "file_handler"],
     },
 }
 

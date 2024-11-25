@@ -247,3 +247,19 @@ def test_register_fault_embedding():
     assert any(
         "Invalid model URI /new_data/cache/gte-Qwen2" in str(r.message) for r in record
     )
+
+
+def test_convert_ids_to_tokens():
+    from ..core import EmbeddingModel
+
+    model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model.load()
+
+    ids = [[8074, 8059, 8064, 8056], [144, 147, 160, 160, 158]]
+    tokens = model.convert_ids_to_tokens(ids)
+
+    assert isinstance(tokens, list)
+    assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
+
+    shutil.rmtree(model_path, ignore_errors=True)

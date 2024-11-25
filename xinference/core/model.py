@@ -40,7 +40,11 @@ from typing import (
 import sse_starlette.sse
 import xoscar as xo
 
-from ..constants import XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
+from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    XINFERENCE_LAUNCH_MODEL_RETRY,
+    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE,
+)
 
 if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
@@ -54,7 +58,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
-from .utils import json_dumps, log_async
+from .utils import CancelMixin, json_dumps, log_async
 
 try:
     from torch.cuda import OutOfMemoryError
@@ -87,21 +91,26 @@ def request_limit(fn):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
-        if self._request_limits is not None:
-            if 1 + self._serve_count <= self._request_limits:
-                self._serve_count += 1
-            else:
-                raise RuntimeError(
-                    f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
-                )
+        if 1 + self._serve_count <= self._request_limits:
+            self._serve_count += 1
+        else:
+            raise RuntimeError(
+                f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
+            )
+        ret = None
         try:
             ret = await fn(self, *args, **kwargs)
         finally:
-            if self._request_limits is not None:
+            if ret is not None and (
+                inspect.isasyncgen(ret) or inspect.isgenerator(ret)
+            ):
+                # stream case, let client call model_ref to decrease self._serve_count
+                pass
+            else:
                 self._serve_count -= 1
-            logger.debug(
-                f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
-            )
+                logger.debug(
+                    f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+                )
         return ret
 
     return wrapped_func
@@ -133,7 +142,9 @@ def oom_check(fn):
         return _wrapper
 
 
-class ModelActor(xo.StatelessActor):
+class ModelActor(xo.StatelessActor, CancelMixin):
+    _replica_model_uid: Optional[str]
+
     @classmethod
     def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
@@ -192,6 +203,7 @@ class ModelActor(xo.StatelessActor):
         supervisor_address: str,
         worker_address: str,
         model: "LLM",
+        replica_model_uid: str,
         model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
     ):
@@ -203,11 +215,14 @@ class ModelActor(xo.StatelessActor):
 
         self._supervisor_address = supervisor_address
         self._worker_address = worker_address
+        self._replica_model_uid = replica_model_uid
         self._model = model
         self._model_description = (
             model_description.to_dict() if model_description else {}
         )
-        self._request_limits = request_limits
+        self._request_limits = (
+            float("inf") if request_limits is None else request_limits
+        )
         self._pending_requests: asyncio.Queue = asyncio.Queue()
         self._handle_pending_requests_task = None
         self._lock = (
@@ -256,6 +271,12 @@ class ModelActor(xo.StatelessActor):
                 address=self.address,
                 uid=FluxBatchSchedulerActor.gen_uid(self.model_uid()),
             )
+
+    def __repr__(self) -> str:
+        return f"ModelActor({self._replica_model_uid})"
+
+    def decrease_serve_count(self):
+        self._serve_count -= 1
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -374,7 +395,28 @@ class ModelActor(xo.StatelessActor):
         return condition
 
     async def load(self):
-        self._model.load()
+        try:
+            # Change process title for model
+            import setproctitle
+
+            setproctitle.setproctitle(f"Model: {self._replica_model_uid}")
+        except ImportError:
+            pass
+        i = 0
+        while True:
+            i += 1
+            try:
+                self._model.load()
+                break
+            except Exception as e:
+                if (
+                    i < XINFERENCE_LAUNCH_MODEL_RETRY
+                    and str(e).find("busy or unavailable") >= 0
+                ):
+                    await asyncio.sleep(5)
+                    logger.warning("Retry to load model {model_uid}: %d times", i)
+                    continue
+                raise
         if self.allow_batching():
             await self._scheduler_ref.set_model(self._model)
             logger.debug(
@@ -385,6 +427,7 @@ class ModelActor(xo.StatelessActor):
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_images: {self._model.get_max_num_images_for_batching()}"
             )
+        logger.info(f"{self} loaded")
 
     def model_uid(self):
         return (
@@ -521,6 +564,7 @@ class ModelActor(xo.StatelessActor):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
+        self._add_running_task(kwargs.get("request_id"))
         if self._lock is None:
             if inspect.iscoroutinefunction(fn):
                 ret = await fn(*args, **kwargs)
@@ -729,9 +773,14 @@ class ModelActor(xo.StatelessActor):
                     prompt_tokens,
                 )
 
-    async def abort_request(self, request_id: str) -> str:
+    async def abort_request(
+        self,
+        request_id: str,
+        block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    ) -> str:
         from .utils import AbortRequestMessage
 
+        self._cancel_running_task(request_id, block_duration)
         if self.allow_batching():
             if self._scheduler_ref is None:
                 return AbortRequestMessage.NOT_FOUND.name
@@ -754,6 +803,19 @@ class ModelActor(xo.StatelessActor):
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating embedding."
         )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def convert_ids_to_tokens(
+        self, input: Union[List, List[List]], *args, **kwargs
+    ):
+        kwargs.pop("request_id", None)
+        if hasattr(self._model, "convert_ids_to_tokens"):
+            return await self._call_wrapper_json(
+                self._model.convert_ids_to_tokens, input, *args, **kwargs
+            )
+
+        raise AttributeError(f"Model {self._model.model_spec} can convert token id.")
 
     @request_limit
     @log_async(logger=logger)

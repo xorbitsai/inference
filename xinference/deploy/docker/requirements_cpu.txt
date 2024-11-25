@@ -6,7 +6,7 @@ click
 tqdm>=4.27
 tabulate
 requests
-pydantic
+pydantic>2
 fastapi>=0.110.3
 uvicorn
 huggingface-hub>=0.19.4
@@ -39,6 +39,7 @@ autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft
 timm
+setproctitle
 opencv-contrib-python-headless
 funasr
 omegaconf~=2.3.0  # For ChatTTS
@@ -46,7 +47,7 @@ nemo_text_processing<1.1.0  # 1.1.0 requires pynini==2.1.6.post1
 WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6
 librosa  # For ChatTTS
 torchaudio  # For ChatTTS
-ChatTTS>=0.2
+ChatTTS>=0.2.1
 xxhash  # For ChatTTS
 torch>=2.0.0  # For CosyVoice
 lightning>=2.0.0  # For CosyVoice, matcha
@@ -66,6 +67,8 @@ loguru  # For Fish Speech
 natsort  # For Fish Speech
 loralib  # For Fish Speech
 ormsgpack  # For Fish Speech
+cachetools  # For Fish Speech
+silero-vad  # For Fish Speech
 qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B

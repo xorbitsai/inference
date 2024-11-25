@@ -17,7 +17,8 @@ import platform
 import sys
 import time
 import uuid
-from typing import Dict, Iterator, List, Optional, TypedDict, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
 
 from ....fields import max_tokens_field
 from ....types import (
@@ -53,6 +54,14 @@ class MLXGenerateConfig(TypedDict, total=False):
     stream: bool
     stream_options: Optional[Union[dict, None]]
     tools: Optional[List[Dict]]
+    lora_name: Optional[str]
+
+
+@dataclass
+class PromptCache:
+    cache: List[Any] = field(default_factory=list)
+    model_key: Tuple[str, Optional[str]] = ("", None)
+    tokens: List[int] = field(default_factory=list)
 
 
 class MLXModel(LLM):
@@ -69,6 +78,8 @@ class MLXModel(LLM):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
+        self._max_kv_size = None
+        self._prompt_cache = None
         if peft_model is not None:
             raise ValueError("MLX engine has not supported lora yet")
 
@@ -127,6 +138,9 @@ class MLXModel(LLM):
             logger.debug(f"Setting cache limit to {cache_limit_gb} GB")
             mx.metal.set_cache_limit(cache_limit_gb * 1024 * 1024 * 1024)
 
+        self._max_kv_size = kwargs.get("max_kv_size", None)
+        self._prompt_cache = PromptCache()
+
         return load(
             self.model_path,
             tokenizer_config=tokenizer_config,
@@ -156,6 +170,27 @@ class MLXModel(LLM):
             return False
         return True
 
+    def _get_prompt_cache(self, prompt, lora_name: Optional[str] = None):
+        from mlx_lm.models.cache import make_prompt_cache
+
+        assert self._prompt_cache is not None
+        cache_len = len(self._prompt_cache.tokens)
+        model_key = (self.model_path, lora_name)
+        if (
+            self._prompt_cache.model_key != model_key
+            or cache_len >= len(prompt)
+            or self._prompt_cache.tokens != prompt[:cache_len]
+        ):
+            self._prompt_cache.model_key = model_key
+            self._prompt_cache.cache = make_prompt_cache(self._model, self._max_kv_size)
+            self._prompt_cache.tokens = []
+            logger.debug("Making new prompt cache for %s", self.model_uid)
+        else:
+            prompt = prompt[cache_len:]
+            logger.debug("Cache hit for %s", self.model_uid)
+        self._prompt_cache.tokens.extend(prompt)
+        return prompt
+
     def _generate_stream(self, prompt: str, kwargs: MLXGenerateConfig):
         import mlx.core as mx
         from mlx_lm.utils import generate_step
@@ -167,6 +202,7 @@ class MLXModel(LLM):
         chunk_id = str(uuid.uuid4())
         stop_token_ids = kwargs.get("stop_token_ids", [])
         stream = kwargs.get("stream", False)
+        lora_name = kwargs.get("lora_name")
         stream_options = kwargs.pop("stream_options", None)
         include_usage = (
             stream_options["include_usage"]
@@ -174,12 +210,15 @@ class MLXModel(LLM):
             else False
         )
 
-        prompt_tokens = mx.array(tokenizer.encode(prompt))
+        prompt_token_ids = tokenizer.encode(prompt)
+        prompt_token_ids = self._get_prompt_cache(prompt_token_ids, lora_name)
+        prompt_tokens = mx.array(prompt_token_ids)
         input_echo_len = len(prompt_tokens)
 
         i = 0
         start = time.time()
         output = ""
+        tokens = []
         for (token, _), i in zip(
             generate_step(
                 prompt_tokens,
@@ -188,10 +227,11 @@ class MLXModel(LLM):
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
                 top_p=kwargs["top_p"],
-                logit_bias=kwargs["logit_bias"],
+                prompt_cache=self._prompt_cache.cache,  # type: ignore
             ),
             range(max_tokens),
         ):
+            tokens.append(token)
             if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
                 break
 
@@ -229,6 +269,8 @@ class MLXModel(LLM):
         logger.info(
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."
         )
+
+        self._prompt_cache.tokens.extend(tokens)  # type: ignore
 
         if i == max_tokens - 1:
             finish_reason = "length"

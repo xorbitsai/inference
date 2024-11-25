@@ -164,6 +164,24 @@ $ xinference-local
 | [微信社群](https://xorbits.cn/assets/images/wechat_work_qr.png)                                     | 与其他 Xorbits 用户交流。                         |
 | [知乎](https://zhihu.com/org/xorbits)                                                         | 了解团队最新的进展。                                  |
 
+## 引用
+
+如果您觉得此项目有帮助，请以如下格式引用我们：
+
+```bibtex
+@inproceedings{lu2024xinference,
+    title = "Xinference: Making Large Model Serving Easy",
+    author = "Lu, Weizheng and Xiong, Lingfeng and Zhang, Feng and Qin, Xuye and Chen, Yueguo",
+    booktitle = "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = nov,
+    year = "2024",
+    address = "Miami, Florida, USA",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.emnlp-demo.30",
+    pages = "291--300",
+}
+```
+
 ## 贡献者
 
 <a href="https://github.com/xorbitsai/inference/graphs/contributors">

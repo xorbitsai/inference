@@ -240,6 +240,16 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 131072
      - The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+     
+   * - :ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`
+     - generate, vision
+     - 131072
+     - The Llama 3.2-Vision collection of multimodal large language models (LLMs) is a collection of pretrained and instruction-tuned image reasoning generative models in 11B and 90B sizes (text + images in / text out)...
+     
+   * - :ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`
+     - chat, vision
+     - 131072
+     - The Llama 3.2-Vision-instruct instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image. The models outperform many of the available open source and closed multimodal models on common industry benchmarks...     
 
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat

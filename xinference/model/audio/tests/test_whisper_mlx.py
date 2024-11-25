@@ -11,12 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os.path
-import tempfile
+import platform
+import sys
 
 import pytest
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
 def test_restful_api_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -25,7 +31,7 @@ def test_restful_api_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-small",
+        model_name="whisper-small-mlx",
         model_type="audio",
     )
     model = client.get_model(model_uid)
@@ -40,21 +46,17 @@ def test_restful_api_for_whisper(setup):
     assert "do for you" in transcription
 
     # Translation requires large-v3 model.
-    zh_cn_audio_path = os.path.join(
-        os.path.dirname(__file__), "common_voice_zh-CN_38026095.mp3"
-    )
+    zh_cn_audio_path = os.path.join(os.path.dirname(__file__), "zero_shot_prompt.wav")
     with open(zh_cn_audio_path, "rb") as f:
         zh_cn_audio = f.read()
     response = model.translations(zh_cn_audio)
     translation = response["text"].lower()
-    assert "list" in translation or "form" in translation
-    assert "airlines" in translation
-    assert "hong kong" in translation
+    assert "do better" in translation
 
     # If model multilingual is False, it can't be used for translations.
     model_uid2 = client.launch_model(
         model_uid="whisper-2",
-        model_name="whisper-tiny.en",
+        model_name="whisper-tiny.en-mlx",
         model_type="audio",
         n_gpu=None,
     )
@@ -68,15 +70,11 @@ def test_restful_api_for_whisper(setup):
     client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
     with open(zh_cn_audio_path, "rb") as f:
         completion = client.audio.transcriptions.create(model=model_uid, file=f)
-        assert "列表" in completion.text
-        assert "香港" in completion.text
-        assert "航空" in completion.text
+        assert "希望" in completion.text
 
         completion = client.audio.translations.create(model=model_uid, file=f)
         translation = completion.text.lower()
-        assert "list" in translation or "form" in translation
-        assert "airlines" in translation
-        assert "hong kong" in translation
+        assert "do better" in translation
 
 
 def test_transcriptions_for_whisper(setup):
@@ -87,7 +85,7 @@ def test_transcriptions_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-small",
+        model_name="whisper-small-mlx",
         model_type="audio",
     )
     model = client.get_model(model_uid)
@@ -135,76 +133,3 @@ def test_transcriptions_for_whisper(setup):
             timestamp_granularities=["word"],
         )
         assert len(completion.words) == 11
-
-
-def test_register_custom_audio():
-    from ..custom import (
-        CustomAudioModelFamilyV1,
-        get_user_defined_audios,
-        register_audio,
-        unregister_audio,
-    )
-
-    # correct
-    family_a = CustomAudioModelFamilyV1(
-        model_family="my-whisper",
-        model_name="custom_test_a",
-        model_id="test/custom_test_a",
-        multilingual=True,
-        ability="audio-to-text",
-    )
-
-    register_audio(family_a, False)
-    assert family_a in get_user_defined_audios()
-
-    # name conflict
-    family_b = CustomAudioModelFamilyV1(
-        model_family="my-whisper",
-        model_name="custom_test_b",
-        model_id="test/custom_test_b",
-        multilingual=True,
-        ability="audio-to-text",
-    )
-    register_audio(family_b, False)
-    assert family_b in get_user_defined_audios()
-    with pytest.raises(ValueError):
-        register_audio(family_b, False)
-
-    # unregister
-    unregister_audio(family_a.model_name)
-    assert family_a not in get_user_defined_audios()
-    unregister_audio(family_b.model_name)
-    assert family_b not in get_user_defined_audios()
-
-
-def test_persistent_custom_audio():
-    from ....constants import XINFERENCE_MODEL_DIR
-    from ..custom import (
-        CustomAudioModelFamilyV1,
-        get_user_defined_audios,
-        register_audio,
-        unregister_audio,
-    )
-
-    temp_dir = tempfile.mkdtemp()
-
-    # correct
-    family = CustomAudioModelFamilyV1(
-        model_family="my-whisper",
-        model_name="custom_test_a",
-        model_id="test/custom_test_a",
-        multilingual=True,
-        model_uri=os.path.abspath(temp_dir),
-        ability="audio-to-text",
-    )
-
-    register_audio(family, True)
-    assert family in get_user_defined_audios()
-    assert f"{family.model_name}.json" in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "audio")
-    )
-
-    unregister_audio(family.model_name)
-    assert f"{family.model_name}.json" not in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "audio")
-    )
