@@ -7,7 +7,7 @@ llama-3.1-instruct
 - **Context Length:** 131072
 - **Model Name:** llama-3.1-instruct
 - **Languages:** en, de, fr, it, pt, hi, es, th
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
 Specifications

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 0_5 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 0_5
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** Qwen/Qwen2.5-Coder-0.5B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-0.5B>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 3 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 3
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** Qwen/Qwen2.5-Coder-3B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-3B>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-3B>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (pytorch, 14 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** Qwen/Qwen2.5-Coder-14B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-14B>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-14B>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (pytorch, 32 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** Qwen/Qwen2.5-Coder-32B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-32B>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-32B>`__
 
