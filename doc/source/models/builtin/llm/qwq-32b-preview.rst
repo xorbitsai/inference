@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 32 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** Qwen/QwQ-32B-Preview
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/QwQ-32B-Preview>`__, `ModelScope <https://modelscope.cn/models/Qwen/QwQ-32B-Preview>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 32 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 32
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** KirillR/QwQ-32B-Preview-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/KirillR/QwQ-32B-Preview-AWQ>`__
 
