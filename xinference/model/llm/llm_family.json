@@ -3411,8 +3411,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "mistralai/Mistral-7B-Instruct-v0.2",
-        "model_revision": "9552e7b1d9b2d5bbd87a5aa7221817285dbb6366"
+        "model_id": "mistralai/Codestral-22B-v0.1",
+        "model_revision": "8f5fe23af91885222a1563283c87416745a5e212"
       },
       {
         "model_format": "ggufv2",
