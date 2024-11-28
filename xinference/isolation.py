@@ -88,5 +88,4 @@ class Isolation:
     def stop(self):
         if self._threaded:
             asyncio.run_coroutine_threadsafe(self._stop(), self._loop).result()
-
             self._thread.join()
