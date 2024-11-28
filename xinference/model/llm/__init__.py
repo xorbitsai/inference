@@ -143,6 +143,7 @@ def _install():
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
+    from .transformers.glm_edge_v import GlmEdgeVModel
     from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
@@ -152,7 +153,6 @@ def _install():
     from .transformers.qwen2_vl import Qwen2VLChatModel
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
-    from .transformers.glm_edge_v import GlmEdgeVModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
     try:

@@ -587,6 +587,7 @@ def _decode_image_without_rgb(_url):
         else:
             return Image.open(BytesIO(response.content))
 
+
 @typing.no_type_check
 def generate_completion_chunk(
     chunk_text: Optional[str],

@@ -12,21 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import typing
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
 
-from ....core.scheduler import InferenceRequest
 from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
 from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import _decode_image_without_rgb, generate_chat_completion, generate_completion_chunk
+from ..utils import (
+    _decode_image_without_rgb,
+    generate_chat_completion,
+    generate_completion_chunk,
+)
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import cache_clean, get_max_src_len
+from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +51,7 @@ class GlmEdgeVModel(PytorchChatModel):
         return False
 
     def load(self):
-        from transformers import AutoModelForCausalLM, AutoTokenizer, AutoImageProcessor
+        from transformers import AutoImageProcessor, AutoModelForCausalLM, AutoTokenizer
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
@@ -75,7 +77,9 @@ class GlmEdgeVModel(PytorchChatModel):
                         f"Only 8-bit quantization is supported if it is not linux system or cuda device"
                     )
 
-        processor = AutoImageProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+        processor = AutoImageProcessor.from_pretrained(
+            self.model_path, trust_remote_code=True
+        )
         self._processor = processor
 
         model = AutoModelForCausalLM.from_pretrained(
@@ -93,7 +97,9 @@ class GlmEdgeVModel(PytorchChatModel):
         self._tokenizer = tokenizer
 
     @staticmethod
-    def _get_processed_msgs(messages: List[Dict]) -> List[Dict]:
+    def _get_processed_msgs(
+        messages: List[Dict],
+    ) -> Tuple[List[Dict[str, Any]], List[Any]]:
         res = []
         img = []
         for message in messages:
@@ -125,17 +131,15 @@ class GlmEdgeVModel(PytorchChatModel):
                 text = " ".join(texts)
                 img.extend(images)
                 if images:
-                    res.append({
-                        "role": role,
-                        "content": [
-                            {
-                                "type": "image"
-                            },
-                            {
-                                "type": "text",
-                                "text": text
-                            }
-                        ]})
+                    res.append(
+                        {
+                            "role": role,
+                            "content": [
+                                {"type": "image"},
+                                {"type": "text", "text": text},
+                            ],
+                        }
+                    )
                 else:
                     res.append({"role": role, "content": text})
         return res, img
@@ -154,7 +158,6 @@ class GlmEdgeVModel(PytorchChatModel):
         stream = generate_config.get("stream", False)
         msgs, imgs = self._get_processed_msgs(messages)
 
-
         inputs = self._tokenizer.apply_chat_template(
             msgs,
             add_generation_prompt=True,
@@ -164,12 +167,13 @@ class GlmEdgeVModel(PytorchChatModel):
         )  # chat mode
         inputs = inputs.to(self._model.device)
 
-
         generate_kwargs = {
             **inputs,
         }
         if len(imgs) > 0:
-            generate_kwargs["pixel_values"] = torch.tensor(self._processor(imgs[-1]).pixel_values).to(self._model.device)
+            generate_kwargs["pixel_values"] = torch.tensor(
+                self._processor(imgs[-1]).pixel_values
+            ).to(self._model.device)
         stop_str = "<|endoftext|>"
 
         if stream:
@@ -224,7 +228,3 @@ class GlmEdgeVModel(PytorchChatModel):
             has_choice=True,
             has_content=False,
         )
-
-
-
-
