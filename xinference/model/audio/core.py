@@ -25,6 +25,7 @@ from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
+from .f5tts import F5TTSModel
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,7 @@ def create_audio_model_instance(
         ChatTTSModel,
         CosyVoiceModel,
         FishSpeechModel,
+        F5TTSModel,
     ],
     AudioModelDescription,
 ]:
@@ -182,6 +184,7 @@ def create_audio_model_instance(
         ChatTTSModel,
         CosyVoiceModel,
         FishSpeechModel,
+        F5TTSModel,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -196,6 +199,8 @@ def create_audio_model_instance(
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":
         model = FishSpeechModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "F5-TTS":
+        model = F5TTSModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
