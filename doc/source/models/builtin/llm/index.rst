@@ -240,16 +240,16 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 131072
      - The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
-     
+
    * - :ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`
      - generate, vision
      - 131072
-     - The Llama 3.2-Vision collection of multimodal large language models (LLMs) is a collection of pretrained and instruction-tuned image reasoning generative models in 11B and 90B sizes (text + images in / text out)...
-     
+     - The Llama 3.2-Vision instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image...
+
    * - :ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`
      - chat, vision
      - 131072
-     - The Llama 3.2-Vision-instruct instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image. The models outperform many of the available open source and closed multimodal models on common industry benchmarks...     
+     - Llama 3.2-Vision instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image...
 
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
@@ -446,6 +446,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
+   * - :ref:`qwq-32b-preview <models_llm_qwq-32b-preview>`
+     - chat
+     - 32768
+     - QwQ-32B-Preview is an experimental research model developed by the Qwen Team, focused on advancing AI reasoning capabilities.
+
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
      - 8192
@@ -641,6 +646,10 @@ The following is a list of built-in LLM in Xinference:
   
    llama-3.1-instruct
   
+   llama-3.2-vision
+  
+   llama-3.2-vision-instruct
+  
    minicpm-2b-dpo-bf16
   
    minicpm-2b-dpo-fp16
@@ -718,6 +727,8 @@ The following is a list of built-in LLM in Xinference:
    qwen2.5-coder-instruct
   
    qwen2.5-instruct
+  
+   qwq-32b-preview
   
    seallm_v2
   

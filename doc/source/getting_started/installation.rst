@@ -39,7 +39,7 @@ Currently, supported models include:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1-instruct``
+- ``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-3.2-vision``, ``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1-instruct``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-instruct``
 - ``codestral-v0.1``
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
@@ -58,6 +58,7 @@ Currently, supported models include:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
+- ``QwQ-32B-Preview``
 - ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``

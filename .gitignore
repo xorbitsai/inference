@@ -142,6 +142,9 @@ static/
 # doc
 doc/source/savefig/
 
+# local env
+local_env
+
 asv/results
 
 .DS_Store
