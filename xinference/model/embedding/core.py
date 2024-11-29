@@ -226,10 +226,14 @@ class EmbeddingModel:
 
     def _fix_langchain_openai_inputs(self, sentences: Union[str, List[str]]):
         # Check if sentences is a two-dimensional list of integers
-        if isinstance(sentences, list) and all(
-            isinstance(item, list) and all(isinstance(i, int) for i in item)
-            for item in sentences
+        if (
+            isinstance(sentences, list)
+            and len(sentences) > 0
+            and isinstance(sentences[0], list)
+            and len(sentences[0]) > 0
+            and isinstance(sentences[0][0], int)
         ):
+            # List[List[int]] stands for encoded inputs
             import tiktoken
 
             enc = tiktoken.get_encoding("cl100k_base")
