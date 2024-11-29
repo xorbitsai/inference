@@ -6446,7 +6446,7 @@
   {
     "version": 1,
     "context_length": 8192,
-    "model_name": "glm-edge-chat",
+    "model_name": "glm-edge-v",
     "model_lang": [
       "en",
       "zh"
