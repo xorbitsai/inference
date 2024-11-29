@@ -21,6 +21,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union, no_type_check
 import numpy as np
 import torch
 
+from ..._compat import ROOT_KEY, ErrorWrapper, ValidationError
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import CacheableModelSpec, ModelDescription
@@ -223,7 +224,43 @@ class EmbeddingModel:
                 trust_remote_code=True,
             )
 
+    def _fix_langchain_openai_inputs(self, sentences: Union[str, List[str]]):
+        # Check if sentences is a two-dimensional list of integers
+        if (
+            isinstance(sentences, list)
+            and len(sentences) > 0
+            and isinstance(sentences[0], list)
+            and len(sentences[0]) > 0
+            and isinstance(sentences[0][0], int)
+        ):
+            # List[List[int]] stands for encoded inputs
+            import tiktoken
+
+            enc = tiktoken.get_encoding("cl100k_base")
+            lines_decoded = []
+
+            for line in sentences:
+                try:
+                    # Decode each token into bytes, then join them into a complete string
+                    output = b"".join(
+                        enc.decode_single_token_bytes(token) for token in line
+                    )
+                    # Convert the byte sequence into a UTF-8 encoded string
+                    decoded_line = output.decode("utf-8")
+                    lines_decoded.append(decoded_line)
+                except (ValueError, TypeError, UnicodeDecodeError) as e:
+                    raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], self)
+
+            # Update sentences to be the list of decoded strings
+            if len(lines_decoded) == 1:
+                sentences = lines_decoded[0]
+            else:
+                sentences = lines_decoded
+        return sentences
+
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+
         from FlagEmbedding import BGEM3FlagModel
         from sentence_transformers import SentenceTransformer
 
