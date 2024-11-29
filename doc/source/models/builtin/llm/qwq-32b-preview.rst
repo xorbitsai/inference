@@ -30,7 +30,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name QwQ-32B-Preview --size-in-billions 32 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (ggufv2, 32 Billion)
+Model Spec 2 (awq, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 32
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** KirillR/QwQ-32B-Preview-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/KirillR/QwQ-32B-Preview-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name QwQ-32B-Preview --size-in-billions 32 --model-format awq --quantization ${quantization}
+
+
+Model Spec 3 (ggufv2, 32 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -46,7 +62,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name QwQ-32B-Preview --size-in-billions 32 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 3 (mlx, 32 Billion)
+Model Spec 4 (mlx, 32 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -54,23 +70,7 @@ Model Spec 3 (mlx, 32 Billion)
 - **Quantizations:** 4-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name QwQ-32B-Preview --size-in-billions 32 --model-format mlx --quantization ${quantization}
-
-
-Model Spec 4 (mlx, 32 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** mlx
-- **Model Size (in billions):** 32
-- **Quantizations:** 8-bit
-- **Engines**: MLX
-- **Model ID:** mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-8bit>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -83,10 +83,26 @@ Model Spec 5 (mlx, 32 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 32
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name QwQ-32B-Preview --size-in-billions 32 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 6 (mlx, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 32
 - **Quantizations:** none
 - **Engines**: MLX
 - **Model ID:** mlx-community/QwQ-32B-Preview-bf16
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/QwQ-32B-Preview-bf16>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/QwQ-32B-Preview-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-8bit>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
