@@ -8596,5 +8596,232 @@
       "<|im_start|>",
       "<|im_end|>"
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "glm-edge-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The GLM-Edge series is our attempt to face the end-side real-life scenarios, which consists of two sizes of large-language dialogue models and multimodal comprehension models (GLM-Edge-1.5B-Chat, GLM-Edge-4B-Chat, GLM-Edge-V-2B, GLM-Edge-V-5B). Among them, the 1.5B / 2B model is mainly for platforms such as mobile phones and cars, and the 4B / 5B model is mainly for platforms such as PCs.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-edge-1.5b-chat"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "4",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-edge-4b-chat"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Q4_0",
+          "Q4_1",
+          "Q4_K",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_file_name_template": "ggml-model-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-1.5b-chat-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "F16"
+        ],
+        "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-1.5b-chat-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "4",
+        "quantizations": [
+          "Q4_0",
+          "Q4_1",
+          "Q4_K",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_file_name_template": "ggml-model-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-4b-chat-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "4",
+        "quantizations": [
+          "F16"
+        ],
+        "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-4b-chat-gguf"
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if item['role'] == 'system' %}<|system|>\n{{ item['content'] }}{% elif item['role'] == 'user' %}<|user|>\n{{ item['content'] }}{% elif item['role'] == 'assistant' %}<|assistant|>\n{{ item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>\n{% endif %}",
+    "stop_token_ids": [
+      59246,
+      59253,
+      59255
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "glm-edge-v",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "The GLM-Edge series is our attempt to face the end-side real-life scenarios, which consists of two sizes of large-language dialogue models and multimodal comprehension models (GLM-Edge-1.5B-Chat, GLM-Edge-4B-Chat, GLM-Edge-V-2B, GLM-Edge-V-5B). Among them, the 1.5B / 2B model is mainly for platforms such as mobile phones and cars, and the 4B / 5B model is mainly for platforms such as PCs.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "2",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-edge-v-2b"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-edge-v-5b"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "2",
+        "quantizations": [
+          "Q4_0",
+          "Q4_1",
+          "Q4_K",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_file_name_template": "ggml-model-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-v-2b-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "2",
+        "quantizations": [
+          "F16"
+        ],
+        "model_file_name_template": "glm-edge-v-2B-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-v-2b-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "2",
+        "quantizations": [
+          "f16"
+        ],
+        "model_file_name_template": "mmproj-model-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-v-2b-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "5",
+        "quantizations": [
+          "Q4_0",
+          "Q4_1",
+          "Q4_K",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_file_name_template": "ggml-model-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-v-5b-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "5",
+        "quantizations": [
+          "F16"
+        ],
+        "model_file_name_template": "glm-edge-v-5B-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-v-5b-gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "5",
+        "quantizations": [
+          "f16"
+        ],
+        "model_file_name_template": "mmproj-model-{quantization}.gguf",
+        "model_id": "THUDM/glm-edge-v-5b-gguf"
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if item['role'] != 'system' %}<|{{ item['role'] }}|>\n{% for content in item['content'] %}{% if content['type'] == 'image' %}{% for _ in range(578) %}<|begin_of_image|>{% endfor %}{% elif content['type'] == 'text' %}{{ content['text'] }}{% endif %}{% endfor %}\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>\n{% endif %}",
+    "stop_token_ids": [
+      59246,
+      59253,
+      59255
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   }
 ]

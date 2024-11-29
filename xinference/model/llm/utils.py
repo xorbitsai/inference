@@ -569,6 +569,25 @@ def _decode_image(_url):
             return Image.open(BytesIO(response.content)).convert("RGB")
 
 
+def _decode_image_without_rgb(_url):
+    if _url.startswith("data:"):
+        logging.info("Parse url by base64 decoder.")
+        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+        # e.g. f"data:image/jpeg;base64,{base64_image}"
+        _type, data = _url.split(";")
+        _, ext = _type.split("/")
+        data = data[len("base64,") :]
+        data = base64.b64decode(data.encode("utf-8"))
+        return Image.open(BytesIO(data))
+    else:
+        try:
+            response = requests.get(_url)
+        except requests.exceptions.MissingSchema:
+            return Image.open(_url)
+        else:
+            return Image.open(BytesIO(response.content))
+
+
 @typing.no_type_check
 def generate_completion_chunk(
     chunk_text: Optional[str],
