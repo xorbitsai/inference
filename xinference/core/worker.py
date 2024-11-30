@@ -335,17 +335,19 @@ class WorkerActor(xo.StatelessActor):
             # Newly started (or restarted), has no model, notify supervisor
             await self._supervisor_ref.add_worker(self.address)
             logger.info("Connected to supervisor as a fresh worker")
-            
+
         # Reconnect to Newly started supervisor, has running models
         if add_worker and len(self._model_uid_to_model) > 0:
             # Reconnect to Newly started supervisor, notify supervisor
             await self._supervisor_ref.add_worker(self.address)
-            # Sync replical model infos
+            # Sync replica model infos
             running_models = {}
             running_models.update(await self.list_models())
             await self._supervisor_ref.sync_models(self.address, running_models)
-            logger.info(f"Connected to supervisor as a old worker with {len(running_models)} models")
-            
+            logger.info(
+                f"Connected to supervisor as a old worker with {len(running_models)} models"
+            )
+
         self._status_guard_ref = await xo.actor_ref(
             address=self._supervisor_address, uid=StatusGuardActor.default_uid()
         )
