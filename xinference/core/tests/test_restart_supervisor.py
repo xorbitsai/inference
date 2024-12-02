@@ -38,10 +38,16 @@ async def test_restart_supervisor():
         supervisor_address, SupervisorActor.default_uid()
     )
 
-    await supervisor_ref.launch_builtin_model(model_uid="bge-m3", model_name="bge-m3")
+    model_uid = "qwen1.5-chat"
+    await supervisor_ref.launch_builtin_model(
+        model_uid=model_uid,
+        model_name="qwen1.5-chat",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
 
     # query replica info
-    bge_m3_info = await supervisor_ref.describe_model("bge-m3")
+    bge_m3_info = await supervisor_ref.describe_model(model_uid)
 
     # kill supervisor
     proc_supervisor.kill()
@@ -50,6 +56,6 @@ async def test_restart_supervisor():
     proc_supervisor = supervisor_run_in_subprocess(supervisor_address)
 
     # check replica info
-    bge_m3_info_check = await supervisor_ref.describe_model("bge-m3")
+    bge_m3_info_check = await supervisor_ref.describe_model(model_uid)
 
     assert bge_m3_info["replica"] == bge_m3_info_check["replica"]
