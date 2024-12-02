@@ -12,3 +12,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict
+import pytest
+import xoscar as xo
+from ...core.supervisor import SupervisorActor
+
+# test restart supervisor
+@pytest.mark.asyncio
+async def test_restart_supervisor():
+
+    from ...deploy.supervisor import run_in_subprocess as supervisor_run_in_subprocess
+    from ...deploy.worker import main as worker_run_in_subprocess
+
+    # start supervisor
+    supervisor_address = "localhost:19034"
+    proc_supervisor = supervisor_run_in_subprocess(
+        supervisor_address
+    )
+
+    # start worker
+    proc_worker = worker_run_in_subprocess(
+        address="localhost:9998",
+        supervisor_address=supervisor_address
+    )
+
+    # load model
+    supervisor_ref = await xo.actor_ref(
+        supervisor_address, SupervisorActor.default_uid()
+    )
+
+    await supervisor_ref.launch_builtin_model(
+        model_uid="bge-m3", 
+        model_name="bge-m3"
+    )
+
+    # query replica info
+    bge_m3_info = await supervisor_ref.describe_model("bge-m3")
+
+    # kill supervisor
+    proc_supervisor.kill()
+
+    # restart supervisor
+    proc_supervisor = supervisor_run_in_subprocess(
+        supervisor_address
+    )
+
+    # check replica info
+    bge_m3_info_check = await supervisor_ref.describe_model("bge-m3")
+
+    assert(bge_m3_info["replica"]==bge_m3_info_check["replica"])
