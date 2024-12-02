@@ -1,5 +1,5 @@
 # required
-xoscar>=0.3.0,<0.4.2
+xoscar>=0.4.4
 gradio==4.26.0
 typer[all]<0.12.0  # fix typer required by gradio
 pillow
