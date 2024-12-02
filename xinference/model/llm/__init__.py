@@ -143,6 +143,7 @@ def _install():
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
+    from .transformers.glm_edge_v import GlmEdgeVModel
     from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
@@ -193,6 +194,7 @@ def _install():
             DeepSeekV2PytorchModel,
             DeepSeekV2PytorchChatModel,
             OptPytorchModel,
+            GlmEdgeVModel,
         ]
     )
     if OmniLMMModel:  # type: ignore

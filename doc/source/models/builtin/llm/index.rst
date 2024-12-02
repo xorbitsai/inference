@@ -446,6 +446,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
+   * - :ref:`qwq-32b-preview <models_llm_qwq-32b-preview>`
+     - chat
+     - 32768
+     - QwQ-32B-Preview is an experimental research model developed by the Qwen Team, focused on advancing AI reasoning capabilities.
+
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
      - 8192
@@ -722,6 +727,8 @@ The following is a list of built-in LLM in Xinference:
    qwen2.5-coder-instruct
   
    qwen2.5-instruct
+  
+   qwq-32b-preview
   
    seallm_v2
   

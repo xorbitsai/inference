@@ -65,6 +65,7 @@ Currently, supported model includes:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
+- ``QwQ-32B-Preview``
 - ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
