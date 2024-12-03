@@ -18,8 +18,6 @@ import re
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
-import tomli
-
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
 
@@ -160,6 +158,7 @@ class F5TTSModel:
         **kwargs,
     ):
         import f5_tts
+        import tomli
         import torch
         import torchaudio
 
