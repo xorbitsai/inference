@@ -21,11 +21,11 @@ from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .chattts import ChatTTSModel
 from .cosyvoice import CosyVoiceModel
+from .f5tts import F5TTSModel
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
-from .f5tts import F5TTSModel
 
 logger = logging.getLogger(__name__)
 

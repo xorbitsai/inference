@@ -11,11 +11,11 @@ import re
 import tempfile
 from importlib.resources import files
 
-import matplotlib
+# import matplotlib
 
-matplotlib.use("Agg")
-
-import matplotlib.pylab as plt
+# matplotlib.use("Agg")
+#
+# import matplotlib.pylab as plt
 import numpy as np
 import torch
 import torchaudio
