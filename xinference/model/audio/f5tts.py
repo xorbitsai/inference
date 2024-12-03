@@ -102,10 +102,11 @@ class F5TTSModel:
             voices = config["voices"]
             voices["main"] = main_voice
         for voice in voices:
-            voices[voice]["ref_audio"], voices[voice]["ref_text"] = (
-                preprocess_ref_audio_text(
-                    voices[voice]["ref_audio"], voices[voice]["ref_text"]
-                )
+            (
+                voices[voice]["ref_audio"],
+                voices[voice]["ref_text"],
+            ) = preprocess_ref_audio_text(
+                voices[voice]["ref_audio"], voices[voice]["ref_text"]
             )
             print("Voice:", voice)
             print("Ref_audio:", voices[voice]["ref_audio"])
