@@ -190,10 +190,18 @@ class F5TTSModel:
         # Save the generated audio
         with BytesIO() as out:
             wav = wav.reshape((wav.shape[0], 1))
-            torchaudio.save(
-                out,
-                torch.from_numpy(wav),
-                sample_rate,
-                format=response_format,
-            )
+            try:
+                torchaudio.save(
+                    out,
+                    torch.from_numpy(wav).unsqueeze(0),
+                    sample_rate,
+                    format=response_format,
+                )
+            except:
+                torchaudio.save(
+                    out,
+                    torch.from_numpy(wav),
+                    sample_rate,
+                    format=response_format,
+                )
             return out.getvalue()
