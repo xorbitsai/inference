@@ -12,26 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pytest
 import xoscar as xo
+from typing import List, Optional, Union, Dict
+import multiprocessing
 
 from ...core.supervisor import SupervisorActor
+
 
 
 # test restart supervisor
 @pytest.mark.asyncio
 async def test_restart_supervisor():
     from ...deploy.supervisor import run_in_subprocess as supervisor_run_in_subprocess
-    from ...deploy.worker import main as worker_run_in_subprocess
+    from ...deploy.worker import main as _start_worker
+
+    def worker_run_in_subprocess(
+        address: str, 
+        supervisor_address: str,
+        logging_conf: Optional[Dict] = None
+    ) -> multiprocessing.Process:
+        p = multiprocessing.Process(target=_start_worker, args=(address, supervisor_address, None, None, logging_conf))
+        p.start()
+        return p
 
     # start supervisor
-    supervisor_address = "localhost:19034"
+    supervisor_address = f"localhost:{xo.utils.get_next_port()}"
     proc_supervisor = supervisor_run_in_subprocess(supervisor_address)
+
+    await asyncio.sleep(5)
 
     # start worker
     worker_run_in_subprocess(
-        address="localhost:9998", supervisor_address=supervisor_address
+        address=f"localhost:{xo.utils.get_next_port()}", 
+        supervisor_address=supervisor_address
     )
+    
+    await asyncio.sleep(10)
 
     # load model
     supervisor_ref = await xo.actor_ref(
@@ -44,18 +62,26 @@ async def test_restart_supervisor():
         model_name="qwen1.5-chat",
         model_size_in_billions="0_5",
         quantization="q4_0",
+        model_engine="vLLM"
     )
 
     # query replica info
-    bge_m3_info = await supervisor_ref.describe_model(model_uid)
+    model_replica_info = await supervisor_ref.describe_model(model_uid)
 
     # kill supervisor
-    proc_supervisor.kill()
+    proc_supervisor.terminate()
+    proc_supervisor.join()
 
     # restart supervisor
     proc_supervisor = supervisor_run_in_subprocess(supervisor_address)
 
-    # check replica info
-    bge_m3_info_check = await supervisor_ref.describe_model(model_uid)
+    await asyncio.sleep(5)
 
-    assert bge_m3_info["replica"] == bge_m3_info_check["replica"]
+    supervisor_ref = await xo.actor_ref(
+        supervisor_address, SupervisorActor.default_uid()
+    )
+
+    # check replica info
+    model_replic_info_check = await supervisor_ref.describe_model(model_uid)
+
+    assert model_replica_info["replica"] == model_replic_info_check["replica"]
