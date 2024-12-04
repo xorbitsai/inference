@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import asyncio
+import multiprocessing
+from typing import Dict, Optional
+
 import pytest
 import xoscar as xo
-from typing import List, Optional, Union, Dict
-import multiprocessing
 
 from ...core.supervisor import SupervisorActor
-
 
 
 # test restart supervisor
@@ -29,11 +29,12 @@ async def test_restart_supervisor():
     from ...deploy.worker import main as _start_worker
 
     def worker_run_in_subprocess(
-        address: str, 
-        supervisor_address: str,
-        logging_conf: Optional[Dict] = None
+        address: str, supervisor_address: str, logging_conf: Optional[Dict] = None
     ) -> multiprocessing.Process:
-        p = multiprocessing.Process(target=_start_worker, args=(address, supervisor_address, None, None, logging_conf))
+        p = multiprocessing.Process(
+            target=_start_worker,
+            args=(address, supervisor_address, None, None, logging_conf),
+        )
         p.start()
         return p
 
@@ -45,10 +46,10 @@ async def test_restart_supervisor():
 
     # start worker
     worker_run_in_subprocess(
-        address=f"localhost:{xo.utils.get_next_port()}", 
-        supervisor_address=supervisor_address
+        address=f"localhost:{xo.utils.get_next_port()}",
+        supervisor_address=supervisor_address,
     )
-    
+
     await asyncio.sleep(10)
 
     # load model
@@ -62,7 +63,7 @@ async def test_restart_supervisor():
         model_name="qwen1.5-chat",
         model_size_in_billions="0_5",
         quantization="q4_0",
-        model_engine="vLLM"
+        model_engine="llama.cpp",
     )
 
     # query replica info
