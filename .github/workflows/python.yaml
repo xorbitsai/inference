@@ -185,6 +185,12 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U cachetools
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U silero-vad
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U pydantic
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U torchdiffeq
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "x_transformers>=1.31.14"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U pypinyin
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U tomli
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U vocos
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U jieba
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
