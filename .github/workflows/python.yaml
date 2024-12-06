@@ -185,6 +185,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U cachetools
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U silero-vad
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U pydantic
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U diffusers
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
