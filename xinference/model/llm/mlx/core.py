@@ -192,8 +192,7 @@ class MLXModel(LLM):
         return prompt
 
     def _generate_stream(self, prompt: str, kwargs: MLXGenerateConfig):
-        import mlx.core as mx
-        from mlx_lm.utils import generate_step
+        from mlx_lm.utils import make_sampler, stream_generate
 
         model = self._model
         model_uid = self.model_uid
@@ -212,37 +211,32 @@ class MLXModel(LLM):
 
         prompt_token_ids = tokenizer.encode(prompt)
         prompt_token_ids = self._get_prompt_cache(prompt_token_ids, lora_name)
-        prompt_tokens = mx.array(prompt_token_ids)
-        input_echo_len = len(prompt_tokens)
+        input_echo_len = len(prompt_token_ids)
 
         i = 0
         start = time.time()
         output = ""
         tokens = []
-        for (token, _), i in zip(
-            generate_step(
-                prompt_tokens,
+        sampler = make_sampler(temp=kwargs["temperature"], top_p=kwargs["top_p"])
+        for chunk_resp, i in zip(
+            stream_generate(
                 model,
-                temp=kwargs["temperature"],
+                tokenizer,
+                prompt_token_ids,
+                max_tokens=max_tokens,
+                sampler=sampler,
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
-                top_p=kwargs["top_p"],
                 prompt_cache=self._prompt_cache.cache,  # type: ignore
             ),
             range(max_tokens),
         ):
+            token = chunk_resp.token
             tokens.append(token)
             if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
                 break
 
-            # Yield the last segment if streaming
-            out = tokenizer.decode(
-                token,
-                skip_special_tokens=True,
-                spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
-            )
-
+            out = chunk_resp.text
             if stream:
                 # this special character is mainly for qwen
                 out = out.strip("�")
