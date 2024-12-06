@@ -19,7 +19,7 @@ The Audio API provides three methods for interacting with audio:
 * The speech endpoint generates audio from the input text.
 
 
-.. list-table:: 
+.. list-table::
    :widths: 25  50
    :header-rows: 1
 
@@ -92,7 +92,7 @@ We can try Transcription API out either via cURL, OpenAI Client, or Xinference's
     import openai
 
     client = openai.Client(
-        api_key="cannot be empty", 
+        api_key="cannot be empty",
         base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1"
     )
     with open("speech.mp3", "rb") as audio_file:
@@ -271,6 +271,7 @@ CosyVoice Usage
 ~~~~~~~~~~~~~~~
 
 Basic usage, launch model ``CosyVoice-300M-SFT``.
+PS. If you have other persistent ``.pt`` files for cloned voices, you can set the path of the folder containing the ``.pt`` files in the environment variable ``SOCYVOICE_PT_PATH``.
 
 .. tabs::
 
@@ -283,7 +284,7 @@ Basic usage, launch model ``CosyVoice-300M-SFT``.
       -d '{
         "model": "<MODEL_UID>",
         "input": "<The text to generate audio for>",
-        # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+        # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女', other voice you put in ``SOCYVOICE_PT_PATH``]
         "voice": "中文女"
       }'
 
@@ -298,7 +299,7 @@ Basic usage, launch model ``CosyVoice-300M-SFT``.
     response = client.audio.speech.create(
         model=<MODEL_UID>,
         input=<The text to generate audio for>,
-        # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+        # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女', other voice you put in ``SOCYVOICE_PT_PATH``]
         voice="中文女",
     )
     response.stream_to_file('1.mp3')
@@ -312,7 +313,7 @@ Basic usage, launch model ``CosyVoice-300M-SFT``.
     model = client.get_model("<MODEL_UID>")
     speech_bytes = model.speech(
         input=<The text to generate audio for>,
-        # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+        # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女', other voice you put in ``SOCYVOICE_PT_PATH``]
         voice="中文女"
     )
     with open('1.mp3', 'wb') as f:
