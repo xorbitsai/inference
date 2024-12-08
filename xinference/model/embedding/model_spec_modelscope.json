@@ -248,5 +248,13 @@
     "language": ["zh", "en"],
     "model_id": "jinaai/jina-embeddings-v3",
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "jina-clip-v2",
+    "dimensions": 1024,
+    "max_tokens": 8192,
+    "language": ["zh", "en"],
+    "model_id": "jinaai/jina-clip-v2",
+    "model_hub": "modelscope"
   }
 ]
