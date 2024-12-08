@@ -138,7 +138,7 @@ class EmbeddingModel:
         self._model = None
         self._counter = 0
         self._model_spec = model_spec
-        self._preprocess = None # for open clip
+        self._preprocess = None  # for open clip
         self._kwargs = kwargs
 
     def load(self):
@@ -216,16 +216,15 @@ class EmbeddingModel:
                 model_kwargs=model_kwargs,
                 trust_remote_code=True,
             )
-        elif ("clip" in self._model_spec.model_name.lower()):
+        elif "clip" in self._model_spec.model_name.lower():
             import open_clip
+
             name = self._kwargs.get("name")
             pretrained = self._kwargs.get("pretrained")
-            logger.info("======================{%s-%s}", self._model_spec.model_name, pretrained)
             if self._device is None:
                 self._device = get_available_device()
-            logger.info("======================Device: {%s}", self._device)
             self._model, _, self._preprocess = open_clip.create_model_and_transforms(
-                name, 
+                model_name=name,
                 pretrained=pretrained,
                 device=self._device,
             )
@@ -275,10 +274,10 @@ class EmbeddingModel:
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         sentences = self._fix_langchain_openai_inputs(sentences)
 
+        import open_clip
         from FlagEmbedding import BGEM3FlagModel
-        from sentence_transformers import SentenceTransformer, util
         from PIL import Image
-        from transformers import CLIPModel
+        from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
 
@@ -600,21 +599,24 @@ class EmbeddingModel:
 
         @no_type_check
         def _encode_clip(
-            model, 
-            sentences: Union[str, List[str]], 
-            convert_to_numpy: bool = True, 
+            model,
+            sentences: Union[str, List[str]],
+            convert_to_numpy: bool = True,
             **kwargs,
         ):
             import base64
             from io import BytesIO
-            import open_clip
+
             base64_data = sentences[-1]
             bin_data = base64.b64decode(base64_data)
-            
+
             name = self._kwargs.get("name")
             tokenizer = open_clip.get_tokenizer(name)
-            image = self._preprocess(Image.open(BytesIO(bin_data))).unsqueeze(0).to(self._device)
-            # text = tokenizer(["a diagram", "a dog", "a cat"]).to(self._device)
+            image = (
+                self._preprocess(Image.open(BytesIO(bin_data)))
+                .unsqueeze(0)
+                .to(self._device)
+            )
             text = tokenizer(sentences[:-1]).to(self._device)
             image_features = model.encode_image(image)
             text_features = model.encode_text(text)
@@ -622,12 +624,12 @@ class EmbeddingModel:
             text_features /= text_features.norm(dim=-1, keepdim=True)
 
             text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
-            #Compute cosine similarities 
+            # Compute cosine similarities
             # cos_scores = util.cos_sim(img_emb, text_emb)
 
             all_token_nums = 0
             return text_probs, all_token_nums
-        
+
         if (
             "gte" in self._model_spec.model_name.lower()
             and "qwen2" in self._model_spec.model_name.lower()
@@ -643,11 +645,11 @@ class EmbeddingModel:
             all_embeddings, all_token_nums = _encode_bgem3(
                 self._model, sentences, convert_to_numpy=False, **kwargs
             )
-        elif ("clip" in self._model_spec.model_name.lower()):
+        elif "clip" in self._model_spec.model_name.lower():
             all_embeddings, all_token_nums = _encode_clip(
-                self._model, 
-                sentences, 
-                convert_to_numpy=False, 
+                self._model,
+                sentences,
+                convert_to_numpy=False,
                 **kwargs,
             )
         else:
