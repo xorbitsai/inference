@@ -582,6 +582,56 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
+        @no_type_check
+        def _encode_clip(
+            model,
+            sentences: Union[str, List[str]],
+            convert_to_numpy: bool = True,
+            **kwargs,
+        ):
+            import base64
+
+            # import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def base64_to_image(base64_str: str) -> Image.Image:
+                # base64_data = re.sub("^data:image/.+;base64,", "", base64_str)
+                base64_data = base64_str.split(",", 1)[1]
+                byte_data = base64.b64decode(base64_data)
+                image_data = BytesIO(byte_data)
+                img = Image.open(image_data)
+                return img
+
+            texts = sentences[:-1]
+            image_str = sentences[-1]
+
+            image = (
+                base64_to_image(image_str)
+                if image_str.startswith("data:image/.+;base64,")
+                else image_str
+            )
+
+            all_token_nums = 0
+            all_embeddings = []
+            for text in texts:
+                all_token_nums += len(self._model.tokenize(text))
+
+            # Encode text and images
+            text_embeddings = self._model.encode(texts, normalize_embeddings=True)
+            image_embeddings = self._model.encode(
+                image, normalize_embeddings=True
+            )  # also accepts PIL.Image.Image, local filenames, dataURI
+
+            all_embeddings.append(text_embeddings)
+            all_embeddings.append(image_embeddings)
+
+            # similarity = text_embeddings @ image_embeddings.T
+            # similarity = self._model.similarity(text_embeddings, image_embeddings)
+
+            return all_embeddings, all_token_nums
+
         if (
             "gte" in self._model_spec.model_name.lower()
             and "qwen2" in self._model_spec.model_name.lower()
@@ -596,6 +646,13 @@ class EmbeddingModel:
         elif isinstance(self._model, BGEM3FlagModel):
             all_embeddings, all_token_nums = _encode_bgem3(
                 self._model, sentences, convert_to_numpy=False, **kwargs
+            )
+        elif "clip" in self._model_spec.model_name.lower():
+            all_embeddings, all_token_nums = _encode_clip(
+                self._model,
+                sentences,
+                convert_to_numpy=False,
+                **kwargs,
             )
         else:
             all_embeddings, all_token_nums = encode(
