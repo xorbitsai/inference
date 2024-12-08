@@ -846,7 +846,9 @@ def model_launch(
     kwargs = {}
     for i in range(0, len(ctx.args), 2):
         if not ctx.args[i].startswith("--"):
-            raise ValueError("You must specify extra kwargs with `--` prefix.")
+            raise ValueError(
+                f"You must specify extra kwargs with `--` prefix. There is an error in parameter passing that is {ctx.args[i]}."
+            )
         kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
 

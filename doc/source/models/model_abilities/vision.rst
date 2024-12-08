@@ -33,6 +33,7 @@ The ``vision`` ability is supported with the following models in Xinference:
 * :ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`
 * :ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`
 * :ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`
+* :ref:`glm-edge-v <models_llm_glm-edge-v>`
 
 
 Quickstart
