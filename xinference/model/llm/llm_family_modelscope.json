@@ -2837,7 +2837,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "qwen/Qwen2-0.5B-Instruct-MLX",
         "model_hub": "modelscope"
@@ -2846,7 +2846,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "qwen/Qwen2-1.5B-Instruct-MLX",
         "model_hub": "modelscope"
@@ -2855,7 +2855,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "qwen/Qwen2-7B-Instruct-MLX",
         "model_hub": "modelscope"
@@ -5777,7 +5777,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 3,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-3B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5786,7 +5786,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 3,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-3B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5795,7 +5795,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-7B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5804,7 +5804,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-7B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5813,7 +5813,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-14B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5822,7 +5822,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 14,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-14B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5831,7 +5831,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "2-bit"
+          "2bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-2bit",
         "model_hub": "modelscope"
@@ -5840,7 +5840,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5849,7 +5849,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5858,7 +5858,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "2-bit"
+          "2bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-2bit",
         "model_hub": "modelscope"
@@ -5867,7 +5867,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-72B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5876,7 +5876,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-72B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -6296,7 +6296,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/QwQ-32B-Preview-MLX-4bit",
         "model_hub": "modelscope"
@@ -6305,7 +6305,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/QwQ-32B-Preview-MLX-8bit",
         "model_hub": "modelscope"
