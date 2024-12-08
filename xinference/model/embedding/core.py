@@ -589,22 +589,48 @@ class EmbeddingModel:
             convert_to_numpy: bool = True,
             **kwargs,
         ):
+            import base64
+
+            # import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def base64_to_image(base64_str: str) -> Image.Image:
+                # base64_data = re.sub("^data:image/.+;base64,", "", base64_str)
+                base64_data = base64_str.split(",", 1)[1]
+                byte_data = base64.b64decode(base64_data)
+                image_data = BytesIO(byte_data)
+                img = Image.open(image_data)
+                return img
+
             texts = sentences[:-1]
-            image_urls = sentences[-1]
+            image_str = sentences[-1]
+
+            image = (
+                base64_to_image(image_str)
+                if image_str.startswith("data:image/.+;base64,")
+                else image_str
+            )
 
             all_token_nums = 0
+            all_embeddings = []
             for text in texts:
                 all_token_nums += len(self._model.tokenize(text))
 
             # Encode text and images
             text_embeddings = self._model.encode(texts, normalize_embeddings=True)
             image_embeddings = self._model.encode(
-                image_urls, normalize_embeddings=True
+                image, normalize_embeddings=True
             )  # also accepts PIL.Image.Image, local filenames, dataURI
 
-            similarity = text_embeddings @ image_embeddings.T
+            all_embeddings.append(text_embeddings)
+            all_embeddings.append(image_embeddings)
 
-            return similarity, all_token_nums
+            # similarity = text_embeddings @ image_embeddings.T
+            # similarity = self._model.similarity(text_embeddings, image_embeddings)
+
+            return all_embeddings, all_token_nums
 
         if (
             "gte" in self._model_spec.model_name.lower()
