@@ -168,6 +168,9 @@ class MLXModel(LLM):
             return False
         if "generate" not in llm_family.model_ability:
             return False
+        if "chat" in llm_family.model_ability or "vision" in llm_family.model_ability:
+            # do not process chat or vision
+            return False
         return True
 
     def _get_prompt_cache(self, prompt, lora_name: Optional[str] = None):
@@ -191,17 +194,35 @@ class MLXModel(LLM):
         self._prompt_cache.tokens.extend(prompt)
         return prompt
 
-    def _generate_stream(self, prompt: str, kwargs: MLXGenerateConfig):
+    def _generate_stream_inner(self, **kwargs):
         from mlx_lm.utils import make_sampler, stream_generate
 
-        model = self._model
+        sampler = make_sampler(
+            temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
+        )
+        prompt_token_ids = kwargs.pop("prompt_token_ids")
+        yield from stream_generate(
+            self._model, self._tokenizer, prompt_token_ids, sampler=sampler, **kwargs
+        )
+
+    def _prepare_inputs(
+        self, prompt: Union[str, Dict[str, Any]], kwargs
+    ) -> Tuple[Any, int]:
+        prompt_token_ids = self._tokenizer.encode(prompt)
+        prompt_token_ids = self._get_prompt_cache(
+            prompt_token_ids, kwargs.get("lora_name")
+        )
+        return prompt_token_ids, len(prompt_token_ids)
+
+    def _generate_stream(
+        self, prompt: Union[str, Dict[str, Any]], kwargs: MLXGenerateConfig
+    ):
         model_uid = self.model_uid
         tokenizer = self._tokenizer
         max_tokens = kwargs["max_tokens"]
         chunk_id = str(uuid.uuid4())
         stop_token_ids = kwargs.get("stop_token_ids", [])
         stream = kwargs.get("stream", False)
-        lora_name = kwargs.get("lora_name")
         stream_options = kwargs.pop("stream_options", None)
         include_usage = (
             stream_options["include_usage"]
@@ -209,22 +230,18 @@ class MLXModel(LLM):
             else False
         )
 
-        prompt_token_ids = tokenizer.encode(prompt)
-        prompt_token_ids = self._get_prompt_cache(prompt_token_ids, lora_name)
-        input_echo_len = len(prompt_token_ids)
+        prompt_token_ids, input_echo_len = self._prepare_inputs(prompt, kwargs)
 
         i = 0
         start = time.time()
         output = ""
         tokens = []
-        sampler = make_sampler(temp=kwargs["temperature"], top_p=kwargs["top_p"])
         for chunk_resp, i in zip(
-            stream_generate(
-                model,
-                tokenizer,
-                prompt_token_ids,
+            self._generate_stream_inner(
+                prompt_token_ids=prompt_token_ids,
                 max_tokens=max_tokens,
-                sampler=sampler,
+                temperature=kwargs["temperature"],
+                top_p=kwargs["top_p"],
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
                 prompt_cache=self._prompt_cache.cache,  # type: ignore
@@ -309,10 +326,12 @@ class MLXModel(LLM):
             yield completion_chunk, completion_usage
 
     def generate(
-        self, prompt: str, generate_config: Optional[MLXGenerateConfig] = None
+        self,
+        prompt: Union[str, Dict[str, Any]],
+        generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
-            prompt: str, generate_config: MLXGenerateConfig
+            prompt: Union[str, Dict[str, Any]], generate_config: MLXGenerateConfig
         ) -> Iterator[CompletionChunk]:
             for completion_chunk, completion_usage in self._generate_stream(
                 prompt,
@@ -351,26 +370,6 @@ class MLXModel(LLM):
 
 
 class MLXChatModel(MLXModel, ChatModelMixin):
-    def __init__(
-        self,
-        model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
-        model_path: str,
-        model_config: Optional[MLXModelConfig] = None,
-        peft_model: Optional[List[LoRA]] = None,
-    ):
-        super().__init__(
-            model_uid,
-            model_family,
-            model_spec,
-            quantization,
-            model_path,
-            model_config,
-            peft_model,
-        )
-
     def _sanitize_generate_config(
         self,
         generate_config: Optional[MLXGenerateConfig],
@@ -396,6 +395,9 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             # only work for Mac M chips
             return False
         if "chat" not in llm_family.model_ability:
+            return False
+        if "vision" in llm_family.model_ability:
+            # do not process vision
             return False
         return True
 
@@ -423,6 +425,192 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             return self._to_chat_completion_chunks(it)
         else:
             c = self.generate(full_prompt, generate_config)
+            assert not isinstance(c, Iterator)
+            if tools:
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
+            return self._to_chat_completion(c)
+
+
+class MLXVisionModel(MLXModel, ChatModelMixin):
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format not in ["mlx"]:
+            return False
+        if sys.platform != "darwin" or platform.processor() != "arm":
+            # only work for Mac M chips
+            return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return True
+
+    def _load_model(self, **kwargs):
+        try:
+            from mlx_vlm import load
+        except ImportError:
+            error_message = "Failed to import module 'mlx_vlm'"
+            installation_guide = [
+                "Please make sure 'mlx_lm' is installed. ",
+                "You can install it by `pip install mlx_vlm`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        self._max_kv_size = kwargs.get("max_kv_size", None)
+        self._prompt_cache = PromptCache()
+
+        return load(self.model_path)
+
+    def load(self):
+        kwargs = {}
+        kwargs["revision"] = self._model_config.get(
+            "revision", self.model_spec.model_revision
+        )
+        kwargs["trust_remote_code"] = self._model_config.get("trust_remote_code")
+        kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
+
+        self._model, self._processor = self._load_model(**kwargs)
+        self._tokenizer = self._processor.tokenizer
+
+    def _generate_stream_inner(self, **kwargs):
+        import mlx.core as mx
+        from mlx_lm.utils import GenerationResponse
+        from mlx_vlm.utils import generate_step
+
+        max_tokens = kwargs.pop("max_tokens")
+        inputs = kwargs["prompt_token_ids"]
+        input_ids, pixel_values, mask = inputs[:3]
+
+        kwargs = {
+            k: v
+            for k, v in zip(
+                [
+                    "image_grid_thw",
+                    "image_sizes",
+                    "aspect_ratio_ids",
+                    "aspect_ratio_mask",
+                    "cross_attention_mask",
+                ],
+                inputs[3:],
+            )
+        }
+
+        tokenizer = self._processor.tokenizer
+        detokenizer = self._processor.detokenizer
+
+        detokenizer.reset()
+        tic = time.perf_counter()
+        for (token, logprobs), n in zip(
+            generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
+            range(max_tokens),
+        ):
+            if n == 0:
+                prompt_time = time.perf_counter() - tic
+                prompt_tps = len(input_ids) / prompt_time
+                tic = time.perf_counter()
+            if token == tokenizer.eos_token_id:
+                break
+            detokenizer.add_token(token)
+
+            # Yield the last segment if streaming
+            yield GenerationResponse(
+                text=detokenizer.last_segment,
+                token=token,
+                logprobs=logprobs,
+                prompt_tokens=len(input_ids),
+                prompt_tps=prompt_tps,
+                generation_tokens=n + 1,
+                generation_tps=(n + 1) / (time.perf_counter() - tic),
+                peak_memory=mx.metal.get_peak_memory() / 1e9,
+            )
+
+        detokenizer.finalize()
+        yield GenerationResponse(
+            text=detokenizer.last_segment,
+            token=token,
+            logprobs=logprobs,
+            prompt_tokens=len(input_ids),
+            prompt_tps=prompt_tps,
+            generation_tokens=n + 1,
+            generation_tps=(n + 1) / (time.perf_counter() - tic),
+            peak_memory=mx.metal.get_peak_memory() / 1e9,
+        )
+
+    def _prepare_inputs(
+        self, prompt: Union[str, Dict[str, Any]], kwargs
+    ) -> Tuple[Any, int]:
+        from mlx_vlm import prepare_inputs
+
+        prompt_str = prompt.get("prompt")  # type: ignore
+        images = prompt.get("multi_modal_data", {}).get("image")  # type: ignore
+        if images and not isinstance(images, list):
+            images = [images]
+        if hasattr(self._model.config, "image_token_index"):
+            image_token_index = self._model.config.image_token_index
+        else:
+            image_token_index = None
+
+        inputs = prepare_inputs(
+            None,
+            self._processor,
+            images,
+            prompt_str,
+            image_token_index,
+            kwargs.get("resize_shape"),
+        )
+        input_ids = inputs[0]
+        return inputs, len(input_ids)
+
+    def chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[MLXGenerateConfig] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        messages = self._transform_messages(messages)
+        tools = generate_config.pop("tools", []) if generate_config else None
+
+        model_family = self.model_family.model_family or self.model_family.model_name
+
+        if "internvl2" not in model_family.lower():
+            from qwen_vl_utils import process_vision_info
+
+            full_context_kwargs = {}
+            if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+                full_context_kwargs["tools"] = tools
+            assert self.model_family.chat_template is not None
+            prompt = self.get_full_context(
+                messages, self.model_family.chat_template, **full_context_kwargs
+            )
+            images, video_inputs = process_vision_info(messages)
+            if video_inputs:
+                raise ValueError("Not support video input now.")
+        else:
+            prompt, images = self.get_specific_prompt(model_family, messages)
+
+        if not images:
+            inputs = {
+                "prompt": prompt,
+            }
+        elif len(images) == 1:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images[-1]},  # type: ignore
+            }
+        else:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images},  # type: ignore
+            }
+        generate_config = self._sanitize_generate_config(generate_config)
+
+        stream = generate_config.get("stream", False)
+        if stream:
+            it = self.generate(inputs, generate_config)
+            assert isinstance(it, Iterator)
+            return self._to_chat_completion_chunks(it)
+        else:
+            c = self.generate(inputs, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
                 return self._tool_calls_completion(self.model_family, self.model_uid, c)
