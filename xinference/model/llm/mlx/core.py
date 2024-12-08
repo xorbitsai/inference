@@ -567,7 +567,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        messages = self._transform_messages(messages)
+        messages = self._transform_messages(messages)  # type: ignore
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -586,7 +586,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             if video_inputs:
                 raise ValueError("Not support video input now.")
         else:
-            prompt, images = self.get_specific_prompt(model_family, messages)
+            prompt, images = self.get_specific_prompt(model_family, messages)  # type: ignore
 
         if not images:
             inputs = {
