@@ -81,6 +81,7 @@ tomli  # For F5-TTS
 vocos  # For F5-TTS
 librosa  # For F5-TTS
 jieba  # For F5-TTS
+soundfile  # For F5-TTS
 qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
