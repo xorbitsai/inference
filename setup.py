@@ -14,9 +14,9 @@
 
 import os
 import platform
-import sys
 import shutil
 import subprocess
+import sys
 import warnings
 from sysconfig import get_config_vars
 
