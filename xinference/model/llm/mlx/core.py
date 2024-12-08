@@ -233,8 +233,6 @@ class MLXModel(LLM):
         ):
             token = chunk_resp.token
             tokens.append(token)
-            if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
-                break
 
             out = chunk_resp.text
             if stream:
@@ -259,6 +257,9 @@ class MLXModel(LLM):
                 completion_tokens=i,
                 total_tokens=(input_echo_len + i),
             ), completion_usage
+
+            if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
+                break
 
         logger.info(
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."
