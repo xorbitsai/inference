@@ -584,7 +584,7 @@ class EmbeddingModel:
 
         @no_type_check
         def _encode_clip(
-            model,
+            model: SentenceTransformer,
             sentences: Union[str, List[str]],
             convert_to_numpy: bool = True,
             **kwargs,
@@ -619,16 +619,20 @@ class EmbeddingModel:
                 all_token_nums += len(self._model.tokenize(text))
 
             # Encode text and images
-            text_embeddings = self._model.encode(texts, normalize_embeddings=True)
-            image_embeddings = self._model.encode(
+            text_embeddings = model.encode(texts, normalize_embeddings=True)
+            image_embeddings = model.encode(
                 image, normalize_embeddings=True
             )  # also accepts PIL.Image.Image, local filenames, dataURI
 
-            all_embeddings.append(text_embeddings)
-            all_embeddings.append(image_embeddings)
-
-            # similarity = text_embeddings @ image_embeddings.T
-            # similarity = self._model.similarity(text_embeddings, image_embeddings)
+            if kwargs.get("similarity"):
+                logger.info("Using similarity mode")
+                similarity = text_embeddings @ image_embeddings.T
+                # similarity = self._model.similarity(text_embeddings, image_embeddings)
+                all_embeddings = similarity
+            else:
+                logger.info("Using embedding mode")
+                all_embeddings.append(text_embeddings)
+                all_embeddings.append(image_embeddings)
 
             return all_embeddings, all_token_nums
 
@@ -652,7 +656,7 @@ class EmbeddingModel:
                 self._model,
                 sentences,
                 convert_to_numpy=False,
-                **kwargs,
+                **self._kwargs,
             )
         else:
             all_embeddings, all_token_nums = encode(
