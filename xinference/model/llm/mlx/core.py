@@ -451,7 +451,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         except ImportError:
             error_message = "Failed to import module 'mlx_vlm'"
             installation_guide = [
-                "Please make sure 'mlx_lm' is installed. ",
+                "Please make sure 'mlx_vlm' is installed. ",
                 "You can install it by `pip install mlx_vlm`\n",
             ]
 
