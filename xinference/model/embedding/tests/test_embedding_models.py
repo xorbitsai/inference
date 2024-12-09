@@ -257,7 +257,9 @@ def test_convert_ids_to_tokens():
     model.load()
     
     # test for sparse vector generation
-    model.create_embedding(["What is BGE M3?", "Defination of BM25"], return_sparse=True)
+    model.create_embedding(
+        ["What is BGE M3?", "Definition of BM25"], return_sparse=True
+    )
 
     # test for ids to tokens
     ids = [[8074, 8059, 8064, 8056], [144, 147, 160, 160, 158]]
