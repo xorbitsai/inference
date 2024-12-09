@@ -208,12 +208,15 @@ class EmbeddingModel:
                 ]
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-            model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
+            if torch_dtype and torch_dtype == torch.float16:
+                model_kwargs = {"use_fp16": True}
+            else:
+                model_kwargs = None
             self._model = BGEM3FlagModel(
                 self._model_path,
                 device=self._device,
-                model_kwargs=model_kwargs,
                 trust_remote_code=True,
+                **model_kwargs
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
