@@ -244,7 +244,7 @@ class MLXModel(LLM):
                 top_p=kwargs["top_p"],
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
-                prompt_cache=self._prompt_cache.cache,  # type: ignore
+                prompt_cache=self._prompt_cache.cache if self._prompt_cache else None,  # type: ignore
             ),
             range(max_tokens),
         ):
@@ -282,7 +282,8 @@ class MLXModel(LLM):
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."
         )
 
-        self._prompt_cache.tokens.extend(tokens)  # type: ignore
+        if self._prompt_cache:
+            self._prompt_cache.tokens.extend(tokens)  # type: ignore
 
         if i == max_tokens - 1:
             finish_reason = "length"
@@ -456,9 +457,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-        self._max_kv_size = kwargs.get("max_kv_size", None)
-        self._prompt_cache = PromptCache()
 
         return load(self.model_path)
 
