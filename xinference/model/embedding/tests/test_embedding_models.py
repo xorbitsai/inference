@@ -253,7 +253,9 @@ def test_convert_ids_to_tokens():
     from ..core import EmbeddingModel
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model = EmbeddingModel(
+        "mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE, **{"hybrid_mode": True}
+    )
     model.load()
 
     # test for sparse vector generation
@@ -269,3 +271,4 @@ def test_convert_ids_to_tokens():
     assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
 
     shutil.rmtree(model_path, ignore_errors=True)
+
