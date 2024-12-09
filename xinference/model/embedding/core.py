@@ -216,7 +216,7 @@ class EmbeddingModel:
                 self._model_path,
                 device=self._device,
                 trust_remote_code=True,
-                **model_kwargs
+                **model_kwargs,
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
