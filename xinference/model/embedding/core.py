@@ -211,7 +211,7 @@ class EmbeddingModel:
             if torch_dtype and torch_dtype == torch.float16:
                 model_kwargs = {"use_fp16": True}
             else:
-                model_kwargs = None
+                model_kwargs = {}
             self._model = BGEM3FlagModel(
                 self._model_path,
                 device=self._device,
