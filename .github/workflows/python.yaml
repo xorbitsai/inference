@@ -120,6 +120,7 @@ jobs:
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install mlx-lm
+            pip install mlx-vlm
             pip install mlx-whisper
           fi
           pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
