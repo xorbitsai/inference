@@ -271,4 +271,3 @@ def test_convert_ids_to_tokens():
     assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
 
     shutil.rmtree(model_path, ignore_errors=True)
-
