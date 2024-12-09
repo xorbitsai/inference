@@ -255,7 +255,7 @@ def test_convert_ids_to_tokens():
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model.load()
-    
+
     # test for sparse vector generation
     model.create_embedding(
         ["What is BGE M3?", "Definition of BM25"], return_sparse=True
