@@ -32,7 +32,7 @@ def test_load_mlx(setup):
         model_engine="MLX",
         model_size_in_billions="0_5",
         model_format="mlx",
-        quantization="4-bit",
+        quantization="4bit",
     )
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
