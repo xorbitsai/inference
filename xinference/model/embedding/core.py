@@ -215,7 +215,6 @@ class EmbeddingModel:
             self._model = BGEM3FlagModel(
                 self._model_path,
                 device=self._device,
-                trust_remote_code=True,
                 **model_kwargs,
             )
         else:
