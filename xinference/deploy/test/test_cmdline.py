@@ -23,6 +23,7 @@ from ..cmdline import (
     list_model_registrations,
     model_chat,
     model_generate,
+    model_launch,
     model_list,
     model_terminate,
     register_model,
@@ -311,3 +312,58 @@ def test_remove_cache(setup):
 
     assert result.exit_code == 0
     assert "Cache directory qwen1.5-chat has been deleted."
+
+
+def test_launch_error_in_passing_parameters():
+    runner = CliRunner()
+
+    # Known parameter but not provided with value.
+    result = runner.invoke(
+        model_launch,
+        [
+            "--model-engine",
+            "transformers",
+            "--model-name",
+            "qwen2.5-instruct",
+            "--model-uid",
+            "-s",
+            "0.5",
+            "-f",
+            "gptq",
+            "-q",
+            "INT4",
+            "111",
+            "-l",
+        ],
+    )
+    assert result.exit_code == 1
+    assert (
+        "You must specify extra kwargs with `--` prefix. There is an error in parameter passing that is 0.5."
+        in str(result)
+    )
+
+    # Unknown parameter
+    result = runner.invoke(
+        model_launch,
+        [
+            "--model-engine",
+            "transformers",
+            "--model-name",
+            "qwen2.5-instruct",
+            "--model-uid",
+            "123",
+            "-s",
+            "0.5",
+            "-f",
+            "gptq",
+            "-q",
+            "INT4",
+            "-l",
+            "111",
+        ],
+    )
+    assert result.exit_code == 1
+    assert (
+        "You must specify extra kwargs with `--` prefix. There is an error in parameter passing that is -l."
+        in str(result)
+    )
