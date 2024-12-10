@@ -123,6 +123,7 @@ jobs:
             pip install mlx-lm
             pip install mlx-vlm
             pip install mlx-whisper
+            pip install qwen-vl-utils
           else
             pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
             pip install transformers
