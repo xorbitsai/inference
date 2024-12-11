@@ -2042,9 +2042,8 @@ class RESTfulAPI(CancelMixin):
                     status_code=400,
                     detail=f"Only {function_call_models} support tool messages",
                 )
+        is_vllm = await model.is_vllm_backend()
         if body.tools and body.stream:
-            is_vllm = await model.is_vllm_backend()
-
             if not (
                 (is_vllm and model_family in QWEN_TOOL_CALL_FAMILY)
                 or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
@@ -2054,7 +2053,8 @@ class RESTfulAPI(CancelMixin):
                     detail="Streaming support for tool calls is available only when using "
                     "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
                 )
-
+        if is_vllm and "skip_special_tokens" in raw_kwargs:
+            kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
 
             async def stream_results():
