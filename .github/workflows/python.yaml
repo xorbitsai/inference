@@ -152,7 +152,6 @@ jobs:
         run: |
           if [ "$MODULE" == "gpu" ]; then
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar
@@ -195,6 +194,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U jieba
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
