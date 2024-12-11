@@ -409,4 +409,17 @@ to provide the reference audio to the FishSpeech model.
         prompt_speech=reference_audio,
         enable_reference_audio=True,
     )
--
+
+
+SenseVoiceSmall Offline usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be downloaded thus network required.
+
+For offline environment, you can download the vad model in advance.
+
+Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>_`.
+Assume downloaded to ``/path/to/fsmn-vad``.
+
+Then when launching SenseVoiceSmall with Web UI, you can add an additional parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is the downloaded path.
+When launching with command line, you can add an option ``--vad_model /path/to/fsmn-vad``.
