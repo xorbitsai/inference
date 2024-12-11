@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+
 from ....client import Client
 
 
@@ -36,3 +38,24 @@ def test_sparse_embedding(setup):
     words = model.convert_ids_to_tokens(token_ids)
     assert len(words) == len(token_ids)
     assert isinstance(words[0], str)
+
+
+def test_clip_embedding(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="jina-clip-v2", model_type="embedding", torch_dtype="float16"
+    )
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid)
+    image_str = "https://i.ibb.co/r5w8hG8/beach2.jpg"
+    input = ["This is a picture of diagram", "a dog", "海滩上美丽的日落。", image_str]
+    response = model.create_embedding(input)
+    embedding1 = np.array([item for item in response["data"][0]["embedding"]])
+    embedding2 = np.array([item for item in response["data"][1]["embedding"]])
+    assert embedding1.shape == (3, 1024)
+    assert embedding2.shape == (1024,)
+    similarity = embedding1 @ embedding2.T
+    assert similarity.shape == (3,)
