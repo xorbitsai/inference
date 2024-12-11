@@ -307,10 +307,10 @@ msgstr ""
 msgid ""
 "Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or "
 "`modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-"
-"common-pytorch/files>_`. Assume downloaded to ``/path/to/fsmn-vad``."
+"common-pytorch/files>`_. Assume downloaded to ``/path/to/fsmn-vad``."
 msgstr ""
 "从 `huggingface <https://huggingface.co/funasr/fsmn-vad>`_"
-"或者 `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>_` 下载。"
+" 或者 `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>`_ 下载。"
 "假设下载到 ``/path/to/fsmn-vad``。"
 
 #: ../../source/models/model_abilities/audio.rst:424
