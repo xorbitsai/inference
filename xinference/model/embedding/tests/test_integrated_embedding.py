@@ -51,11 +51,11 @@ def test_clip_embedding(setup):
 
     model = client.get_model(model_uid)
     image_str = "https://i.ibb.co/r5w8hG8/beach2.jpg"
-    input = ["This is a picture of diagram", "a dog", "海滩上美丽的日落。", image_str]
+    input = ["This is a picture of diagram", "a dog", "海滩上美丽的日落。", image_str, image_str]
     response = model.create_embedding(input)
-    embedding1 = np.array([item for item in response["data"][0]["embedding"]])
-    embedding2 = np.array([item for item in response["data"][1]["embedding"]])
-    assert embedding1.shape == (3, 1024)
-    assert embedding2.shape == (1024,)
-    similarity = embedding1 @ embedding2.T
-    assert similarity.shape == (3,)
+    txt_embedding = np.array([item for item in response["data"][0]["embedding"]])
+    img_embedding = np.array([item for item in response["data"][1]["embedding"]])
+    assert txt_embedding.shape == (3, 1024)
+    assert img_embedding.shape == (2, 1024)
+    similarity = (txt_embedding @ img_embedding.T).T
+    assert similarity.shape == (2, 3)

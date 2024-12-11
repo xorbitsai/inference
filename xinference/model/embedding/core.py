@@ -603,8 +603,8 @@ class EmbeddingModel:
             **kwargs,
         ):
             import base64
-
-            # import re
+            import os
+            import re
             from io import BytesIO
 
             from PIL import Image
@@ -617,35 +617,28 @@ class EmbeddingModel:
                 img = Image.open(image_data)
                 return img
 
-            texts = sentences[:-1]
-            image_str = sentences[-1]
-
-            image = (
-                base64_to_image(image_str)
-                if image_str.startswith("data:image/.+;base64,")
-                else image_str
-            )
-
             all_token_nums = 0
             all_embeddings = []
-            for text in texts:
-                all_token_nums += len(self._model.tokenize(text))
+            texts = []
+            images = []
+            for obj in sentences:
+                if re.match(r"^data:image/.+;base64,", obj):
+                    image = base64_to_image(obj)
+                    images.append(image)
+                elif re.match(r"^https?://", obj) or os.path.exists(obj):
+                    images.append(obj)
+                else:
+                    texts.append(obj)
+                    all_token_nums += len(self._model.tokenize(obj))
 
-            # Encode text and images
+            # Encode texts and images
             text_embeddings = model.encode(texts, normalize_embeddings=True)
             image_embeddings = model.encode(
-                image, normalize_embeddings=True
+                images, normalize_embeddings=True
             )  # also accepts PIL.Image.Image, local filenames, dataURI
 
-            if kwargs.get("similarity"):
-                logger.info("Using similarity mode")
-                similarity = text_embeddings @ image_embeddings.T
-                # similarity = self._model.similarity(text_embeddings, image_embeddings)
-                all_embeddings = similarity
-            else:
-                logger.info("Using embedding mode")
-                all_embeddings.append(text_embeddings)
-                all_embeddings.append(image_embeddings)
+            all_embeddings.append(text_embeddings)
+            all_embeddings.append(image_embeddings)
 
             return all_embeddings, all_token_nums
 
