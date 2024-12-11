@@ -256,6 +256,7 @@ def test_convert_ids_to_tokens():
     model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model.load()
 
+    # test for ids to tokens
     ids = [[8074, 8059, 8064, 8056], [144, 147, 160, 160, 158]]
     tokens = model.convert_ids_to_tokens(ids)
 
