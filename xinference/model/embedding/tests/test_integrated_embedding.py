@@ -72,7 +72,7 @@ def test_clip_embedding(setup):
         {"image": image_str_base64},
         {"text": "a dog"},
         {"image": image_str},
-        {"image": "海滩上美丽的日落。"},
+        {"text": "海滩上美丽的日落。"},
     ]
     response = model.create_embedding(input)
     for i in range(len(response["data"])):
