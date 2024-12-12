@@ -622,26 +622,37 @@ class EmbeddingModel:
                 img = Image.open(image_data)
                 return img
 
+            def image_to_base64(image: Image.Image, fmt="png") -> str:
+                output_buffer = BytesIO()
+                image.save(output_buffer, format=fmt)
+                byte_data = output_buffer.getvalue()
+                base64_str = base64.b64encode(byte_data).decode("utf-8")
+                return f"data:image/{fmt};base64," + base64_str
+
             all_token_nums = 0
             all_embeddings = []
+            objs = []
 
             for data in sentences:
                 if data.get("text") is not None:
-                    # texts.append(data['text'])
-                    txt_embed = model.encode([data["text"]])
-                    all_embeddings.append(txt_embed)
+                    objs.append(data["text"])
                     all_token_nums += len(model.tokenize(data["text"]))
                 elif data.get("image") is not None:
                     if re.match(r"^data:image/.+;base64,", data["image"]):
                         image = base64_to_image(data["image"])
-                        # images.append(image)
-                        img_embed = model.encode([image])
-                        all_embeddings.append(img_embed)
+                        objs.append(image)
+                        all_token_nums += len(model.tokenize(data["image"]))
                     else:
-                        # images.append(data["image"])
-                        img_embed = model.encode([data["image"]])
-                        all_embeddings.append(img_embed)
+                        objs.append(data["image"])
+                        # image_str_base64 = image_to_base64(
+                        #     Image.open(BytesIO(requests.get(data["image"]).content))
+                        # )
+                        # all_token_nums += len(model.tokenize(image_str_base64))
+                        all_token_nums += len(model.tokenize(data["image"]))
+                else:
+                    logger.error("Please check the input data.")
 
+            all_embeddings = model.encode(objs)
             return all_embeddings, all_token_nums
 
         is_bge_m3_flag_model = (

@@ -77,4 +77,4 @@ def test_clip_embedding(setup):
     response = model.create_embedding(input)
     for i in range(len(response["data"])):
         embedding = np.array([item for item in response["data"][i]["embedding"]])
-        assert embedding.shape == (1, 1024)
+        assert embedding.shape == (1024,)
