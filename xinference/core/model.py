@@ -373,7 +373,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
                 )
                 return False
-        return self._model.model_family.model_name not in XINFERENCE_BATCHING_BLACK_LIST
+        return (
+            condition
+            and self._model.model_family.model_name
+            not in XINFERENCE_BATCHING_BLACK_LIST
+        )
 
     def allow_batching_for_text_to_image(self) -> bool:
         from ..model.image.stable_diffusion.core import DiffusionModel
