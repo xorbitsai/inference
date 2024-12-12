@@ -1,7 +1,7 @@
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import OpenInBrowserOutlinedIcon from '@mui/icons-material/OpenInBrowserOutlined'
 import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Box, Stack, Tab } from '@mui/material'
+import { Badge, Box, Stack, Tab } from '@mui/material'
 import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -14,10 +14,49 @@ import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
 
+const tabArr = [
+  {
+    label: 'Language Models',
+    value: '/running_models/LLM',
+    showPrompt: false,
+  },
+  {
+    label: 'Embedding Models',
+    value: '/running_models/embedding',
+    showPrompt: false,
+  },
+  {
+    label: 'Rerank Models',
+    value: '/running_models/rerank',
+    showPrompt: false,
+  },
+  {
+    label: 'Image Models',
+    value: '/running_models/image',
+    showPrompt: false,
+  },
+  {
+    label: 'Audio Models',
+    value: '/running_models/audio',
+    showPrompt: false,
+  },
+  {
+    label: 'Video Models',
+    value: '/running_models/video',
+    showPrompt: false,
+  },
+  {
+    label: 'Flexible Models',
+    value: '/running_models/flexible',
+    showPrompt: false,
+  },
+]
+
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
     sessionStorage.getItem('runningModelType')
   )
+  const [tabList, setTabList] = useState(tabArr)
   const [llmData, setLlmData] = useState([])
   const [embeddingModelData, setEmbeddingModelData] = useState([])
   const [imageModelData, setImageModelData] = useState([])
@@ -319,7 +358,6 @@ const RunningModels = () => {
       },
     },
   ]
-
   const embeddingModelColumns = [
     {
       field: 'id',
@@ -640,6 +678,31 @@ const RunningModels = () => {
     )
   }
 
+  useEffect(() => {
+    const dataMap = {
+      'Language Models': llmData,
+      'Embedding Models': embeddingModelData,
+      'Rerank Models': rerankModelData,
+      'Image Models': imageModelData,
+      'Audio Models': audioModelData,
+      'Video Models': videoModelData,
+      'Flexible Models': flexibleModelData,
+    }
+
+    setTabList(tabList.map(item => {
+      if(dataMap[item.label].length && dataMap[item.label][0].model_type) {
+        return {
+          ...item,
+          showPrompt: true,
+        }
+      }
+      return {
+        ...item,
+        showPrompt: false,
+      }
+    }))
+  }, [llmData, embeddingModelData, rerankModelData, imageModelData, audioModelData, videoModelData, flexibleModelData])
+
   return (
     <Box
       sx={{
@@ -657,13 +720,21 @@ const RunningModels = () => {
             onChange={handleTabChange}
             aria-label="tabs"
           >
-            <Tab label="Language Models" value="/running_models/LLM" />
-            <Tab label="Embedding Models" value="/running_models/embedding" />
-            <Tab label="Rerank models" value="/running_models/rerank" />
-            <Tab label="Image models" value="/running_models/image" />
-            <Tab label="Audio models" value="/running_models/audio" />
-            <Tab label="Video models" value="/running_models/video" />
-            <Tab label="Flexible models" value="/running_models/flexible" />
+            {
+              tabList.map(item => (
+                <Tab
+                  key={item.value}
+                  label={<Badge
+                    color="secondary"
+                    variant="dot"
+                    invisible={!item.showPrompt}
+                  >
+                    {item.label}
+                  </Badge>}
+                  value={item.value}
+                />
+              ))
+            }
           </TabList>
         </Box>
         <TabPanel value="/running_models/LLM" sx={{ padding: 0 }}>
