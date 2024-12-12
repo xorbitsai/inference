@@ -205,8 +205,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "THUDM/glm-4-9b-chat",
-        "model_revision": "eb55a443d66541f30869f6caac5ad0d2e95bcbaa"
+        "model_id": "THUDM/glm-4-9b-chat-hf",
+        "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd"
       },
       {
         "model_format": "ggufv2",
@@ -269,8 +269,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "THUDM/glm-4-9b-chat-1m",
-        "model_revision": "0aa722c7e0745dd21453427dd44c257dd253304f"
+        "model_id": "THUDM/glm-4-9b-chat-1m-hf",
+        "model_revision": "0588cb62942f0f0a5545c695e5c1b019d64eabdc"
       },
       {
         "model_format": "ggufv2",

@@ -61,7 +61,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
     def _load_model(self, **kwargs):
         try:
-            from transformers import AutoModel, AutoTokenizer
+            from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
             error_message = "Failed to import module 'transformers'"
             installation_guide = [
@@ -77,7 +77,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             encode_special_tokens=True,
             revision=kwargs["revision"],
         )
-        model = AutoModel.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             **kwargs,
         )
@@ -232,9 +232,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     content = {
                         "name": function_name,
                         "arguments": json.dumps(
-                            arguments_json
-                            if isinstance(arguments_json, dict)
-                            else arguments,
+                            (
+                                arguments_json
+                                if isinstance(arguments_json, dict)
+                                else arguments
+                            ),
                             ensure_ascii=False,
                         ),
                     }
@@ -331,6 +333,8 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         max_new_tokens = generate_config.get("max_tokens")
         if max_new_tokens is not None:
             kwargs["max_new_tokens"] = int(max_new_tokens)
+        else:
+            kwargs["max_new_tokens"] = 1024
         do_sample = generate_config.get("do_sample")
         if do_sample is not None:
             kwargs["do_sample"] = bool(do_sample)

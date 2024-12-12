@@ -25,7 +25,7 @@ opencv-contrib-python-headless
 setproctitle
 
 # all
-transformers>=4.45.0
+transformers>=4.46.0
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator

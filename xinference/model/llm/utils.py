@@ -324,7 +324,10 @@ class ChatModelMixin:
         """
         try:
             if isinstance(c, dict):
-                return [(None, c["name"], c["arguments"])]
+                try:
+                    return [(None, c["name"], json.loads(c["arguments"]))]
+                except Exception:
+                    return [(None, c["name"], c["arguments"])]
         except KeyError:
             logger.error("Can't parse glm output: %s", c)
             return [(str(c), None, None)]
