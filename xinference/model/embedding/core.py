@@ -603,7 +603,6 @@ class EmbeddingModel:
             **kwargs,
         ):
             import base64
-            import json
             import re
             from io import BytesIO
 
@@ -619,38 +618,23 @@ class EmbeddingModel:
 
             all_token_nums = 0
             all_embeddings = []
-            texts = []
-            images = []
 
             for data in sentences:
-                data = json.loads(data.replace("'", '"'))
-                if "text" in data:
-                    texts.append(data["text"])
+                if data.get("text") is not None:
+                    # texts.append(data['text'])
+                    txt_embed = model.encode([data["text"]])
+                    all_embeddings.append(txt_embed)
                     all_token_nums += len(model.tokenize(data["text"]))
-                elif "image" in data:
+                if data.get("image") is not None:
                     if re.match(r"^data:image/.+;base64,", data["image"]):
                         image = base64_to_image(data["image"])
-                        images.append(image)
+                        # images.append(image)
+                        img_embed = model.encode([image])
+                        all_embeddings.append(img_embed)
                     else:
-                        images.append(data["image"])
-
-                # if re.match(r"^data:image/.+;base64,", obj):
-                #     image = base64_to_image(obj)
-                #     images.append(image)
-                # elif re.match(r"^https?://", obj) or os.path.exists(obj):
-                #     images.append(obj)
-                # else:
-                #     texts.append(obj)
-                #     all_token_nums += len(self._model.tokenize(obj))
-
-            # Encode texts and images
-            text_embeddings = model.encode(texts, normalize_embeddings=True)
-            image_embeddings = model.encode(
-                images, normalize_embeddings=True
-            )  # also accepts PIL.Image.Image, local filenames, dataURI
-
-            all_embeddings.append(text_embeddings)
-            all_embeddings.append(image_embeddings)
+                        # images.append(data["image"])
+                        img_embed = model.encode([data["image"]])
+                        all_embeddings.append(img_embed)
 
             return all_embeddings, all_token_nums
 

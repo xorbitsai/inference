@@ -67,16 +67,14 @@ def test_clip_embedding(setup):
     image_str_base64 = image_to_base64(
         Image.open(BytesIO(requests.get(image_str).content))
     )
-    input1 = {"text": "This is a picture of diagram"}
-    input2 = {"text": "a dog"}
-    input3 = {"text": "海滩上美丽的日落。"}
-    input4 = {"image": image_str}
-    input5 = {"image": image_str_base64}
-    input = [str(input1), str(input2), str(input3), str(input4), str(input5)]
+    input = [
+        {"text": "This is a picture of diagram"},
+        {"image": image_str_base64},
+        {"text": "a dog"},
+        {"image": image_str},
+        {"image": "海滩上美丽的日落。"},
+    ]
     response = model.create_embedding(input)
-    txt_embedding = np.array([item for item in response["data"][0]["embedding"]])
-    img_embedding = np.array([item for item in response["data"][1]["embedding"]])
-    assert txt_embedding.shape == (3, 1024)
-    assert img_embedding.shape == (2, 1024)
-    similarity = (txt_embedding @ img_embedding.T).T
-    assert similarity.shape == (2, 3)
+    for i in range(len(response["data"])):
+        embedding = np.array([item for item in response["data"][i]["embedding"]])
+        assert embedding.shape == (1, 1024)
