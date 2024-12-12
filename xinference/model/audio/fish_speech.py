@@ -213,13 +213,14 @@ class FishSpeechModel:
         import torchaudio
 
         prompt_speech = kwargs.get("prompt_speech")
+        prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text"))
         result = self._inference(
             text=input,
             enable_reference_audio=kwargs.get(
                 "enable_reference_audio", prompt_speech is not None
             ),
             reference_audio=prompt_speech,
-            reference_text=kwargs.get("reference_text", ""),
+            reference_text=prompt_text,
             max_new_tokens=kwargs.get("max_new_tokens", 1024),
             chunk_length=kwargs.get("chunk_length", 200),
             top_p=kwargs.get("top_p", 0.7),

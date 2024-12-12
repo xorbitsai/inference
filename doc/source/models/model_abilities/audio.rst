@@ -389,7 +389,8 @@ FishSpeech Usage
 Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
 
 Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` instead of `reference_audio`
-to provide the reference audio to the FishSpeech model.
+and `prompt_text` instead of `reference_text` to clone voice from the reference audio for the FishSpeech model.
+This arguments is aligned to voice cloning of CosyVoice.
 
 .. code-block::
 
@@ -399,17 +400,16 @@ to provide the reference audio to the FishSpeech model.
 
     model = client.get_model("<MODEL_UID>")
 
-    reference_text = ""
     # The reference audio file is the voice file
     # the words said in the file should be identical to reference_text
     with open(reference_audio_file, "rb") as f:
         reference_audio = f.read()
+    reference_text = ""  # text in the audio
 
     speech_bytes = model.speech(
         "<The text to generate audio for>",
-        reference_text=reference_text,
         prompt_speech=reference_audio,
-        enable_reference_audio=True,
+        prompt_text=reference_text
     )
 
 
