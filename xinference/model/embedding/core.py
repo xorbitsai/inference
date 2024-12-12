@@ -264,7 +264,7 @@ class EmbeddingModel:
 
     def create_embedding(
         self,
-        sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]],
+        sentences: Union[str, List[str]],
         **kwargs,
     ):
         sentences = self._fix_langchain_openai_inputs(sentences)
@@ -545,7 +545,11 @@ class EmbeddingModel:
                 features.update(extra_features)
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
-                all_token_nums += features["attention_mask"].sum().item()
+                if "clip" in self._model_spec.model_name.lower():
+                    all_token_nums += features["input_ids"].numel()
+                    all_token_nums += features["pixel_values"].numel()
+                else:
+                    all_token_nums += features["attention_mask"].sum().item()
 
                 with torch.no_grad():
                     out_features = model.forward(features, **kwargs)
@@ -601,60 +605,6 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
-        @no_type_check
-        def _encode_clip(
-            model: SentenceTransformer,
-            sentences: Union[Dict[str, str], List[Dict[str, str]]],
-            convert_to_numpy: bool = True,
-            **kwargs,
-        ):
-            import base64
-            import re
-            from io import BytesIO
-
-            from PIL import Image
-
-            def base64_to_image(base64_str: str) -> Image.Image:
-                # base64_data = re.sub("^data:image/.+;base64,", "", base64_str)
-                base64_data = base64_str.split(",", 1)[1]
-                byte_data = base64.b64decode(base64_data)
-                image_data = BytesIO(byte_data)
-                img = Image.open(image_data)
-                return img
-
-            def image_to_base64(image: Image.Image, fmt="png") -> str:
-                output_buffer = BytesIO()
-                image.save(output_buffer, format=fmt)
-                byte_data = output_buffer.getvalue()
-                base64_str = base64.b64encode(byte_data).decode("utf-8")
-                return f"data:image/{fmt};base64," + base64_str
-
-            all_token_nums = 0
-            all_embeddings = []
-            objs = []
-
-            for data in sentences:
-                if data.get("text") is not None:
-                    objs.append(data["text"])
-                    all_token_nums += len(model.tokenize(data["text"]))
-                elif data.get("image") is not None:
-                    if re.match(r"^data:image/.+;base64,", data["image"]):
-                        image = base64_to_image(data["image"])
-                        objs.append(image)
-                        all_token_nums += len(model.tokenize(data["image"]))
-                    else:
-                        objs.append(data["image"])
-                        # image_str_base64 = image_to_base64(
-                        #     Image.open(BytesIO(requests.get(data["image"]).content))
-                        # )
-                        # all_token_nums += len(model.tokenize(image_str_base64))
-                        all_token_nums += len(model.tokenize(data["image"]))
-                else:
-                    logger.error("Please check the input data.")
-
-            all_embeddings = model.encode(objs)
-            return all_embeddings, all_token_nums
-
         is_bge_m3_flag_model = (
             self._kwargs.get("hybrid_mode")
             and "m3" in self._model_spec.model_name.lower()
@@ -676,9 +626,36 @@ class EmbeddingModel:
                 self._model, sentences, convert_to_numpy=False, **kwargs
             )
         elif "clip" in self._model_spec.model_name.lower():
-            all_embeddings, all_token_nums = _encode_clip(
+            import base64
+            import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def base64_to_image(base64_str: str) -> Image.Image:
+                # base64_data = re.sub("^data:image/.+;base64,", "", base64_str)
+                base64_data = base64_str.split(",", 1)[1]
+                byte_data = base64.b64decode(base64_data)
+                image_data = BytesIO(byte_data)
+                img = Image.open(image_data)
+                return img
+
+            objs: list[dict[str, str]] = []
+            for item in sentences:
+                if isinstance(item, dict):
+                    if item.get("text") is not None:
+                        objs.append(item["text"])
+                    elif item.get("image") is not None:
+                        if re.match(r"^data:image/.+;base64,", item["image"]):
+                            image = base64_to_image(item["image"])
+                            objs.append(image)
+                        else:
+                            objs.append(item["image"])
+                    else:
+                        logger.error("Please check the input data.")
+            all_embeddings, all_token_nums = encode(
                 self._model,
-                sentences,
+                objs,
                 convert_to_numpy=False,
                 **self._kwargs,
             )
