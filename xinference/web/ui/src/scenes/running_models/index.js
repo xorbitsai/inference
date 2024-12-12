@@ -689,19 +689,29 @@ const RunningModels = () => {
       'Flexible Models': flexibleModelData,
     }
 
-    setTabList(tabList.map(item => {
-      if(dataMap[item.label].length && dataMap[item.label][0].model_type) {
+    setTabList(
+      tabList.map((item) => {
+        if (dataMap[item.label].length && dataMap[item.label][0].model_type) {
+          return {
+            ...item,
+            showPrompt: true,
+          }
+        }
         return {
           ...item,
-          showPrompt: true,
+          showPrompt: false,
         }
-      }
-      return {
-        ...item,
-        showPrompt: false,
-      }
-    }))
-  }, [llmData, embeddingModelData, rerankModelData, imageModelData, audioModelData, videoModelData, flexibleModelData])
+      })
+    )
+  }, [
+    llmData,
+    embeddingModelData,
+    rerankModelData,
+    imageModelData,
+    audioModelData,
+    videoModelData,
+    flexibleModelData,
+  ])
 
   return (
     <Box
@@ -720,21 +730,21 @@ const RunningModels = () => {
             onChange={handleTabChange}
             aria-label="tabs"
           >
-            {
-              tabList.map(item => (
-                <Tab
-                  key={item.value}
-                  label={<Badge
+            {tabList.map((item) => (
+              <Tab
+                key={item.value}
+                label={
+                  <Badge
                     color="secondary"
                     variant="dot"
                     invisible={!item.showPrompt}
                   >
                     {item.label}
-                  </Badge>}
-                  value={item.value}
-                />
-              ))
-            }
+                  </Badge>
+                }
+                value={item.value}
+              />
+            ))}
           </TabList>
         </Box>
         <TabPanel value="/running_models/LLM" sx={{ padding: 0 }}>
