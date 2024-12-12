@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-18 19:26+0800\n"
+"POT-Creation-Date: 2024-12-12 06:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.16.0\n"
 
 #: ../../source/models/model_abilities/audio.rst:5
 msgid "Audio (Experimental)"
@@ -120,42 +120,54 @@ msgid "whisper-large-v3"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:54
-msgid "Belle-distilwhisper-large-v2-zh"
+msgid "whisper-large-v3-turbo"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:55
-msgid "Belle-whisper-large-v2-zh"
+msgid "Belle-distilwhisper-large-v2-zh"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:56
-msgid "Belle-whisper-large-v3-zh"
+msgid "Belle-whisper-large-v2-zh"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:57
+msgid "Belle-whisper-large-v3-zh"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:58
 msgid "SenseVoiceSmall"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:61
+#: ../../source/models/model_abilities/audio.rst:62
 msgid "Text to audio"
 msgstr "文本转语音"
 
-#: ../../source/models/model_abilities/audio.rst:63
+#: ../../source/models/model_abilities/audio.rst:64
 msgid "ChatTTS"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:64
+#: ../../source/models/model_abilities/audio.rst:65
 msgid "CosyVoice"
 msgstr ""
 
+#: ../../source/models/model_abilities/audio.rst:66
+msgid "FishSpeech-1.4"
+msgstr ""
+
 #: ../../source/models/model_abilities/audio.rst:67
+msgid "F5-TTS"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:70
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/audio.rst:70
+#: ../../source/models/model_abilities/audio.rst:73
 msgid "Transcription"
 msgstr "转录"
 
-#: ../../source/models/model_abilities/audio.rst:72
+#: ../../source/models/model_abilities/audio.rst:75
 msgid ""
 "The Transcription API mimics OpenAI's `create transcriptions API "
 "<https://platform.openai.com/docs/api-"
@@ -167,11 +179,11 @@ msgstr ""
 "可以通过 cURL、OpenAI Client 或者 Xinference 的 Python 客户端来尝试 "
 "Transcription API："
 
-#: ../../source/models/model_abilities/audio.rst:123
+#: ../../source/models/model_abilities/audio.rst:126
 msgid "Translation"
 msgstr "翻译"
 
-#: ../../source/models/model_abilities/audio.rst:125
+#: ../../source/models/model_abilities/audio.rst:128
 msgid ""
 "The Translation API mimics OpenAI's `create translations API "
 "<https://platform.openai.com/docs/api-"
@@ -183,11 +195,11 @@ msgstr ""
 "通过 cURL、OpenAI Client 或 Xinference 的 Python 客户端来尝试使用 "
 "Translation API："
 
-#: ../../source/models/model_abilities/audio.rst:175
+#: ../../source/models/model_abilities/audio.rst:178
 msgid "Speech"
 msgstr "语音"
 
-#: ../../source/models/model_abilities/audio.rst:179
+#: ../../source/models/model_abilities/audio.rst:182
 msgid ""
 "The Speech API mimics OpenAI's `create speech API "
 "<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_. We"
@@ -198,11 +210,11 @@ msgstr ""
 "openai.com/docs/api-reference/audio/createSpeech>`_。你可以通过 cURL、"
 "OpenAI Client 或者 Xinference 的 Python 客户端来尝试 Speech API："
 
-#: ../../source/models/model_abilities/audio.rst:182
+#: ../../source/models/model_abilities/audio.rst:185
 msgid "Speech API use non-stream by default as"
 msgstr "Speech API 默认使用非流式"
 
-#: ../../source/models/model_abilities/audio.rst:184
+#: ../../source/models/model_abilities/audio.rst:187
 msgid ""
 "The stream output of ChatTTS is not as good as the non-stream output, "
 "please refer to: https://github.com/2noise/ChatTTS/pull/564"
@@ -210,7 +222,7 @@ msgstr ""
 "ChatTTS 的流式输出不如非流式的效果好，参考：https://github.com/2noise/"
 "ChatTTS/pull/564"
 
-#: ../../source/models/model_abilities/audio.rst:185
+#: ../../source/models/model_abilities/audio.rst:188
 msgid ""
 "The stream requires ffmpeg<7: "
 "https://pytorch.org/audio/stable/installation.html#optional-dependencies"
@@ -218,15 +230,16 @@ msgstr ""
 "流式要求 ffmpeg<7：https://pytorch.org/audio/stable/installation.html#"
 "optional-dependencies"
 
-#: ../../source/models/model_abilities/audio.rst:237
+#: ../../source/models/model_abilities/audio.rst:240
 msgid "ChatTTS Usage"
 msgstr "ChatTTS 使用"
 
-#: ../../source/models/model_abilities/audio.rst:239
+#: ../../source/models/model_abilities/audio.rst:242
+#: ../../source/models/model_abilities/audio.rst:389
 msgid "Basic usage, refer to :ref:`audio speech usage <audio_speech>`."
 msgstr "基本使用，参考 :ref:`语音使用章节 <audio_speech>`。"
 
-#: ../../source/models/model_abilities/audio.rst:241
+#: ../../source/models/model_abilities/audio.rst:244
 msgid ""
 "Fixed tone color. We can use fixed tone color provided by "
 "https://github.com/6drf21e/ChatTTS_Speaker, Download the "
@@ -239,33 +252,86 @@ msgstr ""
 "ChatTTS_Speaker/blob/main/evaluation_results.csv>`_ ，以 ``seed_2155`` "
 "音色作为例子，我们使用 ``emb_data`` 列的数据。"
 
-#: ../../source/models/model_abilities/audio.rst:254
+#: ../../source/models/model_abilities/audio.rst:257
 msgid "Use the fixed tone color of ``seed_2155`` to generate speech."
 msgstr "使用 ``seed_2155`` 固定音色来创建语音。"
 
-#: ../../source/models/model_abilities/audio.rst:270
+#: ../../source/models/model_abilities/audio.rst:273
 msgid "CosyVoice Usage"
 msgstr "CosyVoice 模型使用"
 
-#: ../../source/models/model_abilities/audio.rst:272
+#: ../../source/models/model_abilities/audio.rst:275
 msgid "Basic usage, launch model ``CosyVoice-300M-SFT``."
 msgstr "基本使用，加载模型 ``CosyVoice-300M-SFT``。"
 
-#: ../../source/models/model_abilities/audio.rst:321
+#: ../../source/models/model_abilities/audio.rst:324
 msgid "Clone voice, launch model ``CosyVoice-300M``."
 msgstr "克隆声音，加载模型 ``CosyVoice-300M``。"
 
-#: ../../source/models/model_abilities/audio.rst:344
+#: ../../source/models/model_abilities/audio.rst:347
 msgid "Cross lingual usage, launch model ``CosyVoice-300M``."
 msgstr "跨语言使用，加载模型 ``CosyVoice-300M``。"
 
-#: ../../source/models/model_abilities/audio.rst:363
+#: ../../source/models/model_abilities/audio.rst:366
 msgid "Instruction based, launch model ``CosyVoice-300M-Instruct``."
 msgstr "基于指令的声音合成，加载模型 ``CosyVoice-300M-Instruct``。"
 
-#: ../../source/models/model_abilities/audio.rst:380
+#: ../../source/models/model_abilities/audio.rst:383
 msgid ""
 "More instructions and examples, could be found at https://fun-audio-"
 "llm.github.io/ ."
 msgstr "更多指令和例子，可以参考 https://fun-audio-llm.github.io/ 。"
+
+#: ../../source/models/model_abilities/audio.rst:387
+msgid "FishSpeech Usage"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:391
+msgid ""
+"Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` "
+"instead of `reference_audio` and `prompt_text` instead of "
+"`reference_text` to clone voice from the reference audio for the "
+"FishSpeech model. This arguments is aligned to voice cloning of "
+"CosyVoice."
+msgstr ""
+"克隆语音，启动模型 ``FishSpeech-1.4``。请使用 `prompt_speech`而不是 `"
+"reference_audio` 以及 `prompt_text` 而不是 `reference_text` "
+"来为 FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
+
+#: ../../source/models/model_abilities/audio.rst:417
+msgid "SenseVoiceSmall Offline usage"
+msgstr "SenseVoiceSmall 离线使用"
+
+#: ../../source/models/model_abilities/audio.rst:419
+msgid ""
+"Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be "
+"downloaded thus network required."
+msgstr ""
+"现在 SenseVoiceSmall 使用一个小的 VAD 模型 ``fsmn-vad``，因此它需要网络来"
+"下载。"
+
+#: ../../source/models/model_abilities/audio.rst:421
+msgid "For offline environment, you can download the vad model in advance."
+msgstr "对于离线环境，你可以提前下载这个 VAD 模型。"
+
+#: ../../source/models/model_abilities/audio.rst:423
+msgid ""
+"Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or "
+"`modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-"
+"common-pytorch/files>`_. Assume downloaded to ``/path/to/fsmn-vad``."
+msgstr ""
+"从 `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ 或者 `"
+"modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-"
+"common-pytorch/files>`_ 下载。假设下载到 ``/path/to/fsmn-vad``。"
+
+#: ../../source/models/model_abilities/audio.rst:426
+msgid ""
+"Then when launching SenseVoiceSmall with Web UI, you can add an "
+"additional parameter with key ``vad_model`` and value ``/path/to/fsmn-"
+"vad`` which is the downloaded path. When launching with command line, you"
+" can add an option ``--vad_model /path/to/fsmn-vad``."
+msgstr ""
+"然后当用 Web UI 加载 SenseVoiceSmall 时，添加额外选项，key 是 ``vad_model"
+"``，值是之前的下载路径 ``/path/to/fsmn-vad``。用命令行加载时，增加选项 ``"
+"--vad_model /path/to/fsmn-vad``。"
 

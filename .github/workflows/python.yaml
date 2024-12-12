@@ -117,33 +117,36 @@ jobs:
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
+          pip install -e ".[dev]"
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install mlx-lm
+            pip install mlx-vlm
             pip install mlx-whisper
+            pip install qwen-vl-utils
+          else
+            pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+            pip install transformers
+            pip install attrdict
+            pip install "timm>=0.9.16"
+            pip install torch torchvision
+            pip install accelerate
+            pip install sentencepiece
+            pip install transformers_stream_generator
+            pip install bitsandbytes
+            pip install "sentence-transformers>=2.3.1"
+            pip install modelscope
+            pip install diffusers
+            pip install protobuf
+            pip install FlagEmbedding
+            pip install "tenacity>=8.2.0,<8.4.0"
+            pip install "jinja2==3.1.2"
+            pip install tensorizer
+            pip install jj-pytorchvideo
+            pip install qwen-vl-utils
+            pip install datamodel_code_generator
+            pip install jsonschema
           fi
-          pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-          pip install transformers
-          pip install attrdict
-          pip install "timm>=0.9.16"
-          pip install torch torchvision
-          pip install accelerate
-          pip install sentencepiece
-          pip install transformers_stream_generator
-          pip install bitsandbytes
-          pip install "sentence-transformers>=2.3.1"
-          pip install modelscope
-          pip install diffusers
-          pip install protobuf
-          pip install FlagEmbedding
-          pip install "tenacity>=8.2.0,<8.4.0"
-          pip install -e ".[dev]"
-          pip install "jinja2==3.1.2"
-          pip install tensorizer
-          pip install jj-pytorchvideo
-          pip install qwen-vl-utils
-          pip install datamodel_code_generator
-          pip install jsonschema
         working-directory: .
 
       - name: Test with pytest
@@ -162,7 +165,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U funasr
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr<1.1.17"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing<1.1.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing<1.0.4
