@@ -232,7 +232,10 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_restart_supervisor.py
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
