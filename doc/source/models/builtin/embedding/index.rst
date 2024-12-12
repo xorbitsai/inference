@@ -47,6 +47,8 @@ The following is a list of built-in embedding models in Xinference:
   
    gte-qwen2
   
+   jina-clip-v2
+  
    jina-embeddings-v2-base-en
   
    jina-embeddings-v2-base-zh

@@ -75,6 +75,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "llama-3-instruct",
     "llama-3.1-instruct",
+    "llama-3.3-instruct",
     "qwen-chat",
     "qwen1.5-chat",
     "qwen2-instruct",
