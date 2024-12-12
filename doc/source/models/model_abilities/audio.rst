@@ -63,6 +63,8 @@ Text to audio
 
 * ChatTTS
 * CosyVoice
+* FishSpeech-1.4
+* F5-TTS
 
 Quickstart
 ===================
