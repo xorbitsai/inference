@@ -213,7 +213,7 @@ class FishSpeechModel:
         import torchaudio
 
         prompt_speech = kwargs.get("prompt_speech")
-        prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text"))
+        prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
         result = self._inference(
             text=input,
             enable_reference_audio=kwargs.get(
