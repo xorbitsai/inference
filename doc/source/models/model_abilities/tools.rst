@@ -33,9 +33,11 @@ Supported models
 The ``tools`` ability is supported with the following models in Xinference:
 
 * :ref:`models_llm_qwen-chat`
-* :ref:`models_llm_chatglm3`
-* :ref:`models_llm_gorilla-openfunctions-v1`
-
+* :ref:`models_llm_glm4-chat`
+* :ref:`models_llm_glm4-chat-1m`
+* :ref:`models_llm_llama-3.1-instruct`
+* :ref:`models_llm_qwen2.5-instruct`
+* :ref:`models_llm_qwen2.5-coder-instruct`
 
 Quickstart
 ==============

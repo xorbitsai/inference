@@ -131,7 +131,7 @@ def register_custom_model():
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
-    from .mlx.core import MLXChatModel, MLXModel
+    from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
     from .transformers.cogvlm2 import CogVLM2Model
@@ -172,7 +172,7 @@ def _install():
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
-    MLX_CLASSES.extend([MLXModel, MLXChatModel])
+    MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
     TRANSFORMERS_CLASSES.extend(
         [

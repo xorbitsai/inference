@@ -166,6 +166,16 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
 
+   * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
+     - chat
+     - 8192
+     - The GLM-Edge series is our attempt to face the end-side real-life scenarios, which consists of two sizes of large-language dialogue models and multimodal comprehension models (GLM-Edge-1.5B-Chat, GLM-Edge-4B-Chat, GLM-Edge-V-2B, GLM-Edge-V-5B). Among them, the 1.5B / 2B model is mainly for platforms such as mobile phones and cars, and the 4B / 5B model is mainly for platforms such as PCs.
+
+   * - :ref:`glm-edge-v <models_llm_glm-edge-v>`
+     - chat, vision
+     - 8192
+     - The GLM-Edge series is our attempt to face the end-side real-life scenarios, which consists of two sizes of large-language dialogue models and multimodal comprehension models (GLM-Edge-1.5B-Chat, GLM-Edge-4B-Chat, GLM-Edge-V-2B, GLM-Edge-V-5B). Among them, the 1.5B / 2B model is mainly for platforms such as mobile phones and cars, and the 4B / 5B model is mainly for platforms such as PCs.
+
    * - :ref:`glm4-chat <models_llm_glm4-chat>`
      - chat, tools
      - 131072
@@ -615,6 +625,10 @@ The following is a list of built-in LLM in Xinference:
    gemma-it
   
    glm-4v
+  
+   glm-edge-chat
+  
+   glm-edge-v
   
    glm4-chat
   

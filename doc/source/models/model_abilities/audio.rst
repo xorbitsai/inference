@@ -63,6 +63,8 @@ Text to audio
 
 * ChatTTS
 * CosyVoice
+* FishSpeech-1.4
+* F5-TTS
 
 Quickstart
 ===================
@@ -387,7 +389,8 @@ FishSpeech Usage
 Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
 
 Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` instead of `reference_audio`
-to provide the reference audio to the FishSpeech model.
+and `prompt_text` instead of `reference_text` to clone voice from the reference audio for the FishSpeech model.
+This arguments is aligned to voice cloning of CosyVoice.
 
 .. code-block::
 
@@ -397,16 +400,28 @@ to provide the reference audio to the FishSpeech model.
 
     model = client.get_model("<MODEL_UID>")
 
-    reference_text = ""
     # The reference audio file is the voice file
     # the words said in the file should be identical to reference_text
     with open(reference_audio_file, "rb") as f:
         reference_audio = f.read()
+    reference_text = ""  # text in the audio
 
     speech_bytes = model.speech(
         "<The text to generate audio for>",
-        reference_text=reference_text,
         prompt_speech=reference_audio,
-        enable_reference_audio=True,
+        prompt_text=reference_text
     )
--
+
+
+SenseVoiceSmall Offline usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be downloaded thus network required.
+
+For offline environment, you can download the vad model in advance.
+
+Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>`_.
+Assume downloaded to ``/path/to/fsmn-vad``.
+
+Then when launching SenseVoiceSmall with Web UI, you can add an additional parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is the downloaded path.
+When launching with command line, you can add an option ``--vad_model /path/to/fsmn-vad``.

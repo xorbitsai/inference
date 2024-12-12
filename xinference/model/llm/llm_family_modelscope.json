@@ -2837,7 +2837,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "qwen/Qwen2-0.5B-Instruct-MLX",
         "model_hub": "modelscope"
@@ -2846,7 +2846,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "qwen/Qwen2-1.5B-Instruct-MLX",
         "model_hub": "modelscope"
@@ -2855,7 +2855,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "qwen/Qwen2-7B-Instruct-MLX",
         "model_hub": "modelscope"
@@ -4650,6 +4650,16 @@
         "model_revision":"master"
       },
       {
+        "model_format":"mlx",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "8bit"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"okwinds/Qwen2-VL-7B-Instruct-MLX-8bit",
+        "model_revision":"master"
+      },
+      {
         "model_format":"pytorch",
         "model_size_in_billions":2,
         "quantizations":[
@@ -4690,6 +4700,16 @@
         "model_revision":"master"
       },
       {
+        "model_format":"mlx",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "8bit"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"okwinds/Qwen2-VL-2B-Instruct-MLX-8bit",
+        "model_revision":"master"
+      },
+      {
         "model_format":"pytorch",
         "model_size_in_billions":72,
         "quantizations":[
@@ -4716,6 +4736,17 @@
         ],
         "model_id":"qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}",
         "model_hub": "modelscope"
+      },
+      {
+        "model_format":"mlx",
+        "model_size_in_billions":72,
+        "quantizations":[
+          "4bit",
+          "8bit"
+        ],
+        "model_hub": "modelscope",
+        "model_id":"okwinds/Qwen2-VL-72B-Instruct-MLX-{quantization}",
+        "model_revision":"master"
       }
     ],
     "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
@@ -5777,7 +5808,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 3,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-3B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5786,7 +5817,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 3,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-3B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5795,7 +5826,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-7B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5804,7 +5835,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-7B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5813,7 +5844,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-14B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5822,7 +5853,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 14,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-14B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5831,7 +5862,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "2-bit"
+          "2bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-2bit",
         "model_hub": "modelscope"
@@ -5840,7 +5871,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5849,7 +5880,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -5858,7 +5889,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "2-bit"
+          "2bit"
         ],
         "model_id": "okwinds/Qwen2.5-32B-Instruct-MLX-2bit",
         "model_hub": "modelscope"
@@ -5867,7 +5898,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/Qwen2.5-72B-Instruct-MLX-4bit",
         "model_hub": "modelscope"
@@ -5876,7 +5907,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/Qwen2.5-72B-Instruct-MLX-8bit",
         "model_hub": "modelscope"
@@ -6296,7 +6327,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "okwinds/QwQ-32B-Preview-MLX-4bit",
         "model_hub": "modelscope"
@@ -6305,7 +6336,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "okwinds/QwQ-32B-Preview-MLX-8bit",
         "model_hub": "modelscope"
@@ -6320,7 +6351,8 @@
           "Q8_0"
         ],
         "model_id": "AI-ModelScope/QwQ-32B-Preview-GGUF",
-        "model_file_name_template": "QwQ-32B-Preview-{quantization}.gguf"
+        "model_file_name_template": "QwQ-32B-Preview-{quantization}.gguf",
+	"model_hub": "modelscope"
       }
     ],
     "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",

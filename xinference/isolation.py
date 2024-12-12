@@ -37,6 +37,30 @@ class Isolation:
         asyncio.set_event_loop(self._loop)
         self._stopped = asyncio.Event()
         self._loop.run_until_complete(self._stopped.wait())
+        self._cancel_all_tasks(self._loop)
+
+    @staticmethod
+    def _cancel_all_tasks(loop):
+        to_cancel = asyncio.all_tasks(loop)
+        if not to_cancel:
+            return
+
+        for task in to_cancel:
+            task.cancel()
+
+        loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
+
+        for task in to_cancel:
+            if task.cancelled():
+                continue
+            if task.exception() is not None:
+                loop.call_exception_handler(
+                    {
+                        "message": "unhandled exception during asyncio.run() shutdown",
+                        "exception": task.exception(),
+                        "task": task,
+                    }
+                )
 
     def start(self):
         if self._threaded:
