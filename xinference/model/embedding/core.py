@@ -226,7 +226,9 @@ class EmbeddingModel:
                 trust_remote_code=True,
             )
 
-    def _fix_langchain_openai_inputs(self, sentences: Union[str, List[str]]):
+    def _fix_langchain_openai_inputs(
+        self, sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]]
+    ):
         # Check if sentences is a two-dimensional list of integers
         if (
             isinstance(sentences, list)
@@ -260,7 +262,11 @@ class EmbeddingModel:
                 sentences = lines_decoded
         return sentences
 
-    def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
+    def create_embedding(
+        self,
+        sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]],
+        **kwargs,
+    ):
         sentences = self._fix_langchain_openai_inputs(sentences)
 
         from sentence_transformers import SentenceTransformer
@@ -598,7 +604,7 @@ class EmbeddingModel:
         @no_type_check
         def _encode_clip(
             model: SentenceTransformer,
-            sentences: Union[str, List[str]],
+            sentences: Union[Dict[str, str], List[Dict[str, str]]],
             convert_to_numpy: bool = True,
             **kwargs,
         ):
@@ -625,7 +631,7 @@ class EmbeddingModel:
                     txt_embed = model.encode([data["text"]])
                     all_embeddings.append(txt_embed)
                     all_token_nums += len(model.tokenize(data["text"]))
-                if data.get("image") is not None:
+                elif data.get("image") is not None:
                     if re.match(r"^data:image/.+;base64,", data["image"]):
                         image = base64_to_image(data["image"])
                         # images.append(image)
