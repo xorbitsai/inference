@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
+from io import BytesIO
+
 import numpy as np
+import requests
+from PIL import Image
 
 from ....client import Client
 
@@ -50,8 +55,24 @@ def test_clip_embedding(setup):
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid)
+
+    def image_to_base64(image: Image.Image, fmt="png") -> str:
+        output_buffer = BytesIO()
+        image.save(output_buffer, format=fmt)
+        byte_data = output_buffer.getvalue()
+        base64_str = base64.b64encode(byte_data).decode("utf-8")
+        return f"data:image/{fmt};base64," + base64_str
+
     image_str = "https://i.ibb.co/r5w8hG8/beach2.jpg"
-    input = ["This is a picture of diagram", "a dog", "海滩上美丽的日落。", image_str, image_str]
+    image_str_base64 = image_to_base64(
+        Image.open(BytesIO(requests.get(image_str).content))
+    )
+    input1 = {"text": "This is a picture of diagram"}
+    input2 = {"text": "a dog"}
+    input3 = {"text": "海滩上美丽的日落。"}
+    input4 = {"image": image_str}
+    input5 = {"image": image_str_base64}
+    input = [str(input1), str(input2), str(input3), str(input4), str(input5)]
     response = model.create_embedding(input)
     txt_embedding = np.array([item for item in response["data"][0]["embedding"]])
     img_embedding = np.array([item for item in response["data"][1]["embedding"]])

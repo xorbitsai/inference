@@ -603,7 +603,7 @@ class EmbeddingModel:
             **kwargs,
         ):
             import base64
-            import os
+            import json
             import re
             from io import BytesIO
 
@@ -621,15 +621,27 @@ class EmbeddingModel:
             all_embeddings = []
             texts = []
             images = []
-            for obj in sentences:
-                if re.match(r"^data:image/.+;base64,", obj):
-                    image = base64_to_image(obj)
-                    images.append(image)
-                elif re.match(r"^https?://", obj) or os.path.exists(obj):
-                    images.append(obj)
-                else:
-                    texts.append(obj)
-                    all_token_nums += len(self._model.tokenize(obj))
+
+            for data in sentences:
+                data = json.loads(data.replace("'", '"'))
+                if "text" in data:
+                    texts.append(data["text"])
+                    all_token_nums += len(model.tokenize(data["text"]))
+                elif "image" in data:
+                    if re.match(r"^data:image/.+;base64,", data["image"]):
+                        image = base64_to_image(data["image"])
+                        images.append(image)
+                    else:
+                        images.append(data["image"])
+
+                # if re.match(r"^data:image/.+;base64,", obj):
+                #     image = base64_to_image(obj)
+                #     images.append(image)
+                # elif re.match(r"^https?://", obj) or os.path.exists(obj):
+                #     images.append(obj)
+                # else:
+                #     texts.append(obj)
+                #     all_token_nums += len(self._model.tokenize(obj))
 
             # Encode texts and images
             text_embeddings = model.encode(texts, normalize_embeddings=True)
