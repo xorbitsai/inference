@@ -200,6 +200,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cu124
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
