@@ -60,6 +60,7 @@ class FishSpeechModel:
         self._device = device
         self._llama_queue = None
         self._model = None
+        self._engine = None
         self._kwargs = kwargs
 
     @property
@@ -72,6 +73,7 @@ class FishSpeechModel:
             0, os.path.join(os.path.dirname(__file__), "../../thirdparty/fish_speech")
         )
 
+        from tools.inference_engine import TTSInferenceEngine
         from tools.llama.generate import launch_thread_safe_queue
         from tools.vqgan.inference import load_model as load_decoder_model
 
@@ -100,6 +102,10 @@ class FishSpeechModel:
             config_name="firefly_gan_vq",
             checkpoint_path=checkpoint_path,
             device=self._device,
+        )
+
+        self._engine = TTSInferenceEngine(
+            self._llama_queue, self._model, precision, enable_compile
         )
 
     @torch.inference_mode()
@@ -211,22 +217,31 @@ class FishSpeechModel:
         if speed != 1.0:
             logger.warning("Fish speech does not support setting speed: %s.", speed)
         import torchaudio
+        from tools.schema import ServeTTSRequest, ServeReferenceAudio
 
         prompt_speech = kwargs.get("prompt_speech")
         prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
-        result = self._inference(
-            text=input,
-            enable_reference_audio=kwargs.get(
-                "enable_reference_audio", prompt_speech is not None
-            ),
-            reference_audio=prompt_speech,
-            reference_text=prompt_text,
-            max_new_tokens=kwargs.get("max_new_tokens", 1024),
-            chunk_length=kwargs.get("chunk_length", 200),
-            top_p=kwargs.get("top_p", 0.7),
-            repetition_penalty=kwargs.get("repetition_penalty", 1.2),
-            temperature=kwargs.get("temperature", 0.7),
-            streaming=stream,
+        if prompt_speech is not None:
+            r = ServeReferenceAudio()
+            r.text = prompt_text
+            r.audio = prompt_speech
+            references = [r]
+        else:
+            references = []
+
+        result = self._engine.inference(
+            ServeTTSRequest(
+                text=input,
+                references=references,
+                reference_id=kwargs.get("reference_id"),
+                max_new_tokens=kwargs.get("max_new_tokens", 1024),
+                chunk_length=kwargs.get("chunk_length", 200),
+                top_p=kwargs.get("top_p", 0.7),
+                repetition_penalty=kwargs.get("repetition_penalty", 1.2),
+                temperature=kwargs.get("temperature", 0.7),
+                streaming=stream,
+                format=response_format,
+            )
         )
 
         if stream:

@@ -23,7 +23,7 @@ def test_fish_speech(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="FishSpeech-1.4", model_type="audio", compile=False
+        model_name="FishSpeech-1.5", model_type="audio", compile=False
     )
     model = client.get_model(model_uid)
 
