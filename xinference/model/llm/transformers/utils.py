@@ -371,7 +371,7 @@ def _batch_inference_one_step_internal(
                 r.stopped = stopped
                 r.finish_reason = finish_reason
 
-            if r.stopped and r not in stop_token_mapping and r not in output_mapping:
+            if r.stopped and r not in stop_token_mapping:
                 stop_token_mapping[r] = _i + 1
 
             if r.stream:
