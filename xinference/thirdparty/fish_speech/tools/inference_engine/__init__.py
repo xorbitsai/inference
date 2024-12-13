@@ -69,12 +69,12 @@ class TTSInferenceEngine(ReferenceLoader, VQManager):
         sample_rate = self.decoder_model.spec_transform.sample_rate
 
         # If streaming, send the header
-        if req.streaming:
-            yield InferenceResult(
-                code="header",
-                audio=(sample_rate, wav_chunk_header(sample_rate=sample_rate)),
-                error=None,
-            )
+        # if req.streaming:
+        #     yield InferenceResult(
+        #         code="header",
+        #         audio=(sample_rate, wav_chunk_header(sample_rate=sample_rate)),
+        #         error=None,
+        #     )
 
         segments = []
 

@@ -11,10 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import gc
 import logging
 import os.path
-import queue
 import sys
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
@@ -83,6 +81,11 @@ class FishSpeechModel:
             if not is_device_available(self._device):
                 raise ValueError(f"Device {self._device} is not available!")
 
+        # https://github.com/pytorch/pytorch/issues/129207
+        if self._device == "mps":
+            logger.warning("The Conv1d has bugs on MPS backend, fallback to CPU.")
+            self._device = "cpu"
+
         enable_compile = self._kwargs.get("compile", False)
         precision = self._kwargs.get("precision", torch.bfloat16)
         logger.info("Loading Llama model, compile=%s...", enable_compile)
@@ -108,102 +111,6 @@ class FishSpeechModel:
             self._llama_queue, self._model, precision, enable_compile
         )
 
-    @torch.inference_mode()
-    def _inference(
-        self,
-        text,
-        enable_reference_audio,
-        reference_audio,
-        reference_text,
-        max_new_tokens,
-        chunk_length,
-        top_p,
-        repetition_penalty,
-        temperature,
-        seed="0",
-        streaming=False,
-    ):
-        from fish_speech.utils import autocast_exclude_mps, set_seed
-        from tools.api import decode_vq_tokens, encode_reference
-        from tools.llama.generate import (
-            GenerateRequest,
-            GenerateResponse,
-            WrappedGenerateResponse,
-        )
-
-        seed = int(seed)
-        if seed != 0:
-            set_seed(seed)
-            logger.warning(f"set seed: {seed}")
-
-        # Parse reference audio aka prompt
-        prompt_tokens = encode_reference(
-            decoder_model=self._model,
-            reference_audio=reference_audio,
-            enable_reference_audio=enable_reference_audio,
-        )
-
-        # LLAMA Inference
-        request = dict(
-            device=self._model.device,
-            max_new_tokens=max_new_tokens,
-            text=text,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            temperature=temperature,
-            compile=self._kwargs.get("compile", False),
-            iterative_prompt=chunk_length > 0,
-            chunk_length=chunk_length,
-            max_length=2048,
-            prompt_tokens=prompt_tokens if enable_reference_audio else None,
-            prompt_text=reference_text if enable_reference_audio else None,
-        )
-
-        response_queue = queue.Queue()
-        self._llama_queue.put(
-            GenerateRequest(
-                request=request,
-                response_queue=response_queue,
-            )
-        )
-
-        segments = []
-
-        while True:
-            result: WrappedGenerateResponse = response_queue.get()
-            if result.status == "error":
-                raise result.response
-
-            result: GenerateResponse = result.response
-            if result.action == "next":
-                break
-
-            with autocast_exclude_mps(
-                device_type=self._model.device.type,
-                dtype=self._kwargs.get("precision", torch.bfloat16),
-            ):
-                fake_audios = decode_vq_tokens(
-                    decoder_model=self._model,
-                    codes=result.codes,
-                )
-
-            fake_audios = fake_audios.float().cpu().numpy()
-            segments.append(fake_audios)
-
-            if streaming:
-                yield fake_audios, None, None
-
-        if len(segments) == 0:
-            raise Exception("No audio generated, please check the input text.")
-
-        # No matter streaming or not, we need to return the final audio
-        audio = np.concatenate(segments, axis=0)
-        yield None, (self._model.spec_transform.sample_rate, audio), None
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            gc.collect()
-
     def speech(
         self,
         input: str,
@@ -217,7 +124,7 @@ class FishSpeechModel:
         if speed != 1.0:
             logger.warning("Fish speech does not support setting speed: %s.", speed)
         import torchaudio
-        from tools.schema import ServeTTSRequest, ServeReferenceAudio
+        from tools.schema import ServeReferenceAudio, ServeTTSRequest
 
         prompt_speech = kwargs.get("prompt_speech")
         prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
@@ -234,6 +141,7 @@ class FishSpeechModel:
                 text=input,
                 references=references,
                 reference_id=kwargs.get("reference_id"),
+                seed=kwargs.get("seed"),
                 max_new_tokens=kwargs.get("max_new_tokens", 1024),
                 chunk_length=kwargs.get("chunk_length", 200),
                 top_p=kwargs.get("top_p", 0.7),
@@ -257,7 +165,9 @@ class FishSpeechModel:
                     last_pos = 0
                     with writer.open():
                         for chunk in result:
-                            chunk = chunk[0]
+                            if chunk.code == "final":
+                                continue
+                            chunk = chunk.audio[1]
                             if chunk is not None:
                                 chunk = chunk.reshape((chunk.shape[0], 1))
                                 trans_chunk = torch.from_numpy(chunk)
@@ -272,7 +182,7 @@ class FishSpeechModel:
             return _stream_generator()
         else:
             result = list(result)
-            sample_rate, audio = result[0][1]
+            sample_rate, audio = result[0].audio
             audio = np.array([audio])
 
             # Save the generated audio
