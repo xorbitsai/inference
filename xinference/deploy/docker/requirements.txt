@@ -74,6 +74,7 @@ loralib  # For Fish Speech
 ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 silero-vad  # For Fish Speech
+vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
 torchdiffeq  # For F5-TTS
 x_transformers>=1.31.14  # For F5-TTS
 pypinyin  # For F5-TTS
