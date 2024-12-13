@@ -90,13 +90,18 @@ deepcache # for sd
 verovio>=4.3.1  # For got_ocr2
 
 # sglang
-outlines>=0.0.44
+decord
 hf_transfer
-packaging
+huggingface_hub
 interegular
-zmq
-rpyc
+outlines>=0.0.44,<0.1.0
+packaging
+prometheus-client>=0.20.0
 psutil
-aiohttp
-anthropic>=0.20.0
-litellm>=1.0.0
+python-multipart
+pyzmq>=25.1.2
+torchao>=0.7.0
+uvloop
+xgrammar>=0.1.6
+vllm>=0.6.3.post1,<=0.6.4.post1
+cuda-python
