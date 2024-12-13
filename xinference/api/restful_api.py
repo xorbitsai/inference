@@ -94,9 +94,9 @@ class CreateCompletionRequest(CreateCompletion):
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
-    input: Union[str, List[str], List[int], List[List[int]]] = Field(
-        description="The input to embed."
-    )
+    input: Union[
+        str, List[str], List[int], List[List[int]], Dict[str, str], List[Dict[str, str]]
+    ] = Field(description="The input to embed.")
     user: Optional[str] = None
 
     class Config:
@@ -2044,7 +2044,6 @@ class RESTfulAPI(CancelMixin):
                 )
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
-
             if not (
                 (is_vllm and model_family in QWEN_TOOL_CALL_FAMILY)
                 or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
@@ -2054,7 +2053,8 @@ class RESTfulAPI(CancelMixin):
                     detail="Streaming support for tool calls is available only when using "
                     "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
                 )
-
+        if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
+            kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
 
             async def stream_results():

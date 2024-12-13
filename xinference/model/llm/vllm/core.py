@@ -86,6 +86,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
     stream_options: Optional[Union[dict, None]]
+    skip_special_tokens: Optional[bool]
     response_format: Optional[dict]
     guided_json: Optional[Union[str, dict]]
     guided_regex: Optional[str]
@@ -181,6 +182,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
 if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
@@ -372,6 +374,9 @@ class VLLMModel(LLM):
         sanitized.setdefault("stream", generate_config.get("stream", False))
         sanitized.setdefault(
             "stream_options", generate_config.get("stream_options", None)
+        )
+        sanitized.setdefault(
+            "skip_special_tokens", generate_config.get("skip_special_tokens", True)
         )
         sanitized.setdefault(
             "guided_json", generate_config.get("guided_json", guided_json)

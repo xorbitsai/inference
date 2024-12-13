@@ -156,6 +156,7 @@ def _get_completion(
     finish_reason: Optional[str],
     model_uid: str,
     r: InferenceRequest,
+    completion_tokens: int,
 ):
     completion_choice = CompletionChoice(
         text=output, index=0, logprobs=None, finish_reason=finish_reason
@@ -170,8 +171,8 @@ def _get_completion(
     )
     completion_usage = CompletionUsage(
         prompt_tokens=len(r.prompt_tokens),
-        completion_tokens=len(r.new_tokens),
-        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+        completion_tokens=completion_tokens,
+        total_tokens=len(r.prompt_tokens) + completion_tokens,
     )
     completion = Completion(
         id=completion_chunk["id"],
@@ -371,7 +372,7 @@ def _batch_inference_one_step_internal(
                 r.stopped = stopped
                 r.finish_reason = finish_reason
 
-            if r.stopped and r not in stop_token_mapping and r not in output_mapping:
+            if r.stopped and r not in stop_token_mapping:
                 stop_token_mapping[r] = _i + 1
 
             if r.stream:
@@ -446,12 +447,14 @@ def _batch_inference_one_step_internal(
             else:
                 # last round, handle non-stream result
                 if r.stopped and _i == decode_round - 1:
-                    invalid_token_num = decode_round - stop_token_mapping[r]
+                    invalid_token_num = (
+                        (decode_round - stop_token_mapping[r] + 1)
+                        if r.finish_reason == "stop"
+                        else (decode_round - stop_token_mapping[r])
+                    )
                     outputs = (
                         tokenizer.decode(
-                            r.new_tokens[: -(invalid_token_num + 1)]
-                            if r.finish_reason == "stop"
-                            else r.new_tokens[:-invalid_token_num],
+                            r.new_tokens[:-invalid_token_num],
                             skip_special_tokens=True,
                             spaces_between_special_tokens=False,
                             clean_up_tokenization_spaces=True,
@@ -460,7 +463,12 @@ def _batch_inference_one_step_internal(
                         else output_mapping[r]
                     )
                     completion = _get_completion(
-                        outputs, r.chunk_id, r.finish_reason, model_uid, r
+                        outputs,
+                        r.chunk_id,
+                        r.finish_reason,
+                        model_uid,
+                        r,
+                        len(r.new_tokens) - invalid_token_num,
                     )
                     r.completion = [completion]
 

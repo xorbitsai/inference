@@ -205,8 +205,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "THUDM/glm-4-9b-chat",
-        "model_revision": "eb55a443d66541f30869f6caac5ad0d2e95bcbaa"
+        "model_id": "THUDM/glm-4-9b-chat-hf",
+        "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd"
       },
       {
         "model_format": "ggufv2",
@@ -269,8 +269,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "THUDM/glm-4-9b-chat-1m",
-        "model_revision": "0aa722c7e0745dd21453427dd44c257dd253304f"
+        "model_id": "THUDM/glm-4-9b-chat-1m-hf",
+        "model_revision": "0588cb62942f0f0a5545c695e5c1b019d64eabdc"
       },
       {
         "model_format": "ggufv2",
@@ -952,7 +952,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
       },
@@ -960,7 +960,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 8,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-8bit"
       },
@@ -976,7 +976,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx"
       },
@@ -984,7 +984,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 70,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-8bit"
       },
@@ -1229,7 +1229,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
       },
@@ -1237,7 +1237,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 8,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3.1-8B-Instruct-8bit"
       },
@@ -1253,7 +1253,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3.1-70B-Instruct-4bit"
       },
@@ -1261,7 +1261,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 70,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Meta-Llama-3.1-70B-Instruct-8bit"
       },
@@ -1397,6 +1397,98 @@
         ],
         "model_id": "meta-llama/Meta-Llama-3.2-90B-Vision"
       }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "llama-3.3-instruct",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "The Llama 3.3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-3.3-70B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "shuyuej/Llama-3.3-70B-Instruct-GPTQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "casperhansen/llama-3.3-70b-instruct-awq"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "fp16"
+        ],
+        "model_id": "mlx-community/Llama-3.3-70B-Instruct-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Q3_K_L",
+          "Q4_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "quantization_parts": {
+          "Q6_K": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ]
+        },
+        "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
+        "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
+        "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf"
+      }
+    ],
+    "chat_template": "{{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- set date_string = \"26 Jul 2024\" %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message + builtin tools #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if builtin_tools is defined or tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{%- if builtin_tools is defined %}\n    {{- \"Tools: \" + builtin_tools | reject('equalto', 'code_interpreter') | join(\", \") + \"\\n\\n\"}}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- \"<|python_tag|>\" + tool_call.name + \".call(\" }}\n            {%- for arg_name, arg_val in tool_call.arguments | items %}\n                {{- arg_name + '=\"' + arg_val + '\"' }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- endif %}\n                {%- endfor %}\n            {{- \")\" }}\n        {%- else  %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n            {{- '\"parameters\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- \"}\" }}\n        {%- endif %}\n        {%- if builtin_tools is defined %}\n            {#- This means we're in ipython mode #}\n            {{- \"<|eom_id|>\" }}\n        {%- else %}\n            {{- \"<|eot_id|>\" }}\n        {%- endif %}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      128001,
+      128008,
+      128009
+    ],
+    "stop": [
+      "<|end_of_text|>",
+      "<|eot_id|>",
+      "<|eom_id|>"
     ]
   },
   {
@@ -2199,7 +2291,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "Qwen/Qwen2-0.5B-Instruct-MLX"
       },
@@ -2207,7 +2299,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "Qwen/Qwen2-1.5B-Instruct-MLX"
       },
@@ -2215,7 +2307,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "Qwen/Qwen2-7B-Instruct-MLX"
       },
@@ -2223,7 +2315,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2-72B-Instruct-4bit"
       },
@@ -3222,7 +3314,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 12,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-4bit"
       },
@@ -3230,7 +3322,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 12,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit"
       }
@@ -3370,7 +3462,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 123,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Mistral-Large-Instruct-2407-4bit"
       },
@@ -3378,7 +3470,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 123,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Mistral-Large-Instruct-2407-8bit"
       }
@@ -3436,7 +3528,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 22,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Codestral-22B-v0.1-4bit",
         "model_revision": "544626b38eb1c9524f0fa570ec7b29550c26b78d"
@@ -3445,7 +3537,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 22,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Codestral-22B-v0.1-8bit",
         "model_revision": "0399a53970663950d57010e61a2796af524a1588"
@@ -4170,7 +4262,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 6,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Yi-1.5-6B-Chat-4bit",
         "model_revision": "0177c9a12b869d6bc73f772b5a1981a7c966adb6"
@@ -4179,7 +4271,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 6,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Yi-1.5-6B-Chat-8bit",
         "model_revision": "7756e65d1bf1e2e6e97aef6bc9484307225f536b"
@@ -4188,7 +4280,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Yi-1.5-9B-Chat-4bit",
         "model_revision": "e15f886479c44e7d90f0ac13ace69b2319b71c2f"
@@ -4197,7 +4289,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 9,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Yi-1.5-9B-Chat-8bit",
         "model_revision": "c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36"
@@ -4206,7 +4298,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Yi-1.5-34B-Chat-4bit",
         "model_revision": "945e3b306ef37c46ab444fdc857d1f3ea7247374"
@@ -4215,7 +4307,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 34,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Yi-1.5-34B-Chat-8bit",
         "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac"
@@ -5266,7 +5358,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/internlm2_5-7b-chat-4bit",
         "model_revision": "d12097a867721978142a6048399f470a3d18beee"
@@ -5275,7 +5367,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/internlm2_5-7b-chat-8bit",
         "model_revision": "0ec94d61d30ab161b49c69f9bf92ec2b9986d234"
@@ -5803,7 +5895,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 2,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/gemma-2-2b-it-4bit"
       },
@@ -5811,7 +5903,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 2,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/gemma-2-2b-it-8bit"
       },
@@ -5827,7 +5919,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/gemma-2-9b-it-4bit"
       },
@@ -5835,7 +5927,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 9,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/gemma-2-9b-it-8bit"
       },
@@ -5851,7 +5943,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 27,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/gemma-2-27b-it-4bit"
       },
@@ -5859,7 +5951,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 27,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/gemma-2-27b-it-8bit"
       },
@@ -6925,7 +7017,7 @@
         "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
         "model_revision":"800d396518c82960ce6d231adecd07bbc474f0a9"
       },
-         {
+      {
         "model_format":"awq",
         "model_size_in_billions":2,
         "quantizations":[
@@ -6933,6 +7025,15 @@
         ],
         "model_id":"Qwen/Qwen2-VL-2B-Instruct-AWQ",
         "model_revision":"ea8c5854c0044e28626719292de0d9b1a671f6fc"
+      },
+      {
+        "model_format":"mlx",
+        "model_size_in_billions":2,
+        "quantizations":[
+          "4bit",
+          "8bit"
+        ],
+        "model_id":"mlx-community/Qwen2-VL-2B-Instruct-{quantization}"
       },
       {
         "model_format":"pytorch",
@@ -6971,6 +7072,15 @@
         "model_revision":"f94216e8b513933bccd567bcd9b7350199f32538"
       },
       {
+        "model_format":"mlx",
+        "model_size_in_billions":7,
+        "quantizations":[
+          "4bit",
+          "8bit"
+        ],
+        "model_id":"mlx-community/Qwen2-VL-7B-Instruct-{quantization}"
+      },
+      {
         "model_format":"pytorch",
         "model_size_in_billions":72,
         "quantizations":[
@@ -6994,6 +7104,15 @@
           "Int8"
         ],
         "model_id":"Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format":"mlx",
+        "model_size_in_billions":72,
+        "quantizations":[
+          "4bit",
+          "8bit"
+        ],
+        "model_id":"mlx-community/Qwen2-VL-72B-Instruct-{quantization}"
       }
     ],
     "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
@@ -8015,7 +8134,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
       },
@@ -8023,7 +8142,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-0.5B-Instruct-8bit"
       },
@@ -8039,7 +8158,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
       },
@@ -8047,7 +8166,7 @@
         "model_format": "mlx",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-1.5B-Instruct-8bit"
       },
@@ -8063,7 +8182,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 3,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-3B-Instruct-4bit"
       },
@@ -8071,7 +8190,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 3,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-3B-Instruct-8bit"
       },
@@ -8087,7 +8206,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit"
       },
@@ -8095,7 +8214,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 7,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-7B-Instruct-8bit"
       },
@@ -8111,7 +8230,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-14B-Instruct-4bit"
       },
@@ -8119,7 +8238,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 14,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-14B-Instruct-8bit"
       },
@@ -8135,7 +8254,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-32B-Instruct-4bit"
       },
@@ -8143,7 +8262,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-32B-Instruct-8bit"
       },
@@ -8159,7 +8278,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen2.5-72B-Instruct-4bit"
       },
@@ -8167,7 +8286,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen2.5-72B-Instruct-8bit"
       },
@@ -8564,7 +8683,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit"
+          "4bit"
         ],
         "model_id": "mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit"
       },
@@ -8572,7 +8691,7 @@
         "model_format": "mlx",
         "model_size_in_billions": 32,
         "quantizations": [
-          "8-bit"
+          "8bit"
         ],
         "model_id": "mlx-community/Qwen_QwQ-32B-Preview_MLX-8bit"
       },

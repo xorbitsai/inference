@@ -25,6 +25,8 @@ The following is a list of built-in audio models in Xinference:
   
    cosyvoice-300m-sft
   
+   f5-tts
+  
    fishspeech-1.4
   
    sensevoicesmall

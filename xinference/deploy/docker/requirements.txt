@@ -25,7 +25,7 @@ opencv-contrib-python-headless
 setproctitle
 
 # all
-transformers>=4.45.0
+transformers>=4.46.0
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
@@ -44,7 +44,7 @@ attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
 torchvision  # For deepseek VL
 FlagEmbedding  # For rerank
-funasr
+funasr<1.1.17
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing<1.1.0  # 1.1.0 requires pynini==2.1.6.post1
 WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6
@@ -74,6 +74,15 @@ loralib  # For Fish Speech
 ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 silero-vad  # For Fish Speech
+vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
+torchdiffeq  # For F5-TTS
+x_transformers>=1.31.14  # For F5-TTS
+pypinyin  # For F5-TTS
+tomli  # For F5-TTS
+vocos  # For F5-TTS
+librosa  # For F5-TTS
+jieba  # For F5-TTS
+soundfile  # For F5-TTS
 qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
