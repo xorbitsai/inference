@@ -29,7 +29,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
     pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cu124 && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements.txt && \
-    pip install -i "$PIP_INDEX" "sglang[srt]" && \
+    pip install -i "$PIP_INDEX" --no-deps "sglang[srt]" && \
     pip uninstall flashinfer -y && \
     pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4 && \
     cd /opt/inference && \
