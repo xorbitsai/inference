@@ -107,7 +107,7 @@ jobs:
 
       - name: Install numpy
         if: |
-          matrix.os == 'macos-12' && matrix.python-version == '3.12'
+          startsWith(matrix.os, 'macos') && matrix.python-version == '3.12'
         run: |
           python -m pip install "numpy<2"
 
