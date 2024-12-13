@@ -129,7 +129,9 @@ jobs:
             pip install mlx-lm
             pip install mlx-vlm
             pip install mlx-whisper
+            pip install f5-tts-mlx
             pip install qwen-vl-utils
+            pip install tomli 
           else
             pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
             pip install transformers
@@ -245,7 +247,10 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py && \
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper_mlx.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper_mlx.py && \
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
