@@ -479,8 +479,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
     def _generate_stream_inner_no_image(self, **kwargs):
         import mlx.nn as nn
-
-        # no images
         from mlx_lm.utils import make_sampler, stream_generate
 
         class ModelWrapper(nn.Module):
