@@ -261,6 +261,11 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - Llama 3.2-Vision instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image...
 
+   * - :ref:`llama-3.3-instruct <models_llm_llama-3.3-instruct>`
+     - chat, tools
+     - 131072
+     - The Llama 3.3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -663,6 +668,8 @@ The following is a list of built-in LLM in Xinference:
    llama-3.2-vision
   
    llama-3.2-vision-instruct
+  
+   llama-3.3-instruct
   
    minicpm-2b-dpo-bf16
   

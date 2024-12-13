@@ -182,6 +182,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
 if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
