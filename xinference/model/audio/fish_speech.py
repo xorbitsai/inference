@@ -136,6 +136,7 @@ class FishSpeechModel:
         else:
             references = []
 
+        assert self._engine is not None
         result = self._engine.inference(
             ServeTTSRequest(
                 text=input,
