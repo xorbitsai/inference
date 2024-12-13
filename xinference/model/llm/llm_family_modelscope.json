@@ -586,7 +586,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-4-9b-chat",
+        "model_id": "ZhipuAI/glm-4-9b-chat-hf",
         "model_revision": "master"
       },
       {
@@ -652,7 +652,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-4-9b-chat-1m",
+        "model_id": "ZhipuAI/glm-4-9b-chat-1m-hf",
         "model_revision": "master"
       },
       {
