@@ -481,6 +481,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         import mlx.nn as nn
         from mlx_lm.utils import make_sampler, stream_generate
 
+        # For mlx-lm, the model(inputs) will return logits,
+        # but the language model in mlx-vlm will return an object
+        # https://github.com/Blaizzy/mlx-vlm/blob/3f5e1620072440afb7496940f67ac1c7fc64056f/mlx_vlm/models/base.py#L260
+        # so we cannot pass the language model to stream_generate directly
+        # we wrap here to just let model(inputs) return logits to pass stream_generate
         class ModelWrapper(nn.Module):
             def __init__(self, model):
                 super().__init__()
@@ -513,7 +518,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         inputs = kwargs["prompt_token_ids"]
 
         if not isinstance(inputs, tuple):
-            # n oimages
+            # no images
             yield from self._generate_stream_inner_no_image(**kwargs)
             return
 
