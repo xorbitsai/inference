@@ -78,6 +78,8 @@ def test_restart_supervisor():
         proc_supervisor.terminate()
         proc_supervisor.join()
 
+        time.sleep(5)
+
         # restart supervisor
         supervisor_run_in_subprocess(supervisor_address)
 
