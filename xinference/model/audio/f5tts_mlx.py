@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import datetime
+import io
 import logging
 import os
-import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -143,6 +143,8 @@ class F5TTSMLXModel:
             split_sentences,
         )
 
+        from .utils import ensure_sample_rate
+
         if stream:
             raise Exception("F5-TTS does not support stream generation.")
 
@@ -155,6 +157,7 @@ class F5TTSMLXModel:
         sway_sampling_coef: float = kwargs.pop("sway_sampling_coef", -1.0)
         seed: Optional[int] = kwargs.pop("seed", None)
 
+        prompt_speech_path: Union[str, io.BytesIO]
         if prompt_speech is None:
             base = os.path.join(os.path.dirname(__file__), "../../thirdparty/f5_tts")
             config = os.path.join(base, "infer/examples/basic/basic.toml")
@@ -163,14 +166,14 @@ class F5TTSMLXModel:
             prompt_speech_path = os.path.join(base, config_dict["ref_audio"])
             prompt_text = config_dict["ref_text"]
         else:
-            with tempfile.NamedTemporaryFile(delete=False) as f:  # type: ignore
-                f.write(prompt_speech)
-            prompt_speech_path = f.name
+            prompt_speech_path = io.BytesIO(prompt_speech)
 
             if prompt_text is None:
                 raise ValueError("`prompt_text` cannot be empty")
 
         audio, sr = sf.read(prompt_speech_path)
+        audio = ensure_sample_rate(audio, sr, SAMPLE_RATE)
+
         audio = mx.array(audio)
         ref_audio_duration = audio.shape[0] / SAMPLE_RATE
         logger.debug(
