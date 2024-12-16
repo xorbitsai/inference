@@ -72,6 +72,7 @@ OpenAIChatCompletionToolParam = create_model_from_typeddict(ChatCompletionToolPa
 OpenAIChatCompletionNamedToolChoiceParam = create_model_from_typeddict(
     ChatCompletionNamedToolChoiceParam
 )
+from openai._types import Body
 
 
 class JSONSchema(BaseModel):
@@ -120,4 +121,5 @@ class CreateChatCompletionOpenAI(BaseModel):
     tools: Optional[Iterable[OpenAIChatCompletionToolParam]]  # type: ignore
     top_logprobs: Optional[int]
     top_p: Optional[float]
+    extra_body: Optional[Body]
     user: Optional[str]

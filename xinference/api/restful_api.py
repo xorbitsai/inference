@@ -2346,7 +2346,8 @@ class RESTfulAPI(CancelMixin):
     @staticmethod
     def extract_guided_params(raw_body: dict) -> dict:
         kwargs = {}
-        if raw_body.get("guided_json") is not None:
+        raw_extra_body: dict = raw_body.get("extra_body")  # type: ignore
+        if raw_body.get("guided_json"):
             kwargs["guided_json"] = raw_body.get("guided_json")
         if raw_body.get("guided_regex") is not None:
             kwargs["guided_regex"] = raw_body.get("guided_regex")
@@ -2362,6 +2363,27 @@ class RESTfulAPI(CancelMixin):
             kwargs["guided_whitespace_pattern"] = raw_body.get(
                 "guided_whitespace_pattern"
             )
+        # Parse OpenAI extra_body
+        if raw_extra_body is not None:
+            if raw_extra_body.get("guided_json"):
+                kwargs["guided_json"] = raw_extra_body.get("guided_json")
+            if raw_extra_body.get("guided_regex") is not None:
+                kwargs["guided_regex"] = raw_extra_body.get("guided_regex")
+            if raw_extra_body.get("guided_choice") is not None:
+                kwargs["guided_choice"] = raw_extra_body.get("guided_choice")
+            if raw_extra_body.get("guided_grammar") is not None:
+                kwargs["guided_grammar"] = raw_extra_body.get("guided_grammar")
+            if raw_extra_body.get("guided_json_object") is not None:
+                kwargs["guided_json_object"] = raw_extra_body.get("guided_json_object")
+            if raw_extra_body.get("guided_decoding_backend") is not None:
+                kwargs["guided_decoding_backend"] = raw_extra_body.get(
+                    "guided_decoding_backend"
+                )
+            if raw_extra_body.get("guided_whitespace_pattern") is not None:
+                kwargs["guided_whitespace_pattern"] = raw_extra_body.get(
+                    "guided_whitespace_pattern"
+                )
+
         return kwargs
 
 
