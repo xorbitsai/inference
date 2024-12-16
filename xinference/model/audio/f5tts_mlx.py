@@ -142,7 +142,8 @@ class F5TTSMLXModel:
             convert_char_to_pinyin,
             split_sentences,
         )
-        from scipy.signal import resample
+
+        from .utils import ensure_sample_rate
 
         if stream:
             raise Exception("F5-TTS does not support stream generation.")
@@ -171,24 +172,7 @@ class F5TTSMLXModel:
                 raise ValueError("`prompt_text` cannot be empty")
 
         audio, sr = sf.read(prompt_speech_path)
-
-        if sr != SAMPLE_RATE:
-            # Calculate the new data length
-            new_length = int(len(audio) * SAMPLE_RATE / sr)
-
-            # Resample the data
-            resampled_data = resample(audio, new_length)
-
-            # Use BytesIO to save the resampled data to memory
-            with io.BytesIO() as buffer:
-                # Write the resampled data to the memory buffer
-                sf.write(buffer, resampled_data, SAMPLE_RATE, format="WAV")
-
-                # Reset the buffer position to the beginning
-                buffer.seek(0)
-
-                # Read the data from the memory buffer
-                audio, sr = sf.read(buffer, dtype="float32")
+        audio = ensure_sample_rate(audio, sr, SAMPLE_RATE)
 
         audio = mx.array(audio)
         ref_audio_duration = audio.shape[0] / SAMPLE_RATE
