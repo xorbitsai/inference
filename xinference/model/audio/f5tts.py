@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import io
 import logging
 import os
 import re
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
@@ -106,9 +106,9 @@ class F5TTSModel:
             ) = preprocess_ref_audio_text(
                 voices[voice]["ref_audio"], voices[voice]["ref_text"]
             )
-            print("Voice:", voice)
-            print("Ref_audio:", voices[voice]["ref_audio"])
-            print("Ref_text:", voices[voice]["ref_text"])
+            logger.info("Voice:", voice)
+            logger.info("Ref_audio:", voices[voice]["ref_audio"])
+            logger.info("Ref_text:", voices[voice]["ref_text"])
 
         final_sample_rate = None
         generated_audio_segments = []
@@ -122,16 +122,16 @@ class F5TTSModel:
             if match:
                 voice = match[1]
             else:
-                print("No voice tag found, using main.")
+                logger.info("No voice tag found, using main.")
                 voice = "main"
             if voice not in voices:
-                print(f"Voice {voice} not found, using main.")
+                logger.info(f"Voice {voice} not found, using main.")
                 voice = "main"
             text = re.sub(reg2, "", text)
             gen_text = text.strip()
             ref_audio = voices[voice]["ref_audio"]
             ref_text = voices[voice]["ref_text"]
-            print(f"Voice: {voice}")
+            logger.info(f"Voice: {voice}")
             audio, final_sample_rate, spectragram = infer_process(
                 ref_audio,
                 ref_text,
@@ -167,18 +167,23 @@ class F5TTSModel:
         prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
         prompt_text: Optional[str] = kwargs.pop("prompt_text", None)
 
+        ref_audio: Union[str, io.BytesIO]
         if prompt_speech is None:
             base = os.path.dirname(f5_tts.__file__)
             config = os.path.join(base, "infer/examples/basic/basic.toml")
             with open(config, "rb") as f:
                 config_dict = tomli.load(f)
-            prompt_speech = os.path.join(base, config_dict["ref_audio"])
+            ref_audio = os.path.join(base, config_dict["ref_audio"])
             prompt_text = config_dict["ref_text"]
+        else:
+            ref_audio = io.BytesIO(prompt_speech)
+            if prompt_text is None:
+                raise ValueError("`prompt_text` cannot be empty")
 
         assert self._model is not None
         vocoder_name = self._kwargs.get("vocoder_name", "vocos")
         sample_rate, wav = self._infer(
-            ref_audio=prompt_speech,
+            ref_audio=ref_audio,
             ref_text=prompt_text,
             text_gen=input,
             model_obj=self._model,
