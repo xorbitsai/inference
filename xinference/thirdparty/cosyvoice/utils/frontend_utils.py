@@ -15,6 +15,7 @@
 import re
 chinese_char_pattern = re.compile(r'[\u4e00-\u9fff]+')
 
+
 # whether contain chinese character
 def contains_chinese(text):
     return bool(chinese_char_pattern.search(text))
@@ -79,6 +80,13 @@ def split_paragraph(text: str, tokenize, lang="zh", token_max_n=80, token_min_n=
         pounc = ['.', '?', '!', ';', ':']
     if comma_split:
         pounc.extend(['，', ','])
+
+    if text[-1] not in pounc:
+        if lang == "zh":
+            text += "。"
+        else:
+            text += "."
+
     st = 0
     utts = []
     for i, c in enumerate(text):
@@ -91,11 +99,7 @@ def split_paragraph(text: str, tokenize, lang="zh", token_max_n=80, token_min_n=
                 st = i + 2
             else:
                 st = i + 1
-    if len(utts) == 0:
-        if lang == "zh":
-            utts.append(text + '。')
-        else:
-            utts.append(text + '.')
+
     final_utts = []
     cur_utt = ""
     for utt in utts:
