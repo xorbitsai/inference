@@ -129,9 +129,7 @@ class FishSpeechModel:
         prompt_speech = kwargs.get("prompt_speech")
         prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
         if prompt_speech is not None:
-            r = ServeReferenceAudio()
-            r.text = prompt_text
-            r.audio = prompt_speech
+            r = ServeReferenceAudio(audio=prompt_speech, text=prompt_text)
             references = [r]
         else:
             references = []
