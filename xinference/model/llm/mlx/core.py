@@ -173,7 +173,9 @@ class MLXModel(LLM):
             return False
         return True
 
-    def _get_prompt_cache(self, prompt, lora_name: Optional[str] = None):
+    def _get_prompt_cache(
+        self, prompt, lora_name: Optional[str] = None, model: Any = None
+    ):
         from mlx_lm.models.cache import make_prompt_cache
 
         assert self._prompt_cache is not None
@@ -185,7 +187,9 @@ class MLXModel(LLM):
             or self._prompt_cache.tokens != prompt[:cache_len]
         ):
             self._prompt_cache.model_key = model_key
-            self._prompt_cache.cache = make_prompt_cache(self._model, self._max_kv_size)
+            self._prompt_cache.cache = make_prompt_cache(
+                model or self._model, self._max_kv_size
+            )
             self._prompt_cache.tokens = []
             logger.debug("Making new prompt cache for %s", self.model_uid)
         else:
@@ -458,6 +462,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        self._prompt_cache = PromptCache()
+
         return load(self.model_path)
 
     def load(self):
@@ -471,13 +477,52 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         self._model, self._processor = self._load_model(**kwargs)
         self._tokenizer = self._processor.tokenizer
 
+    def _generate_stream_inner_no_image(self, **kwargs):
+        import mlx.nn as nn
+        from mlx_lm.utils import make_sampler, stream_generate
+
+        # For mlx-lm, the model(inputs) will return logits,
+        # but the language model in mlx-vlm will return an object
+        # https://github.com/Blaizzy/mlx-vlm/blob/3f5e1620072440afb7496940f67ac1c7fc64056f/mlx_vlm/models/base.py#L260
+        # so we cannot pass the language model to stream_generate directly
+        # we wrap here to just let model(inputs) return logits to pass stream_generate
+        class ModelWrapper(nn.Module):
+            def __init__(self, model):
+                super().__init__()
+                self._model = model.language_model
+
+            @property
+            def layers(self):
+                return self._model.layers
+
+            def __call__(self, *args, **kwargs):
+                return self._model(*args, **kwargs).logits
+
+        sampler = make_sampler(
+            temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
+        )
+        prompt_token_ids = kwargs.pop("prompt_token_ids")
+        yield from stream_generate(
+            ModelWrapper(self._model),
+            self._tokenizer,
+            prompt_token_ids,
+            sampler=sampler,
+            **kwargs,
+        )
+
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
         from mlx_lm.utils import GenerationResponse
         from mlx_vlm.utils import generate_step
 
-        max_tokens = kwargs.pop("max_tokens")
         inputs = kwargs["prompt_token_ids"]
+
+        if not isinstance(inputs, tuple):
+            # no images
+            yield from self._generate_stream_inner_no_image(**kwargs)
+            return
+
+        max_tokens = kwargs.pop("max_tokens")
         input_ids, pixel_values, mask = inputs[:3]
 
         kwargs = {
@@ -549,16 +594,26 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         else:
             image_token_index = None
 
-        inputs = prepare_inputs(
-            None,
-            self._processor,
-            images,
-            prompt_str,
-            image_token_index,
-            kwargs.get("resize_shape"),
-        )
-        input_ids = inputs[0]
-        return inputs, len(input_ids)
+        if not images:
+            prompt = prompt["prompt"]  # type: ignore
+            prompt_token_ids = self._tokenizer.encode(prompt)
+            prompt_token_ids = self._get_prompt_cache(
+                prompt_token_ids,
+                kwargs.get("lora_name"),
+                model=self._model.language_model,
+            )
+            return prompt_token_ids, len(prompt_token_ids)
+        else:
+            inputs = prepare_inputs(
+                None,
+                self._processor,
+                images,
+                prompt_str,
+                image_token_index,
+                kwargs.get("resize_shape"),
+            )
+            input_ids = inputs[0]
+            return inputs, len(input_ids)
 
     def chat(
         self,

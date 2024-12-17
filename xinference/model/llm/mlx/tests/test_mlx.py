@@ -92,3 +92,10 @@ def test_load_mlx_vision(setup):
     )
     assert "图中" in completion["choices"][0]["message"]["content"]
     assert "鱼" in completion["choices"][0]["message"]["content"]
+
+    # test no image
+    messages = [{"role": "user", "content": "write a poem."}]
+    completion = model.chat(messages)
+    assert "content" in completion["choices"][0]["message"]
+    assert "content" in completion["choices"][0]["message"]
+    assert len(completion["choices"][0]["message"]["content"]) != 0
