@@ -75,6 +75,15 @@
     "multilingual": true
   },
   {
+    "model_name": "CosyVoice2-0.5B",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice2-0.5B",
+    "model_revision": "master",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
     "model_hub": "modelscope",

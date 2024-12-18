@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
 import gdown
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import wget
+# import wget
 from omegaconf import DictConfig
 
 from matcha.utils import pylogger, rich_utils

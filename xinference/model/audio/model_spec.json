@@ -236,6 +236,14 @@
     "multilingual": true
   },
   {
+    "model_name": "CosyVoice2-0.5B",
+    "model_family": "CosyVoice",
+    "model_id": "mrfakename/CosyVoice2-0.5B",
+    "model_revision": "5676baabc8a76dc93ef60a88bbd2420deaa2f644",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
     "model_name": "FishSpeech-1.5",
     "model_family": "FishAudio",
     "model_id": "fishaudio/fish-speech-1.5",
