@@ -86,17 +86,22 @@ class CosyVoiceModel:
                 output = self._model.inference_zero_shot(
                     input, prompt_text, prompt_speech_16k, stream=stream
                 )
+            elif instruct_text:
+                assert self._is_cosyvoice2
+                logger.info("CosyVoice inference_instruct")
+                output = self._model.inference_instruct2(
+                    input,
+                    instruct_text=instruct_text,
+                    prompt_speech_16k=prompt_speech_16k,
+                    stream=stream,
+                )
             else:
                 logger.info("CosyVoice inference_cross_lingual")
                 output = self._model.inference_cross_lingual(
                     input, prompt_speech_16k, stream=stream
                 )
-        elif self._is_cosyvoice2:
-            logger.info("CosyVoice inference_instruct")
-            output = self._model.inference_instruct2(
-                input, instruct_text=instruct_text, stream=stream
-            )
         else:
+            assert not self._is_cosyvoice2
             available_speakers = self._model.list_avaliable_spks()
             if not voice:
                 voice = available_speakers[0]
@@ -179,11 +184,7 @@ class CosyVoiceModel:
                 prompt_text is None
             ), "CosyVoice Instruct model does not support prompt_text"
         elif self._is_cosyvoice2:
-            assert (
-                prompt_speech is not None
-                or prompt_text is not None
-                or instruct_text is not None
-            ), "CosyVoice2 do not support inference_sft"
+            assert prompt_speech is not None, "CosyVoice2 requires prompt_speech"
         else:
             # inference_zero_shot
             # inference_cross_lingual
