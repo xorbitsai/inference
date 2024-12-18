@@ -91,6 +91,11 @@ class CosyVoiceModel:
                 output = self._model.inference_cross_lingual(
                     input, prompt_speech_16k, stream=stream
                 )
+        elif self._is_cosyvoice2:
+            logger.info("CosyVoice inference_instruct")
+            output = self._model.inference_instruct2(
+                input, instruct_text=instruct_text, stream=stream
+            )
         else:
             available_speakers = self._model.list_avaliable_spks()
             if not voice:
@@ -101,19 +106,11 @@ class CosyVoiceModel:
                 ), f"Invalid voice {voice}, CosyVoice available speakers: {available_speakers}"
             if instruct_text:
                 logger.info("CosyVoice inference_instruct")
-                inference_instruct = (
-                    self._model.inference_instruct2
-                    if self._is_cosyvoice2
-                    else self._model.inference_instruct
-                )
-                output = inference_instruct(
+                output = self._model.inference_instruct(
                     input, voice, instruct_text=instruct_text, stream=stream
                 )
             else:
                 logger.info("CosyVoice inference_sft")
-                assert (
-                    not self._is_cosyvoice2
-                ), "CosyVoice2 do not support inference_sft."
                 output = self._model.inference_sft(input, voice, stream=stream)
 
         import torch
