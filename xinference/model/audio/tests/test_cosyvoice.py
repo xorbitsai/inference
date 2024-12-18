@@ -119,7 +119,23 @@ def test_cosyvoice_instruct(setup, model_name):
     )
     model = client.get_model(model_uid)
 
-    if "CosyVoice2" not in model_name:
+    if "CosyVoice2" in model_name:
+        zero_shot_prompt_file = os.path.join(
+            os.path.dirname(__file__), "zero_shot_prompt.wav"
+        )
+        with open(zero_shot_prompt_file, "rb") as f:
+            zero_shot_prompt = f.read()
+        # inference with prompt speech
+        response = model.speech(
+            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
+            prompt_speech=zero_shot_prompt,
+        )
+        assert type(response) is bytes
+        assert len(response) > 0
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            f.write(response)
+            assert os.stat(f.name).st_size > 0
+    else:
         # inference without instruction
         response = model.speech(
             "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。", voice="中文男"
@@ -129,16 +145,15 @@ def test_cosyvoice_instruct(setup, model_name):
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
             f.write(response)
             assert os.stat(f.name).st_size > 0
-
-    # inference_instruct
-    response = model.speech(
-        "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
-        voice="中文男",
-        instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
-        "Fights with fervor for justice, but struggles with impulsiveness.",
-    )
-    assert type(response) is bytes
-    assert len(response) > 0
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
-        f.write(response)
-        assert os.stat(f.name).st_size > 0
+        # inference_instruct
+        response = model.speech(
+            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
+            voice="中文男",
+            instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
+            "Fights with fervor for justice, but struggles with impulsiveness.",
+        )
+        assert type(response) is bytes
+        assert len(response) > 0
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            f.write(response)
+            assert os.stat(f.name).st_size > 0
