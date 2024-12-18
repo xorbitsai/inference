@@ -1,11 +1,11 @@
-# import pyrootutils
+import pyrootutils
 import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from transformers import AutoTokenizer
 
 # register eval resolver and root
-# pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from torch.utils.data import DataLoader
 
