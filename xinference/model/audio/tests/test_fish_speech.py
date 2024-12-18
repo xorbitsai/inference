@@ -23,12 +23,24 @@ def test_fish_speech(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="FishSpeech-1.4", model_type="audio", compile=False
+        model_name="FishSpeech-1.5", model_type="audio", compile=False
     )
     model = client.get_model(model_uid)
 
     input_string = "你好，你是谁？"
     response = model.speech(input_string)
+    assert type(response) is bytes
+    assert len(response) > 0
+
+    # Test copy voice
+    prompt_speech_path = os.path.join(os.path.dirname(__file__), "basic_ref_en.wav")
+    with open(prompt_speech_path, "rb") as f:
+        prompt_speech = f.read()
+    response = model.speech(
+        "Hello",
+        prompt_speech=prompt_speech,
+        prompt_text="Some call me nature, others call me mother nature.",
+    )
     assert type(response) is bytes
     assert len(response) > 0
 
