@@ -15,8 +15,10 @@
 # Modified from ESPnet(https://github.com/espnet/espnet)
 """Unility functions for Transformer."""
 
+import random
 from typing import List
 
+import numpy as np
 import torch
 
 IGNORE_ID = -1
@@ -102,6 +104,7 @@ def init_weights(m, mean=0.0, std=0.01):
     if classname.find("Conv") != -1:
         m.weight.data.normal_(mean, std)
 
+
 # Repetition Aware Sampling in VALL-E 2
 def ras_sampling(weighted_scores, decoded_tokens, sampling, top_p=0.8, top_k=25, win_size=10, tau_r=0.1):
     top_ids = nucleus_sampling(weighted_scores, top_p=top_p, top_k=top_k)
@@ -109,6 +112,7 @@ def ras_sampling(weighted_scores, decoded_tokens, sampling, top_p=0.8, top_k=25,
     if rep_num >= win_size * tau_r:
         top_ids = random_sampling(weighted_scores, decoded_tokens, sampling)
     return top_ids
+
 
 def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25):
     prob, indices = [], []
@@ -127,13 +131,36 @@ def nucleus_sampling(weighted_scores, top_p=0.8, top_k=25):
     top_ids = indices[prob.multinomial(1, replacement=True)]
     return top_ids
 
+
 def random_sampling(weighted_scores, decoded_tokens, sampling):
     top_ids = weighted_scores.softmax(dim=0).multinomial(1, replacement=True)
     return top_ids
+
 
 def fade_in_out(fade_in_mel, fade_out_mel, window):
     device = fade_in_mel.device
     fade_in_mel, fade_out_mel = fade_in_mel.cpu(), fade_out_mel.cpu()
     mel_overlap_len = int(window.shape[0] / 2)
-    fade_in_mel[:, :, :mel_overlap_len] = fade_in_mel[:, :, :mel_overlap_len] * window[:mel_overlap_len] + fade_out_mel[:, :, -mel_overlap_len:] * window[mel_overlap_len:]
+    if fade_in_mel.device == torch.device('cpu'):
+        fade_in_mel = fade_in_mel.clone()
+    fade_in_mel[..., :mel_overlap_len] = fade_in_mel[..., :mel_overlap_len] * window[:mel_overlap_len] + \
+        fade_out_mel[..., -mel_overlap_len:] * window[mel_overlap_len:]
     return fade_in_mel.to(device)
+
+
+def set_all_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+def mask_to_bias(mask: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    assert mask.dtype == torch.bool
+    assert dtype in [torch.float32, torch.bfloat16, torch.float16]
+    mask = mask.to(dtype)
+    # attention mask bias
+    # NOTE(Mddct): torch.finfo jit issues
+    #     chunk_masks = (1.0 - chunk_masks) * torch.finfo(dtype).min
+    mask = (1.0 - mask) * torch.finfo(dtype).min
+    return mask

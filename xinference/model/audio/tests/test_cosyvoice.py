@@ -15,6 +15,8 @@ import inspect
 import os.path
 import tempfile
 
+import pytest
+
 
 def test_cosyvoice_sft(setup):
     endpoint, _ = setup
@@ -58,7 +60,8 @@ def test_cosyvoice_sft(setup):
         assert os.stat(f.name).st_size > 0
 
 
-def test_cosyvoice(setup):
+@pytest.mark.parametrize("model_name", ["CosyVoice-300M", "CosyVoice2-0.5B"])
+def test_cosyvoice(setup, model_name):
     endpoint, _ = setup
     from ....client import Client
 
@@ -71,9 +74,7 @@ def test_cosyvoice(setup):
 
     client = Client(endpoint)
 
-    model_uid = client.launch_model(
-        model_name="CosyVoice-300M", model_type="audio", download_hub="huggingface"
-    )
+    model_uid = client.launch_model(model_name=model_name, model_type="audio")
     model = client.get_model(model_uid)
     with open(zero_shot_prompt_file, "rb") as f:
         zero_shot_prompt = f.read()
@@ -105,38 +106,54 @@ def test_cosyvoice(setup):
         assert os.stat(f.name).st_size > 0
 
 
-def test_cosyvoice_instruct(setup):
+@pytest.mark.parametrize("model_name", ["CosyVoice-300M-Instruct", "CosyVoice2-0.5B"])
+def test_cosyvoice_instruct(setup, model_name):
     endpoint, _ = setup
     from ....client import Client
 
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="CosyVoice-300M-Instruct",
+        model_name=model_name,
         model_type="audio",
-        download_hub="huggingface",
     )
     model = client.get_model(model_uid)
 
-    # inference without instruction
-    response = model.speech(
-        "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。", voice="中文男"
-    )
-    assert type(response) is bytes
-    assert len(response) > 0
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
-        f.write(response)
-        assert os.stat(f.name).st_size > 0
-
-    # inference_instruct
-    response = model.speech(
-        "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
-        voice="中文男",
-        instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
-        "Fights with fervor for justice, but struggles with impulsiveness.",
-    )
-    assert type(response) is bytes
-    assert len(response) > 0
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
-        f.write(response)
-        assert os.stat(f.name).st_size > 0
+    if "CosyVoice2" in model_name:
+        zero_shot_prompt_file = os.path.join(
+            os.path.dirname(__file__), "zero_shot_prompt.wav"
+        )
+        with open(zero_shot_prompt_file, "rb") as f:
+            zero_shot_prompt = f.read()
+        # inference with prompt speech
+        response = model.speech(
+            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
+            prompt_speech=zero_shot_prompt,
+        )
+        assert type(response) is bytes
+        assert len(response) > 0
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            f.write(response)
+            assert os.stat(f.name).st_size > 0
+    else:
+        # inference without instruction
+        response = model.speech(
+            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。", voice="中文男"
+        )
+        assert type(response) is bytes
+        assert len(response) > 0
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            f.write(response)
+            assert os.stat(f.name).st_size > 0
+        # inference_instruct
+        response = model.speech(
+            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
+            voice="中文男",
+            instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
+            "Fights with fervor for justice, but struggles with impulsiveness.",
+        )
+        assert type(response) is bytes
+        assert len(response) > 0
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            f.write(response)
+            assert os.stat(f.name).st_size > 0
