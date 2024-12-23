@@ -78,7 +78,6 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
 ]
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
-XINFERENCE_BATCHING_BLACK_LIST = ["glm4-chat"]
 
 
 def request_limit(fn):
@@ -373,11 +372,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
                 )
                 return False
-        return (
-            condition
-            and self._model.model_family.model_name
-            not in XINFERENCE_BATCHING_BLACK_LIST
-        )
+        return condition
 
     def allow_batching_for_text_to_image(self) -> bool:
         from ..model.image.stable_diffusion.core import DiffusionModel
