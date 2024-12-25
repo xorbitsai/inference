@@ -14,8 +14,10 @@
 
 import contextlib
 import gc
+import importlib
 import inspect
 import itertools
+import json
 import logging
 import os
 import re
@@ -86,6 +88,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
         model_spec: Optional["ImageModelFamilyV1"] = None,
+        gguf_model_path: Optional[str] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
@@ -109,6 +112,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._model_spec = model_spec
         self._abilities = model_spec.model_ability or []  # type: ignore
         self._kwargs = kwargs
+        # gguf
+        self._gguf_model_path = gguf_model_path
 
     @property
     def model_ability(self):
@@ -184,8 +189,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._model.fuse_lora(**self._lora_fuse_kwargs)
             logger.info(f"Successfully loaded the LoRA for model {self._model_uid}.")
 
+    def _get_layer_cls(self, layer: str):
+        with open(os.path.join(self._model_path, "model_index.json")) as f:  # type: ignore
+            model_index = json.load(f)
+            layer_info = model_index[layer]
+            module_name, class_name = layer_info
+            module = importlib.import_module(module_name)
+            return getattr(module, class_name)
+
     def load(self):
-        from diffusers import SD3Transformer2DModel
         from transformers import BitsAndBytesConfig, T5EncoderModel
 
         if "text2image" in self._abilities or "image2image" in self._abilities:
@@ -203,7 +215,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 glob(os.path.join(self._model_path, "*/*.safetensors"))
             )
         if isinstance(torch_dtype, str):
-            self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
+            self._torch_dtype = torch_dtype = self._kwargs["torch_dtype"] = getattr(
+                torch, torch_dtype
+            )
 
         controlnet = self._kwargs.get("controlnet")
         if controlnet is not None:
@@ -215,7 +229,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 ]
 
         quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
-        if quantize_text_encoder:
+        if quantize_text_encoder and not self._gguf_model_path:
             try:
                 import bitsandbytes  # noqa: F401
             except ImportError:
@@ -241,13 +255,25 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 self._kwargs[text_encoder_name] = text_encoder
                 self._kwargs["device_map"] = "balanced"
 
-        if self._kwargs.get("transformer_nf4"):
+        if self._gguf_model_path:
+            from diffusers import GGUFQuantizationConfig
+
+            # GGUF transformer
+            self._kwargs["transformer"] = self._get_layer_cls(
+                "transformer"
+            ).from_single_file(
+                self._gguf_model_path,
+                quantization_config=GGUFQuantizationConfig(compute_dtype=torch_dtype),
+                torch_dtype=torch_dtype,
+                config=os.path.join(self._model_path, "transformer"),
+            )
+        elif self._kwargs.get("transformer_nf4"):
             nf4_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch_dtype,
             )
-            model_nf4 = SD3Transformer2DModel.from_pretrained(
+            model_nf4 = self._get_layer_cls("transformer").from_pretrained(
                 self._model_path,
                 subfolder="transformer",
                 quantization_config=nf4_config,
