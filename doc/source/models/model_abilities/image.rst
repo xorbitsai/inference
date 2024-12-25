@@ -1,4 +1,4 @@
-.. _image:
+ .. _image:
 
 ======
 Images
@@ -126,6 +126,9 @@ Useful extra parameters can be passed to launch including:
 * ``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell will switch to
   MLX engine on Mac, and ``quantize`` can be used to quantize the model.
 
+For WebUI, Just add additional parameters, e.g. add key ``cpu_offload`` and value ``True``
+to enable cpu offloading.
+
 
 .. note::
 
@@ -133,15 +136,25 @@ Useful extra parameters can be passed to launch including:
     large image models like Flux.1 and SD3.5 series.
     Below list default options.
 
-    ====  ====  ====  ===
-    Model quantize_text_encoder quantize transformer_nf4
-    ====  ====  ====  ===
-    FLUX.1-dev text_encoder_2 True False
-    FLUX.1-schnell text_encoder_2 True False
-    sd3-medium text_encoder_3 N/A False
-    sd3.5-medium text_encoder_3 N/A False
-    sd3.5-large text_encoder_3 N/A True
-    ====  ====  ====  ===
+    +----------------+-----------------------+----------------------+------------------+
+    | Model          | quantize_text_encoder | quantize             | transformer_nf4  |
+    +================+=======================+======================+==================+
+    | FLUX.1-dev     | text_encoder_2        | True                 | False            |
+    +----------------+-----------------------+----------------------+------------------+
+    | FLUX.1-schnell | text_encoder_2        | True                 | False            |
+    +----------------+-----------------------+----------------------+------------------+
+    | sd3-medium     | text_encoder_3        | N/A                  | False            |
+    +----------------+-----------------------+----------------------+------------------+
+    | sd3.5-medium   | text_encoder_3        | N/A                  | False            |
+    +----------------+-----------------------+----------------------+------------------+
+    | sd3.5-large    | text_encoder_3        | N/A                  | True             |
+    +----------------+-----------------------+----------------------+------------------+
+
+    If you want to disable some quantization, just set the corresponding option to False.
+    e.g. for Web UI, set key ``quantize_text_encoder`` and value ``False``
+    and for command line, specify ``--quantize_text_encoder False`` to disable quantization
+    for text encoder.
+
 
 Image-to-image
 --------------------
