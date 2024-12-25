@@ -185,6 +185,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             logger.info(f"Successfully loaded the LoRA for model {self._model_uid}.")
 
     def load(self):
+        from diffusers import SD3Transformer2DModel
+        from transformers import BitsAndBytesConfig, T5EncoderModel
+
         if "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
         elif "inpainting" in self._abilities:
@@ -214,17 +217,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
         if quantize_text_encoder:
             try:
-                from transformers import BitsAndBytesConfig, T5EncoderModel
-            except ImportError:
-                error_message = "Failed to import module 'transformers'"
-                installation_guide = [
-                    "Please make sure 'transformers' is installed. ",
-                    "You can install it by `pip install transformers`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-            try:
                 import bitsandbytes  # noqa: F401
             except ImportError:
                 error_message = "Failed to import module 'bitsandbytes'"
@@ -248,6 +240,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
                 self._kwargs[text_encoder_name] = text_encoder
                 self._kwargs["device_map"] = "balanced"
+
+        if self._kwargs.get("transformer_nf4"):
+            nf4_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch_dtype,
+            )
+            model_nf4 = SD3Transformer2DModel.from_pretrained(
+                self._model_path,
+                subfolder="transformer",
+                quantization_config=nf4_config,
+                torch_dtype=torch_dtype,
+            )
+            self._kwargs["transformer"] = model_nf4
 
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs

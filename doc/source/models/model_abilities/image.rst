@@ -41,6 +41,8 @@ The Text-to-image API is supported with the following models in Xinference:
 * stable-diffusion-v1.5
 * stable-diffusion-xl-base-1.0
 * sd3-medium
+* sd3.5-medium
+* sd3.5-large
 * FLUX.1-schnell
 * FLUX.1-dev
 
@@ -120,29 +122,26 @@ Useful extra parameters can be passed to launch including:
 * ``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive 4.7B parameter
   T5-XXL text encoder during inference can significantly decrease the memory requirements
   with only a slight loss in performance.
-
-If you are trying to run large image models liek sd3-medium or FLUX.1 series on GPU card
-that has less memory than 24GB, you may encounter OOM when launching or inference.
-Try below solutions.
-
-For FLUX.1 series, try to apply quantization.
-
-.. code:: bash
-
-    xinference launch --model-name FLUX.1-dev --model-type image --quantize_text_encoder text_encoder_2
-
-For sd3-medium, apply quantization to ``text_encoder_3``.
-
-.. code:: bash
-
-    xinference launch --model-name sd3-medium --model-type image --quantize_text_encoder text_encoder_3
+* ``--transformer_nf4 True``: use nf4 for transformer quantization.
+* ``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell will switch to
+  MLX engine on Mac, and ``quantize`` can be used to quantize the model.
 
 
-Or removing memory-intensive T5-XXL text encoder for sd3-medium.
+.. note::
 
-.. code:: bash
+    From v0.16.1, Xinference by default enabled quantization for
+    large image models like Flux.1 and SD3.5 series.
+    Below list default options.
 
-    xinference launch --model-name sd3-medium --model-type image --text_encoder_3 None
+    ====  ====  ====  ===
+    Model quantize_text_encoder quantize transformer_nf4
+    ====  ====  ====  ===
+    FLUX.1-dev text_encoder_2 True False
+    FLUX.1-schnell text_encoder_2 True False
+    sd3-medium text_encoder_3 N/A False
+    sd3.5-medium text_encoder_3 N/A False
+    sd3.5-large text_encoder_3 N/A True
+    ====  ====  ====  ===
 
 Image-to-image
 --------------------
