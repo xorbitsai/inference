@@ -976,9 +976,10 @@ def match_llm(
     base_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
     hub_families_map = {
         "modelscope": BUILTIN_MODELSCOPE_LLM_FAMILIES,
-        "openmind_hub": BUILTIN_OPENMIND_HUB_LLM_FAMILIES, 
+        "openmind_hub": BUILTIN_OPENMIND_HUB_LLM_FAMILIES,
         "csghub": BUILTIN_CSGHUB_LLM_FAMILIES
     }
+
     if download_hub == "huggingface":
         all_families = base_families
     elif download_hub in hub_families_map:
