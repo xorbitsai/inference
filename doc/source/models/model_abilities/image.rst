@@ -43,6 +43,7 @@ The Text-to-image API is supported with the following models in Xinference:
 * sd3-medium
 * sd3.5-medium
 * sd3.5-large
+* sd3.5-large-turbo
 * FLUX.1-schnell
 * FLUX.1-dev
 
@@ -138,19 +139,21 @@ to enable cpu offloading.
 
 Below list default options that used from v0.16.1.
 
-+----------------+-----------------------+----------------------+------------------+
-| Model          | quantize_text_encoder | quantize             | transformer_nf4  |
-+================+=======================+======================+==================+
-| FLUX.1-dev     | text_encoder_2        | True                 | False            |
-+----------------+-----------------------+----------------------+------------------+
-| FLUX.1-schnell | text_encoder_2        | True                 | False            |
-+----------------+-----------------------+----------------------+------------------+
-| sd3-medium     | text_encoder_3        | N/A                  | False            |
-+----------------+-----------------------+----------------------+------------------+
-| sd3.5-medium   | text_encoder_3        | N/A                  | False            |
-+----------------+-----------------------+----------------------+------------------+
-| sd3.5-large    | text_encoder_3        | N/A                  | True             |
-+----------------+-----------------------+----------------------+------------------+
++-------------------+-----------------------+----------------------+------------------+
+| Model             | quantize_text_encoder | quantize             | transformer_nf4  |
++===================+=======================+======================+==================+
+| FLUX.1-dev        | text_encoder_2        | True                 | False            |
++-------------------+-----------------------+----------------------+------------------+
+| FLUX.1-schnell    | text_encoder_2        | True                 | False            |
++-------------------+-----------------------+----------------------+------------------+
+| sd3-medium        | text_encoder_3        | N/A                  | False            |
++-------------------+-----------------------+----------------------+------------------+
+| sd3.5-medium      | text_encoder_3        | N/A                  | False            |
++-------------------+-----------------------+----------------------+------------------+
+| sd3.5-large       | text_encoder_3        | N/A                  | True             |
++-------------------+-----------------------+----------------------+------------------+
+| sd3.5-large-turbo | text_encoder_3        | N/A                  | True             |
++-------------------+-----------------------+----------------------+------------------+
 
 .. note::
 
@@ -172,7 +175,7 @@ internally by Xinference. Below is the mode list.
 +================+==============================================+=========================+
 | FLUX.1-dev     | F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0  |
 +----------------+------------------------------------------------------------------------+
-| FLUX.1-schnell |                                                                        |
+| FLUX.1-schnell | F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0  |
 +----------------+------------------------------------------------------------------------+
 | sd3.5-medium   |                                                                        |
 +----------------+------------------------------------------------------------------------+
@@ -189,6 +192,8 @@ Example:
 .. code-block::
 
     xinference launch --model-name FLUX.1-dev --model-type image --gguf_quantization Q2_K --cpu_offload True
+
+With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run Flux.1-dev.
 
 For those models gguf options are not supported internally, or you want to download gguf files on you own,
 you can specify additional option ``gguf_model_path`` for web UI or spcecify
