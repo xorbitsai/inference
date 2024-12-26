@@ -981,7 +981,6 @@ def match_llm(
     elif download_hub == "csghub":
         all_families = all_families + BUILTIN_CSGHUB_LLM_FAMILIES
     elif download_hub == "huggingface":
-        # all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
         pass
     elif download_from_modelscope():
         all_families = all_families + BUILTIN_MODELSCOPE_LLM_FAMILIES
@@ -989,8 +988,6 @@ def match_llm(
         all_families = all_families + BUILTIN_OPENMIND_HUB_LLM_FAMILIES
     elif download_from_csghub():
         all_families = all_families + BUILTIN_CSGHUB_LLM_FAMILIES
-    # else:
-    #     all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
 
     for family in all_families:
         if model_name != family.model_name:
