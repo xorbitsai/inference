@@ -92,7 +92,8 @@
     ],
     "default_model_config": {
       "quantize": true,
-      "quantize_text_encoder": "text_encoder_3"
+      "quantize_text_encoder": "text_encoder_3",
+      "torch_dtype": "bfloat16"
     },
     "gguf_model_id": "Xorbits/stable-diffusion-3.5-medium-gguf",
     "gguf_quantizations": [
