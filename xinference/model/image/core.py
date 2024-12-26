@@ -203,6 +203,16 @@ def cache_gguf(spec: ImageModelFamilyV1, quantization: Optional[str] = None):
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
 
+    if not spec.gguf_model_file_name_template:
+        raise NotImplementedError(
+            f"{spec.model_name} does not support GGUF quantization"
+        )
+    if quantization not in (spec.gguf_quantizations or []):
+        raise ValueError(
+            f"Cannot support quantization {quantization}, "
+            f"available quantizations: {spec.gguf_quantizations}"
+        )
+
     filename = spec.gguf_model_file_name_template.format(quantization=quantization)  # type: ignore
     full_path = os.path.join(cache_dir, filename)
 
