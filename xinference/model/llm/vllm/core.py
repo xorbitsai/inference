@@ -70,6 +70,7 @@ class VLLMModelConfig(TypedDict, total=False):
     max_model_len: Optional[int]
     limit_mm_per_prompt: Optional[Dict[str, int]]
     guided_decoding_backend: Optional[str]
+    scheduling_policy: Optional[str]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -247,7 +248,6 @@ class VLLMModel(LLM):
             multiprocessing.set_start_method("fork", force=True)
 
         self._model_config = self._sanitize_model_config(self._model_config)
-
         if self.lora_modules is None:
             self.lora_requests = []
         else:
@@ -330,7 +330,9 @@ class VLLMModel(LLM):
         model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("guided_decoding_backend", "outlines")
-
+        # Add scheduling policy if vLLM version is 0.6.3 or higher
+        if vllm.__version__ >= "0.6.3":
+            model_config.setdefault("scheduling_policy", "fcfs")
         return model_config
 
     @staticmethod
@@ -862,6 +864,9 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 "image": 2,  # default 2 images all chat
             }
         )
+        # Add scheduling policy if vLLM version is 0.6.3 or higher
+        if vllm.__version__ >= "0.6.3":
+            model_config.setdefault("scheduling_policy", "fcfs")
 
         return model_config
 
