@@ -129,7 +129,17 @@
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
       "transformer_nf4": true
-    }
+    },
+    "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q4_0",
+      "Q4_1",
+      "Q5_0",
+      "Q5_1",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
   },
   {
     "model_name": "sd3.5-large-turbo",
@@ -151,7 +161,17 @@
     "default_generate_config": {
       "guidance_scale": 1.0,
       "num_inference_steps": 4
-    }
+    },
+    "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-turbo-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q4_0",
+      "Q4_1",
+      "Q5_0",
+      "Q5_1",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
   },
   {
     "model_name": "sd-turbo",
