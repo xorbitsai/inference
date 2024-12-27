@@ -46,6 +46,7 @@ potential of cutting-edge AI models.
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [Stable Diffusion 3.5](https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838): [#2706](https://github.com/xorbitsai/inference/pull/2706)
 - Built-in support for [CosyVoice 2](https://huggingface.co/FunAudioLLM/CosyVoice2-0.5B): [#2684](https://github.com/xorbitsai/inference/pull/2684)
 - Built-in support for [Fish Speech V1.5](https://huggingface.co/fishaudio/fish-speech-1.5): [#2672](https://github.com/xorbitsai/inference/pull/2672)
 - Built-in support for [F5-TTS](https://github.com/SWivid/F5-TTS): [#2626](https://github.com/xorbitsai/inference/pull/2626)
@@ -53,7 +54,6 @@ potential of cutting-edge AI models.
 - Built-in support for [QwQ-32B-Preview](https://qwenlm.github.io/blog/qwq-32b-preview/): [#2602](https://github.com/xorbitsai/inference/pull/2602)
 - Built-in support for [Qwen 2.5 Series](https://qwenlm.github.io/blog/qwen2.5/): [#2325](https://github.com/xorbitsai/inference/pull/2325)
 - Built-in support for [DeepSeek-V2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5): [#2292](https://github.com/xorbitsai/inference/pull/2292)
-- Built-in support for [Qwen2-Audio](https://github.com/QwenLM/Qwen2-Audio): [#2271](https://github.com/xorbitsai/inference/pull/2271)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
