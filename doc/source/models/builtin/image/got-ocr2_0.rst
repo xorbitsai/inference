@@ -17,3 +17,4 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name GOT-OCR2_0 --model-type image
+

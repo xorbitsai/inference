@@ -203,6 +203,7 @@ def main():
                 available_controlnet = None
             model["available_controlnet"] = available_controlnet
             model["model_ability"] = ', '.join(model.get("model_ability"))
+            model["gguf_quantizations"] = ", ".join(model.get("gguf_quantizations", []))
             rendered = env.get_template('image.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:

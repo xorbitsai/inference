@@ -23,6 +23,12 @@ The following is a list of built-in image models in Xinference:
   
    sd3-medium
   
+   sd3.5-large
+  
+   sd3.5-large-turbo
+  
+   sd3.5-medium
+  
    sdxl-turbo
   
    stable-diffusion-2-inpainting
