@@ -6673,5 +6673,68 @@
       "<|user|>",
       "<|observation|>"
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "QvQ-72B-Preview",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "QVQ-72B-Preview is an experimental research model developed by the Qwen team, focusing on enhancing visual reasoning capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/QVQ-72B-Preview",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4bit"
+        ],
+        "model_id": "mlx-community/QVQ-72B-Preview-4bit",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "8bit"
+        ],
+        "model_id": "mlx-community/QVQ-72B-Preview-8bit",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/QVQ-72B-Preview-bf16",
+        "model_hub": "modelscope"
+      }
+    ],
+    "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ]
   }
 ]
