@@ -62,12 +62,16 @@ def log_async(
 
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            try:
-                bound_args = sig.bind_partial(*args, **kwargs)
-                arguments = bound_args.arguments
-            except TypeError:
-                arguments = {}
-            request_id_str = arguments.get("request_id", "")
+            request_id_str = kwargs.get("request_id")
+            if not request_id_str:
+                # sometimes `request_id` not in kwargs
+                # we try to bind the arguments
+                try:
+                    bound_args = sig.bind_partial(*args, **kwargs)
+                    arguments = bound_args.arguments
+                except TypeError:
+                    arguments = {}
+                request_id_str = arguments.get("request_id", "")
             if not request_id_str:
                 request_id_str = uuid.uuid1()
                 if func_name == "text_to_image":
