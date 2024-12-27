@@ -75,8 +75,6 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
     "cogvlm2",
     "glm-4v",
     "MiniCPM-V-2.6",
-    "qwen2-vl-instruct",
-    "QvQ-72B-Preview",
 ]
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
