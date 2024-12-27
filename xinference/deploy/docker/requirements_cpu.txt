@@ -31,7 +31,6 @@ einops
 tiktoken
 sentence-transformers>=3.1.0
 FlagEmbedding
-diffusers>=0.30.0
 controlnet_aux
 orjson
 auto-gptq
@@ -54,7 +53,7 @@ lightning>=2.0.0  # For CosyVoice, matcha
 hydra-core>=1.3.2  # For CosyVoice, matcha
 inflect  # For CosyVoice, matcha
 conformer  # For CosyVoice, matcha
-diffusers>=0.30.0  # For CosyVoice, matcha
+diffusers>=0.32.0  # For CosyVoice, matcha
 gdown  # For CosyVoice, matcha
 pyarrow  # For CosyVoice, matcha
 HyperPyYAML  # For CosyVoice
@@ -82,3 +81,4 @@ qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 verovio>=4.3.1  # For got_ocr2
+gguf

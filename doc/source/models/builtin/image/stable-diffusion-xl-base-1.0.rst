@@ -17,3 +17,4 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name stable-diffusion-xl-base-1.0 --model-type image
+
