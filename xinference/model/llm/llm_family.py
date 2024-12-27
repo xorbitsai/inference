@@ -972,46 +972,25 @@ def match_llm(
         return spec
 
     # priority: download_hub > download_from_modelscope() and download_from_csghub()
-    if download_hub == "modelscope":
-        all_families = (
-            BUILTIN_MODELSCOPE_LLM_FAMILIES
-            + BUILTIN_LLM_FAMILIES
-            + user_defined_llm_families
-        )
-    elif download_hub == "openmind_hub":
-        all_families = (
-            BUILTIN_OPENMIND_HUB_LLM_FAMILIES
-            + BUILTIN_LLM_FAMILIES
-            + user_defined_llm_families
-        )
-    elif download_hub == "csghub":
-        all_families = (
-            BUILTIN_CSGHUB_LLM_FAMILIES
-            + BUILTIN_LLM_FAMILIES
-            + user_defined_llm_families
-        )
-    elif download_hub == "huggingface":
-        all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
+    # set base model
+    base_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
+    hub_families_map = {
+        "modelscope": BUILTIN_MODELSCOPE_LLM_FAMILIES,
+        "openmind_hub": BUILTIN_OPENMIND_HUB_LLM_FAMILIES,
+        "csghub": BUILTIN_CSGHUB_LLM_FAMILIES,
+    }
+    if download_hub == "huggingface":
+        all_families = base_families
+    elif download_hub in hub_families_map:
+        all_families = hub_families_map[download_hub] + base_families
     elif download_from_modelscope():
-        all_families = (
-            BUILTIN_MODELSCOPE_LLM_FAMILIES
-            + BUILTIN_LLM_FAMILIES
-            + user_defined_llm_families
-        )
+        all_families = BUILTIN_MODELSCOPE_LLM_FAMILIES + base_families
     elif download_from_openmind_hub():
-        all_families = (
-            BUILTIN_OPENMIND_HUB_LLM_FAMILIES
-            + BUILTIN_LLM_FAMILIES
-            + user_defined_llm_families
-        )
+        all_families = BUILTIN_OPENMIND_HUB_LLM_FAMILIES + base_families
     elif download_from_csghub():
-        all_families = (
-            BUILTIN_CSGHUB_LLM_FAMILIES
-            + BUILTIN_LLM_FAMILIES
-            + user_defined_llm_families
-        )
+        all_families = BUILTIN_CSGHUB_LLM_FAMILIES + base_families
     else:
-        all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
+        all_families = base_families
 
     for family in all_families:
         if model_name != family.model_name:
