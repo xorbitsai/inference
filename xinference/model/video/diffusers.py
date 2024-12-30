@@ -91,6 +91,20 @@ class DiffUsersVideoModel:
             pipeline = self._model = CogVideoXPipeline.from_pretrained(
                 self._model_path, **kwargs
             )
+        elif self._model_spec.model_family == "HunyuanVideo":
+            from diffusers import HunyuanVideoPipeline, HunyuanVideoTransformer3DModel
+
+            transformer_torch_dtype = kwargs.pop("transformer_torch_dtype")
+            if isinstance(transformer_torch_dtype, str):
+                transformer_torch_dtype = getattr(torch, transformer_torch_dtype)
+            transformer = HunyuanVideoTransformer3DModel.from_pretrained(
+                self._model_path,
+                subfolder="transformer",
+                torch_dtype=transformer_torch_dtype,
+            )
+            pipeline = self._model = HunyuanVideoPipeline.from_pretrained(
+                self._model_path, transformer=transformer, **kwargs
+            )
         else:
             raise Exception(
                 f"Unsupported model family: {self._model_spec.model_family}"
