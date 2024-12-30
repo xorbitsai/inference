@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 4 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** openbmb/MiniCPM3-4B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM3-4B>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM3-4B>`__
 

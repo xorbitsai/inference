@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 72 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 72
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** Qwen/QVQ-72B-Preview
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/QVQ-72B-Preview>`__, `ModelScope <https://modelscope.cn/models/Qwen/QVQ-72B-Preview>`__
 
