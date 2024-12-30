@@ -95,6 +95,8 @@ class DiffUsersVideoModel:
             from diffusers import HunyuanVideoPipeline, HunyuanVideoTransformer3DModel
 
             transformer_torch_dtype = kwargs.pop("transformer_torch_dtype")
+            if isinstance(transformer_torch_dtype, str):
+                transformer_torch_dtype = getattr(torch, transformer_torch_dtype)
             transformer = HunyuanVideoTransformer3DModel.from_pretrained(
                 self._model_path,
                 subfolder="transformer",
