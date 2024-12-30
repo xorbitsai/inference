@@ -102,7 +102,7 @@ class DiffUsersVideoModel:
                 subfolder="transformer",
                 torch_dtype=transformer_torch_dtype,
             )
-            pipeline = HunyuanVideoPipeline.from_pretrained(
+            pipeline = self._model = HunyuanVideoPipeline.from_pretrained(
                 self._model_path, transformer=transformer, **kwargs
             )
         else:
