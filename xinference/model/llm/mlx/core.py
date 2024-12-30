@@ -477,39 +477,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         self._model, self._processor = self._load_model(**kwargs)
         self._tokenizer = self._processor.tokenizer
 
-    def _generate_stream_inner_no_image(self, **kwargs):
-        import mlx.nn as nn
-        from mlx_lm.utils import make_sampler, stream_generate
-
-        # For mlx-lm, the model(inputs) will return logits,
-        # but the language model in mlx-vlm will return an object
-        # https://github.com/Blaizzy/mlx-vlm/blob/3f5e1620072440afb7496940f67ac1c7fc64056f/mlx_vlm/models/base.py#L260
-        # so we cannot pass the language model to stream_generate directly
-        # we wrap here to just let model(inputs) return logits to pass stream_generate
-        class ModelWrapper(nn.Module):
-            def __init__(self, model):
-                super().__init__()
-                self._model = model.language_model
-
-            @property
-            def layers(self):
-                return self._model.layers
-
-            def __call__(self, *args, **kwargs):
-                return self._model(*args, **kwargs).logits
-
-        sampler = make_sampler(
-            temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
-        )
-        prompt_token_ids = kwargs.pop("prompt_token_ids")
-        yield from stream_generate(
-            ModelWrapper(self._model),
-            self._tokenizer,
-            prompt_token_ids,
-            sampler=sampler,
-            **kwargs,
-        )
-
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
         from mlx_lm.utils import GenerationResponse
@@ -517,27 +484,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
         inputs = kwargs["prompt_token_ids"]
 
-        if not isinstance(inputs, tuple):
-            # no images
-            yield from self._generate_stream_inner_no_image(**kwargs)
-            return
-
         max_tokens = kwargs.pop("max_tokens")
-        input_ids, pixel_values, mask = inputs[:3]
-
-        kwargs = {
-            k: v
-            for k, v in zip(
-                [
-                    "image_grid_thw",
-                    "image_sizes",
-                    "aspect_ratio_ids",
-                    "aspect_ratio_mask",
-                    "cross_attention_mask",
-                ],
-                inputs[3:],
-            )
-        }
+        input_ids, pixel_values, mask, kwargs = inputs
 
         tokenizer = self._processor.tokenizer
         detokenizer = self._processor.detokenizer
@@ -583,37 +531,39 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     def _prepare_inputs(
         self, prompt: Union[str, Dict[str, Any]], kwargs
     ) -> Tuple[Any, int]:
+        import mlx.core as mx
         from mlx_vlm import prepare_inputs
 
         prompt_str = prompt.get("prompt")  # type: ignore
         images = prompt.get("multi_modal_data", {}).get("image")  # type: ignore
         if images and not isinstance(images, list):
             images = [images]
-        if hasattr(self._model.config, "image_token_index"):
-            image_token_index = self._model.config.image_token_index
-        else:
-            image_token_index = None
+        resize_shape = kwargs.pop("resize_shape", None)
+        image_token_index = getattr(self._model.config, "image_token_index", None)
+
+        processor = self._processor
+        tokenizer = processor if hasattr(processor, "encode") else processor.tokenizer
+        prompt_tokens = mx.array(tokenizer.encode(prompt_str))
 
         if not images:
-            prompt = prompt["prompt"]  # type: ignore
-            prompt_token_ids = self._tokenizer.encode(prompt)
-            prompt_token_ids = self._get_prompt_cache(
-                prompt_token_ids,
-                kwargs.get("lora_name"),
-                model=self._model.language_model,
-            )
-            return prompt_token_ids, len(prompt_token_ids)
+            input_ids = prompt_tokens[None, :]
+            pixel_values = mask = None
+            kwargs = {}
+            input_token_len = input_ids.size
         else:
             inputs = prepare_inputs(
-                None,
-                self._processor,
-                images,
-                prompt_str,
-                image_token_index,
-                kwargs.get("resize_shape"),
+                processor, images, prompt_str, image_token_index, resize_shape
             )
-            input_ids = inputs[0]
-            return inputs, len(input_ids)
+            input_ids = inputs["input_ids"]
+            pixel_values = inputs["pixel_values"]
+            mask = inputs["attention_mask"]
+            kwargs = {
+                k: v
+                for k, v in inputs.items()
+                if k not in ["input_ids", "pixel_values", "attention_mask"]
+            }
+            input_token_len = int(mask.sum())
+        return (input_ids, pixel_values, mask, kwargs), input_token_len
 
     def chat(
         self,
