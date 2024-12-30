@@ -396,6 +396,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Platypus-70B-instruct is a merge of garage-bAInd/Platypus2-70B and upstage/Llama-2-70b-instruct-v2.
 
+   * - :ref:`qvq-72b-preview <models_llm_qvq-72b-preview>`
+     - chat, vision
+     - 32768
+     - QVQ-72B-Preview is an experimental research model developed by the Qwen team, focusing on enhancing visual reasoning capabilities.
+
    * - :ref:`qwen-chat <models_llm_qwen-chat>`
      - chat
      - 32768
@@ -722,6 +727,8 @@ The following is a list of built-in LLM in Xinference:
    phi-3-mini-4k-instruct
   
    platypus2-70b-instruct
+  
+   qvq-72b-preview
   
    qwen-chat
   
