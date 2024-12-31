@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
-    logging.config.dictConfig(logging_conf)  # type: ignore
+    if logging_conf:
+        logging.config.dictConfig(logging_conf)  # type: ignore
 
     pool = None
     try:
