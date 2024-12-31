@@ -32,5 +32,21 @@
     "default_generate_config": {
       "guidance_scale": 7
     }
+  },
+  {
+    "model_name": "HunyuanVideo",
+    "model_family": "HunyuanVideo",
+    "model_hub": "modelscope",
+    "model_id": "Xorbits/HunyuanVideo",
+    "model_revision": "master",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "transformer_torch_dtype": "bfloat16",
+      "torch_dtype": "float16"
+    },
+    "default_generate_config": {
+    }
   }
 ]
