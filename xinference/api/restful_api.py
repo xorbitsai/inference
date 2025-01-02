@@ -429,7 +429,7 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
-            "/v1/models/{model_uid}/requests/{request_id}/abort",
+            "/v1/models/{model_uid}/requests/abort",
             self.abort_request,
             methods=["POST"],
             dependencies=(
@@ -1253,6 +1253,8 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        self._add_running_task(model=model)
+
         if body.stream:
 
             async def stream_results():
@@ -1597,7 +1599,7 @@ class RESTfulAPI(CancelMixin):
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
             request_id = kwargs.get("request_id")
-            self._add_running_task(request_id)
+            self._add_running_task(request_id=request_id)
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,
@@ -1606,8 +1608,8 @@ class RESTfulAPI(CancelMixin):
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
-        except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+        except asyncio.CancelledError as ex:
+            err_str = f"The request has been cancelled: {request_id}, reason: {ex}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -1763,7 +1765,7 @@ class RESTfulAPI(CancelMixin):
             else:
                 parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
-            self._add_running_task(request_id)
+            self._add_running_task(request_id=request_id)
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
@@ -1774,8 +1776,8 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
-        except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+        except asyncio.CancelledError as ex:
+            err_str = f"The request has been cancelled: {request_id}, reason: {ex}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -1819,7 +1821,7 @@ class RESTfulAPI(CancelMixin):
             else:
                 parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
-            self._add_running_task(request_id)
+            self._add_running_task(request_id=request_id)
             im = Image.open(image.file)
             mask_im = Image.open(mask_image.file)
             if not size:
@@ -1836,8 +1838,8 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
-        except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+        except asyncio.CancelledError as ex:
+            err_str = f"The request has been cancelled: {request_id}, reason: {ex}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -1875,15 +1877,15 @@ class RESTfulAPI(CancelMixin):
             else:
                 parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
-            self._add_running_task(request_id)
+            self._add_running_task(request_id=request_id)
             im = Image.open(image.file)
             text = await model_ref.ocr(
                 image=im,
                 **parsed_kwargs,
             )
             return Response(content=text, media_type="text/plain")
-        except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+        except asyncio.CancelledError as ex:
+            err_str = f"The request has been cancelled: {request_id}, reason: {ex}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2211,26 +2213,46 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def abort_request(
-        self, request: Request, model_uid: str, request_id: str
-    ) -> JSONResponse:
+    async def abort_request(self, request: Request, model_uid: str) -> JSONResponse:
         try:
             payload = await request.json()
             block_duration = payload.get(
                 "block_duration", XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION
             )
-            logger.info(
-                "Abort request with model uid: %s, request id: %s, block duration: %s",
-                model_uid,
-                request_id,
-                block_duration,
-            )
-            supervisor_ref = await self._get_supervisor_ref()
-            res = await supervisor_ref.abort_request(
-                model_uid, request_id, block_duration
-            )
-            self._cancel_running_task(request_id, block_duration)
-            return JSONResponse(content=res)
+            request_id = payload.get("request_id")
+            model_address = payload.get("model_address")
+            model_actor_id = payload.get("model_actor_id")
+            reason = payload.get("reason")
+            if not (bool(request_id) ^ bool(model_actor_id)):
+                raise Exception("Abort can only by request id or model actor id.")
+            if request_id:
+                logger.info(
+                    "Abort request with model uid: %s, request id: %s, block duration: %s",
+                    model_uid,
+                    request_id,
+                    block_duration,
+                )
+                supervisor_ref = await self._get_supervisor_ref()
+                res = await supervisor_ref.abort_request(
+                    model_uid, request_id, block_duration
+                )
+                self._cancel_running_task(
+                    request_id=request_id, reason=reason, block_duration=block_duration
+                )
+                return JSONResponse(content=res)
+            if model_actor_id:
+                logger.info(
+                    "Abort request with model uid: %s, model address: %s, model actor id: %s",
+                    model_uid,
+                    model_address,
+                    model_actor_id,
+                )
+                model = xo.actor_ref(model_address, model_actor_id)
+                self._cancel_model_running_tasks(model=model, reason=reason)
+                from ..core.scheduler import AbortRequestMessage
+
+                res = {"msg": AbortRequestMessage.DONE.name}
+                return JSONResponse(content=res)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

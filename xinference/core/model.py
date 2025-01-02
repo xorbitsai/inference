@@ -37,6 +37,7 @@ from typing import (
     Union,
 )
 
+import requests
 import sse_starlette.sse
 import xoscar as xo
 
@@ -254,6 +255,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             self._handle_pending_requests()
         )
 
+        await self._get_worker_ref()
+        assert self._worker_ref is not None
+
         if self.allow_batching():
             from .scheduler import SchedulerActor
 
@@ -457,9 +461,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     ), f"Unknown output type '{output_type}'"
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
-            logger.exception(
-                "Model actor is out of memory, model id: %s", self.model_uid()
+            error_message = (
+                f"Model actor is out of memory, model id: {self.model_uid()}"
             )
+            logger.exception(error_message)
+            self._worker_ref.set_model_error(error_message)
+            requests.get()
             os._exit(1)
         finally:
             if self._loop is not None and time_to_first_token is not None:
@@ -564,7 +571,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
-        self._add_running_task(kwargs.get("request_id"))
+        self._add_running_task(request_id=kwargs.get("request_id"))
         if self._lock is None:
             if inspect.iscoroutinefunction(fn):
                 ret = await fn(*args, **kwargs)
@@ -776,11 +783,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     async def abort_request(
         self,
         request_id: str,
+        reason: str,
         block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     ) -> str:
         from .utils import AbortRequestMessage
 
-        self._cancel_running_task(request_id, block_duration)
+        self._cancel_running_task(
+            request_id=request_id, reason=reason, block_duration=block_duration
+        )
         if self.allow_batching():
             if self._scheduler_ref is None:
                 return AbortRequestMessage.NOT_FOUND.name
