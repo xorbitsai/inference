@@ -8952,7 +8952,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "vision"
     ],
     "model_description": "The CogAgent-9B-20241220 model is based on GLM-4V-9B, a bilingual open-source VLM base model. Through data collection and optimization, multi-stage training, and strategy improvements, CogAgent-9B-20241220 achieves significant advancements in GUI perception, inference prediction accuracy, action space completeness, and task generalizability. ",
     "model_specs": [

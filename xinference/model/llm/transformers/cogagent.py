@@ -60,7 +60,7 @@ class CogAgentChatModel(PytorchChatModel):
         return False
 
     def load(self, **kwargs):
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
@@ -68,12 +68,19 @@ class CogAgentChatModel(PytorchChatModel):
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True
         )
+        if self.quantization == "4-bit":
+            quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+        elif self.quantization == "8-bit":
+            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+        else:
+            quantization_config = None
 
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map=self._device,
+            quantization_config=quantization_config,
         ).eval()
 
     def _message_content_to_cogagent(self, content):
@@ -98,7 +105,7 @@ class CogAgentChatModel(PytorchChatModel):
                 "CogAgent requires image input to perform GUI Agent tasks. Pure text-based interaction cannot execute such tasks."
             )
         elif len(images) == 1:
-            return text, images
+            return text, images[-1]
         else:
             logger.warning(
                 "There are multiple images in the prompt, CogAgent will automatically use the most recently provided image as the input."
@@ -173,7 +180,7 @@ class CogAgentChatModel(PytorchChatModel):
         query = f"Task: {task}{history_str}\n{self._platform}{self._format}"
 
         logger.info(f"query:\n{query}")
-        return query
+        return query, image
 
     def _sanitize_generate_config(
         self,
@@ -200,9 +207,12 @@ class CogAgentChatModel(PytorchChatModel):
             "do_sample": True,
         }
         prompt, _, chat_history = parse_messages(messages)
+        logger.info(f"prompt:{prompt}")
+        logger.info(f"chat_history:{chat_history}")
 
-        query, image, history = self.get_query_and_history(prompt, chat_history)
-
+        query, image = self.get_query_and_history(prompt, chat_history)
+        logger.info(f"query:{query}")
+        logger.info(f"image:{image}")
         inputs = self._tokenizer.apply_chat_template(
             [{"role": "user", "image": image, "content": query}],
             add_generation_prompt=True,
