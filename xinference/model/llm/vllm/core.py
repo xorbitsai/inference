@@ -219,12 +219,17 @@ class VLLMModel(LLM):
         self._engine = None
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
+        self._xavier_config = None
+
+    def set_xavier_config(self, value: Optional[Dict]):
+        self._xavier_config = value  # type: ignore
 
     def load(self):
         try:
             import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
-            from vllm.engine.async_llm_engine import AsyncLLMEngine
+
+            # from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.lora.request import LoRARequest
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -271,7 +276,12 @@ class VLLMModel(LLM):
             max_loras=max_loras,
             **self._model_config,
         )
-        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+        from .xavier.engine import XavierEngine
+
+        print(f"======xavier_config: {self._xavier_config}")
+        self._engine = XavierEngine.from_engine_args(
+            engine_args, xavier_config=self._xavier_config
+        )
 
         self._check_health_task = None
         if hasattr(self._engine, "check_health"):

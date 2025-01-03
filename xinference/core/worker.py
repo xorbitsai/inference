@@ -866,6 +866,8 @@ class WorkerActor(xo.StatelessActor):
             )
 
             try:
+                xavier_config = kwargs.pop("xavier_config")
+                xavier_config["rank_address"] = subpool_address
                 model, model_description = await asyncio.to_thread(
                     create_model_instance,
                     subpool_address,
@@ -893,6 +895,7 @@ class WorkerActor(xo.StatelessActor):
                     model=model,
                     model_description=model_description,
                     request_limits=request_limits,
+                    xavier_config=xavier_config,
                 )
                 await model_ref.load()
             except:
@@ -921,6 +924,7 @@ class WorkerActor(xo.StatelessActor):
             origin_uid,
             {"model_ability": abilities, "status": LaunchStatus.READY.name},
         )
+        return subpool_address
 
     @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
@@ -1141,3 +1145,9 @@ class WorkerActor(xo.StatelessActor):
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
+
+    async def start_transfer_for_vllm(
+        self, rep_model_uid: str, rank_addresses: List[str]
+    ):
+        model_ref = self._model_uid_to_model[rep_model_uid]
+        await model_ref.start_transfer_for_vllm(rank_addresses)
