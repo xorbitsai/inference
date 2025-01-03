@@ -218,6 +218,7 @@ class CogAgentChatModel(PytorchChatModel):
         inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],
             None,
+            self._tokenizer,
             **full_context_kwargs,
         )
 
