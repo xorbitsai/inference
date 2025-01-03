@@ -231,7 +231,6 @@ class CogAgentChatModel(PytorchChatModel):
                 outputs = self._model.generate(**inputs, **sanitized_config)
                 outputs = outputs[:, inputs["input_ids"].shape[1] :]
                 response = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
-                logger.info(f"Model response:\n{response}")
 
             return generate_chat_completion(self.model_uid, response)
 
