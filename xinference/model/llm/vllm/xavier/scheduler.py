@@ -62,7 +62,7 @@ class XavierScheduler(Scheduler):
         self._transfer_ref = None
         self._transferring: Deque[SequenceGroup] = deque()
         self._transfer_status: Dict[SequenceGroup, Set[Tuple[int, int]]] = {}
-        self._blocks_local: Set[Tuple[int, int]] = set()
+        self._transferred_or_executed_block_details: Set[Tuple[int, int]] = set()
 
     async def _get_block_tracker_ref(self):
         from .block_tracker import VLLMBlockTracker
@@ -85,27 +85,38 @@ class XavierScheduler(Scheduler):
             )
         return self._transfer_ref
 
-    def update_blocks_local(self, value: Iterable[Tuple[int, int]]):
-        self._blocks_local.update(value)
+    def update_executed_block_details(self, value: Iterable[Tuple[int, int]]):
+        self._transferred_or_executed_block_details.update(value)
 
     async def _get_transfer_details(
         self,
         virtual_engine: int,
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
-    ) -> Tuple[Set[Tuple[int, int]], Dict[str, Set[Tuple[int, int, int]]]]:
-        hash_contents: Set[Tuple[int, int]] = set()
+    ) -> Tuple[Set[Block], Dict[str, Set[Tuple[int, int, int]]]]:
+        print(f"======Scheduled blocks: {block_tables}")
+        details: Set[Tuple[int, int]] = set()
+        detail_to_block: Dict[Tuple[int, int], Block] = {}
         for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
             block_ids = block_tables[seq.seq_id]
             for _id in block_ids:
                 block: Block = self.block_manager.get_block_by_block_id(seq.seq_id, _id)
-                if block.content_hash is not None:
-                    block_info = (block.content_hash, _id)
-                    if block_info not in self._blocks_local:
-                        hash_contents.add(block_info)
+                detail = (block.content_hash, _id)
+                print(
+                    f"=======Details: {block}, {block.computed}, {block.block_id}, {block.content_hash}"
+                )
+                if (block.content_hash is not None) and (
+                    detail not in self._transferred_or_executed_block_details
+                ):
+                    details.add(detail)
+                    detail_to_block[detail] = block
         tracker_ref = await self._get_block_tracker_ref()
-        remote = await tracker_ref.query_blocks(virtual_engine, list(hash_contents))
-        return hash_contents, remote
+        remote = await tracker_ref.query_blocks(virtual_engine, list(details))
+        local: Set[Block] = set()
+        for _, remote_details in remote.items():
+            for hash_content, _, local_block_id in remote_details:
+                local.add(detail_to_block[(hash_content, local_block_id)])
+        return local, remote
 
     async def _do_transfer_inner(
         self, virtual_engine: int, remote: Dict[str, Set[Tuple[int, int, int]]]
@@ -118,15 +129,18 @@ class XavierScheduler(Scheduler):
     async def _do_transfer(
         self,
         virtual_engine: int,
-        local: Set[Tuple[int, int]],
+        local: Set[Block],
         remote: Dict[str, Set[Tuple[int, int, int]]],
         seq_group: SequenceGroup,
         is_prefill: bool,
     ):
         print(f"=========Scheduler: Will recv {remote}")
         await self._do_transfer_inner(virtual_engine, remote)
-        self._blocks_local.update(local)
-        self._transfer_status[seq_group] = local
+        transferred_blocks: Set[Tuple[int, int]] = {
+            (b.content_hash, b.block_id) for b in local
+        }
+        self._transfer_status[seq_group] = transferred_blocks
+        self._transferred_or_executed_block_details.update(transferred_blocks)
         if is_prefill:
             self.waiting.appendleft(seq_group)
         else:
@@ -146,14 +160,8 @@ class XavierScheduler(Scheduler):
         # such as self.running, self.swapped, and self.waiting.
         scheduler_start_time = time.perf_counter()
 
-        # TODO
-        print(f"====Before schedule: {len(self.running), len(self.waiting)}")
-
         scheduler_outputs: SchedulerOutputs = self._schedule()
         now = time.time()
-
-        # TODO
-        print(f"====After schedule: {len(self.running), len(self.waiting)}")
 
         if not self.cache_config.enable_prefix_caching:
             common_computed_block_nums = []
@@ -162,7 +170,7 @@ class XavierScheduler(Scheduler):
 
         # TODO
         scheduled_seq_groups = []
-        has_transferred = False
+        has_transferring = False
 
         # Create input data structures.
         seq_group_metadata_list: List[SequenceGroupMetadata] = []
@@ -221,7 +229,7 @@ class XavierScheduler(Scheduler):
                     )
                 )
                 self._transferring.append(seq_group)
-                has_transferred = True
+                has_transferring = True
                 continue
             else:
                 scheduled_seq_groups.append(seq_group)
@@ -313,7 +321,7 @@ class XavierScheduler(Scheduler):
             if allow_async_output_proc:
                 allow_async_output_proc = self._allow_async_output_proc(seq_group)
 
-        if has_transferred:
+        if has_transferring:
             scheduler_outputs.scheduled_seq_groups = scheduled_seq_groups
             for seq_group in self.running.copy():
                 if seq_group in self._transfer_status:

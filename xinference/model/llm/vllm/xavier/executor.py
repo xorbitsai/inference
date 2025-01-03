@@ -19,6 +19,7 @@ class XavierExecutor(GPUExecutorAsync):
         super()._init_executor()
         self._transfer_ref = None
         self._block_tracker_ref = None
+        self._executed_block_details: Set[Tuple[int, int]] = set()
 
     async def init_transfer(self):
         transfer_ref = await self._get_transfer_ref()
@@ -58,19 +59,23 @@ class XavierExecutor(GPUExecutorAsync):
         block_tracker_ref = await self._get_block_tracker_ref()
         scheduler = self.scheduler[virtual_engine]  # type: ignore
         rank_address = self.get_rank_address()
-        block_infos: Set[Tuple[int, int]] = set()
+        executed_blocks_details: Set[Tuple[int, int]] = set()
         for meta in execute_model_req.seq_group_metadata_list:
             block_tables = meta.block_tables
             for seq_id, block_ids in block_tables.items():
                 for _id in block_ids:
                     b = scheduler.block_manager.get_block_by_block_id(seq_id, _id)
-                    if b.content_hash is not None:
-                        block_infos.add((b.content_hash, b.block_id))
+                    detail = (b.content_hash, b.block_id)
+                    if (b.content_hash is not None) and (
+                        detail not in self._executed_block_details
+                    ):
+                        executed_blocks_details.add(detail)
 
         res = await super().execute_model_async(execute_model_req)
 
         await block_tracker_ref.set_blocks(
-            virtual_engine, list(block_infos), rank_address
+            virtual_engine, list(executed_blocks_details), rank_address
         )
-        scheduler.update_blocks_local(block_infos)
+        scheduler.update_executed_block_details(executed_blocks_details)
+        self._executed_block_details.update(executed_blocks_details)
         return res
