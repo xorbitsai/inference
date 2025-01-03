@@ -12,8 +12,24 @@
     ],
     "default_model_config": {
       "quantize": true,
-      "quantize_text_encoder": "text_encoder_2"
-    }
+      "quantize_text_encoder": "text_encoder_2",
+      "torch_dtype": "bfloat16"
+    },
+    "gguf_model_id": "Xorbits/FLUX.1-schnell-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q2_K",
+      "Q3_K_S",
+      "Q4_0",
+      "Q4_1",
+      "Q4_K_S",
+      "Q5_0",
+      "Q5_1",
+      "Q5_K_S",
+      "Q6_K",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
   },
   {
     "model_name": "FLUX.1-dev",
@@ -28,8 +44,24 @@
     ],
     "default_model_config": {
       "quantize": true,
-      "quantize_text_encoder": "text_encoder_2"
-    }
+      "quantize_text_encoder": "text_encoder_2",
+      "torch_dtype": "bfloat16"
+    },
+    "gguf_model_id": "AI-ModelScope/FLUX.1-dev-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q2_K",
+      "Q3_K_S",
+      "Q4_0",
+      "Q4_1",
+      "Q4_K_S",
+      "Q5_0",
+      "Q5_1",
+      "Q5_K_S",
+      "Q6_K",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
   },
   {
     "model_name": "sd3-medium",
@@ -46,6 +78,120 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3"
     }
+  },
+  {
+    "model_name": "sd3.5-medium",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/stable-diffusion-3.5-medium",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3",
+      "torch_dtype": "bfloat16"
+    },
+    "gguf_model_id": "Xorbits/stable-diffusion-3.5-medium-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q3_K_M",
+      "Q3_K_S",
+      "Q4_0",
+      "Q4_1",
+      "Q4_K_M",
+      "Q4_K_S",
+      "Q5_0",
+      "Q5_1",
+      "Q5_K_M",
+      "Q5_K_S",
+      "Q6_K",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
+  },
+  {
+    "model_name": "sd3.5-large",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/stable-diffusion-3.5-large",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3",
+      "torch_dtype": "bfloat16",
+      "transformer_nf4": true
+    },
+    "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q4_0",
+      "Q4_1",
+      "Q5_0",
+      "Q5_1",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
+  },
+  {
+    "model_name": "sd3.5-large-turbo",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/stable-diffusion-3.5-large-turbo",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3",
+      "torch_dtype": "bfloat16",
+      "transformer_nf4": true
+    },
+    "default_generate_config": {
+      "guidance_scale": 1.0,
+      "num_inference_steps": 4
+    },
+    "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-turbo-gguf",
+    "gguf_quantizations": [
+      "F16",
+      "Q4_0",
+      "Q4_1",
+      "Q5_0",
+      "Q5_1",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
+  },
+  {
+    "model_name": "HunyuanDiT-v1.2",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
+  },
+  {
+    "model_name": "HunyuanDiT-v1.2-Distilled",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers-Distilled",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
   },
   {
     "model_name": "sd-turbo",

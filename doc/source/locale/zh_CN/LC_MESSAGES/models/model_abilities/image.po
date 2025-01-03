@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-30 07:49+0000\n"
+"POT-Creation-Date: 2024-12-26 18:49+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.16.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/image.rst:5
 msgid "Images"
@@ -98,26 +98,48 @@ msgid "stable-diffusion-xl-base-1.0"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:43
+#: ../../source/models/model_abilities/image.rst:149
 msgid "sd3-medium"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:44
-msgid "FLUX.1-schnell"
+#: ../../source/models/model_abilities/image.rst:151
+#: ../../source/models/model_abilities/image.rst:180
+msgid "sd3.5-medium"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:45
+#: ../../source/models/model_abilities/image.rst:153
+#: ../../source/models/model_abilities/image.rst:182
+msgid "sd3.5-large"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:46
+#: ../../source/models/model_abilities/image.rst:155
+msgid "sd3.5-large-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:47
+#: ../../source/models/model_abilities/image.rst:147
+#: ../../source/models/model_abilities/image.rst:178
+msgid "FLUX.1-schnell"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:48
+#: ../../source/models/model_abilities/image.rst:145
+#: ../../source/models/model_abilities/image.rst:176
 msgid "FLUX.1-dev"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:49
+#: ../../source/models/model_abilities/image.rst:52
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/image.rst:52
+#: ../../source/models/model_abilities/image.rst:55
 msgid "Text-to-image"
 msgstr "文生图"
 
-#: ../../source/models/model_abilities/image.rst:54
+#: ../../source/models/model_abilities/image.rst:57
 msgid ""
 "The Text-to-image API mimics OpenAI's `create images API "
 "<https://platform.openai.com/docs/api-reference/images/create>`_. We can "
@@ -127,15 +149,26 @@ msgstr ""
 "可以通过 cURL、OpenAI Client 或 Xinference 的方式尝试使用 Text-to-image "
 "API。"
 
-#: ../../source/models/model_abilities/image.rst:109
-msgid "Tips for Large Image Models including SD3-Medium, FLUX.1"
-msgstr "大型图像模型部署（sd3-medium、FLUX.1 系列）贴士"
+#: ../../source/models/model_abilities/image.rst:112
+msgid "Quantize Large Image Models e.g. SD3-Medium, FLUX.1"
+msgstr "量化大型图像模型（sd3-medium、FLUX.1 系列等）"
 
-#: ../../source/models/model_abilities/image.rst:111
+#: ../../source/models/model_abilities/image.rst:116
+msgid ""
+"From v0.16.1, Xinference by default enabled quantization for large image "
+"models like Flux.1 and SD3.5 series. So if your Xinference version is "
+"newer than v0.16.1, You barely need to do anything to run those large "
+"image models on GPUs with small memory."
+msgstr ""
+"从 v0.16.1 开始，Xinference 默认对大图像模型如 Flux.1 和 SD3.5 系列开启"
+"量化。如果你使用新于 v0.16.1 的 Xinference 版本，你不需要做什么事情来在小"
+" GPU 显存的机器上来运行这些大型图像模型。"
+
+#: ../../source/models/model_abilities/image.rst:121
 msgid "Useful extra parameters can be passed to launch including:"
 msgstr "有用的传递给加载模型的额外参数包括："
 
-#: ../../source/models/model_abilities/image.rst:113
+#: ../../source/models/model_abilities/image.rst:123
 msgid ""
 "``--cpu_offload True``: specifying ``True`` will offload the components "
 "of the model to CPU during inference in order to save memory, while "
@@ -147,7 +180,7 @@ msgstr ""
 "CPU 上以节省内存，这会导致推理延迟略有增加。模型卸载仅会在需要执行时将"
 "模型组件移动到 GPU 上，同时保持其余组件在 CPU 上"
 
-#: ../../source/models/model_abilities/image.rst:117
+#: ../../source/models/model_abilities/image.rst:127
 msgid ""
 "``--quantize_text_encoder <text encoder layer>``: We leveraged the "
 "``bitsandbytes`` library to load and quantize the T5-XXL text encoder to "
@@ -158,7 +191,7 @@ msgstr ""
 "`` 库加载并量化 T5-XXL 文本编码器至8位精度。这使得你能够在仅轻微影响性能"
 "的情况下继续使用全部文本编码器。"
 
-#: ../../source/models/model_abilities/image.rst:120
+#: ../../source/models/model_abilities/image.rst:130
 msgid ""
 "``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive "
 "4.7B parameter T5-XXL text encoder during inference can significantly "
@@ -167,53 +200,195 @@ msgstr ""
 "``--text_encoder_3 None``，对于 sd3-medium，移除在推理过程中内存密集型的"
 "47亿参数T5-XXL文本编码器可以显著降低内存需求，而仅造成性能上的轻微损失。"
 
-#: ../../source/models/model_abilities/image.rst:124
-msgid ""
-"If you are trying to run large image models liek sd3-medium or FLUX.1 "
-"series on GPU card that has less memory than 24GB, you may encounter OOM "
-"when launching or inference. Try below solutions."
-msgstr ""
-"如果你试图在显存小于24GB的GPU上运行像sd3-medium或FLUX.1系列这样的大型图像"
-"模型，你在启动或推理过程中可能会遇到显存溢出（OOM）的问题。尝试以下"
-"解决方案。"
-
-#: ../../source/models/model_abilities/image.rst:128
-msgid "For FLUX.1 series, try to apply quantization."
-msgstr "对于 FLUX.1 系列，尝试应用量化。"
+#: ../../source/models/model_abilities/image.rst:133
+msgid "``--transformer_nf4 True``: use nf4 for transformer quantization."
+msgstr "``--transformer_nf4 True`` ：使用 nf4 量化 transformer。"
 
 #: ../../source/models/model_abilities/image.rst:134
-msgid "For sd3-medium, apply quantization to ``text_encoder_3``."
-msgstr "对于 sd3-medium 模型，对 ``text_encoder_3`` 应用量化。"
+msgid ""
+"``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell "
+"will switch to MLX engine on Mac, and ``quantize`` can be used to "
+"quantize the model."
+msgstr ""
+"``--quantize`` ：只对 Mac 上的 MLX 引擎生效，Flux.1-dev 和 Flux.1-schnell"
+"会在 Mac 上使用 MLX 引擎计算，``quantize`` 可以用来量化模型。"
 
-#: ../../source/models/model_abilities/image.rst:141
-msgid "Or removing memory-intensive T5-XXL text encoder for sd3-medium."
-msgstr "或者，移除 sd3-medium 模型中内存密集型的 T5-XXL 文本编码器。"
+#: ../../source/models/model_abilities/image.rst:137
+msgid ""
+"For WebUI, Just add additional parameters, e.g. add key ``cpu_offload`` "
+"and value ``True`` to enable cpu offloading."
+msgstr ""
+"对于 WebUI，只需要添加额外参数，比如，添加 key ``cpu_offload`` 以及值 ``"
+"True`` 来开启 CPU 卸载。"
 
-#: ../../source/models/model_abilities/image.rst:148
+#: ../../source/models/model_abilities/image.rst:140
+msgid "Below list default options that used from v0.16.1."
+msgstr "如下列出了从 v0.16.1 开始默认使用的参数。"
+
+#: ../../source/models/model_abilities/image.rst:143
+#: ../../source/models/model_abilities/image.rst:174
+msgid "Model"
+msgstr "模型"
+
+#: ../../source/models/model_abilities/image.rst:143
+msgid "quantize_text_encoder"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:143
+msgid "quantize"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:143
+msgid "transformer_nf4"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:145
+#: ../../source/models/model_abilities/image.rst:147
+msgid "text_encoder_2"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:145
+#: ../../source/models/model_abilities/image.rst:147
+#: ../../source/models/model_abilities/image.rst:153
+#: ../../source/models/model_abilities/image.rst:155
+msgid "True"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:145
+#: ../../source/models/model_abilities/image.rst:147
+#: ../../source/models/model_abilities/image.rst:149
+#: ../../source/models/model_abilities/image.rst:151
+msgid "False"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:149
+#: ../../source/models/model_abilities/image.rst:151
+#: ../../source/models/model_abilities/image.rst:153
+#: ../../source/models/model_abilities/image.rst:155
+msgid "text_encoder_3"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:149
+#: ../../source/models/model_abilities/image.rst:151
+#: ../../source/models/model_abilities/image.rst:153
+#: ../../source/models/model_abilities/image.rst:155
+msgid "N/A"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:160
+msgid ""
+"If you want to disable some quantization, just set the corresponding "
+"option to False. e.g. for Web UI, set key ``quantize_text_encoder`` and "
+"value ``False`` and for command line, specify ``--quantize_text_encoder "
+"False`` to disable quantization for text encoder."
+msgstr ""
+"如果你想关闭某些量化，只需要设置相应的选项为 False。比如，对于 Web UI，"
+"设置 key ``quantize_text_encoder`` 和值 ``False``，或对于命令行，指定 ``"
+"--quantize_text_encoder False`` 来关闭 text encoder 的量化。"
+
+#: ../../source/models/model_abilities/image.rst:166
+msgid "GGUF file format"
+msgstr "GGUF 文件格式"
+
+#: ../../source/models/model_abilities/image.rst:168
+msgid ""
+"GGUF file format for transformer provides various quantization options. "
+"To use gguf file, you can specify additional option ``gguf_quantization``"
+" for web UI, or ``--gguf_quantization`` for command line for those image "
+"models which support internally by Xinference. Below is the mode list."
+msgstr ""
+"GGUF 文件格式为 transformer 模块提供了丰富的量化选项。要使用 GGUF 文件，"
+"你可以在 Web 界面上指定额外选项 ``gguf_quantization`` ，或者在命令行指定 "
+"``--gguf_quantization`` ，以为 Xinference 内建支持 GGUF 量化的模型开启。"
+"如下是内置支持的模型。"
+
+#: ../../source/models/model_abilities/image.rst:174
+msgid "supported gguf quantization"
+msgstr "支持 GGUF 量化格式"
+
+#: ../../source/models/model_abilities/image.rst:176
+#: ../../source/models/model_abilities/image.rst:178
+msgid "F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:187
+msgid ""
+"We stronly recommend to enable additional option ``cpu_offload`` with "
+"value ``True`` for WebUI, or specify ``--cpu_offload True`` for command "
+"line."
+msgstr ""
+"我们强烈推荐在 WebUI 上开启额外选项 ``cpu_offload`` 并指定为 ``True``，或"
+"对命令行，指定 ``--cpu_offload True``。"
+
+#: ../../source/models/model_abilities/image.rst:190
+msgid "Example:"
+msgstr "例如："
+
+#: ../../source/models/model_abilities/image.rst:196
+msgid ""
+"With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run "
+"Flux.1-dev."
+msgstr ""
+"使用 ``Q2_K`` 量化，你只需要大约 5GB 的显存来运行 Flux.1-dev。"
+
+#: ../../source/models/model_abilities/image.rst:198
+msgid ""
+"For those models gguf options are not supported internally, or you want "
+"to download gguf files on you own, you can specify additional option "
+"``gguf_model_path`` for web UI or spcecify ``--gguf_model_path "
+"/path/to/model_quant.gguf`` for command line."
+msgstr ""
+"对于非内建支持 GGUF 量化的模型，或者你希望自己下载 GGUF 文件，你可以在 "
+"Web UI 指定额外选项 ``gguf_model_path`` 或者用命令行指定 ``--gguf_model_"
+"path /path/to/model_quant.gguf`` 。"
+
+#: ../../source/models/model_abilities/image.rst:204
 msgid "Image-to-image"
 msgstr "图生图"
 
-#: ../../source/models/model_abilities/image.rst:150
+#: ../../source/models/model_abilities/image.rst:206
 msgid "You can find more examples of Images API in the tutorial notebook:"
 msgstr "你可以在教程笔记本中找到更多 Images API 的示例。"
 
-#: ../../source/models/model_abilities/image.rst:154
+#: ../../source/models/model_abilities/image.rst:210
 msgid "Stable Diffusion ControlNet"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:157
+#: ../../source/models/model_abilities/image.rst:213
 msgid "Learn from a Stable Diffusion ControlNet example"
 msgstr "学习一个 Stable Diffusion 控制网络的示例"
 
-#: ../../source/models/model_abilities/image.rst:160
+#: ../../source/models/model_abilities/image.rst:216
 msgid "OCR"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:162
+#: ../../source/models/model_abilities/image.rst:218
 msgid "The OCR API accepts image bytes and returns the OCR text."
 msgstr "OCR API 接受图像字节并返回 OCR 文本。"
 
-#: ../../source/models/model_abilities/image.rst:164
+#: ../../source/models/model_abilities/image.rst:220
 msgid "We can try OCR API out either via cURL, or Xinference's python client:"
 msgstr "可以通过 cURL 或 Xinference 的 Python 客户端来尝试 OCR API。"
+
+#~ msgid ""
+#~ "If you are trying to run large "
+#~ "image models liek sd3-medium or FLUX.1"
+#~ " series on GPU card that has "
+#~ "less memory than 24GB, you may "
+#~ "encounter OOM when launching or "
+#~ "inference. Try below solutions."
+#~ msgstr ""
+#~ "如果你试图在显存小于24GB的GPU上运行像"
+#~ "sd3-medium或FLUX.1系列这样的大型图像模型"
+#~ "，你在启动或推理过程中可能会遇到显存"
+#~ "溢出（OOM）的问题。尝试以下解决方案。"
+
+#~ msgid "For FLUX.1 series, try to apply quantization."
+#~ msgstr "对于 FLUX.1 系列，尝试应用量化。"
+
+#~ msgid "For sd3-medium, apply quantization to ``text_encoder_3``."
+#~ msgstr "对于 sd3-medium 模型，对 ``text_encoder_3`` 应用量化。"
+
+#~ msgid "Or removing memory-intensive T5-XXL text encoder for sd3-medium."
+#~ msgstr "或者，移除 sd3-medium 模型中内存密集型的 T5-XXL 文本编码器。"
 

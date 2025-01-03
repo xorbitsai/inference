@@ -47,6 +47,8 @@ class Qwen2VLChatModel(PytorchChatModel):
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-vl-instruct".lower() in llm_family.lower():
             return True
+        if "qvq-72b-preview".lower() in llm_family.lower():
+            return True
         return False
 
     def load(self):

@@ -69,6 +69,7 @@ Currently, supported model includes:
 - ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
+- ``minicpm3-4b``
 .. vllm_end
 
 SGLang

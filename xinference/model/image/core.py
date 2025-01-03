@@ -22,7 +22,12 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, ModelDescription
-from ..utils import valid_model_revision
+from ..utils import (
+    IS_NEW_HUGGINGFACE_HUB,
+    retry_download,
+    symlink_local_file,
+    valid_model_revision,
+)
 from .ocr.got_ocr2 import GotOCR2Model
 from .stable_diffusion.core import DiffusionModel
 from .stable_diffusion.mlx import MLXDiffusionModel
@@ -51,6 +56,9 @@ class ImageModelFamilyV1(CacheableModelSpec):
     controlnet: Optional[List["ImageModelFamilyV1"]]
     default_model_config: Optional[dict] = {}
     default_generate_config: Optional[dict] = {}
+    gguf_model_id: Optional[str]
+    gguf_quantizations: Optional[List[str]]
+    gguf_model_file_name_template: Optional[str]
 
 
 class ImageModelDescription(ModelDescription):
@@ -187,6 +195,61 @@ def get_cache_status(
         return valid_model_revision(meta_path, model_spec.model_revision)
 
 
+def cache_gguf(spec: ImageModelFamilyV1, quantization: Optional[str] = None):
+    if not quantization:
+        return
+
+    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, spec.model_name))
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+
+    if not spec.gguf_model_file_name_template:
+        raise NotImplementedError(
+            f"{spec.model_name} does not support GGUF quantization"
+        )
+    if quantization not in (spec.gguf_quantizations or []):
+        raise ValueError(
+            f"Cannot support quantization {quantization}, "
+            f"available quantizations: {spec.gguf_quantizations}"
+        )
+
+    filename = spec.gguf_model_file_name_template.format(quantization=quantization)  # type: ignore
+    full_path = os.path.join(cache_dir, filename)
+
+    if spec.model_hub == "huggingface":
+        import huggingface_hub
+
+        use_symlinks = {}
+        if not IS_NEW_HUGGINGFACE_HUB:
+            use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+        download_file_path = retry_download(
+            huggingface_hub.hf_hub_download,
+            spec.model_name,
+            None,
+            spec.gguf_model_id,
+            filename=filename,
+            **use_symlinks,
+        )
+        if IS_NEW_HUGGINGFACE_HUB:
+            symlink_local_file(download_file_path, cache_dir, filename)
+    elif spec.model_hub == "modelscope":
+        from modelscope.hub.file_download import model_file_download
+
+        download_file_path = retry_download(
+            model_file_download,
+            spec.model_name,
+            None,
+            spec.gguf_model_id,
+            filename,
+            revision=spec.model_revision,
+        )
+        symlink_local_file(download_file_path, cache_dir, filename)
+    else:
+        raise NotImplementedError
+
+    return full_path
+
+
 def create_ocr_model_instance(
     subpool_addr: str,
     devices: List[str],
@@ -219,6 +282,8 @@ def create_image_model_instance(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
+    gguf_quantization: Optional[str] = None,
+    gguf_model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[
     Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model], ImageModelDescription
@@ -272,6 +337,8 @@ def create_image_model_instance(
             ]
     if not model_path:
         model_path = cache(model_spec)
+    if not gguf_model_path and gguf_quantization:
+        gguf_model_path = cache_gguf(model_spec, gguf_quantization)
     if peft_model_config is not None:
         lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs
@@ -298,6 +365,7 @@ def create_image_model_instance(
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
         model_spec=model_spec,
+        gguf_model_path=gguf_model_path,
         **kwargs,
     )
     model_description = ImageModelDescription(

@@ -30,5 +30,20 @@
     "default_generate_config": {
       "guidance_scale": 7
     }
+  },
+  {
+    "model_name": "HunyuanVideo",
+    "model_family": "HunyuanVideo",
+    "model_id": "hunyuanvideo-community/HunyuanVideo",
+    "model_revision": "e8c2aaa66fe3742a32c11a6766aecbf07c56e773",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "transformer_torch_dtype": "bfloat16",
+      "torch_dtype": "float16"
+    },
+    "default_generate_config": {
+    }
   }
 ]
