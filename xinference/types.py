@@ -300,6 +300,9 @@ class PytorchGenerateConfig(TypedDict, total=False):
     lora_name: Optional[str]
     stream_options: Optional[Union[dict, None]]
     request_id: Optional[str]
+
+
+class CogagentGenerateConfig(PytorchGenerateConfig, total=False):
     platform: Optional[Literal["Mac", "WIN", "Mobile"]]
     format: Optional[
         Literal[
@@ -440,6 +443,19 @@ CreateChatCompletionTorch = CreateCompletionTorch
 CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
 
 
+class CreateExtraChatCompletion(BaseModel):
+    platform: Optional[Literal["Mac", "WIN", "Mobile"]]
+    format: Optional[
+        Literal[
+            "(Answer in Action-Operation-Sensitive format.)",
+            "(Answer in Status-Plan-Action-Operation format.)",
+            "(Answer in Status-Action-Operation-Sensitive format.)",
+            "(Answer in Status-Action-Operation format.)",
+            "(Answer in Action-Operation format.)",
+        ]
+    ]
+
+
 from ._compat import CreateChatCompletionOpenAI
 
 
@@ -448,6 +464,7 @@ class CreateChatCompletion(  # type: ignore
     CreateChatCompletionTorch,
     CreateChatCompletionLlamaCpp,
     CreateChatCompletionOpenAI,
+    CreateExtraChatCompletion,
 ):
     pass
 

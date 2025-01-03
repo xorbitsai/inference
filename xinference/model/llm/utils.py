@@ -97,13 +97,18 @@ class ChatModelMixin:
         return rendered
 
     def get_full_context(
-        self, messages: List, chat_template: str, tokenizer=None, **kwargs
-    ) -> str:
+        self,
+        messages: List,
+        chat_template: str,
+        tokenizer=None,
+        tokenize=False,
+        **kwargs,
+    ):
         if tokenizer is not None:
             try:
                 full_context = tokenizer.apply_chat_template(
                     messages,
-                    tokenize=False,
+                    tokenize=tokenize,
                     chat_template=chat_template,
                     add_generation_prompt=True,
                     **kwargs,

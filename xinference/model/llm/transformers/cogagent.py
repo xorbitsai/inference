@@ -15,12 +15,17 @@ import logging
 import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterator, List, Literal, Optional, Union
+from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
 import torch
 
 from ....model.utils import select_device
-from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
+from ....types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    CogagentGenerateConfig,
+    CompletionChunk,
+)
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import (
     _decode_image,
@@ -28,7 +33,7 @@ from ..utils import (
     generate_completion_chunk,
     parse_messages,
 )
-from .core import PytorchChatModel, PytorchGenerateConfig
+from .core import PytorchChatModel
 from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
@@ -117,7 +122,7 @@ class CogAgentChatModel(PytorchChatModel):
         action_pattern = r"Action:\s*(.*)"
 
         def extract_operations(_content: str):
-            """提取 grounded operation 和 action operation"""
+            """extract grounded operation and action operation"""
             _history_step = []
             _history_action = []
 
@@ -178,28 +183,32 @@ class CogAgentChatModel(PytorchChatModel):
 
         # Compose the query with task, platform, and selected format instructions
         query = f"Task: {task}{history_str}\n{self._platform}{self._format}"
-
+        logger.info(f"query:{query}")
         return query, image
 
     def _sanitize_generate_config(
         self,
-        generate_config: Optional[PytorchGenerateConfig],
-    ) -> PytorchGenerateConfig:
+        generate_config: Optional[CogagentGenerateConfig],
+    ) -> CogagentGenerateConfig:
+        logger.info(f"generate_config:{generate_config}")
+
         generate_config = super()._sanitize_generate_config(generate_config)
-        return generate_config
+        return cast(CogagentGenerateConfig, generate_config)
 
     @cache_clean
     def chat(
         self,
         messages: List[Dict],
-        generate_config: Optional[PytorchGenerateConfig] = None,
+        generate_config: Optional[CogagentGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        stream = generate_config.get("stream", False) if generate_config else False
+        if generate_config is not None:
+            self._platform = generate_config.pop("platform", self._platform)
+            self._format = generate_config.pop("format", self._format)
+        logger.info(f"_platform:{self._platform}")
+        logger.info(f"_format:{self._format}")
+
         generate_config = self._sanitize_generate_config(generate_config)
-
-        self._platform = generate_config.get("platform") or self._platform
-        self._format = generate_config.get("format") or self._format
-
+        stream = generate_config.get("stream")
         sanitized_config = {
             "max_length": generate_config.get("max_tokens", 512),
             "top_k": generate_config.get("top_k", 1),
@@ -209,13 +218,19 @@ class CogAgentChatModel(PytorchChatModel):
 
         query, image = self.get_query_and_history(prompt, chat_history)
 
-        inputs = self._tokenizer.apply_chat_template(
+        full_context_kwargs = {
+            "return_tensors": "pt",
+            "return_dict": True,
+        }
+        assert self.model_family.chat_template is not None
+        inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],
-            add_generation_prompt=True,
+            self.model_family.chat_template,
+            self._tokenizer,
             tokenize=True,
-            return_tensors="pt",
-            return_dict=True,
-        ).to(self._model.device)
+            **full_context_kwargs,
+        )
+        inputs.to(self._model.device)
 
         if stream:
             it = self._streaming_chat_response(inputs, sanitized_config)
@@ -226,7 +241,6 @@ class CogAgentChatModel(PytorchChatModel):
                 outputs = self._model.generate(**inputs, **sanitized_config)
                 outputs = outputs[:, inputs["input_ids"].shape[1] :]
                 response = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
-                logger.info(f"Model response:\n{response}")
 
             return generate_chat_completion(self.model_uid, response)
 
