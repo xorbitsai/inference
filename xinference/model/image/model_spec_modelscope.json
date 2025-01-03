@@ -174,6 +174,26 @@
     "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
   },
   {
+    "model_name": "HunyuanDiT-v1.2",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
+  },
+  {
+    "model_name": "HunyuanDiT-v1.2-Distilled",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers-Distilled",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
+  },
+  {
     "model_name": "sd-turbo",
     "model_family": "stable_diffusion",
     "model_hub": "modelscope",
