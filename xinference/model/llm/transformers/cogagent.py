@@ -217,7 +217,7 @@ class CogAgentChatModel(PytorchChatModel):
         assert self.model_family.chat_template is not None
         inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],
-            None,
+            self.model_family.chat_template,
             self._tokenizer,
             **full_context_kwargs,
         )
