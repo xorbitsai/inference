@@ -70,6 +70,7 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "deepseek-v2-chat-0628",
     "glm-edge-v",
     "QvQ-72B-Preview",
+    "cogagent",
 ]
 
 
