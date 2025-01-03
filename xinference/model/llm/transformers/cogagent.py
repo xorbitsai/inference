@@ -179,7 +179,6 @@ class CogAgentChatModel(PytorchChatModel):
         # Compose the query with task, platform, and selected format instructions
         query = f"Task: {task}{history_str}\n{self._platform}{self._format}"
 
-        logger.info(f"query:\n{query}")
         return query, image
 
     def _sanitize_generate_config(
@@ -207,12 +206,9 @@ class CogAgentChatModel(PytorchChatModel):
             "do_sample": True,
         }
         prompt, _, chat_history = parse_messages(messages)
-        logger.info(f"prompt:{prompt}")
-        logger.info(f"chat_history:{chat_history}")
 
         query, image = self.get_query_and_history(prompt, chat_history)
-        logger.info(f"query:{query}")
-        logger.info(f"image:{image}")
+
         inputs = self._tokenizer.apply_chat_template(
             [{"role": "user", "image": image, "content": query}],
             add_generation_prompt=True,
