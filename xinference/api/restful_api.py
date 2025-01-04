@@ -1214,6 +1214,22 @@ class RESTfulAPI(CancelMixin):
     async def get_address(self) -> JSONResponse:
         return JSONResponse(content=self._supervisor_address)
 
+    async def _handle_server_closed(
+        self, e: Exception, replica_model_uid: bytes, model_uid: str
+    ):
+        try:
+            model_status = await (await self._get_supervisor_ref()).get_model_status(
+                replica_model_uid.decode("utf-8")
+            )
+            if model_status is not None and model_status.last_error:
+                raise HTTPException(status_code=500, detail=model_status.last_error)
+        except Exception as ex:
+            e = ex
+        logger.error(e, exc_info=True)
+        await self._report_error_event(model_uid, str(e))
+        self.handle_request_limit_error(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateCompletionRequest.parse_obj(raw_body)
@@ -1286,15 +1302,7 @@ class RESTfulAPI(CancelMixin):
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
             except xo.ServerClosed as e:
-                model_status = await (
-                    await self._get_supervisor_ref()
-                ).get_model_status(model.uid.decode("utf-8"))
-                if model_status is not None and model_status.last_error:
-                    raise HTTPException(status_code=500, detail=model_status.last_error)
-                logger.error(e, exc_info=True)
-                await self._report_error_event(model_uid, str(e))
-                self.handle_request_limit_error(e)
-                raise HTTPException(status_code=500, detail=str(e))
+                await self._handle_server_closed(e, model.uid, model_uid)
             except Exception as e:
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
