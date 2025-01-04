@@ -78,6 +78,9 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
 ]
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
+XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
+    os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
+)
 
 
 def request_limit(fn):
@@ -120,16 +123,22 @@ def oom_check(fn):
     @functools.wraps(fn)
     def _wrapper(self, *args, **kwargs):
         try:
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
             return fn(self, *args, **kwargs)
-        except OutOfMemoryError:
-            asyncio.run_coroutine_threadsafe(self._handle_oom_error(), loop=self._loop)
+        except OutOfMemoryError as ex:
+            asyncio.run_coroutine_threadsafe(
+                self._handle_oom_error(ex), loop=self._loop
+            )
 
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
         try:
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
             return await fn(self, *args, **kwargs)
-        except OutOfMemoryError:
-            await self._handle_oom_error()
+        except OutOfMemoryError as ex:
+            await self._handle_oom_error(ex)
 
     assert not inspect.isasyncgen(fn)
     assert not inspect.isgenerator(fn)
@@ -441,8 +450,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         )
 
-    async def _handle_oom_error(self):
-        error_message = f"Model actor is out of memory, model id: {self.model_uid()}"
+    async def _handle_oom_error(self, ex):
+        error_message = (
+            f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
+        )
         logger.exception(error_message)
         await self._worker_ref.update_model_status(
             self._replica_model_uid, last_error=error_message
@@ -454,6 +465,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         time_to_first_token = None
         final_usage = None
         try:
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
             for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
@@ -465,8 +478,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         output_type == "binary"
                     ), f"Unknown output type '{output_type}'"
                 yield sse_starlette.sse.ensure_bytes(v, None)
-        except OutOfMemoryError:
-            asyncio.run_coroutine_threadsafe(self._handle_oom_error(), loop=self._loop)
+        except OutOfMemoryError as ex:
+            asyncio.run_coroutine_threadsafe(
+                self._handle_oom_error(ex), loop=self._loop
+            )
         finally:
             if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
@@ -488,6 +503,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         time_to_first_token = None
         final_usage = None
         try:
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
             async for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
@@ -500,8 +517,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         output_type == "binary"
                     ), f"Unknown output type '{output_type}'"
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
-        except OutOfMemoryError:
-            await self._handle_oom_error()
+        except OutOfMemoryError as ex:
+            await self._handle_oom_error(ex)
         finally:
             coros = []
             if time_to_first_token is not None:
