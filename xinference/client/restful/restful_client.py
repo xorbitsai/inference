@@ -1397,13 +1397,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def abort_request(
-        self,
-        model_uid: str,
-        request_id: str,
-        reason: Optional[str] = None,
-        block_duration: int = 30,
-    ):
+    def abort_request(self, model_uid: str, request_id: str, block_duration: int = 30):
         """
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
@@ -1415,8 +1409,6 @@ class Client:
             Model uid.
         request_id: str
             Request id.
-        reason: str
-            Abort reason.
         block_duration: int
             The duration to make the request id abort. If set to 0, the abort_request will be immediate, which may
             prevent it from taking effect if it arrives before the request operation.
@@ -1425,15 +1417,9 @@ class Client:
         Dict
             Return empty dict.
         """
-        url = f"{self.base_url}/v1/models/{model_uid}/requests/abort"
+        url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
         response = requests.post(
-            url,
-            headers=self._headers,
-            json={
-                "block_duration": block_duration,
-                "request_id": request_id,
-                "reason": reason,
-            },
+            url, headers=self._headers, json={"block_duration": block_duration}
         )
         if response.status_code != 200:
             raise RuntimeError(
