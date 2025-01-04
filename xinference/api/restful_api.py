@@ -1214,21 +1214,16 @@ class RESTfulAPI(CancelMixin):
     async def get_address(self) -> JSONResponse:
         return JSONResponse(content=self._supervisor_address)
 
-    async def _handle_server_closed(
-        self, e: Exception, replica_model_uid: bytes, model_uid: str
-    ):
+    async def _get_model_last_error(self, replica_model_uid: bytes, e: Exception):
         try:
             model_status = await (await self._get_supervisor_ref()).get_model_status(
                 replica_model_uid.decode("utf-8")
             )
             if model_status is not None and model_status.last_error:
-                raise HTTPException(status_code=500, detail=model_status.last_error)
+                return Exception(model_status.last_error)
         except Exception as ex:
-            e = ex
-        logger.error(e, exc_info=True)
-        await self._report_error_event(model_uid, str(e))
-        self.handle_request_limit_error(e)
-        raise HTTPException(status_code=500, detail=str(e))
+            return ex
+        return e
 
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
@@ -1287,6 +1282,13 @@ class RESTfulAPI(CancelMixin):
                         f"Disconnected from client (via refresh/close) {request.client} during generate."
                     )
                     return
+                except xo.ServerClosed as ex:
+                    ex = await self._get_model_last_error(model.uid, ex)
+                    logger.exception("Completion stream got an error: %s", ex)
+                    await self._report_error_event(model_uid, str(ex))
+                    # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
+                    yield dict(data=json.dumps({"error": str(ex)}))
+                    return
                 except Exception as ex:
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
@@ -1302,7 +1304,11 @@ class RESTfulAPI(CancelMixin):
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
             except xo.ServerClosed as e:
-                await self._handle_server_closed(e, model.uid, model_uid)
+                e = await self._get_model_last_error(model.uid, e)
+                logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
+                self.handle_request_limit_error(e)
+                raise HTTPException(status_code=500, detail=str(e))
             except Exception as e:
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
