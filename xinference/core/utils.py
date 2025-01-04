@@ -18,8 +18,6 @@ import random
 import string
 import uuid
 import weakref
-import xoscar as xo
-from collections import defaultdict
 from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
@@ -296,51 +294,36 @@ class CancelMixin:
         self._running_tasks: weakref.WeakValueDictionary[
             str, asyncio.Task
         ] = weakref.WeakValueDictionary()
-        self._model_running_tasks: Dict[xo.ActorRefType, weakref.WeakSet] = defaultdict(
-            weakref.WeakSet
-        )
 
-    def _add_running_task(
-        self, request_id: Optional[str] = None, model: Optional[xo.ActorRefType] = None
-    ):
+    def _add_running_task(self, request_id: Optional[str]):
         """Add current asyncio task to the running task.
         :param request_id: The corresponding request id.
         """
+        if request_id is None:
+            return
+        running_task = self._running_tasks.get(request_id)
+        if running_task is not None:
+            if running_task.get_name() == self._CANCEL_TASK_NAME:
+                raise Exception(f"The request has been aborted: {request_id}")
+            raise Exception(f"Duplicate request id: {request_id}")
         current_task = asyncio.current_task()
         assert current_task is not None
-        if request_id is not None:
-            running_task = self._running_tasks.get(request_id)
-            if running_task is not None:
-                if running_task.get_name() == self._CANCEL_TASK_NAME:
-                    raise Exception(f"The request has been aborted: {request_id}")
-                raise Exception(f"Duplicate request id: {request_id}")
-            self._running_tasks[request_id] = current_task
-        if model is not None:
-
-            def _finalize():
-                running_tasks = self._model_running_tasks.get(model)
-                if not running_tasks or len(running_tasks) == 0:
-                    self._model_running_tasks.pop(model, None)
-
-            weakref.finalize(current_task, _finalize)
-            self._model_running_tasks[model].add(current_task)
+        self._running_tasks[request_id] = current_task
 
     def _cancel_running_task(
         self,
         request_id: Optional[str],
-        reason: Optional[str],
         block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     ):
         """Cancel the running asyncio task.
         :param request_id: The request id to cancel.
-        :param reason: The reason.
         :param block_duration: The duration seconds to ensure the request can't be executed.
         """
         if request_id is None:
             return
         running_task = self._running_tasks.pop(request_id, None)
         if running_task is not None:
-            running_task.cancel(reason)
+            running_task.cancel()
 
         async def block_task():
             """This task is for blocking the request for a duration."""
@@ -355,15 +338,3 @@ class CancelMixin:
             self._running_tasks[request_id] = asyncio.create_task(
                 block_task(), name=self._CANCEL_TASK_NAME
             )
-
-    def _cancel_model_running_tasks(self, model: xo.ActorRefType, reason: str):
-        """Cancel all the running tasks belongs to model replica.
-        :param model: The model ref.
-        :param reason: The reason.
-        """
-        running_tasks = self._model_running_tasks.get(model)
-        for task in running_tasks:
-            try:
-                task.cancel(reason)
-            except Exception as e:
-                logger.error(e, exc_info=True)

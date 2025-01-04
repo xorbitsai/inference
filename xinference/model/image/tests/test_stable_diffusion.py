@@ -212,7 +212,7 @@ def test_restful_api_abort(setup, model_name):
     model = client.get_model(model_uid)
 
     request_id = str(uuid.uuid4())
-    client.abort_request(model_uid, request_id, block_duration=1)
+    client.abort_request(model_uid, request_id, 1)
     time.sleep(2)
     r = model.text_to_image(
         prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
