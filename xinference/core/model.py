@@ -127,6 +127,7 @@ def oom_check(fn):
                 raise OutOfMemoryError("Test Out of Memory Error")
             return fn(self, *args, **kwargs)
         except OutOfMemoryError as ex:
+            assert self._loop is not None
             asyncio.run_coroutine_threadsafe(
                 self._handle_oom_error(ex), loop=self._loop
             )
@@ -479,6 +480,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     ), f"Unknown output type '{output_type}'"
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError as ex:
+            assert self._loop is not None
             asyncio.run_coroutine_threadsafe(
                 self._handle_oom_error(ex), loop=self._loop
             )
