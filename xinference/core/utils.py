@@ -333,6 +333,7 @@ class CancelMixin:
     ):
         """Cancel the running asyncio task.
         :param request_id: The request id to cancel.
+        :param reason: The reason.
         :param block_duration: The duration seconds to ensure the request can't be executed.
         """
         if request_id is None:
@@ -356,6 +357,10 @@ class CancelMixin:
             )
 
     def _cancel_model_running_tasks(self, model: xo.ActorRefType, reason: str):
+        """Cancel all the running tasks belongs to model replica.
+        :param model: The model ref.
+        :param reason: The reason.
+        """
         running_tasks = self._model_running_tasks.get(model)
         for task in running_tasks:
             try:

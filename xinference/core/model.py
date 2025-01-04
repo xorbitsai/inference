@@ -465,8 +465,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 f"Model actor is out of memory, model id: {self.model_uid()}"
             )
             logger.exception(error_message)
-            self._worker_ref.set_model_error(error_message)
-            requests.get()
+            self._worker_ref.update_model_status(
+                self._replica_model_uid, error_message=error_message
+            )
             os._exit(1)
         finally:
             if self._loop is not None and time_to_first_token is not None:

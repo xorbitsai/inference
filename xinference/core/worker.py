@@ -22,6 +22,7 @@ import signal
 import threading
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
@@ -58,6 +59,11 @@ else:
     MODEL_ACTOR_AUTO_RECOVER_LIMIT = None
 
 
+@dataclass
+class ModelStatus:
+    error_message: str = ""
+
+
 class WorkerActor(xo.StatelessActor):
     def __init__(
         self,
@@ -90,6 +96,7 @@ class WorkerActor(xo.StatelessActor):
         # attributes maintained after model launched:
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
+        self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
@@ -902,6 +909,7 @@ class WorkerActor(xo.StatelessActor):
                 raise
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_description
+            self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
                 model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
@@ -976,6 +984,7 @@ class WorkerActor(xo.StatelessActor):
                 status = LaunchStatus.ERROR.name
             else:
                 status = LaunchStatus.TERMINATED.name
+                self._model_uid_to_model_status.pop(model_uid, None)
 
             if self._status_guard_ref is None:
                 _ = await self.get_supervisor_ref()
@@ -1010,6 +1019,9 @@ class WorkerActor(xo.StatelessActor):
 
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        model_status = self._model_uid_to_model_status.get(model_uid)
+        if model_status and model_status.error_message:
+            raise Exception(model_status.error_message)
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             raise ValueError(f"Model not found, uid: {model_uid}")
@@ -1137,6 +1149,12 @@ class WorkerActor(xo.StatelessActor):
             "models": await self.list_models(),
         }
         return ret
+
+    def update_model_status(self, model_uid: str, **kwargs):
+        model_status = self._model_uid_to_model_status.get(model_uid)
+        if model_status is not None:
+            for k, v in kwargs:
+                setattr(model_status, k, v)
 
     @staticmethod
     def record_metrics(name, op, kwargs):
