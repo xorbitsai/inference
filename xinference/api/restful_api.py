@@ -1285,6 +1285,16 @@ class RESTfulAPI(CancelMixin):
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
+            except xo.ServerClosed as e:
+                model_status = await (
+                    await self._get_supervisor_ref()
+                ).get_model_status(model.uid.decode("utf-8"))
+                if model_status is not None and model_status.last_error:
+                    raise HTTPException(status_code=500, detail=model_status.last_error)
+                logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
+                self.handle_request_limit_error(e)
+                raise HTTPException(status_code=500, detail=str(e))
             except Exception as e:
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))

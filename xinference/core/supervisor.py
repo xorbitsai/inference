@@ -1149,6 +1149,15 @@ class SupervisorActor(xo.StatelessActor):
         return await worker_ref.get_model(model_uid=replica_model_uid)
 
     @log_async(logger=logger)
+    async def get_model_status(self, replica_model_uid: str):
+        worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_ref is None:
+            raise ValueError(
+                f"Model not found in the model list, uid: {replica_model_uid}"
+            )
+        return await worker_ref.get_model_status(replica_model_uid)
+
+    @log_async(logger=logger)
     async def describe_model(self, model_uid: str) -> Dict[str, Any]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:

@@ -118,20 +118,18 @@ def request_limit(fn):
 
 def oom_check(fn):
     @functools.wraps(fn)
-    def _wrapper(*args, **kwargs):
+    def _wrapper(self, *args, **kwargs):
         try:
-            return fn(*args, **kwargs)
+            return fn(self, *args, **kwargs)
         except OutOfMemoryError:
-            logger.exception("Model actor is out of memory.")
-            os._exit(1)
+            asyncio.run_coroutine_threadsafe(self._handle_oom_error(), loop=self._loop)
 
     @functools.wraps(fn)
-    async def _async_wrapper(*args, **kwargs):
+    async def _async_wrapper(self, *args, **kwargs):
         try:
-            return await fn(*args, **kwargs)
+            return await fn(self, *args, **kwargs)
         except OutOfMemoryError:
-            logger.exception("Model actor is out of memory.")
-            os._exit(1)
+            await self._handle_oom_error()
 
     assert not inspect.isasyncgen(fn)
     assert not inspect.isgenerator(fn)
@@ -443,6 +441,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         )
 
+    async def _handle_oom_error(self):
+        error_message = f"Model actor is out of memory, model id: {self.model_uid()}"
+        logger.exception(error_message)
+        await self._worker_ref.update_model_status(
+            self._replica_model_uid, last_error=error_message
+        )
+        os._exit(1)
+
     def _to_generator(self, output_type: str, gen: types.GeneratorType):
         start_time = time.time()
         time_to_first_token = None
@@ -460,14 +466,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     ), f"Unknown output type '{output_type}'"
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
-            error_message = (
-                f"Model actor is out of memory, model id: {self.model_uid()}"
-            )
-            logger.exception(error_message)
-            self._worker_ref.update_model_status(
-                self._replica_model_uid, error_message=error_message
-            )
-            os._exit(1)
+            asyncio.run_coroutine_threadsafe(self._handle_oom_error(), loop=self._loop)
         finally:
             if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
@@ -502,10 +501,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     ), f"Unknown output type '{output_type}'"
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
         except OutOfMemoryError:
-            logger.exception(
-                "Model actor is out of memory, model id: %s", self.model_uid()
-            )
-            os._exit(1)
+            await self._handle_oom_error()
         finally:
             coros = []
             if time_to_first_token is not None:

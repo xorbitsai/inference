@@ -61,7 +61,7 @@ else:
 
 @dataclass
 class ModelStatus:
-    error_message: str = ""
+    last_error: str = ""
 
 
 class WorkerActor(xo.StatelessActor):
@@ -1020,8 +1020,8 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
-        if model_status and model_status.error_message:
-            raise Exception(model_status.error_message)
+        if model_status and model_status.last_error:
+            raise Exception(model_status.last_error)
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             raise ValueError(f"Model not found, uid: {model_uid}")
@@ -1153,8 +1153,11 @@ class WorkerActor(xo.StatelessActor):
     def update_model_status(self, model_uid: str, **kwargs):
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status is not None:
-            for k, v in kwargs:
+            for k, v in kwargs.items():
                 setattr(model_status, k, v)
+
+    def get_model_status(self, model_uid: str):
+        return self._model_uid_to_model_status.get(model_uid)
 
     @staticmethod
     def record_metrics(name, op, kwargs):
