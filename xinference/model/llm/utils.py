@@ -120,11 +120,11 @@ class ChatModelMixin:
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod
-    def handle_messages_with_content_list_to_str_conversion(
+    def convert_messages_with_content_list_to_str_conversion(
         messages: List[Dict],
     ) -> List[Dict]:
         """
-        Handles messages with content list conversion
+        Handles messages with content list conversion, in order to support Cline, see GH#2659 .
         """
         for message in messages:
             texts = ""
