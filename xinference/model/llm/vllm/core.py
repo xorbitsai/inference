@@ -775,6 +775,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        messages = self.convert_messages_with_content_list_to_str_conversion(messages)
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = {}
