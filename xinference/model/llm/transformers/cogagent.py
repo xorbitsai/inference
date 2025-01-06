@@ -195,14 +195,12 @@ class CogAgentChatModel(PytorchChatModel):
         if generate_config is not None:
             self._platform = generate_config.pop("platform", self._platform)
             self._format = generate_config.pop("format", self._format)
-        logger.info(f"_platform:{self._platform}")
-        logger.info(f"_format:{self._format}")
 
-        generate_config = self._sanitize_generate_config(generate_config)
-        stream = generate_config.get("stream")
+        sanitize_generate_config = self._sanitize_generate_config(generate_config)
+        stream = sanitize_generate_config.get("stream")
         sanitized_config = {
-            "max_length": generate_config.get("max_tokens", 512),
-            "top_k": generate_config.get("top_k", 1),
+            "max_length": sanitize_generate_config.get("max_tokens", 512),
+            "top_k": sanitize_generate_config.get("top_k", 1),
             "do_sample": True,
         }
         prompt, _, chat_history = parse_messages(messages)
