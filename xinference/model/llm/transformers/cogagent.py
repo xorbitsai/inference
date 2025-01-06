@@ -219,6 +219,7 @@ class CogAgentChatModel(PytorchChatModel):
             [{"role": "user", "image": image, "content": query}],
             self.model_family.chat_template,
             self._tokenizer,
+            tokenize=True,
             **full_context_kwargs,
         )
         logger.info(f"inputs:{inputs}")
