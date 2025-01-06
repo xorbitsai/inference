@@ -15,7 +15,7 @@ import logging
 import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterator, List, Literal, Optional, Union, cast
+from typing import Dict, Iterator, List, Literal, Optional, Union
 
 import torch
 
@@ -46,14 +46,14 @@ class CogAgentChatModel(PytorchChatModel):
         self._device = None
         self._tokenizer = None
         self._model = None
-        self._platform: Literal["Mac", "WIN", "Mobile"] = "Mac"
+        self._platform: Literal["Mac", "WIN", "Mobile"] | None = "Mac"
         self._format: Literal[
             "(Answer in Action-Operation-Sensitive format.)",
             "(Answer in Status-Plan-Action-Operation format.)",
             "(Answer in Status-Action-Operation-Sensitive format.)",
             "(Answer in Status-Action-Operation format.)",
             "(Answer in Action-Operation format.)",
-        ] = "(Answer in Action-Operation-Sensitive format.)"
+        ] | None = "(Answer in Action-Operation-Sensitive format.)"
 
     @classmethod
     def match(
@@ -185,15 +185,6 @@ class CogAgentChatModel(PytorchChatModel):
         query = f"Task: {task}{history_str}\n{self._platform}{self._format}"
         logger.info(f"query:{query}")
         return query, image
-
-    def _sanitize_generate_config(
-        self,
-        generate_config: Optional[CogagentGenerateConfig],
-    ) -> CogagentGenerateConfig:
-        logger.info(f"generate_config:{generate_config}")
-
-        generate_config = super()._sanitize_generate_config(generate_config)
-        return cast(CogagentGenerateConfig, generate_config)
 
     @cache_clean
     def chat(
