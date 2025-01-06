@@ -209,18 +209,13 @@ class CogAgentChatModel(PytorchChatModel):
 
         query, image = self.get_query_and_history(prompt, chat_history)
 
-        full_context_kwargs = {
-            "tokenize": True,
-            "return_tensors": "pt",
-            "return_dict": True,
-        }
-        assert self.model_family.chat_template is not None
-        inputs = self.get_full_context(
+        inputs = self._tokenizer.apply_chat_template(
             [{"role": "user", "image": image, "content": query}],
-            self.model_family.chat_template,
-            self._tokenizer,
-            **full_context_kwargs,
-        )
+            add_generation_prompt=True,
+            tokenize=True,
+            return_tensors="pt",
+            return_dict=True,
+        ).to(self._model.device)
 
         if stream:
             it = self._streaming_chat_response(inputs, sanitized_config)
