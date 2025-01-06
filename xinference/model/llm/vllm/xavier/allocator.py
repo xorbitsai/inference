@@ -1,11 +1,27 @@
+from typing import Any, Dict, Optional
+
 from vllm.core.block.cpu_gpu_block_allocator import CpuGpuBlockAllocator
 from vllm.core.block.interfaces import DeviceAwareBlockAllocator
 from vllm.platforms import current_platform
+from vllm.utils import Device
 
 from .block import XavierPrefixCachingBlockAllocator
 
 
 class XavierCpuGpuBlockAllocator(CpuGpuBlockAllocator):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._xavier_config: Optional[Dict[str, Any]] = None
+
+    @property
+    def xavier_config(self):
+        return self._xavier_config
+
+    @xavier_config.setter
+    def xavier_config(self, v: Dict[str, Any]):
+        self._xavier_config = v
+        self._allocators[Device.GPU].xavier_config = v
+
     @staticmethod
     def create(
         allocator_type: str,
@@ -21,6 +37,7 @@ class XavierCpuGpuBlockAllocator(CpuGpuBlockAllocator):
         cpu_block_ids = block_ids[num_gpu_blocks:]
 
         gpu_allocator = XavierPrefixCachingBlockAllocator(
+            run_isolation=True,
             num_blocks=num_gpu_blocks,
             block_size=block_size,
             block_ids=gpu_block_ids,

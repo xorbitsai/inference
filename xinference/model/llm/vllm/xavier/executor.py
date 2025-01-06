@@ -19,7 +19,6 @@ class XavierExecutor(GPUExecutorAsync):
         super()._init_executor()
         self._transfer_ref = None
         self._block_tracker_ref = None
-        self._executed_block_details: Set[Tuple[int, int]] = set()
 
     async def init_transfer(self):
         transfer_ref = await self._get_transfer_ref()
@@ -65,17 +64,23 @@ class XavierExecutor(GPUExecutorAsync):
             for seq_id, block_ids in block_tables.items():
                 for _id in block_ids:
                     b = scheduler.block_manager.get_block_by_block_id(seq_id, _id)
+                    executed = scheduler.block_manager.get_block_status_by_block_id(
+                        "executed", _id
+                    )
+                    print(
+                        f"======Executing: {b, b.block_id, b.content_hash, b.computed, b.pool_id, executed}"
+                    )
                     detail = (b.content_hash, b.block_id)
-                    if (b.content_hash is not None) and (
-                        detail not in self._executed_block_details
-                    ):
+                    if (b.content_hash is not None) and (not executed):
                         executed_blocks_details.add(detail)
 
         res = await super().execute_model_async(execute_model_req)
 
-        await block_tracker_ref.set_blocks(
+        await block_tracker_ref.register_blocks(
             virtual_engine, list(executed_blocks_details), rank_address
         )
-        scheduler.update_executed_block_details(executed_blocks_details)
-        self._executed_block_details.update(executed_blocks_details)
+
+        for _, _id in executed_blocks_details:
+            scheduler.block_manager.set_block_status_by_block_id("executed", _id, True)
+
         return res

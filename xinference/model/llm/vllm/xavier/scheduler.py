@@ -1,17 +1,7 @@
 import asyncio
 import time
 from collections import deque
-from typing import (
-    Callable,
-    Deque,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    no_type_check,
-)
+from typing import Callable, Deque, Dict, List, Optional, Set, Tuple, no_type_check
 
 import xoscar as xo
 from vllm.config import CacheConfig, LoRAConfig, SchedulerConfig
@@ -56,13 +46,14 @@ class XavierScheduler(Scheduler):
             pipeline_parallel_size,
             output_proc_callback,
         )
+        xavier_config["virtual_engine"] = virtual_engine  # type: ignore
+        self.block_manager.xavier_config = xavier_config
         self._xavier_config = xavier_config
         self._virtual_engine = virtual_engine
         self._block_tracker_ref = None
         self._transfer_ref = None
         self._transferring: Deque[SequenceGroup] = deque()
         self._transfer_status: Dict[SequenceGroup, Set[Tuple[int, int]]] = {}
-        self._transferred_or_executed_block_details: Set[Tuple[int, int]] = set()
 
     async def _get_block_tracker_ref(self):
         from .block_tracker import VLLMBlockTracker
@@ -85,9 +76,6 @@ class XavierScheduler(Scheduler):
             )
         return self._transfer_ref
 
-    def update_executed_block_details(self, value: Iterable[Tuple[int, int]]):
-        self._transferred_or_executed_block_details.update(value)
-
     async def _get_transfer_details(
         self,
         virtual_engine: int,
@@ -102,11 +90,18 @@ class XavierScheduler(Scheduler):
             for _id in block_ids:
                 block: Block = self.block_manager.get_block_by_block_id(seq.seq_id, _id)
                 detail = (block.content_hash, _id)
-                print(
-                    f"=======Details: {block}, {block.computed}, {block.block_id}, {block.content_hash}"
-                )
-                if (block.content_hash is not None) and (
-                    detail not in self._transferred_or_executed_block_details
+                if (
+                    (block.content_hash is not None)
+                    and (
+                        not self.block_manager.get_block_status_by_block_id(
+                            "transferred", block.block_id
+                        )
+                    )
+                    and (
+                        not self.block_manager.get_block_status_by_block_id(
+                            "executed", block.block_id
+                        )
+                    )
                 ):
                     details.add(detail)
                     detail_to_block[detail] = block
@@ -140,14 +135,14 @@ class XavierScheduler(Scheduler):
             (b.content_hash, b.block_id) for b in local
         }
         self._transfer_status[seq_group] = transferred_blocks
-        self._transferred_or_executed_block_details.update(transferred_blocks)
+        for _, _id in transferred_blocks:
+            self.block_manager.set_block_status_by_block_id("transferred", _id, True)
         if is_prefill:
             self.waiting.appendleft(seq_group)
         else:
             self.running.appendleft(seq_group)
         self._transferring.remove(seq_group)
         print(f"=========Scheduler: Receive done")
-        # print(f"=========Num prompt token: {seq_group.get_seqs(SequenceStatus.WAITING)[0].get_len()}")
 
     @no_type_check
     async def schedule(

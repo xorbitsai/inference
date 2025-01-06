@@ -14,10 +14,15 @@ class VLLMBlockTracker(xo.StatelessActor):
         self._hash_to_address_and_block_id: Dict[
             int, Dict[int, Set[Tuple[str, int]]]
         ] = {}
+        # engine -> address_to_hash_and_block_id
+        self._address_to_hash_and_block_id: Dict[
+            int, Dict[str, Set[Tuple[int, int]]]
+        ] = {}
 
-    def set_blocks(
+    def register_blocks(
         self, virtual_engine: int, block_infos: List[Tuple[int, int]], address: str
     ):
+        # Update query meta
         if virtual_engine not in self._hash_to_address_and_block_id:
             self._hash_to_address_and_block_id[virtual_engine] = {}
         hash_to_address_and_block_id = self._hash_to_address_and_block_id[
@@ -30,6 +35,16 @@ class VLLMBlockTracker(xo.StatelessActor):
                 }
             else:
                 hash_to_address_and_block_id[hash_content].add((address, block_id))
+
+        # Update remove meta
+        if virtual_engine not in self._address_to_hash_and_block_id:
+            self._address_to_hash_and_block_id[virtual_engine] = {}
+        address_to_hash_and_block_id = self._address_to_hash_and_block_id[
+            virtual_engine
+        ]
+        if address not in address_to_hash_and_block_id:
+            address_to_hash_and_block_id[address] = set()
+        address_to_hash_and_block_id[address].update(block_infos)
 
     def query_blocks(
         self, virtual_engine: int, hash_contents: List[Tuple[int, int]]
@@ -53,3 +68,32 @@ class VLLMBlockTracker(xo.StatelessActor):
                 else:
                     remote[address].add((hash_content, block_id, _id))
         return remote
+
+    def unregister_block(self, virtual_engine: int, address: str, block_id: int):
+        if (virtual_engine not in self._address_to_hash_and_block_id) or (
+            virtual_engine not in self._hash_to_address_and_block_id
+        ):
+            return
+
+        # Update remove meta
+        address_to_hash_and_block_id = self._address_to_hash_and_block_id[
+            virtual_engine
+        ]
+        if address not in address_to_hash_and_block_id:
+            return
+        hash_and_block_id = address_to_hash_and_block_id[address]
+        to_remove = set()
+        for hash_content, _id in hash_and_block_id.copy():
+            if _id == block_id:
+                detail: Tuple[int, int] = (hash_content, block_id)
+                hash_and_block_id.discard(detail)
+                to_remove.add(detail)
+                break
+
+        # Update query meta
+        hash_to_address_and_block_id = self._hash_to_address_and_block_id[
+            virtual_engine
+        ]
+        for hash_content, _id in to_remove:
+            if hash_content in hash_to_address_and_block_id:
+                hash_to_address_and_block_id[hash_content].discard((address, _id))
