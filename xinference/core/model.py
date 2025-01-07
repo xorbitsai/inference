@@ -262,9 +262,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             self._handle_pending_requests()
         )
 
-        await self._get_worker_ref()
-        assert self._worker_ref is not None
-
         if self.allow_batching():
             from .scheduler import SchedulerActor
 
@@ -456,7 +453,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
         )
         logger.exception(error_message)
-        await self._worker_ref.update_model_status(
+        worker_ref = await self._get_worker_ref()
+        await worker_ref.update_model_status(
             self._replica_model_uid, last_error=error_message
         )
         os._exit(1)
