@@ -107,7 +107,7 @@ class XavierScheduler(Scheduler):
         remote = await tracker_ref.query_blocks(virtual_engine, list(details))
         local: Set[int] = set()
         for _, remote_details in remote.items():
-            for hash_content, _, local_block_id in remote_details:
+            for _, _, local_block_id in remote_details:
                 local.add(local_block_id)
         return local, remote
 
