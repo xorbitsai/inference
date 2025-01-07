@@ -2062,7 +2062,7 @@ class RESTfulAPI(CancelMixin):
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
                     return
                 except Exception as ex:
-                    e = await self._get_model_last_error(model.uid, ex)
+                    ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
