@@ -1215,6 +1215,8 @@ class RESTfulAPI(CancelMixin):
         return JSONResponse(content=self._supervisor_address)
 
     async def _get_model_last_error(self, replica_model_uid: bytes, e: Exception):
+        if not isinstance(e, xo.ServerClosed):
+            return e
         try:
             model_status = await (await self._get_supervisor_ref()).get_model_status(
                 replica_model_uid.decode("utf-8")
@@ -1282,14 +1284,8 @@ class RESTfulAPI(CancelMixin):
                         f"Disconnected from client (via refresh/close) {request.client} during generate."
                     )
                     return
-                except xo.ServerClosed as ex:
-                    ex = await self._get_model_last_error(model.uid, ex)
-                    logger.exception("Completion stream got an error: %s", ex)
-                    await self._report_error_event(model_uid, str(ex))
-                    # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
-                    yield dict(data=json.dumps({"error": str(ex)}))
-                    return
                 except Exception as ex:
+                    ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
@@ -1303,13 +1299,8 @@ class RESTfulAPI(CancelMixin):
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
-            except xo.ServerClosed as e:
-                e = await self._get_model_last_error(model.uid, e)
-                logger.error(e, exc_info=True)
-                await self._report_error_event(model_uid, str(e))
-                self.handle_request_limit_error(e)
-                raise HTTPException(status_code=500, detail=str(e))
             except Exception as e:
+                e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
@@ -1341,14 +1332,11 @@ class RESTfulAPI(CancelMixin):
         try:
             embedding = await model.create_embedding(body.input, **kwargs)
             return Response(embedding, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def convert_ids_to_tokens(self, request: Request) -> Response:
@@ -1376,14 +1364,11 @@ class RESTfulAPI(CancelMixin):
         try:
             decoded_texts = await model.convert_ids_to_tokens(body.input, **kwargs)
             return Response(decoded_texts, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def rerank(self, request: Request) -> Response:
@@ -1417,14 +1402,11 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(scores, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_transcriptions(
@@ -1469,13 +1451,11 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=transcription, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_translations(
@@ -1520,13 +1500,11 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=translation, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_speech(
@@ -1582,14 +1560,11 @@ class RESTfulAPI(CancelMixin):
                 )
             else:
                 return Response(media_type="application/octet-stream", content=out)
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def get_progress(self, request_id: str) -> JSONResponse:
@@ -1635,14 +1610,11 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def sdapi_options(self, request: Request) -> Response:
@@ -1713,14 +1685,11 @@ class RESTfulAPI(CancelMixin):
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def sdapi_img2img(self, request: Request) -> Response:
@@ -1747,14 +1716,11 @@ class RESTfulAPI(CancelMixin):
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_variations(
@@ -1803,13 +1769,11 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_inpainting(
@@ -1865,13 +1829,11 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_ocr(
@@ -1911,13 +1873,11 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_flexible_infer(self, request: Request) -> Response:
@@ -1944,14 +1904,11 @@ class RESTfulAPI(CancelMixin):
         try:
             result = await model.infer(**kwargs)
             return Response(result, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_videos(self, request: Request) -> Response:
@@ -1976,14 +1933,11 @@ class RESTfulAPI(CancelMixin):
                 **kwargs,
             )
             return Response(content=video_list, media_type="application/json")
-        except RuntimeError as re:
-            logger.error(re, exc_info=True)
-            await self._report_error_event(model_uid, str(re))
-            self.handle_request_limit_error(re)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
+            e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_chat_completion(self, request: Request) -> Response:
@@ -2108,6 +2062,7 @@ class RESTfulAPI(CancelMixin):
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
                     return
                 except Exception as ex:
+                    e = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
@@ -2126,6 +2081,7 @@ class RESTfulAPI(CancelMixin):
                 )
                 return Response(content=data, media_type="application/json")
             except Exception as e:
+                e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
