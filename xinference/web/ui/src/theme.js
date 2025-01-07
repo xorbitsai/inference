@@ -1,7 +1,7 @@
 import { createTheme } from '@mui/material/styles'
 
 // mui theme settings
-export const themeSettings = () => {
+export const themeSettings = (mode) => {
   return {
     ERROR_COLOR: '#d8342c',
     typography: {
@@ -32,10 +32,13 @@ export const themeSettings = () => {
         fontSize: 14,
       },
     },
+    palette: {
+      mode: mode,
+    },
   }
 }
 
-export const useMode = () => {
-  const theme = createTheme(themeSettings())
+export const useMode = (mode = 'light') => {
+  const theme = createTheme(themeSettings(mode))
   return [theme]
 }
