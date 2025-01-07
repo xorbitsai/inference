@@ -53,7 +53,7 @@ class XavierScheduler(Scheduler):
         self._block_tracker_ref = None
         self._transfer_ref = None
         self._transferring: Deque[SequenceGroup] = deque()
-        self._transfer_status: Dict[SequenceGroup, Set[Tuple[int, int]]] = {}
+        self._transfer_status: Dict[SequenceGroup, Set[int]] = {}
 
     async def _get_block_tracker_ref(self):
         from .block_tracker import VLLMBlockTracker
@@ -81,10 +81,9 @@ class XavierScheduler(Scheduler):
         virtual_engine: int,
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
-    ) -> Tuple[Set[Block], Dict[str, Set[Tuple[int, int, int]]]]:
+    ) -> Tuple[Set[int], Dict[str, Set[Tuple[int, int, int]]]]:
         print(f"======Scheduled blocks: {block_tables}")
         details: Set[Tuple[int, int]] = set()
-        detail_to_block: Dict[Tuple[int, int], Block] = {}
         for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
             block_ids = block_tables[seq.seq_id]
             for _id in block_ids:
@@ -104,13 +103,12 @@ class XavierScheduler(Scheduler):
                     )
                 ):
                     details.add(detail)
-                    detail_to_block[detail] = block
         tracker_ref = await self._get_block_tracker_ref()
         remote = await tracker_ref.query_blocks(virtual_engine, list(details))
-        local: Set[Block] = set()
+        local: Set[int] = set()
         for _, remote_details in remote.items():
             for hash_content, _, local_block_id in remote_details:
-                local.add(detail_to_block[(hash_content, local_block_id)])
+                local.add(local_block_id)
         return local, remote
 
     async def _do_transfer_inner(
@@ -124,18 +122,15 @@ class XavierScheduler(Scheduler):
     async def _do_transfer(
         self,
         virtual_engine: int,
-        local: Set[Block],
+        local: Set[int],
         remote: Dict[str, Set[Tuple[int, int, int]]],
         seq_group: SequenceGroup,
         is_prefill: bool,
     ):
         print(f"=========Scheduler: Will recv {remote}")
         await self._do_transfer_inner(virtual_engine, remote)
-        transferred_blocks: Set[Tuple[int, int]] = {
-            (b.content_hash, b.block_id) for b in local
-        }
-        self._transfer_status[seq_group] = transferred_blocks
-        for _, _id in transferred_blocks:
+        self._transfer_status[seq_group] = local
+        for _id in local:
             self.block_manager.set_block_status_by_block_id("transferred", _id, True)
         if is_prefill:
             self.waiting.appendleft(seq_group)
@@ -238,9 +233,7 @@ class XavierScheduler(Scheduler):
                 if seq_group in self._transfer_status:
                     transferred_blocks = self._transfer_status[seq_group]
                     if transferred_blocks:
-                        common_computed_block_nums.extend(
-                            [x[1] for x in transferred_blocks]
-                        )
+                        common_computed_block_nums.extend(transferred_blocks)
                         common_computed_block_nums = list(
                             sorted(common_computed_block_nums)
                         )
