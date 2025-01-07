@@ -67,9 +67,6 @@ class XavierExecutor(GPUExecutorAsync):
                     executed = scheduler.block_manager.get_block_status_by_block_id(
                         "executed", _id
                     )
-                    print(
-                        f"======Executing: {b, b.block_id, b.content_hash, b.computed, b.pool_id, executed}"
-                    )
                     detail = (b.content_hash, b.block_id)
                     if (b.content_hash is not None) and (not executed):
                         executed_blocks_details.add(detail)
@@ -82,5 +79,13 @@ class XavierExecutor(GPUExecutorAsync):
 
         for _, _id in executed_blocks_details:
             scheduler.block_manager.set_block_status_by_block_id("executed", _id, True)
+
+        # TEST
+        for _, _id in executed_blocks_details:
+            await block_tracker_ref.unregister_block(virtual_engine, rank_address, _id)
+            scheduler.block_manager.set_block_status_by_block_id(
+                "transferred", _id, False
+            )
+            scheduler.block_manager.set_block_status_by_block_id("executed", _id, False)
 
         return res

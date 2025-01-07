@@ -1,4 +1,4 @@
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import xoscar as xo
 
@@ -56,7 +56,9 @@ class VLLMBlockTracker(xo.StatelessActor):
         ]
         remote: Dict[str, Set[Tuple[int, int, int]]] = {}
         for hash_content, _id in hash_contents:
-            if hash_content in hash_to_address_and_block_id:
+            if (
+                hash_content in hash_to_address_and_block_id
+            ) and hash_to_address_and_block_id[hash_content]:
                 # TODO
                 address, block_id = next(
                     iter(hash_to_address_and_block_id[hash_content])
@@ -82,18 +84,18 @@ class VLLMBlockTracker(xo.StatelessActor):
         if address not in address_to_hash_and_block_id:
             return
         hash_and_block_id = address_to_hash_and_block_id[address]
-        to_remove = set()
+        detail: Optional[Tuple[int, int]] = None
         for hash_content, _id in hash_and_block_id.copy():
             if _id == block_id:
-                detail: Tuple[int, int] = (hash_content, block_id)
+                detail = (hash_content, block_id)
                 hash_and_block_id.discard(detail)
-                to_remove.add(detail)
                 break
 
         # Update query meta
-        hash_to_address_and_block_id = self._hash_to_address_and_block_id[
-            virtual_engine
-        ]
-        for hash_content, _id in to_remove:
-            if hash_content in hash_to_address_and_block_id:
-                hash_to_address_and_block_id[hash_content].discard((address, _id))
+        if detail is not None:
+            hash_to_address_and_block_id = self._hash_to_address_and_block_id[
+                virtual_engine
+            ]
+            _hash = detail[0]
+            if _hash in hash_to_address_and_block_id:
+                hash_to_address_and_block_id[_hash].discard((address, detail[1]))

@@ -127,7 +127,6 @@ class XavierScheduler(Scheduler):
         seq_group: SequenceGroup,
         is_prefill: bool,
     ):
-        print(f"=========Scheduler: Will recv {remote}")
         await self._do_transfer_inner(virtual_engine, remote)
         self._transfer_status[seq_group] = local
         for _id in local:
@@ -315,8 +314,6 @@ class XavierScheduler(Scheduler):
                 if seq_group in self._transfer_status:
                     self.running.remove(seq_group)
                     print(f"=======Remove: {seq_group}")
-            print(f"========running deque: {len(self.running)}")
-            print(f"========waiting deque: {len(self.waiting)}")
 
         # Now that the batch has been created, we can assume all blocks in the
         # batch will have been computed before the next scheduling invocation.
