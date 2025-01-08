@@ -36,7 +36,7 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
             )
             self._isolation.start()
         else:
-            self._isolation = None
+            self._isolation = None  # type: ignore
 
     def __del__(self):
         if self._isolation is not None:
