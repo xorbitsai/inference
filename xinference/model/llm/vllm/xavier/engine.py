@@ -1,6 +1,5 @@
 from typing import Dict, List, Optional, Type, Union
 
-from _weakref import ReferenceType
 from vllm import AsyncEngineArgs, EmbeddingRequestOutput, RequestOutput
 from vllm.config import VllmConfig
 from vllm.engine.async_llm_engine import AsyncLLMEngine, _AsyncLLMEngine
@@ -221,12 +220,5 @@ class XavierEngine(AsyncLLMEngine):
         kwargs["vllm_config"].xavier_config = self._xavier_config
         super().__init__(*args, **kwargs)
 
-    @staticmethod
-    async def run_engine_loop(engine_ref: ReferenceType):
-        engine: Optional[AsyncLLMEngine] = engine_ref()
-        if not engine:
-            return
-
-        await engine.engine.model_executor.init_transfer()
-        print("====Done init transfer")
-        await AsyncLLMEngine.run_engine_loop(engine_ref)
+    async def init_xavier(self):
+        await self.engine.model_executor.init_transfer()

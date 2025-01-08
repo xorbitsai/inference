@@ -4,6 +4,8 @@ import xoscar as xo
 from vllm.executor.gpu_executor import GPUExecutorAsync
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest, PoolerOutput
+from vllm.utils import is_pin_memory_available
+from vllm.worker.cache_engine import CacheEngine
 
 if TYPE_CHECKING:
     from .scheduler import XavierScheduler
@@ -22,7 +24,36 @@ class XavierExecutor(GPUExecutorAsync):
 
     async def init_transfer(self):
         transfer_ref = await self._get_transfer_ref()
-        await transfer_ref.setup(self.driver_worker.cache_engine, self.scheduler)
+        ref_cache_engine: CacheEngine = self.driver_worker.cache_engine[0]
+        buffer_dtype = ref_cache_engine.dtype
+        buffer_device = "cpu"
+        buffer_pin_memory = is_pin_memory_available()
+        num_attn_layers = ref_cache_engine.num_attention_layers
+        kv_cache_shape = ref_cache_engine.gpu_cache[0].shape
+        assert kv_cache_shape[0] == 2
+        buffer_num = 2
+        transfer_block_num = self.vllm_config.xavier_config.get("transfer_block_num")
+        buffer_shape = (
+            transfer_block_num,
+            num_attn_layers,
+            kv_cache_shape[0],
+            *kv_cache_shape[2:],
+        )
+        print(f"=====INIT dtype: {self.driver_worker.cache_engine[0].dtype}")
+        print(f"=====INIT cache_dtype: {self.cache_config.cache_dtype}")
+        print(f"=====INIT device: {self.device_config.device}")
+        print(f"=====INIT device_type: {self.device_config.device_type}")
+        print(f"=====INIT num_gpu_blocks: {self.cache_config.num_gpu_blocks}")
+        print(f"=====INIT num_cpu_blocks: {self.cache_config.num_cpu_blocks}")
+        await transfer_ref.setup(
+            self.driver_worker.cache_engine,
+            self.scheduler,
+            num_buffer=buffer_num,
+            buffer_shape=buffer_shape,
+            buffer_dtype=buffer_dtype,
+            buffer_device=buffer_device,
+            pin_memory=buffer_pin_memory,
+        )
 
     async def _get_block_tracker_ref(self):
         from .block_tracker import VLLMBlockTracker
@@ -79,13 +110,5 @@ class XavierExecutor(GPUExecutorAsync):
 
         for _, _id in executed_blocks_details:
             scheduler.block_manager.set_block_status_by_block_id("executed", _id, True)
-
-        # TEST
-        for _, _id in executed_blocks_details:
-            await block_tracker_ref.unregister_block(virtual_engine, rank_address, _id)
-            scheduler.block_manager.set_block_status_by_block_id(
-                "transferred", _id, False
-            )
-            scheduler.block_manager.set_block_status_by_block_id("executed", _id, False)
 
         return res

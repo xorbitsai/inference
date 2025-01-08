@@ -279,6 +279,7 @@ class VLLMModel(LLM):
         from .xavier.engine import XavierEngine
 
         print(f"======xavier_config: {self._xavier_config}")
+        self._xavier_config["transfer_block_num"] = 512
         self._engine = XavierEngine.from_engine_args(
             engine_args, xavier_config=self._xavier_config
         )
@@ -298,6 +299,9 @@ class VLLMModel(LLM):
         if model_executor := getattr(self._engine.engine, "model_executor", None):
             model_executor.shutdown()
         self._engine = None
+
+    async def init_xavier(self):
+        await self._engine.init_xavier()
 
     async def _check_healthy(self, interval: int = 30):
         from vllm.engine.async_llm_engine import AsyncEngineDeadError

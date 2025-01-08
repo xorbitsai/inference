@@ -316,6 +316,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 store_port=self._xavier_config.get("store_port"),  # type: ignore
                 world_addresses=rank_addresses,
             )
+            await self._model.init_xavier()
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
