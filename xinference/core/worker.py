@@ -866,8 +866,9 @@ class WorkerActor(xo.StatelessActor):
             )
 
             try:
-                xavier_config = kwargs.pop("xavier_config")
-                xavier_config["rank_address"] = subpool_address
+                xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
+                if xavier_config is not None:
+                    xavier_config["rank_address"] = subpool_address
                 model, model_description = await asyncio.to_thread(
                     create_model_instance,
                     subpool_address,

@@ -267,14 +267,9 @@ class SupervisorActor(xo.StatelessActor):
                 signal.SIGTERM, lambda: asyncio.create_task(signal_handler())
             )
 
-        # TODO: when to start
         from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
 
-        self._block_tracker: xo.ActorRefType[VLLMBlockTracker] = await xo.create_actor(
-            VLLMBlockTracker,
-            address=self.address,
-            uid=VLLMBlockTracker.default_uid(),
-        )
+        self._block_tracker: Optional[xo.ActorRefType[VLLMBlockTracker]] = None
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
@@ -965,13 +960,31 @@ class SupervisorActor(xo.StatelessActor):
         ]:
             raise ValueError("Tensorizer is not supported for %s." % model_name)
 
+        enable_xavier: bool = (
+            bool(kwargs.pop("enable_xavier", False))
+            and model_engine is not None
+            and model_engine.lower() == "vllm"
+        )
+        if enable_xavier:
+            if replica <= 1:
+                logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
+                enable_xavier = False
+            else:
+                from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+
+                self._block_tracker = await xo.create_actor(
+                    VLLMBlockTracker,
+                    address=self.address,
+                    uid=VLLMBlockTracker.default_uid(),
+                )
+
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
             f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
-            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, "
+            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, enable_xavier: {enable_xavier}, "
             f"kwargs: {kwargs}"
         )
 
@@ -1009,7 +1022,9 @@ class SupervisorActor(xo.StatelessActor):
                     "world_size": replica,
                     "store_address": self.address.split(":")[0],
                     "store_port": store_port,
-                },
+                }
+                if enable_xavier
+                else None,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
@@ -1034,16 +1049,17 @@ class SupervisorActor(xo.StatelessActor):
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(subpool_address)
 
-                print(f"....Start transfer....")
-                tasks = []
-                for worker_ref, rep_model_uid in worker_refs:
-                    tasks.append(
-                        worker_ref.start_transfer_for_vllm(
-                            rep_model_uid, rank_addresses
+                if enable_xavier:
+                    logger.debug(f"Init transfer component for xavier...")
+                    tasks = []
+                    for worker_ref, rep_model_uid in worker_refs:
+                        tasks.append(
+                            worker_ref.start_transfer_for_vllm(
+                                rep_model_uid, rank_addresses
+                            )
                         )
-                    )
-                await asyncio.gather(*tasks)
-                print(f"....Start transfer done....")
+                    await asyncio.gather(*tasks)
+                    logger.debug(f"Init transfer component for xavier done.")
             except Exception:
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)

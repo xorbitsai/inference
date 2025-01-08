@@ -262,9 +262,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             self._xavier_config = xavier_config
             self._model.set_xavier_config(xavier_config)
             self._transfer_ref = None
-            import os
-
-            print(f"======Current pid: {os.getpid()}")
 
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
@@ -301,22 +298,23 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.vllm.core import VLLMModel
         from ..model.llm.vllm.xavier.transfer import TransferActor
 
-        print(f"Here!!!!! start_transfer_for_vllm")
-
-        if isinstance(self._model, VLLMModel):
-            rank = self._xavier_config.get("rank")  # type: ignore
-            self._transfer_ref = await xo.create_actor(
-                TransferActor,
-                address=self.address,
-                uid=f"{TransferActor.default_uid()}-{rank}",
-                rank=rank,
-                world_size=self._xavier_config.get("world_size"),  # type: ignore
-                rank_address=self._xavier_config.get("rank_address"),  # type: ignore
-                store_address=self._xavier_config.get("store_address"),  # type: ignore
-                store_port=self._xavier_config.get("store_port"),  # type: ignore
-                world_addresses=rank_addresses,
-            )
-            await self._model.init_xavier()
+        assert isinstance(self._model, VLLMModel)
+        rank = self._xavier_config.get("rank")  # type: ignore
+        self._transfer_ref = await xo.create_actor(
+            TransferActor,
+            address=self.address,
+            uid=f"{TransferActor.default_uid()}-{rank}",
+            rank=rank,
+            world_size=self._xavier_config.get("world_size"),  # type: ignore
+            rank_address=self._xavier_config.get("rank_address"),  # type: ignore
+            store_address=self._xavier_config.get("store_address"),  # type: ignore
+            store_port=self._xavier_config.get("store_port"),  # type: ignore
+            world_addresses=rank_addresses,
+        )
+        await self._model.init_xavier()
+        logger.debug(
+            f"Init transfer actor: {self._transfer_ref.address}, rank: {rank} done for vllm."  # type: ignore
+        )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens

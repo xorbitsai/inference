@@ -228,8 +228,7 @@ class VLLMModel(LLM):
         try:
             import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
-
-            # from vllm.engine.async_llm_engine import AsyncLLMEngine
+            from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.lora.request import LoRARequest
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -270,19 +269,32 @@ class VLLMModel(LLM):
             f"Enable lora: {enable_lora}. Lora count: {max_loras}."
         )
 
-        engine_args = AsyncEngineArgs(
-            model=self.model_path,
-            enable_lora=enable_lora,
-            max_loras=max_loras,
-            **self._model_config,
-        )
-        from .xavier.engine import XavierEngine
+        if self._xavier_config is not None:
+            from .xavier.engine import XavierEngine
 
-        print(f"======xavier_config: {self._xavier_config}")
-        self._xavier_config["transfer_block_num"] = 512
-        self._engine = XavierEngine.from_engine_args(
-            engine_args, xavier_config=self._xavier_config
-        )
+            xavier_transfer_block_num = self._model_config.pop(
+                "xavier_transfer_block_num", 512
+            )
+            self._xavier_config["transfer_block_num"] = xavier_transfer_block_num
+            engine_args = AsyncEngineArgs(
+                model=self.model_path,
+                enable_lora=enable_lora,
+                max_loras=max_loras,
+                **self._model_config,
+            )
+
+            logger.debug(f"Start xavier for vllm with config: {self._xavier_config}")
+            self._engine = XavierEngine.from_engine_args(
+                engine_args, xavier_config=self._xavier_config
+            )
+        else:
+            engine_args = AsyncEngineArgs(
+                model=self.model_path,
+                enable_lora=enable_lora,
+                max_loras=max_loras,
+                **self._model_config,
+            )
+            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
         self._check_health_task = None
         if hasattr(self._engine, "check_health"):
