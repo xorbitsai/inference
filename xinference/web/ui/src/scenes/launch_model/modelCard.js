@@ -46,6 +46,7 @@ import {
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
 import React, { useContext, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
@@ -142,6 +143,7 @@ const ModelCard = ({
   const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
 
   const parentRef = useRef(null)
+  const { t } = useTranslation()
 
   const range = (start, end) => {
     return new Array(end - start + 1).fill(undefined).map((_, i) => i + start)
@@ -772,7 +774,7 @@ const ModelCard = ({
               <div className="cardTitle">
                 <TitleTypography value={modelData.model_name} />
                 <div className="iconButtonBox">
-                  <Tooltip title={'Edit'} placement="top">
+                  <Tooltip title={t('launchModel.edit')} placement="top">
                     <IconButton
                       aria-label="show"
                       onClick={(e) => {
@@ -783,7 +785,7 @@ const ModelCard = ({
                       <EditNote />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={'delete'} placement="top">
+                  <Tooltip title={t('launchModel.delete')} placement="top">
                     <IconButton
                       aria-label="delete"
                       onClick={(e) => {
@@ -804,7 +806,10 @@ const ModelCard = ({
                   {JSON.parse(localStorage.getItem('collectionArr'))?.includes(
                     modelData.model_name
                   ) ? (
-                    <Tooltip title={'Unfavorite'} placement="top">
+                    <Tooltip
+                      title={t('launchModel.unfavorite')}
+                      placement="top"
+                    >
                       <IconButton
                         aria-label="collection"
                         onClick={(e) => {
@@ -816,7 +821,7 @@ const ModelCard = ({
                       </IconButton>
                     </Tooltip>
                   ) : (
-                    <Tooltip title={'Favorite'} placement="top">
+                    <Tooltip title={t('launchModel.favorite')} placement="top">
                       <IconButton
                         aria-label="cancellation-of-collections"
                         onClick={(e) => {
@@ -854,7 +859,7 @@ const ModelCard = ({
                 ) {
                   return (
                     <Chip
-                      label="Cached"
+                      label={t('launchModel.cached')}
                       variant="outlined"
                       size="small"
                       deleteIcon={<EditNote />}
@@ -882,7 +887,9 @@ const ModelCard = ({
                 <span className="boldIconText">
                   {Math.floor(modelData.context_length / 1000)}K
                 </span>
-                <small className="smallText">context length</small>
+                <small className="smallText">
+                  {t('launchModel.contextLength')}
+                </small>
               </div>
               {(() => {
                 if (
@@ -892,7 +899,9 @@ const ModelCard = ({
                   return (
                     <div className="iconItem">
                       <ChatOutlined className="muiIcon" />
-                      <small className="smallText">chat model</small>
+                      <small className="smallText">
+                        {t('launchModel.chatModel')}
+                      </small>
                     </div>
                   )
                 } else if (
@@ -902,14 +911,18 @@ const ModelCard = ({
                   return (
                     <div className="iconItem">
                       <EditNoteOutlined className="muiIcon" />
-                      <small className="smallText">generate model</small>
+                      <small className="smallText">
+                        {t('launchModel.generateModel')}
+                      </small>
                     </div>
                   )
                 } else {
                   return (
                     <div className="iconItem">
                       <HelpCenterOutlined className="muiIcon" />
-                      <small className="smallText">other model</small>
+                      <small className="smallText">
+                        {t('launchModel.otherModel')}
+                      </small>
                     </div>
                   )
                 }
@@ -923,7 +936,7 @@ const ModelCard = ({
                 <div className="cardTitle">
                   <TitleTypography value={modelData.model_name} />
                   <div className="iconButtonBox">
-                    <Tooltip title={'Edit'} placement="top">
+                    <Tooltip title={t('launchModel.edit')} placement="top">
                       <IconButton
                         aria-label="show"
                         onClick={(e) => {
@@ -934,7 +947,7 @@ const ModelCard = ({
                         <EditNote />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={'delete'} placement="top">
+                    <Tooltip title={t('launchModel.delete')} placement="top">
                       <IconButton
                         aria-label="delete"
                         onClick={(e) => {
@@ -956,7 +969,10 @@ const ModelCard = ({
                     {JSON.parse(
                       localStorage.getItem('collectionArr')
                     )?.includes(modelData.model_name) ? (
-                      <Tooltip title={'Unfavorite'} placement="top">
+                      <Tooltip
+                        title={t('launchModel.unfavorite')}
+                        placement="top"
+                      >
                         <IconButton
                           aria-label="collection"
                           onClick={(e) => {
@@ -968,7 +984,10 @@ const ModelCard = ({
                         </IconButton>
                       </Tooltip>
                     ) : (
-                      <Tooltip title={'Favorite'} placement="top">
+                      <Tooltip
+                        title={t('launchModel.favorite')}
+                        placement="top"
+                      >
                         <IconButton
                           aria-label="cancellation-of-collections"
                           onClick={(e) => {
@@ -1017,7 +1036,7 @@ const ModelCard = ({
                   if (modelData.cache_status) {
                     return (
                       <Chip
-                        label="Cached"
+                        label={t('launchModel.cached')}
                         variant="outlined"
                         size="small"
                         deleteIcon={<EditNote />}
@@ -1044,17 +1063,21 @@ const ModelCard = ({
               <div className="iconRow">
                 <div className="iconItem">
                   <span className="boldIconText">{modelData.dimensions}</span>
-                  <small className="smallText">dimensions</small>
+                  <small className="smallText">
+                    {t('launchModel.dimensions')}
+                  </small>
                 </div>
                 <div className="iconItem">
                   <span className="boldIconText">{modelData.max_tokens}</span>
-                  <small className="smallText">max tokens</small>
+                  <small className="smallText">
+                    {t('launchModel.maxTokens')}
+                  </small>
                 </div>
               </div>
             )}
             {!selected && hover && (
               <p className="instructionText">
-                Click with mouse to launch the model
+                {t('launchModel.clickToLaunchModel')}
               </p>
             )}
           </Box>
@@ -1062,9 +1085,7 @@ const ModelCard = ({
       </Paper>
 
       <DeleteDialog
-        text={
-          'Are you sure to delete this custom model? This behavior is irreversible.'
-        }
+        text={t('launchModel.confirmDeleteCustomModel')}
         isDelete={isDeleteCustomModel}
         onHandleIsDelete={() => setIsDeleteCustomModel(false)}
         onHandleDelete={handeCustomDelete}
@@ -1082,7 +1103,7 @@ const ModelCard = ({
             <TitleTypography value={modelData.model_name} />
             {isHistory && (
               <Chip
-                label="Last Config"
+                label={t('launchModel.lastConfig')}
                 variant="outlined"
                 size="small"
                 color="primary"
@@ -1103,12 +1124,14 @@ const ModelCard = ({
               <Grid rowSpacing={0} columnSpacing={1}>
                 <Grid item xs={12}>
                   <FormControl variant="outlined" margin="normal" fullWidth>
-                    <InputLabel id="modelEngine-label">Model Engine</InputLabel>
+                    <InputLabel id="modelEngine-label">
+                      {t('launchModel.modelEngine')}
+                    </InputLabel>
                     <Select
                       labelId="modelEngine-label"
                       value={modelEngine}
                       onChange={(e) => setModelEngine(e.target.value)}
-                      label="Model Engine"
+                      label={t('launchModel.modelEngine')}
                     >
                       {engineOptions.map((engine) => {
                         const subArr = []
@@ -1123,7 +1146,7 @@ const ModelCard = ({
                         const cached = specs.some((spec) => isCached(spec))
 
                         const displayedEngine = cached
-                          ? engine + ' (cached)'
+                          ? engine + ' ' + t('launchModel.cached')
                           : engine
 
                         return (
@@ -1142,12 +1165,14 @@ const ModelCard = ({
                     fullWidth
                     disabled={!modelEngine}
                   >
-                    <InputLabel id="modelFormat-label">Model Format</InputLabel>
+                    <InputLabel id="modelFormat-label">
+                      {t('launchModel.modelFormat')}
+                    </InputLabel>
                     <Select
                       labelId="modelFormat-label"
                       value={modelFormat}
                       onChange={(e) => setModelFormat(e.target.value)}
-                      label="Model Format"
+                      label={t('launchModel.modelFormat')}
                     >
                       {formatOptions.map((format) => {
                         const specs = modelData.model_specs.filter(
@@ -1157,7 +1182,7 @@ const ModelCard = ({
                         const cached = specs.some((spec) => isCached(spec))
 
                         const displayedFormat = cached
-                          ? format + ' (cached)'
+                          ? format + ' ' + t('launchModel.cached')
                           : format
 
                         return (
@@ -1176,12 +1201,14 @@ const ModelCard = ({
                     fullWidth
                     disabled={!modelFormat}
                   >
-                    <InputLabel id="modelSize-label">Model Size</InputLabel>
+                    <InputLabel id="modelSize-label">
+                      {t('launchModel.modelSize')}
+                    </InputLabel>
                     <Select
                       labelId="modelSize-label"
                       value={modelSize}
                       onChange={(e) => setModelSize(e.target.value)}
-                      label="Model Size"
+                      label={t('launchModel.modelSize')}
                     >
                       {sizeOptions.map((size) => {
                         const specs = modelData.model_specs
@@ -1191,7 +1218,9 @@ const ModelCard = ({
                           )
                         const cached = specs.some((spec) => isCached(spec))
 
-                        const displayedSize = cached ? size + ' (cached)' : size
+                        const displayedSize = cached
+                          ? size + ' ' + t('launchModel.cached')
+                          : size
 
                         return (
                           <MenuItem key={size} value={size}>
@@ -1210,13 +1239,13 @@ const ModelCard = ({
                     disabled={!modelFormat || !modelSize}
                   >
                     <InputLabel id="quantization-label">
-                      Quantization
+                      {t('launchModel.quantization')}
                     </InputLabel>
                     <Select
                       labelId="quantization-label"
                       value={quantization}
                       onChange={(e) => setQuantization(e.target.value)}
-                      label="Quantization"
+                      label={t('launchModel.quantization')}
                     >
                       {quantizationOptions.map((quant) => {
                         const specs = modelData.model_specs
@@ -1237,7 +1266,7 @@ const ModelCard = ({
                           : spec?.cache_status
 
                         const displayedQuant = cached
-                          ? quant + ' (cached)'
+                          ? quant + ' ' + t('launchModel.cached')
                           : quant
 
                         return (
@@ -1257,12 +1286,14 @@ const ModelCard = ({
                       fullWidth
                       disabled={!modelFormat || !modelSize || !quantization}
                     >
-                      <InputLabel id="n-gpu-label">N-GPU</InputLabel>
+                      <InputLabel id="n-gpu-label">
+                        {t('launchModel.nGPU')}
+                      </InputLabel>
                       <Select
                         labelId="n-gpu-label"
                         value={nGPU}
                         onChange={(e) => setNGPU(e.target.value)}
-                        label="N-GPU"
+                        label={t('launchModel.nGPU')}
                       >
                         {getNGPURange().map((v) => {
                           return (
@@ -1278,7 +1309,7 @@ const ModelCard = ({
                       <TextField
                         disabled={!modelFormat || !modelSize || !quantization}
                         type="number"
-                        label="N GPU Layers"
+                        label={t('launchModel.nGpuLayers')}
                         InputProps={{
                           inputProps: {
                             min: -1,
@@ -1302,7 +1333,7 @@ const ModelCard = ({
                           min: 1,
                         },
                       }}
-                      label="Replica"
+                      label={t('launchModel.replica')}
                       value={replica}
                       onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                     />
@@ -1311,7 +1342,7 @@ const ModelCard = ({
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
-                      primary="Optional Configurations"
+                      primary={t('launchModel.optionalConfigurations')}
                       style={{ marginRight: 10 }}
                     />
                     {isOther ? <ExpandLess /> : <ExpandMore />}
@@ -1323,7 +1354,7 @@ const ModelCard = ({
                       <TextField
                         variant="outlined"
                         value={modelUID}
-                        label="(Optional) Model UID, model name by default"
+                        label={t('launchModel.modelUID.optional')}
                         onChange={(e) => setModelUID(e.target.value)}
                       />
                     </FormControl>
@@ -1332,7 +1363,7 @@ const ModelCard = ({
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
                         value={requestLimits}
-                        label="(Optional) Request Limits, the number of request limits for this model，default is None"
+                        label={t('launchModel.requestLimits.optional')}
                         onChange={(e) => {
                           setRequestLimitsAlert(false)
                           setRequestLimits(e.target.value)
@@ -1349,7 +1380,7 @@ const ModelCard = ({
                       />
                       {requestLimitsAlert && (
                         <Alert severity="error">
-                          Please enter an integer greater than 0
+                          {t('launchModel.enterIntegerGreaterThanZero')}
                         </Alert>
                       )}
                     </FormControl>
@@ -1359,7 +1390,7 @@ const ModelCard = ({
                       <TextField
                         variant="outlined"
                         value={workerIp}
-                        label="(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                        label={t('launchModel.workerIp.optional')}
                         onChange={(e) => setWorkerIp(e.target.value)}
                       />
                     </FormControl>
@@ -1368,7 +1399,7 @@ const ModelCard = ({
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
                         value={GPUIdx}
-                        label="(Optional) GPU Idx, Specify the GPU index where the model is located"
+                        label={t('launchModel.GPUIdx.optional')}
                         onChange={(e) => {
                           setGPUIdxAlert(false)
                           setGPUIdx(e.target.value)
@@ -1383,8 +1414,7 @@ const ModelCard = ({
                       />
                       {GPUIdxAlert && (
                         <Alert severity="error">
-                          Please enter numeric data separated by commas, for
-                          example: 0,1,2
+                          {t('launchModel.enterCommaSeparatedNumbers')}
                         </Alert>
                       )}
                     </FormControl>
@@ -1392,7 +1422,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <InputLabel id="quantization-label">
-                        (Optional) Download_hub
+                        {t('launchModel.downloadHub.optional')}
                       </InputLabel>
                       <Select
                         labelId="download_hub-label"
@@ -1402,7 +1432,7 @@ const ModelCard = ({
                             ? setDownloadHub('')
                             : setDownloadHub(e.target.value)
                         }}
-                        label="(Optional) Download_hub"
+                        label={t('launchModel.downloadHub.optional')}
                       >
                         {(csghubArr.includes(modelData.model_name)
                           ? [
@@ -1433,7 +1463,7 @@ const ModelCard = ({
                       <TextField
                         variant="outlined"
                         value={modelPath}
-                        label="(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+                        label={t('launchModel.modelPath.optional')}
                         onChange={(e) => setModelPath(e.target.value)}
                       />
                     </FormControl>
@@ -1443,7 +1473,7 @@ const ModelCard = ({
                   >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <ListItemText
-                        primary="Lora Config"
+                        primary={t('launchModel.loraConfig')}
                         style={{ marginRight: 10 }}
                       />
                       {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
@@ -1457,7 +1487,7 @@ const ModelCard = ({
                   >
                     <AddPair
                       customData={{
-                        title: 'Lora Model Config',
+                        title: t('launchModel.loraModelConfig'),
                         key: 'lora_name',
                         value: 'local_path',
                       }}
@@ -1471,9 +1501,9 @@ const ModelCard = ({
                 </Collapse>
                 <AddPair
                   customData={{
-                    title: `Additional parameters passed to the inference engine${
-                      modelEngine ? ': ' + modelEngine : ''
-                    }`,
+                    title: `${t(
+                      'launchModel.additionalParametersForInferenceEngine'
+                    )}${modelEngine ? ': ' + modelEngine : ''}`,
                     key: 'key',
                     value: 'value',
                   }}
@@ -1498,7 +1528,7 @@ const ModelCard = ({
                 <TextField
                   variant="outlined"
                   value={modelUID}
-                  label="(Optional) Model UID, model name by default"
+                  label={t('launchModel.modelUID.optional')}
                   onChange={(e) => setModelUID(e.target.value)}
                 />
                 <TextField
@@ -1509,17 +1539,19 @@ const ModelCard = ({
                       min: 1,
                     },
                   }}
-                  label="Replica"
+                  label={t('launchModel.replica')}
                   value={replica}
                   onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                 />
                 <FormControl variant="outlined" margin="normal" fullWidth>
-                  <InputLabel id="n-gpu-label">Device</InputLabel>
+                  <InputLabel id="n-gpu-label">
+                    {t('launchModel.device')}
+                  </InputLabel>
                   <Select
                     labelId="n-gpu-label"
                     value={nGpu}
                     onChange={(e) => setNGpu(e.target.value)}
-                    label="N-GPU"
+                    label={t('launchModel.nGPU')}
                   >
                     {getNewNGPURange().map((v) => {
                       return (
@@ -1534,7 +1566,7 @@ const ModelCard = ({
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
                       value={GPUIdx}
-                      label="GPU Idx, Specify the GPU index where the model is located"
+                      label={t('launchModel.GPUIdx')}
                       onChange={(e) => {
                         setGPUIdxAlert(false)
                         setGPUIdx(e.target.value)
@@ -1549,8 +1581,7 @@ const ModelCard = ({
                     />
                     {GPUIdxAlert && (
                       <Alert severity="error">
-                        Please enter numeric data separated by commas, for
-                        example: 0,1,2
+                        {t('launchModel.enterCommaSeparatedNumbers')}
                       </Alert>
                     )}
                   </FormControl>
@@ -1559,13 +1590,13 @@ const ModelCard = ({
                   <TextField
                     variant="outlined"
                     value={workerIp}
-                    label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                    label={t('launchModel.workerIp')}
                     onChange={(e) => setWorkerIp(e.target.value)}
                   />
                 </FormControl>
                 <FormControl variant="outlined" margin="normal" fullWidth>
                   <InputLabel id="quantization-label">
-                    (Optional) Download_hub
+                    {t('launchModel.downloadHub.optional')}
                   </InputLabel>
                   <Select
                     labelId="download_hub-label"
@@ -1575,7 +1606,7 @@ const ModelCard = ({
                         ? setDownloadHub('')
                         : setDownloadHub(e.target.value)
                     }}
-                    label="(Optional) Download_hub"
+                    label={t('launchModel.downloadHub.optional')}
                   >
                     {['none', 'huggingface', 'modelscope', 'openmind_hub'].map(
                       (item) => {
@@ -1592,7 +1623,7 @@ const ModelCard = ({
                   <TextField
                     variant="outlined"
                     value={modelPath}
-                    label="(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+                    label={t('launchModel.modelPath.optional')}
                     onChange={(e) => setModelPath(e.target.value)}
                   />
                 </FormControl>
@@ -1603,7 +1634,7 @@ const ModelCard = ({
                     >
                       <div style={{ display: 'flex', alignItems: 'center' }}>
                         <ListItemText
-                          primary="Lora Config"
+                          primary={t('launchModel.loraConfig')}
                           style={{ marginRight: 10 }}
                         />
                         {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
@@ -1617,7 +1648,7 @@ const ModelCard = ({
                     >
                       <AddPair
                         customData={{
-                          title: 'Lora Model Config',
+                          title: t('launchModel.loraModelConfig'),
                           key: 'lora_name',
                           value: 'local_path',
                         }}
@@ -1629,7 +1660,7 @@ const ModelCard = ({
                       />
                       <AddPair
                         customData={{
-                          title: 'Lora Load Kwargs for Image Model',
+                          title: t('launchModel.loraLoadKwargsForImageModel'),
                           key: 'key',
                           value: 'value',
                         }}
@@ -1641,7 +1672,7 @@ const ModelCard = ({
                       />
                       <AddPair
                         customData={{
-                          title: 'Lora Fuse Kwargs for Image Model',
+                          title: t('launchModel.loraFuseKwargsForImageModel'),
                           key: 'key',
                           value: 'value',
                         }}
@@ -1656,8 +1687,9 @@ const ModelCard = ({
                 )}
                 <AddPair
                   customData={{
-                    title:
-                      'Additional parameters passed to the inference engine',
+                    title: t(
+                      'launchModel.additionalParametersForInferenceEngine'
+                    ),
                     key: 'key',
                     value: 'value',
                   }}
@@ -1672,7 +1704,7 @@ const ModelCard = ({
           )}
           <Box className="buttonsContainer">
             <button
-              title="Launch"
+              title={t('launchModel.Launch')}
               className="buttonContainer"
               onClick={() => launchModel(url, modelData)}
               disabled={
@@ -1742,7 +1774,7 @@ const ModelCard = ({
               })()}
             </button>
             <button
-              title="Go Back"
+              title={t('launchModel.goBack')}
               className="buttonContainer"
               onClick={() => {
                 setSelected(false)
@@ -1764,7 +1796,7 @@ const ModelCard = ({
           <div className="jsonDialog-title">
             <div className="title-name">{modelData.model_name}</div>
             <CopyComponent
-              tip={'Copy Json'}
+              tip={t('launchModel.copyJson')}
               text={JSON.stringify(modelData, null, 4)}
             />
           </div>
@@ -1782,9 +1814,11 @@ const ModelCard = ({
               }}
               style={{ marginRight: 30 }}
             >
-              Cancel
+              {t('launchModel.cancel')}
             </Button>
-            <Button onClick={handleJsonDataPresentation}>Edit</Button>
+            <Button onClick={handleJsonDataPresentation}>
+              {t('launchModel.edit')}
+            </Button>
           </div>
         </div>
       </Backdrop>
@@ -1792,7 +1826,7 @@ const ModelCard = ({
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
-        message="Please fill in the complete parameters before adding!"
+        message={t('launchModel.fillCompleteParametersBeforeAdding')}
         key={'top' + 'center'}
       />
       <Snackbar
@@ -1829,26 +1863,34 @@ const ModelCard = ({
                 <TableRow>
                   {modelType === 'LLM' && (
                     <>
-                      <TableCell align="left">model_format</TableCell>
-                      <TableCell align="left">model_size_in_billions</TableCell>
-                      <TableCell align="left">quantizations</TableCell>
+                      <TableCell align="left">
+                        {t('launchModel.model_format')}
+                      </TableCell>
+                      <TableCell align="left">
+                        {t('launchModel.model_size_in_billions')}
+                      </TableCell>
+                      <TableCell align="left">
+                        {t('launchModel.quantizations')}
+                      </TableCell>
                     </>
                   )}
                   <TableCell align="left" style={{ width: 192 }}>
-                    real_path
+                    {t('launchModel.real_path')}
                   </TableCell>
                   <TableCell align="left" style={{ width: 46 }}></TableCell>
                   <TableCell align="left" style={{ width: 192 }}>
-                    path
+                    {t('launchModel.path')}
                   </TableCell>
                   <TableCell align="left" style={{ width: 46 }}></TableCell>
                   <TableCell
                     align="left"
                     style={{ whiteSpace: 'nowrap', minWidth: 116 }}
                   >
-                    IP Address
+                    {t('launchModel.ipAddress')}
                   </TableCell>
-                  <TableCell align="left">operation</TableCell>
+                  <TableCell align="left">
+                    {t('launchModel.operation')}
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody style={{ position: 'relative' }}>
@@ -1885,7 +1927,7 @@ const ModelCard = ({
                     </TableCell>
                     <TableCell>
                       <CopyComponent
-                        tip={'Copy real_path'}
+                        tip={t('launchModel.copyRealPath')}
                         text={row.real_path}
                       />
                     </TableCell>
@@ -1901,7 +1943,10 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <CopyComponent tip={'Copy path'} text={row.path} />
+                      <CopyComponent
+                        tip={t('launchModel.copyPath')}
+                        text={row.path}
+                      />
                     </TableCell>
                     <TableCell>{row.actor_ip_address}</TableCell>
                     <TableCell align={modelType === 'LLM' ? 'center' : 'left'}>
@@ -1926,7 +1971,7 @@ const ModelCard = ({
                   </TableRow>
                 )}
                 {cachedListArr.length === 0 && (
-                  <div className="empty">No cache for now !</div>
+                  <div className="empty">{t('launchModel.noCacheForNow')}</div>
                 )}
               </TableBody>
             </Table>
@@ -1942,7 +1987,7 @@ const ModelCard = ({
         </div>
       </Backdrop>
       <DeleteDialog
-        text={'Confirm deletion of cache files? This action is irreversible.'}
+        text={t('launchModel.confirmDeleteCacheFiles')}
         isDelete={isDeleteCached}
         onHandleIsDelete={() => setIsDeleteCached(false)}
         onHandleDelete={handleDeleteCached}

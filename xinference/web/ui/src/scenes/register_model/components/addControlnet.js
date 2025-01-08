@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const AddControlnet = ({
   controlnetDataArr,
@@ -19,6 +20,7 @@ const AddControlnet = ({
   const [count, setCount] = useState(0)
   const [controlnetArr, setControlnetArr] = useState([])
   const [isAdd, setIsAdd] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (controlnetDataArr && controlnetDataArr.length) {
@@ -82,7 +84,9 @@ const AddControlnet = ({
   return (
     <>
       <div>
-        <label style={{ marginBottom: '20px' }}>Controlnet</label>
+        <label style={{ marginBottom: '20px' }}>
+          {t('registerModel.controlnet')}
+        </label>
         <Button
           variant="contained"
           size="small"
@@ -90,7 +94,7 @@ const AddControlnet = ({
           className="addBtn"
           onClick={handleAddControlnet}
         >
-          more
+          {t('registerModel.more')}
         </Button>
       </div>
       <div className="specs_container">
@@ -125,7 +129,7 @@ const AddControlnet = ({
                 paddingLeft: 5,
               }}
             >
-              Model Format
+              {t('registerModel.modelFormat')}
             </label>
             <RadioGroup
               value={item.model_format}
@@ -145,7 +149,7 @@ const AddControlnet = ({
               </Box>
             </RadioGroup>
 
-            <Tooltip title="Delete specs" placement="top">
+            <Tooltip title={t('registerModel.delete')} placement="top">
               <div
                 className="deleteBtn"
                 onClick={() => handleDeleteControlnet(index)}
