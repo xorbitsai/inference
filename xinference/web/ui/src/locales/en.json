@@ -45,7 +45,7 @@
     "modelFormat": "Model Format",
     "modelSize": "Model Size",
     "quantization": "Quantization",
-    "nGPU": "Number-GPU",
+    "nGPU": "GPU Count",
     "nGpuLayers": "N GPU Layers",
     "replica": "Replica",
     "optionalConfigurations": "Optional Configurations",
