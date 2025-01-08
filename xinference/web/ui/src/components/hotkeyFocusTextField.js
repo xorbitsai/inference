@@ -7,7 +7,7 @@ const HotkeyFocusTextField = ({
   label,
   value,
   onChange,
-  hotkey = '/',
+  hotkey = 'Enter',
   t,
   ...props
 }) => {

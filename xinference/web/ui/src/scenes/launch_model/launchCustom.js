@@ -145,7 +145,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
                   value={searchTerm}
                   onChange={handleSearchChange}
                   size="small"
-                  hotkey="/"
+                  hotkey="Enter"
                   t={t}
                 />
               </FormControl>

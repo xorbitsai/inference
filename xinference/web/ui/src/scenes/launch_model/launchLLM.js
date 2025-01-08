@@ -230,7 +230,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
-            hotkey="/"
+            hotkey="Enter"
             t={t}
           />
         </FormControl>
