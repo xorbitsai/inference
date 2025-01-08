@@ -59,12 +59,16 @@
   background-color: transparent;
 }
 .buttonItem {
+  cursor: pointer;
   width: 100%;
   padding: 5px;
   border-radius: 4px;
   border: 1px solid #e5e7eb;
   border-width: 1px;
   border-color: #e5e7eb;
+}
+.buttonItem:hover {
+  border-color: #888;
 }
 .instructionText {
   font-size: 12px;

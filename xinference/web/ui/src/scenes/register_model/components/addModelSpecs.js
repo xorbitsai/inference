@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const modelFormatArr = [
   { value: 'pytorch', label: 'PyTorch' },
@@ -35,6 +36,7 @@ const AddModelSpecs = ({
   const [quantizationAlertId, setQuantizationAlertId] = useState([])
   const [isError, setIsError] = useState(false)
   const [isAdd, setIsAdd] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (isJump) {
@@ -248,7 +250,9 @@ const AddModelSpecs = ({
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-        <label style={{ width: '100px' }}>Model Specs</label>
+        <label style={{ width: '100px' }}>
+          {t('registerModel.modelSpecs')}
+        </label>
         <Button
           variant="contained"
           size="small"
@@ -256,7 +260,7 @@ const AddModelSpecs = ({
           className="addBtn"
           onClick={handleAddSpecs}
         >
-          more
+          {t('registerModel.more')}
         </Button>
       </div>
       <div className="specs_container">
@@ -267,7 +271,7 @@ const AddModelSpecs = ({
                 paddingLeft: 5,
               }}
             >
-              Model Format
+              {t('registerModel.modelFormat')}
             </label>
             <RadioGroup
               value={item.model_format}
@@ -305,7 +309,7 @@ const AddModelSpecs = ({
             <TextField
               error={item.model_uri !== '' ? false : true}
               style={{ minWidth: '60%' }}
-              label="Model Path"
+              label={t('registerModel.modelPath')}
               size="small"
               value={
                 item.model_format !== 'ggufv2'
@@ -315,13 +319,13 @@ const AddModelSpecs = ({
               onChange={(e) => {
                 handleUpdateSpecsArr(index, 'model_uri', e.target.value)
               }}
-              helperText="For PyTorch, provide the model directory. For GGUF, provide the model file path."
+              helperText={t('registerModel.provideModelDirectoryOrFilePath')}
             />
             <Box padding="15px"></Box>
 
             <TextField
               error={Number(item.model_size_in_billions) > 0 ? false : true}
-              label="Model Size in Billions"
+              label={t('registerModel.modelSizeBillions')}
               size="small"
               value={item.model_size_in_billions}
               onChange={(e) => {
@@ -330,7 +334,7 @@ const AddModelSpecs = ({
             />
             {modelSizeAlertId.includes(item.id) && (
               <Alert severity="error">
-                Please enter a number greater than 0.
+                {t('registerModel.enterNumberGreaterThanZero')}
               </Alert>
             )}
             <Box padding="15px"></Box>
@@ -344,8 +348,8 @@ const AddModelSpecs = ({
                     item.model_format === 'awq' ||
                     item.model_format === 'fp8' ||
                     item.model_format === 'mlx'
-                      ? 'Quantization'
-                      : 'Quantization (Optional)'
+                      ? t('registerModel.quantization')
+                      : t('registerModel.quantizationOptional')
                   }
                   size="small"
                   value={item.quantizations[0]}
@@ -362,7 +366,9 @@ const AddModelSpecs = ({
                     item.model_format === 'awq' ||
                     item.model_format === 'fp8' ||
                     item.model_format === 'mlx'
-                      ? 'For GPTQ/AWQ/FP8/MLX models, please be careful to fill in the quantization corresponding to the model you want to register.'
+                      ? t(
+                          'registerModel.carefulQuantizationForModelRegistration'
+                        )
                       : ''
                   }
                 />
@@ -370,14 +376,14 @@ const AddModelSpecs = ({
                   quantizationAlertId.includes(item.id) &&
                   item.quantizations[0] == '' && (
                     <Alert severity="error">
-                      Quantization cannot be left empty.
+                      {t('registerModel.quantizationCannotBeEmpty')}
                     </Alert>
                   )}
               </>
             )}
 
             {specsArr.length > 1 && (
-              <Tooltip title="Delete specs" placement="top">
+              <Tooltip title={t('registerModel.delete')} placement="top">
                 <div
                   className="deleteBtn"
                   onClick={() => handleDeleteSpecs(index)}

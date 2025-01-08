@@ -8,6 +8,7 @@ import {
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
+import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../components/apiContext'
 import fetchWrapper from '../../components/fetchWrapper'
@@ -31,6 +32,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
   const [collectionArr, setCollectionArr] = useState([])
   const [filterArr, setFilterArr] = useState([])
+  const { t } = useTranslation()
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -187,7 +189,9 @@ const LaunchLLM = ({ gpuAvailable }) => {
         }}
       >
         <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
-          <InputLabel id="ability-select-label">Model Ability</InputLabel>
+          <InputLabel id="ability-select-label">
+            {t('launchModel.modelAbility')}
+          </InputLabel>
           <Select
             id="ability"
             labelId="ability-select-label"
@@ -197,24 +201,24 @@ const LaunchLLM = ({ gpuAvailable }) => {
             size="small"
             sx={{ width: '150px' }}
           >
-            <MenuItem value="generate">generate</MenuItem>
-            <MenuItem value="chat">chat</MenuItem>
-            <MenuItem value="vision">vl-chat</MenuItem>
+            <MenuItem value="generate">{t('launchModel.generate')}</MenuItem>
+            <MenuItem value="chat">{t('launchModel.chat')}</MenuItem>
+            <MenuItem value="vision">{t('launchModel.vision')}</MenuItem>
           </Select>
         </FormControl>
         <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
-          <InputLabel id="select-status">Status</InputLabel>
+          <InputLabel id="select-status">{t('launchModel.status')}</InputLabel>
           <Select
             id="status"
             labelId="select-status"
-            label="Status"
+            label={t('launchModel.status')}
             onChange={(e) => handleChangeFilter('status', e.target.value)}
             value={status}
             size="small"
             sx={{ width: '150px' }}
           >
-            <MenuItem value="cached">cached</MenuItem>
-            <MenuItem value="favorite">favorite</MenuItem>
+            <MenuItem value="cached">{t('launchModel.cached')}</MenuItem>
+            <MenuItem value="favorite">{t('launchModel.favorite')}</MenuItem>
           </Select>
         </FormControl>
 
@@ -222,11 +226,12 @@ const LaunchLLM = ({ gpuAvailable }) => {
           <HotkeyFocusTextField
             id="search"
             type="search"
-            label="Search for model name and description"
+            label={t('launchModel.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
             hotkey="/"
+            t={t}
           />
         </FormControl>
       </div>
@@ -234,7 +239,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
         {filterArr.map((item, index) => (
           <Chip
             key={index}
-            label={item}
+            label={t(`launchModel.${item}`)}
             variant="outlined"
             size="small"
             color="primary"

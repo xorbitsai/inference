@@ -3,6 +3,7 @@ import Paper from '@mui/material/Paper'
 import Grid from '@mui/material/Unstable_Grid2'
 import React, { useContext, useEffect } from 'react'
 import { useCookies } from 'react-cookie'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
@@ -15,6 +16,7 @@ const ClusterInfo = () => {
   const endPoint = useContext(ApiContext).endPoint
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (
@@ -47,7 +49,7 @@ const ClusterInfo = () => {
         padding: '20px 20px 0 20px',
       }}
     >
-      <Title title="Cluster Information" />
+      <Title title={t('menu.clusterInfo')} />
       <Grid container spacing={3} style={{ width: '100%' }}>
         <Grid item xs={12}>
           <Paper
@@ -58,12 +60,13 @@ const ClusterInfo = () => {
               flexDirection: 'column',
             }}
           >
-            <TableTitle>Supervisor</TableTitle>
+            <TableTitle>{t('clusterInfo.supervisor')}</TableTitle>
             <NodeInfo
               nodeRole="Supervisor"
               endpoint={endPoint}
               cookie={cookie}
               handleGoBack={handleGoBack}
+              t={t}
             />
           </Paper>
         </Grid>
@@ -76,12 +79,13 @@ const ClusterInfo = () => {
               flexDirection: 'column',
             }}
           >
-            <TableTitle>Workers</TableTitle>
+            <TableTitle>{t('clusterInfo.workers')}</TableTitle>
             <NodeInfo
               nodeRole="Worker"
               endpoint={endPoint}
               cookie={cookie}
               handleGoBack={handleGoBack}
+              t={t}
             />
           </Paper>
         </Grid>
@@ -94,12 +98,13 @@ const ClusterInfo = () => {
               flexDirection: 'column',
             }}
           >
-            <TableTitle>Worker Details</TableTitle>
+            <TableTitle>{t('clusterInfo.workerDetails')}</TableTitle>
             <NodeInfo
               nodeRole="Worker-Details"
               endpoint={endPoint}
               cookie={cookie}
               handleGoBack={handleGoBack}
+              t={t}
             />
           </Paper>
         </Grid>

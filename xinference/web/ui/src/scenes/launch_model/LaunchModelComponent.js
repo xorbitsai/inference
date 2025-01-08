@@ -7,6 +7,7 @@ import {
   Select,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../components/apiContext'
 import fetchWrapper from '../../components/fetchWrapper'
@@ -21,6 +22,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
   const [collectionArr, setCollectionArr] = useState([])
   const [filterArr, setFilterArr] = useState([])
+  const { t } = useTranslation()
 
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -131,7 +133,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
         }}
       >
         <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
-          <InputLabel id="select-status">Status</InputLabel>
+          <InputLabel id="select-status">{t('launchModel.status')}</InputLabel>
           <Select
             id="status"
             labelId="select-status"
@@ -141,19 +143,20 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
             size="small"
             sx={{ width: '150px' }}
           >
-            <MenuItem value="cached">cached</MenuItem>
-            <MenuItem value="favorite">favorite</MenuItem>
+            <MenuItem value="cached">{t('launchModel.cached')}</MenuItem>
+            <MenuItem value="favorite">{t('launchModel.favorite')}</MenuItem>
           </Select>
         </FormControl>
         <FormControl variant="outlined" margin="normal">
           <HotkeyFocusTextField
             id="search"
             type="search"
-            label={`Search for ${modelType} model name`}
+            label={t('launchModel.searchModelType', { modelType })}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
             hotkey="/"
+            t={t}
           />
         </FormControl>
       </div>
