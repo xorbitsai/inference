@@ -120,6 +120,25 @@ class ChatModelMixin:
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod
+    def convert_messages_with_content_list_to_str_conversion(
+        messages: List[Dict],
+    ) -> List[Dict]:
+        """
+        Handles messages with content list conversion, in order to support Cline, see GH#2659 .
+        """
+        for message in messages:
+            texts = ""
+            msg_content = message.get("content")
+            if msg_content:
+                if isinstance(msg_content, str):
+                    texts = msg_content
+                elif isinstance(msg_content, list):
+                    texts = "\n".join(item.get("text", "") for item in msg_content)
+            if texts:
+                message["content"] = texts
+        return messages
+
+    @staticmethod
     def get_specific_prompt(model_family: str, messages: List[ChatCompletionMessage]):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
