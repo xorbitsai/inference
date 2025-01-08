@@ -24,7 +24,7 @@
     "chat": "聊天",
     "vision": "视觉聊天",
     "status": "状态",
-    "cached": "缓存",
+    "cached": "已缓存",
     "favorite": "收藏",
     "unfavorite": "取消收藏",
     "search": "搜索模型名称和描述",
