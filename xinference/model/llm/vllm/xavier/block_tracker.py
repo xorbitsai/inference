@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import random
 from typing import Dict, List, Optional, Set, Tuple
 
 import xoscar as xo
@@ -72,9 +73,10 @@ class VLLMBlockTracker(xo.StatelessActor):
             if (
                 hash_content in hash_to_address_and_block_id
             ) and hash_to_address_and_block_id[hash_content]:
-                # TODO
-                address, block_id = next(
-                    iter(hash_to_address_and_block_id[hash_content])
+                # TODO: Randomly select here, and try to distribute requests as evenly as possible.
+                # There may be better methods in the future.
+                address, block_id = random.choice(
+                    list(hash_to_address_and_block_id[hash_content])
                 )
                 if address not in remote:
                     remote[address] = {

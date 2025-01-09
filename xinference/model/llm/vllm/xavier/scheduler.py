@@ -140,9 +140,10 @@ class XavierScheduler(Scheduler):
         for _, remote_details in remote.items():
             for _, _, local_block_id in remote_details:
                 local.add(local_block_id)
-        logger.debug(
-            f"Data in local blocks: {local} will be transmitted from the remote."
-        )
+        if local:
+            logger.debug(
+                f"Data in local blocks: {local} will be transmitted from the remote."
+            )
         return local, remote
 
     async def _do_transfer_inner(
