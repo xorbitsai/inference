@@ -27,6 +27,15 @@ from .....isolation import Isolation
 class XavierInnerBlockTracker(BlockTracker):
     """Used to track the status of a block inside the prefix caching allocator"""
 
+    """
+    Here, two fixed attributes, `transferred` and `executed`,
+    have been added to the `BlockTracker` class to mark the status of the corresponding `block_id`.
+    We cannot directly set attributes on the `Block` object
+    because the `Block` objects are dynamically allocated with each scheduling.
+    The `Block` objects executed in two different scheduling steps may have the same `id`, `hash`, etc.,
+    but the instance objects may differ.
+    The BlockTracker object inside vllm is one-to-one with the block_id.
+    """
     __slots__ = ("active", "last_accessed", "computed", "transferred", "executed")
 
     def __init__(self):
@@ -83,6 +92,11 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
         )
 
     def _maybe_allocate_evicted_block_id(self) -> Optional[BlockId]:
+        """
+        This is the only entry point where the `block_id` is evicted from the cache.
+        Therefore, when the `block_id` is evicted, the tracker actor needs to unregister the block information.
+        At the same time, make sure to reset the attributes corresponding to that `block_id`.
+        """
         evicted_block_id = super()._maybe_allocate_evicted_block_id()
         if evicted_block_id is not None and self._isolation is not None:
             tracker = self._block_tracker[evicted_block_id]

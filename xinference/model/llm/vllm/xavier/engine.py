@@ -79,6 +79,11 @@ class XavierInternalEngine(_AsyncLLMEngine):
         # batch has completed.
         if not self._has_remaining_steps(seq_group_metadata_list):
             # Schedule iteration
+            """Xinference Change!!!
+            Why copy the entire function code of vllm:
+            The purpose here is to modify the way the `schedule` function is invoked to asynchronous calling.
+            No other modifications were made elsewhere.
+            """
             (
                 seq_group_metadata_list,
                 scheduler_outputs,
@@ -233,6 +238,8 @@ class XavierEngine(AsyncLLMEngine):
         )
 
     def __init__(self, *args, **kwargs):
+        # set xavier_config to `vllm_config`,
+        # because it may be needed everywhere in the vllm internal components
         kwargs["vllm_config"].xavier_config = self._xavier_config
         super().__init__(*args, **kwargs)
 

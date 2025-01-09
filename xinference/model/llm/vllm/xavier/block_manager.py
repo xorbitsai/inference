@@ -60,6 +60,11 @@ class XavierBlockManager(SelfAttnBlockSpaceManager):
         setattr(tracker, status_name, status)
 
     def allocate(self, seq_group: SequenceGroup) -> None:
+        """
+        If the `seq_group` has the `transferred` attribute,
+        it indicates that the `seq_group` has gone through the transfer process,
+        so the block allocation logic should not be executed again.
+        """
         waiting_seqs = seq_group.get_seqs(status=SequenceStatus.WAITING)
         if all([getattr(s, "transferred", False) for s in waiting_seqs]):
             return

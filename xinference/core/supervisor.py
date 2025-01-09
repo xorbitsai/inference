@@ -1049,6 +1049,9 @@ class SupervisorActor(xo.StatelessActor):
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(subpool_address)
 
+                # For xavier, start all the vllm instances first,
+                # and then start the transfer component,
+                # because the transfer actor needs all the rank addresses used for collective communication
                 if enable_xavier:
                     logger.debug(f"Init transfer component for xavier...")
                     tasks = []
@@ -1058,6 +1061,8 @@ class SupervisorActor(xo.StatelessActor):
                                 rep_model_uid, rank_addresses
                             )
                         )
+                    # Here you must use asyncio.gather, not a for loop,
+                    # or you will get stuck.
                     await asyncio.gather(*tasks)
                     logger.debug(f"Init transfer component for xavier done.")
             except Exception:

@@ -98,12 +98,26 @@ class XavierScheduler(Scheduler):
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
     ) -> Tuple[Set[int], Dict[str, Set[Tuple[int, int, int]]]]:
+        """
+        Retrieve information from other replicas to check if any blocks have already been computed,
+        for the purpose of data transfer.
+        """
         details: Set[Tuple[int, int]] = set()
         for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
             block_ids = block_tables[seq.seq_id]
             for _id in block_ids:
                 block: Block = self.block_manager.get_block_by_block_id(seq.seq_id, _id)
                 detail = (block.content_hash, _id)
+                """
+                1. `block.content_hash is not None` means that the block has been filled with tokens.
+                Unless it is evicted from the cache, the computation result of this block is constant.
+                2. Check the `transferred` status of the block.
+                If it is `True`, it means the block has already been transferred locally
+                and does not need to be transferred again.
+                3. Check the `executed` status of the block.
+                If it is `True`, it means the block has already been computed locally
+                and does not need to be transferred.
+                """
                 if (
                     (block.content_hash is not None)
                     and (
@@ -120,6 +134,8 @@ class XavierScheduler(Scheduler):
                     details.add(detail)
         tracker_ref = await self._get_block_tracker_ref()
         remote = await tracker_ref.query_blocks(virtual_engine, list(details))
+        # Not all queried blocks have corresponding results in other replicas.
+        # Therefore, it is necessary to record which local block data was actually transferred.
         local: Set[int] = set()
         for _, remote_details in remote.items():
             for _, _, local_block_id in remote_details:
@@ -146,9 +162,12 @@ class XavierScheduler(Scheduler):
         is_prefill: bool,
     ):
         await self._do_transfer_inner(virtual_engine, remote)
+        # After the transfer is completed, update the corresponding metadata.
         self._transfer_status[seq_group] = local
         for _id in local:
             self.block_manager.set_block_status_by_block_id("transferred", _id, True)
+        # After the transfer, place the `seq_group` back into the appropriate queue to
+        # wait for the next scheduling execution.
         if is_prefill:
             self.waiting.appendleft(seq_group)
         else:
@@ -174,7 +193,9 @@ class XavierScheduler(Scheduler):
 
         allow_async_output_proc: bool = self.use_async_output_proc
 
-        # TODO
+        """Xinference Change!!!
+        Additional data structures required by Xavier.
+        """
         scheduled_seq_groups = []
         has_transferring = False
 
@@ -214,26 +235,38 @@ class XavierScheduler(Scheduler):
                 block_tables[seq_id] = self.block_manager.get_block_table(seq)
                 self.block_manager.access_all_blocks_in_seq(seq, now)
 
+            """Xinference Change!!!
+            After completing the scheduling, the blocks have been allocated.
+            Therefore, it is possible to check whether some blocks have already been computed on other replicas based on this information,
+            and subsequently initiate the transfer.
+            """
             local, remote = await self._get_transfer_details(
                 virtual_engine, block_tables, seq_group
             )
             if remote:
                 running_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
+                # According to the internal code comments in vllm,
+                # whether `token_chunk_size` is 1 can indicate whether the `seq_group` is in the decode or prefill stage.
                 is_prefill = token_chunk_size != 1
                 for seq in running_seqs:
                     seq.status = (
                         SequenceStatus.WAITING if is_prefill else SequenceStatus.RUNNING
                     )
+                    # Additional attribute `transferred` to mark that this `seq_group` involves a transfer process.
+                    # During the next scheduling, block allocation will no longer be required
+                    # since it has already been completed.
                     seq.transferred = True
                     seq.data._stage = (
                         SequenceStage.PREFILL if is_prefill else SequenceStage.DECODE
                     )
                 self._transfer_status[seq_group] = set()
+                # Use `create_task` to avoid blocking subsequent scheduling.
                 asyncio.create_task(
                     self._do_transfer(
                         virtual_engine, local, remote, seq_group, is_prefill
                     )
                 )
+                # The `seq_group` that is currently being transferred enters a new queue.
                 self._transferring.append(seq_group)
                 has_transferring = True
                 continue
@@ -246,6 +279,12 @@ class XavierScheduler(Scheduler):
                         seq_group.get_seqs(status=SequenceStatus.RUNNING)
                     )
                 )
+                """Xinference Change!!!
+                This is very important and is the core of Xavier.
+                `computed_block_nums` is the key attribute that determines which blocks do not need to be computed,
+                as decided by the `model_runner`.
+                Therefore, after the transfer is completed, this attribute needs to be updated.
+                """
                 if seq_group in self._transfer_status:
                     transferred_blocks = self._transfer_status[seq_group]
                     if transferred_blocks:
@@ -325,6 +364,12 @@ class XavierScheduler(Scheduler):
             if allow_async_output_proc:
                 allow_async_output_proc = self._allow_async_output_proc(seq_group)
 
+        """Xinference Change!!!
+        If the `seq_group` in this scheduling triggers a transfer,
+        it needs to be removed from the running queue (as it is already in the transferring queue).
+        It should remain in the transferring queue until the transfer is complete,
+        and then it can be placed back into the appropriate queue for scheduling.
+        """
         if has_transferring:
             scheduler_outputs.scheduled_seq_groups = scheduled_seq_groups
             for seq_group in self.running.copy():
@@ -360,9 +405,17 @@ class XavierScheduler(Scheduler):
         return (seq_group_metadata_list, scheduler_outputs, allow_async_output_proc)
 
     def has_unfinished_seqs(self) -> bool:
+        """
+        This interface is used to determine whether the scheduling process should stop,
+        so it needs to include information about the transferring queue.
+        """
         res = super().has_unfinished_seqs()
         return res or len(self._transferring) != 0
 
     def get_num_unfinished_seq_groups(self) -> int:
+        """
+        When retrieving information from this interface,
+        the information from the transferring queue needs to be taken into account.
+        """
         res = super().get_num_unfinished_seq_groups()
         return res + len(self._transferring)

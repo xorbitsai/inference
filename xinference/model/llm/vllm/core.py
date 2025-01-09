@@ -272,6 +272,8 @@ class VLLMModel(LLM):
         if self._xavier_config is not None:
             from .xavier.engine import XavierEngine
 
+            # Enabling Xavier means that `enable_prefix_caching` is enabled by default.
+            self._model_config.setdefault("enable_prefix_caching", True)
             xavier_transfer_block_num = self._model_config.pop(
                 "xavier_transfer_block_num", 512
             )

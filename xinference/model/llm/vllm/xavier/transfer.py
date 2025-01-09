@@ -59,6 +59,13 @@ class BufferTransferMixin:
         self.buffer_queue = Queue()
         for i in range(self.num_buffer):
             self.buffer_queue.put_nowait(i)
+        logger.debug(
+            f"Init buffer done. "
+            f"transfer_block_num: {self.transfer_block_num}, "
+            f"num_buffer: {self.num_buffer}, "
+            f"buffer_dtype: {buffer_dtype}, "
+            f"buffer_shape: {buffer_shape}"
+        )
 
     @no_type_check
     def get_buffer_index(self) -> int:
@@ -187,6 +194,10 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
         torch.cuda.Stream.synchronize(self._swap_stream)
 
     def _incr_count_for_block_id(self, virtual_engine: int, block_ids: List[int]):
+        """
+        The reference count of the `block_id` involved in the transfer is incremented by 1
+        to ensure it is not reclaimed.
+        """
         scheduler = self._scheduler[virtual_engine]  # type: ignore
         gpu_allocator = scheduler.block_manager.block_allocator._allocators[Device.GPU]
 
@@ -194,6 +205,9 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
             gpu_allocator._refcounter.incr(_id)
 
     def _decr_count_for_block_id(self, virtual_engine: int, block_ids: List[int]):
+        """
+        After the transfer, the reference count is decremented by 1.
+        """
         scheduler = self._scheduler[virtual_engine]  # type: ignore
         gpu_allocator = scheduler.block_manager.block_allocator._allocators[Device.GPU]
 
@@ -203,6 +217,10 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
     async def do_send(
         self, virtual_engine: int, to_rank: int, src_to_dst: Dict[int, int]
     ):
+        """
+        Sending logic: GPU -> Buffer -> Gloo send.
+        GPU -> Buffer is directly handled using the internal `swap_out` interface of vllm.
+        """
         from xoscar.collective import xoscar_pygloo as xp
 
         cache_engine = self._get_cache_engine(virtual_engine)
@@ -232,6 +250,10 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
     async def do_recv(
         self, virtual_engine: int, from_rank: int, src_to_dst: Dict[int, int]
     ):
+        """
+        Receiving logic: Gloo recv -> Buffer -> GPU.
+        Buffer -> GPU is directly handled using the internal `swap_in` interface of vllm.
+        """
         from xoscar.collective import xoscar_pygloo as xp
 
         cache_engine = self._get_cache_engine(virtual_engine)
@@ -261,6 +283,11 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
     async def recv(
         self, virtual_engine: int, from_address: str, src_to_dst: Dict[int, int]
     ):
+        """
+        This is the external entry point for the call.
+        The transfer logic is as follows:
+        the receiver requests the sender to send the data directly to itself in a point-to-point manner.
+        """
         rank = self._world_addresses.index(from_address)
         sender_ref = await xo.actor_ref(
             address=from_address, uid=f"{TransferActor.default_uid()}-{rank}"

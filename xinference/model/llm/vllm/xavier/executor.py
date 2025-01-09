@@ -33,6 +33,10 @@ class XavierExecutor(GPUExecutorAsync):
         self._block_tracker_ref = None
 
     async def init_transfer(self):
+        """
+        In vllm, the `cache_engine` is the entity that truly manages the KV cache tensors.
+        Retrieve the necessary transmission information from the `cache_engine`.
+        """
         transfer_ref = await self._get_transfer_ref()
         ref_cache_engine: CacheEngine = self.driver_worker.cache_engine[0]
         buffer_dtype = ref_cache_engine.dtype
@@ -89,6 +93,10 @@ class XavierExecutor(GPUExecutorAsync):
         self,
         execute_model_req: ExecuteModelRequest,
     ) -> List[Union[SamplerOutput, PoolerOutput]]:
+        """
+        Collect information about the blocks involved in the execution before the vllm `ModelRunner` executes.
+        This information will be used by the tracker after execution to register the locally computed blocks.
+        """
         virtual_engine = execute_model_req.virtual_engine
         block_tracker_ref = await self._get_block_tracker_ref()
         scheduler = self.scheduler[virtual_engine]  # type: ignore
@@ -99,6 +107,7 @@ class XavierExecutor(GPUExecutorAsync):
             for seq_id, block_ids in block_tables.items():
                 for _id in block_ids:
                     b = scheduler.block_manager.get_block_by_block_id(seq_id, _id)
+                    # The `executed` attribute is used to prevent duplicate registration of the block.
                     executed = scheduler.block_manager.get_block_status_by_block_id(
                         "executed", _id
                     )
@@ -108,6 +117,11 @@ class XavierExecutor(GPUExecutorAsync):
 
         res = await super().execute_model_async(execute_model_req)
 
+        """
+        Why not collect and register the information after execution?
+        Because after execution, the model's execution callback hook will release the block_id,
+        causing the block manager to lose access to the correct information.
+        """
         await block_tracker_ref.register_blocks(
             virtual_engine, list(executed_blocks_details), rank_address
         )

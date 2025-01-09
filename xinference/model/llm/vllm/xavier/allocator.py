@@ -42,6 +42,12 @@ class XavierCpuGpuBlockAllocator(CpuGpuBlockAllocator):
         num_cpu_blocks: int,
         block_size: int,
     ) -> DeviceAwareBlockAllocator:
+        """Xinference Change!!!
+        1. The code is copied here because the `allocator` needs to be instantiated as a subclass.
+        2. Why not re-instantiate it externally?
+        Re-instantiating the `allocator` is costly because it requires initializing many tensors.
+        """
+
         # For HPU, block id 0 is used only for padding
         reserved_blocks = 1 if current_platform.is_hpu() else 0
         block_ids = list(range(reserved_blocks, num_gpu_blocks + num_cpu_blocks))
