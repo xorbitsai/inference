@@ -1704,7 +1704,7 @@ const ModelCard = ({
           )}
           <Box className="buttonsContainer">
             <button
-              title={t('launchModel.Launch')}
+              title={t('launchModel.launch')}
               className="buttonContainer"
               onClick={() => launchModel(url, modelData)}
               disabled={
@@ -1827,13 +1827,11 @@ const ModelCard = ({
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
         message={t('launchModel.fillCompleteParametersBeforeAdding')}
-        key={'top' + 'center'}
       />
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openErrorSnackbar}
         onClose={() => setOpenErrorSnackbar(false)}
-        key={'top' + 'center'}
       >
         <Alert severity="error" variant="filled" sx={{ width: '100%' }}>
           {errorSnackbarValue}
