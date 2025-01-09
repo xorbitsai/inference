@@ -5,6 +5,7 @@ import { Badge, Box, Stack, Tab } from '@mui/material'
 import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
@@ -16,37 +17,37 @@ import { isValidBearerToken } from '../../components/utils'
 
 const tabArr = [
   {
-    label: 'Language Models',
+    label: 'model.languageModels',
     value: '/running_models/LLM',
     showPrompt: false,
   },
   {
-    label: 'Embedding Models',
+    label: 'model.embeddingModels',
     value: '/running_models/embedding',
     showPrompt: false,
   },
   {
-    label: 'Rerank Models',
+    label: 'model.rerankModels',
     value: '/running_models/rerank',
     showPrompt: false,
   },
   {
-    label: 'Image Models',
+    label: 'model.imageModels',
     value: '/running_models/image',
     showPrompt: false,
   },
   {
-    label: 'Audio Models',
+    label: 'model.audioModels',
     value: '/running_models/audio',
     showPrompt: false,
   },
   {
-    label: 'Video Models',
+    label: 'model.videoModels',
     value: '/running_models/video',
     showPrompt: false,
   },
   {
-    label: 'Flexible Models',
+    label: 'model.flexibleModels',
     value: '/running_models/flexible',
     showPrompt: false,
   },
@@ -70,6 +71,7 @@ const RunningModels = () => {
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
   const endPoint = useContext(ApiContext).endPoint
+  const { t } = useTranslation()
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue)
@@ -174,37 +176,37 @@ const RunningModels = () => {
     },
     {
       field: 'model_name',
-      headerName: 'Name',
+      headerName: t('runningModels.name'),
       flex: 1,
     },
     {
       field: 'address',
-      headerName: 'Address',
+      headerName: t('runningModels.address'),
       flex: 1,
     },
     {
       field: 'accelerators',
-      headerName: 'GPU Indexes',
+      headerName: t('runningModels.gpuIndexes'),
       flex: 1,
     },
     {
       field: 'model_size_in_billions',
-      headerName: 'Size',
+      headerName: t('runningModels.size'),
       flex: 1,
     },
     {
       field: 'quantization',
-      headerName: 'Quantization',
+      headerName: t('runningModels.quantization'),
       flex: 1,
     },
     {
       field: 'replica',
-      headerName: 'Replica',
+      headerName: t('runningModels.replica'),
       flex: 1,
     },
     {
       field: 'url',
-      headerName: 'Actions',
+      headerName: t('runningModels.actions'),
       flex: 1,
       minWidth: 200,
       sortable: false,
@@ -367,27 +369,27 @@ const RunningModels = () => {
     },
     {
       field: 'model_name',
-      headerName: 'Name',
+      headerName: t('runningModels.name'),
       flex: 1,
     },
     {
       field: 'address',
-      headerName: 'Address',
+      headerName: t('runningModels.address'),
       flex: 1,
     },
     {
       field: 'accelerators',
-      headerName: 'GPU Indexes',
+      headerName: t('runningModels.gpuIndexes'),
       flex: 1,
     },
     {
       field: 'replica',
-      headerName: 'Replica',
+      headerName: t('runningModels.replica'),
       flex: 1,
     },
     {
       field: 'url',
-      headerName: 'Actions',
+      headerName: t('runningModels.actions'),
       flex: 1,
       minWidth: 200,
       sortable: false,
@@ -468,22 +470,22 @@ const RunningModels = () => {
     },
     {
       field: 'model_name',
-      headerName: 'Name',
+      headerName: t('runningModels.name'),
       flex: 1,
     },
     {
       field: 'address',
-      headerName: 'Address',
+      headerName: t('runningModels.address'),
       flex: 1,
     },
     {
       field: 'accelerators',
-      headerName: 'GPU Indexes',
+      headerName: t('runningModels.gpuIndexes'),
       flex: 1,
     },
     {
       field: 'url',
-      headerName: 'Actions',
+      headerName: t('runningModels.actions'),
       flex: 1,
       minWidth: 200,
       sortable: false,
@@ -665,7 +667,7 @@ const RunningModels = () => {
   const noRowsOverlay = () => {
     return (
       <Stack height="100%" alignItems="center" justifyContent="center">
-        No Running Models
+        {t('runningModels.noRunningModels')}
       </Stack>
     )
   }
@@ -673,7 +675,7 @@ const RunningModels = () => {
   const noResultsOverlay = () => {
     return (
       <Stack height="100%" alignItems="center" justifyContent="center">
-        No Running Models Matches
+        {t('runningModels.noRunningModelsMatches')}
       </Stack>
     )
   }
@@ -691,7 +693,7 @@ const RunningModels = () => {
 
     setTabList(
       tabList.map((item) => {
-        if (dataMap[item.label].length && dataMap[item.label][0].model_type) {
+        if (dataMap[item.label]?.length && dataMap[item.label][0].model_type) {
           return {
             ...item,
             showPrompt: true,
@@ -721,7 +723,7 @@ const RunningModels = () => {
         padding: '20px 20px 0 20px',
       }}
     >
-      <Title title="Running Models" />
+      <Title title={t('menu.runningModels')} />
       <ErrorMessageSnackBar />
       <TabContext value={tabValue}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -739,7 +741,7 @@ const RunningModels = () => {
                     variant="dot"
                     invisible={!item.showPrompt}
                   >
-                    {item.label}
+                    {t(item.label)}
                   </Badge>
                 }
                 value={item.value}

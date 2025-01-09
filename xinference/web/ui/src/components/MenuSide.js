@@ -18,33 +18,12 @@ import {
   useTheme,
 } from '@mui/material'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
 import ThemeButton from './themeButton'
-
-const navItems = [
-  {
-    text: 'Launch Model',
-    icon: <RocketLaunchOutlined />,
-  },
-  {
-    text: 'Running Models',
-    icon: <SmartToyOutlined />,
-  },
-  {
-    text: 'Register Model',
-    icon: <AddBoxOutlined />,
-  },
-  {
-    text: 'Cluster Information',
-    icon: <DnsOutlined />,
-  },
-  {
-    text: 'Contact Us',
-    icon: <GitHub />,
-  },
-]
+import TranslateButton from './translateButton'
 
 const MenuSide = () => {
   const theme = useTheme()
@@ -54,6 +33,35 @@ const MenuSide = () => {
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
+  const { t } = useTranslation()
+
+  const navItems = [
+    {
+      text: 'launch_model',
+      label: t('menu.launchModel'),
+      icon: <RocketLaunchOutlined />,
+    },
+    {
+      text: 'running_models',
+      label: t('menu.runningModels'),
+      icon: <SmartToyOutlined />,
+    },
+    {
+      text: 'register_model',
+      label: t('menu.registerModel'),
+      icon: <AddBoxOutlined />,
+    },
+    {
+      text: 'cluster_information',
+      label: t('menu.clusterInfo'),
+      icon: <DnsOutlined />,
+    },
+    {
+      text: 'contact_us',
+      label: t('menu.contactUs'),
+      icon: <GitHub />,
+    },
+  ]
 
   useEffect(() => {
     setActive(pathname.substring(1))
@@ -129,57 +137,54 @@ const MenuSide = () => {
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
           <List>
-            {navItems.map(({ text, icon }) => {
+            {navItems.map(({ text, label, icon }) => {
               if (!icon) {
                 return (
                   <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
-                    {text}
+                    {label}
                   </Typography>
                 )
               }
-
-              const link = text.toLowerCase().replace(' ', '_')
-
               return (
                 <ListItem key={text}>
                   <ListItemButton
                     onClick={() => {
-                      if (link === 'contact_us') {
+                      if (text === 'contact_us') {
                         window.open(
                           'https://github.com/xorbitsai/inference',
                           '_blank',
                           'noreferrer'
                         )
-                      } else if (link === 'launch_model') {
+                      } else if (text === 'launch_model') {
                         sessionStorage.setItem('modelType', '/launch_model/llm')
                         navigate('/launch_model/llm')
-                        setActive(link)
-                        sessionStorage.setItem('lastActiveUrl', link)
+                        setActive(text)
+                        sessionStorage.setItem('lastActiveUrl', text)
                         console.log(active)
-                      } else if (link === 'cluster_information') {
+                      } else if (text === 'cluster_information') {
                         navigate('/cluster_info')
-                        setActive(link)
-                      } else if (link === 'running_models') {
+                        setActive(text)
+                      } else if (text === 'running_models') {
                         navigate('/running_models/LLM')
                         sessionStorage.setItem(
                           'runningModelType',
                           '/running_models/LLM'
                         )
-                        setActive(link)
-                        sessionStorage.setItem('lastActiveUrl', link)
+                        setActive(text)
+                        sessionStorage.setItem('lastActiveUrl', text)
                         console.log(active)
-                      } else if (link === 'register_model') {
+                      } else if (text === 'register_model') {
                         sessionStorage.setItem(
                           'registerModelType',
                           '/register_model/llm'
                         )
                         navigate('/register_model/llm')
-                        setActive(link)
-                        sessionStorage.setItem('lastActiveUrl', link)
+                        setActive(text)
+                        sessionStorage.setItem('lastActiveUrl', text)
                         console.log(active)
                       } else {
-                        navigate(`/${link}`)
-                        setActive(link)
+                        navigate(`/${text}`)
+                        setActive(text)
                         console.log(active)
                       }
                     }}
@@ -191,7 +196,7 @@ const MenuSide = () => {
                     >
                       {icon}
                     </ListItemIcon>
-                    <ListItemText primary={text} />
+                    <ListItemText primary={label} />
                     <ChevronRightOutlined sx={{ ml: 'auto' }} />
                   </ListItemButton>
                 </ListItem>
@@ -200,7 +205,11 @@ const MenuSide = () => {
           </List>
         </Box>
       </Box>
-      <ThemeButton sx={{ m: '1rem' }} />
+
+      <Box display="flex" alignItems="center" marginLeft={'3rem'}>
+        <ThemeButton sx={{ m: '1rem' }} />
+        <TranslateButton />
+      </Box>
     </Drawer>
   )
 }

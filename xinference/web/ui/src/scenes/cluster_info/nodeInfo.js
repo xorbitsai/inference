@@ -19,6 +19,7 @@ class NodeInfo extends React.Component {
       version: {},
       info: [],
     }
+    this.t = props.t
   }
 
   refreshInfo() {
@@ -107,7 +108,7 @@ class NodeInfo extends React.Component {
 
       const row_count = (
         <StyledTableRow>
-          <StyledTableCell>Count</StyledTableCell>
+          <StyledTableCell>{this.t('clusterInfo.count')}</StyledTableCell>
           <StyledTableCell>
             <Grid container>
               <Grid>{roleData.length}</Grid>
@@ -118,11 +119,17 @@ class NodeInfo extends React.Component {
 
       const CPU_row = (
         <StyledTableRow>
-          <StyledTableCell>CPU Info</StyledTableCell>
+          <StyledTableCell>{this.t('clusterInfo.cpuInfo')}</StyledTableCell>
           <StyledTableCell>
             <Grid container>
-              <Grid xs={4}>Usage: {resourceStats.cpu_used.toFixed(2)}</Grid>
-              <Grid xs={8}>Total: {resourceStats.cpu_total.toFixed(2)}</Grid>
+              <Grid xs={4}>
+                {this.t('clusterInfo.usage')}{' '}
+                {resourceStats.cpu_used.toFixed(2)}
+              </Grid>
+              <Grid xs={8}>
+                {this.t('clusterInfo.total')}{' '}
+                {resourceStats.cpu_total.toFixed(2)}
+              </Grid>
             </Grid>
           </StyledTableCell>
         </StyledTableRow>
@@ -130,14 +137,18 @@ class NodeInfo extends React.Component {
 
       const CPU_Memory_Info_row = (
         <StyledTableRow>
-          <StyledTableCell>CPU Memory Info</StyledTableCell>
+          <StyledTableCell>
+            {this.t('clusterInfo.cpuMemoryInfo')}
+          </StyledTableCell>
           <StyledTableCell>
             <Grid container>
               <Grid xs={4}>
-                Usage: {toReadableSize(resourceStats.memory_used)}
+                {this.t('clusterInfo.usage')}{' '}
+                {toReadableSize(resourceStats.memory_used)}
               </Grid>
               <Grid xs={8}>
-                Total: {toReadableSize(resourceStats.memory_total)}
+                {this.t('clusterInfo.total')}{' '}
+                {toReadableSize(resourceStats.memory_total)}
               </Grid>
             </Grid>
           </StyledTableCell>
@@ -146,11 +157,15 @@ class NodeInfo extends React.Component {
 
       const version_row = (
         <StyledTableRow>
-          <StyledTableCell>Version</StyledTableCell>
+          <StyledTableCell>{this.t('clusterInfo.version')}</StyledTableCell>
           <StyledTableCell>
             <Grid container>
-              <Grid xs={4}>Release: {this.state.version.release}</Grid>
-              <Grid xs={8}>Commit: {this.state.version.commit}</Grid>
+              <Grid xs={4}>
+                {this.t('clusterInfo.release')} {this.state.version.release}
+              </Grid>
+              <Grid xs={8}>
+                {this.t('clusterInfo.commit')} {this.state.version.commit}
+              </Grid>
             </Grid>
           </StyledTableCell>
         </StyledTableRow>
@@ -166,10 +181,13 @@ class NodeInfo extends React.Component {
 
         const GPU_row = (
           <StyledTableRow>
-            <StyledTableCell>GPU Info</StyledTableCell>
+            <StyledTableCell>{this.t('clusterInfo.gpuInfo')}</StyledTableCell>
             <StyledTableCell>
               <Grid container>
-                <Grid xs={12}>Total: {resourceStats.gpu_total.toFixed(2)}</Grid>
+                <Grid xs={12}>
+                  {this.t('clusterInfo.total')}{' '}
+                  {resourceStats.gpu_total.toFixed(2)}
+                </Grid>
               </Grid>
             </StyledTableCell>
           </StyledTableRow>
@@ -177,14 +195,18 @@ class NodeInfo extends React.Component {
 
         const GPU_Memory_Info_row = (
           <StyledTableRow>
-            <StyledTableCell>GPU Memory Info</StyledTableCell>
+            <StyledTableCell>
+              {this.t('clusterInfo.gpuMemoryInfo')}
+            </StyledTableCell>
             <StyledTableCell>
               <Grid container>
                 <Grid xs={4}>
-                  Usage: {toReadableSize(resourceStats.gpu_memory_used)}
+                  {this.t('clusterInfo.usage')}{' '}
+                  {toReadableSize(resourceStats.gpu_memory_used)}
                 </Grid>
                 <Grid xs={8}>
-                  Total: {toReadableSize(resourceStats.gpu_memory_total)}
+                  {this.t('clusterInfo.total')}{' '}
+                  {toReadableSize(resourceStats.gpu_memory_total)}
                 </Grid>
               </Grid>
             </StyledTableCell>
@@ -204,7 +226,7 @@ class NodeInfo extends React.Component {
       if (this.nodeRole === 'Supervisor') {
         const supervisor_addr_row = (
           <StyledTableRow>
-            <StyledTableCell>Address</StyledTableCell>
+            <StyledTableCell>{this.t('clusterInfo.address')}</StyledTableCell>
             <StyledTableCell>
               <Grid container>
                 <Grid>{roleData[0] ? roleData[0]['ip_address'] : '-'}</Grid>
@@ -220,11 +242,11 @@ class NodeInfo extends React.Component {
           <TableHead>
             <TableRow>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                Item
+                {this.t('clusterInfo.item')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
                 <Grid container>
-                  <Grid>Value</Grid>
+                  <Grid>{this.t('clusterInfo.value')}</Grid>
                 </Grid>
               </StyledTableCell>
             </TableRow>
@@ -242,38 +264,40 @@ class NodeInfo extends React.Component {
           <TableHead>
             <TableRow>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                Node Type
+                {this.t('clusterInfo.nodeType')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                Address
+                Address{this.t('clusterInfo.address')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                CPU Usage
+                {this.t('clusterInfo.cpuUsage')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                CPU Total
+                {this.t('clusterInfo.cpuTotal')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                Mem Usage
+                {this.t('clusterInfo.memUsage')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                Mem Total
+                {this.t('clusterInfo.memTotal')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                GPU Count
+                {this.t('clusterInfo.gpuCount')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                GPU Mem Usage
+                {this.t('clusterInfo.gpuMemUsage')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                GPU Mem Total
+                {this.t('clusterInfo.gpuMemTotal')}
               </StyledTableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {workerData.map((row) => (
               <StyledTableRow>
-                <StyledTableCell>Worker</StyledTableCell>
+                <StyledTableCell>
+                  {this.t('clusterInfo.worker')}
+                </StyledTableCell>
                 <StyledTableCell>{row['ip_address']}</StyledTableCell>
                 <StyledTableCell>
                   {(row['cpu_count'] - row['cpu_available']).toFixed(2)}
