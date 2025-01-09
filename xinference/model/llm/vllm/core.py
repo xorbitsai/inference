@@ -156,6 +156,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B-Preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
 
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
