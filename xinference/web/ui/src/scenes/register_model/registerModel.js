@@ -1171,12 +1171,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       <div
                         className="test_res_box"
                         style={{
-                          backgroundColor:
+                          borderColor:
                             testErrorInfo === ''
                               ? testRes
-                                ? 'rgb(237, 247, 237)'
-                                : ''
-                              : 'rgb(253, 237, 237)',
+                                ? 'rgb(46, 125, 50)'
+                                : '#ddd'
+                              : 'rgb(46, 125, 50)',
                         }}
                       >
                         {testErrorInfo !== ''
