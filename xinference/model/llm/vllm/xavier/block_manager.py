@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional
 
 from vllm.core.block.cpu_gpu_block_allocator import CpuGpuBlockAllocator
@@ -8,6 +9,8 @@ from vllm.utils import Device
 
 from .allocator import XavierCpuGpuBlockAllocator
 
+logger = logging.getLogger(__name__)
+
 
 class XavierBlockManager(SelfAttnBlockSpaceManager):
     def __init__(self, *args, **kwargs):
@@ -15,7 +18,7 @@ class XavierBlockManager(SelfAttnBlockSpaceManager):
         CpuGpuBlockAllocator.create = XavierCpuGpuBlockAllocator.create
         super().__init__(*args, **kwargs)
         self._xavier_config: Optional[Dict[str, Any]] = None
-        print(f"==========Here block manager: {type(self.block_allocator)}")
+        logger.debug("Init xavier block manager done.")
 
     @property
     def xavier_config(self):

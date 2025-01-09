@@ -15,9 +15,6 @@ class XavierExecutor(GPUExecutorAsync):
     scheduler: Optional[List["XavierScheduler"]] = None
 
     def _init_executor(self) -> None:
-        self.vllm_config.parallel_config.worker_cls = (
-            "xinference.model.llm.vllm.xavier.worker.XavierWorker"
-        )
         super()._init_executor()
         self._transfer_ref = None
         self._block_tracker_ref = None
@@ -39,12 +36,6 @@ class XavierExecutor(GPUExecutorAsync):
             kv_cache_shape[0],
             *kv_cache_shape[2:],
         )
-        print(f"=====INIT dtype: {self.driver_worker.cache_engine[0].dtype}")
-        print(f"=====INIT cache_dtype: {self.cache_config.cache_dtype}")
-        print(f"=====INIT device: {self.device_config.device}")
-        print(f"=====INIT device_type: {self.device_config.device_type}")
-        print(f"=====INIT num_gpu_blocks: {self.cache_config.num_gpu_blocks}")
-        print(f"=====INIT num_cpu_blocks: {self.cache_config.num_cpu_blocks}")
         await transfer_ref.setup(
             self.driver_worker.cache_engine,
             self.scheduler,

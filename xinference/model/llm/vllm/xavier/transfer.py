@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from functools import lru_cache
 from queue import Queue
 from typing import Dict, List, Optional, no_type_check
@@ -8,6 +9,8 @@ import xoscar as xo
 from vllm.core.scheduler import Scheduler
 from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
 from vllm.worker.cache_engine import CacheEngine
+
+logger = logging.getLogger(__name__)
 
 
 class BufferTransferMixin:
@@ -21,9 +24,6 @@ class BufferTransferMixin:
     def init_buffer(
         self, num_buffer: int, buffer_shape, buffer_dtype, buffer_device, pin_memory
     ):
-        print(
-            f"========INIT BUFFER: {num_buffer, buffer_shape, buffer_dtype, buffer_device, pin_memory}"
-        )
         # (transfer_block_num, num_attn_layers, 2, *kv_cache_shape[2:])
 
         if buffer_dtype is torch.bfloat16:
@@ -113,8 +113,8 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
 
         context.connectFullMesh(store, dev)
         self._context = context
-        print(
-            f"Rank {self._rank} connect successfully, world addresses: {self._world_addresses}"
+        logger.debug(
+            f"Rank {self._rank} arrives successfully, world addresses: {self._world_addresses}"
         )
 
     def setup(
@@ -132,7 +132,6 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
         self.init_buffer(
             num_buffer, buffer_shape, buffer_dtype, buffer_device, pin_memory
         )
-        print(f"=====In transfer: {self._cache_engine}")
 
     def _get_cache_engine(self, virtual_engine: int) -> CacheEngine:
         return self._cache_engine[virtual_engine]  # type: ignore
@@ -157,7 +156,6 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
                     cache_engine.gpu_cache[i], cpu_buf[i], src_to_dst
                 )
         torch.cuda.Stream.synchronize(self._swap_stream)
-        print(f"========swap_out in rank {self._rank} successfully")
         return cpu_buf
 
     def _swap_in_from_buffer(
@@ -174,7 +172,6 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
                     cpu_buf[i], cache_engine.gpu_cache[i], src_to_dst
                 )
         torch.cuda.Stream.synchronize(self._swap_stream)
-        print(f"========swap_in in rank {self._rank} successfully")
 
     def _incr_count_for_block_id(self, virtual_engine: int, block_ids: List[int]):
         scheduler = self._scheduler[virtual_engine]  # type: ignore
@@ -218,7 +215,6 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
         finally:
             self._decr_count_for_block_id(virtual_engine, block_ids)
             self.free_buffer_index(cpu_buf_index)
-        print(f"========Send to {to_rank} successfully")
 
     async def do_recv(
         self, virtual_engine: int, from_rank: int, src_to_dst: Dict[int, int]
@@ -245,12 +241,9 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
                 xp.recv(self._context, recvptr, data_size, datatype, peer)
 
                 self._swap_in_from_buffer(cache_engine, recvbuf, recv_block_ids)
-
-            print(f"Recv from {from_rank} successfully")
         finally:
             self._decr_count_for_block_id(virtual_engine, block_ids)
             self.free_buffer_index(cpu_buf_index)
-        print(f"swap_in in rank {self._rank} successfully")
 
     async def recv(
         self, virtual_engine: int, from_address: str, src_to_dst: Dict[int, int]

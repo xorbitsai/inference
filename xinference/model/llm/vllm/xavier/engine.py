@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, Type, Union
 
 from vllm import AsyncEngineArgs, EmbeddingRequestOutput, RequestOutput
@@ -11,6 +12,8 @@ from vllm.usage.usage_lib import UsageContext
 
 from .executor import XavierExecutor
 from .scheduler import XavierScheduler
+
+logger = logging.getLogger(__name__)
 
 
 class XavierInternalEngine(_AsyncLLMEngine):
@@ -198,7 +201,7 @@ class XavierEngine(AsyncLLMEngine):
 
     @classmethod
     def _get_executor_cls(cls, engine_config: VllmConfig) -> Type[ExecutorBase]:
-        print(f"Here!!! My executor!!!")
+        logger.debug(f"Initializing Xavier executor.")
         return XavierExecutor
 
     @classmethod

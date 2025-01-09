@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional, Set, Tuple, no_type_check
@@ -19,11 +20,13 @@ from vllm.sequence import (
 
 from .block_manager import XavierBlockManager
 
+logger = logging.getLogger(__name__)
+
 
 class XavierScheduler(Scheduler):
     @staticmethod
     def _get_block_space_manager_class(version: str):
-        print(f"Here!!! MyBlockManager")
+        logger.debug("Init xavier block manager.")
         return XavierBlockManager
 
     def __init__(
@@ -82,7 +85,6 @@ class XavierScheduler(Scheduler):
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
     ) -> Tuple[Set[int], Dict[str, Set[Tuple[int, int, int]]]]:
-        print(f"======Scheduled blocks: {block_tables}")
         details: Set[Tuple[int, int]] = set()
         for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
             block_ids = block_tables[seq.seq_id]
@@ -109,6 +111,9 @@ class XavierScheduler(Scheduler):
         for _, remote_details in remote.items():
             for _, _, local_block_id in remote_details:
                 local.add(local_block_id)
+        logger.debug(
+            f"Data in local blocks: {local} will be transmitted from the remote."
+        )
         return local, remote
 
     async def _do_transfer_inner(
@@ -136,7 +141,6 @@ class XavierScheduler(Scheduler):
         else:
             self.running.appendleft(seq_group)
         self._transferring.remove(seq_group)
-        print(f"=========Scheduler: Receive done")
 
     @no_type_check
     async def schedule(
@@ -313,7 +317,6 @@ class XavierScheduler(Scheduler):
             for seq_group in self.running.copy():
                 if seq_group in self._transfer_status:
                     self.running.remove(seq_group)
-                    print(f"=======Remove: {seq_group}")
 
         # Now that the batch has been created, we can assume all blocks in the
         # batch will have been computed before the next scheduling invocation.
