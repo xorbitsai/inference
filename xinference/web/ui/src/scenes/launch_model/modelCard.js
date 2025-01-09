@@ -848,7 +848,15 @@ const ModelCard = ({
                 (() => {
                   return modelData.model_lang.map((v) => {
                     return (
-                      <Chip key={v} label={v} variant="outlined" size="small" />
+                      <Chip
+                        key={v}
+                        label={v}
+                        variant="outlined"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      />
                     )
                   })
                 })()}
@@ -859,11 +867,16 @@ const ModelCard = ({
                 ) {
                   return (
                     <Chip
-                      label={t('launchModel.cached')}
+                      label={t('launchModel.manageCachedModels')}
                       variant="outlined"
+                      color="primary"
                       size="small"
                       deleteIcon={<EditNote />}
                       onDelete={handleOpenCachedList}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleOpenCachedList()
+                      }}
                     />
                   )
                 }
@@ -1019,6 +1032,9 @@ const ModelCard = ({
                           label={v}
                           variant="outlined"
                           size="small"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                          }}
                         />
                       )
                     })
@@ -1028,6 +1044,9 @@ const ModelCard = ({
                         label={modelData.model_family}
                         variant="outlined"
                         size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
                       />
                     )
                   }
@@ -1036,11 +1055,16 @@ const ModelCard = ({
                   if (modelData.cache_status) {
                     return (
                       <Chip
-                        label={t('launchModel.cached')}
+                        label={t('launchModel.manageCachedModels')}
                         variant="outlined"
+                        color="primary"
                         size="small"
                         deleteIcon={<EditNote />}
                         onDelete={handleOpenCachedList}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenCachedList()
+                        }}
                       />
                     )
                   }
