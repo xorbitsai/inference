@@ -25,6 +25,7 @@
     "vision": "视觉聊天",
     "status": "状态",
     "cached": "已缓存",
+    "manageCachedModels": "管理缓存模型",
     "favorite": "收藏",
     "unfavorite": "取消收藏",
     "search": "搜索模型名称和描述",
