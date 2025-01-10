@@ -98,7 +98,6 @@ class WhisperModel:
             model=model,
             tokenizer=processor.tokenizer,
             feature_extractor=processor.feature_extractor,
-            max_new_tokens=self._max_new_tokens,
             chunk_length_s=self._model_config.get("chunk_length_s"),
             stride_length_s=self._model_config.get("stride_length_s"),
             return_timestamps=self._model_config.get("return_timestamps"),
@@ -209,13 +208,13 @@ class WhisperModel:
             logger.warning(
                 "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
+        generate_kwargs = {"max_new_tokens": self._max_new_tokens, "task": "transcribe"}
+        if language is not None:
+            generate_kwargs["language"] = language
+            
         return self._call_model(
             audio=audio,
-            generate_kwargs=(
-                {"language": language, "task": "transcribe"}
-                if language is not None
-                else {"task": "transcribe"}
-            ),
+            generate_kwargs=generate_kwargs,
             response_format=response_format,
             temperature=temperature,
             timestamp_granularities=timestamp_granularities,
