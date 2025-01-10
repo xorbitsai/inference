@@ -276,8 +276,8 @@ def get_nvidia_gpu_info() -> Dict:
 
 
 def assign_replica_gpu(
-    _replica_model_uid: str, replica: int, gpu_idx: Union[int, List[int]]
-) -> List[int]:
+    _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
+) -> Optional[List[int]]:
     model_uid, rep_id = parse_replica_model_uid(_replica_model_uid)
     rep_id, replica = int(rep_id), int(replica)
     if isinstance(gpu_idx, int):
