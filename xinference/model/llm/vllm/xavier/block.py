@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import logging
 from typing import Any, Dict, Optional
 
 import xoscar as xo
@@ -22,6 +23,8 @@ from vllm.core.block.prefix_caching_block import (
 )
 
 from .....isolation import Isolation
+
+logger = logging.getLogger(__name__)
 
 
 class XavierInnerBlockTracker(BlockTracker):
@@ -98,10 +101,12 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
         At the same time, make sure to reset the attributes corresponding to that `block_id`.
         """
         evicted_block_id = super()._maybe_allocate_evicted_block_id()
+        logger.debug(f"block_id: {evicted_block_id} will be evicted from the cache.")
         if evicted_block_id is not None and self._isolation is not None:
             tracker = self._block_tracker[evicted_block_id]
             assert isinstance(tracker, XavierInnerBlockTracker)
             tracker.transferred = False
             tracker.executed = False
             self._isolation.call(self.unregister_block(evicted_block_id))
+            logger.debug(f"block_id: {evicted_block_id} will be used again.")
         return evicted_block_id
