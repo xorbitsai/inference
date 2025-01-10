@@ -6723,6 +6723,67 @@
       "<|endoftext|>"
     ]
   },
+   {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "marco-o1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Marco-o1: Towards Open Reasoning Models for Open-Ended Solutions",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "AIDC-AI/Marco-o1",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_file_name_template": "Marco-o1.{quantization}.gguf",
+        "model_hub": "modelscope",
+        "model_id": "QuantFactory/Marco-o1-GGUF"
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\n\n你是一个经过良好训练的AI助手，你的名字是Marco-o1.由阿里国际数字商业集团的AI Business创造.\n        \n## 重要！！！！！\n当你回答问题时，你的思考应该在<Thought>内完成，<Output>内输出你的结果。\n<Thought>应该尽可能是英文，但是有2个特例，一个是对原文中的引用，另一个是是数学应该使用markdown格式，<Output>内的输出需要遵循用户输入的语言。\n        <|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
   {
     "version": 1,
     "context_length": 4096,
