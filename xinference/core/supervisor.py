@@ -267,6 +267,10 @@ class SupervisorActor(xo.StatelessActor):
                 signal.SIGTERM, lambda: asyncio.create_task(signal_handler())
             )
 
+        from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+
+        self._block_tracker: Optional[xo.ActorRefType[VLLMBlockTracker]] = None
+
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
         import psutil
@@ -956,17 +960,37 @@ class SupervisorActor(xo.StatelessActor):
         ]:
             raise ValueError("Tensorizer is not supported for %s." % model_name)
 
+        enable_xavier: bool = (
+            bool(kwargs.pop("enable_xavier", False))
+            and model_engine is not None
+            and model_engine.lower() == "vllm"
+        )
+        if enable_xavier:
+            if replica <= 1:
+                logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
+                enable_xavier = False
+            else:
+                from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+
+                self._block_tracker = await xo.create_actor(
+                    VLLMBlockTracker,
+                    address=self.address,
+                    uid=VLLMBlockTracker.default_uid(),
+                )
+
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
             f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
-            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, "
+            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, enable_xavier: {enable_xavier}, "
             f"kwargs: {kwargs}"
         )
 
-        async def _launch_one_model(_replica_model_uid):
+        async def _launch_one_model(
+            worker_ref, _replica_model_uid, rank: int, store_port: int
+        ):
             if _replica_model_uid in self._replica_model_uid_to_worker:
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
@@ -974,14 +998,9 @@ class SupervisorActor(xo.StatelessActor):
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
             nonlocal model_type
 
-            worker_ref = (
-                target_ip_worker_ref
-                if target_ip_worker_ref is not None
-                else await self._choose_worker()
-            )
             # LLM as default for compatibility
             model_type = model_type or "LLM"
-            await worker_ref.launch_builtin_model(
+            subpool_address = await worker_ref.launch_builtin_model(
                 model_uid=_replica_model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
@@ -995,14 +1014,57 @@ class SupervisorActor(xo.StatelessActor):
                 gpu_idx=replica_gpu_idx,
                 download_hub=download_hub,
                 model_path=model_path,
+                xavier_config={
+                    "block_tracker_address": self._block_tracker.address
+                    if self._block_tracker is not None
+                    else None,
+                    "rank": rank,
+                    "world_size": replica,
+                    "store_address": self.address.split(":")[0],
+                    "store_port": store_port,
+                }
+                if enable_xavier
+                else None,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+            return subpool_address
 
         async def _launch_model():
             try:
-                for rep_model_uid in iter_replica_model_uid(model_uid, replica):
-                    await _launch_one_model(rep_model_uid)
+                store_port = xo.utils.get_next_port()
+                worker_refs = []
+                rank_addresses = []
+                for rank, rep_model_uid in enumerate(
+                    iter_replica_model_uid(model_uid, replica)
+                ):
+                    worker_ref = (
+                        target_ip_worker_ref
+                        if target_ip_worker_ref is not None
+                        else await self._choose_worker()
+                    )
+                    subpool_address = await _launch_one_model(
+                        worker_ref, rep_model_uid, rank, store_port
+                    )
+                    worker_refs.append((worker_ref, rep_model_uid))
+                    rank_addresses.append(subpool_address)
+
+                # For xavier, start all the vllm instances first,
+                # and then start the transfer component,
+                # because the transfer actor needs all the rank addresses used for collective communication
+                if enable_xavier:
+                    logger.debug(f"Init transfer component for xavier...")
+                    tasks = []
+                    for worker_ref, rep_model_uid in worker_refs:
+                        tasks.append(
+                            worker_ref.start_transfer_for_vllm(
+                                rep_model_uid, rank_addresses
+                            )
+                        )
+                    # Here you must use asyncio.gather, not a for loop,
+                    # or you will get stuck.
+                    await asyncio.gather(*tasks)
+                    logger.debug(f"Init transfer component for xavier done.")
             except Exception:
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
@@ -1147,6 +1209,15 @@ class SupervisorActor(xo.StatelessActor):
                 f"Model not found in the model list, uid: {replica_model_uid}"
             )
         return await worker_ref.get_model(model_uid=replica_model_uid)
+
+    @log_async(logger=logger)
+    async def get_model_status(self, replica_model_uid: str):
+        worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_ref is None:
+            raise ValueError(
+                f"Model not found in the model list, uid: {replica_model_uid}"
+            )
+        return await worker_ref.get_model_status(replica_model_uid)
 
     @log_async(logger=logger)
     async def describe_model(self, model_uid: str) -> Dict[str, Any]:

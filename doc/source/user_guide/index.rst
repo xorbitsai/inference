@@ -12,3 +12,4 @@ User Guide
    auth_system
    metrics
    continuous_batching
+   vllm_enhancement

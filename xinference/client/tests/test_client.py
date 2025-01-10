@@ -419,6 +419,13 @@ def set_auto_recover_limit():
 
 
 @pytest.fixture
+def set_test_oom_error():
+    os.environ["XINFERENCE_TEST_OUT_OF_MEMORY_ERROR"] = "1"
+    yield
+    del os.environ["XINFERENCE_TEST_OUT_OF_MEMORY_ERROR"]
+
+
+@pytest.fixture
 def setup_cluster():
     import xoscar as xo
 
@@ -488,3 +495,22 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
             time.sleep(1)
     else:
         assert False
+
+
+def test_model_error(set_test_oom_error, setup_cluster):
+    endpoint, _ = setup_cluster
+    client = RESTfulClient(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulChatModelHandle)
+
+    with pytest.raises(RuntimeError, match="Model actor is out of memory"):
+        model.generate("Once upon a time, there was a very old computer")

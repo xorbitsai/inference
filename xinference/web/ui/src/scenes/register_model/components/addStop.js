@@ -72,7 +72,6 @@ const AddStop = ({
             gap: 10,
             marginInline: 50,
             padding: 20,
-            backgroundColor: '#eee',
             borderRadius: 10,
           }}
         >

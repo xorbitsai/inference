@@ -22,6 +22,7 @@ import signal
 import threading
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
@@ -58,6 +59,11 @@ else:
     MODEL_ACTOR_AUTO_RECOVER_LIMIT = None
 
 
+@dataclass
+class ModelStatus:
+    last_error: str = ""
+
+
 class WorkerActor(xo.StatelessActor):
     def __init__(
         self,
@@ -90,6 +96,7 @@ class WorkerActor(xo.StatelessActor):
         # attributes maintained after model launched:
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
+        self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
@@ -866,6 +873,9 @@ class WorkerActor(xo.StatelessActor):
             )
 
             try:
+                xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
+                if xavier_config is not None:
+                    xavier_config["rank_address"] = subpool_address
                 model, model_description = await asyncio.to_thread(
                     create_model_instance,
                     subpool_address,
@@ -893,6 +903,7 @@ class WorkerActor(xo.StatelessActor):
                     model=model,
                     model_description=model_description,
                     request_limits=request_limits,
+                    xavier_config=xavier_config,
                 )
                 await model_ref.load()
             except:
@@ -902,6 +913,7 @@ class WorkerActor(xo.StatelessActor):
                 raise
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_description
+            self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
                 model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
@@ -921,6 +933,7 @@ class WorkerActor(xo.StatelessActor):
             origin_uid,
             {"model_ability": abilities, "status": LaunchStatus.READY.name},
         )
+        return subpool_address
 
     @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
@@ -976,6 +989,7 @@ class WorkerActor(xo.StatelessActor):
                 status = LaunchStatus.ERROR.name
             else:
                 status = LaunchStatus.TERMINATED.name
+                self._model_uid_to_model_status.pop(model_uid, None)
 
             if self._status_guard_ref is None:
                 _ = await self.get_supervisor_ref()
@@ -1010,6 +1024,9 @@ class WorkerActor(xo.StatelessActor):
 
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        model_status = self._model_uid_to_model_status.get(model_uid)
+        if model_status and model_status.last_error:
+            raise Exception(model_status.last_error)
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             raise ValueError(f"Model not found, uid: {model_uid}")
@@ -1138,6 +1155,21 @@ class WorkerActor(xo.StatelessActor):
         }
         return ret
 
+    def update_model_status(self, model_uid: str, **kwargs):
+        model_status = self._model_uid_to_model_status.get(model_uid)
+        if model_status is not None:
+            for k, v in kwargs.items():
+                setattr(model_status, k, v)
+
+    def get_model_status(self, model_uid: str):
+        return self._model_uid_to_model_status.get(model_uid)
+
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
+
+    async def start_transfer_for_vllm(
+        self, rep_model_uid: str, rank_addresses: List[str]
+    ):
+        model_ref = self._model_uid_to_model[rep_model_uid]
+        await model_ref.start_transfer_for_vllm(rank_addresses)

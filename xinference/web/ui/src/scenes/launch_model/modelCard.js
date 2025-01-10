@@ -10,6 +10,7 @@ import {
   ExpandMore,
   Grade,
   HelpCenterOutlined,
+  HelpOutline,
   RocketLaunchOutlined,
   StarBorder,
   UndoOutlined,
@@ -24,6 +25,7 @@ import {
   Collapse,
   Drawer,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputLabel,
@@ -34,6 +36,7 @@ import {
   Select,
   Snackbar,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -72,6 +75,9 @@ const llmAllDataKey = [
   'gpu_idx',
   'download_hub',
   'model_path',
+  'gguf_quantization',
+  'gguf_model_path',
+  'cpu_offload',
   'peft_model_config',
 ]
 
@@ -116,6 +122,9 @@ const ModelCard = ({
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
   const [modelPath, setModelPath] = useState('')
+  const [ggufQuantizations, setGgufQuantizations] = useState('')
+  const [ggufModelPath, setGgufModelPath] = useState('')
+  const [cpuOffload, setCpuOffload] = useState(false)
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -325,9 +334,11 @@ const ModelCard = ({
         model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
       }
 
-      if (nGPULayers >= 0) {
-        modelDataWithID_LLM.n_gpu_layers = nGPULayers
-      }
+      if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
+      if (ggufQuantizations)
+        modelDataWithID_other.gguf_quantization = ggufQuantizations
+      if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
+      if (modelType === 'image') modelDataWithID_other.cpu_offload = cpuOffload
 
       const modelDataWithID =
         modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
@@ -641,6 +652,9 @@ const ModelCard = ({
       setWorkerIp(arr[0].worker_ip || '')
       setDownloadHub(arr[0].download_hub || '')
       setModelPath(arr[0].model_path || '')
+      setGgufQuantizations(arr[0].gguf_quantization || '')
+      setGgufModelPath(arr[0].gguf_model_path || '')
+      setCpuOffload(arr[0].cpu_offload || false)
 
       if (arr[0].model_type === 'image') {
         let loraData = []
@@ -738,6 +752,9 @@ const ModelCard = ({
       setWorkerIp('')
       setDownloadHub('')
       setModelPath('')
+      setGgufQuantizations('')
+      setGgufModelPath('')
+      setCpuOffload(false)
       setLoraArr([])
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
@@ -1651,8 +1668,69 @@ const ModelCard = ({
                     onChange={(e) => setModelPath(e.target.value)}
                   />
                 </FormControl>
+                {modelData.gguf_quantizations && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="quantization-label">
+                      {t('launchModel.GGUFQuantization.optional')}
+                    </InputLabel>
+                    <Select
+                      labelId="gguf_quantizations-label"
+                      value={ggufQuantizations}
+                      onChange={(e) => {
+                        e.target.value === 'none'
+                          ? setGgufQuantizations('')
+                          : setGgufQuantizations(e.target.value)
+                      }}
+                      label={t('launchModel.GGUFQuantization.optional')}
+                    >
+                      {['none', ...modelData.gguf_quantizations].map((item) => {
+                        return (
+                          <MenuItem key={item} value={item}>
+                            {item}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                )}
+                {modelData.gguf_quantizations && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <TextField
+                      variant="outlined"
+                      value={ggufModelPath}
+                      label={t('launchModel.GGUFModelPath.optional')}
+                      onChange={(e) => setGgufModelPath(e.target.value)}
+                    />
+                  </FormControl>
+                )}
                 {modelType === 'image' && (
                   <>
+                    <div
+                      style={{
+                        marginBlock: '10px',
+                      }}
+                    >
+                      <FormControlLabel
+                        label={
+                          <div>
+                            <span>{t('launchModel.CPUOffload')}</span>
+                            <Tooltip
+                              title={t('launchModel.CPUOffload.tip')}
+                              placement="top"
+                            >
+                              <IconButton>
+                                <HelpOutline />
+                              </IconButton>
+                            </Tooltip>
+                          </div>
+                        }
+                        labelPlacement="start"
+                        control={<Switch checked={cpuOffload} />}
+                        onChange={(e) => {
+                          setCpuOffload(e.target.checked)
+                        }}
+                      />
+                    </div>
                     <ListItemButton
                       onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                     >
