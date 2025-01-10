@@ -1,0 +1,73 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-01-10 14:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/user_guide/vllm_enhancement.rst:5
+msgid "Xavier: Share KV Cache between vllm replicas"
+msgstr "Xavier: 多VLLM副本间共享KV Cache"
+
+#: ../../source/user_guide/vllm_enhancement.rst:6
+msgid ""
+"For scenarios such as long document queries and multi-round "
+"conversations, the computation during the inference prefill phase can be "
+"particularly heavy, which affects overall throughput and the latency of "
+"individual inferences. Xinference enhances the vllm engine by introducing"
+" the ``Xavier`` framework, enabling KV cache sharing across multiple vllm"
+" instances. This allows KV cache computed by other replicas to be "
+"directly reused, avoiding redundant computations."
+msgstr ""
+"对于长文档查询和多轮对话等场景，在推理预填充阶段的计算可能特别繁重，这会影响整体吞吐量和单次推理的延迟。"
+"Xinference 通过引入 ``Xavier`` 框架来增强 vllm 引擎，支持在多个 vllm 实例之间共享 KV 缓存。"
+"这使得其他副本计算出的 KV 缓存可以被直接重用，从而避免了冗余计算。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid "Usage"
+msgstr "使用"
+
+#: ../../source/user_guide/vllm_enhancement.rst:16
+msgid ""
+"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
+"model."
+msgstr ""
+"启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:20
+msgid "Limitations"
+msgstr "限制"
+
+#: ../../source/user_guide/vllm_enhancement.rst:21
+msgid "Xavier requires vllm version >= ``0.6.5``."
+msgstr ""
+"Xavier 要求 vllm 版本不低于 ``0.6.5`` 。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:22
+msgid ""
+"Xavier is currently not compatible with model reloading after CUDA OOM in"
+" Xinference. (it will be supported in the future)"
+msgstr ""
+"目前 Xavier 与 Xinference 中模型 CUDA OOM 后的重新拉起特性不兼容（未来将解决此问题）。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:23
+msgid ""
+"Due to the underlying communication not recognizing ``0.0.0.0``, the "
+"actual IP address needs to be passed when starting Xinference, for "
+"example: ``xinference-local -H 192.168.xx.xx``."
+msgstr ""
+"由于底层通信无法识别 ``0.0.0.0`` 地址，启动 xinference 时需要配置实际的 IP 地址，"
+"例如：``xinference-local -H 192.168.xx.xx`` 。"
+
