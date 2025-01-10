@@ -134,6 +134,7 @@ def _install():
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
+    from .transformers.cogagent import CogAgentChatModel
     from .transformers.cogvlm2 import CogVLM2Model
     from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchModel
@@ -195,6 +196,7 @@ def _install():
             DeepSeekV2PytorchChatModel,
             OptPytorchModel,
             GlmEdgeVModel,
+            CogAgentChatModel,
         ]
     )
     if OmniLMMModel:  # type: ignore

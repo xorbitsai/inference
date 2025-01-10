@@ -2383,6 +2383,10 @@ class RESTfulAPI(CancelMixin):
                 kwargs["guided_whitespace_pattern"] = raw_extra_body.get(
                     "guided_whitespace_pattern"
                 )
+            if raw_extra_body.get("platform") is not None:
+                kwargs["platform"] = raw_extra_body.get("platform")
+            if raw_extra_body.get("format") is not None:
+                kwargs["format"] = raw_extra_body.get("format")
 
         return kwargs
 
