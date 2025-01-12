@@ -51,8 +51,9 @@ def test_create_completion_types():
     with pytest.raises(ValidationError):
         CreateCompletion()
 
-    with pytest.raises(ValidationError):
-        CreateCompletion(model="abc", prompt="def", not_exist="jdk")
+    # In order to support extra body for openai client, we allow non exist key values.
+    # with pytest.raises(ValidationError):
+    #     CreateCompletion(model="abc", prompt="def", not_exist="jdk")
 
     CreateCompletion(model="abc", prompt="def")
 
