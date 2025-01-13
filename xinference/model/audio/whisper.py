@@ -15,6 +15,7 @@ import logging
 import os
 from glob import glob
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
+
 from typing_extensions import TypedDict
 
 from ...device_utils import (
@@ -52,9 +53,7 @@ class WhisperModel:
         self._device = device
         self._model = None
         self._max_new_tokens = max_new_tokens
-        self._model_config: WhisperModelConfig = self._sanitize_model_config(
-            kwargs
-        )
+        self._model_config: WhisperModelConfig = self._sanitize_model_config(kwargs)
 
     def _sanitize_model_config(
         self, model_config: Optional[WhisperModelConfig]
@@ -211,7 +210,7 @@ class WhisperModel:
         generate_kwargs = {"max_new_tokens": self._max_new_tokens, "task": "transcribe"}
         if language is not None:
             generate_kwargs["language"] = language
-            
+
         return self._call_model(
             audio=audio,
             generate_kwargs=generate_kwargs,
