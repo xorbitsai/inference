@@ -13,6 +13,7 @@
 # limitations under the License.
 import logging
 import os
+import typing
 from glob import glob
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
@@ -53,7 +54,9 @@ class WhisperModel:
         self._device = device
         self._model = None
         self._max_new_tokens = max_new_tokens
-        self._model_config: WhisperModelConfig = self._sanitize_model_config(kwargs)
+        self._model_config: WhisperModelConfig = self._sanitize_model_config(
+            typing.cast(WhisperModelConfig, kwargs)
+        )
 
     def _sanitize_model_config(
         self, model_config: Optional[WhisperModelConfig]
