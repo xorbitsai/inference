@@ -335,8 +335,10 @@ def get_pydantic_model_from_method(
     exclude_fields: Optional[Iterable[str]] = None,
     include_fields: Optional[Dict[str, Any]] = None,
 ) -> BaseModel:
+    # The validate_arguments set Config.extra = "forbid" by default.
     f = validate_arguments(meth, config={"arbitrary_types_allowed": True})
     model = f.model
+    model.Config.extra = "ignore"
     model.__fields__.pop("self", None)
     model.__fields__.pop("args", None)
     model.__fields__.pop("kwargs", None)
