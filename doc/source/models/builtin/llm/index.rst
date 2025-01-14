@@ -91,6 +91,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash
 
+   * - :ref:`cogagent <models_llm_cogagent>`
+     - chat, vision
+     - 4096
+     - The CogAgent-9B-20241220 model is based on GLM-4V-9B, a bilingual open-source VLM base model. Through data collection and optimization, multi-stage training, and strategy improvements, CogAgent-9B-20241220 achieves significant advancements in GUI perception, inference prediction accuracy, action space completeness, and task generalizability. 
+
    * - :ref:`cogvlm2 <models_llm_cogvlm2>`
      - chat, vision
      - 8192
@@ -265,6 +270,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 131072
      - The Llama 3.3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
+   * - :ref:`marco-o1 <models_llm_marco-o1>`
+     - chat, tools
+     - 32768
+     - Marco-o1: Towards Open Reasoning Models for Open-Ended Solutions
 
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
@@ -606,6 +616,8 @@ The following is a list of built-in LLM in Xinference:
   
    codestral-v0.1
   
+   cogagent
+  
    cogvlm2
   
    cogvlm2-video-llama3-chat
@@ -675,6 +687,8 @@ The following is a list of built-in LLM in Xinference:
    llama-3.2-vision-instruct
   
    llama-3.3-instruct
+  
+   marco-o1
   
    minicpm-2b-dpo-bf16
   
