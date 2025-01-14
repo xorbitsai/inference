@@ -117,16 +117,19 @@ class XavierExecutor(GPUExecutorAsync):
 
         res = await super().execute_model_async(execute_model_req)
 
-        """
-        Why not collect and register the information after execution?
-        Because after execution, the model's execution callback hook will release the block_id,
-        causing the block manager to lose access to the correct information.
-        """
-        await block_tracker_ref.register_blocks(
-            virtual_engine, list(executed_blocks_details), rank_address
-        )
+        if executed_blocks_details:
+            """
+            Why not collect and register the information after execution?
+            Because after execution, the model's execution callback hook will release the block_id,
+            causing the block manager to lose access to the correct information.
+            """
+            await block_tracker_ref.register_blocks(
+                virtual_engine, list(executed_blocks_details), rank_address
+            )
 
-        for _, _id in executed_blocks_details:
-            scheduler.block_manager.set_block_status_by_block_id("executed", _id, True)
+            for _, _id in executed_blocks_details:
+                scheduler.block_manager.set_block_status_by_block_id(
+                    "executed", _id, True
+                )
 
         return res

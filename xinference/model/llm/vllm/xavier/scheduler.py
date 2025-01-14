@@ -160,19 +160,15 @@ class XavierScheduler(Scheduler):
         local: Set[int],
         remote: Dict[str, Set[Tuple[int, int, int]]],
         seq_group: SequenceGroup,
-        is_prefill: bool,
     ):
         await self._do_transfer_inner(virtual_engine, remote)
         # After the transfer is completed, update the corresponding metadata.
         self._transfer_status[seq_group] = local
         for _id in local:
             self.block_manager.set_block_status_by_block_id("transferred", _id, True)
-        # After the transfer, place the `seq_group` back into the appropriate queue to
+        # After the transfer, place the `seq_group` back into the `waiting` queue to
         # wait for the next scheduling execution.
-        if is_prefill:
-            self.waiting.appendleft(seq_group)
-        else:
-            self.running.appendleft(seq_group)
+        self.waiting.appendleft(seq_group)
         self._transferring.remove(seq_group)
 
     @no_type_check
@@ -240,39 +236,36 @@ class XavierScheduler(Scheduler):
             After completing the scheduling, the blocks have been allocated.
             Therefore, it is possible to check whether some blocks have already been computed on other replicas based on this information,
             and subsequently initiate the transfer.
+            According to the internal code comments in vllm,
+            whether `token_chunk_size` is 1 can indicate whether the `seq_group` is in the decode or prefill stage.
+            It is noted that data transmission is only applied during the prefill stage.
+            In the decode stage, it only applies to the last token of the block, which can negatively impact throughput.
             """
-            local, remote = await self._get_transfer_details(
-                virtual_engine, block_tables, seq_group
-            )
-            if remote:
-                running_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
-                # According to the internal code comments in vllm,
-                # whether `token_chunk_size` is 1 can indicate whether the `seq_group` is in the decode or prefill stage.
-                is_prefill = token_chunk_size != 1
-                for seq in running_seqs:
-                    seq.status = (
-                        SequenceStatus.WAITING if is_prefill else SequenceStatus.RUNNING
-                    )
-                    # Additional attribute `transferred` to mark that this `seq_group` involves a transfer process.
-                    # During the next scheduling, block allocation will no longer be required
-                    # since it has already been completed.
-                    seq.transferred = True
-                    seq.data._stage = (
-                        SequenceStage.PREFILL if is_prefill else SequenceStage.DECODE
-                    )
-                self._transfer_status[seq_group] = set()
-                # Use `create_task` to avoid blocking subsequent scheduling.
-                asyncio.create_task(
-                    self._do_transfer(
-                        virtual_engine, local, remote, seq_group, is_prefill
-                    )
+            is_prefill: bool = token_chunk_size != 1
+            if is_prefill:
+                local, remote = await self._get_transfer_details(
+                    virtual_engine, block_tables, seq_group
                 )
-                # The `seq_group` that is currently being transferred enters a new queue.
-                self._transferring.append(seq_group)
-                has_transferring = True
-                continue
-            else:
-                scheduled_seq_groups.append(seq_group)
+                if remote:
+                    running_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
+                    for seq in running_seqs:
+                        seq.status = SequenceStatus.WAITING
+                        # Additional attribute `transferred` to mark that this `seq_group` involves a transfer process.
+                        # During the next scheduling, block allocation will no longer be required
+                        # since it has already been completed.
+                        seq.transferred = True
+                        seq.data._stage = SequenceStage.PREFILL
+                    self._transfer_status[seq_group] = set()
+                    # Use `create_task` to avoid blocking subsequent scheduling.
+                    asyncio.create_task(
+                        self._do_transfer(virtual_engine, local, remote, seq_group)
+                    )
+                    # The `seq_group` that is currently being transferred enters a new queue.
+                    self._transferring.append(seq_group)
+                    has_transferring = True
+                    continue
+                else:
+                    scheduled_seq_groups.append(seq_group)
 
             if self.cache_config.enable_prefix_caching:
                 common_computed_block_nums = (
