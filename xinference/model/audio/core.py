@@ -25,9 +25,9 @@ from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
+from .melotts import MeloTTSModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
-from .melotts import MeloTTSModel
 
 logger = logging.getLogger(__name__)
 

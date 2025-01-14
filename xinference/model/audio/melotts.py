@@ -53,6 +53,7 @@ class MeloTTSModel:
 
         import os
         import sys
+
         import nltk
 
         # English language requires download averaged_perceptron_tagger_eng
