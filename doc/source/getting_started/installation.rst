@@ -59,6 +59,7 @@ Currently, supported models include:
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
 - ``QwQ-32B-Preview``
+- ``marco-o1``
 - ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
