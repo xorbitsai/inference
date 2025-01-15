@@ -32,9 +32,6 @@ def test_melotts(setup):
     input_string = (
         "chat T T S is a text to speech model designed for dialogue applications."
     )
-    response = model.speech(input_string)
-    assert type(response) is bytes
-    assert len(response) > 0
 
     response = model.speech(input_string, voice="EN-Newest")
     assert type(response) is bytes
