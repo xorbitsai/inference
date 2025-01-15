@@ -25,6 +25,7 @@ from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
+from .melotts import MeloTTSModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
 
@@ -48,6 +49,7 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: Optional[str]
     multilingual: bool
+    language: Optional[str]
     model_ability: Optional[str]
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
@@ -173,6 +175,7 @@ def create_audio_model_instance(
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
+        MeloTTSModel,
     ],
     AudioModelDescription,
 ]:
@@ -188,6 +191,7 @@ def create_audio_model_instance(
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
+        MeloTTSModel,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -206,6 +210,8 @@ def create_audio_model_instance(
         model = F5TTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "F5-TTS-MLX":
         model = F5TTSMLXModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "MeloTTS":
+        model = MeloTTSModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
