@@ -32,6 +32,9 @@ def test_melotts(setup):
     input_string = (
         "chat T T S is a text to speech model designed for dialogue applications."
     )
+    response = model.speech(input_string)
+    assert type(response) is bytes
+    assert len(response) > 0
 
     response = model.speech(input_string, voice="EN-Newest")
     assert type(response) is bytes
@@ -42,7 +45,7 @@ def test_melotts(setup):
 
     client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
     with client.audio.speech.with_streaming_response.create(
-        model=model_uid, input=input_string, voice="echo"
+        model=model_uid, input=input_string, voice="EN-Newest"
     ) as response:
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
             response.stream_to_file(f.name)
