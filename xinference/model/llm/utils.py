@@ -104,6 +104,7 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
+        messages = self.convert_messages_with_content_list_to_str_conversion(messages)
         if tokenizer is not None:
             try:
                 full_context = tokenizer.apply_chat_template(
