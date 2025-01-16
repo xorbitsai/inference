@@ -86,8 +86,8 @@ class XavierExecutor(GPUExecutorAsync):
             )
         return self._transfer_ref
 
-    def get_rank_address(self) -> str:
-        return self.vllm_config.xavier_config.get("rank_address")
+    def get_rank(self) -> int:
+        return self.vllm_config.xavier_config.get("rank")
 
     async def execute_model_async(
         self,
@@ -100,7 +100,7 @@ class XavierExecutor(GPUExecutorAsync):
         virtual_engine = execute_model_req.virtual_engine
         block_tracker_ref = await self._get_block_tracker_ref()
         scheduler = self.scheduler[virtual_engine]  # type: ignore
-        rank_address = self.get_rank_address()
+        rank = self.get_rank()
         executed_blocks_details: Set[Tuple[int, int]] = set()
         for meta in execute_model_req.seq_group_metadata_list:
             block_tables = meta.block_tables
@@ -124,7 +124,7 @@ class XavierExecutor(GPUExecutorAsync):
             causing the block manager to lose access to the correct information.
             """
             await block_tracker_ref.register_blocks(
-                virtual_engine, list(executed_blocks_details), rank_address
+                virtual_engine, list(executed_blocks_details), rank
             )
 
             for _, _id in executed_blocks_details:

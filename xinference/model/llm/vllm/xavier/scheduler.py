@@ -97,7 +97,7 @@ class XavierScheduler(Scheduler):
         virtual_engine: int,
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
-    ) -> Tuple[Set[int], Dict[str, Set[Tuple[int, int, int]]]]:
+    ) -> Tuple[Set[int], Dict[int, Set[Tuple[int, int, int]]]]:
         """
         Retrieve information from other replicas to check if any blocks have already been computed,
         for the purpose of data transfer.
@@ -132,33 +132,37 @@ class XavierScheduler(Scheduler):
                     )
                 ):
                     details.add(detail)
-        tracker_ref = await self._get_block_tracker_ref()
-        remote = await tracker_ref.query_blocks(virtual_engine, list(details))
-        # Not all queried blocks have corresponding results in other replicas.
-        # Therefore, it is necessary to record which local block data was actually transferred.
-        local: Set[int] = set()
-        for _, remote_details in remote.items():
-            for _, _, local_block_id in remote_details:
-                local.add(local_block_id)
-        if local:
-            logger.debug(
-                f"Data in local blocks: {local} will be transmitted from the remote."
-            )
-        return local, remote
+
+        if details:
+            tracker_ref = await self._get_block_tracker_ref()
+            remote = await tracker_ref.query_blocks(virtual_engine, list(details))
+            # Not all queried blocks have corresponding results in other replicas.
+            # Therefore, it is necessary to record which local block data was actually transferred.
+            local: Set[int] = set()
+            for _, remote_details in remote.items():
+                for _, _, local_block_id in remote_details:
+                    local.add(local_block_id)
+            if local:
+                logger.debug(
+                    f"Data in local blocks: {local} will be transmitted from the remote."
+                )
+            return local, remote
+        else:
+            return set(), dict()
 
     async def _do_transfer_inner(
-        self, virtual_engine: int, remote: Dict[str, Set[Tuple[int, int, int]]]
+        self, virtual_engine: int, remote: Dict[int, Set[Tuple[int, int, int]]]
     ):
         transfer_ref = await self._get_transfer_ref()
-        for addr, hash_and_block_id in remote.items():
+        for from_rank, hash_and_block_id in remote.items():
             src_to_dst: Dict[int, int] = {x[1]: x[2] for x in hash_and_block_id}
-            await transfer_ref.recv(virtual_engine, addr, src_to_dst)
+            await transfer_ref.recv(virtual_engine, from_rank, src_to_dst)
 
     async def _do_transfer(
         self,
         virtual_engine: int,
         local: Set[int],
-        remote: Dict[str, Set[Tuple[int, int, int]]],
+        remote: Dict[int, Set[Tuple[int, int, int]]],
         seq_group: SequenceGroup,
     ):
         await self._do_transfer_inner(virtual_engine, remote)

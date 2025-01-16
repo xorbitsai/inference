@@ -24,81 +24,69 @@ class VLLMBlockTracker(xo.StatelessActor):
 
     def __init__(self):
         super().__init__()
-        # engine -> hash_to_address_and_block_id
-        self._hash_to_address_and_block_id: Dict[
-            int, Dict[int, Set[Tuple[str, int]]]
-        ] = {}
-        # engine -> address_to_hash_and_block_id
-        self._address_to_hash_and_block_id: Dict[
-            int, Dict[str, Set[Tuple[int, int]]]
-        ] = {}
+        # engine -> hash -> (rank, block_id)
+        self._hash_to_rank_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}
+        # engine -> rank -> (hash, block_id)
+        self._rank_to_hash_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}
 
     def register_blocks(
-        self, virtual_engine: int, block_infos: List[Tuple[int, int]], address: str
+        self, virtual_engine: int, block_infos: List[Tuple[int, int]], rank: int
     ):
         # Update query meta
-        if virtual_engine not in self._hash_to_address_and_block_id:
-            self._hash_to_address_and_block_id[virtual_engine] = {}
-        hash_to_address_and_block_id = self._hash_to_address_and_block_id[
-            virtual_engine
-        ]
+        if virtual_engine not in self._hash_to_rank_and_block_id:
+            self._hash_to_rank_and_block_id[virtual_engine] = {}
+        hash_to_rank_and_block_id = self._hash_to_rank_and_block_id[virtual_engine]
         for hash_content, block_id in block_infos:
-            if hash_content not in hash_to_address_and_block_id:
-                hash_to_address_and_block_id[hash_content] = {
-                    (address, block_id),
+            if hash_content not in hash_to_rank_and_block_id:
+                hash_to_rank_and_block_id[hash_content] = {
+                    (rank, block_id),
                 }
             else:
-                hash_to_address_and_block_id[hash_content].add((address, block_id))
+                hash_to_rank_and_block_id[hash_content].add((rank, block_id))
 
         # Update remove meta
-        if virtual_engine not in self._address_to_hash_and_block_id:
-            self._address_to_hash_and_block_id[virtual_engine] = {}
-        address_to_hash_and_block_id = self._address_to_hash_and_block_id[
-            virtual_engine
-        ]
-        if address not in address_to_hash_and_block_id:
-            address_to_hash_and_block_id[address] = set()
-        address_to_hash_and_block_id[address].update(block_infos)
+        if virtual_engine not in self._rank_to_hash_and_block_id:
+            self._rank_to_hash_and_block_id[virtual_engine] = {}
+        rank_to_hash_and_block_id = self._rank_to_hash_and_block_id[virtual_engine]
+        if rank not in rank_to_hash_and_block_id:
+            rank_to_hash_and_block_id[rank] = set()
+        rank_to_hash_and_block_id[rank].update(block_infos)
 
     def query_blocks(
         self, virtual_engine: int, hash_contents: List[Tuple[int, int]]
-    ) -> Dict[str, Set[Tuple[int, int, int]]]:
-        if virtual_engine not in self._hash_to_address_and_block_id:
+    ) -> Dict[int, Set[Tuple[int, int, int]]]:
+        if virtual_engine not in self._hash_to_rank_and_block_id:
             return {}
-        hash_to_address_and_block_id = self._hash_to_address_and_block_id[
-            virtual_engine
-        ]
-        remote: Dict[str, Set[Tuple[int, int, int]]] = {}
+        hash_to_rank_and_block_id = self._hash_to_rank_and_block_id[virtual_engine]
+        remote: Dict[int, Set[Tuple[int, int, int]]] = {}
         for hash_content, _id in hash_contents:
             if (
-                hash_content in hash_to_address_and_block_id
-            ) and hash_to_address_and_block_id[hash_content]:
+                hash_content in hash_to_rank_and_block_id
+            ) and hash_to_rank_and_block_id[hash_content]:
                 # TODO: Randomly select here, and try to distribute requests as evenly as possible.
                 # There may be better methods in the future.
-                address, block_id = random.choice(
-                    list(hash_to_address_and_block_id[hash_content])
+                rank, block_id = random.choice(
+                    list(hash_to_rank_and_block_id[hash_content])
                 )
-                if address not in remote:
-                    remote[address] = {
+                if rank not in remote:
+                    remote[rank] = {
                         (hash_content, block_id, _id),
                     }
                 else:
-                    remote[address].add((hash_content, block_id, _id))
+                    remote[rank].add((hash_content, block_id, _id))
         return remote
 
-    def unregister_block(self, virtual_engine: int, address: str, block_id: int):
-        if (virtual_engine not in self._address_to_hash_and_block_id) or (
-            virtual_engine not in self._hash_to_address_and_block_id
+    def unregister_block(self, virtual_engine: int, rank: int, block_id: int):
+        if (virtual_engine not in self._rank_to_hash_and_block_id) or (
+            virtual_engine not in self._hash_to_rank_and_block_id
         ):
             return
 
         # Update remove meta
-        address_to_hash_and_block_id = self._address_to_hash_and_block_id[
-            virtual_engine
-        ]
-        if address not in address_to_hash_and_block_id:
+        rank_to_hash_and_block_id = self._rank_to_hash_and_block_id[virtual_engine]
+        if rank not in rank_to_hash_and_block_id:
             return
-        hash_and_block_id = address_to_hash_and_block_id[address]
+        hash_and_block_id = rank_to_hash_and_block_id[rank]
         detail: Optional[Tuple[int, int]] = None
         for hash_content, _id in hash_and_block_id.copy():
             if _id == block_id:
@@ -108,9 +96,7 @@ class VLLMBlockTracker(xo.StatelessActor):
 
         # Update query meta
         if detail is not None:
-            hash_to_address_and_block_id = self._hash_to_address_and_block_id[
-                virtual_engine
-            ]
+            hash_to_rank_and_block_id = self._hash_to_rank_and_block_id[virtual_engine]
             _hash = detail[0]
-            if _hash in hash_to_address_and_block_id:
-                hash_to_address_and_block_id[_hash].discard((address, detail[1]))
+            if _hash in hash_to_rank_and_block_id:
+                hash_to_rank_and_block_id[_hash].discard((rank, detail[1]))

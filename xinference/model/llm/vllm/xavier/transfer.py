@@ -153,6 +153,9 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
             num_buffer, buffer_shape, buffer_dtype, buffer_device, pin_memory
         )
 
+    async def __pre_destroy__(self):
+        self._context.closeConnections()
+
     def _get_cache_engine(self, virtual_engine: int) -> CacheEngine:
         return self._cache_engine[virtual_engine]  # type: ignore
 
@@ -281,18 +284,18 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
             self.free_buffer_index(cpu_buf_index)
 
     async def recv(
-        self, virtual_engine: int, from_address: str, src_to_dst: Dict[int, int]
+        self, virtual_engine: int, from_rank: int, src_to_dst: Dict[int, int]
     ):
         """
         This is the external entry point for the call.
         The transfer logic is as follows:
         the receiver requests the sender to send the data directly to itself in a point-to-point manner.
         """
-        rank = self._world_addresses.index(from_address)
+        from_address = self._world_addresses[from_rank]
         sender_ref = await xo.actor_ref(
-            address=from_address, uid=f"{TransferActor.default_uid()}-{rank}"
+            address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
         )
         await asyncio.gather(
             sender_ref.do_send(virtual_engine, self._rank, src_to_dst),
-            self.do_recv(virtual_engine, rank, src_to_dst),
+            self.do_recv(virtual_engine, from_rank, src_to_dst),
         )

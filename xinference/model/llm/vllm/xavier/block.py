@@ -90,7 +90,7 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
         tracker_ref = await self._get_block_tracker_ref()
         await tracker_ref.unregister_block(
             self.xavier_config.get("virtual_engine"),
-            self.xavier_config.get("rank_address"),
+            self.xavier_config.get("rank"),
             block_id,
         )
 
