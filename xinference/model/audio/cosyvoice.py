@@ -49,8 +49,11 @@ class CosyVoiceModel:
         import os
         import sys
 
+        import torch
+
         # The yaml config loaded from model has hard-coded the import paths. please refer to: load_hyperpyyaml
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../thirdparty"))
+        thirdparty_dir = os.path.join(os.path.dirname(__file__), "../../thirdparty")
+        sys.path.insert(0, thirdparty_dir)
 
         if "CosyVoice2" in self._model_spec.model_name:
             from cosyvoice.cli.cosyvoice import CosyVoice2 as CosyVoice
@@ -67,6 +70,11 @@ class CosyVoiceModel:
         )
         logger.info("Loading CosyVoice model, compile=%s...", load_jit)
         self._model = CosyVoice(self._model_path, load_jit=load_jit)
+        if self._is_cosyvoice2:
+            spk2info_file = os.path.join(thirdparty_dir, "cosyvoice/bin/spk2info.pt")
+            self._model.frontend.spk2info = torch.load(
+                spk2info_file, map_location=self._device
+            )
 
     def _speech_handle(
         self,
@@ -104,10 +112,10 @@ class CosyVoiceModel:
                     input, prompt_speech_16k, stream=stream
                 )
         else:
-            assert not self._is_cosyvoice2
             available_speakers = self._model.list_avaliable_spks()
             if not voice:
                 voice = available_speakers[0]
+                logger.info("Auto select speaker: %s", voice)
             else:
                 assert (
                     voice in available_speakers
@@ -187,7 +195,7 @@ class CosyVoiceModel:
                 prompt_text is None
             ), "CosyVoice Instruct model does not support prompt_text"
         elif self._is_cosyvoice2:
-            assert prompt_speech is not None, "CosyVoice2 requires prompt_speech"
+            pass
         else:
             # inference_zero_shot
             # inference_cross_lingual
