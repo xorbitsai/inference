@@ -103,10 +103,10 @@ class MLXModel(LLM):
         # default config is adapted from
         # https://github.com/ml-explore/mlx-examples/blob/f212b770d8b5143e23102eda20400ae43340f844/llms/mlx_lm/utils.py#L129
         generate_config.setdefault("temperature", 0.0)
+        generate_config.setdefault("logit_bias", None)
         generate_config.setdefault("repetition_penalty", None)
         generate_config.setdefault("repetition_context_size", 20)
         generate_config.setdefault("top_p", 1.0)
-        generate_config.setdefault("logit_bias", None)
         return generate_config
 
     def _load_model(self, **kwargs):
@@ -199,14 +199,24 @@ class MLXModel(LLM):
         return prompt
 
     def _generate_stream_inner(self, **kwargs):
-        from mlx_lm.utils import make_sampler, stream_generate
+        from mlx_lm.utils import make_logits_processors, make_sampler, stream_generate
 
         sampler = make_sampler(
             temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
         )
         prompt_token_ids = kwargs.pop("prompt_token_ids")
+        logits_processors = make_logits_processors(
+            logit_bias=kwargs.pop("logits_bias", None),
+            repetition_penalty=kwargs.pop("repetition_penalty"),
+            repetition_context_size=kwargs.pop("repetition_context_size"),
+        )
         yield from stream_generate(
-            self._model, self._tokenizer, prompt_token_ids, sampler=sampler, **kwargs
+            self._model,
+            self._tokenizer,
+            prompt_token_ids,
+            sampler=sampler,
+            logits_processors=logits_processors,
+            **kwargs,
         )
 
     def _prepare_inputs(
