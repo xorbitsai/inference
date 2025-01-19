@@ -61,9 +61,12 @@ class CosyVoiceModel:
 
             self._is_cosyvoice2 = False
 
-        self._model = CosyVoice(
-            self._model_path, load_jit=self._kwargs.get("load_jit", False)
+        # Unify this configuration name as 'compile' to be compatible with the name 'load_jit'.
+        load_jit = self._kwargs.get("load_jit", False) or self._kwargs.get(
+            "compile", False
         )
+        logger.info("Loading CosyVoice model, compile=%s...", load_jit)
+        self._model = CosyVoice(self._model_path, load_jit=load_jit)
 
     def _speech_handle(
         self,
