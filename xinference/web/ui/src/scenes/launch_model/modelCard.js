@@ -763,6 +763,16 @@ const ModelCard = ({
     }
   }
 
+  const normalizeLanguage = (language) => {
+    if (Array.isArray(language)) {
+      return language.map((lang) => lang.toLowerCase())
+    } else if (typeof language === 'string') {
+      return [language.toLowerCase()]
+    } else {
+      return []
+    }
+  }
+
   // Set two different states based on mouse hover
   return (
     <>
@@ -1042,7 +1052,7 @@ const ModelCard = ({
               >
                 {(() => {
                   if (modelData.language) {
-                    return modelData.language.map((v) => {
+                    return normalizeLanguage(modelData.language).map((v) => {
                       return (
                         <Chip
                           key={v}
