@@ -38,7 +38,6 @@ class MeloTTSModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
-        self._is_cosyvoice2 = False
 
     @property
     def model_ability(self):
