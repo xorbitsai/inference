@@ -33,6 +33,22 @@ The following is a list of built-in audio models in Xinference:
   
    fishspeech-1.5
   
+   melotts-chinese
+  
+   melotts-english
+  
+   melotts-english-v2
+  
+   melotts-english-v3
+  
+   melotts-french
+  
+   melotts-japanese
+  
+   melotts-korean
+  
+   melotts-spanish
+  
    sensevoicesmall
   
    whisper-base
