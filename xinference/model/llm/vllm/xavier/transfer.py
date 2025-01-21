@@ -110,6 +110,8 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
         self._rank_address = rank_address
         self._store_port = store_port
         self._world_addresses = world_addresses
+        self._device = None
+        self._tcp_store = None
         self._context = None
         self._cache_engine: Optional[List[CacheEngine]] = None
         self._scheduler: Optional[List[Scheduler]] = None
@@ -118,21 +120,34 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
     async def __post_create__(self):
         from xoscar.collective import xoscar_pygloo as xp
 
-        context = xp.rendezvous.Context(self._rank, self._world_size)
+        self._context = xp.rendezvous.Context(self._rank, self._world_size)
 
         attr = xp.transport.tcp.attr(self._rank_address.split(":")[0])
-        dev = xp.transport.tcp.CreateDevice(attr)
+        self._device = xp.transport.tcp.CreateDevice(attr)
 
         opt = xp.rendezvous.TCPStoreOptions()
         opt.port = self._store_port
         opt.numWorkers = self._world_size
         opt.isServer = self._rank == 0
 
-        store = xp.rendezvous.TCPStore(self._store_address, opt)
-        store = xp.rendezvous.PrefixStore(str(self._world_size), store)
+        self._tcp_store = xp.rendezvous.TCPStore(self._store_address, opt)
+        if self._world_addresses:
+            self.connect_full_mesh()
 
-        context.connectFullMesh(store, dev)
-        self._context = context
+    def connect_full_mesh(
+        self, prefix: Optional[str] = None, world_addresses: Optional[List[str]] = None
+    ):
+        from xoscar.collective import xoscar_pygloo as xp
+
+        assert self._device is not None
+        assert self._tcp_store is not None
+        assert self._context is not None
+        if world_addresses is not None:
+            self._world_addresses = world_addresses
+        prefix_store = xp.rendezvous.PrefixStore(
+            prefix or str(self._world_size), self._tcp_store
+        )
+        self._context.connectFullMesh(prefix_store, self._device)
         logger.debug(
             f"Rank {self._rank} arrives successfully, world addresses: {self._world_addresses}"
         )

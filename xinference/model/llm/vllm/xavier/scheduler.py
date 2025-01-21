@@ -72,12 +72,11 @@ class XavierScheduler(Scheduler):
         self._transfer_status: Dict[SequenceGroup, Set[int]] = {}
 
     async def _get_block_tracker_ref(self):
-        from .block_tracker import VLLMBlockTracker
-
         if self._block_tracker_ref is None:
             block_tracker_address = self._xavier_config.get("block_tracker_address")
+            block_tracker_uid = self._xavier_config.get("block_tracker_uid")
             self._block_tracker_ref = await xo.actor_ref(
-                address=block_tracker_address, uid=VLLMBlockTracker.default_uid()
+                address=block_tracker_address, uid=block_tracker_uid
             )
         return self._block_tracker_ref
 
@@ -98,6 +97,11 @@ class XavierScheduler(Scheduler):
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
     ) -> Tuple[Set[int], Dict[int, Set[Tuple[int, int, int]]]]:
+        # If the `seq_group` has the `force_calculation` attribute set to `True`,
+        # it indicates that there were issues during the transmission process.
+        # In this case, force the computation and exclude it from the Xavier process.
+        if getattr(seq_group, "force_calculation", False):
+            return set(), dict()
         """
         Retrieve information from other replicas to check if any blocks have already been computed,
         for the purpose of data transfer.
@@ -165,15 +169,30 @@ class XavierScheduler(Scheduler):
         remote: Dict[int, Set[Tuple[int, int, int]]],
         seq_group: SequenceGroup,
     ):
-        await self._do_transfer_inner(virtual_engine, remote)
-        # After the transfer is completed, update the corresponding metadata.
-        self._transfer_status[seq_group] = local
-        for _id in local:
-            self.block_manager.set_block_status_by_block_id("transferred", _id, True)
-        # After the transfer, place the `seq_group` back into the `waiting` queue to
-        # wait for the next scheduling execution.
-        self.waiting.appendleft(seq_group)
-        self._transferring.remove(seq_group)
+        try:
+            await self._do_transfer_inner(virtual_engine, remote)
+        except Exception as e:
+            """
+            The exception here is most likely due to the sender triggering recovery during the transmission process.
+            In this case, fallback to performing computation during the prefill stage.
+            """
+            logger.error(f"Transfer failed: {e}")
+            # Force this `seq_group` to perform computation.
+            seq_group.force_calculation = True
+            self._transfer_status.pop(seq_group, None)
+            self.waiting.appendleft(seq_group)
+            self._transferring.remove(seq_group)
+        else:
+            # After the transfer is completed, update the corresponding metadata.
+            self._transfer_status[seq_group] = local
+            for _id in local:
+                self.block_manager.set_block_status_by_block_id(
+                    "transferred", _id, True
+                )
+            # After the transfer, place the `seq_group` back into the `waiting` queue to
+            # wait for the next scheduling execution.
+            self.waiting.appendleft(seq_group)
+            self._transferring.remove(seq_group)
 
     @no_type_check
     async def schedule(

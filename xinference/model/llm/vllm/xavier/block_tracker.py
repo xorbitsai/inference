@@ -28,6 +28,7 @@ class VLLMBlockTracker(xo.StatelessActor):
         self._hash_to_rank_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}
         # engine -> rank -> (hash, block_id)
         self._rank_to_hash_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}
+        self._unavailable_ranks: Set[int] = set()
 
     def register_blocks(
         self, virtual_engine: int, block_infos: List[Tuple[int, int]], rank: int
@@ -63,17 +64,22 @@ class VLLMBlockTracker(xo.StatelessActor):
             if (
                 hash_content in hash_to_rank_and_block_id
             ) and hash_to_rank_and_block_id[hash_content]:
-                # TODO: Randomly select here, and try to distribute requests as evenly as possible.
-                # There may be better methods in the future.
-                rank, block_id = random.choice(
-                    list(hash_to_rank_and_block_id[hash_content])
-                )
-                if rank not in remote:
-                    remote[rank] = {
-                        (hash_content, block_id, _id),
-                    }
-                else:
-                    remote[rank].add((hash_content, block_id, _id))
+                # exclude ranks that are in the recovery process
+                rank_and_block_id = [
+                    (r, b)
+                    for r, b in hash_to_rank_and_block_id[hash_content]
+                    if r not in self._unavailable_ranks
+                ]
+                if rank_and_block_id:
+                    # TODO: Randomly select here, and try to distribute requests as evenly as possible.
+                    # There may be better methods in the future.
+                    rank, block_id = random.choice(rank_and_block_id)
+                    if rank not in remote:
+                        remote[rank] = {
+                            (hash_content, block_id, _id),
+                        }
+                    else:
+                        remote[rank].add((hash_content, block_id, _id))
         return remote
 
     def unregister_block(self, virtual_engine: int, rank: int, block_id: int):
@@ -100,3 +106,24 @@ class VLLMBlockTracker(xo.StatelessActor):
             _hash = detail[0]
             if _hash in hash_to_rank_and_block_id:
                 hash_to_rank_and_block_id[_hash].discard((rank, detail[1]))
+
+    def unregister_rank(self, rank: int):
+        """
+        This rank is in the recovery process, and its query results will be excluded.
+        """
+        self._unavailable_ranks.add(rank)
+
+    def register_rank(self, rank: int):
+        """
+        After recovery is successful, clear all stale data of the rank and mark the rank as available.
+        """
+        for _, rank_to_hash_and_block_id in self._rank_to_hash_and_block_id.items():
+            rank_to_hash_and_block_id.pop(rank, None)
+
+        for _, hash_to_rank_and_block_id in self._hash_to_rank_and_block_id.items():
+            for _, rank_and_block_id in hash_to_rank_and_block_id.items():
+                to_delete = [(r, b) for r, b in rank_and_block_id if r == rank]
+                if to_delete:
+                    rank_and_block_id.difference_update(to_delete)
+
+        self._unavailable_ranks.discard(rank)

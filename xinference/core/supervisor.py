@@ -268,8 +268,12 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+        from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
 
-        self._block_tracker: Optional[xo.ActorRefType[VLLMBlockTracker]] = None
+        self._block_tracker_mapping: Dict[str, xo.ActorRefType[VLLMBlockTracker]] = {}
+        self._collective_manager_mapping: Dict[
+            str, xo.ActorRefType[CollectiveManager]
+        ] = {}
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
@@ -960,26 +964,43 @@ class SupervisorActor(xo.StatelessActor):
         ]:
             raise ValueError("Tensorizer is not supported for %s." % model_name)
 
+        if model_uid is None:
+            model_uid = self._gen_model_uid(model_name)
+
         enable_xavier: bool = (
             bool(kwargs.pop("enable_xavier", False))
             and model_engine is not None
             and model_engine.lower() == "vllm"
         )
+        store_port = None
+        world_size = None
         if enable_xavier:
-            if replica <= 1:
-                logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
-                enable_xavier = False
-            else:
-                from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+            # if replica <= 1:
+            #     logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
+            #     enable_xavier = False
+            # else:
+            from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+            from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
 
-                self._block_tracker = await xo.create_actor(
-                    VLLMBlockTracker,
-                    address=self.address,
-                    uid=VLLMBlockTracker.default_uid(),
-                )
-
-        if model_uid is None:
-            model_uid = self._gen_model_uid(model_name)
+            self._block_tracker_mapping[model_uid] = await xo.create_actor(
+                VLLMBlockTracker,
+                address=self.address,
+                uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
+            )
+            store_port = xo.utils.get_next_port()
+            world_size = replica + 1
+            logger.info(
+                f"Going to start xavier with store port: {store_port}, world size: {world_size}"
+            )
+            self._collective_manager_mapping[model_uid] = await xo.create_actor(
+                CollectiveManager,
+                address=self.address,
+                uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                model_uid=model_uid,
+                world_size=world_size,
+                store_port=store_port,
+            )
+            logger.info(f"Start collective manager for {model_uid} done.")
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
@@ -1015,11 +1036,12 @@ class SupervisorActor(xo.StatelessActor):
                 download_hub=download_hub,
                 model_path=model_path,
                 xavier_config={
-                    "block_tracker_address": self._block_tracker.address
-                    if self._block_tracker is not None
-                    else None,
+                    "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
+                    "block_tracker_address": self._block_tracker_mapping[
+                        model_uid
+                    ].address,
                     "rank": rank,
-                    "world_size": replica,
+                    "world_size": world_size,
                     "store_address": self.address.split(":")[0],
                     "store_port": store_port,
                 }
@@ -1032,10 +1054,9 @@ class SupervisorActor(xo.StatelessActor):
 
         async def _launch_model():
             try:
-                store_port = xo.utils.get_next_port()
                 worker_refs = []
-                rank_addresses = []
-                for rank, rep_model_uid in enumerate(
+                rank_addresses = [self.address]
+                for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
                     worker_ref = (
@@ -1044,7 +1065,7 @@ class SupervisorActor(xo.StatelessActor):
                         else await self._choose_worker()
                     )
                     subpool_address = await _launch_one_model(
-                        worker_ref, rep_model_uid, rank, store_port
+                        worker_ref, rep_model_uid, _idx + 1, store_port
                     )
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(subpool_address)
@@ -1054,6 +1075,7 @@ class SupervisorActor(xo.StatelessActor):
                 # because the transfer actor needs all the rank addresses used for collective communication
                 if enable_xavier:
                     logger.debug(f"Init transfer component for xavier...")
+                    collective_manager_ref = self._collective_manager_mapping[model_uid]
                     tasks = []
                     for worker_ref, rep_model_uid in worker_refs:
                         tasks.append(
@@ -1063,7 +1085,16 @@ class SupervisorActor(xo.StatelessActor):
                         )
                     # Here you must use asyncio.gather, not a for loop,
                     # or you will get stuck.
-                    await asyncio.gather(*tasks)
+                    await asyncio.gather(
+                        collective_manager_ref.connect_full_mesh(), *tasks
+                    )
+
+                    # init collective_manager
+                    for idx, addr in enumerate(rank_addresses[1:]):
+                        await collective_manager_ref.register_rank(
+                            idx + 1, addr, update=False
+                        )
+
                     logger.debug(f"Init transfer component for xavier done.")
             except Exception:
                 # terminate_model will remove the replica info.
@@ -1192,6 +1223,34 @@ class SupervisorActor(xo.StatelessActor):
                 if not suppress_exception:
                     raise
         self._model_uid_to_replica_info.pop(model_uid, None)
+
+        # clear for xavier
+        collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
+        if collective_manager_ref is not None:
+            try:
+                await xo.destroy_actor(collective_manager_ref)
+            except Exception as e:
+                logger.debug(
+                    "Destroy collective_manager_ref failed, model uid: %s, error: %s",
+                    model_uid,
+                    e,
+                )
+            finally:
+                logger.debug(
+                    f"Destroy collective_manager_ref done. model uid: {model_uid}"
+                )
+        block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
+        if block_tracker_ref is not None:
+            try:
+                await xo.destroy_actor(block_tracker_ref)
+            except Exception as e:
+                logger.debug(
+                    "Destroy block_tracker_ref failed, model uid: %s, error: %s",
+                    model_uid,
+                    e,
+                )
+            finally:
+                logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -1448,3 +1507,12 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_progress(self, request_id: str) -> float:
         return await self._progress_tracker.get_progress(request_id)
+
+    async def call_collective_manager(
+        self, model_uid: str, func_name: str, *args, **kwargs
+    ):
+        """
+        Used by worker.
+        """
+        collective_manager_ref = self._collective_manager_mapping[model_uid]
+        await getattr(collective_manager_ref, func_name)(*args, **kwargs)

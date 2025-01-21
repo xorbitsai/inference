@@ -121,3 +121,27 @@ async def test_block_tracker(actor_pool_context):
     rank_to_hash_and_block_id = await tracker_ref.get_rank_to_hash_and_block_id()
     assert virtual_engine in rank_to_hash_and_block_id
     assert rank_to_hash_and_block_id[virtual_engine] == {rank: {(123, 0), (789, 2)}}
+
+    # register blocks
+    new_rank = 1
+    block_infos = [(111, 7), (222, 8), (333, 9), (123, 10)]
+    await tracker_ref.register_blocks(virtual_engine, block_infos, new_rank)
+
+    # test unregister rank
+    await tracker_ref.unregister_rank(0)
+    res = await tracker_ref.query_blocks(virtual_engine, [(789, 5)])
+    assert len(res) == 0
+    res = await tracker_ref.query_blocks(virtual_engine, [(123, 6)])
+    assert len(res) == 1
+    assert new_rank in res
+
+    # check internal data
+    rank_to_hash_and_block_id = await tracker_ref.get_rank_to_hash_and_block_id()
+    assert rank in rank_to_hash_and_block_id[virtual_engine]
+    assert new_rank in rank_to_hash_and_block_id[virtual_engine]
+
+    # test register rank
+    await tracker_ref.register_rank(0)
+    rank_to_hash_and_block_id = await tracker_ref.get_rank_to_hash_and_block_id()
+    assert rank not in rank_to_hash_and_block_id[virtual_engine]
+    assert new_rank in rank_to_hash_and_block_id[virtual_engine]

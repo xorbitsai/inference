@@ -24,7 +24,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, no_type_check
 
 import xoscar as xo
 from async_timeout import timeout
@@ -184,12 +184,12 @@ class WorkerActor(xo.StatelessActor):
                             self._model_uid_to_recover_count[model_uid] = (
                                 recover_count - 1
                             )
-                            await self.launch_builtin_model(**launch_args)
+                            await self.recover_model(launch_args)
                         else:
                             logger.warning("Stop recreating model actor.")
                     else:
                         logger.warning("Recreating model actor %s ...", model_uid)
-                        await self.launch_builtin_model(**launch_args)
+                        await self.recover_model(launch_args)
                 break
 
     @classmethod
@@ -1173,3 +1173,24 @@ class WorkerActor(xo.StatelessActor):
     ):
         model_ref = self._model_uid_to_model[rep_model_uid]
         await model_ref.start_transfer_for_vllm(rank_addresses)
+
+    @no_type_check
+    async def recover_model(self, launch_args: Dict[str, Any]):
+        rep_model_uid = launch_args.get("model_uid")
+        origin_uid, _ = parse_replica_model_uid(rep_model_uid)
+        xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
+        is_xavier: bool = xavier_config is not None
+        supervisor_ref = await self.get_supervisor_ref(add_worker=False)
+        if is_xavier:
+            rank = xavier_config.get("rank")
+            await supervisor_ref.call_collective_manager(
+                origin_uid, "unregister_rank", rank
+            )
+        subpool_address = await self.launch_builtin_model(**launch_args)
+        if is_xavier:
+            model_ref = self._model_uid_to_model[rep_model_uid]
+            await model_ref.start_transfer_for_vllm([])
+            rank = xavier_config.get("rank")
+            await supervisor_ref.call_collective_manager(
+                origin_uid, "register_rank", rank, subpool_address, update=True
+            )
