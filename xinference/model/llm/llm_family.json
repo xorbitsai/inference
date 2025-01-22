@@ -6774,7 +6774,7 @@
   },
   {
     "version": 1,
-    "context_length": 32768,
+    "context_length": 16384,
     "model_name": "InternVL2.5",
     "model_lang": [
         "en",
