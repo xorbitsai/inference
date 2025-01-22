@@ -14,7 +14,7 @@
 
 # NOTE:
 #
-#   The algorithum is ported from https://github.com/RahulSChand/gpu_poor
+#   The algorithm is ported from https://github.com/RahulSChand/gpu_poor
 #
 #   Improvement:
 #
