@@ -967,40 +967,37 @@ class SupervisorActor(xo.StatelessActor):
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
+        # Xavier-related
         enable_xavier: bool = (
             bool(kwargs.pop("enable_xavier", False))
             and model_engine is not None
             and model_engine.lower() == "vllm"
         )
+        store_address = None
         store_port = None
         world_size = None
         if enable_xavier:
-            # if replica <= 1:
-            #     logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
-            #     enable_xavier = False
-            # else:
-            from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
-            from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
+            if replica <= 1:
+                logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
+                enable_xavier = False
+            else:
+                from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+                from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
 
-            self._block_tracker_mapping[model_uid] = await xo.create_actor(
-                VLLMBlockTracker,
-                address=self.address,
-                uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
-            )
-            store_port = xo.utils.get_next_port()
-            world_size = replica + 1
-            logger.info(
-                f"Going to start xavier with store port: {store_port}, world size: {world_size}"
-            )
-            self._collective_manager_mapping[model_uid] = await xo.create_actor(
-                CollectiveManager,
-                address=self.address,
-                uid=f"{CollectiveManager.default_uid()}-{model_uid}",
-                model_uid=model_uid,
-                world_size=world_size,
-                store_port=store_port,
-            )
-            logger.info(f"Start collective manager for {model_uid} done.")
+                self._block_tracker_mapping[model_uid] = await xo.create_actor(
+                    VLLMBlockTracker,
+                    address=self.address,
+                    uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
+                )
+                world_size = replica + 1
+                logger.info(f"Going to start xavier with world size: {world_size}")
+                self._collective_manager_mapping[model_uid] = await xo.create_actor(
+                    CollectiveManager,
+                    address=self.address,
+                    uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                    model_uid=model_uid,
+                )
+                logger.info(f"Start collective manager for {model_uid} done.")
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
@@ -1009,13 +1006,38 @@ class SupervisorActor(xo.StatelessActor):
             f"kwargs: {kwargs}"
         )
 
-        async def _launch_one_model(
-            worker_ref, _replica_model_uid, rank: int, store_port: int
-        ):
+        async def _launch_one_model(worker_ref, _replica_model_uid, rank: int):
             if _replica_model_uid in self._replica_model_uid_to_worker:
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
+
+            nonlocal store_address
+            nonlocal store_port
+            xavier_config = (
+                {
+                    "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
+                    "block_tracker_address": self._block_tracker_mapping[
+                        model_uid
+                    ].address,
+                    "rank": rank,
+                    "world_size": world_size,
+                    "store_address": store_address,
+                    "store_port": store_port,
+                }
+                if enable_xavier
+                else None
+            )
+
+            if enable_xavier and rank == 0:
+                rank0_address, _port = await worker_ref.launch_rank0_model(
+                    _replica_model_uid, xavier_config
+                )
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                store_address = rank0_address.split(":")[0]
+                store_port = _port
+                return rank0_address
+
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
             nonlocal model_type
 
@@ -1035,18 +1057,7 @@ class SupervisorActor(xo.StatelessActor):
                 gpu_idx=replica_gpu_idx,
                 download_hub=download_hub,
                 model_path=model_path,
-                xavier_config={
-                    "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
-                    "block_tracker_address": self._block_tracker_mapping[
-                        model_uid
-                    ].address,
-                    "rank": rank,
-                    "world_size": world_size,
-                    "store_address": self.address.split(":")[0],
-                    "store_port": store_port,
-                }
-                if enable_xavier
-                else None,
+                xavier_config=xavier_config,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
@@ -1055,7 +1066,7 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             try:
                 worker_refs = []
-                rank_addresses = [self.address]
+                rank_addresses = []
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
@@ -1064,8 +1075,18 @@ class SupervisorActor(xo.StatelessActor):
                         if target_ip_worker_ref is not None
                         else await self._choose_worker()
                     )
+                    if _idx == 0:
+                        """
+                        Start the rank 0 model actor on the worker that holds the rank 1 replica,
+                        solely for constructing the collective communication world.
+                        """
+                        _uid = model_uid + "-rank0"
+                        rank0_address = await _launch_one_model(worker_ref, _uid, 0)
+                        worker_refs.append((worker_ref, _uid))
+                        rank_addresses.append(rank0_address)
+
                     subpool_address = await _launch_one_model(
-                        worker_ref, rep_model_uid, _idx + 1, store_port
+                        worker_ref, rep_model_uid, _idx + 1
                     )
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(subpool_address)
@@ -1085,14 +1106,12 @@ class SupervisorActor(xo.StatelessActor):
                         )
                     # Here you must use asyncio.gather, not a for loop,
                     # or you will get stuck.
-                    await asyncio.gather(
-                        collective_manager_ref.connect_full_mesh(), *tasks
-                    )
+                    await asyncio.gather(*tasks)
 
                     # init collective_manager
-                    for idx, addr in enumerate(rank_addresses[1:]):
+                    for idx, addr in enumerate(rank_addresses):
                         await collective_manager_ref.register_rank(
-                            idx + 1, addr, update=False
+                            idx, addr, update=False
                         )
 
                     logger.debug(f"Init transfer component for xavier done.")
@@ -1225,6 +1244,10 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info.pop(model_uid, None)
 
         # clear for xavier
+        rank0_uid = model_uid + "-rank0"
+        if rank0_uid in self._replica_model_uid_to_worker:
+            await _terminate_one_model(rank0_uid)
+
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
             try:
