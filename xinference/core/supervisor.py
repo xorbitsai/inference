@@ -1075,7 +1075,7 @@ class SupervisorActor(xo.StatelessActor):
                         if target_ip_worker_ref is not None
                         else await self._choose_worker()
                     )
-                    if _idx == 0:
+                    if enable_xavier and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
                         solely for constructing the collective communication world.
