@@ -78,6 +78,7 @@ class EmbeddingData(TypedDict):
 class Embedding(TypedDict):
     object: Literal["list"]
     model: str
+    model_replica: str
     data: List[EmbeddingData]
     usage: EmbeddingUsage
 

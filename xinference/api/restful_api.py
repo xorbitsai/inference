@@ -1331,6 +1331,7 @@ class RESTfulAPI(CancelMixin):
 
         try:
             embedding = await model.create_embedding(body.input, **kwargs)
+            embedding["model"] = model_uid # type: ignore
             return Response(embedding, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
