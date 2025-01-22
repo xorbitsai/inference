@@ -165,7 +165,7 @@ msgstr "寻求帮助"
 
 #: ../../source/index.rst:251
 msgid ":fab:`weixin` Find community on WeChat"
-msgstr "微信社区"
+msgstr ":fab:`weixin` 微信社区"
 
 #: ../../source/index.rst:256
 msgid ":fab:`discord` Find community on Discord"
