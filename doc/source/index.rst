@@ -250,10 +250,10 @@ Getting Involved
             
             :fab:`weixin` Find community on WeChat
 
-         .. grid-item-card:: 
-            :link: https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg
-            
-            :fab:`slack` Find community on Slack
+         .. grid-item-card::
+            :link: https://discord.gg/Xw9tszSkr5
+
+            :fab:`discord` Find community on Discord
 
          .. grid-item-card::  
             :link: https://github.com/xorbitsai/inference/issues/new/choose
