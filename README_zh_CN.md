@@ -43,6 +43,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 - 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### 新模型
+- 内置 [MeloTTS](https://github.com/myshell-ai/MeloTTS): [#2760](https://github.com/xorbitsai/inference/pull/2760)
 - 内置 [CogAgent](https://github.com/THUDM/CogAgent): [#2740](https://github.com/xorbitsai/inference/pull/2740)
 - 内置 [HunyuanVideo](https://github.com/Tencent/HunyuanVideo): [#2721](https://github.com/xorbitsai/inference/pull/2721)
 - 内置 [HunyuanDiT](https://github.com/Tencent/HunyuanDiT): [#2727](https://github.com/xorbitsai/inference/pull/2727)
@@ -50,7 +51,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 内置 [Stable Diffusion 3.5](https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838): [#2706](https://github.com/xorbitsai/inference/pull/2706)
 - 内置 [CosyVoice 2](https://huggingface.co/FunAudioLLM/CosyVoice2-0.5B): [#2684](https://github.com/xorbitsai/inference/pull/2684)
 - 内置 [Fish Speech V1.5](https://huggingface.co/fishaudio/fish-speech-1.5): [#2672](https://github.com/xorbitsai/inference/pull/2672)
-- 内置 [F5-TTS](https://github.com/SWivid/F5-TTS): [#2626](https://github.com/xorbitsai/inference/pull/2626)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。

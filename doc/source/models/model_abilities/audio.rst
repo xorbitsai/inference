@@ -63,7 +63,7 @@ Text to audio
 
 * ChatTTS
 * CosyVoice
-* FishSpeech-1.4
+* FishSpeech-1.5
 * F5-TTS
 
 Quickstart
@@ -388,7 +388,7 @@ FishSpeech Usage
 
 Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
 
-Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` instead of `reference_audio`
+Clone voice, launch model ``FishSpeech-1.5``. Please use `prompt_speech` instead of `reference_audio`
 and `prompt_text` instead of `reference_text` to clone voice from the reference audio for the FishSpeech model.
 This arguments is aligned to voice cloning of CosyVoice.
 

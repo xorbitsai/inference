@@ -13,6 +13,7 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
+[![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
@@ -33,7 +34,7 @@ researcher, developer, or data scientist, Xorbits Inference empowers you to unle
 potential of cutting-edge AI models.
 
 <div align="center">
-<i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
+<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a></i>
 </div>
 
 ## 🔥 Hot Topics
@@ -47,6 +48,7 @@ potential of cutting-edge AI models.
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [MeloTTS](https://github.com/myshell-ai/MeloTTS): [#2760](https://github.com/xorbitsai/inference/pull/2760)
 - Built-in support for [CogAgent](https://github.com/THUDM/CogAgent): [#2740](https://github.com/xorbitsai/inference/pull/2740)
 - Built-in support for [HunyuanVideo](https://github.com/Tencent/HunyuanVideo): [#2721](https://github.com/xorbitsai/inference/pull/2721)
 - Built-in support for [HunyuanDiT](https://github.com/Tencent/HunyuanDiT): [#2727](https://github.com/xorbitsai/inference/pull/2727)
@@ -54,7 +56,6 @@ potential of cutting-edge AI models.
 - Built-in support for [Stable Diffusion 3.5](https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838): [#2706](https://github.com/xorbitsai/inference/pull/2706)
 - Built-in support for [CosyVoice 2](https://huggingface.co/FunAudioLLM/CosyVoice2-0.5B): [#2684](https://github.com/xorbitsai/inference/pull/2684)
 - Built-in support for [Fish Speech V1.5](https://huggingface.co/fishaudio/fish-speech-1.5): [#2672](https://github.com/xorbitsai/inference/pull/2672)
-- Built-in support for [F5-TTS](https://github.com/SWivid/F5-TTS): [#2626](https://github.com/xorbitsai/inference/pull/2626)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
