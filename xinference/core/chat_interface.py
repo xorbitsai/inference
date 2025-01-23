@@ -138,6 +138,10 @@ class GradioInterface:
                 if "content" not in delta:
                     continue
                 else:
+                    # some model like deepseek-r1-distill-qwen
+                    # will generate <think>...</think> ...
+                    # in gradio, no output will be rendered,
+                    # thus escape html tags in advance
                     response_content += html.escape(delta["content"])
                     yield response_content
 
