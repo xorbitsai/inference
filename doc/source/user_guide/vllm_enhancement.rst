@@ -19,5 +19,4 @@ Simply add the parameter ``enable_xavier=True`` when starting the vllm model.
 Limitations
 ***********
 * Xavier requires vllm version >= ``0.6.5``.
-* Xavier is currently not compatible with model reloading after CUDA OOM in Xinference. (it will be supported in the future)
 * Due to the underlying communication not recognizing ``0.0.0.0``, the actual IP address needs to be passed when starting Xinference, for example: ``xinference-local -H 192.168.xx.xx``.
