@@ -465,7 +465,7 @@ class InternVLChatModel(PytorchChatModel):
         streamer = TextIteratorStreamer(
             self._tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=10
         )
-        
+
         # Define the generation configuration
         generate_kwargs["streamer"] = streamer
         # Start the model chat in a separate thread
