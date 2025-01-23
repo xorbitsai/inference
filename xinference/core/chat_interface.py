@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import html
 import logging
 import os
 from io import BytesIO
@@ -137,7 +138,7 @@ class GradioInterface:
                 if "content" not in delta:
                     continue
                 else:
-                    response_content += delta["content"]
+                    response_content += html.escape(delta["content"])
                     yield response_content
 
             yield response_content
