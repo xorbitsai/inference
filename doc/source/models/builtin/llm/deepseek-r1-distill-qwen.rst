@@ -4,7 +4,7 @@
 deepseek-r1-distill-qwen
 ========================================
 
-- **Context Length:** 32768
+- **Context Length:** 131072
 - **Model Name:** deepseek-r1-distill-qwen
 - **Languages:** en, zh
 - **Abilities:** chat
