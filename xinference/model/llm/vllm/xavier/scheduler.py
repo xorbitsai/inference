@@ -72,12 +72,11 @@ class XavierScheduler(Scheduler):
         self._transfer_status: Dict[SequenceGroup, Set[int]] = {}
 
     async def _get_block_tracker_ref(self):
-        from .block_tracker import VLLMBlockTracker
-
         if self._block_tracker_ref is None:
             block_tracker_address = self._xavier_config.get("block_tracker_address")
+            block_tracker_uid = self._xavier_config.get("block_tracker_uid")
             self._block_tracker_ref = await xo.actor_ref(
-                address=block_tracker_address, uid=VLLMBlockTracker.default_uid()
+                address=block_tracker_address, uid=block_tracker_uid
             )
         return self._block_tracker_ref
 
@@ -97,7 +96,12 @@ class XavierScheduler(Scheduler):
         virtual_engine: int,
         block_tables: Dict[int, List[int]],
         seq_group: SequenceGroup,
-    ) -> Tuple[Set[int], Dict[str, Set[Tuple[int, int, int]]]]:
+    ) -> Tuple[Set[int], Dict[int, Set[Tuple[int, int, int]]]]:
+        # If the `seq_group` has the `force_calculation` attribute set to `True`,
+        # it indicates that there were issues during the transmission process.
+        # In this case, force the computation and exclude it from the Xavier process.
+        if getattr(seq_group, "force_calculation", False):
+            return set(), dict()
         """
         Retrieve information from other replicas to check if any blocks have already been computed,
         for the purpose of data transfer.
@@ -132,48 +136,63 @@ class XavierScheduler(Scheduler):
                     )
                 ):
                     details.add(detail)
-        tracker_ref = await self._get_block_tracker_ref()
-        remote = await tracker_ref.query_blocks(virtual_engine, list(details))
-        # Not all queried blocks have corresponding results in other replicas.
-        # Therefore, it is necessary to record which local block data was actually transferred.
-        local: Set[int] = set()
-        for _, remote_details in remote.items():
-            for _, _, local_block_id in remote_details:
-                local.add(local_block_id)
-        if local:
-            logger.debug(
-                f"Data in local blocks: {local} will be transmitted from the remote."
-            )
-        return local, remote
+
+        if details:
+            tracker_ref = await self._get_block_tracker_ref()
+            remote = await tracker_ref.query_blocks(virtual_engine, list(details))
+            # Not all queried blocks have corresponding results in other replicas.
+            # Therefore, it is necessary to record which local block data was actually transferred.
+            local: Set[int] = set()
+            for _, remote_details in remote.items():
+                for _, _, local_block_id in remote_details:
+                    local.add(local_block_id)
+            if local:
+                logger.debug(
+                    f"Data in local blocks: {local} will be transmitted from the remote."
+                )
+            return local, remote
+        else:
+            return set(), dict()
 
     async def _do_transfer_inner(
-        self, virtual_engine: int, remote: Dict[str, Set[Tuple[int, int, int]]]
+        self, virtual_engine: int, remote: Dict[int, Set[Tuple[int, int, int]]]
     ):
         transfer_ref = await self._get_transfer_ref()
-        for addr, hash_and_block_id in remote.items():
+        for from_rank, hash_and_block_id in remote.items():
             src_to_dst: Dict[int, int] = {x[1]: x[2] for x in hash_and_block_id}
-            await transfer_ref.recv(virtual_engine, addr, src_to_dst)
+            await transfer_ref.recv(virtual_engine, from_rank, src_to_dst)
 
     async def _do_transfer(
         self,
         virtual_engine: int,
         local: Set[int],
-        remote: Dict[str, Set[Tuple[int, int, int]]],
+        remote: Dict[int, Set[Tuple[int, int, int]]],
         seq_group: SequenceGroup,
-        is_prefill: bool,
     ):
-        await self._do_transfer_inner(virtual_engine, remote)
-        # After the transfer is completed, update the corresponding metadata.
-        self._transfer_status[seq_group] = local
-        for _id in local:
-            self.block_manager.set_block_status_by_block_id("transferred", _id, True)
-        # After the transfer, place the `seq_group` back into the appropriate queue to
-        # wait for the next scheduling execution.
-        if is_prefill:
+        try:
+            await self._do_transfer_inner(virtual_engine, remote)
+        except Exception as e:
+            """
+            The exception here is most likely due to the sender triggering recovery during the transmission process.
+            In this case, fallback to performing computation during the prefill stage.
+            """
+            logger.error(f"Transfer failed: {e}")
+            # Force this `seq_group` to perform computation.
+            seq_group.force_calculation = True
+            self._transfer_status.pop(seq_group, None)
             self.waiting.appendleft(seq_group)
+            self._transferring.remove(seq_group)
         else:
-            self.running.appendleft(seq_group)
-        self._transferring.remove(seq_group)
+            # After the transfer is completed, update the corresponding metadata.
+            self._transfer_status[seq_group] = local
+            for _id in local:
+                self.block_manager.set_block_status_by_block_id(
+                    "transferred", _id, True
+                )
+            # After the transfer, place the `seq_group` back into the `waiting` queue to
+            # wait for the next scheduling execution.
+            self.waiting.appendleft(seq_group)
+            self._transferring.remove(seq_group)
 
     @no_type_check
     async def schedule(
@@ -240,39 +259,36 @@ class XavierScheduler(Scheduler):
             After completing the scheduling, the blocks have been allocated.
             Therefore, it is possible to check whether some blocks have already been computed on other replicas based on this information,
             and subsequently initiate the transfer.
+            According to the internal code comments in vllm,
+            whether `token_chunk_size` is 1 can indicate whether the `seq_group` is in the decode or prefill stage.
+            It is noted that data transmission is only applied during the prefill stage.
+            In the decode stage, it only applies to the last token of the block, which can negatively impact throughput.
             """
-            local, remote = await self._get_transfer_details(
-                virtual_engine, block_tables, seq_group
-            )
-            if remote:
-                running_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
-                # According to the internal code comments in vllm,
-                # whether `token_chunk_size` is 1 can indicate whether the `seq_group` is in the decode or prefill stage.
-                is_prefill = token_chunk_size != 1
-                for seq in running_seqs:
-                    seq.status = (
-                        SequenceStatus.WAITING if is_prefill else SequenceStatus.RUNNING
-                    )
-                    # Additional attribute `transferred` to mark that this `seq_group` involves a transfer process.
-                    # During the next scheduling, block allocation will no longer be required
-                    # since it has already been completed.
-                    seq.transferred = True
-                    seq.data._stage = (
-                        SequenceStage.PREFILL if is_prefill else SequenceStage.DECODE
-                    )
-                self._transfer_status[seq_group] = set()
-                # Use `create_task` to avoid blocking subsequent scheduling.
-                asyncio.create_task(
-                    self._do_transfer(
-                        virtual_engine, local, remote, seq_group, is_prefill
-                    )
+            is_prefill: bool = token_chunk_size != 1
+            if is_prefill:
+                local, remote = await self._get_transfer_details(
+                    virtual_engine, block_tables, seq_group
                 )
-                # The `seq_group` that is currently being transferred enters a new queue.
-                self._transferring.append(seq_group)
-                has_transferring = True
-                continue
-            else:
-                scheduled_seq_groups.append(seq_group)
+                if remote:
+                    running_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
+                    for seq in running_seqs:
+                        seq.status = SequenceStatus.WAITING
+                        # Additional attribute `transferred` to mark that this `seq_group` involves a transfer process.
+                        # During the next scheduling, block allocation will no longer be required
+                        # since it has already been completed.
+                        seq.transferred = True
+                        seq.data._stage = SequenceStage.PREFILL
+                    self._transfer_status[seq_group] = set()
+                    # Use `create_task` to avoid blocking subsequent scheduling.
+                    asyncio.create_task(
+                        self._do_transfer(virtual_engine, local, remote, seq_group)
+                    )
+                    # The `seq_group` that is currently being transferred enters a new queue.
+                    self._transferring.append(seq_group)
+                    has_transferring = True
+                    continue
+                else:
+                    scheduled_seq_groups.append(seq_group)
 
             if self.cache_config.enable_prefix_caching:
                 common_computed_block_nums = (

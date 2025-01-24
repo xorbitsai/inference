@@ -35,6 +35,7 @@ from typing import (
     List,
     Optional,
     Union,
+    no_type_check,
 )
 
 import sse_starlette.sse
@@ -302,6 +303,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def decrease_serve_count(self):
         self._serve_count -= 1
 
+    @no_type_check
     async def start_transfer_for_vllm(self, rank_addresses: List[str]):
         from ..model.llm.vllm.core import VLLMModel
         from ..model.llm.vllm.xavier.transfer import TransferActor

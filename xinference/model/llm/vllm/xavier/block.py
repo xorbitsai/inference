@@ -76,12 +76,11 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
         self._xavier_config = v
 
     async def _get_block_tracker_ref(self):
-        from .block_tracker import VLLMBlockTracker
-
         if self._block_tracker_ref is None:
             block_tracker_address = self.xavier_config.get("block_tracker_address")
+            block_tracker_uid = self.xavier_config.get("block_tracker_uid")
             self._block_tracker_ref = await xo.actor_ref(
-                address=block_tracker_address, uid=VLLMBlockTracker.default_uid()
+                address=block_tracker_address, uid=block_tracker_uid
             )
         return self._block_tracker_ref
 
@@ -90,7 +89,7 @@ class XavierPrefixCachingBlockAllocator(PrefixCachingBlockAllocator):
         tracker_ref = await self._get_block_tracker_ref()
         await tracker_ref.unregister_block(
             self.xavier_config.get("virtual_engine"),
-            self.xavier_config.get("rank_address"),
+            self.xavier_config.get("rank"),
             block_id,
         )
 

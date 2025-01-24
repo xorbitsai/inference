@@ -24,7 +24,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, no_type_check
 
 import xoscar as xo
 from async_timeout import timeout
@@ -184,12 +184,12 @@ class WorkerActor(xo.StatelessActor):
                             self._model_uid_to_recover_count[model_uid] = (
                                 recover_count - 1
                             )
-                            await self.launch_builtin_model(**launch_args)
+                            await self.recover_model(launch_args)
                         else:
                             logger.warning("Stop recreating model actor.")
                     else:
                         logger.warning("Recreating model actor %s ...", model_uid)
-                        await self.launch_builtin_model(**launch_args)
+                        await self.recover_model(launch_args)
                 break
 
     @classmethod
@@ -940,7 +940,11 @@ class WorkerActor(xo.StatelessActor):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
-        origin_uid, _ = parse_replica_model_uid(model_uid)
+        # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
+        if model_uid.endswith("-rank0"):
+            origin_uid = model_uid.removesuffix("-rank0")
+        else:
+            origin_uid, _ = parse_replica_model_uid(model_uid)
         try:
             _ = await self.get_supervisor_ref()
             if self._event_collector_ref is not None:
@@ -1173,3 +1177,65 @@ class WorkerActor(xo.StatelessActor):
     ):
         model_ref = self._model_uid_to_model[rep_model_uid]
         await model_ref.start_transfer_for_vllm(rank_addresses)
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def launch_rank0_model(
+        self, rep_model_uid: str, xavier_config: Dict[str, Any]
+    ) -> Tuple[str, int]:
+        from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
+
+        if os.name != "nt" and platform.system() != "Darwin":
+            # Linux
+            start_method = "forkserver"
+        else:
+            # Windows and macOS
+            start_method = "spawn"
+        subpool_address = await self._main_pool.append_sub_pool(
+            start_method=start_method
+        )
+
+        store_address = subpool_address.split(":")[0]
+        # Note that `store_port` needs to be generated on the worker,
+        # as the TCP store is on rank 0, not on the supervisor.
+        store_port = xo.utils.get_next_port()
+        self._model_uid_launching_guard[rep_model_uid] = True
+        try:
+            try:
+                xavier_config["rank_address"] = subpool_address
+                xavier_config["store_address"] = store_address
+                xavier_config["store_port"] = store_port
+                model_ref = await xo.create_actor(
+                    Rank0ModelActor,
+                    address=subpool_address,
+                    uid=rep_model_uid,
+                    xavier_config=xavier_config,
+                )
+            except:
+                await self._main_pool.remove_sub_pool(subpool_address)
+                raise
+            self._model_uid_to_model[rep_model_uid] = model_ref
+            self._model_uid_to_addr[rep_model_uid] = subpool_address
+        finally:
+            del self._model_uid_launching_guard[rep_model_uid]
+        return subpool_address, store_port
+
+    @no_type_check
+    async def recover_model(self, launch_args: Dict[str, Any]):
+        rep_model_uid = launch_args.get("model_uid")
+        origin_uid, _ = parse_replica_model_uid(rep_model_uid)
+        xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
+        is_xavier: bool = xavier_config is not None
+        supervisor_ref = await self.get_supervisor_ref(add_worker=False)
+        if is_xavier:
+            rank = xavier_config.get("rank")
+            await supervisor_ref.call_collective_manager(
+                origin_uid, "unregister_rank", rank
+            )
+        subpool_address = await self.launch_builtin_model(**launch_args)
+        if is_xavier:
+            model_ref = self._model_uid_to_model[rep_model_uid]
+            await model_ref.start_transfer_for_vllm([])
+            rank = xavier_config.get("rank")
+            await supervisor_ref.call_collective_manager(
+                origin_uid, "register_rank", rank, subpool_address, update=True
+            )

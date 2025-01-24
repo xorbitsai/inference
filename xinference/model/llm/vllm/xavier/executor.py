@@ -64,14 +64,13 @@ class XavierExecutor(GPUExecutorAsync):
         )
 
     async def _get_block_tracker_ref(self):
-        from .block_tracker import VLLMBlockTracker
-
         if self._block_tracker_ref is None:
             block_tracker_address = self.vllm_config.xavier_config.get(
                 "block_tracker_address"
             )
+            block_tracker_uid = self.vllm_config.xavier_config.get("block_tracker_uid")
             self._block_tracker_ref = await xo.actor_ref(
-                address=block_tracker_address, uid=VLLMBlockTracker.default_uid()
+                address=block_tracker_address, uid=block_tracker_uid
             )
         return self._block_tracker_ref
 
@@ -86,8 +85,8 @@ class XavierExecutor(GPUExecutorAsync):
             )
         return self._transfer_ref
 
-    def get_rank_address(self) -> str:
-        return self.vllm_config.xavier_config.get("rank_address")
+    def get_rank(self) -> int:
+        return self.vllm_config.xavier_config.get("rank")
 
     async def execute_model_async(
         self,
@@ -100,7 +99,7 @@ class XavierExecutor(GPUExecutorAsync):
         virtual_engine = execute_model_req.virtual_engine
         block_tracker_ref = await self._get_block_tracker_ref()
         scheduler = self.scheduler[virtual_engine]  # type: ignore
-        rank_address = self.get_rank_address()
+        rank = self.get_rank()
         executed_blocks_details: Set[Tuple[int, int]] = set()
         for meta in execute_model_req.seq_group_metadata_list:
             block_tables = meta.block_tables
@@ -117,16 +116,19 @@ class XavierExecutor(GPUExecutorAsync):
 
         res = await super().execute_model_async(execute_model_req)
 
-        """
-        Why not collect and register the information after execution?
-        Because after execution, the model's execution callback hook will release the block_id,
-        causing the block manager to lose access to the correct information.
-        """
-        await block_tracker_ref.register_blocks(
-            virtual_engine, list(executed_blocks_details), rank_address
-        )
+        if executed_blocks_details:
+            """
+            Why not collect and register the information after execution?
+            Because after execution, the model's execution callback hook will release the block_id,
+            causing the block manager to lose access to the correct information.
+            """
+            await block_tracker_ref.register_blocks(
+                virtual_engine, list(executed_blocks_details), rank
+            )
 
-        for _, _id in executed_blocks_details:
-            scheduler.block_manager.set_block_status_by_block_id("executed", _id, True)
+            for _, _id in executed_blocks_details:
+                scheduler.block_manager.set_block_status_by_block_id(
+                    "executed", _id, True
+                )
 
         return res

@@ -23,6 +23,8 @@ from vllm.core.scheduler import Scheduler
 from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
 from vllm.worker.cache_engine import CacheEngine
 
+from .collective import CollectiveRank
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,7 +91,7 @@ class BufferTransferMixin:
         return TypeMappingGloo[TORCH_DTYPE_TO_NUMPY_DTYPE[input_dtype]]
 
 
-class TransferActor(xo.StatelessActor, BufferTransferMixin):
+class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
     @classmethod
     def default_uid(cls):
         return f"vllm-transfer-actor"
@@ -104,38 +106,21 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
         world_addresses: List[str],
     ):
         super().__init__()
-        self._rank = rank
-        self._world_size = world_size
-        self._store_address = store_address
-        self._rank_address = rank_address
-        self._store_port = store_port
-        self._world_addresses = world_addresses
-        self._context = None
+        CollectiveRank.__init__(
+            self,
+            rank,
+            world_size,
+            rank_address,
+            store_address,
+            store_port,
+            world_addresses,
+        )
         self._cache_engine: Optional[List[CacheEngine]] = None
         self._scheduler: Optional[List[Scheduler]] = None
         self._swap_stream = torch.cuda.Stream()
 
     async def __post_create__(self):
-        from xoscar.collective import xoscar_pygloo as xp
-
-        context = xp.rendezvous.Context(self._rank, self._world_size)
-
-        attr = xp.transport.tcp.attr(self._rank_address.split(":")[0])
-        dev = xp.transport.tcp.CreateDevice(attr)
-
-        opt = xp.rendezvous.TCPStoreOptions()
-        opt.port = self._store_port
-        opt.numWorkers = self._world_size
-        opt.isServer = self._rank == 0
-
-        store = xp.rendezvous.TCPStore(self._store_address, opt)
-        store = xp.rendezvous.PrefixStore(str(self._world_size), store)
-
-        context.connectFullMesh(store, dev)
-        self._context = context
-        logger.debug(
-            f"Rank {self._rank} arrives successfully, world addresses: {self._world_addresses}"
-        )
+        self.init_rank()
 
     def setup(
         self,
@@ -152,6 +137,9 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
         self.init_buffer(
             num_buffer, buffer_shape, buffer_dtype, buffer_device, pin_memory
         )
+
+    async def __pre_destroy__(self):
+        self._context.closeConnections()
 
     def _get_cache_engine(self, virtual_engine: int) -> CacheEngine:
         return self._cache_engine[virtual_engine]  # type: ignore
@@ -281,18 +269,51 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin):
             self.free_buffer_index(cpu_buf_index)
 
     async def recv(
-        self, virtual_engine: int, from_address: str, src_to_dst: Dict[int, int]
+        self, virtual_engine: int, from_rank: int, src_to_dst: Dict[int, int]
     ):
         """
         This is the external entry point for the call.
         The transfer logic is as follows:
         the receiver requests the sender to send the data directly to itself in a point-to-point manner.
         """
-        rank = self._world_addresses.index(from_address)
+        from_address = self._world_addresses[from_rank]
         sender_ref = await xo.actor_ref(
-            address=from_address, uid=f"{TransferActor.default_uid()}-{rank}"
+            address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
         )
         await asyncio.gather(
             sender_ref.do_send(virtual_engine, self._rank, src_to_dst),
-            self.do_recv(virtual_engine, rank, src_to_dst),
+            self.do_recv(virtual_engine, from_rank, src_to_dst),
         )
+
+
+class Rank0TransferActor(xo.StatelessActor, CollectiveRank):
+    """
+    The Rank 0 transfer actor is only used for constructing the collective communication world,
+    so it only needs to inherit the `CollectiveWorld` class.
+    """
+
+    @classmethod
+    def default_uid(cls):
+        return f"vllm-transfer-actor"
+
+    def __init__(
+        self,
+        rank: int,
+        world_size: int,
+        rank_address: str,
+        store_address: str,
+        store_port: int,
+        world_addresses: List[str],
+    ):
+        CollectiveRank.__init__(
+            self,
+            rank,
+            world_size,
+            rank_address,
+            store_address,
+            store_port,
+            world_addresses,
+        )
+
+    async def __post_create__(self):
+        self.init_rank()
