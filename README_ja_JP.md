@@ -6,7 +6,7 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
-[![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
+[![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
 <p align="center">
@@ -24,7 +24,7 @@ Xorbits Inference(Xinference) は、言語、音声認識、マルチモーダ�
 研究者、開発者、データサイエンティストを問わず、最先端の AI モデルの可能性を最大限に引き出すことができます。
 
 <div align="center">
-<i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Slack コミュニティにご参加ください！</a></i>
+<i><a href="https://discord.gg/Xw9tszSkr5">👉 Discord コミュニティにご参加ください！</a></i>
 </div>
 
 
@@ -98,11 +98,11 @@ Xinferenceが実行されると、Web UI、cURL、コマンドライン、また
 
 ## 関与する
 
-| プラットフォーム                                                                                   | 目的                                              |
-|---------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| [Github イシュー](https://github.com/xorbitsai/inference/issues)                                  | バグ報告と機能リクエストの提出。                  |
-| [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)      | 他のXorbitsユーザーとの協力。                      |
-| [Twitter](https://twitter.com/xorbitsio)                                                          | 新機能に関する最新情報の入手。                    |
+| プラットフォーム                                                                                        | 目的                    |
+|-------------------------------------------------------------------------------------------------|-----------------------|
+| [Github イシュー](https://github.com/xorbitsai/inference/issues)                                    | バグ報告と機能リクエストの提出。      |
+| [Discord](https://discord.gg/Xw9tszSkr5) | 他のXinferenceユーザーとの協力。 |
+| [Twitter](https://twitter.com/xorbitsio)                                                        | 新機能に関する最新情報の入手。       |
 
 ## 引用
 
