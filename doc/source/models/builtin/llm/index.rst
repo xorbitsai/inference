@@ -131,6 +131,11 @@ The following is a list of built-in LLM in Xinference:
      - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
+   * - :ref:`deepseek-r1-distill-qwen <models_llm_deepseek-r1-distill-qwen>`
+     - chat
+     - 32768
+     - deepseek-r1-distill-qwen is distilled from DeepSeek-R1 based on Qwen
+
    * - :ref:`deepseek-v2 <models_llm_deepseek-v2>`
      - generate
      - 128000
@@ -631,6 +636,8 @@ The following is a list of built-in LLM in Xinference:
    deepseek-coder
   
    deepseek-coder-instruct
+  
+   deepseek-r1-distill-qwen
   
    deepseek-v2
   

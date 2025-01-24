@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import html
 import logging
 import os
 from io import BytesIO
@@ -137,7 +138,11 @@ class GradioInterface:
                 if "content" not in delta:
                     continue
                 else:
-                    response_content += delta["content"]
+                    # some model like deepseek-r1-distill-qwen
+                    # will generate <think>...</think> ...
+                    # in gradio, no output will be rendered,
+                    # thus escape html tags in advance
+                    response_content += html.escape(delta["content"])
                     yield response_content
 
             yield response_content
