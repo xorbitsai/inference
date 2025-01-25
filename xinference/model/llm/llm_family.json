@@ -7212,7 +7212,7 @@
       "zh"
     ],
     "model_ability":[
-      "chat",
+      "generate",
       "audio"
     ],
     "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",

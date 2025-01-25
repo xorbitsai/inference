@@ -7,7 +7,7 @@ qwen2-audio
 - **Context Length:** 32768
 - **Model Name:** qwen2-audio
 - **Languages:** en, zh
-- **Abilities:** chat, audio
+- **Abilities:** generate, audio
 - **Description:** Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
 
 Specifications
