@@ -2,9 +2,6 @@ from .restful.restful_client import (  # noqa: F401
     RESTfulAudioModelHandle as AudioModelHandle,
 )
 from .restful.restful_client import (  # noqa: F401
-    RESTfulVideoModelHandle as VideoModelHandle,
-)
-from .restful.restful_client import (  # noqa: F401
     RESTfulChatModelHandle as ChatModelHandle,
 )
 from .restful.restful_client import (  # noqa: F401
@@ -15,4 +12,7 @@ from .restful.restful_client import (  # noqa: F401
 )
 from .restful.restful_client import (  # noqa: F401
     RESTfulImageModelHandle as ImageModelHandle,
+)
+from .restful.restful_client import (  # noqa: F401
+    RESTfulVideoModelHandle as VideoModelHandle,
 )
