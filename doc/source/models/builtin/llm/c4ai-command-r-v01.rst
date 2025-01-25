@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 35 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 35
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** CohereForAI/c4ai-command-r-v01
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/CohereForAI/c4ai-command-r-v01>`__, `ModelScope <https://modelscope.cn/models/mirror013/c4ai-command-r-v01-4bit>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 104 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 104
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** CohereForAI/c4ai-command-r-plus
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/CohereForAI/c4ai-command-r-plus>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/c4ai-command-r-plus>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (gptq, 104 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 104
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** alpindale/c4ai-command-r-plus-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/alpindale/c4ai-command-r-plus-GPTQ>`__
 

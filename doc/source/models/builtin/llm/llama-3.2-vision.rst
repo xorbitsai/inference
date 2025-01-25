@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 11 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 11
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** meta-llama/Meta-Llama-3.2-11B-Vision
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3.2-11B-Vision>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Llama-3.2-11B-Vision>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 90 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 90
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** meta-llama/Meta-Llama-3.2-90B-Vision
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3.2-90B-Vision>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Llama-3.2-90B-Vision>`__
 

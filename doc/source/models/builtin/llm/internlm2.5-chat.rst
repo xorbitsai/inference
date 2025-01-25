@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_8
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** internlm/internlm2_5-1_8b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2_5-1_8b-chat>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-1_8b-chat>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** internlm/internlm2_5-7b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2_5-7b-chat>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b-chat>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 20 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 20
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** internlm/internlm2_5-20b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2_5-20b-chat>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-20b-chat>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (gptq, 7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** ModelCloud/internlm-2.5-7b-chat-gptq-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/ModelCloud/internlm-2.5-7b-chat-gptq-4bit>`__
 
@@ -131,8 +131,8 @@ Model Spec 8 (mlx, 7 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit
-- **Engines**: MLX
+- **Quantizations:** 4bit
+- **Engines**: Transformers, MLX
 - **Model ID:** mlx-community/internlm2_5-7b-chat-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/internlm2_5-7b-chat-4bit>`__
 
@@ -147,8 +147,8 @@ Model Spec 9 (mlx, 7 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 7
-- **Quantizations:** 8-bit
-- **Engines**: MLX
+- **Quantizations:** 8bit
+- **Engines**: Transformers, MLX
 - **Model ID:** mlx-community/internlm2_5-7b-chat-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/internlm2_5-7b-chat-8bit>`__
 

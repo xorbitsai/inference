@@ -188,8 +188,8 @@ msgid "Vision"
 msgstr "视觉"
 
 #: ../../source/models/index.rst:206
-msgid "Learn how to process image with LLMs."
-msgstr "学习如何使用 LLM 处理图像。"
+msgid "Learn how to process images and audio with LLMs."
+msgstr "学习如何使用 LLM 处理图像和音频。"
 
 #: ../../source/models/index.rst:211
 msgid "Audio"

@@ -188,11 +188,11 @@ Explore the API
 
       Learn how to generate images with Xinference.
 
-    .. grid-item-card::  Vision
-      :link: vision
+    .. grid-item-card::  Multimodal
+      :link: multimodal
       :link-type: ref
 
-      Learn how to process image with LLMs.
+      Learn how to process images and audio with LLMs.
 
 
 .. grid:: 2

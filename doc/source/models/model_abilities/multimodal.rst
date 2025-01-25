@@ -1,10 +1,10 @@
-.. _vision:
+.. _multimodal:
 
 =====================
 Vision
 =====================
 
-Learn how to process images with LLMs.
+Learn how to process images and audio with LLMs.
 
 
 Introduction

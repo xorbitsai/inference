@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Engines**: Transformers
 - **Model ID:** meta-llama/Meta-Llama-3-8B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3-8B-Instruct>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Engines**: Transformers
 - **Model ID:** meta-llama/Meta-Llama-3-70B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3-70B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3-70B-Instruct>`__
 
@@ -83,7 +83,7 @@ Model Spec 5 (mlx, 8 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 8
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Meta-Llama-3-8B-Instruct-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct-4bit>`__
@@ -99,7 +99,7 @@ Model Spec 6 (mlx, 8 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 8
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Meta-Llama-3-8B-Instruct-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct-8bit>`__
@@ -131,7 +131,7 @@ Model Spec 8 (mlx, 70 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 70
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx>`__
@@ -147,7 +147,7 @@ Model Spec 9 (mlx, 70 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 70
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Meta-Llama-3-70B-Instruct-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-8bit>`__
@@ -180,7 +180,7 @@ Model Spec 11 (gptq, 8 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers, SGLang
+- **Engines**: Transformers
 - **Model ID:** TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ>`__, `ModelScope <https://modelscope.cn/models/swift/Meta-Llama-3-8B-Instruct-GPTQ-{quantization}>`__
 
@@ -196,7 +196,7 @@ Model Spec 12 (gptq, 70 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers, SGLang
+- **Engines**: Transformers
 - **Model ID:** TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ>`__, `ModelScope <https://modelscope.cn/models/swift/Meta-Llama-3-70B-Instruct-GPTQ-{quantization}>`__
 
