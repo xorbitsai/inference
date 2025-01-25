@@ -87,4 +87,4 @@ VideoModelHandle
 
    xinference.client.handlers.VideoModelHandle
 
-   xinference.client.handlers.ImageModelHandle.text_to_video
+   xinference.client.handlers.VideoModelHandle.text_to_video
