@@ -92,7 +92,7 @@ fugashi  # For MeloTTS
 g2p_en  # For MeloTTS
 anyascii  # For MeloTTS
 gruut[de,es,fr]  # For MeloTTS
-qwen-vl-utils # For qwen2-vl
+qwen-vl-utils!=0.0.9 # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 deepcache # for sd
