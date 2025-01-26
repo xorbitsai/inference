@@ -47,6 +47,7 @@ potential of cutting-edge AI models.
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [DeepSeek-R1-Distill-Qwen](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2781](https://github.com/xorbitsai/inference/pull/2781)
 - Built-in support for [MeloTTS](https://github.com/myshell-ai/MeloTTS): [#2760](https://github.com/xorbitsai/inference/pull/2760)
 - Built-in support for [CogAgent](https://github.com/THUDM/CogAgent): [#2740](https://github.com/xorbitsai/inference/pull/2740)
 - Built-in support for [HunyuanVideo](https://github.com/Tencent/HunyuanVideo): [#2721](https://github.com/xorbitsai/inference/pull/2721)
@@ -54,7 +55,6 @@ potential of cutting-edge AI models.
 - Built-in support for [Macro-o1](https://github.com/AIDC-AI/Marco-o1): [#2749](https://github.com/xorbitsai/inference/pull/2749)
 - Built-in support for [Stable Diffusion 3.5](https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838): [#2706](https://github.com/xorbitsai/inference/pull/2706)
 - Built-in support for [CosyVoice 2](https://huggingface.co/FunAudioLLM/CosyVoice2-0.5B): [#2684](https://github.com/xorbitsai/inference/pull/2684)
-- Built-in support for [Fish Speech V1.5](https://huggingface.co/fishaudio/fish-speech-1.5): [#2672](https://github.com/xorbitsai/inference/pull/2672)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
