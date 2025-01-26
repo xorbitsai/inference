@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 22 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 22
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** mistralai/Codestral-22B-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Codestral-22B-v0.1>`__
 
@@ -51,7 +51,7 @@ Model Spec 3 (mlx, 22 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 22
-- **Quantizations:** 4bit
+- **Quantizations:** 4-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Codestral-22B-v0.1-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Codestral-22B-v0.1-4bit>`__
@@ -67,7 +67,7 @@ Model Spec 4 (mlx, 22 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 22
-- **Quantizations:** 8bit
+- **Quantizations:** 8-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Codestral-22B-v0.1-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Codestral-22B-v0.1-8bit>`__

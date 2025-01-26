@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 2 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2
 - **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** google/gemma-2-2b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-2-2b-it>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/gemma-2-2b-it>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
 - **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** google/gemma-2-9b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-2-9b-it>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/gemma-2-9b-it>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 27 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 27
 - **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** google/gemma-2-27b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-2-27b-it>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/gemma-2-27b-it>`__
 
@@ -115,7 +115,7 @@ Model Spec 7 (mlx, 2 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 2
-- **Quantizations:** 4bit
+- **Quantizations:** 4-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-2b-it-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-2b-it-4bit>`__
@@ -131,7 +131,7 @@ Model Spec 8 (mlx, 2 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 2
-- **Quantizations:** 8bit
+- **Quantizations:** 8-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-2b-it-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-2b-it-8bit>`__
@@ -163,7 +163,7 @@ Model Spec 10 (mlx, 9 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
-- **Quantizations:** 4bit
+- **Quantizations:** 4-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-9b-it-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-9b-it-4bit>`__
@@ -179,7 +179,7 @@ Model Spec 11 (mlx, 9 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
-- **Quantizations:** 8bit
+- **Quantizations:** 8-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-9b-it-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-9b-it-8bit>`__
@@ -211,7 +211,7 @@ Model Spec 13 (mlx, 27 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 27
-- **Quantizations:** 4bit
+- **Quantizations:** 4-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-27b-it-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-27b-it-4bit>`__
@@ -227,7 +227,7 @@ Model Spec 14 (mlx, 27 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 27
-- **Quantizations:** 8bit
+- **Quantizations:** 8-bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-27b-it-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-27b-it-8bit>`__

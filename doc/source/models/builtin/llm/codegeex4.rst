@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** THUDM/codegeex4-all-9b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/codegeex4-all-9b>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b>`__
 

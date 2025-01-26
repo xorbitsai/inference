@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_5 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 1_5 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 1_5
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** casperhansen/deepseek-r1-distill-qwen-1.5b-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/casperhansen/deepseek-r1-distill-qwen-1.5b-awq>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (gptq, 1_5 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 1_5
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** jakiAJK/DeepSeek-R1-Distill-Qwen-1.5B_GPTQ-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Qwen-1.5B_GPTQ-int4>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (awq, 7 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** jakiAJK/DeepSeek-R1-Distill-Qwen-7B_AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Qwen-7B_AWQ>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (gptq, 7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** jakiAJK/DeepSeek-R1-Distill-Qwen-7B_GPTQ-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Qwen-7B_GPTQ-int4>`__, `ModelScope <https://modelscope.cn/models/tclf90/deepseek-r1-distill-qwen-7b-gptq-int4>`__
 
@@ -180,7 +180,7 @@ Model Spec 11 (pytorch, 14 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B>`__
 
@@ -196,7 +196,7 @@ Model Spec 12 (awq, 14 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 14
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** casperhansen/deepseek-r1-distill-qwen-14b-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/casperhansen/deepseek-r1-distill-qwen-14b-awq>`__
 
@@ -244,7 +244,7 @@ Model Spec 15 (pytorch, 32 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B>`__
 
@@ -260,7 +260,7 @@ Model Spec 16 (awq, 32 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 32
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** casperhansen/deepseek-r1-distill-qwen-32b-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/casperhansen/deepseek-r1-distill-qwen-32b-awq>`__
 

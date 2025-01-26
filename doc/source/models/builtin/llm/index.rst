@@ -133,7 +133,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`deepseek-r1-distill-qwen <models_llm_deepseek-r1-distill-qwen>`
      - chat
-     - 131072
+     - 32768
      - deepseek-r1-distill-qwen is distilled from DeepSeek-R1 based on Qwen
 
    * - :ref:`deepseek-v2 <models_llm_deepseek-v2>`

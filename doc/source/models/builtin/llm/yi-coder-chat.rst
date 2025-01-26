@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** 01ai/Yi-Coder-9B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01ai/Yi-Coder-9B-Chat>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-Coder-9B-Chat>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 1_5 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** 01ai/Yi-Coder-1.5B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01ai/Yi-Coder-1.5B-Chat>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-Coder-1.5B-Chat>`__
 

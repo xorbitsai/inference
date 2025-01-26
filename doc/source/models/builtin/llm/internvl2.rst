@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-1B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-1B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-1B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 2 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-2B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-2B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-2B>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 4 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-4B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-4B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-4B>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-8B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-8B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-8B>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (pytorch, 26 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 26
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-26B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-26B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-26B>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (pytorch, 40 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 40
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-40B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-40B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-40B>`__
 
@@ -180,7 +180,7 @@ Model Spec 11 (pytorch, 76 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 76
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** OpenGVLab/InternVL2-Llama3-76B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL2-Llama3-76B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL2-Llama3-76B>`__
 

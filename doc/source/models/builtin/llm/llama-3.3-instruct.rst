@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** meta-llama/Llama-3.3-70B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Llama-3.3-70B-Instruct>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 70 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** shuyuej/Llama-3.3-70B-Instruct-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/shuyuej/Llama-3.3-70B-Instruct-GPTQ>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 70 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** casperhansen/llama-3.3-70b-instruct-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/casperhansen/llama-3.3-70b-instruct-awq>`__
 
