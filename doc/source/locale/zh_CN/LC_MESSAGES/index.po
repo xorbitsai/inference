@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-22 14:24+0800\n"
+"POT-Creation-Date: 2025-01-26 11:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -120,12 +120,12 @@ msgid "Learn how to generate images with Xinference."
 msgstr "学习如何使用Xinference生成图像。"
 
 #: ../../source/index.rst:191
-msgid "Vision"
-msgstr "视觉"
+msgid "Multimodal"
+msgstr "多模态"
 
 #: ../../source/index.rst:195
-msgid "Learn how to process image with LLMs."
-msgstr "学习如何使用 LLM 处理图像。"
+msgid "Learn how to process images and audio with LLMs."
+msgstr "学习如何使用 LLM 处理图像和音频。"
 
 #: ../../source/index.rst:200
 msgid "Audio"
@@ -182,3 +182,7 @@ msgstr "贡献"
 #: ../../source/index.rst:276
 msgid ":fab:`github` Create a pull request"
 msgstr ":fab:`github` 在 Github 上提 PR"
+
+#~ msgid "Vision"
+#~ msgstr "视觉"
+

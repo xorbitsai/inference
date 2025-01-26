@@ -143,7 +143,7 @@ The ``audio`` ability is supported with the following models in Xinference:
 Quickstart
 ----------------------
 
-Images are made available to the model in two main ways: by passing a link to the image or by passing the
+Audios are made available to the model in two main ways: by passing a link to the image or by passing the
 audio url directly in the request.
 
 

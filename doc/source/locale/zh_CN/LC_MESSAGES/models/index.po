@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"POT-Creation-Date: 2025-01-26 11:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -184,8 +184,8 @@ msgid "Learn how to generate images with Xinference."
 msgstr "学习如何使用Xinference生成图像。"
 
 #: ../../source/models/index.rst:202
-msgid "Vision"
-msgstr "视觉"
+msgid "Multimodal"
+msgstr "多模态"
 
 #: ../../source/models/index.rst:206
 msgid "Learn how to process images and audio with LLMs."
