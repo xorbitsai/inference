@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-12-12 06:41+0000\n"
+"POT-Creation-Date: 2025-01-22 14:14+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.16.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/audio.rst:5
 msgid "Audio (Experimental)"
@@ -152,7 +152,7 @@ msgid "CosyVoice"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:66
-msgid "FishSpeech-1.4"
+msgid "FishSpeech-1.5"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:67
@@ -288,15 +288,15 @@ msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:391
 msgid ""
-"Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` "
+"Clone voice, launch model ``FishSpeech-1.5``. Please use `prompt_speech` "
 "instead of `reference_audio` and `prompt_text` instead of "
 "`reference_text` to clone voice from the reference audio for the "
 "FishSpeech model. This arguments is aligned to voice cloning of "
 "CosyVoice."
 msgstr ""
-"克隆语音，启动模型 ``FishSpeech-1.4``。请使用 `prompt_speech`而不是 `"
-"reference_audio` 以及 `prompt_text` 而不是 `reference_text` "
-"来为 FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
+"克隆语音，启动模型 ``FishSpeech-1.5``。请使用 `prompt_speech`而不是 `"
+"reference_audio` 以及 `prompt_text` 而不是 `reference_text` 来为 "
+"FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
 
 #: ../../source/models/model_abilities/audio.rst:417
 msgid "SenseVoiceSmall Offline usage"
@@ -334,4 +334,3 @@ msgstr ""
 "然后当用 Web UI 加载 SenseVoiceSmall 时，添加额外选项，key 是 ``vad_model"
 "``，值是之前的下载路径 ``/path/to/fsmn-vad``。用命令行加载时，增加选项 ``"
 "--vad_model /path/to/fsmn-vad``。"
-

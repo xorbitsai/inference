@@ -55,9 +55,9 @@ class Qwen2AudioChatModel(PytorchChatModel):
 
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
-        self._device = device
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
+        self._device = device
 
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
@@ -105,6 +105,8 @@ class Qwen2AudioChatModel(PytorchChatModel):
         inputs = self._processor(
             text=text, audios=audios, return_tensors="pt", padding=True
         )
+        # Make sure that the inputs and the model are on the same device.
+        inputs.data = {k: v.to(self._device) for k, v in inputs.data.items()}
         inputs.input_ids = inputs.input_ids.to(self._device)
         generate_config = generate_config if generate_config else {}
         stream = generate_config.get("stream", False) if generate_config else False

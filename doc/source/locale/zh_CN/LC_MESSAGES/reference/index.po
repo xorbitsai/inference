@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"POT-Creation-Date: 2025-01-26 11:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -142,7 +142,7 @@ msgstr ""
 #: ../../source/reference/index.rst:40:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.ChatModelHandle.chat "
-"<xinference.client.handlers.ChatModelHandle.chat>`\\ \\(prompt\\)"
+"<xinference.client.handlers.ChatModelHandle.chat>`\\ \\(...\\)"
 msgstr ""
 
 #: ../../source/reference/index.rst:40:<autosummary>:1
@@ -290,4 +290,28 @@ msgstr ""
 #: ../../source/reference/index.rst:84
 msgid "VideoModelHandle"
 msgstr ""
+
+#: ../../source/reference/index.rst:90:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.handlers.VideoModelHandle "
+"<xinference.client.handlers.VideoModelHandle>`\\"
+msgstr ""
+
+#: ../../source/reference/index.rst:90:<autosummary>:1
+msgid ""
+"alias of "
+":py:class:`~xinference.client.restful.restful_client.RESTfulVideoModelHandle`"
+msgstr ""
+
+#: ../../source/reference/index.rst:90:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.handlers.VideoModelHandle.text_to_video "
+"<xinference.client.handlers.VideoModelHandle.text_to_video>`\\ "
+"\\(prompt\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:90:<autosummary>:1
+msgid "Creates a video by the input text."
+msgstr ""
+
 

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-21 14:27+0800\n"
+"POT-Creation-Date: 2025-01-26 11:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -144,8 +144,8 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:47
 msgid ""
 "``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
-"instruct``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, "
-"``deepseek-v2.5``"
+"instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, "
+"``deepseek-v2-chat-0628``, ``deepseek-v2.5``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:48
@@ -295,26 +295,4 @@ msgstr "其他平台"
 #: ../../source/getting_started/installation.rst:128
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
-
-#~ msgid ""
-#~ "``llama-2``, ``llama-3``, ``llama-3.1``, "
-#~ "``llama-2-chat``, ``llama-3-instruct``, "
-#~ "``llama-3.1-instruct``"
-#~ msgstr ""
-
-#~ msgid "``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "``internlm-16k``, ``internlm-chat-7b``, "
-#~ "``internlm-chat-8k``, ``internlm-chat-20b``"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "``deepseek``, ``deepseek-coder``, ``deepseek-"
-#~ "chat``, ``deepseek-coder-instruct``"
-#~ msgstr ""
-
-#~ msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
-#~ msgstr ""
 

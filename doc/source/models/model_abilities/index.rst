@@ -9,7 +9,7 @@ Model Abilities
 
    chat
    tools
-   vision   
+   multimodal
    embed
    rerank
    image

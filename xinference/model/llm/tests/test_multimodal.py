@@ -318,3 +318,77 @@ def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
         ],
     )
     assert any(count in completion.choices[0].message.content for count in ["两条", "四条"])
+
+
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_qwen_audio(setup):
+    model_name = "qwen2-audio-instruct"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_audio",
+        "model_name": model_name,
+        "model_engine": "transformers",
+        "model_size_in_billions": 7,
+        "model_format": "pytorch",
+        "quantization": "none",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_audio"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "audio",
+                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/glass-breaking-151256.mp3",
+                    },
+                    {"type": "text", "text": "What's that sound?"},
+                ],
+            },
+            {"role": "assistant", "content": "It is the sound of glass shattering."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What can you do when you hear that?"},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": "Stay alert and cautious, and check if anyone is hurt or if there is any damage to property.",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "audio",
+                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/1272-128104-0000.flac",
+                    },
+                    {"type": "text", "text": "What does the person say?"},
+                ],
+            },
+        ],
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+    assert len(completion["choices"][0]["message"]) > 0

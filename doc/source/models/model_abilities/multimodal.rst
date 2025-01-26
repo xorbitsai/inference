@@ -1,13 +1,13 @@
-.. _vision:
+.. _multimodal:
 
 =====================
+Multimodal
+=====================
+
+Learn how to process images and audio with LLMs.
+
+
 Vision
-=====================
-
-Learn how to process images with LLMs.
-
-
-Introduction
 ============
 
 With the ``vision`` ability you can have your model take in images and answer questions about them.
@@ -37,13 +37,13 @@ The ``vision`` ability is supported with the following models in Xinference:
 
 
 Quickstart
-====================
+----------------------
 
 Images are made available to the model in two main ways: by passing a link to the image or by passing the
 base64 encoded image directly in the request.
 
 Example using OpenAI Client
--------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -74,7 +74,7 @@ Example using OpenAI Client
 
 
 Uploading base 64 encoded images
-------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -125,4 +125,70 @@ You can find more examples of ``vision`` ability in the tutorial notebook:
       
       Learn vision ability from a example using qwen-vl-chat
 
+Audio
+============
 
+With the ``audio`` ability you can have your model take in audio and performing audio analysis or direct textual
+responses with regard to speech instructions.
+Within Xinference, this indicates that certain models are capable of processing audio inputs when conducting
+dialogues via the Chat API.
+
+Supported models
+----------------------
+
+The ``audio`` ability is supported with the following models in Xinference:
+
+* :ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`
+
+Quickstart
+----------------------
+
+Audios are made available to the model in two main ways: by passing a link to the image or by passing the
+audio url directly in the request.
+
+
+Chat with audio
+~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_HOST>")
+    model = client.get_model(<MODEL_UID>)
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "audio",
+                    "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/glass-breaking-151256.mp3",
+                },
+                {"type": "text", "text": "What's that sound?"},
+            ],
+        },
+        {"role": "assistant", "content": "It is the sound of glass shattering."},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What can you do when you hear that?"},
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": "Stay alert and cautious, and check if anyone is hurt or if there is any damage to property.",
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "audio",
+                    "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/1272-128104-0000.flac",
+                },
+                {"type": "text", "text": "What does the person say?"},
+            ],
+        },
+    ]
+    print(model.chat(messages))
