@@ -48,12 +48,19 @@ class Qwen2VLChatModel(PytorchChatModel):
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-vl-instruct".lower() in llm_family.lower():
             return True
+        if "qwen2.5-vl-instruct".lower() in llm_family.lower():
+            return True
         if "qvq-72b-preview".lower() in llm_family.lower():
             return True
         return False
 
     def load(self):
         from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+
+        try:
+            from transformers import Qwen2_5_VLForConditionalGeneration
+        except ImportError:
+            Qwen2_5_VLForConditionalGeneration = None
 
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
@@ -66,8 +73,16 @@ class Qwen2VLChatModel(PytorchChatModel):
         )
         self._tokenizer = self._processor.tokenizer
         flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+        llm_family = self.model_family.model_family or self.model_family.model_name
+        model_cls = (
+            Qwen2_5_VLForConditionalGeneration
+            if "qwen2.5" in llm_family
+            else Qwen2VLForConditionalGeneration
+        )
+        if model_cls is None:
+            raise ImportError("`transformers` version is too old, please upgrade it")
         if flash_attn_installed:
-            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self._model = model_cls.from_pretrained(
                 self.model_path,
                 torch_dtype="bfloat16",
                 device_map=device,
@@ -76,14 +91,14 @@ class Qwen2VLChatModel(PytorchChatModel):
             ).eval()
         elif is_npu_available():
             # Ascend do not support bf16
-            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self._model = model_cls.from_pretrained(
                 self.model_path,
                 device_map="auto",
                 trust_remote_code=True,
                 torch_dtype="float16",
             ).eval()
         else:
-            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self._model = model_cls.from_pretrained(
                 self.model_path, device_map=device, trust_remote_code=True
             ).eval()
 

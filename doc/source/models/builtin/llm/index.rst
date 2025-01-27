@@ -133,7 +133,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`deepseek-r1-distill-qwen <models_llm_deepseek-r1-distill-qwen>`
      - chat
-     - 32768
+     - 131072
      - deepseek-r1-distill-qwen is distilled from DeepSeek-R1 based on Qwen
 
    * - :ref:`deepseek-v2 <models_llm_deepseek-v2>`
@@ -481,6 +481,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
+   * - :ref:`qwen2.5-vl-instruct <models_llm_qwen2.5-vl-instruct>`
+     - chat, vision
+     - 128000
+     - Qwen2.5-VL: Qwen2.5-VL is the latest version of the vision language models in the Qwen model familities.
+
    * - :ref:`qwq-32b-preview <models_llm_qwq-32b-preview>`
      - chat
      - 32768
@@ -776,6 +781,8 @@ The following is a list of built-in LLM in Xinference:
    qwen2.5-coder-instruct
   
    qwen2.5-instruct
+  
+   qwen2.5-vl-instruct
   
    qwq-32b-preview
   
