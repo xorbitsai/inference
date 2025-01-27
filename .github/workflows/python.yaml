@@ -131,7 +131,7 @@ jobs:
             pip install mlx-vlm
             pip install mlx-whisper
             pip install f5-tts-mlx
-            pip install qwen-vl-utils
+            pip install qwen-vl-utils!=0.0.9
             pip install tomli 
           else
             pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
@@ -152,7 +152,7 @@ jobs:
             pip install "jinja2==3.1.2"
             pip install tensorizer
             pip install jj-pytorchvideo
-            pip install qwen-vl-utils
+            pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
           fi

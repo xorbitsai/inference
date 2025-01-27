@@ -5558,7 +5558,7 @@
           "q8_0"
         ],
         "model_id": "qwen/Qwen2.5-7B-Instruct-GGUF",
-        "model_file_name_template": "qwen2_5-7b-instruct-{quantization}.gguf",
+        "model_file_name_template": "qwen2.5-7b-instruct-{quantization}.gguf",
         "model_hub": "modelscope",
         "model_file_name_split_template": "qwen2.5-7b-instruct-{quantization}-{part}.gguf",
         "quantization_parts": {
