@@ -32,9 +32,15 @@ from .custom import (
     register_embedding,
     unregister_embedding,
 )
-
-BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
-MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
+from .embed_family import (
+    BUILTIN_EMBEDDING_MODELS,
+    FAST_EMBEDDER_CLASSES,
+    FLAG_EMBEDDER_CLASSES,
+    MODEL_WITH_EMBED_ENGINES,
+    MODELSCOPE_EMBEDDING_MODELS,
+    SENTENCE_TRANSFORMER_CLASSES,
+    SUPPORTED_ENGINES,
+)
 
 
 def register_custom_model():
@@ -55,11 +61,41 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
+# 与LLM中的不同，这里只根据特定的模型名字以及描述生成engine。
+def generate_engine_config_by_model_name(model_name):
+    engines = MODEL_WITH_EMBED_ENGINES.get(model_name, {})  # structure for engine query
+    for engine in SUPPORTED_ENGINES:
+        CLASSES = SUPPORTED_ENGINES[engine]
+        for cls in CLASSES:
+            # 每个engine内部都需要实现match方法
+            if cls.match(model_name):
+                engine_params = engines.get(engine, [])
+                already_exists = False
+                # if the name, format and size in billions of model already exists in the structure, add the new quantization
+                for param in engine_params:
+                    if model_name == param["model_name"]:
+                        already_exists = True
+                        break
+                # successfully match the params for the first time, add to the structure
+                if not already_exists:
+                    engine_params.append(
+                        {
+                            "model_name": model_name,
+                            "embedding_class": cls,
+                        }
+                    )
+                engines[engine] = engine_params
+                break
+    MODEL_WITH_EMBED_ENGINES[model_name] = engines
+
+
+# will be called in xinference/model/__init__.py
 def _install():
     _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
     _model_spec_modelscope_json = os.path.join(
         os.path.dirname(__file__), "model_spec_modelscope.json"
     )
+    ################### HuggingFace Model List Info Init ###################
     BUILTIN_EMBEDDING_MODELS.update(
         dict(
             (spec["model_name"], EmbeddingModelSpec(**spec))
@@ -69,6 +105,7 @@ def _install():
     for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
         MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
+    ################### ModelScope Model List Info Init ###################
     MODELSCOPE_EMBEDDING_MODELS.update(
         dict(
             (spec["model_name"], EmbeddingModelSpec(**spec))
@@ -80,6 +117,7 @@ def _install():
     for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
         MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
+    # TODO: consider support more download hub in future...
     # register model description after recording model revision
     for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
         for model_name, model_spec in model_spec_info.items():
@@ -95,6 +133,23 @@ def _install():
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )
+
+    from .fast_embed.core import FastEmbeddingModel
+    from .flag.core import FlagEmbeddingModel
+    from .sentence_transformer.core import SentenceTransformerEmbeddingModel
+
+    FAST_EMBEDDER_CLASSES.extend([FastEmbeddingModel])
+    FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
+    SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
+
+    SUPPORTED_ENGINES["fast_embed"] = FAST_EMBEDDER_CLASSES
+    SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
+    SUPPORTED_ENGINES["sentence_transformer"] = SENTENCE_TRANSFORMER_CLASSES
+
+    # Init embedding engine
+    for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
+        for model_name in model_infos:
+            generate_engine_config_by_model_name(model_name)
 
     del _model_spec_json
     del _model_spec_modelscope_json

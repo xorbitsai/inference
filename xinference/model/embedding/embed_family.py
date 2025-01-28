@@ -76,10 +76,10 @@ def register_embedding(custom_embedding_spec: "EmbeddingModelSpec", persist: boo
         raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_EMBEDDING_FAMILIES_LOCK:
-        if custom_embedding_spec.model_name in (
-            list(BUILTIN_EMBEDDING_MODELS.keys())
-            + list(MODELSCOPE_EMBEDDING_MODELS.keys())
-            + list(UD_EMBEDDING_SPECS.keys())
+        if (
+            custom_embedding_spec.model_name in BUILTIN_EMBEDDING_MODELS
+            or custom_embedding_spec.model_name in MODELSCOPE_EMBEDDING_MODELS
+            or custom_embedding_spec.model_name in UD_EMBEDDING_SPECS
         ):
             raise ValueError(
                 f"Model name conflicts with existing model {custom_embedding_spec.model_name}"

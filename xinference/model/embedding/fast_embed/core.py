@@ -244,6 +244,25 @@ class FastEmbeddingModel(EmbeddingModel):
         )
         return result
 
+    def convert_ids_to_tokens(
+        self,
+        batch_token_ids: Union[List[Union[int, str]], List[List[Union[int, str]]]],
+        **kwargs,
+    ):
+        assert self._model is not None
+        if isinstance(batch_token_ids, (int, str)):
+            return self._model.tokenizer.decode([int(str(batch_token_ids))])[0]
+
+        # check if it's a nested list
+        if (
+            isinstance(batch_token_ids, list)
+            and batch_token_ids
+            and isinstance(batch_token_ids[0], list)
+        ):
+            return self._model.model.tokenizer.decode_batch(batch_token_ids)
+        else:
+            return self._model.tokenizer.decode(batch_token_ids)
+
     # 只要fastembed支持的model，都返回True。使用哪个具体的加载类由用户决定。
     @classmethod
     def match(cls, model_name):

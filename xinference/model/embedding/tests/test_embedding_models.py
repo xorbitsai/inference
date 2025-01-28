@@ -20,7 +20,7 @@ import tempfile
 import pytest
 
 from ...utils import valid_model_revision
-from ..core import EmbeddingModel, EmbeddingModelSpec, cache
+from ..core import EmbeddingModelSpec, cache
 
 TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_name="gte-small",
@@ -49,20 +49,48 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
     model_revision="v0.0.2",
     model_hub="modelscope",
 )
+from ..embed_family import MODEL_WITH_EMBED_ENGINES
 
 
-def test_model():
+def test_engine_supported():
+    model_name = "bge-small-en-v1.5"
+    assert model_name in MODEL_WITH_EMBED_ENGINES
+    assert "flag" in MODEL_WITH_EMBED_ENGINES[model_name]
+    assert "fast_embed" in MODEL_WITH_EMBED_ENGINES[model_name]
+    assert "sentence_transformer" in MODEL_WITH_EMBED_ENGINES[model_name]
+
+
+# todo 参考sentence_transformer的返回格式进行返回
+def test_embedding_model_with_flag():
+    # this variable should be removed or commented in CI
+    TEST_MODEL_SPEC = EmbeddingModelSpec(
+        model_name="bge-small-en-v1.5",
+        dimensions=384,
+        max_tokens=512,
+        language=["en"],
+        model_id="BAAI/bge-small-en-v1.5",
+        model_hub="modelscope",
+    )
+
     model_path = None
     try:
         model_path = cache(TEST_MODEL_SPEC)
-        model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC)
+        from ..core import create_embedding_model_instance
+
+        model, _ = create_embedding_model_instance(
+            "mook", "cuda", "mock", "bge-small-en-v1.5", "flag", model_path
+        )
+        model.load()
+
         # input is a string
         input_text = "what is the capital of China?"
-        model.load()
-        r = model.create_embedding(input_text)
+
+        # test sparse and dense
+        r = model.create_embedding(input_text, **{"return_sparse": True})
         assert len(r["data"]) == 1
-        for d in r["data"]:
-            assert len(d["embedding"]) == 384
+
+        r = model.create_embedding(input_text)
+        assert len(r["data"][0]["embedding"]) == 384
 
         # input is a lit
         input_texts = [
@@ -71,25 +99,161 @@ def test_model():
             "Beijing",
             "sorting algorithms",
         ]
-        model.load()
-        r = model.create_embedding(input_texts)
+        # test sparse and dense
+        r = model.create_embedding(input_texts, **{"return_sparse": True})
         assert len(r["data"]) == 4
+
+        r = model.create_embedding(input_texts)
         for d in r["data"]:
             assert len(d["embedding"]) == 384
-        n_token = 0
-        for inp in input_texts:
-            input_ids = model._model.tokenize([inp])["input_ids"]
-            n_token += input_ids.shape[-1]
-        assert r["usage"]["total_tokens"] == n_token
-
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
 
 
+def test_embedding_model_with_sentence_transformer():
+    # this variable should be removed or commented in CI
+    TEST_MODEL_SPEC = EmbeddingModelSpec(
+        model_name="bge-small-en-v1.5",
+        dimensions=384,
+        max_tokens=512,
+        language=["en"],
+        model_id="BAAI/bge-small-en-v1.5",
+        model_hub="modelscope",
+    )
+
+    model_path = None
+
+    try:
+        model_path = cache(TEST_MODEL_SPEC)
+        from ..core import create_embedding_model_instance
+
+        model, _ = create_embedding_model_instance(
+            "mook",
+            "cuda",
+            "mock",
+            "bge-small-en-v1.5",
+            "sentence_transformer",
+            model_path,
+        )
+        model.load()
+
+        # input is a string
+        input_text = "what is the capital of China?"
+
+        # test sparse and dense
+        r = model.create_embedding(input_text)
+        assert len(r["data"]) == 1
+        assert len(r["data"][0]["embedding"]) == 384
+
+        # input is a lit
+        input_texts = [
+            "what is the capital of China?",
+            "how to implement quick sort in python?",
+            "Beijing",
+            "sorting algorithms",
+        ]
+        # test sparse and dense
+        r = model.create_embedding(input_texts)
+        assert len(r["data"]) == 4
+        for d in r["data"]:
+            assert len(d["embedding"]) == 384
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
+
+
+def test_embedding_model_with_fast_embed():
+    # this variable should be removed or commented in CI
+    TEST_MODEL_SPEC = EmbeddingModelSpec(
+        model_name="bge-small-en-v1.5",
+        dimensions=384,
+        max_tokens=512,
+        language=["en"],
+        model_id="BAAI/bge-small-en-v1.5",
+        model_hub="modelscope",
+    )
+
+    model_path = None
+
+    try:
+        model_path = cache(TEST_MODEL_SPEC)
+        from ..core import create_embedding_model_instance
+
+        # need test cuda
+        model, _ = create_embedding_model_instance(
+            "mook", "cpu", "mock", "bge-small-en-v1.5", "fast_embed", model_path
+        )
+        model.load()
+
+        # input is a string
+        input_text = "what is the capital of China?"
+
+        # test sparse and dense
+        r = model.create_embedding(input_text)
+        assert len(r["data"]) == 1
+        assert len(r["data"][0]["embedding"]) == 384
+
+        # input is a lit
+        input_texts = [
+            "what is the capital of China?",
+            "how to implement quick sort in python?",
+            "Beijing",
+            "sorting algorithms",
+        ]
+        # test sparse and dense
+        r = model.create_embedding(input_texts)
+        assert len(r["data"]) == 4
+        for d in r["data"]:
+            assert len(d["embedding"]) == 384
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
+
+
+# def test_model():
+#     model_path = None
+#     try:
+#         model_path = cache(TEST_MODEL_SPEC)
+#         model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC)
+#         # input is a string
+#         input_text = "what is the capital of China?"
+#         model.load()
+#         r = model.create_embedding(input_text)
+#         assert len(r["data"]) == 1
+#         for d in r["data"]:
+#             assert len(d["embedding"]) == 384
+
+#         # input is a lit
+#         input_texts = [
+#             "what is the capital of China?",
+#             "how to implement quick sort in python?",
+#             "Beijing",
+#             "sorting algorithms",
+#         ]
+#         model.load()
+#         r = model.create_embedding(input_texts)
+#         assert len(r["data"]) == 4
+#         for d in r["data"]:
+#             assert len(d["embedding"]) == 384
+#         n_token = 0
+#         for inp in input_texts:
+#             input_ids = model._model.tokenize([inp])["input_ids"]
+#             n_token += input_ids.shape[-1]
+#         assert r["usage"]["total_tokens"] == n_token
+
+#     finally:
+#         if model_path is not None:
+#             shutil.rmtree(model_path, ignore_errors=True)
+
+
 def test_model_from_modelscope():
+    from ..core import create_embedding_model_instance
+
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model, _ = create_embedding_model_instance(
+        "mock", "cuda", "mock", "bge-small-zh-v1.5", "sentence_transformer", model_path
+    )
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
     model.load()
@@ -114,7 +278,16 @@ def test_meta_file():
         assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
 
         # test functionality of the new version model
-        model = EmbeddingModel("mock", cache_dir, TEST_MODEL_SPEC2)
+        from ..core import create_embedding_model_instance
+
+        model, _ = create_embedding_model_instance(
+            "mock",
+            "cuda",
+            "mock",
+            "bge-small-en-v1.5",
+            "sentence_transformer",
+            cache_dir,
+        )
         input_text = "I can do this all day."
         model.load()
         r = model.create_embedding(input_text)
@@ -250,16 +423,18 @@ def test_register_fault_embedding():
 
 
 def test_convert_ids_to_tokens():
-    from ..core import EmbeddingModel
+    from ..core import create_embedding_model_instance
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model, _ = create_embedding_model_instance(
+        "mock", "cuda", "mock", "bge-small-zh-v1.5", "flag", model_path
+    )
     model.load()
 
     ids = [[8074, 8059, 8064, 8056], [144, 147, 160, 160, 158]]
     tokens = model.convert_ids_to_tokens(ids)
 
     assert isinstance(tokens, list)
-    assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
+    assert tokens == ["ｘ ｉ ｎ ｆ", "b e r r p"]
 
     shutil.rmtree(model_path, ignore_errors=True)

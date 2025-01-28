@@ -21,10 +21,12 @@ from typing import Dict, List, Literal, Optional, Tuple, Union, no_type_check
 import numpy as np
 import torch
 
+from ..._compat import ROOT_KEY, ErrorWrapper, ValidationError
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import get_cache_dir, is_model_cached
+from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,7 @@ def get_embedding_model_descriptions():
     return copy.deepcopy(EMBEDDING_MODEL_DESCRIPTIONS)
 
 
+# this class define the basic info of embedding model
 class EmbeddingModelSpec(CacheableModelSpec):
     model_name: str
     dimensions: int
@@ -122,7 +125,11 @@ def get_cache_status(
     return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)
 
 
-class EmbeddingModel:
+import abc
+from abc import abstractmethod
+
+
+class EmbeddingModel(abc.ABC):
     def __init__(
         self,
         model_uid: str,
@@ -137,8 +144,10 @@ class EmbeddingModel:
         self._model = None
         self._counter = 0
         self._model_spec = model_spec
+        self._model_name = self._model_spec.model_name
         self._kwargs = kwargs
 
+    @abstractmethod
     def load(self):
         try:
             import sentence_transformers
@@ -207,12 +216,15 @@ class EmbeddingModel:
                 ]
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-            model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
+            if torch_dtype and torch_dtype == torch.float16:
+                model_kwargs = {"use_fp16": True}
+            else:
+                model_kwargs = None
             self._model = BGEM3FlagModel(
                 self._model_path,
                 device=self._device,
-                model_kwargs=model_kwargs,
                 trust_remote_code=True,
+                **model_kwargs,
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
@@ -223,6 +235,55 @@ class EmbeddingModel:
                 trust_remote_code=True,
             )
 
+    @staticmethod
+    # copied from sentence-transformers
+    def _text_length(text):
+        if isinstance(text, dict):  # {key: value} case
+            return len(next(iter(text.values())))
+        elif not hasattr(text, "__len__"):  # Object has no len() method
+            return 1
+        elif len(text) == 0 or isinstance(text[0], int):  # Empty string or list of ints
+            return len(text)
+        else:
+            return sum([len(t) for t in text])  # Sum of length of individual strings
+
+    def _fix_langchain_openai_inputs(
+        self, sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]]
+    ):
+        # Check if sentences is a two-dimensional list of integers
+        if (
+            isinstance(sentences, list)
+            and len(sentences) > 0
+            and isinstance(sentences[0], list)
+            and len(sentences[0]) > 0
+            and isinstance(sentences[0][0], int)
+        ):
+            # List[List[int]] stands for encoded inputs
+            import tiktoken
+
+            enc = tiktoken.get_encoding("cl100k_base")
+            lines_decoded = []
+
+            for line in sentences:
+                try:
+                    # Decode each token into bytes, then join them into a complete string
+                    output = b"".join(
+                        enc.decode_single_token_bytes(token) for token in line
+                    )
+                    # Convert the byte sequence into a UTF-8 encoded string
+                    decoded_line = output.decode("utf-8")
+                    lines_decoded.append(decoded_line)
+                except (ValueError, TypeError, UnicodeDecodeError) as e:
+                    raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], self)
+
+            # Update sentences to be the list of decoded strings
+            if len(lines_decoded) == 1:
+                sentences = lines_decoded[0]
+            else:
+                sentences = lines_decoded
+        return sentences
+
+    @abstractmethod
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         from FlagEmbedding import BGEM3FlagModel
         from sentence_transformers import SentenceTransformer
@@ -292,22 +353,9 @@ class EmbeddingModel:
             all_embeddings = []
             all_token_nums = 0
 
-            # The original code does not support other inference engines
-            def _text_length(text):
-                if isinstance(text, dict):  # {key: value} case
-                    return len(next(iter(text.values())))
-                elif not hasattr(text, "__len__"):  # Object has no len() method
-                    return 1
-                elif len(text) == 0 or isinstance(
-                    text[0], int
-                ):  # Empty string or list of ints
-                    return len(text)
-                else:
-                    return sum(
-                        [len(t) for t in text]
-                    )  # Sum of length of individual strings
-
-            length_sorted_idx = np.argsort([-_text_length(sen) for sen in sentences])
+            length_sorted_idx = np.argsort(
+                [-self._text_length(sen) for sen in sentences]
+            )
             sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
 
             for start_index in trange(
@@ -648,47 +696,42 @@ class EmbeddingModel:
             )
         return batch_decoded_texts
 
+    @staticmethod
+    def get_device_name() -> Literal["mps", "cuda", "npu", "hpu", "cpu"]:
+        """
+        Returns the name of the device where this module is running on.
 
-def match_embedding(
-    model_name: str,
-    download_hub: Optional[
-        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
-    ] = None,
-) -> EmbeddingModelSpec:
-    from ..utils import download_from_modelscope
-    from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
-    from .custom import get_user_defined_embeddings
+        It's a simple implementation that doesn't cover cases when more powerful GPUs are available and
+        not a primary device ('cuda:0') or MPS device is available, but not configured properly.
 
-    # first, check whether it is a user-defined embedding model
-    for model_spec in get_user_defined_embeddings():
-        if model_name == model_spec.model_name:
-            return model_spec
+        Returns:
+            str: Device name, like 'cuda' or 'cpu'
+        """
+        import importlib.util
 
-    if download_hub == "modelscope" and model_name in MODELSCOPE_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in ModelScope.")
-        return MODELSCOPE_EMBEDDING_MODELS[model_name]
-    elif download_hub == "huggingface" and model_name in BUILTIN_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in Huggingface.")
-        return BUILTIN_EMBEDDING_MODELS[model_name]
-    elif download_from_modelscope() and model_name in MODELSCOPE_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in ModelScope.")
-        return MODELSCOPE_EMBEDDING_MODELS[model_name]
-    elif model_name in BUILTIN_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in Huggingface.")
-        return BUILTIN_EMBEDDING_MODELS[model_name]
-    else:
-        raise ValueError(
-            f"Embedding model {model_name} not found, available"
-            f"Huggingface: {BUILTIN_EMBEDDING_MODELS.keys()}"
-            f"ModelScope: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
-        )
+        import torch
+        from sentence_transformers.util import is_torch_npu_available
+
+        if torch.cuda.is_available():
+            return "cuda"
+        elif torch.backends.mps.is_available():
+            return "mps"
+        elif is_torch_npu_available():
+            return "npu"
+        elif importlib.util.find_spec("habana_frameworks") is not None:
+            import habana_frameworks.torch.hpu as hthpu
+
+            if hthpu.is_available():
+                return "hpu"
+        return "cpu"
 
 
 def create_embedding_model_instance(
     subpool_addr: str,
-    devices: List[str],
+    devices: Optional[List[str]],
     model_uid: str,
     model_name: str,
+    model_engine: Optional[str],
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
@@ -699,7 +742,18 @@ def create_embedding_model_instance(
     if model_path is None:
         model_path = cache(model_spec)
 
-    model = EmbeddingModel(model_uid, model_path, model_spec, **kwargs)
+    if model_engine is None:
+        raise ValueError("model_engine is required for Embedding model")
+
+    from .embed_family import check_engine_by_model_name_and_engine
+
+    embedding_cls = check_engine_by_model_name_and_engine(
+        model_name,
+        model_engine,
+    )
+    # model class should be one of flag, fastembed, sentence_transformer
+    device = devices[0] if devices is not None else None
+    model = embedding_cls(model_uid, model_path, model_spec, device, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
