@@ -427,7 +427,7 @@ def test_convert_ids_to_tokens():
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model, _ = create_embedding_model_instance(
-        "mock", "cuda", "mock", "bge-small-zh-v1.5", "flag", model_path
+        "mock", "cuda", "mock", "bge-small-zh-v1.5", "sentence_transformer", model_path
     )
     model.load()
 

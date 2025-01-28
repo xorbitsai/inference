@@ -258,7 +258,7 @@ class FlagEmbeddingModel(EmbeddingModel):
             and batch_token_ids
             and isinstance(batch_token_ids[0], list)
         ):
-            return self._model.model.tokenizer.decode_batch(batch_token_ids)
+            return self._model.tokenizer.batch_decode(batch_token_ids)
         else:
             return self._model.tokenizer.decode(batch_token_ids)
 
