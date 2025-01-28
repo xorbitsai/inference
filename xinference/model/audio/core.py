@@ -25,6 +25,7 @@ from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
+from .kokoro import KokoroModel
 from .melotts import MeloTTSModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
@@ -176,6 +177,7 @@ def create_audio_model_instance(
         F5TTSModel,
         F5TTSMLXModel,
         MeloTTSModel,
+        KokoroModel,
     ],
     AudioModelDescription,
 ]:
@@ -192,6 +194,7 @@ def create_audio_model_instance(
         F5TTSModel,
         F5TTSMLXModel,
         MeloTTSModel,
+        KokoroModel,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -212,6 +215,8 @@ def create_audio_model_instance(
         model = F5TTSMLXModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "MeloTTS":
         model = MeloTTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Kokoro":
+        model = KokoroModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
