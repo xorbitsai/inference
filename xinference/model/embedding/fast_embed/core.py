@@ -237,8 +237,10 @@ class FastEmbeddingModel(EmbeddingModel):
                 EmbeddingData(index=index, object="embedding", embedding=data.tolist())
             )
         # fast embed不支持tokenize，这个方法有必要使用么？不如直接为空吧
-        usage = EmbeddingUsage(prompt_tokens=None, total_tokens=None)
+        usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
         result = Embedding(
+            object=("list" if kwargs.get("return_sparse") else "dict"),  # type: ignore
+            model=self._model_uid,
             data=embedding_list,
             usage=usage,
         )

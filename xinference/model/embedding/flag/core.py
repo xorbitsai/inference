@@ -233,7 +233,7 @@ class FlagEmbeddingModel(EmbeddingModel):
                         index=index, object="embedding", embedding=data.tolist()
                     )
                 )
-        usage = EmbeddingUsage(prompt_tokens=None, total_tokens=None)
+        usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
         result = Embedding(
             object=("list" if kwargs.get("return_sparse") else "dict"),  # type: ignore
             model=self._model_uid,
@@ -247,30 +247,20 @@ class FlagEmbeddingModel(EmbeddingModel):
         self,
         batch_token_ids: Union[List[Union[int, str]], List[List[Union[int, str]]]],
         **kwargs,
-    ) -> Union[List[str]]:
+    ):
         assert self._model is not None
-
         if isinstance(batch_token_ids, (int, str)):
-            return self._model.tokenizer.convert_ids_to_tokens(
-                [int(str(batch_token_ids))]
-            )[0]
+            return self._model.tokenizer.decode([int(str(batch_token_ids))])[0]
 
-        batch_decoded_texts = []
         # check if it's a nested list
         if (
             isinstance(batch_token_ids, list)
             and batch_token_ids
             and isinstance(batch_token_ids[0], list)
         ):
-            batch_token_ids = [
-                [int(token_id) for token_id in token_ids]
-                for token_ids in batch_token_ids
-            ]
-            batch_decoded_texts = self._model.tokenizer.batch_decode(batch_token_ids)
+            return self._model.model.tokenizer.decode_batch(batch_token_ids)
         else:
-            batch_token_ids = [int(token_id) for token_id in batch_token_ids]
-            batch_decoded_texts = self._model.tokenizer.decode(batch_token_ids)
-        return batch_decoded_texts
+            return self._model.tokenizer.decode(batch_token_ids)
 
     @classmethod
     def match(cls, model_name):
