@@ -30,16 +30,8 @@ class FlagEmbeddingModel(EmbeddingModel):
     def load(self):
         try:
             from FlagEmbedding import BGEM3FlagModel
-
-            # from sentence_transformers import SentenceTransformer
-            # if FlagEmbedding.__version__ < "1.3.3":
-            #     raise ValueError(
-            #         "The FlagEmbedding version must be greater than 1.3.3. "
-            #         "Please upgrade your version via `pip install -U FlagEmbedding` or refer to "
-            #         "https://github.com/FlagOpen/FlagEmbedding"
-            #     )
         except ImportError:
-            error_message = "Failed to import module 'FlagEmbedding'"
+            error_message = "Failed to import module 'BGEM3FlagModel'"
             installation_guide = [
                 "Please make sure 'FlagEmbedding' is installed. ",
                 "You can install it by `pip install FlagEmbedding`\n",

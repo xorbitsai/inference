@@ -252,7 +252,7 @@ def test_model_from_modelscope():
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model, _ = create_embedding_model_instance(
-        "mock", "cuda", "mock", "bge-small-zh-v1.5", "sentence_transformer", model_path
+        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformer", model_path
     )
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"

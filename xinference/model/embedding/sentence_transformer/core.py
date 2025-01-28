@@ -317,6 +317,40 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 convert_to_numpy=False,
                 **kwargs,
             )
+        elif "clip" in self._model_spec.model_name.lower():
+            import base64
+            import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def base64_to_image(base64_str: str) -> Image.Image:
+                # base64_data = re.sub("^data:image/.+;base64,", "", base64_str)
+                base64_data = base64_str.split(",", 1)[1]
+                byte_data = base64.b64decode(base64_data)
+                image_data = BytesIO(byte_data)
+                img = Image.open(image_data)
+                return img
+
+            objs: list[dict[str, str]] = []
+            for item in sentences:
+                if isinstance(item, dict):
+                    if item.get("text") is not None:
+                        objs.append(item["text"])
+                    elif item.get("image") is not None:
+                        if re.match(r"^data:image/.+;base64,", item["image"]):
+                            image = base64_to_image(item["image"])
+                            objs.append(image)
+                        else:
+                            objs.append(item["image"])
+                    else:
+                        logger.error("Please check the input data.")
+            all_embeddings, all_token_nums = encode(
+                self._model,
+                objs,
+                convert_to_numpy=False,
+                **self._kwargs,
+            )
         else:
             all_embeddings, all_token_nums = encode(
                 self._model,

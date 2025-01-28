@@ -816,8 +816,10 @@ def create_embedding_model_instance(
         model_name,
         model_engine,
     )
+    devices = devices or ["cpu"]
     # model class should be one of flag, fastembed, sentence_transformer
-    device = devices[0] if devices is not None else None
+    # 这种写法会不会有问题？
+    device = devices[0] if isinstance(devices, list) else devices
     model = embedding_cls(model_uid, model_path, model_spec, device, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
