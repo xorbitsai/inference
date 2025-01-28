@@ -202,7 +202,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
 
 
-
 class VLLMModel(LLM):
     def __init__(
         self,
