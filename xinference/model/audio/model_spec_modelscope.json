@@ -100,5 +100,14 @@
     "model_revision": "master",
     "model_ability": "text-to-audio",
     "multilingual": true
+  },
+  {
+    "model_name": "Kokoro-82M",
+    "model_family": "Kokoro",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/Kokoro-82M",
+    "model_revision": "master",
+    "model_ability": "text-to-audio",
+    "multilingual": true
   }
 ]
