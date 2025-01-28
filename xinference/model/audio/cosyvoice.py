@@ -39,6 +39,7 @@ class CosyVoiceModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._is_cosyvoice2 = False
 
     @property
     def model_ability(self):
@@ -51,7 +52,14 @@ class CosyVoiceModel:
         # The yaml config loaded from model has hard-coded the import paths. please refer to: load_hyperpyyaml
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../thirdparty"))
 
-        from cosyvoice.cli.cosyvoice import CosyVoice
+        if "CosyVoice2" in self._model_spec.model_name:
+            from cosyvoice.cli.cosyvoice import CosyVoice2 as CosyVoice
+
+            self._is_cosyvoice2 = True
+        else:
+            from cosyvoice.cli.cosyvoice import CosyVoice
+
+            self._is_cosyvoice2 = False
 
         self._model = CosyVoice(
             self._model_path, load_jit=self._kwargs.get("load_jit", False)
@@ -78,12 +86,22 @@ class CosyVoiceModel:
                 output = self._model.inference_zero_shot(
                     input, prompt_text, prompt_speech_16k, stream=stream
                 )
+            elif instruct_text:
+                assert self._is_cosyvoice2
+                logger.info("CosyVoice inference_instruct")
+                output = self._model.inference_instruct2(
+                    input,
+                    instruct_text=instruct_text,
+                    prompt_speech_16k=prompt_speech_16k,
+                    stream=stream,
+                )
             else:
                 logger.info("CosyVoice inference_cross_lingual")
                 output = self._model.inference_cross_lingual(
                     input, prompt_speech_16k, stream=stream
                 )
         else:
+            assert not self._is_cosyvoice2
             available_speakers = self._model.list_avaliable_spks()
             if not voice:
                 voice = available_speakers[0]
@@ -106,7 +124,9 @@ class CosyVoiceModel:
         def _generator_stream():
             with BytesIO() as out:
                 writer = torchaudio.io.StreamWriter(out, format=response_format)
-                writer.add_audio_stream(sample_rate=22050, num_channels=1)
+                writer.add_audio_stream(
+                    sample_rate=self._model.sample_rate, num_channels=1
+                )
                 i = 0
                 last_pos = 0
                 with writer.open():
@@ -125,7 +145,7 @@ class CosyVoiceModel:
             chunks = [o["tts_speech"] for o in output]
             t = torch.cat(chunks, dim=1)
             with BytesIO() as out:
-                torchaudio.save(out, t, 22050, format=response_format)
+                torchaudio.save(out, t, self._model.sample_rate, format=response_format)
                 return out.getvalue()
 
         return _generator_stream() if stream else _generator_block()
@@ -163,6 +183,8 @@ class CosyVoiceModel:
             assert (
                 prompt_text is None
             ), "CosyVoice Instruct model does not support prompt_text"
+        elif self._is_cosyvoice2:
+            assert prompt_speech is not None, "CosyVoice2 requires prompt_speech"
         else:
             # inference_zero_shot
             # inference_cross_lingual

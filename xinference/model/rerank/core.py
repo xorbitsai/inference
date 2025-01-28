@@ -179,6 +179,7 @@ class RerankModel:
         return rerank_type
 
     def load(self):
+        logger.info("Loading rerank model: %s", self._model_path)
         flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
         if (
             self._auto_detect_type(self._model_path) != "normal"
@@ -189,6 +190,7 @@ class RerankModel:
                 "will force set `use_fp16` to True"
             )
             self._use_fp16 = True
+
         if self._model_spec.type == "normal":
             try:
                 import sentence_transformers
@@ -250,22 +252,27 @@ class RerankModel:
         **kwargs,
     ) -> Rerank:
         assert self._model is not None
-        if kwargs:
-            raise ValueError("rerank hasn't support extra parameter.")
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
+        logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
         sentence_combinations = [[query, doc] for doc in documents]
         # reset n tokens
         self._model.model.n_tokens = 0
         if self._model_spec.type == "normal":
             similarity_scores = self._model.predict(
-                sentence_combinations, convert_to_numpy=False, convert_to_tensor=True
+                sentence_combinations,
+                convert_to_numpy=False,
+                convert_to_tensor=True,
+                **kwargs,
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
         else:
             # Related issue: https://github.com/xorbitsai/inference/issues/1775
-            similarity_scores = self._model.compute_score(sentence_combinations)
+            similarity_scores = self._model.compute_score(
+                sentence_combinations, **kwargs
+            )
+
             if not isinstance(similarity_scores, Sequence):
                 similarity_scores = [similarity_scores]
             elif (

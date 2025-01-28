@@ -63,6 +63,8 @@ Text to audio
 
 * ChatTTS
 * CosyVoice
+* FishSpeech-1.4
+* F5-TTS
 
 Quickstart
 ===================
@@ -331,7 +333,7 @@ Clone voice, launch model ``CosyVoice-300M``.
 
     zero_shot_prompt_text = ""
     # The zero shot prompt file is the voice file
-    # the words said in the file shoule be identical to zero_shot_prompt_text
+    # the words said in the file should be identical to zero_shot_prompt_text
     with open(zero_shot_prompt_file, "rb") as f:
         zero_shot_prompt = f.read()
 
@@ -379,3 +381,47 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
     )
 
 More instructions and examples, could be found at https://fun-audio-llm.github.io/ .
+
+
+FishSpeech Usage
+~~~~~~~~~~~~~~~~
+
+Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
+
+Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` instead of `reference_audio`
+and `prompt_text` instead of `reference_text` to clone voice from the reference audio for the FishSpeech model.
+This arguments is aligned to voice cloning of CosyVoice.
+
+.. code-block::
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+
+    model = client.get_model("<MODEL_UID>")
+
+    # The reference audio file is the voice file
+    # the words said in the file should be identical to reference_text
+    with open(reference_audio_file, "rb") as f:
+        reference_audio = f.read()
+    reference_text = ""  # text in the audio
+
+    speech_bytes = model.speech(
+        "<The text to generate audio for>",
+        prompt_speech=reference_audio,
+        prompt_text=reference_text
+    )
+
+
+SenseVoiceSmall Offline usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be downloaded thus network required.
+
+For offline environment, you can download the vad model in advance.
+
+Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>`_.
+Assume downloaded to ``/path/to/fsmn-vad``.
+
+Then when launching SenseVoiceSmall with Web UI, you can add an additional parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is the downloaded path.
+When launching with command line, you can add an option ``--vad_model /path/to/fsmn-vad``.

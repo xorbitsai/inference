@@ -52,10 +52,14 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
+from ..constants import (
+    XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+    XINFERENCE_DEFAULT_ENDPOINT_PORT,
+    XINFERENCE_DISABLE_METRICS,
+)
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
-from ..core.utils import json_dumps
+from ..core.utils import CancelMixin, json_dumps
 from ..types import (
     ChatCompletion,
     Completion,
@@ -90,9 +94,9 @@ class CreateCompletionRequest(CreateCompletion):
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
-    input: Union[str, List[str], List[int], List[List[int]]] = Field(
-        description="The input to embed."
-    )
+    input: Union[
+        str, List[str], List[int], List[List[int]], Dict[str, str], List[Dict[str, str]]
+    ] = Field(description="The input to embed.")
     user: Optional[str] = None
 
     class Config:
@@ -111,6 +115,7 @@ class RerankRequest(BaseModel):
     return_documents: Optional[bool] = False
     return_len: Optional[bool] = False
     max_chunks_per_doc: Optional[int] = None
+    kwargs: Optional[str] = None
 
 
 class TextToImageRequest(BaseModel):
@@ -206,7 +211,7 @@ class BuildGradioImageInterfaceRequest(BaseModel):
     model_ability: List[str]
 
 
-class RESTfulAPI:
+class RESTfulAPI(CancelMixin):
     def __init__(
         self,
         supervisor_address: str,
@@ -1224,6 +1229,9 @@ class RESTfulAPI:
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
+        # guided_decoding params
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
+
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
@@ -1269,6 +1277,8 @@ class RESTfulAPI:
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
+                finally:
+                    await model.decrease_serve_count()
 
             return EventSourceResponse(stream_results())
         else:
@@ -1356,11 +1366,6 @@ class RESTfulAPI:
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
-        kwargs = {
-            key: value
-            for key, value in payload.items()
-            if key not in RerankRequest.__annotations__.keys()
-        }
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1374,6 +1379,10 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
+            if body.kwargs is not None:
+                parsed_kwargs = json.loads(body.kwargs)
+            else:
+                parsed_kwargs = {}
             scores = await model.rerank(
                 body.documents,
                 body.query,
@@ -1381,7 +1390,7 @@ class RESTfulAPI:
                 max_chunks_per_doc=body.max_chunks_per_doc,
                 return_documents=body.return_documents,
                 return_len=body.return_len,
-                **kwargs,
+                **parsed_kwargs,
             )
             return Response(scores, media_type="application/json")
         except RuntimeError as re:
@@ -1536,8 +1545,16 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             if body.stream:
+
+                async def stream_results():
+                    try:
+                        async for item in out:
+                            yield item
+                    finally:
+                        await model.decrease_serve_count()
+
                 return EventSourceResponse(
-                    media_type="application/octet-stream", content=out
+                    media_type="application/octet-stream", content=stream_results()
                 )
             else:
                 return Response(media_type="application/octet-stream", content=out)
@@ -1576,8 +1593,11 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            request_id = kwargs.get("request_id")
+            self._add_running_task(request_id)
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,
@@ -1586,6 +1606,11 @@ class RESTfulAPI:
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1731,11 +1756,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
@@ -1746,6 +1774,11 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1779,11 +1812,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             im = Image.open(image.file)
             mask_im = Image.open(mask_image.file)
             if not size:
@@ -1800,6 +1836,11 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1827,17 +1868,25 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             if kwargs is not None:
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
             im = Image.open(image.file)
             text = await model_ref.ocr(
                 image=im,
                 **parsed_kwargs,
             )
             return Response(content=text, media_type="text/plain")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1925,8 +1974,12 @@ class RESTfulAPI:
             "logit_bias_type",
             "user",
         }
+
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        # guided_decoding params
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
 
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
@@ -1991,7 +2044,6 @@ class RESTfulAPI:
                 )
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
-
             if not (
                 (is_vllm and model_family in QWEN_TOOL_CALL_FAMILY)
                 or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
@@ -2001,7 +2053,8 @@ class RESTfulAPI:
                     detail="Streaming support for tool calls is available only when using "
                     "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
                 )
-
+        if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
+            kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
 
             async def stream_results():
@@ -2036,6 +2089,8 @@ class RESTfulAPI:
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
+                finally:
+                    await model.decrease_serve_count()
 
             return EventSourceResponse(stream_results())
         else:
@@ -2156,10 +2211,25 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def abort_request(self, model_uid: str, request_id: str) -> JSONResponse:
+    async def abort_request(
+        self, request: Request, model_uid: str, request_id: str
+    ) -> JSONResponse:
         try:
+            payload = await request.json()
+            block_duration = payload.get(
+                "block_duration", XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION
+            )
+            logger.info(
+                "Abort request with model uid: %s, request id: %s, block duration: %s",
+                model_uid,
+                request_id,
+                block_duration,
+            )
             supervisor_ref = await self._get_supervisor_ref()
-            res = await supervisor_ref.abort_request(model_uid, request_id)
+            res = await supervisor_ref.abort_request(
+                model_uid, request_id, block_duration
+            )
+            self._cancel_running_task(request_id, block_duration)
             return JSONResponse(content=res)
         except Exception as e:
             logger.error(e, exc_info=True)
@@ -2272,6 +2342,49 @@ class RESTfulAPI:
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    @staticmethod
+    def extract_guided_params(raw_body: dict) -> dict:
+        kwargs = {}
+        raw_extra_body: dict = raw_body.get("extra_body")  # type: ignore
+        if raw_body.get("guided_json"):
+            kwargs["guided_json"] = raw_body.get("guided_json")
+        if raw_body.get("guided_regex") is not None:
+            kwargs["guided_regex"] = raw_body.get("guided_regex")
+        if raw_body.get("guided_choice") is not None:
+            kwargs["guided_choice"] = raw_body.get("guided_choice")
+        if raw_body.get("guided_grammar") is not None:
+            kwargs["guided_grammar"] = raw_body.get("guided_grammar")
+        if raw_body.get("guided_json_object") is not None:
+            kwargs["guided_json_object"] = raw_body.get("guided_json_object")
+        if raw_body.get("guided_decoding_backend") is not None:
+            kwargs["guided_decoding_backend"] = raw_body.get("guided_decoding_backend")
+        if raw_body.get("guided_whitespace_pattern") is not None:
+            kwargs["guided_whitespace_pattern"] = raw_body.get(
+                "guided_whitespace_pattern"
+            )
+        # Parse OpenAI extra_body
+        if raw_extra_body is not None:
+            if raw_extra_body.get("guided_json"):
+                kwargs["guided_json"] = raw_extra_body.get("guided_json")
+            if raw_extra_body.get("guided_regex") is not None:
+                kwargs["guided_regex"] = raw_extra_body.get("guided_regex")
+            if raw_extra_body.get("guided_choice") is not None:
+                kwargs["guided_choice"] = raw_extra_body.get("guided_choice")
+            if raw_extra_body.get("guided_grammar") is not None:
+                kwargs["guided_grammar"] = raw_extra_body.get("guided_grammar")
+            if raw_extra_body.get("guided_json_object") is not None:
+                kwargs["guided_json_object"] = raw_extra_body.get("guided_json_object")
+            if raw_extra_body.get("guided_decoding_backend") is not None:
+                kwargs["guided_decoding_backend"] = raw_extra_body.get(
+                    "guided_decoding_backend"
+                )
+            if raw_extra_body.get("guided_whitespace_pattern") is not None:
+                kwargs["guided_whitespace_pattern"] = raw_extra_body.get(
+                    "guided_whitespace_pattern"
+                )
+
+        return kwargs
 
 
 def run(

@@ -235,7 +235,7 @@
   },
   {
     "model_name": "gte-Qwen2",
-    "dimensions": 4096,
+    "dimensions": 3584,
     "max_tokens": 32000,
     "language": ["zh", "en"],
     "model_id": "iic/gte_Qwen2-7B-instruct",
@@ -247,6 +247,14 @@
     "max_tokens": 8192,
     "language": ["zh", "en"],
     "model_id": "jinaai/jina-embeddings-v3",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "jina-clip-v2",
+    "dimensions": 1024,
+    "max_tokens": 8192,
+    "language": ["89 languages supported"],
+    "model_id": "jinaai/jina-clip-v2",
     "model_hub": "modelscope"
   }
 ]

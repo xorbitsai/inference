@@ -21,9 +21,12 @@ from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .chattts import ChatTTSModel
 from .cosyvoice import CosyVoiceModel
+from .f5tts import F5TTSModel
+from .f5tts_mlx import F5TTSMLXModel
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .whisper import WhisperModel
+from .whisper_mlx import WhisperMLXModel
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +46,12 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_family: str
     model_name: str
     model_id: str
-    model_revision: str
+    model_revision: Optional[str]
     multilingual: bool
     model_ability: Optional[str]
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
+    engine: Optional[str]
 
 
 class AudioModelDescription(ModelDescription):
@@ -160,17 +164,36 @@ def create_audio_model_instance(
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[
-    Union[WhisperModel, FunASRModel, ChatTTSModel, CosyVoiceModel, FishSpeechModel],
+    Union[
+        WhisperModel,
+        WhisperMLXModel,
+        FunASRModel,
+        ChatTTSModel,
+        CosyVoiceModel,
+        FishSpeechModel,
+        F5TTSModel,
+        F5TTSMLXModel,
+    ],
     AudioModelDescription,
 ]:
     model_spec = match_audio(model_name, download_hub)
     if model_path is None:
         model_path = cache(model_spec)
     model: Union[
-        WhisperModel, FunASRModel, ChatTTSModel, CosyVoiceModel, FishSpeechModel
+        WhisperModel,
+        WhisperMLXModel,
+        FunASRModel,
+        ChatTTSModel,
+        CosyVoiceModel,
+        FishSpeechModel,
+        F5TTSModel,
+        F5TTSMLXModel,
     ]
     if model_spec.model_family == "whisper":
-        model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+        if not model_spec.engine:
+            model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = WhisperMLXModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "funasr":
         model = FunASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "ChatTTS":
@@ -179,6 +202,10 @@ def create_audio_model_instance(
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":
         model = FishSpeechModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "F5-TTS":
+        model = F5TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "F5-TTS-MLX":
+        model = F5TTSMLXModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(

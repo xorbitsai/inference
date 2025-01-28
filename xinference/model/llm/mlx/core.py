@@ -17,7 +17,8 @@ import platform
 import sys
 import time
 import uuid
-from typing import Dict, Iterator, List, Optional, TypedDict, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
 
 from ....fields import max_tokens_field
 from ....types import (
@@ -53,6 +54,14 @@ class MLXGenerateConfig(TypedDict, total=False):
     stream: bool
     stream_options: Optional[Union[dict, None]]
     tools: Optional[List[Dict]]
+    lora_name: Optional[str]
+
+
+@dataclass
+class PromptCache:
+    cache: List[Any] = field(default_factory=list)
+    model_key: Tuple[str, Optional[str]] = ("", None)
+    tokens: List[int] = field(default_factory=list)
 
 
 class MLXModel(LLM):
@@ -69,6 +78,8 @@ class MLXModel(LLM):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
+        self._max_kv_size = None
+        self._prompt_cache = None
         if peft_model is not None:
             raise ValueError("MLX engine has not supported lora yet")
 
@@ -127,6 +138,9 @@ class MLXModel(LLM):
             logger.debug(f"Setting cache limit to {cache_limit_gb} GB")
             mx.metal.set_cache_limit(cache_limit_gb * 1024 * 1024 * 1024)
 
+        self._max_kv_size = kwargs.get("max_kv_size", None)
+        self._prompt_cache = PromptCache()
+
         return load(
             self.model_path,
             tokenizer_config=tokenizer_config,
@@ -154,13 +168,59 @@ class MLXModel(LLM):
             return False
         if "generate" not in llm_family.model_ability:
             return False
+        if "chat" in llm_family.model_ability or "vision" in llm_family.model_ability:
+            # do not process chat or vision
+            return False
         return True
 
-    def _generate_stream(self, prompt: str, kwargs: MLXGenerateConfig):
-        import mlx.core as mx
-        from mlx_lm.utils import generate_step
+    def _get_prompt_cache(
+        self, prompt, lora_name: Optional[str] = None, model: Any = None
+    ):
+        from mlx_lm.models.cache import make_prompt_cache
 
-        model = self._model
+        assert self._prompt_cache is not None
+        cache_len = len(self._prompt_cache.tokens)
+        model_key = (self.model_path, lora_name)
+        if (
+            self._prompt_cache.model_key != model_key
+            or cache_len >= len(prompt)
+            or self._prompt_cache.tokens != prompt[:cache_len]
+        ):
+            self._prompt_cache.model_key = model_key
+            self._prompt_cache.cache = make_prompt_cache(
+                model or self._model, self._max_kv_size
+            )
+            self._prompt_cache.tokens = []
+            logger.debug("Making new prompt cache for %s", self.model_uid)
+        else:
+            prompt = prompt[cache_len:]
+            logger.debug("Cache hit for %s", self.model_uid)
+        self._prompt_cache.tokens.extend(prompt)
+        return prompt
+
+    def _generate_stream_inner(self, **kwargs):
+        from mlx_lm.utils import make_sampler, stream_generate
+
+        sampler = make_sampler(
+            temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
+        )
+        prompt_token_ids = kwargs.pop("prompt_token_ids")
+        yield from stream_generate(
+            self._model, self._tokenizer, prompt_token_ids, sampler=sampler, **kwargs
+        )
+
+    def _prepare_inputs(
+        self, prompt: Union[str, Dict[str, Any]], kwargs
+    ) -> Tuple[Any, int]:
+        prompt_token_ids = self._tokenizer.encode(prompt)
+        prompt_token_ids = self._get_prompt_cache(
+            prompt_token_ids, kwargs.get("lora_name")
+        )
+        return prompt_token_ids, len(prompt_token_ids)
+
+    def _generate_stream(
+        self, prompt: Union[str, Dict[str, Any]], kwargs: MLXGenerateConfig
+    ):
         model_uid = self.model_uid
         tokenizer = self._tokenizer
         max_tokens = kwargs["max_tokens"]
@@ -174,35 +234,28 @@ class MLXModel(LLM):
             else False
         )
 
-        prompt_tokens = mx.array(tokenizer.encode(prompt))
-        input_echo_len = len(prompt_tokens)
+        prompt_token_ids, input_echo_len = self._prepare_inputs(prompt, kwargs)
 
         i = 0
         start = time.time()
         output = ""
-        for (token, _), i in zip(
-            generate_step(
-                prompt_tokens,
-                model,
-                temp=kwargs["temperature"],
+        tokens = []
+        for chunk_resp, i in zip(
+            self._generate_stream_inner(
+                prompt_token_ids=prompt_token_ids,
+                max_tokens=max_tokens,
+                temperature=kwargs["temperature"],
+                top_p=kwargs["top_p"],
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
-                top_p=kwargs["top_p"],
-                logit_bias=kwargs["logit_bias"],
+                prompt_cache=self._prompt_cache.cache if self._prompt_cache else None,  # type: ignore
             ),
             range(max_tokens),
         ):
-            if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
-                break
+            token = chunk_resp.token
+            tokens.append(token)
 
-            # Yield the last segment if streaming
-            out = tokenizer.decode(
-                token,
-                skip_special_tokens=True,
-                spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
-            )
-
+            out = chunk_resp.text
             if stream:
                 # this special character is mainly for qwen
                 out = out.strip("�")
@@ -226,9 +279,15 @@ class MLXModel(LLM):
                 total_tokens=(input_echo_len + i),
             ), completion_usage
 
+            if token == tokenizer.eos_token_id or token in stop_token_ids:  # type: ignore
+                break
+
         logger.info(
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."
         )
+
+        if self._prompt_cache:
+            self._prompt_cache.tokens.extend(tokens)  # type: ignore
 
         if i == max_tokens - 1:
             finish_reason = "length"
@@ -272,10 +331,12 @@ class MLXModel(LLM):
             yield completion_chunk, completion_usage
 
     def generate(
-        self, prompt: str, generate_config: Optional[MLXGenerateConfig] = None
+        self,
+        prompt: Union[str, Dict[str, Any]],
+        generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
-            prompt: str, generate_config: MLXGenerateConfig
+            prompt: Union[str, Dict[str, Any]], generate_config: MLXGenerateConfig
         ) -> Iterator[CompletionChunk]:
             for completion_chunk, completion_usage in self._generate_stream(
                 prompt,
@@ -314,26 +375,6 @@ class MLXModel(LLM):
 
 
 class MLXChatModel(MLXModel, ChatModelMixin):
-    def __init__(
-        self,
-        model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
-        model_path: str,
-        model_config: Optional[MLXModelConfig] = None,
-        peft_model: Optional[List[LoRA]] = None,
-    ):
-        super().__init__(
-            model_uid,
-            model_family,
-            model_spec,
-            quantization,
-            model_path,
-            model_config,
-            peft_model,
-        )
-
     def _sanitize_generate_config(
         self,
         generate_config: Optional[MLXGenerateConfig],
@@ -359,6 +400,9 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             # only work for Mac M chips
             return False
         if "chat" not in llm_family.model_ability:
+            return False
+        if "vision" in llm_family.model_ability:
+            # do not process vision
             return False
         return True
 
@@ -386,6 +430,240 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             return self._to_chat_completion_chunks(it)
         else:
             c = self.generate(full_prompt, generate_config)
+            assert not isinstance(c, Iterator)
+            if tools:
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
+            return self._to_chat_completion(c)
+
+
+class MLXVisionModel(MLXModel, ChatModelMixin):
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format not in ["mlx"]:
+            return False
+        if sys.platform != "darwin" or platform.processor() != "arm":
+            # only work for Mac M chips
+            return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return True
+
+    def _load_model(self, **kwargs):
+        try:
+            from mlx_vlm import load
+        except ImportError:
+            error_message = "Failed to import module 'mlx_vlm'"
+            installation_guide = [
+                "Please make sure 'mlx_vlm' is installed. ",
+                "You can install it by `pip install mlx_vlm`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        self._prompt_cache = PromptCache()
+
+        return load(self.model_path)
+
+    def load(self):
+        kwargs = {}
+        kwargs["revision"] = self._model_config.get(
+            "revision", self.model_spec.model_revision
+        )
+        kwargs["trust_remote_code"] = self._model_config.get("trust_remote_code")
+        kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
+
+        self._model, self._processor = self._load_model(**kwargs)
+        self._tokenizer = self._processor.tokenizer
+
+    def _generate_stream_inner_no_image(self, **kwargs):
+        import mlx.nn as nn
+        from mlx_lm.utils import make_sampler, stream_generate
+
+        # For mlx-lm, the model(inputs) will return logits,
+        # but the language model in mlx-vlm will return an object
+        # https://github.com/Blaizzy/mlx-vlm/blob/3f5e1620072440afb7496940f67ac1c7fc64056f/mlx_vlm/models/base.py#L260
+        # so we cannot pass the language model to stream_generate directly
+        # we wrap here to just let model(inputs) return logits to pass stream_generate
+        class ModelWrapper(nn.Module):
+            def __init__(self, model):
+                super().__init__()
+                self._model = model.language_model
+
+            @property
+            def layers(self):
+                return self._model.layers
+
+            def __call__(self, *args, **kwargs):
+                return self._model(*args, **kwargs).logits
+
+        sampler = make_sampler(
+            temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
+        )
+        prompt_token_ids = kwargs.pop("prompt_token_ids")
+        yield from stream_generate(
+            ModelWrapper(self._model),
+            self._tokenizer,
+            prompt_token_ids,
+            sampler=sampler,
+            **kwargs,
+        )
+
+    def _generate_stream_inner(self, **kwargs):
+        import mlx.core as mx
+        from mlx_lm.utils import GenerationResponse
+        from mlx_vlm.utils import generate_step
+
+        inputs = kwargs["prompt_token_ids"]
+
+        if not isinstance(inputs, tuple):
+            # no images
+            yield from self._generate_stream_inner_no_image(**kwargs)
+            return
+
+        max_tokens = kwargs.pop("max_tokens")
+        input_ids, pixel_values, mask = inputs[:3]
+
+        kwargs = {
+            k: v
+            for k, v in zip(
+                [
+                    "image_grid_thw",
+                    "image_sizes",
+                    "aspect_ratio_ids",
+                    "aspect_ratio_mask",
+                    "cross_attention_mask",
+                ],
+                inputs[3:],
+            )
+        }
+
+        tokenizer = self._processor.tokenizer
+        detokenizer = self._processor.detokenizer
+
+        detokenizer.reset()
+        tic = time.perf_counter()
+        for (token, logprobs), n in zip(
+            generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
+            range(max_tokens),
+        ):
+            if n == 0:
+                prompt_time = time.perf_counter() - tic
+                prompt_tps = len(input_ids) / prompt_time
+                tic = time.perf_counter()
+            if token == tokenizer.eos_token_id:
+                break
+            detokenizer.add_token(token)
+
+            # Yield the last segment if streaming
+            yield GenerationResponse(
+                text=detokenizer.last_segment,
+                token=token,
+                logprobs=logprobs,
+                prompt_tokens=len(input_ids),
+                prompt_tps=prompt_tps,
+                generation_tokens=n + 1,
+                generation_tps=(n + 1) / (time.perf_counter() - tic),
+                peak_memory=mx.metal.get_peak_memory() / 1e9,
+            )
+
+        detokenizer.finalize()
+        yield GenerationResponse(
+            text=detokenizer.last_segment,
+            token=token,
+            logprobs=logprobs,
+            prompt_tokens=len(input_ids),
+            prompt_tps=prompt_tps,
+            generation_tokens=n + 1,
+            generation_tps=(n + 1) / (time.perf_counter() - tic),
+            peak_memory=mx.metal.get_peak_memory() / 1e9,
+        )
+
+    def _prepare_inputs(
+        self, prompt: Union[str, Dict[str, Any]], kwargs
+    ) -> Tuple[Any, int]:
+        from mlx_vlm import prepare_inputs
+
+        prompt_str = prompt.get("prompt")  # type: ignore
+        images = prompt.get("multi_modal_data", {}).get("image")  # type: ignore
+        if images and not isinstance(images, list):
+            images = [images]
+        if hasattr(self._model.config, "image_token_index"):
+            image_token_index = self._model.config.image_token_index
+        else:
+            image_token_index = None
+
+        if not images:
+            prompt = prompt["prompt"]  # type: ignore
+            prompt_token_ids = self._tokenizer.encode(prompt)
+            prompt_token_ids = self._get_prompt_cache(
+                prompt_token_ids,
+                kwargs.get("lora_name"),
+                model=self._model.language_model,
+            )
+            return prompt_token_ids, len(prompt_token_ids)
+        else:
+            inputs = prepare_inputs(
+                None,
+                self._processor,
+                images,
+                prompt_str,
+                image_token_index,
+                kwargs.get("resize_shape"),
+            )
+            input_ids = inputs[0]
+            return inputs, len(input_ids)
+
+    def chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[MLXGenerateConfig] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        messages = self._transform_messages(messages)  # type: ignore
+        tools = generate_config.pop("tools", []) if generate_config else None
+
+        model_family = self.model_family.model_family or self.model_family.model_name
+
+        if "internvl2" not in model_family.lower():
+            from qwen_vl_utils import process_vision_info
+
+            full_context_kwargs = {}
+            if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+                full_context_kwargs["tools"] = tools
+            assert self.model_family.chat_template is not None
+            prompt = self.get_full_context(
+                messages, self.model_family.chat_template, **full_context_kwargs
+            )
+            images, video_inputs = process_vision_info(messages)
+            if video_inputs:
+                raise ValueError("Not support video input now.")
+        else:
+            prompt, images = self.get_specific_prompt(model_family, messages)  # type: ignore
+
+        if not images:
+            inputs = {
+                "prompt": prompt,
+            }
+        elif len(images) == 1:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images[-1]},  # type: ignore
+            }
+        else:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images},  # type: ignore
+            }
+        generate_config = self._sanitize_generate_config(generate_config)
+
+        stream = generate_config.get("stream", False)
+        if stream:
+            it = self.generate(inputs, generate_config)
+            assert isinstance(it, Iterator)
+            return self._to_chat_completion_chunks(it)
+        else:
+            c = self.generate(inputs, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
                 return self._tool_calls_completion(self.model_family, self.model_uid, c)

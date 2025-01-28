@@ -60,6 +60,10 @@ from openai.types.chat.chat_completion_stream_options_param import (
     ChatCompletionStreamOptionsParam,
 )
 from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
+from openai.types.shared_params.response_format_json_object import (
+    ResponseFormatJSONObject,
+)
+from openai.types.shared_params.response_format_text import ResponseFormatText
 
 OpenAIChatCompletionStreamOptionsParam = create_model_from_typeddict(
     ChatCompletionStreamOptionsParam
@@ -68,6 +72,24 @@ OpenAIChatCompletionToolParam = create_model_from_typeddict(ChatCompletionToolPa
 OpenAIChatCompletionNamedToolChoiceParam = create_model_from_typeddict(
     ChatCompletionNamedToolChoiceParam
 )
+from openai._types import Body
+
+
+class JSONSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    schema_: Optional[Dict[str, object]] = Field(alias="schema", default=None)
+    strict: Optional[bool] = None
+
+
+class ResponseFormatJSONSchema(BaseModel):
+    json_schema: JSONSchema
+    type: Literal["json_schema"]
+
+
+ResponseFormat = Union[
+    ResponseFormatText, ResponseFormatJSONObject, ResponseFormatJSONSchema
+]
 
 
 class CreateChatCompletionOpenAI(BaseModel):
@@ -84,8 +106,7 @@ class CreateChatCompletionOpenAI(BaseModel):
     n: Optional[int]
     parallel_tool_calls: Optional[bool]
     presence_penalty: Optional[float]
-    # we do not support this
-    # response_format: ResponseFormat
+    response_format: Optional[ResponseFormat]
     seed: Optional[int]
     service_tier: Optional[Literal["auto", "default"]]
     stop: Union[Optional[str], List[str]]
@@ -100,4 +121,5 @@ class CreateChatCompletionOpenAI(BaseModel):
     tools: Optional[Iterable[OpenAIChatCompletionToolParam]]  # type: ignore
     top_logprobs: Optional[int]
     top_p: Optional[float]
+    extra_body: Optional[Body]
     user: Optional[str]

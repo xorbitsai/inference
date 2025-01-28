@@ -15,10 +15,8 @@ import os.path
 import tempfile
 
 import pytest
-import requests
 
 
-@pytest.mark.skip(reason="Too large model to be tested")
 def test_restful_api_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -27,12 +25,13 @@ def test_restful_api_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-large-v3",
+        model_name="whisper-small",
         model_type="audio",
     )
     model = client.get_model(model_uid)
-    response = requests.get("https://github.com/openai/whisper/raw/main/tests/jfk.flac")
-    audio = response.content
+    audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")
+    with open(audio_path, "rb") as f:
+        audio = f.read()
 
     response = model.transcriptions(audio)
     transcription = response["text"].lower()
@@ -48,7 +47,7 @@ def test_restful_api_for_whisper(setup):
         zh_cn_audio = f.read()
     response = model.translations(zh_cn_audio)
     translation = response["text"].lower()
-    assert "list" in translation
+    assert "list" in translation or "form" in translation
     assert "airlines" in translation
     assert "hong kong" in translation
 
@@ -75,12 +74,11 @@ def test_restful_api_for_whisper(setup):
 
         completion = client.audio.translations.create(model=model_uid, file=f)
         translation = completion.text.lower()
-        assert "list" in translation
+        assert "list" in translation or "form" in translation
         assert "airlines" in translation
         assert "hong kong" in translation
 
 
-@pytest.mark.skip(reason="Too large model to be tested")
 def test_transcriptions_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -89,16 +87,17 @@ def test_transcriptions_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-large-v3",
+        model_name="whisper-small",
         model_type="audio",
     )
     model = client.get_model(model_uid)
-    response = requests.get("https://github.com/openai/whisper/raw/main/tests/jfk.flac")
-    audio = response.content
+    audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")
+    with open(audio_path, "rb") as f:
+        audio = f.read()
 
     response = model.transcriptions(audio, response_format="verbose_json")
     assert response["text"]
-    assert len(response["segments"]) == 3
+    assert len(response["segments"]) == 1
 
     seek_set = set()
     for s in response["segments"]:

@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 22 Billion)
 - **Model Size (in billions):** 22
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: vLLM, Transformers (vLLM only available for quantization none)
-- **Model ID:** mistralai/Mistral-7B-Instruct-v0.2
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2>`__
+- **Model ID:** mistralai/Codestral-22B-v0.1
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Codestral-22B-v0.1>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import os
 import tempfile
 
@@ -22,14 +23,39 @@ def test_fish_speech(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="FishSpeech-1.4",
-        model_type="audio",
+        model_name="FishSpeech-1.5", model_type="audio", compile=False
     )
     model = client.get_model(model_uid)
+
     input_string = "你好，你是谁？"
     response = model.speech(input_string)
     assert type(response) is bytes
     assert len(response) > 0
+
+    # Test copy voice
+    prompt_speech_path = os.path.join(os.path.dirname(__file__), "basic_ref_en.wav")
+    with open(prompt_speech_path, "rb") as f:
+        prompt_speech = f.read()
+    response = model.speech(
+        "Hello",
+        prompt_speech=prompt_speech,
+        prompt_text="Some call me nature, others call me mother nature.",
+    )
+    assert type(response) is bytes
+    assert len(response) > 0
+
+    # Test stream
+    input_string = "瑞典王国，通称瑞典，是一个位于斯堪的纳维亚半岛的北欧国家，首都及最大城市为斯德哥尔摩。"
+    response = model.speech(input_string, chunk_length=20, stream=True)
+    assert inspect.isgenerator(response)
+    i = 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        for chunk in response:
+            f.write(chunk)
+            i += 1
+            assert type(chunk) is bytes
+            assert len(chunk) > 0
+        assert i > 5
 
     # Test openai API
     import openai

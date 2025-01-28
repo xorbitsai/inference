@@ -11,10 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import gc
 import logging
 import os.path
-import queue
 import sys
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
@@ -60,6 +58,7 @@ class FishSpeechModel:
         self._device = device
         self._llama_queue = None
         self._model = None
+        self._engine = None
         self._kwargs = kwargs
 
     @property
@@ -72,6 +71,7 @@ class FishSpeechModel:
             0, os.path.join(os.path.dirname(__file__), "../../thirdparty/fish_speech")
         )
 
+        from tools.inference_engine import TTSInferenceEngine
         from tools.llama.generate import launch_thread_safe_queue
         from tools.vqgan.inference import load_model as load_decoder_model
 
@@ -81,12 +81,19 @@ class FishSpeechModel:
             if not is_device_available(self._device):
                 raise ValueError(f"Device {self._device} is not available!")
 
-        logger.info("Loading Llama model...")
+        # https://github.com/pytorch/pytorch/issues/129207
+        if self._device == "mps":
+            logger.warning("The Conv1d has bugs on MPS backend, fallback to CPU.")
+            self._device = "cpu"
+
+        enable_compile = self._kwargs.get("compile", False)
+        precision = self._kwargs.get("precision", torch.bfloat16)
+        logger.info("Loading Llama model, compile=%s...", enable_compile)
         self._llama_queue = launch_thread_safe_queue(
             checkpoint_path=self._model_path,
             device=self._device,
-            precision=torch.bfloat16,
-            compile=False,
+            precision=precision,
+            compile=enable_compile,
         )
         logger.info("Llama model loaded, loading VQ-GAN model...")
 
@@ -100,97 +107,9 @@ class FishSpeechModel:
             device=self._device,
         )
 
-    @torch.inference_mode()
-    def _inference(
-        self,
-        text,
-        enable_reference_audio,
-        reference_audio,
-        reference_text,
-        max_new_tokens,
-        chunk_length,
-        top_p,
-        repetition_penalty,
-        temperature,
-        streaming=False,
-    ):
-        from fish_speech.utils import autocast_exclude_mps
-        from tools.api import decode_vq_tokens, encode_reference
-        from tools.llama.generate import (
-            GenerateRequest,
-            GenerateResponse,
-            WrappedGenerateResponse,
+        self._engine = TTSInferenceEngine(
+            self._llama_queue, self._model, precision, enable_compile
         )
-
-        # Parse reference audio aka prompt
-        prompt_tokens = encode_reference(
-            decoder_model=self._model,
-            reference_audio=reference_audio,
-            enable_reference_audio=enable_reference_audio,
-        )
-
-        # LLAMA Inference
-        request = dict(
-            device=self._model.device,
-            max_new_tokens=max_new_tokens,
-            text=text,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            temperature=temperature,
-            compile=False,
-            iterative_prompt=chunk_length > 0,
-            chunk_length=chunk_length,
-            max_length=2048,
-            prompt_tokens=prompt_tokens if enable_reference_audio else None,
-            prompt_text=reference_text if enable_reference_audio else None,
-        )
-
-        response_queue = queue.Queue()
-        self._llama_queue.put(
-            GenerateRequest(
-                request=request,
-                response_queue=response_queue,
-            )
-        )
-
-        if streaming:
-            yield wav_chunk_header(), None, None
-
-        segments = []
-
-        while True:
-            result: WrappedGenerateResponse = response_queue.get()  # type: ignore
-            if result.status == "error":
-                raise Exception(str(result.response))
-
-            result: GenerateResponse = result.response  # type: ignore
-            if result.action == "next":
-                break
-
-            with autocast_exclude_mps(
-                device_type=self._model.device.type, dtype=torch.bfloat16
-            ):
-                fake_audios = decode_vq_tokens(
-                    decoder_model=self._model,
-                    codes=result.codes,
-                )
-
-            fake_audios = fake_audios.float().cpu().numpy()
-            segments.append(fake_audios)
-
-            if streaming:
-                yield (fake_audios * 32768).astype(np.int16).tobytes(), None, None
-
-        if len(segments) == 0:
-            raise Exception("No audio generated, please check the input text.")
-
-        # No matter streaming or not, we need to return the final audio
-        audio = np.concatenate(segments, axis=0)
-        yield None, (self._model.spec_transform.sample_rate, audio), None
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            gc.collect()
 
     def speech(
         self,
@@ -204,29 +123,70 @@ class FishSpeechModel:
         logger.warning("Fish speech does not support setting voice: %s.", voice)
         if speed != 1.0:
             logger.warning("Fish speech does not support setting speed: %s.", speed)
-        if stream is True:
-            logger.warning("stream mode is not implemented.")
         import torchaudio
+        from tools.schema import ServeReferenceAudio, ServeTTSRequest
 
-        result = list(
-            self._inference(
+        prompt_speech = kwargs.get("prompt_speech")
+        prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
+        if prompt_speech is not None:
+            r = ServeReferenceAudio(audio=prompt_speech, text=prompt_text)
+            references = [r]
+        else:
+            references = []
+
+        assert self._engine is not None
+        result = self._engine.inference(
+            ServeTTSRequest(
                 text=input,
-                enable_reference_audio=False,
-                reference_audio=None,
-                reference_text=kwargs.get("reference_text", ""),
+                references=references,
+                reference_id=kwargs.get("reference_id"),
+                seed=kwargs.get("seed"),
                 max_new_tokens=kwargs.get("max_new_tokens", 1024),
                 chunk_length=kwargs.get("chunk_length", 200),
                 top_p=kwargs.get("top_p", 0.7),
                 repetition_penalty=kwargs.get("repetition_penalty", 1.2),
                 temperature=kwargs.get("temperature", 0.7),
+                streaming=stream,
+                format=response_format,
             )
         )
-        sample_rate, audio = result[0][1]
-        audio = np.array([audio])
 
-        # Save the generated audio
-        with BytesIO() as out:
-            torchaudio.save(
-                out, torch.from_numpy(audio), sample_rate, format=response_format
-            )
-            return out.getvalue()
+        if stream:
+
+            def _stream_generator():
+                with BytesIO() as out:
+                    writer = torchaudio.io.StreamWriter(out, format=response_format)
+                    writer.add_audio_stream(
+                        sample_rate=self._model.spec_transform.sample_rate,
+                        num_channels=1,
+                    )
+                    i = 0
+                    last_pos = 0
+                    with writer.open():
+                        for chunk in result:
+                            if chunk.code == "final":
+                                continue
+                            chunk = chunk.audio[1]
+                            if chunk is not None:
+                                chunk = chunk.reshape((chunk.shape[0], 1))
+                                trans_chunk = torch.from_numpy(chunk)
+                                writer.write_audio_chunk(i, trans_chunk)
+                                new_last_pos = out.tell()
+                                if new_last_pos != last_pos:
+                                    out.seek(last_pos)
+                                    encoded_bytes = out.read()
+                                    yield encoded_bytes
+                                    last_pos = new_last_pos
+
+            return _stream_generator()
+        else:
+            result = list(result)
+            sample_rate, audio = result[0].audio
+            audio = np.array([audio])
+
+            # Save the generated audio
+            with BytesIO() as out:
+                torchaudio.save(
+                    out, torch.from_numpy(audio), sample_rate, format=response_format
+                )
+                return out.getvalue()

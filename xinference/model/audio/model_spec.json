@@ -104,6 +104,86 @@
     "multilingual": false
   },
   {
+    "model_name": "whisper-tiny-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-tiny",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-tiny.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-tiny.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-base-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-base-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-base.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-base.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-small-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-small-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-small.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-small.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-medium-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-medium-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-medium.en-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-medium.en-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-large-v3-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-large-v3-mlx",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
+    "model_name": "whisper-large-v3-turbo-mlx",
+    "model_family": "whisper",
+    "model_id": "mlx-community/whisper-large-v3-turbo",
+    "model_ability": "audio-to-text",
+    "multilingual": true,
+    "engine": "mlx"
+  },
+  {
     "model_name": "SenseVoiceSmall",
     "model_family": "funasr",
     "model_id": "FunAudioLLM/SenseVoiceSmall",
@@ -156,10 +236,34 @@
     "multilingual": true
   },
   {
-    "model_name": "FishSpeech-1.4",
+    "model_name": "CosyVoice2-0.5B",
+    "model_family": "CosyVoice",
+    "model_id": "mrfakename/CosyVoice2-0.5B",
+    "model_revision": "5676baabc8a76dc93ef60a88bbd2420deaa2f644",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "FishSpeech-1.5",
     "model_family": "FishAudio",
-    "model_id": "fishaudio/fish-speech-1.4",
-    "model_revision": "3c49651b8e583b6b13f55e375432e0d57e1aa84d",
+    "model_id": "fishaudio/fish-speech-1.5",
+    "model_revision": "268b6ec86243dd683bc78dab7e9a6cedf9191f2a",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "F5-TTS",
+    "model_family": "F5-TTS",
+    "model_id": "SWivid/F5-TTS",
+    "model_revision": "4dcc16f297f2ff98a17b3726b16f5de5a5e45672",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "F5-TTS-MLX",
+    "model_family": "F5-TTS-MLX",
+    "model_id": "lucasnewman/f5-tts-mlx",
+    "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93",
     "model_ability": "text-to-audio",
     "multilingual": true
   }

@@ -1,5 +1,5 @@
 # required
-xoscar>=0.3.0
+xoscar>=0.4.4
 gradio==4.26.0
 typer[all]<0.12.0  # fix typer required by gradio
 pillow
@@ -7,14 +7,14 @@ click
 tqdm>=4.27
 tabulate
 requests
-pydantic
+pydantic>2
 fastapi>=0.110.3
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions
 modelscope>=1.10.0
 sse_starlette>=1.6.5  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
-openai>1  # For typing
+openai>=1.40.0  # For typing
 python-jose[cryptography]
 passlib[bcrypt]
 aioprometheus[starlette]>=23.12.0
@@ -25,7 +25,7 @@ opencv-contrib-python-headless
 setproctitle
 
 # all
-transformers>=4.43.2
+transformers>=4.46.0
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
@@ -44,7 +44,7 @@ attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
 torchvision  # For deepseek VL
 FlagEmbedding  # For rerank
-funasr
+funasr<1.1.17
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing<1.1.0  # 1.1.0 requires pynini==2.1.6.post1
 WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6
@@ -72,6 +72,17 @@ loguru  # For Fish Speech
 natsort  # For Fish Speech
 loralib  # For Fish Speech
 ormsgpack  # For Fish Speech
+cachetools  # For Fish Speech
+silero-vad  # For Fish Speech
+vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
+torchdiffeq  # For F5-TTS
+x_transformers>=1.31.14  # For F5-TTS
+pypinyin  # For F5-TTS
+tomli  # For F5-TTS
+vocos  # For F5-TTS
+librosa  # For F5-TTS
+jieba  # For F5-TTS
+soundfile  # For F5-TTS
 qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
@@ -79,13 +90,18 @@ deepcache # for sd
 verovio>=4.3.1  # For got_ocr2
 
 # sglang
-outlines>=0.0.44
+decord
 hf_transfer
-packaging
+huggingface_hub
 interegular
-zmq
-rpyc
+outlines>=0.0.44,<0.1.0
+packaging
+prometheus-client>=0.20.0
 psutil
-aiohttp
-anthropic>=0.20.0
-litellm>=1.0.0
+python-multipart
+pyzmq>=25.1.2
+torchao>=0.7.0
+uvloop
+xgrammar>=0.1.6
+vllm>=0.6.3.post1,<=0.6.4.post1
+cuda-python

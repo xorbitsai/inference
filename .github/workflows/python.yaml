@@ -73,12 +73,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ "ubuntu-latest", "macos-12", "windows-latest" ]
+        os: [ "ubuntu-latest", "macos-13", "windows-latest" ]
         python-version: [ "3.9", "3.10", "3.11", "3.12" ]
         module: [ "xinference" ]
         exclude:
-          - { os: macos-12, python-version: 3.10 }
-          - { os: macos-12, python-version: 3.11 }
+          - { os: macos-13, python-version: 3.10 }
+          - { os: macos-13, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.10 }
           - { os: windows-latest, python-version: 3.11 }
         include:
@@ -105,6 +105,12 @@ jobs:
         run: |
           python -m pip install -U pip setuptools
 
+      - name: Install numpy
+        if: |
+          startsWith(matrix.os, 'macos') && matrix.python-version == '3.12'
+        run: |
+          python -m pip install "numpy<2"
+
       - name: Install dependencies
         env:
           MODULE: ${{ matrix.module }}
@@ -117,31 +123,38 @@ jobs:
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
-          if [ "$MODULE" == "metal" ]; then
-            pip install mlx-lm
-          fi
-          pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-          pip install transformers
-          pip install attrdict
-          pip install "timm>=0.9.16"
-          pip install torch torchvision
-          pip install accelerate
-          pip install sentencepiece
-          pip install transformers_stream_generator
-          pip install bitsandbytes
-          pip install "sentence-transformers>=2.3.1"
-          pip install modelscope
-          pip install diffusers
-          pip install protobuf
-          pip install FlagEmbedding
-          pip install "tenacity>=8.2.0,<8.4.0"
           pip install -e ".[dev]"
-          pip install "jinja2==3.1.2"
-          pip install tensorizer
-          pip install jj-pytorchvideo
-          pip install qwen-vl-utils
-          pip install datamodel_code_generator
-          pip install jsonschema
+          if [ "$MODULE" == "metal" ]; then
+            conda install -c conda-forge "ffmpeg<7"
+            pip install mlx-lm
+            pip install mlx-vlm
+            pip install mlx-whisper
+            pip install f5-tts-mlx
+            pip install qwen-vl-utils
+            pip install tomli 
+          else
+            pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+            pip install transformers
+            pip install attrdict
+            pip install "timm>=0.9.16"
+            pip install torch torchvision
+            pip install accelerate
+            pip install sentencepiece
+            pip install transformers_stream_generator
+            pip install bitsandbytes
+            pip install "sentence-transformers>=2.3.1"
+            pip install modelscope
+            pip install diffusers
+            pip install protobuf
+            pip install FlagEmbedding
+            pip install "tenacity>=8.2.0,<8.4.0"
+            pip install "jinja2==3.1.2"
+            pip install tensorizer
+            pip install jj-pytorchvideo
+            pip install qwen-vl-utils
+            pip install datamodel_code_generator
+            pip install jsonschema
+          fi
         working-directory: .
 
       - name: Test with pytest
@@ -160,7 +173,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U funasr
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr<1.1.17"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing<1.1.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing<1.0.4
@@ -180,6 +193,21 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y "faster_whisper"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U accelerate
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U verovio
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U cachetools
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U silero-vad
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U pydantic
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U diffusers
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnx
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxconverter_common
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U torchdiffeq
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "x_transformers>=1.31.14"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U pypinyin
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U tomli
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U vocos
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U jieba
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
@@ -203,17 +231,32 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py && \
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper_mlx.py && \
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests --ignore xinference/model/embedding/tests/test_integrated_embedding.py xinference
           fi
         working-directory: .

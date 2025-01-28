@@ -52,6 +52,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen2-instruct",
     "qwen2-moe-instruct",
     "qwen2.5-instruct",
+    "qwen2.5-coder-instruct",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -324,7 +325,10 @@ class ChatModelMixin:
         """
         try:
             if isinstance(c, dict):
-                return [(None, c["name"], c["arguments"])]
+                try:
+                    return [(None, c["name"], json.loads(c["arguments"]))]
+                except Exception:
+                    return [(None, c["name"], c["arguments"])]
         except KeyError:
             logger.error("Can't parse glm output: %s", c)
             return [(str(c), None, None)]
@@ -567,6 +571,25 @@ def _decode_image(_url):
             return Image.open(_url).convert("RGB")
         else:
             return Image.open(BytesIO(response.content)).convert("RGB")
+
+
+def _decode_image_without_rgb(_url):
+    if _url.startswith("data:"):
+        logging.info("Parse url by base64 decoder.")
+        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+        # e.g. f"data:image/jpeg;base64,{base64_image}"
+        _type, data = _url.split(";")
+        _, ext = _type.split("/")
+        data = data[len("base64,") :]
+        data = base64.b64decode(data.encode("utf-8"))
+        return Image.open(BytesIO(data))
+    else:
+        try:
+            response = requests.get(_url)
+        except requests.exceptions.MissingSchema:
+            return Image.open(_url)
+        else:
+            return Image.open(BytesIO(response.content))
 
 
 @typing.no_type_check

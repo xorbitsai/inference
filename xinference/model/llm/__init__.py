@@ -131,7 +131,7 @@ def register_custom_model():
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
-    from .mlx.core import MLXChatModel, MLXModel
+    from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
     from .transformers.cogvlm2 import CogVLM2Model
@@ -143,6 +143,7 @@ def _install():
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
+    from .transformers.glm_edge_v import GlmEdgeVModel
     from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
@@ -171,7 +172,7 @@ def _install():
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
-    MLX_CLASSES.extend([MLXModel, MLXChatModel])
+    MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
@@ -193,6 +194,7 @@ def _install():
             DeepSeekV2PytorchModel,
             DeepSeekV2PytorchChatModel,
             OptPytorchModel,
+            GlmEdgeVModel,
         ]
     )
     if OmniLMMModel:  # type: ignore

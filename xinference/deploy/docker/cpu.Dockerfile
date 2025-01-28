@@ -21,7 +21,7 @@ ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu.txt && \
-    CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" pip install llama-cpp-python && \
+    CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install llama-cpp-python && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
