@@ -198,6 +198,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
+    VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
+
 
 class VLLMModel(LLM):
     def __init__(
