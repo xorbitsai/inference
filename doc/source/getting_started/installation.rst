@@ -64,6 +64,7 @@ Currently, supported models include:
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
+- ``internlm3-instruct``
 .. vllm_end
 
 To install Xinference and vLLM::

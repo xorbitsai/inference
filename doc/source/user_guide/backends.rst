@@ -71,6 +71,7 @@ Currently, supported model includes:
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
+- ``internlm3-instruct``
 .. vllm_end
 
 SGLang
