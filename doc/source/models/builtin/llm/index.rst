@@ -221,6 +221,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - InternLM2.5 series of the InternLM model supports 1M long-context
 
+   * - :ref:`internlm3-instruct <models_llm_internlm3-instruct>`
+     - chat, tools
+     - 32768
+     - InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning.
+
    * - :ref:`internvl-chat <models_llm_internvl-chat>`
      - chat, vision
      - 32768
@@ -677,6 +682,8 @@ The following is a list of built-in LLM in Xinference:
    internlm2.5-chat
   
    internlm2.5-chat-1m
+  
+   internlm3-instruct
   
    internvl-chat
   
