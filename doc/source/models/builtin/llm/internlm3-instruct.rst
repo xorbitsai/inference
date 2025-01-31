@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** internlm/internlm3-8b-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm3-8b-instruct>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 8 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** internlm/internlm3-8b-instruct-gptq-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm3-8b-instruct-gptq-int4>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct-gptq-int4>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 8 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** internlm/internlm3-8b-instruct-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm3-8b-instruct-awq>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct-awq>`__
 
