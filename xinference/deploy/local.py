@@ -41,7 +41,8 @@ async def _start_local_cluster(
 ):
     from .utils import create_worker_actor_pool
 
-    logging.config.dictConfig(logging_conf)  # type: ignore
+    if logging_conf:
+        logging.config.dictConfig(logging_conf)  # type: ignore
 
     pool = None
     try:
