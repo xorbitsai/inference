@@ -38,6 +38,8 @@ The ``tools`` ability is supported with the following models in Xinference:
 * :ref:`models_llm_llama-3.1-instruct`
 * :ref:`models_llm_qwen2.5-instruct`
 * :ref:`models_llm_qwen2.5-coder-instruct`
+* :ref:`models_llm_deepseek-r1-distill-qwen`
+* :ref:`models_llm_deepseek-r1-distill-llama`
 
 Quickstart
 ==============
@@ -56,7 +58,7 @@ Example using OpenAI Client
         api_key="cannot be empty", 
         base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1"
     )
-    client.chat.completions.create(
+    response = client.chat.completions.create(
         model="<MODEL_UID>",
         messages=[{
             "role": "user",
