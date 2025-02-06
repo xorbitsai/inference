@@ -44,6 +44,7 @@ from ....types import (
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
 from ..utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -811,8 +812,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = {}
-        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
-            full_context_kwargs["tools"] = tools
+        if tools:
+            if model_family in QWEN_TOOL_CALL_FAMILY:
+                full_context_kwargs["tools"] = tools
+            elif model_family in DEEPSEEK_TOOL_CALL_FAMILY:
+                self._tools_to_messages_for_deepseek(messages, tools)
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/DeepSeek-R1-Distill-Llama-8B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Llama-8B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 8 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** jakiAJK/DeepSeek-R1-Distill-Llama-8B_AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Llama-8B_AWQ>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (gptq, 8 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/DeepSeek-R1-Distill-Llama-70B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Llama-70B>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (awq, 70 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** casperhansen/deepseek-r1-distill-llama-70b-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/casperhansen/deepseek-r1-distill-llama-70b-awq>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (gptq, 70 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** empirischtech/DeepSeek-R1-Distill-Llama-70B-gptq-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/empirischtech/DeepSeek-R1-Distill-Llama-70B-gptq-4bit>`__
 
