@@ -84,7 +84,7 @@ class KokoroModel:
 
         import os
 
-        from kokoro import KPipeline
+        from kokoro import KModel, KPipeline
 
         config_path = os.path.join(self._model_path, "config.json")
         model_path = os.path.join(self._model_path, "kokoro-v1_0.pth")
@@ -95,8 +95,7 @@ class KokoroModel:
         lang_code = self._kwargs.get("lang_code", "a")
         self._model = KPipeline(
             lang_code=lang_code,
-            config_path=config_path,
-            model_path=model_path,
+            model=KModel(config=config_path, model=model_path),
             device=self._device,
         )
 
