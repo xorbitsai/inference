@@ -38,8 +38,6 @@ The ``tools`` ability is supported with the following models in Xinference:
 * :ref:`models_llm_llama-3.1-instruct`
 * :ref:`models_llm_qwen2.5-instruct`
 * :ref:`models_llm_qwen2.5-coder-instruct`
-* :ref:`models_llm_deepseek-r1-distill-qwen`
-* :ref:`models_llm_deepseek-r1-distill-llama`
 
 Quickstart
 ==============
