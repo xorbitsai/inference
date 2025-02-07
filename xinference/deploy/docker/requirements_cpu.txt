@@ -87,6 +87,7 @@ fugashi  # For MeloTTS
 g2p_en  # For MeloTTS
 anyascii  # For MeloTTS
 gruut[de,es,fr]  # For MeloTTS
+kokoro>=0.7.9  # Kokoro
 qwen-vl-utils!=0.0.9 # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
