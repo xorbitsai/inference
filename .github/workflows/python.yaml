@@ -163,7 +163,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -e ".[audio]"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
@@ -240,6 +240,9 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_melotts.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_kokoro.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
