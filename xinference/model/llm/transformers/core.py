@@ -39,7 +39,12 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import LLAMA3_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+from ..utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    LLAMA3_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
+    ChatModelMixin,
+)
 from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
@@ -682,6 +687,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             or model_family in LLAMA3_TOOL_CALL_FAMILY
         ):
             full_context_kwargs["tools"] = tools
+        elif tools and model_family in DEEPSEEK_TOOL_CALL_FAMILY:
+            self._tools_to_messages_for_deepseek(messages, tools)
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages,
