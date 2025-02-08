@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 3 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 3
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2.5-VL-3B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-VL-3B-Instruct>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2.5-VL-7B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-VL-7B-Instruct>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 72 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 72
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2.5-VL-72B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-VL-72B-Instruct>`__
 
