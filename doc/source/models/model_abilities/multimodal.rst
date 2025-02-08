@@ -154,7 +154,7 @@ Chat with audio
 
     from xinference.client import Client
 
-    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_HOST>")
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     model = client.get_model(<MODEL_UID>)
 
     messages = [
