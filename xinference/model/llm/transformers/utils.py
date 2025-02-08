@@ -230,6 +230,15 @@ def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel")
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
 
+def convert_to_cache_cls(cache) -> DynamicCache:
+    """
+    Compatible with some old models
+    """
+    if isinstance(cache, tuple):
+        return DynamicCache.from_legacy_cache(cache)
+    return cache
+
+
 @torch.inference_mode()
 def _batch_inference_one_step_internal(
     xinf_model_obj: "PytorchModel",
@@ -271,7 +280,7 @@ def _batch_inference_one_step_internal(
         out = model(**prefill_kws, use_cache=True)
 
         logits = out.logits
-        past_key_values = out.past_key_values
+        past_key_values = convert_to_cache_cls(out.past_key_values)
 
         for i, r in enumerate(prefill_reqs):
             (
@@ -319,7 +328,7 @@ def _batch_inference_one_step_internal(
         )
         out = model(**inf_kws, use_cache=True, past_key_values=past_key_values)
         logits = out.logits
-        past_key_values = out.past_key_values
+        past_key_values = convert_to_cache_cls(out.past_key_values)
 
         for i, r in enumerate(valid_req_list):
             (
