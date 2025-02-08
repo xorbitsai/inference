@@ -204,7 +204,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.7.2":
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-vl-instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
 
 
 class VLLMModel(LLM):
