@@ -789,6 +789,9 @@ class WorkerActor(xo.StatelessActor):
         model_engine: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
+        n_worker: Optional[int] = 1,
+        shard: Optional[int] = 0,
+        driver_info: Optional[dict] = None,
         peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
@@ -876,6 +879,18 @@ class WorkerActor(xo.StatelessActor):
                 xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
                 if xavier_config is not None:
                     xavier_config["rank_address"] = subpool_address
+                model_kwargs = kwargs.copy()
+                if n_worker > 1:  # type: ignore
+                    # for model across workers,
+                    # add a few kwargs
+                    model_kwargs.update(
+                        dict(
+                            address=self.address,
+                            n_worker=n_worker,
+                            shard=shard,
+                            driver_info=driver_info,
+                        )
+                    )
                 model, model_description = await asyncio.to_thread(
                     create_model_instance,
                     subpool_address,
@@ -890,7 +905,7 @@ class WorkerActor(xo.StatelessActor):
                     peft_model_config,
                     download_hub,
                     model_path,
-                    **kwargs,
+                    **model_kwargs,
                 )
                 await self.update_cache_status(model_name, model_description)
                 model_ref = await xo.create_actor(
@@ -904,6 +919,9 @@ class WorkerActor(xo.StatelessActor):
                     model_description=model_description,
                     request_limits=request_limits,
                     xavier_config=xavier_config,
+                    n_worker=n_worker,
+                    shard=shard,
+                    driver_info=driver_info,
                 )
                 await model_ref.load()
             except:
@@ -933,7 +951,15 @@ class WorkerActor(xo.StatelessActor):
             origin_uid,
             {"model_ability": abilities, "status": LaunchStatus.READY.name},
         )
-        return subpool_address
+        if n_worker > 1 and shard == 0:  # type: ignore
+            return subpool_address, await model_ref.get_driver_info()
+        else:
+            return subpool_address
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def wait_for_load(self, model_uid: str):
+        model_ref = self._model_uid_to_model[model_uid]
+        await model_ref.wait_for_load()
 
     @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
