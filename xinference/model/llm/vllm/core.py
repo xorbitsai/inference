@@ -206,6 +206,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
 if VLLM_INSTALLED and vllm.__version__ >= "0.7.2":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen-2.5-instruct-1m")
+
 
 class VLLMModel(LLM):
     def __init__(
