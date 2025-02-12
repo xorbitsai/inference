@@ -26,36 +26,6 @@ logger = logging.getLogger(__name__)
 
 
 class KokoroModel:
-    # The available voices, should keep sync with https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices
-    VOICES = [
-        "af_alloy",
-        "af_aoede",
-        "af_bella",
-        "af_jessica",
-        "af_kore",
-        "af_nicole",
-        "af_nova",
-        "af_river",
-        "af_sarah",
-        "af_sky",
-        "am_adam",
-        "am_echo",
-        "am_eric",
-        "am_fenrir",
-        "am_liam",
-        "am_michael",
-        "am_onyx",
-        "am_puck",
-        "bf_alice",
-        "bf_emma",
-        "bf_isabella",
-        "bf_lily",
-        "bm_daniel",
-        "bm_fable",
-        "bm_george",
-        "bm_lewis",
-    ]
-
     def __init__(
         self,
         model_uid: str,
@@ -89,10 +59,25 @@ class KokoroModel:
         config_path = os.path.join(self._model_path, "config.json")
         model_path = os.path.join(self._model_path, "kokoro-v1_0.pth")
         # LANG_CODES = dict(
+        #     # pip install misaki[en]
         #     a='American English',
         #     b='British English',
+        #
+        #     # espeak-ng
+        #     e='es',
+        #     f='fr-fr',
+        #     h='hi',
+        #     i='it',
+        #     p='pt-br',
+        #
+        #     # pip install misaki[ja]
+        #     j='Japanese',
+        #
+        #     # pip install misaki[zh]
+        #     z='Mandarin Chinese',
         # )
         lang_code = self._kwargs.get("lang_code", "a")
+        logger.info("Launching Kokoro model with language code: %s", lang_code)
         self._model = KPipeline(
             lang_code=lang_code,
             model=KModel(config=config_path, model=model_path),
@@ -114,14 +99,12 @@ class KokoroModel:
             raise Exception("Kokoro does not support stream mode.")
         assert self._model is not None
         if not voice:
-            voice = next(iter(self.VOICES))
+            voice = "af_alloy"
             logger.info("Auto select speaker: %s", voice)
-        elif not voice.endswith(".pt") and voice not in self.VOICES:
-            raise ValueError(
-                f"Invalid voice: {voice}, available speakers: {self.VOICES}"
-            )
-        else:
+        elif voice.endswith(".pt"):
             logger.info("Using custom voice pt: %s", voice)
+        else:
+            logger.info("Using voice: %s", voice)
         logger.info("Speech kwargs: %s", kwargs)
         generator = self._model(text=input, voice=voice, speed=speed, **kwargs)
         results = list(generator)

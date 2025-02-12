@@ -50,3 +50,35 @@ def test_kokoro(setup):
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
             response.stream_to_file(f.name)
             assert os.stat(f.name).st_size > 0
+
+
+def test_kokoro_zh(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="Kokoro-82M",
+        model_type="audio",
+        compile=False,
+        download_hub="huggingface",
+        lang_code="z",
+    )
+    model = client.get_model(model_uid)
+    input_string = "重新启动即可更新"
+
+    response = model.speech(input_string, voice="zf_xiaoyi")
+    assert type(response) is bytes
+    assert len(response) > 0
+
+    # Test openai API
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    with client.audio.speech.with_streaming_response.create(
+        model=model_uid, input=input_string, voice="zf_xiaoyi"
+    ) as response:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            response.stream_to_file(f.name)
+            assert os.stat(f.name).st_size > 0
