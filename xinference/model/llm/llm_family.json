@@ -9614,7 +9614,7 @@
   },
   {
     "version": 1,
-    "context_length": 1024000,
+    "context_length": 1010000,
     "model_name": "qwen-2.5-instruct-1m",
     "model_lang": [
       "en",
