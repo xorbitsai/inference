@@ -4,8 +4,10 @@ import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import { Alert, Snackbar, Tooltip } from '@mui/material'
 import ClipboardJS from 'clipboard'
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const CopyComponent = ({ tip, text }) => {
+  const { t } = useTranslation()
   const [isCopySuccess, setIsCopySuccess] = useState(false)
 
   const handleCopy = () => {
@@ -31,7 +33,7 @@ const CopyComponent = ({ tip, text }) => {
         onClose={() => setIsCopySuccess(false)}
       >
         <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Copied to clipboard!
+          {t('components.copySuccess')}
         </Alert>
       </Snackbar>
     </>
