@@ -17,7 +17,7 @@ from typing import Dict, Union
 
 import psutil
 
-from ...device_utils import get_nvidia_gpu_info
+from ..device_utils import get_nvidia_gpu_info
 
 
 @dataclass
