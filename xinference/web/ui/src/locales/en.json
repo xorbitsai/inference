@@ -85,7 +85,9 @@
     "copyRealPath": "Copy real_path",
     "copyPath": "Copy path",
     "noCacheForNow": "No cache for now!",
-    "confirmDeleteCacheFiles": "Confirm deletion of cache files? This action is irreversible."
+    "confirmDeleteCacheFiles": "Confirm deletion of cache files? This action is irreversible.",
+    "featured": "featured",
+    "all": "all"
   },
 
   "runningModels": {

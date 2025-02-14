@@ -5,6 +5,8 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -17,7 +19,7 @@ import ModelCard from './modelCard'
 
 const modelAbilityArr = ['generate', 'chat', 'vision']
 
-const LaunchLLM = ({ gpuAvailable }) => {
+const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -33,6 +35,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [collectionArr, setCollectionArr] = useState([])
   const [filterArr, setFilterArr] = useState([])
   const { t } = useTranslation()
+  const [modelListType, setModelListType] = React.useState('featured')
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -52,6 +55,12 @@ const LaunchLLM = ({ gpuAvailable }) => {
       }
     }
 
+    if (modelListType === 'featured') {
+      if (!featureModels.includes(registration.model_name)) {
+        return false
+      }
+    }
+
     if (modelAbility && registration.model_ability.indexOf(modelAbility) < 0)
       return false
 
@@ -63,13 +72,17 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
     if (statusArr.length === 1) {
       if (statusArr[0] === 'cached') {
-        const judge = registration.model_specs.some((spec) => filterCache(spec))
+        const judge =
+          registration.model_specs?.some((spec) => filterCache(spec)) ||
+          registration?.cache_status
         return judge && !completeDeleteArr.includes(registration.model_name)
       } else {
         return collectionArr?.includes(registration.model_name)
       }
     } else if (statusArr.length > 1) {
-      const judge = registration.model_specs.some((spec) => filterCache(spec))
+      const judge =
+        registration.model_specs?.some((spec) => filterCache(spec)) ||
+        registration?.cache_status
       return (
         judge &&
         !completeDeleteArr.includes(registration.model_name) &&
@@ -82,7 +95,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   const filterCache = (spec) => {
     if (Array.isArray(spec.cache_status)) {
-      return spec.cache_status.some((cs) => cs)
+      return spec.cache_status?.some((cs) => cs)
     } else {
       return spec.cache_status === true
     }
@@ -104,7 +117,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
       setIsCallingApi(true)
 
       fetchWrapper
-        .get('/v1/model_registrations/LLM?detailed=true')
+        .get(`/v1/model_registrations/${modelType}?detailed=true`)
         .then((data) => {
           const builtinRegistrations = data.filter((v) => v.is_builtin)
           setRegistrationData(builtinRegistrations)
@@ -178,34 +191,70 @@ const LaunchLLM = ({ gpuAvailable }) => {
     }
   }
 
+  const handleModelType = (_, newModelType) => {
+    if (newModelType !== null) {
+      setModelListType(newModelType)
+    }
+  }
+
   return (
     <Box m="20px">
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '150px 150px 1fr',
+          gridTemplateColumns:
+            modelType === 'LLM' ? '150px 150px 150px 1fr' : '150px 150px 1fr',
           columnGap: '20px',
           margin: '30px 2rem',
         }}
       >
         <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
-          <InputLabel id="ability-select-label">
-            {t('launchModel.modelAbility')}
-          </InputLabel>
-          <Select
-            id="ability"
-            labelId="ability-select-label"
-            label="Model Ability"
-            onChange={(e) => handleChangeFilter('modelAbility', e.target.value)}
-            value={modelAbility}
+          <ToggleButtonGroup
+            color="primary"
+            value={modelListType}
+            exclusive
+            onChange={handleModelType}
+            aria-label="Platform"
             size="small"
-            sx={{ width: '150px' }}
           >
-            <MenuItem value="generate">{t('launchModel.generate')}</MenuItem>
-            <MenuItem value="chat">{t('launchModel.chat')}</MenuItem>
-            <MenuItem value="vision">{t('launchModel.vision')}</MenuItem>
-          </Select>
+            <ToggleButton
+              value="featured"
+              fullWidth
+              style={{ border: '1px solid #1976d2' }}
+            >
+              {t('launchModel.featured')}
+            </ToggleButton>
+            <ToggleButton
+              value="all"
+              fullWidth
+              style={{ border: '1px solid #1976d2' }}
+            >
+              {t('launchModel.all')}
+            </ToggleButton>
+          </ToggleButtonGroup>
         </FormControl>
+        {modelType === 'LLM' && (
+          <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
+            <InputLabel id="ability-select-label">
+              {t('launchModel.modelAbility')}
+            </InputLabel>
+            <Select
+              id="ability"
+              labelId="ability-select-label"
+              label="Model Ability"
+              onChange={(e) =>
+                handleChangeFilter('modelAbility', e.target.value)
+              }
+              value={modelAbility}
+              size="small"
+              sx={{ width: '150px' }}
+            >
+              <MenuItem value="generate">{t('launchModel.generate')}</MenuItem>
+              <MenuItem value="chat">{t('launchModel.chat')}</MenuItem>
+              <MenuItem value="vision">{t('launchModel.vision')}</MenuItem>
+            </Select>
+          </FormControl>
+        )}
         <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
           <InputLabel id="select-status">{t('launchModel.status')}</InputLabel>
           <Select
@@ -264,7 +313,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
               url={endPoint}
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}
-              modelType={'LLM'}
+              modelType={modelType}
               onHandleCompleteDelete={handleCompleteDelete}
               onGetCollectionArr={getCollectionArr}
             />
@@ -274,4 +323,4 @@ const LaunchLLM = ({ gpuAvailable }) => {
   )
 }
 
-export default LaunchLLM
+export default LaunchModelComponent
