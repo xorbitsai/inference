@@ -454,7 +454,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         while True:
             i += 1
             try:
-                self._model.load()
+                await asyncio.to_thread(self._model.load)
                 break
             except Exception as e:
                 if (
