@@ -5183,6 +5183,377 @@
   },
   {
     "version": 1,
+    "context_length": 163840,
+    "model_name": "deepseek-v3",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-V3",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "cognitivecomputations/DeepSeek-V3-awq",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "Q2_K_L",
+          "Q2_K_XS",
+          "Q3_K_M",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "unsloth/DeepSeek-V3-GGUF",
+        "model_hub": "modelscope",
+        "model_file_name_template": "DeepSeek-V3-{quantization}/DeepSeek-V3-{quantization}.gguf",
+        "model_file_name_split_template": "DeepSeek-V3-{quantization}/DeepSeek-V3-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "Q2_K_L": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "Q2_K_XS": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "Q3_K_M": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q4_K_M": [
+            "00001-of-00009",
+            "00002-of-00009",
+            "00003-of-00009",
+            "00004-of-00009",
+            "00005-of-00009",
+            "00006-of-00009",
+            "00007-of-00009",
+            "00008-of-00009",
+            "00009-of-00009"
+          ],
+          "Q5_K_M": [
+            "00001-of-00010",
+            "00002-of-00010",
+            "00003-of-00010",
+            "00004-of-00010",
+            "00005-of-00010",
+            "00006-of-00010",
+            "00007-of-00010",
+            "00008-of-00010",
+            "00009-of-00010",
+            "00010-of-00010"
+          ],
+          "Q6_K": [
+            "00001-of-00012",
+            "00002-of-00012",
+            "00003-of-00012",
+            "00004-of-00012",
+            "00005-of-00012",
+            "00006-of-00012",
+            "00007-of-00012",
+            "00008-of-00012",
+            "00009-of-00012",
+            "00010-of-00012",
+            "00011-of-00012",
+            "00012-of-00012"
+          ],
+          "Q8_0": [
+            "00001-of-00016",
+            "00002-of-00016",
+            "00003-of-00016",
+            "00004-of-00016",
+            "00005-of-00016",
+            "00006-of-00016",
+            "00007-of-00016",
+            "00008-of-00016",
+            "00009-of-00016",
+            "00010-of-00016",
+            "00011-of-00016",
+            "00012-of-00016",
+            "00013-of-00016",
+            "00014-of-00016",
+            "00015-of-00016",
+            "00016-of-00016"
+          ]
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "3bit",
+          "4bit"
+        ],
+        "model_id": "mlx-community/DeepSeek-V3-{quantization}",
+        "model_hub": "modelscope"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='', is_first_sp=true) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\\n\\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{bos_token}}{{ns.system_prompt}}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is none %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls']%}{%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{%- set ns.is_first = true -%}{%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- endfor %}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is not none %}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{{'<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜>'}}{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 163840,
+    "model_name": "deepseek-r1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/DeepSeek-R1",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "cognitivecomputations/DeepSeek-R1-awq",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "UD-IQ1_S",
+          "UD-IQ1_M",
+          "UD-IQ2_XXS",
+          "UD-Q2_K_XL",
+          "Q2_K",
+          "Q2_K_L",
+          "Q2_K_XS",
+          "Q3_K_M",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16"
+        ],
+        "model_id": "unsloth/DeepSeek-R1-GGUF",
+        "model_hub": "modelscope",
+        "model_file_name_template": "DeepSeek-R1-{quantization}/DeepSeek-R1-{quantization}.gguf",
+        "model_file_name_split_template": "DeepSeek-R1-{quantization}/DeepSeek-R1-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "UD-IQ1_S": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "UD-IQ1_M": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "UD-IQ2_XXS": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "UD-Q2_K_XL": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "Q2_K": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "Q2_K_L": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "Q2_K_XS": [
+            "00001-of-00005",
+            "00002-of-00005",
+            "00003-of-00005",
+            "00004-of-00005",
+            "00005-of-00005"
+          ],
+          "Q3_K_M": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q4_K_M": [
+            "00001-of-00009",
+            "00002-of-00009",
+            "00003-of-00009",
+            "00004-of-00009",
+            "00005-of-00009",
+            "00006-of-00009",
+            "00007-of-00009",
+            "00008-of-00009",
+            "00009-of-00009"
+          ],
+          "Q5_K_M": [
+            "00001-of-00010",
+            "00002-of-00010",
+            "00003-of-00010",
+            "00004-of-00010",
+            "00005-of-00010",
+            "00006-of-00010",
+            "00007-of-00010",
+            "00008-of-00010",
+            "00009-of-00010",
+            "00010-of-00010"
+          ],
+          "Q6_K": [
+            "00001-of-00012",
+            "00002-of-00012",
+            "00003-of-00012",
+            "00004-of-00012",
+            "00005-of-00012",
+            "00006-of-00012",
+            "00007-of-00012",
+            "00008-of-00012",
+            "00009-of-00012",
+            "00010-of-00012",
+            "00011-of-00012",
+            "00012-of-00012"
+          ],
+          "Q8_0": [
+            "00001-of-00015",
+            "00002-of-00015",
+            "00003-of-00015",
+            "00004-of-00015",
+            "00005-of-00015",
+            "00006-of-00015",
+            "00007-of-00015",
+            "00008-of-00015",
+            "00009-of-00015",
+            "00010-of-00015",
+            "00011-of-00015",
+            "00012-of-00015",
+            "00013-of-00015",
+            "00014-of-00015",
+            "00015-of-00015"
+          ],
+          "BF16": [
+            "00001-of-00030",
+            "00002-of-00030",
+            "00003-of-00030",
+            "00004-of-00030",
+            "00005-of-00030",
+            "00006-of-00030",
+            "00007-of-00030",
+            "00008-of-00030",
+            "00009-of-00030",
+            "00010-of-00030",
+            "00011-of-00030",
+            "00012-of-00030",
+            "00013-of-00030",
+            "00014-of-00030",
+            "00015-of-00030",
+            "00016-of-00030",
+            "00017-of-00030",
+            "00018-of-00030",
+            "00019-of-00030",
+            "00020-of-00030",
+            "00021-of-00030",
+            "00022-of-00030",
+            "00023-of-00030",
+            "00024-of-00030",
+            "00025-of-00030",
+            "00026-of-00030",
+            "00027-of-00030",
+            "00028-of-00030",
+            "00029-of-00030",
+            "00030-of-00030"
+          ]
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 671,
+        "quantizations": [
+          "2bit",
+          "3bit",
+          "4bit"
+        ],
+        "model_id": "mlx-community/DeepSeek-R1-{quantization}",
+        "model_hub": "modelscope"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='', is_first_sp=true) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\\n\\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{bos_token}}{{ns.system_prompt}}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is none %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls']%}{%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{%- set ns.is_first = true -%}{%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- endfor %}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is not none %}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{{'<｜Assistant｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜>'}}{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ]
+  },
+  {
+    "version": 1,
     "context_length": 131072,
     "model_name": "yi-coder-chat",
     "model_lang": [
@@ -7312,52 +7683,6 @@
     "stop": [
       "</s>",
       "<|im_end|>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 1010000,
-    "model_name": "qwen-2.5-instruct-1m",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Qwen2.5-1M is the long-context version of the Qwen2.5 series models, supporting a context length of up to 1M tokens.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "Qwen/Qwen2.5-7B-Instruct-1M",
-        "model_hub": "modelscope"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 14,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "Qwen/Qwen2.5-14B-Instruct-1M",
-        "model_hub": "modelscope"
-      }
-    ],
-    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
-    "stop_token_ids": [
-      151645,
-      151643
-    ],
-    "stop": [
-      "<|im_end|>",
-      "<|endoftext|>"
     ]
   }
 ]
