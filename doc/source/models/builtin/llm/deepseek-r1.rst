@@ -68,7 +68,7 @@ Model Spec 4 (mlx, 671 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 671
 - **Quantizations:** 2bit, 3bit, 4bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/DeepSeek-R1-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/DeepSeek-R1-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/DeepSeek-R1-{quantization}>`__
 
