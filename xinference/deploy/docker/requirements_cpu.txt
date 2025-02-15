@@ -87,8 +87,8 @@ fugashi  # For MeloTTS
 g2p_en  # For MeloTTS
 anyascii  # For MeloTTS
 gruut[de,es,fr]  # For MeloTTS
-kokoro>=0.7.14  # Kokoro
-misaki[ja,zh]  # Kokoro
+kokoro>=0.7.15  # Kokoro
+misaki[en,ja,zh]>=0.7.15  # Kokoro
 en_core_web_trf  # Kokoro misaki[en]
 en_core_web_sm  # Kokoro misaki[en]
 qwen-vl-utils!=0.0.9 # For qwen2-vl
