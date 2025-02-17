@@ -13,12 +13,16 @@
 # limitations under the License.
 
 import asyncio
+import itertools
 import json
 import logging
 import multiprocessing
 import os
+import sys
+import threading
 import time
 import uuid
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -27,9 +31,12 @@ from typing import (
     List,
     Optional,
     Tuple,
+    Type,
     TypedDict,
     Union,
 )
+
+import xoscar as xo
 
 from ....types import (
     ChatCompletion,
@@ -247,16 +254,59 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
+        # distributed inference
+        self._device_count = None
+        self._address = model_config.pop("address", None)  # type: ignore
+        self._n_worker = model_config.pop("n_worker", 1)  # type: ignore
+        self._shard = model_config.pop("shard", 0)  # type: ignore
+        self._driver_info = model_config.pop("driver_info", None)  # type: ignore
+        self._loading_thread: Optional[threading.Thread] = None
+        self._loading_error = None
+        # variables used for distributed inference and multiple GPUs
+        self._pool_addresses = None
+        self._worker_addresses: Optional[Dict[int, List[str]]] = None
+        self._all_worker_ready: Optional[threading.Event] = None
+        # used to call async
+        self._loop = None
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
 
+    def set_worker_addresses(self, shard: int, worker_addresses: List[str]):
+        assert self._worker_addresses is not None
+        self._worker_addresses[shard] = worker_addresses
+        if (
+            self._all_worker_ready is not None
+            and len(self._worker_addresses) == self._n_worker
+        ):
+            self._all_worker_ready.set()
+
+    @property
+    def driver_info(self) -> Optional[dict]:
+        return self._driver_info
+
+    @property
+    def need_create_pools(self):
+        return True
+
+    def set_pool_addresses(self, pool_addresses: List[str]):
+        self._pool_addresses = pool_addresses  # type: ignore
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop):
+        # loop will be passed into XinferenceDistributedExecutor,
+        # to call aynsc method with asyncio.run_coroutine_threadsafe
+        self._loop = loop  # type: ignore
+
     def load(self):
         try:
             import vllm
+            from vllm.config import VllmConfig
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
+            from vllm.executor.executor_base import ExecutorBase
             from vllm.lora.request import LoRARequest
+
+            from .distributed_executor import XinferenceDistributedExecutor
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -274,6 +324,7 @@ class VLLMModel(LLM):
             # we need to set it to fork to make cupy NCCL work
             multiprocessing.set_start_method("fork", force=True)
 
+        self._device_count = self._get_cuda_count()
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
 
@@ -319,6 +370,79 @@ class VLLMModel(LLM):
             self._engine = XavierEngine.from_engine_args(
                 engine_args, xavier_config=self._xavier_config
             )
+        elif self._n_worker > 1 or self._device_count > 1:
+            # model across multiple workers or GPUs
+            engine_args = AsyncEngineArgs(
+                model=self.model_path,
+                enable_lora=enable_lora,
+                max_loras=max_loras,
+                **self._model_config,
+            )
+
+            assert self._loop is not None
+            self._worker_addresses = {}
+
+            def _load():
+                try:
+                    assert self._pool_addresses
+
+                    if self._shard > 0:
+                        assert self._driver_info
+                        address = self._driver_info["address"]
+
+                        coro = xo.actor_ref(address, self.raw_model_uid)
+                        model_ref = asyncio.run_coroutine_threadsafe(
+                            coro, self._loop
+                        ).result()
+                        coro = model_ref.set_worker_addresses(
+                            self._shard, self._pool_addresses
+                        )
+                        asyncio.run_coroutine_threadsafe(coro, self._loop).result()
+                    else:
+                        self.set_worker_addresses(0, self._pool_addresses)
+                        self._driver_info = {"address": self._address}
+
+                        if self._n_worker > 1:
+                            self._all_worker_ready = threading.Event()
+                            # if model across workers, wait for other workers ready
+                            self._all_worker_ready.wait()
+
+                        # gather all worker addresses
+                        worker_addresses = list(
+                            itertools.chain(
+                                *[
+                                    self._worker_addresses[shard]
+                                    for shard in range(self._n_worker)
+                                ]
+                            )
+                        )
+                        assert worker_addresses
+                        loop = self._loop
+
+                        class XinferenceAsyncLLMEngine(AsyncLLMEngine):
+                            @classmethod
+                            def _get_executor_cls(
+                                cls, engine_config: VllmConfig
+                            ) -> Type[ExecutorBase]:
+                                return partial(  # type: ignore
+                                    XinferenceDistributedExecutor,
+                                    pool_addresses=worker_addresses,
+                                    n_worker=self._n_worker,
+                                    loop=loop,
+                                )
+
+                        self._engine = XinferenceAsyncLLMEngine.from_engine_args(
+                            engine_args
+                        )
+                except:
+                    logger.exception("Creating vllm engine failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+            # wait some time for init finish
+            if self._shard == 0:
+                self._loading_thread.join(1)
         else:
             engine_args = AsyncEngineArgs(
                 model=self.model_path,
@@ -331,7 +455,14 @@ class VLLMModel(LLM):
         self._check_health_task = None
         if hasattr(self._engine, "check_health"):
             # vLLM introduced `check_health` since v0.4.1
-            self._check_health_task = asyncio.create_task(self._check_healthy())
+            self._check_health_task = self._loop.create_task(self._check_healthy())
+
+    def wait_for_load(self):
+        if self._loading_thread:
+            self._loading_thread.join()
+            if self._loading_error:
+                _, err, tb = self._loading_error
+                raise err.with_traceback(tb)
 
     def stop(self):
         # though the vLLM engine will shutdown when deleted,
@@ -373,11 +504,10 @@ class VLLMModel(LLM):
         if model_config is None:
             model_config = VLLMModelConfig()
 
-        cuda_count = self._get_cuda_count()
-
         model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", True)
-        model_config.setdefault("tensor_parallel_size", cuda_count)
+        model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
+        model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
