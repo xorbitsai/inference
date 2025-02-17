@@ -81,7 +81,7 @@ function CopyComponent({ modelData, predefinedKeys }) {
     <div style={{ marginInline: '10px', lineHeight: '14px' }}>
       <Tooltip title={t('launchModel.copyToCommandLine')} placement="top">
         <div ref={copyRef}>
-          <FilterNoneIcon className="copyText" style={{ fontSize: '30px' }} />
+          <FilterNoneIcon className="copyToCommandLine" />
         </div>
       </Tooltip>
       <Snackbar

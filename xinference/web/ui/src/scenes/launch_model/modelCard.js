@@ -559,43 +559,43 @@ const ModelCard = ({
 
   const handleLlmHistory = (data) => {
     const {
-      model_engine = '',
+      model_engine,
       model_format,
-      model_size_in_billions = '',
-      quantization = '',
-      n_gpu = 'auto',
-      n_gpu_layers = -1,
-      replica = 1,
-      model_uid = '',
-      request_limits = '',
-      worker_ip = '',
-      gpu_idx = [],
-      download_hub = '',
-      model_path = '',
-      peft_model_config = {},
+      model_size_in_billions,
+      quantization,
+      n_gpu,
+      n_gpu_layers,
+      replica,
+      model_uid,
+      request_limits,
+      worker_ip,
+      gpu_idx,
+      download_hub,
+      model_path,
+      peft_model_config,
     } = data
 
     if (!engineOptions.includes(model_engine)) {
       setModelEngine('')
     } else {
-      setModelEngine(model_engine)
+      setModelEngine(model_engine || '')
     }
-    setModelFormat(model_format)
-    setModelSize(String(model_size_in_billions))
-    setQuantization(quantization)
-    setNGPU(n_gpu)
+    setModelFormat(model_format || '')
+    setModelSize(String(model_size_in_billions) || '')
+    setQuantization(quantization || '')
+    setNGPU(n_gpu || 'auto')
     if (n_gpu_layers >= 0) {
       setNGPULayers(n_gpu_layers)
     } else {
       setNGPULayers(-1)
     }
-    setReplica(replica)
-    setModelUID(model_uid)
-    setRequestLimits(request_limits)
-    setWorkerIp(worker_ip)
-    setGPUIdx(gpu_idx?.join(','))
-    setDownloadHub(download_hub)
-    setModelPath(model_path)
+    setReplica(replica || 1)
+    setModelUID(model_uid || '')
+    setRequestLimits(request_limits || '')
+    setWorkerIp(worker_ip || '')
+    setGPUIdx(gpu_idx?.join(',') || '')
+    setDownloadHub(download_hub || '')
+    setModelPath(model_path || '')
 
     let loraData = []
     peft_model_config?.lora_list?.forEach((item) => {
@@ -631,29 +631,29 @@ const ModelCard = ({
 
   const handleOtherHistory = (data) => {
     const {
-      model_uid = '',
-      replica = 1,
-      n_gpu = '',
-      gpu_idx = [],
-      worker_ip = '',
-      download_hub = '',
-      model_path = '',
-      gguf_quantization = '',
-      gguf_model_path = '',
-      cpu_offload = false,
-      model_type = '',
-      peft_model_config = {},
+      model_uid,
+      replica,
+      n_gpu,
+      gpu_idx,
+      worker_ip,
+      download_hub,
+      model_path,
+      gguf_quantization,
+      gguf_model_path,
+      cpu_offload,
+      model_type,
+      peft_model_config,
     } = data
-    setModelUID(model_uid)
-    setReplica(replica)
+    setModelUID(model_uid || '')
+    setReplica(replica || 1)
     setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
-    setGPUIdx(gpu_idx?.join(','))
-    setWorkerIp(worker_ip)
-    setDownloadHub(download_hub)
-    setModelPath(model_path)
-    setGgufQuantizations(gguf_quantization)
-    setGgufModelPath(gguf_model_path)
-    setCpuOffload(cpu_offload)
+    setGPUIdx(gpu_idx?.join(',') || '')
+    setWorkerIp(worker_ip || '')
+    setDownloadHub(download_hub || '')
+    setModelPath(model_path || '')
+    setGgufQuantizations(gguf_quantization || '')
+    setGgufModelPath(gguf_model_path || '')
+    setCpuOffload(cpu_offload || false)
 
     if (model_type === 'image') {
       let loraData = []
@@ -1206,6 +1206,7 @@ const ModelCard = ({
               </Tooltip>
               {isModelStartable() && (
                 <CopyToCommandLine
+                  style={{ fontSize: '30px' }}
                   modelData={selected && handleModelData()}
                   predefinedKeys={llmAllDataKey}
                   getData={handleModelData}

@@ -40,13 +40,21 @@
   padding: 0px 10px;
 }
 .pasteText {
-  font-size: 16px !important;
-  color: #666;
+  font-size: 18px !important;
+  color: #1976d2;
   cursor: pointer;
   margin-inline: 10px;
 }
 .pasteText:hover {
+  color: #1976d2b3;
+}
+.copyToCommandLine {
+  font-size: 16px !important;
   color: #1976d2;
+  cursor: pointer;
+}
+.copyToCommandLine:hover {
+  color: #1976d2b3;
 }
 .formContainer {
   height: 80%;
