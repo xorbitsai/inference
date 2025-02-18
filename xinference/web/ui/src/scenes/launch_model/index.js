@@ -11,8 +11,62 @@ import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
 import LaunchCustom from './launchCustom'
-import LaunchLLM from './launchLLM'
-import LaunchModelComponent from './LaunchModelComponent'
+import LaunchModelComponent from './LaunchModel'
+
+const featureModels = [
+  {
+    type: 'llm',
+    feature_models: [
+      'deepseek-v3',
+      'deepseek-r1',
+      'deepseek-r1-distill-qwen',
+      'deepseek-r1-distill-llama',
+      'qwen2.5-instruct',
+      'qwen2.5-vl-instruct',
+      'qwen2.5-coder-instruct',
+      'llama-3.1-instruct',
+    ],
+  },
+  {
+    type: 'embedding',
+    feature_models: [
+      'bge-large-zh-v1.5',
+      'bge-large-en-v1.5',
+      'bge-m3',
+      'gte-Qwen2',
+      'jina-embeddings-v3',
+    ],
+  },
+  {
+    type: 'rerank',
+    feature_models: [],
+  },
+  {
+    type: 'image',
+    feature_models: [
+      'FLUX.1-dev',
+      'FLUX.1-schnell',
+      'sd3.5-large',
+      'HunyuanDiT-v1.2',
+      'sd3.5-medium',
+    ],
+  },
+  {
+    type: 'audio',
+    feature_models: [
+      'CosyVoice2-0.5B',
+      'FishSpeech-1.5',
+      'F5-TTS',
+      'ChatTTS',
+      'SenseVoiceSmall',
+      'whisper-large-v3',
+    ],
+  },
+  {
+    type: 'video',
+    feature_models: [],
+  },
+]
 
 const LaunchModel = () => {
   const [value, setValue] = React.useState(
@@ -81,28 +135,57 @@ const LaunchModel = () => {
           </TabList>
         </Box>
         <TabPanel value="/launch_model/llm" sx={{ padding: 0 }}>
-          <LaunchLLM gpuAvailable={gpuAvailable} />
+          <LaunchModelComponent
+            modelType={'LLM'}
+            gpuAvailable={gpuAvailable}
+            featureModels={
+              featureModels.find((item) => item.type === 'llm').feature_models
+            }
+          />
         </TabPanel>
         <TabPanel value="/launch_model/embedding" sx={{ padding: 0 }}>
           <LaunchModelComponent
             modelType={'embedding'}
             gpuAvailable={gpuAvailable}
+            featureModels={
+              featureModels.find((item) => item.type === 'embedding')
+                .feature_models
+            }
           />
         </TabPanel>
         <TabPanel value="/launch_model/rerank" sx={{ padding: 0 }}>
           <LaunchModelComponent
             modelType={'rerank'}
             gpuAvailable={gpuAvailable}
+            featureModels={
+              featureModels.find((item) => item.type === 'rerank')
+                .feature_models
+            }
           />
         </TabPanel>
         <TabPanel value="/launch_model/image" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'image'} />
+          <LaunchModelComponent
+            modelType={'image'}
+            featureModels={
+              featureModels.find((item) => item.type === 'image').feature_models
+            }
+          />
         </TabPanel>
         <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'audio'} />
+          <LaunchModelComponent
+            modelType={'audio'}
+            featureModels={
+              featureModels.find((item) => item.type === 'audio').feature_models
+            }
+          />
         </TabPanel>
         <TabPanel value="/launch_model/video" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'video'} />
+          <LaunchModelComponent
+            modelType={'video'}
+            featureModels={
+              featureModels.find((item) => item.type === 'video').feature_models
+            }
+          />
         </TabPanel>
         <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />

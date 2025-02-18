@@ -85,7 +85,9 @@
     "copyRealPath": "复制真实路径",
     "copyPath": "复制路径",
     "noCacheForNow": "当前没有缓存！",
-    "confirmDeleteCacheFiles": "确认删除缓存文件吗？此操作无法恢复。"
+    "confirmDeleteCacheFiles": "确认删除缓存文件吗？此操作无法恢复。",
+    "featured": "推荐",
+    "all": "全部"
   },
 
   "runningModels": {
