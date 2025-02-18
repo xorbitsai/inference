@@ -40,6 +40,8 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
       const value = match[2] || match[3] || match[4] || ''
       const normalizedKey = key.replace(/-/g, '_')
 
+      console.log('normalizedKey', normalizedKey)
+
       if (normalizedKey === 'gpu_idx') {
         params[normalizedKey] = value.split(',').map(Number)
       } else if (normalizedKey === 'lora_modules') {
@@ -60,6 +62,8 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
       } else {
         if (normalizedKey === 'cpu_offload') {
           params[normalizedKey] = value === 'true' ? true : false
+        } else if (normalizedKey === 'size_in_billions') {
+          params['model_size_in_billions'] = value
         } else {
           params[normalizedKey] = value
         }
