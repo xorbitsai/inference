@@ -159,8 +159,9 @@ const ModelCard = ({
     for (let key in enginesObj) {
       keyArr.push(key)
     }
-    if (keyArr.length) {
-      handleLlmHistory(handleGetHistory())
+    const data = handleGetHistory()
+    if (keyArr.length && data.model_name) {
+      handleLlmHistory(data)
     }
   }, [enginesObj])
 
@@ -810,12 +811,12 @@ const ModelCard = ({
         onClick={() => {
           if (!selected && !customDeleted) {
             const data = handleGetHistory()
-            if (data) setIsHistory(true)
+            if (data?.model_name) setIsHistory(true)
             setSelected(true)
             if (modelType === 'LLM') {
               getModelEngine(modelData.model_name)
-            } else {
-              handleOtherHistory(handleGetHistory())
+            } else if (data?.model_name) {
+              handleOtherHistory(data)
             }
           }
         }}
