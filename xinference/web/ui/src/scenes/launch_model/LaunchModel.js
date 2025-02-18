@@ -1,12 +1,12 @@
 import {
   Box,
+  Button,
+  ButtonGroup,
   Chip,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
-  ToggleButton,
-  ToggleButtonGroup,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -56,7 +56,10 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     }
 
     if (modelListType === 'featured') {
-      if (!featureModels.includes(registration.model_name)) {
+      if (
+        featureModels.length &&
+        !featureModels.includes(registration.model_name)
+      ) {
         return false
       }
     }
@@ -191,7 +194,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     }
   }
 
-  const handleModelType = (_, newModelType) => {
+  const handleModelType = (newModelType) => {
     if (newModelType !== null) {
       setModelListType(newModelType)
     }
@@ -206,35 +209,29 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
             modelType === 'LLM' ? '150px 150px 150px 1fr' : '150px 150px 1fr',
           columnGap: '20px',
           margin: '30px 2rem',
+          alignItems: 'center',
         }}
       >
-        <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
-          <ToggleButtonGroup
-            color="primary"
-            value={modelListType}
-            exclusive
-            onChange={handleModelType}
-            aria-label="Platform"
-            size="small"
-          >
-            <ToggleButton
-              value="featured"
+        <FormControl sx={{ minWidth: 120 }} size="small">
+          <ButtonGroup>
+            <Button
               fullWidth
-              style={{ border: '1px solid #1976d2' }}
+              onClick={() => handleModelType('featured')}
+              variant={modelListType === 'featured' ? 'contained' : 'outlined'}
             >
               {t('launchModel.featured')}
-            </ToggleButton>
-            <ToggleButton
-              value="all"
+            </Button>
+            <Button
               fullWidth
-              style={{ border: '1px solid #1976d2' }}
+              onClick={() => handleModelType('all')}
+              variant={modelListType === 'all' ? 'contained' : 'outlined'}
             >
               {t('launchModel.all')}
-            </ToggleButton>
-          </ToggleButtonGroup>
+            </Button>
+          </ButtonGroup>
         </FormControl>
         {modelType === 'LLM' && (
-          <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
+          <FormControl sx={{ minWidth: 120 }} size="small">
             <InputLabel id="ability-select-label">
               {t('launchModel.modelAbility')}
             </InputLabel>
@@ -255,7 +252,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
             </Select>
           </FormControl>
         )}
-        <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
+        <FormControl sx={{ minWidth: 120 }} size="small">
           <InputLabel id="select-status">{t('launchModel.status')}</InputLabel>
           <Select
             id="status"
@@ -271,7 +268,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
           </Select>
         </FormControl>
 
-        <FormControl variant="outlined" margin="normal">
+        <FormControl sx={{ marginTop: 1 }} variant="outlined" margin="normal">
           <HotkeyFocusTextField
             id="search"
             type="search"
