@@ -171,7 +171,7 @@ const ModelCard = ({
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
       setFormatOptions(format)
-      if (!isHistory || !format.includes(modelFormat)) {
+      if (!format.includes(modelFormat)) {
         setModelFormat('')
       }
       if (format.length === 1) {
@@ -190,10 +190,8 @@ const ModelCard = ({
         ),
       ]
       setSizeOptions(sizes)
-      if (
-        !isHistory ||
-        (sizeOptions.length &&
-          JSON.stringify(sizes) !== JSON.stringify(sizeOptions))
+      if (sizeOptions.length &&
+          JSON.stringify(sizes) !== JSON.stringify(sizeOptions)
       ) {
         setModelSize('')
       }
@@ -217,7 +215,7 @@ const ModelCard = ({
         ),
       ]
       setQuantizationOptions(quants)
-      if (!isHistory || !quants.includes(quantization)) {
+      if (!quants.includes(quantization)) {
         setQuantization('')
       }
       if (quants.length === 1) {
@@ -771,10 +769,15 @@ const ModelCard = ({
   }
 
   const handleCommandLine = (data) => {
-    if (data.model_type === 'LLM') {
-      handleLlmHistory(data)
+    if(data.model_name === modelData.model_name) {
+      if (data.model_type === 'LLM') {
+        handleLlmHistory(data)
+      } else {
+        handleOtherHistory(data)
+      }
     } else {
-      handleOtherHistory(data)
+      setOpenErrorSnackbar(true)
+      setErrorSnackbarValue(t('launchModel.commandLineTip'))
     }
   }
 

@@ -40,8 +40,6 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
       const value = match[2] || match[3] || match[4] || ''
       const normalizedKey = key.replace(/-/g, '_')
 
-      console.log('normalizedKey', normalizedKey)
-
       if (normalizedKey === 'gpu_idx') {
         params[normalizedKey] = value.split(',').map(Number)
       } else if (normalizedKey === 'lora_modules') {
