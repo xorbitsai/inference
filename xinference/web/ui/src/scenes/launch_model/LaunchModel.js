@@ -35,7 +35,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const [collectionArr, setCollectionArr] = useState([])
   const [filterArr, setFilterArr] = useState([])
   const { t } = useTranslation()
-  const [modelListType, setModelListType] = React.useState('featured')
+  const [modelListType, setModelListType] = useState('featured')
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -205,31 +205,40 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns:
-            modelType === 'LLM' ? '150px 150px 150px 1fr' : '150px 150px 1fr',
+          gridTemplateColumns: (() => {
+            const baseColumns =
+              modelType === 'LLM' ? ['150px', '150px'] : ['150px']
+            return featureModels.length
+              ? [...baseColumns, '150px', '1fr'].join(' ')
+              : [...baseColumns, '1fr'].join(' ')
+          })(),
           columnGap: '20px',
           margin: '30px 2rem',
           alignItems: 'center',
         }}
       >
-        <FormControl sx={{ minWidth: 120 }} size="small">
-          <ButtonGroup>
-            <Button
-              fullWidth
-              onClick={() => handleModelType('featured')}
-              variant={modelListType === 'featured' ? 'contained' : 'outlined'}
-            >
-              {t('launchModel.featured')}
-            </Button>
-            <Button
-              fullWidth
-              onClick={() => handleModelType('all')}
-              variant={modelListType === 'all' ? 'contained' : 'outlined'}
-            >
-              {t('launchModel.all')}
-            </Button>
-          </ButtonGroup>
-        </FormControl>
+        {featureModels.length > 0 && (
+          <FormControl sx={{ minWidth: 120 }} size="small">
+            <ButtonGroup>
+              <Button
+                fullWidth
+                onClick={() => handleModelType('featured')}
+                variant={
+                  modelListType === 'featured' ? 'contained' : 'outlined'
+                }
+              >
+                {t('launchModel.featured')}
+              </Button>
+              <Button
+                fullWidth
+                onClick={() => handleModelType('all')}
+                variant={modelListType === 'all' ? 'contained' : 'outlined'}
+              >
+                {t('launchModel.all')}
+              </Button>
+            </ButtonGroup>
+          </FormControl>
+        )}
         {modelType === 'LLM' && (
           <FormControl sx={{ minWidth: 120 }} size="small">
             <InputLabel id="ability-select-label">
@@ -304,6 +313,17 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       >
         {registrationData
           .filter((registration) => filter(registration))
+          .sort((a, b) => {
+            if (modelListType === 'featured') {
+              const indexA = featureModels.indexOf(a.model_name)
+              const indexB = featureModels.indexOf(b.model_name)
+              return (
+                (indexA !== -1 ? indexA : Infinity) -
+                (indexB !== -1 ? indexB : Infinity)
+              )
+            }
+            return 0
+          })
           .map((filteredRegistration) => (
             <ModelCard
               key={filteredRegistration.model_name}
