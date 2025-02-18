@@ -40,9 +40,13 @@ function CopyComponent({ modelData, predefinedKeys }) {
           }
           return peftArgs.join(' ')
         } else if (predefinedKeys.includes(key)) {
-          return `--${key.replace(/_/g, '-')} ${
-            value || value === false ? `${value}` : ''
-          }`
+          let newKey
+          if (key === 'model_size_in_billions') {
+            newKey = '--size-in-billions'
+          } else {
+            newKey = `--${key.replace(/_/g, '-')}`
+          }
+          return `${newKey} ${value || value === false ? `${value}` : ''}`
         } else {
           return `--${key} ${value || value === false ? `${value}` : ''}`
         }
