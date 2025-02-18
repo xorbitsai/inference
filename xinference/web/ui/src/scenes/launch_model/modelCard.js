@@ -190,8 +190,9 @@ const ModelCard = ({
         ),
       ]
       setSizeOptions(sizes)
-      if (sizeOptions.length &&
-          JSON.stringify(sizes) !== JSON.stringify(sizeOptions)
+      if (
+        sizeOptions.length &&
+        JSON.stringify(sizes) !== JSON.stringify(sizeOptions)
       ) {
         setModelSize('')
       }
@@ -769,7 +770,7 @@ const ModelCard = ({
   }
 
   const handleCommandLine = (data) => {
-    if(data.model_name === modelData.model_name) {
+    if (data.model_name === modelData.model_name) {
       if (data.model_type === 'LLM') {
         handleLlmHistory(data)
       } else {
