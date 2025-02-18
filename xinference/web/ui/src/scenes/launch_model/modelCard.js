@@ -589,7 +589,7 @@ const ModelCard = ({
     } else {
       setNGPULayers(-1)
     }
-    setReplica(replica || 1)
+    setReplica(Number(replica) || 1)
     setModelUID(model_uid || '')
     setRequestLimits(request_limits || '')
     setWorkerIp(worker_ip || '')

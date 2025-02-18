@@ -4,12 +4,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  useTheme,
 } from '@mui/material'
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
   const { t } = useTranslation()
+  const theme = useTheme()
   const [command, setCommand] = useState('')
 
   const handleClose = () => {
@@ -87,7 +89,10 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
         <div style={{ width: '500px', height: '120px' }}>
           <textarea
             className="textarea"
-            style={{ height: '100%' }}
+            style={{
+              height: '100%',
+              color: theme.palette.mode === 'dark' && '#fff',
+            }}
             value={command}
             onInput={(e) => {
               setCommand(e.target.value)
