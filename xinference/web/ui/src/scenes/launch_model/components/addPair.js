@@ -1,9 +1,22 @@
 import { AddCircle } from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Alert, Box, IconButton, Snackbar, TextField } from '@mui/material'
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  IconButton,
+  Snackbar,
+  TextField,
+} from '@mui/material'
 import React, { useEffect, useState } from 'react'
 
-const AddPair = ({ customData, pairData, onGetArr, onJudgeArr }) => {
+const AddPair = ({
+  customData,
+  pairData,
+  tipOptions = [],
+  onGetArr,
+  onJudgeArr,
+}) => {
   const [openSnackbar, setOpenSnackbar] = useState(false)
   const [arr, setArr] = useState([])
   const [arrId, setArrId] = useState(0)
@@ -97,14 +110,30 @@ const AddPair = ({ customData, pairData, onGetArr, onJudgeArr }) => {
                     marginLeft: '10px',
                   }}
                 >
-                  <TextField
-                    label={customData.key}
-                    value={item[customData.key]}
-                    onChange={(e) => {
-                      updateArr(index, customData.key, e.target.value)
-                    }}
-                    style={{ width: '44%' }}
-                  />
+                  {tipOptions.length ? (
+                    <Autocomplete
+                      style={{ width: '44%' }}
+                      disablePortal
+                      options={tipOptions}
+                      value={item[customData.key]}
+                      inputValue={item[customData.key]}
+                      onInputChange={(_, newValue) => {
+                        updateArr(index, customData.key, newValue)
+                      }}
+                      renderInput={(params) => (
+                        <TextField {...params} label={customData.key} />
+                      )}
+                    />
+                  ) : (
+                    <TextField
+                      label={customData.key}
+                      value={item[customData.key]}
+                      onChange={(e) => {
+                        updateArr(index, customData.key, e.target.value)
+                      }}
+                      style={{ width: '44%' }}
+                    />
+                  )}
                   <TextField
                     label={customData.value}
                     value={item[customData.value]}

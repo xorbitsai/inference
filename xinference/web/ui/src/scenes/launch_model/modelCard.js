@@ -58,28 +58,7 @@ import DeleteDialog from '../../components/deleteDialog'
 import fetchWrapper from '../../components/fetchWrapper'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
-
-const llmAllDataKey = [
-  'model_uid',
-  'model_name',
-  'model_type',
-  'model_engine',
-  'model_format',
-  'model_size_in_billions',
-  'quantization',
-  'n_gpu',
-  'n_gpu_layers',
-  'replica',
-  'request_limits',
-  'worker_ip',
-  'gpu_idx',
-  'download_hub',
-  'model_path',
-  'gguf_quantization',
-  'gguf_model_path',
-  'cpu_offload',
-  'peft_model_config',
-]
+import { additionalParameterTipList, llmAllDataKey } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
 
@@ -1563,6 +1542,9 @@ const ModelCard = ({
                   }}
                   onJudgeArr={judgeArr}
                   pairData={customArr}
+                  tipOptions={
+                    additionalParameterTipList[modelEngine?.toLocaleLowerCase()]
+                  }
                 />
               </Grid>
             </Box>
