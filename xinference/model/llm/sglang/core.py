@@ -14,9 +14,13 @@
 
 import json
 import logging
+import sys
+import threading
 import time
 import uuid
 from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
+
+from xoscar.utils import get_next_port
 
 from ....types import (
     ChatCompletion,
@@ -40,6 +44,10 @@ class SGLANGModelConfig(TypedDict, total=False):
     mem_fraction_static: float
     log_level: str
     attention_reduce_in_fp32: bool  # For gemma
+    # distributed
+    nnodes: Optional[int]
+    node_rank: Optional[int]
+    dist_init_addr: Optional[str]
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
@@ -111,6 +119,16 @@ class SGLANGModel(LLM):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._model_config = model_config
         self._engine = None
+        self._address = model_config.pop("address", None)  # type: ignore
+        self._n_worker = model_config.pop("n_worker", 1)  # type: ignore
+        self._shard = model_config.pop("shard", 0)  # type: ignore
+        self._driver_info = model_config.pop("driver_info", None)  # type: ignore
+        self._loading_thread = None
+        self._loading_error = None
+
+    @property
+    def driver_info(self) -> Optional[dict]:
+        return self._driver_info
 
     def load(self):
         try:
@@ -132,18 +150,84 @@ class SGLANGModel(LLM):
         else:
             self._model_config.setdefault("attention_reduce_in_fp32", False)
 
-        logger.info(
-            f"Loading {self.model_uid} with following model config: {self._model_config}"
-        )
+        # gen port for sgl Runtime,
+        # this is useful for sglang service on a same machine.
+        # sglang typically find a port between [port, 40000]
+        # we need to ensure the generated port < 40000
+        sgl_port = None
+        for _ in range(10):
+            sgl_port = get_next_port()
+            if sgl_port >= 40000:
+                sgl_port = None
+            else:
+                break
+        if sgl_port is None:
+            raise ValueError("Failed to find a port for sglang")
 
-        self._engine = sgl.Runtime(
-            model_path=self.model_path,
-            tokenizer_path=self.model_path,
-            **self._model_config,
-        )
+        if self._n_worker > 1:
+            # distributed inference
+            self._model_config["nnodes"] = self._n_worker
+            self._model_config["node_rank"] = self._shard
+            # model across multiple workers
+            if self._shard == 0:
+                # distributed, need to init driver_info
+                assert self._driver_info is None
+                # This must run inside Xoscar pool
+                dist_init_addr = f"{self._address.split(':', 1)[0]}:{get_next_port()}"
+                self._driver_info = {"dist_init_addr": dist_init_addr}
+                self._model_config["dist_init_addr"] = dist_init_addr
+            else:
+                assert self._driver_info is not None
+                self._model_config["dist_init_addr"] = self._driver_info[
+                    "dist_init_addr"
+                ]
+
+            logger.info(
+                f"Loading {self.model_uid}, shard({self._shard} of {self._n_worker}) with following model config: {self._model_config}"
+            )
+
+            def _load():
+                try:
+                    self._engine = sgl.Runtime(
+                        model_path=self.model_path,
+                        tokenizer_path=self.model_path,
+                        port=sgl_port,
+                        **self._model_config,
+                    )
+                except:
+                    logger.exception("Creating sglang Runtime failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+            if self._shard == 0:
+                # wait for 3 seconds to ensure torch distributed inited first
+                self._loading_thread.join(3)
+        else:
+            logger.info(
+                f"Loading {self.model_uid} with following model config: {self._model_config}"
+            )
+
+            self._engine = sgl.Runtime(
+                model_path=self.model_path,
+                tokenizer_path=self.model_path,
+                port=sgl_port,
+                **self._model_config,
+            )
+
+    def wait_for_load(self):
+        if self._loading_thread:
+            if self._shard == 0:
+                # for the shard 0, we wait it to complete
+                # the sglang will serve forever for the other shards,
+                # so we only check if any error happens.
+                self._loading_thread.join()
+            if self._loading_error:
+                _, err, tb = self._loading_error
+                raise err.with_traceback(tb)
 
     def stop(self):
-        logger.info("Stopping SGLang engine")
+        logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
         self._engine.shutdown()
 
     def _sanitize_model_config(
@@ -155,7 +239,7 @@ class SGLANGModel(LLM):
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", True)
-        model_config.setdefault("tp_size", cuda_count)
+        model_config.setdefault("tp_size", cuda_count * self._n_worker)
         # See https://github.com/sgl-project/sglang/blob/00023d622a6d484e67ef4a0e444f708b8fc861c8/python/sglang/srt/server_args.py#L100-L109
         mem_fraction_static = model_config.get("mem_fraction_static")
         if mem_fraction_static is None:
@@ -163,7 +247,7 @@ class SGLANGModel(LLM):
             if tp_size >= 16:
                 model_config["mem_fraction_static"] = 0.79
             elif tp_size >= 8:
-                model_config["mem_fraction_static"] = 0.83
+                model_config["mem_fraction_static"] = 0.81
             elif tp_size >= 4:
                 model_config["mem_fraction_static"] = 0.85
             elif tp_size >= 2:
