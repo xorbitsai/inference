@@ -42,6 +42,8 @@
     "otherModel": "other model",
     "confirmDeleteCustomModel": "Are you sure to delete this custom model? This behavior is irreversible.",
     "lastConfig": "Last Config",
+    "commandLineParsing": "Command Line Argument Parsing",
+    "copyToCommandLine": "Copy as Command Line Command",
     "modelEngine": "Model Engine",
     "modelFormat": "Model Format",
     "modelSize": "Model Size",
@@ -74,6 +76,8 @@
     "goBack": "Go Back",
     "copyJson": "Copy Json",
     "cancel": "Cancel",
+    "confirm": "Confirm",
+    "placeholderTip": "Please enter",
     "fillCompleteParametersBeforeAdding": "Please fill in the complete parameters before adding!",
     "model_format": "model_format",
     "model_size_in_billions": "model_size_in_billions",
@@ -86,6 +90,7 @@
     "copyPath": "Copy path",
     "noCacheForNow": "No cache for now!",
     "confirmDeleteCacheFiles": "Confirm deletion of cache files? This action is irreversible.",
+    "commandLineTip": "Please confirm whether the model names are consistent.",
     "featured": "featured",
     "all": "all"
   },
@@ -184,5 +189,9 @@
     "gpuMemUsage": "GPU Mem Usage",
     "gpuMemTotal": "GPU Mem Total",
     "worker": "Worker"
+  },
+
+  "components": {
+    "copySuccess": "Copied to clipboard!"
   }
 }

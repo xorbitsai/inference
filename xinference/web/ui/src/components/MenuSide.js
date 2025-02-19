@@ -100,6 +100,7 @@ const MenuSide = () => {
           boxSizing: 'border-box',
         },
       }}
+      style={{ zIndex: 1 }}
     >
       {/* Title */}
       <Box
