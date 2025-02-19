@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-23 14:46+0800\n"
+"POT-Creation-Date: 2025-02-17 18:23+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -51,8 +51,8 @@ msgid "Limitations"
 msgstr "限制"
 
 #: ../../source/user_guide/vllm_enhancement.rst:21
-msgid "Xavier requires vllm version >= ``0.6.5``."
-msgstr "Xavier 要求 vllm 版本不低于 ``0.6.5`` 。"
+msgid "Xavier requires vllm version >= ``0.7.0``."
+msgstr "Xavier 要求 vllm 版本不低于 ``0.7.0`` 。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:22
 msgid ""
