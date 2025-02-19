@@ -21,7 +21,7 @@ import xoscar as xo
 from vllm.config import CacheConfig, LoRAConfig, SchedulerConfig
 from vllm.core.block.interfaces import Block
 from vllm.core.interfaces import BlockSpaceManager
-from vllm.core.scheduler import Scheduler, SchedulerOutputs
+from vllm.core.scheduler import ScheduledSequenceGroup, Scheduler, SchedulerOutputs
 from vllm.sequence import (
     SequenceData,
     SequenceGroup,
@@ -216,7 +216,7 @@ class XavierScheduler(Scheduler):
         """Xinference Change!!!
         Additional data structures required by Xavier.
         """
-        scheduled_seq_groups = []
+        scheduled_seq_groups: List[ScheduledSequenceGroup] = []
         has_transferring = False
 
         # Create input data structures.
@@ -288,7 +288,7 @@ class XavierScheduler(Scheduler):
                     has_transferring = True
                     continue
                 else:
-                    scheduled_seq_groups.append(seq_group)
+                    scheduled_seq_groups.append(scheduled_seq_group)
 
             if self.cache_config.enable_prefix_caching:
                 common_computed_block_nums = (
