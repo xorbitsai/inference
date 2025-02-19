@@ -64,6 +64,7 @@ import PasteDialog from './components/pasteDialog'
 import { additionalParameterTipList, llmAllDataKey } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
+const enginesWithNWorker = ['SGLang']
 
 const ModelCard = ({
   url,
@@ -95,6 +96,7 @@ const ModelCard = ({
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [nWorker, setNWorker] = useState(1)
   const [nGPU, setNGPU] = useState('auto')
   const [nGpu, setNGpu] = useState(gpuAvailable === 0 ? 'CPU' : 'GPU')
   const [nGPULayers, setNGPULayers] = useState(-1)
@@ -292,6 +294,7 @@ const ModelCard = ({
         String(requestLimits)?.trim() === ''
           ? null
           : Number(String(requestLimits)?.trim()),
+      n_worker: nWorker,
       worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
       gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
@@ -563,6 +566,7 @@ const ModelCard = ({
       model_format,
       model_size_in_billions,
       quantization,
+      n_worker,
       n_gpu,
       n_gpu_layers,
       replica,
@@ -583,6 +587,7 @@ const ModelCard = ({
     setModelFormat(model_format || '')
     setModelSize(String(model_size_in_billions) || '')
     setQuantization(quantization || '')
+    setNWorker(Number(n_worker) || 1)
     setNGPU(n_gpu || 'auto')
     if (n_gpu_layers >= 0) {
       setNGPULayers(n_gpu_layers)
@@ -728,6 +733,7 @@ const ModelCard = ({
       setModelFormat('')
       setModelSize('')
       setQuantization('')
+      setNWorker(1)
       setNGPU('auto')
       setReplica(1)
       setModelUID('')
@@ -1395,13 +1401,21 @@ const ModelCard = ({
                       disabled={!modelFormat || !modelSize || !quantization}
                     >
                       <InputLabel id="n-gpu-label">
-                        {t('launchModel.nGPU')}
+                        {t(
+                          enginesWithNWorker.includes(modelEngine)
+                            ? 'launchModel.nGPUPerWorker'
+                            : 'launchModel.nGPU'
+                        )}
                       </InputLabel>
                       <Select
                         labelId="n-gpu-label"
                         value={nGPU}
                         onChange={(e) => setNGPU(e.target.value)}
-                        label={t('launchModel.nGPU')}
+                        label={t(
+                          enginesWithNWorker.includes(modelEngine)
+                            ? 'launchModel.nGPUPerWorker'
+                            : 'launchModel.nGPU'
+                        )}
                       >
                         {getNGPURange().map((v) => {
                           return (
@@ -1492,6 +1506,25 @@ const ModelCard = ({
                         </Alert>
                       )}
                     </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    {enginesWithNWorker.includes(modelEngine) && (
+                      <FormControl variant="outlined" margin="normal" fullWidth>
+                        <TextField
+                          type="number"
+                          InputProps={{
+                            inputProps: {
+                              min: 1,
+                            },
+                          }}
+                          label={t('launchModel.workerCount.optional')}
+                          value={nWorker}
+                          onChange={(e) =>
+                            setNWorker(parseInt(e.target.value, 10))
+                          }
+                        />
+                      </FormControl>
+                    )}
                   </Grid>
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
