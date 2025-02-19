@@ -135,7 +135,7 @@ jobs:
             pip install tomli 
           else
             pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-            pip install transformers
+            pip install "transformers<4.49"
             pip install attrdict
             pip install "timm>=0.9.16"
             pip install torch torchvision
@@ -172,7 +172,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers<4.49"
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr<1.1.17"
