@@ -147,6 +147,38 @@ def test_cmdline(setup, stream, model_uid):
     assert model_uid not in result.stdout
 
 
+def test_cmdline_model_path_error(setup):
+    endpoint, _ = setup
+    runner = CliRunner(mix_stderr=False)
+
+    # launch model
+    result = runner.invoke(
+        model_launch,
+        [
+            "--endpoint",
+            endpoint,
+            "--model-name",
+            "tiny-llama",
+            "--size-in-billions",
+            1,
+            "--model-format",
+            "ggufv2",
+            "--quantization",
+            "Q2_K",
+            "--model-path",
+            "/path/to/model",
+            "--model_path",
+            "/path/to/model",
+        ],
+    )
+    assert result.exit_code > 0
+    with pytest.raises(
+        ValueError, match="Cannot set both for --model-path and --model_path"
+    ):
+        t, e, tb = result.exc_info
+        raise e.with_traceback(tb)
+
+
 def test_cmdline_of_custom_model(setup):
     endpoint, _ = setup
     runner = CliRunner()
