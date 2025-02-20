@@ -143,6 +143,8 @@ class LLMFamilyV1(BaseModel):
     chat_template: Optional[str]
     stop_token_ids: Optional[List[int]]
     stop: Optional[List[str]]
+    reasoning_start_tag: Optional[str]
+    reasoning_end_tag: Optional[str]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):

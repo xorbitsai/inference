@@ -43,6 +43,7 @@ from ....types import (
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
+from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -72,6 +73,7 @@ class VLLMModelConfig(TypedDict, total=False):
     limit_mm_per_prompt: Optional[Dict[str, int]]
     guided_decoding_backend: Optional[str]
     scheduling_policy: Optional[str]
+    reasoning_content: bool
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -222,6 +224,7 @@ class VLLMModel(LLM):
         model_path: str,
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
+        reasoning_content: Optional[bool] = False,
     ):
         try:
             from vllm.lora.request import LoRARequest
@@ -239,6 +242,12 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
+        self.reasoning_parser = None
+
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in model_family.model_ability and reasoning_content:
+            module_name = model_family.model_family or model_family.model_name
+            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
@@ -986,10 +995,21 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 inputs, generate_config, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
-            return self._async_to_chat_completion_chunks(agen)
+            if self.reasoning_parser is not None:
+                return self._async_to_chat_completion_chunks(agen)
+            else:
+                return self._async_to_chat_completion_chunks(agen)
         else:
             c = await self.async_generate(
                 inputs, generate_config, request_id=request_id
             )
             assert not isinstance(c, AsyncGenerator)
-            return self._to_chat_completion(c)
+            if self.reasoning_parser is not None:
+                reasoning_parser = self.reasoning_parser(
+                    self.model_family.reasoning_start_tag,
+                    self.model_family.reasoning_end_tag,
+                )
+                message = reasoning_parser.extract_reasoning_content(c)
+                return self._to_chat_completion_reasoning(c, message)
+            else:
+                return self._to_chat_completion(c)

@@ -816,6 +816,12 @@ def remove_cache(
     help="Whether or not to allow for custom models defined on the Hub in their own modeling files.",
 )
 @click.option(
+    "--reasoning-content",
+    default=False,
+    type=bool,
+    help="Whether or not to enable reasoning content in model responses.",
+)
+@click.option(
     "--api-key",
     "-ak",
     default=None,
@@ -841,6 +847,7 @@ def model_launch(
     worker_ip: Optional[str],
     gpu_idx: Optional[str],
     trust_remote_code: bool,
+    reasoning_content: bool,
     api_key: Optional[str],
 ):
     kwargs = {}
@@ -919,6 +926,7 @@ def model_launch(
         worker_ip=worker_ip,
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
+        reasoning_content=reasoning_content,
         **kwargs,
     )
 

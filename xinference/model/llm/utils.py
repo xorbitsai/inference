@@ -47,6 +47,7 @@ from ...types import (
     CompletionChunk,
     CompletionUsage,
 )
+from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParser
 from .llm_family import (
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
@@ -378,6 +379,53 @@ class ChatModelMixin:
                 yield cls._to_chat_completion_chunk(chunk)
             i += 1
 
+    @classmethod
+    async def _async_to_chat_completion_reasoning_chunks(
+        cls,
+        chunks: AsyncGenerator[CompletionChunk, None],
+        reasoning_parser: ReasoningParser,
+    ):
+        i = 0
+        previous_text = ""
+        current_text = ""
+        async for chunk in chunks:
+            delta_text = chunk["choices"][0]["text"]
+            current_text = previous_text + delta_text
+            delta = reasoning_parser.extract_reasoning_content_streaming(
+                previous_text=previous_text,
+                current_text=current_text,
+                delta_text=delta_text,
+            )
+            if i == 0:
+                yield cast(
+                    ChatCompletionChunk,
+                    {
+                        "id": "chat" + chunk["id"],
+                        "model": chunk["model"],
+                        "created": chunk["created"],
+                        "object": "chat.completion.chunk",
+                        "choices": [
+                            {
+                                "index": i,
+                                "delta": delta,
+                                "finish_reason": None,
+                            }
+                        ],
+                    },
+                )
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield cls._get_final_chat_completion_chunk(chunk)
+            else:
+                yield await reasoning_parser.extract_reasoning_content_streaming(
+                    previous_text="",
+                    current_text="",
+                    delta_text=chunk,
+                )
+            i += 1
+            previous_text = current_text
+
     @staticmethod
     def _to_chat_completion(completion: Completion) -> ChatCompletion:
         return {
@@ -395,6 +443,26 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
                 for i, choice in enumerate(completion["choices"])
+            ],
+            "usage": completion["usage"],
+        }
+
+    @staticmethod
+    def _to_chat_completion_reasoning(
+        completion: Completion, message
+    ) -> ChatCompletion:
+        choices = completion.get("choices", [])
+        return {
+            "id": "chat" + completion["id"],
+            "object": "chat.completion",
+            "created": completion["created"],
+            "model": completion["model"],
+            "choices": [
+                {
+                    "index": 0,  # 只取第一个choice
+                    "message": message,
+                    "finish_reason": choices[0]["finish_reason"] if choices else None,
+                }
             ],
             "usage": completion["usage"],
         }
