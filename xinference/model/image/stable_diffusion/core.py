@@ -425,7 +425,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
     def _reset_when_done(self, model: Any, sampler_name: str):
         scheduler = DiffusionModel._get_scheduler(model, sampler_name)
         if self._need_set_scheduler(scheduler):
-            logger.debug("Already used the scheduler")
+            logger.debug("Use scheduler %s", scheduler)
             default_scheduler = model.scheduler
             model.scheduler = scheduler
             try:
