@@ -412,18 +412,21 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             raise ValueError(f"Unknown sampler: {sampler_name}")
 
-    def _set_scheduler(self, model: Any, sampler_name: str):
+    def _set_scheduler(self, model: Any, sampler_name: str) -> bool:
         """Determine whether it is necessary to set up a scheduler"""
         if self._model_spec is None:
             return False
         is_flux = "FLUX" in self._model_spec.model_name
         scheduler = DiffusionModel._get_scheduler(model, sampler_name)
-        return scheduler is not None and not is_flux, scheduler
+        if scheduler is None or is_flux:
+            warnings.warn("No scheduler found or FLUX model, skipping scheduler setup")
+            return False
+        return scheduler is not None and not is_flux
 
     @contextlib.contextmanager
     def _reset_when_done(self, model: Any, sampler_name: str):
-        set_scheduler, scheduler = self._set_scheduler(model, sampler_name)
-        if set_scheduler:
+        scheduler = DiffusionModel._get_scheduler(model, sampler_name)
+        if self._set_scheduler(model, sampler_name):
             default_scheduler = model.scheduler
             model.scheduler = scheduler
             try:
