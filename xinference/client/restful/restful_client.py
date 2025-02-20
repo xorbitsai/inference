@@ -917,11 +917,13 @@ class Client:
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
+        n_worker: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
         peft_model_config: Optional[Dict] = None,
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        model_path: Optional[str] = None,
         **kwargs,
     ) -> str:
         """
@@ -945,8 +947,10 @@ class Client:
             The quantization of model.
         replica: Optional[int]
             The replica of model, default is 1.
+        n_worker: int
+            Number of workers to run.
         n_gpu: Optional[Union[int, str]],
-            The number of GPUs used by the model, default is "auto".
+            The number of GPUs used by the model, default is "auto". If n_worker>1, means number of GPUs per worker.
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
         peft_model_config: Optional[Dict]
             - "lora_list": A List of PEFT (Parameter-Efficient Fine-Tuning) model and path.
@@ -959,6 +963,8 @@ class Client:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        model_path: Optional[str]
+            Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         **kwargs:
             Any other parameters been specified.
 
@@ -985,10 +991,12 @@ class Client:
             "model_format": model_format,
             "quantization": quantization,
             "replica": replica,
+            "n_worker": n_worker,
             "n_gpu": n_gpu,
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "model_path": model_path,
         }
 
         for key, value in kwargs.items():
