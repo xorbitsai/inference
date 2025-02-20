@@ -22,7 +22,6 @@ import logging
 import os
 import re
 import sys
-import warnings
 from glob import glob
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -418,7 +417,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return False
         is_flux = "FLUX" in self._model_spec.model_name
         if scheduler is None or is_flux:
-            warnings.warn("No scheduler found or FLUX model, skipping scheduler setup")
+            logger.warning("No scheduler found or FLUX model, skipping scheduler setup")
             return False
         return True
 
@@ -525,7 +524,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         for key in list(kwargs):
             allow_key = model_accept_param(key, model)
             if not allow_key:
-                warnings.warn(f"{type(model)} cannot accept `{key}`, will ignore it")
+                logger.warning(f"{type(model)} cannot accept `{key}`, will ignore it")
                 kwargs.pop(key)
 
     def text_to_image(
