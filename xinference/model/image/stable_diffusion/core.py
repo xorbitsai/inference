@@ -416,13 +416,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
     def _reset_when_done(self, model: Any, sampler_name: str):
         assert model is not None
         if self._model_spec is None:
-            is_flux_sampler = False
+            is_flux = False
         else:
-            is_flux_sampler = "FLUX" in self._model_spec.model_name
+            is_flux = "FLUX" in self._model_spec.model_name
         scheduler = DiffusionModel._get_scheduler(model, sampler_name)
         # When the model is not flux
-        should_swap_scheduler = scheduler is not None and not is_flux_sampler
-        if should_swap_scheduler:
+        set_scheduler = scheduler is not None and not is_flux
+        if set_scheduler:
             default_scheduler = model.scheduler
             model.scheduler = scheduler
             try:
