@@ -1011,6 +1011,11 @@ class WorkerActor(xo.StatelessActor):
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
 
+        pool_addresses = None
+        if model_ref is not None:
+            # pool addresses if model.need_create_pools()
+            pool_addresses = await model_ref.get_pool_addresses()
+
         try:
             await xo.destroy_actor(model_ref)
         except Exception as e:
@@ -1018,8 +1023,16 @@ class WorkerActor(xo.StatelessActor):
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
             )
         try:
+            to_remove_addresses = []
             subpool_address = self._model_uid_to_addr[model_uid]
-            await self._main_pool.remove_sub_pool(subpool_address, force=True)
+            to_remove_addresses.append(subpool_address)
+            if pool_addresses:
+                to_remove_addresses.extend(pool_addresses)
+            logger.debug("Remove sub pools: %s", to_remove_addresses)
+            coros = []
+            for to_remove_addr in to_remove_addresses:
+                coros.append(self._main_pool.remove_sub_pool(to_remove_addr, force=True))
+            await asyncio.gather(*coros)
         except Exception as e:
             logger.debug(
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e

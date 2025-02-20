@@ -292,6 +292,9 @@ class VLLMModel(LLM):
     def set_pool_addresses(self, pool_addresses: List[str]):
         self._pool_addresses = pool_addresses  # type: ignore
 
+    def get_pool_addresses(self) -> Optional[List[str]]:
+        return self._pool_addresses
+
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         # loop will be passed into XinferenceDistributedExecutor,
         # to call aynsc method with asyncio.run_coroutine_threadsafe

@@ -503,6 +503,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         if hasattr(self._model, "set_pool_addresses"):
             self._model.set_pool_addresses(pool_addresses)
 
+    def get_pool_addresses(self) -> Optional[List[str]]:
+        if hasattr(self._model, "get_pool_addresses"):
+            return self._model.get_pool_addresses()
+        return None
+
     def set_worker_addresses(self, shard: int, worker_addresses: List[str]):
         if hasattr(self._model, "set_worker_addresses"):
             self._model.set_worker_addresses(shard, worker_addresses)
