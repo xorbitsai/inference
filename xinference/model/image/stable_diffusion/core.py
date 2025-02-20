@@ -412,12 +412,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             raise ValueError(f"Unknown sampler: {sampler_name}")
 
-    @staticmethod
     @contextlib.contextmanager
-    def _reset_when_done(model: Any, sampler_name: str):
+    def _reset_when_done(self, model: Any, sampler_name: str):
         assert model is not None
-        name_or_path: Optional[str] = getattr(model, "_name_or_path", None)
-        is_flux_sampler = "flux" in name_or_path.casefold() if name_or_path else False
+        if self._model_spec is None:
+            is_flux_sampler = False
+        else:
+            is_flux_sampler = "FLUX" in self._model_spec.model_name
         scheduler = DiffusionModel._get_scheduler(model, sampler_name)
         # When the model is not flux
         should_swap_scheduler = scheduler is not None and not is_flux_sampler
