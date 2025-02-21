@@ -383,6 +383,8 @@ When you no longer need a model that is currently running, you can remove it in 
     client = RESTfulClient("http://127.0.0.1:9997")
     client.terminate_model(model_uid="qwen2.5-instruct")
 
+.. _distributed_getting_started:
+
 Deploy Xinference In a Cluster
 ==============================
 

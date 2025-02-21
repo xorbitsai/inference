@@ -22,6 +22,8 @@ transformers
 ~~~~~~~~~~~~
 Transformers supports the inference of most state-of-art models. It is the default backend for models in PyTorch format.
 
+.. _vllm_backend:
+
 vLLM
 ~~~~
 vLLM is a fast and easy-to-use library for LLM inference and serving.
@@ -74,11 +76,15 @@ Currently, supported model includes:
 - ``internlm3-instruct``
 .. vllm_end
 
+.. _sglang_backend:
+
 SGLang
 ~~~~~~
 `SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance inference runtime with RadixAttention.
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
+
+.. _mlx_backend:
 
 MLX
 ~~~
