@@ -346,11 +346,12 @@ class InternVLChatModel(PytorchChatModel):
         IMG_END_TOKEN = "</img>"
         IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"
 
+        generate_config = generate_config if isinstance(generate_config, dict) else {}
+
         generation_config = {
-            "max_new_tokens": (
-                generate_config.get("max_tokens", 1024) if generate_config else 1024
-            ),
+            "max_new_tokens": (generate_config.get("max_tokens", 1024)),
             "do_sample": False,
+            "temperature": generate_config.get("temperature", None),
         }
 
         stream = (
