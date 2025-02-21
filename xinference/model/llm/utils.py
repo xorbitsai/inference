@@ -382,6 +382,8 @@ class ChatModelMixin:
                 chat_chunk = cls._to_chat_completion_chunk(chunk)
             if reasoning_parser is not None:
                 choices = chat_chunk.get("choices")
+                if choices is None:
+                    continue
                 for choice in choices:
                     delta = choice.get("delta")
                     if not delta:
@@ -410,7 +412,7 @@ class ChatModelMixin:
             if reasoning_parser is not None:
                 reasoning_content, content = reasoning_parser.extract_reasoning_content(
                     choice
-                )
+                )  # type: ignore
 
             message = {"role": "assistant", "content": content}
 
@@ -430,7 +432,7 @@ class ChatModelMixin:
             "object": "chat.completion",
             "created": completion["created"],
             "model": completion["model"],
-            "choices": choices,
+            "choices": choices,  # type: ignore
             "usage": completion["usage"],
         }
 
