@@ -415,9 +415,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         """Determine whether it is necessary to set up a scheduler"""
         if self._model_spec is None:
             return False
-        is_flux = "FLUX" in self._model_spec.model_name
-        if scheduler is None or is_flux:
-            logger.warning("No scheduler found or FLUX model, skipping scheduler setup")
+        if scheduler is None:
+            return False
+        if "FLUX" in self._model_spec.model_name:
+            logger.warning("FLUX model, skipping scheduler setup")
             return False
         return True
 
