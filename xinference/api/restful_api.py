@@ -1330,10 +1330,9 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            embedding_bytes = await model.create_embedding(body.input, **kwargs)
-            embedding = json.loads(embedding_bytes.decode("utf-8"))
-            embedding["model"] = model_uid  # type: ignore
-            return Response(json.dumps(embedding), media_type="application/json")
+            kwargs["model_uid"] = model_uid
+            embedding = await model.create_embedding(body.input, **kwargs)
+            return Response(embedding, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
