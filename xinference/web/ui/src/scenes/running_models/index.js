@@ -682,13 +682,13 @@ const RunningModels = () => {
 
   useEffect(() => {
     const dataMap = {
-      'Language Models': llmData,
-      'Embedding Models': embeddingModelData,
-      'Rerank Models': rerankModelData,
-      'Image Models': imageModelData,
-      'Audio Models': audioModelData,
-      'Video Models': videoModelData,
-      'Flexible Models': flexibleModelData,
+      'model.languageModels': llmData,
+      'model.embeddingModels': embeddingModelData,
+      'model.rerankModels': rerankModelData,
+      'model.imageModels': imageModelData,
+      'model.audioModels': audioModelData,
+      'model.videoModels': videoModelData,
+      'model.flexibleModels': flexibleModelData,
     }
 
     setTabList(

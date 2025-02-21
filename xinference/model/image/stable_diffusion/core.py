@@ -22,7 +22,6 @@ import logging
 import os
 import re
 import sys
-import warnings
 from glob import glob
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -412,12 +411,22 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             raise ValueError(f"Unknown sampler: {sampler_name}")
 
-    @staticmethod
+    def _need_set_scheduler(self, scheduler: Any) -> bool:
+        """Determine whether it is necessary to set up a scheduler"""
+        if self._model_spec is None:
+            return False
+        if scheduler is None:
+            return False
+        if "FLUX" in self._model_spec.model_name:
+            logger.warning("FLUX model, skipping scheduler setup")
+            return False
+        return True
+
     @contextlib.contextmanager
-    def _reset_when_done(model: Any, sampler_name: str):
-        assert model is not None
+    def _reset_when_done(self, model: Any, sampler_name: str):
         scheduler = DiffusionModel._get_scheduler(model, sampler_name)
-        if scheduler:
+        if self._need_set_scheduler(scheduler):
+            logger.debug("Use scheduler %s", scheduler)
             default_scheduler = model.scheduler
             model.scheduler = scheduler
             try:
@@ -517,7 +526,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         for key in list(kwargs):
             allow_key = model_accept_param(key, model)
             if not allow_key:
-                warnings.warn(f"{type(model)} cannot accept `{key}`, will ignore it")
+                logger.warning(f"{type(model)} cannot accept `{key}`, will ignore it")
                 kwargs.pop(key)
 
     def text_to_image(

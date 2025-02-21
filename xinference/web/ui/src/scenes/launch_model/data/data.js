@@ -6,6 +6,7 @@ export const llmAllDataKey = [
   'model_format',
   'model_size_in_billions',
   'quantization',
+  'n_worker',
   'n_gpu',
   'n_gpu_layers',
   'replica',
