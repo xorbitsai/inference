@@ -134,7 +134,7 @@ class LLMFamilyV1(BaseModel):
     model_name: str
     model_lang: List[str]
     model_ability: List[
-        Literal["embed", "generate", "chat", "tools", "vision", "audio"]
+        Literal["embed", "generate", "chat", "tools", "vision", "audio", "reasoning"]
     ]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
@@ -143,6 +143,8 @@ class LLMFamilyV1(BaseModel):
     chat_template: Optional[str]
     stop_token_ids: Optional[List[int]]
     stop: Optional[List[str]]
+    reasoning_start_tag: Optional[str]
+    reasoning_end_tag: Optional[str]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):

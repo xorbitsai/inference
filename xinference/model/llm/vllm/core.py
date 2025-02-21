@@ -43,6 +43,8 @@ from ....types import (
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
+from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
+from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -72,6 +74,7 @@ class VLLMModelConfig(TypedDict, total=False):
     limit_mm_per_prompt: Optional[Dict[str, int]]
     guided_decoding_backend: Optional[str]
     scheduling_policy: Optional[str]
+    reasoning_content: bool
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -240,6 +243,7 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
+        self.reasoning_parser = None
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
@@ -268,6 +272,16 @@ class VLLMModel(LLM):
             multiprocessing.set_start_method("fork", force=True)
 
         self._model_config = self._sanitize_model_config(self._model_config)
+        reasoning_content = self._model_config.pop("reasoning_content")
+
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in self.model_family.model_ability and reasoning_content:
+            module_name = self.model_family.model_family or self.model_family.model_name
+            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
+            self.reasoning_parser = self.reasoning_parser(
+                self.model_family.reasoning_start_tag,
+                self.model_family.reasoning_end_tag,
+            )
         if self.lora_modules is None:
             self.lora_requests = []
         else:
@@ -374,6 +388,7 @@ class VLLMModel(LLM):
         model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("guided_decoding_backend", "outlines")
+        model_config.setdefault("reasoning_content", False)
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
             model_config.setdefault("scheduling_policy", "fcfs")
@@ -841,7 +856,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(agen)
+            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, request_id=request_id
@@ -849,7 +864,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
+            return self._to_chat_completion(c, self.reasoning_parser)
 
 
 class VLLMVisionModel(VLLMModel, ChatModelMixin):

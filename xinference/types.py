@@ -177,6 +177,7 @@ class Completion(TypedDict):
 
 class ChatCompletionMessage(TypedDict):
     role: str
+    reasoning_content: NotRequired[str]
     content: Optional[str]
     user: NotRequired[str]
     tool_calls: NotRequired[List]
@@ -199,6 +200,7 @@ class ChatCompletion(TypedDict):
 
 class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
+    reasoning_content: NotRequired[str]
     content: NotRequired[str]
     tool_calls: NotRequired[List[ToolCalls]]
 
