@@ -386,7 +386,7 @@ class ChatModelMixin:
                     delta = choice.get("delta")
                     if not delta:
                         continue
-                    current_text = previous_text + delta.get("content")
+                    current_text = previous_text + delta.get("content", "")
                     choice[
                         "delta"
                     ] = reasoning_parser.extract_reasoning_content_streaming(
