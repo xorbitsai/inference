@@ -22,7 +22,7 @@ class ReasoningParser(ABC):
         self.reasoning_end_tag = reasoning_end_tag
 
     @abstractmethod
-    async def extract_reasoning_content_streaming(
+    def extract_reasoning_content_streaming(
         self,
         previous_text: str,
         current_text: str,

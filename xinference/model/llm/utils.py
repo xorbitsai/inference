@@ -367,7 +367,7 @@ class ChatModelMixin:
     async def _async_to_chat_completion_chunks(
         cls,
         chunks: AsyncGenerator[CompletionChunk, None],
-        reasoning_parse: Optional[ReasoningParser] = None,
+        reasoning_parser: Optional[ReasoningParser] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
         previous_text = ""
@@ -380,7 +380,7 @@ class ChatModelMixin:
                 chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
                 chunk = cls._to_chat_completion_chunk(chunk)
-            if reasoning_parse is not None:
+            if reasoning_parser is not None:
                 choices = chunk.get("choices")
                 for choice in choices:
                     delta = choice.get("delta")
@@ -389,7 +389,7 @@ class ChatModelMixin:
                     current_text = previous_text + delta.get("content")
                     choice[
                         "delta"
-                    ] = await reasoning_parse.extract_reasoning_content_streaming(
+                    ] = reasoning_parser.extract_reasoning_content_streaming(
                         previous_text=previous_text,
                         current_text=current_text,
                         delta=delta,
@@ -400,15 +400,15 @@ class ChatModelMixin:
 
     @staticmethod
     def _to_chat_completion(
-        completion: Completion, reasoning_parse: Optional[ReasoningParser] = None
+        completion: Completion, reasoning_parser: Optional[ReasoningParser] = None
     ) -> ChatCompletion:
         choices = []
         for i, choice in enumerate(completion["choices"]):
             content = choice["text"]
             reasoning_content = None
 
-            if reasoning_parse is not None:
-                reasoning_content, content = reasoning_parse.extract_reasoning_content(
+            if reasoning_parser is not None:
+                reasoning_content, content = reasoning_parser.extract_reasoning_content(
                     choice
                 )
 

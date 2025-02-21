@@ -19,7 +19,7 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
             rf"{self.reasoning_start_tag}(.*?){self.reasoning_end_tag}", re.DOTALL
         )
 
-    async def extract_reasoning_content_streaming(
+    def extract_reasoning_content_streaming(
         self,
         previous_text: str,
         current_text: str,

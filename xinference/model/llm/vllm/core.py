@@ -388,6 +388,7 @@ class VLLMModel(LLM):
         model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("guided_decoding_backend", "outlines")
+        model_config.setdefault("reasoning_content", False)
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
             model_config.setdefault("scheduling_policy", "fcfs")
