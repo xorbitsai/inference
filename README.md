@@ -38,6 +38,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 - Support Continuous batching for Transformers engine: [#1724](https://github.com/xorbitsai/inference/pull/1724)
 - Support MLX backend for Apple Silicon chips: [#1765](https://github.com/xorbitsai/inference/pull/1765)
@@ -45,16 +46,15 @@ potential of cutting-edge AI models.
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
-- Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [DeepSeek V3 and R1](https://github.com/deepseek-ai/DeepSeek-R1): [#2864](https://github.com/xorbitsai/inference/pull/2864)
+- Built-in support for [InternVL2.5](https://internvl.github.io/blog/2024-12-05-InternVL-2.5/): [#2776](https://github.com/xorbitsai/inference/pull/2776)
 - Built-in support for [DeepSeek-R1-Distill-Llama](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2811](https://github.com/xorbitsai/inference/pull/2811)
 - Built-in support for [DeepSeek-R1-Distill-Qwen](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2781](https://github.com/xorbitsai/inference/pull/2781)
 - Built-in support for [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M): [#2790](https://github.com/xorbitsai/inference/pull/2790)
 - Built-in support for [qwen2.5-vl](https://github.com/QwenLM/Qwen2.5-VL): [#2788](https://github.com/xorbitsai/inference/pull/2788)
 - Built-in support for [internlm3-instruct](https://github.com/InternLM/InternLM): [#2789](https://github.com/xorbitsai/inference/pull/2789)
 - Built-in support for [MeloTTS](https://github.com/myshell-ai/MeloTTS): [#2760](https://github.com/xorbitsai/inference/pull/2760)
-- Built-in support for [CogAgent](https://github.com/THUDM/CogAgent): [#2740](https://github.com/xorbitsai/inference/pull/2740)
-- Built-in support for [HunyuanVideo](https://github.com/Tencent/HunyuanVideo): [#2721](https://github.com/xorbitsai/inference/pull/2721)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.

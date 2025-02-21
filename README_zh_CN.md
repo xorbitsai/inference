@@ -34,6 +34,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 - 支持 Transformers 引擎的持续批处理: [#1724](https://github.com/xorbitsai/inference/pull/1724)
 - 支持针对苹果芯片优化的MLX后端: [#1765](https://github.com/xorbitsai/inference/pull/1765)
@@ -41,16 +42,15 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 - 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
-- 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### 新模型
+- 内置 [DeepSeek V3 and R1](https://github.com/deepseek-ai/DeepSeek-R1): [#2864](https://github.com/xorbitsai/inference/pull/2864)
+- 内置 [InternVL2.5](https://internvl.github.io/blog/2024-12-05-InternVL-2.5/): [#2776](https://github.com/xorbitsai/inference/pull/2776)
 - 内置 [DeepSeek-R1-Distill-Llama](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2811](https://github.com/xorbitsai/inference/pull/2811)
 - 内置 [DeepSeek-R1-Distill-Qwen](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2781](https://github.com/xorbitsai/inference/pull/2781)
 - 内置 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M): [#2790](https://github.com/xorbitsai/inference/pull/2790)
 - 内置 [qwen2.5-vl](https://github.com/QwenLM/Qwen2.5-VL): [#2788](https://github.com/xorbitsai/inference/pull/2788)
 - 内置 [internlm3-instruct](https://github.com/InternLM/InternLM): [#2789](https://github.com/xorbitsai/inference/pull/2789)
 - 内置 [MeloTTS](https://github.com/myshell-ai/MeloTTS): [#2760](https://github.com/xorbitsai/inference/pull/2760)
-- 内置 [CogAgent](https://github.com/THUDM/CogAgent): [#2740](https://github.com/xorbitsai/inference/pull/2740)
-- 内置 [HunyuanVideo](https://github.com/Tencent/HunyuanVideo): [#2721](https://github.com/xorbitsai/inference/pull/2721)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。

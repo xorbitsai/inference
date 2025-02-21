@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-26 11:51+0800\n"
+"POT-Creation-Date: 2025-02-21 16:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -145,7 +145,8 @@ msgstr ""
 msgid ""
 "``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
 "instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, "
-"``deepseek-v2-chat-0628``, ``deepseek-v2.5``"
+"``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, "
+"``deepseek-r1``, ``deepseek-r1-distill-llama``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:48
@@ -226,15 +227,19 @@ msgstr ""
 msgid "``minicpm3-4b``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:69
+#: ../../source/getting_started/installation.rst:67
+msgid "``internlm3-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:70
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:82
+#: ../../source/getting_started/installation.rst:83
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:83
+#: ../../source/getting_started/installation.rst:84
 msgid ""
 "Xinference supports models in ``gguf`` format via ``llama-cpp-python``. "
 "It's advised to install the llama.cpp-related dependencies manually based"
@@ -243,33 +248,33 @@ msgstr ""
 "Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 格式的模型。建议根据"
 "当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
 
-#: ../../source/getting_started/installation.rst:85
-#: ../../source/getting_started/installation.rst:108
-#: ../../source/getting_started/installation.rst:121
+#: ../../source/getting_started/installation.rst:86
+#: ../../source/getting_started/installation.rst:109
+#: ../../source/getting_started/installation.rst:122
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:89
+#: ../../source/getting_started/installation.rst:90
 msgid "Hardware-Specific installations:"
 msgstr "不同硬件的安装方式："
 
-#: ../../source/getting_started/installation.rst:91
+#: ../../source/getting_started/installation.rst:92
 msgid "Apple Silicon::"
 msgstr "Apple M系列"
 
-#: ../../source/getting_started/installation.rst:95
+#: ../../source/getting_started/installation.rst:96
 msgid "Nvidia cards::"
 msgstr "英伟达显卡："
 
-#: ../../source/getting_started/installation.rst:99
+#: ../../source/getting_started/installation.rst:100
 msgid "AMD cards::"
 msgstr "AMD 显卡："
 
-#: ../../source/getting_started/installation.rst:105
+#: ../../source/getting_started/installation.rst:106
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:106
+#: ../../source/getting_started/installation.rst:107
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -280,19 +285,26 @@ msgstr ""
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:118
+#: ../../source/getting_started/installation.rst:119
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:119
+#: ../../source/getting_started/installation.rst:120
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:126
+#: ../../source/getting_started/installation.rst:127
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:128
+#: ../../source/getting_started/installation.rst:129
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#~ msgid ""
+#~ "``deepseek``, ``deepseek-coder``, ``deepseek-"
+#~ "chat``, ``deepseek-coder-instruct``, "
+#~ "``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, "
+#~ "``deepseek-v2-chat-0628``, ``deepseek-v2.5``"
+#~ msgstr ""
 
