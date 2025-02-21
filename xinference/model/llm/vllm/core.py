@@ -1001,10 +1001,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 inputs, generate_config, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
-            if self.reasoning_parser is not None:
-                return self._async_to_chat_completion_chunks(agen)
-            else:
-                return self._async_to_chat_completion_chunks(agen)
+            return self._async_to_chat_completion_chunks(agen)
         else:
             c = await self.async_generate(
                 inputs, generate_config, request_id=request_id

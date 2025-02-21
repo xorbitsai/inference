@@ -5,7 +5,7 @@ from ....types import ChatCompletionChunkDelta, CompletionChoice
 from .abs_reasoning_parsers import ReasoningParser, ReasoningParserManager
 
 
-@ReasoningParserManager.register_module("deepseek-r1")
+@ReasoningParserManager.register_module("deepseek-v3")
 @ReasoningParserManager.register_module("deepseek-r1-distill-qwen")
 @ReasoningParserManager.register_module("deepseek-r1-distill-llama")
 class DeepSeekR1ReasoningParser(ReasoningParser):
