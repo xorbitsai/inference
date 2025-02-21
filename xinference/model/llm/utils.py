@@ -410,9 +410,9 @@ class ChatModelMixin:
             reasoning_content = None
 
             if reasoning_parser is not None:
-                reasoning_content, content = reasoning_parser.extract_reasoning_content(
+                reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
                     choice
-                )  # type: ignore
+                )
 
             message = {"role": "assistant", "content": content}
 
