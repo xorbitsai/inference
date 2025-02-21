@@ -771,10 +771,16 @@ def remove_cache(
     help="The replica count of the model, default is 1.",
 )
 @click.option(
+    "--n-worker",
+    default=1,
+    type=int,
+    help="The number of workers used by the model, default is 1.",
+)
+@click.option(
     "--n-gpu",
     default="auto",
     type=str,
-    help='The number of GPUs used by the model, default is "auto".',
+    help='The number of GPUs used by the model, if n_worker>1, means number of GPUs per worker, default is "auto".',
 )
 @click.option(
     "--lora-modules",
@@ -822,6 +828,7 @@ def remove_cache(
     type=str,
     help="Api-Key for access xinference api with authorization.",
 )
+@click.option("--model-path", "-mp", default=None, type=str, help="Model path to run.")
 @click.pass_context
 def model_launch(
     ctx,
@@ -834,6 +841,7 @@ def model_launch(
     model_format: str,
     quantization: str,
     replica: int,
+    n_worker: int,
     n_gpu: str,
     lora_modules: Optional[Tuple],
     image_lora_load_kwargs: Optional[Tuple],
@@ -842,14 +850,26 @@ def model_launch(
     gpu_idx: Optional[str],
     trust_remote_code: bool,
     api_key: Optional[str],
+    model_path: Optional[str],
 ):
     kwargs = {}
     for i in range(0, len(ctx.args), 2):
         if not ctx.args[i].startswith("--"):
             raise ValueError(
-                f"You must specify extra kwargs with `--` prefix. There is an error in parameter passing that is {ctx.args[i]}."
+                f"You must specify extra kwargs with `--` prefix. "
+                f"There is an error in parameter passing that is {ctx.args[i]}."
             )
-        kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
+        param_name = ctx.args[i][2:]
+        param_value = handle_click_args_type(ctx.args[i + 1])
+        if param_name == "model_path":
+            # fix for --model_path which is the old fashion to set model_path,
+            # now model_path is a builtin option, try to make it compatible
+            if model_path is None:
+                model_path = param_value
+                continue
+            else:
+                raise ValueError("Cannot set both for --model-path and --model_path")
+        kwargs[param_name] = param_value
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
 
     if model_type == "LLM" and model_engine is None:
@@ -914,11 +934,13 @@ def model_launch(
         model_format=model_format,
         quantization=quantization,
         replica=replica,
+        n_worker=n_worker,
         n_gpu=_n_gpu,
         peft_model_config=peft_model_config,
         worker_ip=worker_ip,
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
+        model_path=model_path,
         **kwargs,
     )
 
