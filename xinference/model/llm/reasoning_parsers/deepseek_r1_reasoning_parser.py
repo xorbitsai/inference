@@ -24,7 +24,7 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
         previous_text: str,
         current_text: str,
         delta: ChatCompletionChunkDelta,
-    ) -> Optional[ChatCompletionChunkDelta]:
+    ) -> ChatCompletionChunkDelta:
         """Extract reasoning content from DeepSeek-R1 model output in a streaming fashion.
 
         Args:
@@ -122,7 +122,7 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
         # Thus we assume the reasoning content is always at the start.
         # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
         if self.reasoning_end_tag not in model_output:
-            return model_output, None
+            return model_output, ""
         else:
             # Add a start token if it's missing to keep compatibility.
             if self.reasoning_start_tag not in model_output:
@@ -136,5 +136,5 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
             final_output = model_output[end_index:]
 
             if len(final_output) == 0:
-                return reasoning_content, None
+                return reasoning_content, ""
             return reasoning_content, final_output

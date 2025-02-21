@@ -374,19 +374,21 @@ class ChatModelMixin:
         current_text = ""
         async for chunk in chunks:
             if i == 0:
-                chunk = cls._get_first_chat_completion_chunk(chunk)
+                chat_chunk = cls._get_first_chat_completion_chunk(chunk)
             elif not chunk.get("choices"):
                 # usage
-                chunk = cls._get_final_chat_completion_chunk(chunk)
+                chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
-                chunk = cls._to_chat_completion_chunk(chunk)
+                chat_chunk = cls._to_chat_completion_chunk(chunk)
             if reasoning_parser is not None:
-                choices = chunk.get("choices")
+                choices = chat_chunk.get("choices")
+                if choices is None:
+                    continue
                 for choice in choices:
                     delta = choice.get("delta")
                     if not delta:
                         continue
-                    current_text = previous_text + delta.get("content")
+                    current_text = previous_text + delta.get("content", "")
                     choice[
                         "delta"
                     ] = reasoning_parser.extract_reasoning_content_streaming(
@@ -395,7 +397,7 @@ class ChatModelMixin:
                         delta=delta,
                     )
                     previous_text = current_text
-            yield chunk
+            yield chat_chunk
             i += 1
 
     @staticmethod
@@ -408,7 +410,7 @@ class ChatModelMixin:
             reasoning_content = None
 
             if reasoning_parser is not None:
-                reasoning_content, content = reasoning_parser.extract_reasoning_content(
+                reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
                     choice
                 )
 
@@ -429,7 +431,8 @@ class ChatModelMixin:
             "id": "chat" + completion["id"],
             "object": "chat.completion",
             "created": completion["created"],
-            "model": choices,
+            "model": completion["model"],
+            "choices": choices,  # type: ignore
             "usage": completion["usage"],
         }
 
