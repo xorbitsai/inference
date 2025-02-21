@@ -265,15 +265,24 @@ class InternVLChatModel(PytorchChatModel):
         if world_size == 1:
             return None
         model_size = f"{self.model_spec.model_size_in_billions}B"
+        model_name = f"{self.model_family.model_name.lower()}-{model_size}"
         num_layers = {
-            "1B": 24,
-            "2B": 24,
-            "4B": 32,
-            "8B": 32,
-            "26B": 48,
-            "40B": 60,
-            "76B": 80,
-        }[model_size]
+            "internvl2-1B": 24,
+            "internvl2-2B": 24,
+            "internvl2-4B": 32,
+            "internvl2-8B": 32,
+            "internvl2-26B": 48,
+            "internvl2-40B": 60,
+            "internvl2-76B": 80,
+            "internvl2.5-1B": 24,
+            "internvl2.5-2B": 24,
+            "internvl2.5-4B": 36,
+            "internvl2.5-8B": 32,
+            "internvl2.5-26B": 48,
+            "internvl2.5-38B": 64,
+            "internvl2.5-78B": 80,
+        }[model_name]
+
         # Since the first GPU will be used for ViT, treat it as half a GPU.
         num_layers_per_gpu = math.ceil(num_layers / (world_size - 0.5))
         num_layers_per_gpu = [num_layers_per_gpu] * world_size
@@ -322,9 +331,7 @@ class InternVLChatModel(PytorchChatModel):
             self._model.cuda()
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            use_fast=False,
+            self.model_path, trust_remote_code=True, use_fast=False
         )
 
     @cache_clean
@@ -339,11 +346,12 @@ class InternVLChatModel(PytorchChatModel):
         IMG_END_TOKEN = "</img>"
         IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"
 
+        generate_config = generate_config if isinstance(generate_config, dict) else {}
+
         generation_config = {
-            "max_new_tokens": generate_config.get("max_tokens", 1024)
-            if generate_config
-            else 1024,
+            "max_new_tokens": (generate_config.get("max_tokens", 1024)),
             "do_sample": False,
+            "temperature": generate_config.get("temperature", None),
         }
 
         stream = (
@@ -458,6 +466,7 @@ class InternVLChatModel(PytorchChatModel):
         streamer = TextIteratorStreamer(
             self._tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=10
         )
+
         # Define the generation configuration
         generate_kwargs["streamer"] = streamer
         # Start the model chat in a separate thread
