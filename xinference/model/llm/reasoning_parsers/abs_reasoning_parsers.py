@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Type, Union
 
-from ...types import ChatCompletionChunkDelta, ChatCompletionMessage, CompletionChunk
+from ....types import ChatCompletionChunkDelta, ChatCompletionMessage, CompletionChunk
 
 
 class ReasoningParser(ABC):

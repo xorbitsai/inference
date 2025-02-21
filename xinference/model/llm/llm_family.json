@@ -9174,7 +9174,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning"
     ],
     "model_description": "deepseek-r1-distill-qwen is distilled from DeepSeek-R1 based on Qwen",
     "model_specs": [
@@ -9397,7 +9398,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning"
     ],
     "model_description": "deepseek-r1-distill-llama is distilled from DeepSeek-R1 based on Llama",
     "model_specs": [

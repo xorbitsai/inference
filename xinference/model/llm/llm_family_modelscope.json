@@ -5190,7 +5190,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning"
     ],
     "model_description": "DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. ",
     "model_specs": [
@@ -6905,7 +6906,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning"
     ],
     "model_description": "deepseek-r1-distill-qwen is distilled from DeepSeek-R1 based on Qwen",
     "model_specs": [
@@ -7106,7 +7108,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning"
     ],
     "model_description": "deepseek-r1-distill-llama is distilled from DeepSeek-R1 based on Llama",
     "model_specs": [

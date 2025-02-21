@@ -224,7 +224,6 @@ class VLLMModel(LLM):
         model_path: str,
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
-        reasoning_content: Optional[bool] = False,
     ):
         try:
             from vllm.lora.request import LoRARequest
@@ -243,9 +242,14 @@ class VLLMModel(LLM):
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
         self.reasoning_parser = None
+        self.reasoning_content = (
+            self._model_config.pop("reasoning_content")
+            if self._model_config is not None
+            else False
+        )
 
         # Initialize reasoning parser if model has reasoning ability
-        if "reasoning" in model_family.model_ability and reasoning_content:
+        if "reasoning" in model_family.model_ability and self.reasoning_content:
             module_name = model_family.model_family or model_family.model_name
             self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
 
@@ -1005,6 +1009,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             )
             assert not isinstance(c, AsyncGenerator)
             if self.reasoning_parser is not None:
+                logger.info("self.reasoning_parser")
                 reasoning_parser = self.reasoning_parser(
                     self.model_family.reasoning_start_tag,
                     self.model_family.reasoning_end_tag,
