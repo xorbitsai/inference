@@ -1,12 +1,7 @@
 import re
-from typing import Optional, Union, cast
+from typing import Optional, Tuple, Union
 
-from ....types import (
-    ChatCompletionChunkDelta,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChunk,
-)
+from ....types import ChatCompletionChunkDelta, CompletionChoice
 from .abs_reasoning_parsers import ReasoningParser, ReasoningParserManager
 
 
@@ -28,8 +23,8 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
         self,
         previous_text: str,
         current_text: str,
-        delta_text: Union[str, CompletionChunk],
-    ) -> ChatCompletionChunkDelta:
+        delta: ChatCompletionChunkDelta,
+    ) -> Optional[ChatCompletionChunkDelta]:
         """Extract reasoning content from DeepSeek-R1 model output in a streaming fashion.
 
         Args:
@@ -39,9 +34,10 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
         Yields:
             str: Extracted reasoning content chunks.
         """
+        if delta is None:
+            return delta
 
-        if not isinstance(delta_text, str):
-            delta_text = delta_text["choices"][0]["text"]
+        delta_text = delta["content"]
 
         # Check if <think> is present in previous or delta.
         # Keep compatibility with models that don't generate <think> tokens.
@@ -52,21 +48,21 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
                 end_idx = delta_text.find(self.reasoning_end_tag)
                 reasoning_content = delta_text[:end_idx]
                 content = delta_text[end_idx + len(self.reasoning_end_tag) :]
-                delta = {
-                    "reasoning_content": reasoning_content,
-                }
+                delta["reasoning_content"] = reasoning_content
                 if content is not None:
                     delta["content"] = content
-                return cast(ChatCompletionChunkDelta, delta)
+                return delta
             elif self.reasoning_end_tag in previous_text:
                 # <think> in previous, </think> in previous,
                 # <think> in previous, </think> in previous,
                 # reasoning content ends
-                return cast(ChatCompletionChunkDelta, {"content": delta_text})
+                return delta
             else:
                 # <think> in previous, no </think> in previous or delta,
                 # reasoning content continues
-                return cast(ChatCompletionChunkDelta, {"reasoning_content": delta_text})
+                delta["reasoning_content"] = delta_text
+                delta["content"] = ""
+                return delta
         elif self.reasoning_start_tag in delta_text:
             if self.reasoning_end_tag in delta_text:
                 # <think> in delta, </think> in delta, extract reasoning content
@@ -76,16 +72,16 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
                     start_idx + len(self.reasoning_start_tag) : end_idx
                 ]
                 content = delta_text[end_idx + len(self.reasoning_end_tag) :]
-                delta = {
-                    "reasoning_content": reasoning_content,
-                }
+                delta["reasoning_content"] = reasoning_content
                 if content is not None:
                     delta["content"] = content
-                return cast(ChatCompletionChunkDelta, delta)
+                return delta
             else:
                 # <think> in delta, no </think> in delta,
                 # reasoning content continues
-                return cast(ChatCompletionChunkDelta, {"reasoning_content": delta_text})
+                delta["reasoning_content"] = delta_text
+                delta["content"] = ""
+                return delta
         else:
             # No <think> in previous or delta, also need to check for </think>.
             # Because the model may have generated </think> without <think>
@@ -96,22 +92,22 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
                 end_idx = delta_text.find(self.reasoning_end_tag)
                 reasoning_content = delta_text[:end_idx]
                 content = delta_text[end_idx + len(self.reasoning_end_tag) :]
-                delta = {
-                    "reasoning_content": reasoning_content,
-                }
+                delta["reasoning_content"] = reasoning_content
                 if content is not None:
                     delta["content"] = content
-                return cast(ChatCompletionChunkDelta, delta)
+                return delta
             elif self.reasoning_end_tag in previous_text:
                 # </think> in previous, thinking content ends
-                return cast(ChatCompletionChunkDelta, {"content": delta_text})
+                return delta
             else:
                 # no </think> in previous or delta, reasoning content continues
-                return cast(ChatCompletionChunkDelta, {"reasoning_content": delta_text})
+                delta["reasoning_content"] = delta_text
+                delta["content"] = ""
+                return delta
 
     def extract_reasoning_content(
-        self, model_output: Union[str, Completion]
-    ) -> Optional[ChatCompletionMessage]:
+        self, model_output: Union[str, CompletionChoice]
+    ) -> Tuple[Optional[str], Optional[str]]:
         """Extract reasoning content from DeepSeek-R1 model output.
 
         Args:
@@ -121,12 +117,12 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
             Optional[str]: Extracted reasoning content, or None if no reasoning content found.
         """
         if not isinstance(model_output, str):
-            model_output = model_output["choices"][0]["text"]
+            model_output = model_output["text"]
         # DeepSeek R1 doesn't generate <think> now.
         # Thus we assume the reasoning content is always at the start.
         # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
         if self.reasoning_end_tag not in model_output:
-            return ChatCompletionMessage(role="user", content=model_output)
+            return model_output, None
         else:
             # Add a start token if it's missing to keep compatibility.
             if self.reasoning_start_tag not in model_output:
@@ -140,11 +136,5 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
             final_output = model_output[end_index:]
 
             if len(final_output) == 0:
-                return ChatCompletionMessage(
-                    role="user",
-                    content=final_output,
-                    reasoning_content=reasoning_content,
-                )
-            return ChatCompletionMessage(
-                role="user", content=final_output, reasoning_content=reasoning_content
-            )
+                return reasoning_content, None
+            return reasoning_content, final_output
