@@ -374,14 +374,14 @@ class ChatModelMixin:
         current_text = ""
         async for chunk in chunks:
             if i == 0:
-                chunk = cls._get_first_chat_completion_chunk(chunk)
+                chat_chunk = cls._get_first_chat_completion_chunk(chunk)
             elif not chunk.get("choices"):
                 # usage
-                chunk = cls._get_final_chat_completion_chunk(chunk)
+                chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
-                chunk = cls._to_chat_completion_chunk(chunk)
+                chat_chunk = cls._to_chat_completion_chunk(chunk)
             if reasoning_parser is not None:
-                choices = chunk.get("choices")
+                choices = chat_chunk.get("choices")
                 for choice in choices:
                     delta = choice.get("delta")
                     if not delta:
@@ -395,7 +395,7 @@ class ChatModelMixin:
                         delta=delta,
                     )
                     previous_text = current_text
-            yield chunk
+            yield chat_chunk
             i += 1
 
     @staticmethod
@@ -429,7 +429,8 @@ class ChatModelMixin:
             "id": "chat" + completion["id"],
             "object": "chat.completion",
             "created": completion["created"],
-            "model": choices,
+            "model": completion["model"],
+            "choices": choices,
             "usage": completion["usage"],
         }
 

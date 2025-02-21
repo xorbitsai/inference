@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Tuple, Type, Union
 
-from ....types import ChatCompletionChunkDelta, CompletionChoice, CompletionChunk
+from ....types import ChatCompletionChunkDelta, CompletionChoice
 
 
 class ReasoningParser(ABC):
@@ -26,7 +26,7 @@ class ReasoningParser(ABC):
         self,
         previous_text: str,
         current_text: str,
-        delta: Union[str, CompletionChunk],
+        delta: Union[str, ChatCompletionChunkDelta],
     ) -> ChatCompletionChunkDelta:
         """Extract reasoning content from model output in a streaming fashion.
 
