@@ -6797,14 +6797,6 @@
           "model_id": "OpenGVLab/InternVL2_5-1B"
         },
         {
-          "model_format": "awq",
-          "model_size_in_billions": 1,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-1B-AWQ"
-        },
-        {
           "model_format": "pytorch",
           "model_size_in_billions": 2,
           "quantizations": [
@@ -6813,14 +6805,6 @@
             "none"
           ],
           "model_id": "OpenGVLab/InternVL2_5-2B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 2,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-2B-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6911,6 +6895,135 @@
             "Int4"
           ],
           "model_id": "OpenGVLab/InternVL2_5-78B-AWQ"
+        }
+    ],
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [],
+    "stop": []
+  },
+  {
+    "version": 1,
+    "context_length": 16384,
+    "model_name": "InternVL2.5-MPO",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "InternVL 2.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
+    "model_specs": [
+      {
+          "model_format": "pytorch",
+          "model_size_in_billions": 1,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-1B"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 2,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-2B"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 4,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-4B"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 4,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-4B-MPO-AWQ"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 8,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-8B"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 8,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-8B-AWQ"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 26,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-26B"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 26,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-26B-AWQ"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 38,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-38B"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 38,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-38B-AWQ"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 78,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-78B"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 78,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2_5-MPO-78B-AWQ"
         }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
