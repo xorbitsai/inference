@@ -61,6 +61,8 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "deepseek-vl-chat",
     "internvl-chat",
     "internvl2",
+    "Internvl2.5",
+    "Internvl2.5-MPO",
     "cogvlm2",
     "cogvlm2-video-llama3-chat",
     "MiniCPM-Llama3-V-2_5",
