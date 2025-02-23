@@ -106,7 +106,10 @@
     "replica": "副本",
     "actions": "操作",
     "noRunningModels": "没有运行中的模型",
-    "noRunningModelsMatches": "没有匹配的运行模型"
+    "noRunningModelsMatches": "没有匹配的运行模型",
+    "copy": "复制",
+    "copied": "已复制!",
+    "copyFailed": "复制失败"
   },
 
   "registerModel": {

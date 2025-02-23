@@ -1,7 +1,8 @@
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import OpenInBrowserOutlinedIcon from '@mui/icons-material/OpenInBrowserOutlined'
 import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Badge, Box, Stack, Tab } from '@mui/material'
+import { Badge, Box, IconButton, Stack, Tab, Tooltip } from '@mui/material'
 import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -173,11 +174,17 @@ const RunningModels = () => {
       headerName: 'ID',
       flex: 1,
       minWidth: 250,
+      renderCell: ({ row }) => {
+        return renderWithCopy(row.id)
+      },
     },
     {
       field: 'model_name',
       headerName: t('runningModels.name'),
       flex: 1,
+      renderCell: ({ row }) => {
+        return renderWithCopy(row.model_name)
+      },
     },
     {
       field: 'address',
@@ -231,7 +238,7 @@ const RunningModels = () => {
               alignItems: 'left',
             }}
           >
-            <button
+            <IconButton
               title="Launch Web UI"
               style={{
                 borderWidth: '0px',
@@ -310,8 +317,8 @@ const RunningModels = () => {
               >
                 <OpenInBrowserOutlinedIcon />
               </Box>
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               title="Terminate Model"
               style={{
                 borderWidth: '0px',
@@ -354,7 +361,7 @@ const RunningModels = () => {
               >
                 <DeleteOutlineOutlinedIcon />
               </Box>
-            </button>
+            </IconButton>
           </Box>
         )
       },
@@ -366,11 +373,17 @@ const RunningModels = () => {
       headerName: 'ID',
       flex: 1,
       minWidth: 250,
+      renderCell: ({ row }) => {
+        return renderWithCopy(row.id)
+      },
     },
     {
       field: 'model_name',
       headerName: t('runningModels.name'),
       flex: 1,
+      renderCell: ({ row }) => {
+        return renderWithCopy(row.model_name)
+      },
     },
     {
       field: 'address',
@@ -412,7 +425,7 @@ const RunningModels = () => {
               alignItems: 'left',
             }}
           >
-            <button
+            <IconButton
               title="Terminate Model"
               style={{
                 borderWidth: '0px',
@@ -455,7 +468,7 @@ const RunningModels = () => {
               >
                 <DeleteOutlineOutlinedIcon />
               </Box>
-            </button>
+            </IconButton>
           </Box>
         )
       },
@@ -467,11 +480,17 @@ const RunningModels = () => {
       headerName: 'ID',
       flex: 1,
       minWidth: 250,
+      renderCell: ({ row }) => {
+        return renderWithCopy(row.id)
+      },
     },
     {
       field: 'model_name',
       headerName: t('runningModels.name'),
       flex: 1,
+      renderCell: ({ row }) => {
+        return renderWithCopy(row.model_name)
+      },
     },
     {
       field: 'address',
@@ -512,7 +531,7 @@ const RunningModels = () => {
               alignItems: 'left',
             }}
           >
-            <button
+            <IconButton
               title="Launch Web UI"
               style={{
                 borderWidth: '0px',
@@ -589,8 +608,8 @@ const RunningModels = () => {
               >
                 <OpenInBrowserOutlinedIcon />
               </Box>
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               title="Terminate Model"
               style={{
                 borderWidth: '0px',
@@ -633,7 +652,7 @@ const RunningModels = () => {
               >
                 <DeleteOutlineOutlinedIcon />
               </Box>
-            </button>
+            </IconButton>
           </Box>
         )
       },
@@ -679,6 +698,40 @@ const RunningModels = () => {
       </Stack>
     )
   }
+
+  const renderWithCopy = (display) => {
+    const [tooltipOpen, setTooltipOpen] = useState(false);
+    const [tooltipText, setTooltipText] = useState(t('runningModels.copy'));
+
+    const handleCopy = (event) => {
+      event.stopPropagation();
+      navigator.clipboard.writeText(display)
+        .then(() => {
+          setTooltipText(t('runningModels.copied'));
+        })
+        .catch(() => {
+          setTooltipText(t('runningModels.copyFailed'));
+        })
+        .finally(() => {
+          setTooltipOpen(true);
+          setTimeout(() => {
+            setTooltipOpen(false);
+            setTooltipText(t('runningModels.copy'));
+          }, 1500);
+        });
+    };
+
+    return (
+      <div>
+        <span style={{ marginRight: 8 }}>{display}</span>
+        <Tooltip title={tooltipText} open={tooltipOpen}>
+          <IconButton size="small" onClick={handleCopy}>
+            <ContentCopyOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </div>
+    );
+  };
 
   useEffect(() => {
     const dataMap = {
