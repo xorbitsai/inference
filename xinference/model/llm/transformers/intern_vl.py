@@ -265,7 +265,8 @@ class InternVLChatModel(PytorchChatModel):
         if world_size == 1:
             return None
         model_size = f"{self.model_spec.model_size_in_billions}B"
-        model_name = f"{self.model_family.model_name.lower().replace("-mpo", "")}-{model_size}"
+        model_name = self.model_family.model_name.lower().replace("-mpo", "")
+        model_name = f"{model_name}-{model_size}"
         num_layers = {
             "internvl2-1B": 24,
             "internvl2-2B": 24,
