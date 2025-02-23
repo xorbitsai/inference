@@ -9,9 +9,11 @@ import {
   EditNoteOutlined,
   ExpandLess,
   ExpandMore,
+  GitHub,
   Grade,
   HelpCenterOutlined,
   HelpOutline,
+  OpenInNew,
   RocketLaunchOutlined,
   StarBorder,
   UndoOutlined,
@@ -287,8 +289,8 @@ const ModelCard = ({
         parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
           ? null
           : nGPU === 'auto'
-          ? 'auto'
-          : parseInt(nGPU, 10),
+            ? 'auto'
+            : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
         String(requestLimits)?.trim() === ''
@@ -968,6 +970,31 @@ const ModelCard = ({
                   {t('launchModel.contextLength')}
                 </small>
               </div>
+              {(() => {
+                if (modelData.model_repository) {
+                  return (
+                    <div
+                      className="iconItem"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        window.open(modelData.model_repository, '_blank')
+                      }}
+                    >
+                      <GitHub className="muiIcon" />
+                      <small className="smallText">
+                        GitHub
+                        <OpenInNew
+                          style={{
+                            fontSize: 'inherit',
+                            verticalAlign: 'middle',
+                            marginLeft: '2px',
+                          }}
+                        />
+                      </small>
+                    </div>
+                  )
+                }
+              })()}
               {(() => {
                 if (
                   modelData.model_ability &&

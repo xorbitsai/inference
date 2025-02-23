@@ -6784,6 +6784,7 @@
         "chat",
         "vision"
     ],
+    "model_repository": "https://github.com/OpenGVLab/InternVL",
     "model_description": "InternVL 2.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
@@ -7282,6 +7283,7 @@
       "chat",
       "vision"
     ],
+    "model_repository": "https://github.com/QwenLM/Qwen2.5-VL",
     "model_description":"Qwen2.5-VL: Qwen2.5-VL is the latest version of the vision language models in the Qwen model familities.",
     "model_specs":[
       {
@@ -7775,6 +7777,7 @@
       "chat",
       "reasoning"
     ],
+    "model_repository": "https://github.com/deepseek-ai/DeepSeek-R1",
     "model_description": "DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.",
     "model_specs": [
       {

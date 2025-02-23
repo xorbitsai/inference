@@ -108,7 +108,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 20px;
+  margin: 20px 10px;
 }
 .boldIconText {
   font-weight: bold;
@@ -208,7 +208,9 @@
   left: 0;
   visibility: hidden;
   opacity: 0;
-  transition: visibility 0.3s ease, opacity 0.3s ease;
+  transition:
+    visibility 0.3s ease,
+    opacity 0.3s ease;
 }
 .drawer.open {
   visibility: visible;
