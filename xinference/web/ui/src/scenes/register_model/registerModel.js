@@ -911,8 +911,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         ? '#d32f2f'
                         : 'inherit'
                       : formData.language.length === 0
-                      ? '#d32f2f'
-                      : 'inherit',
+                        ? '#d32f2f'
+                        : 'inherit',
                 }}
               >
                 {t('registerModel.modelLanguages')}
@@ -1182,8 +1182,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         {testErrorInfo !== ''
                           ? testErrorInfo
                           : testRes
-                          ? testRes
-                          : t('registerModel.noTestResults')}
+                            ? testRes
+                            : t('registerModel.noTestResults')}
                       </div>
                     </div>
                   </div>
