@@ -700,26 +700,27 @@ const RunningModels = () => {
   }
 
   const renderWithCopy = (display) => {
-    const [tooltipOpen, setTooltipOpen] = useState(false);
-    const [tooltipText, setTooltipText] = useState(t('runningModels.copy'));
+    const [tooltipOpen, setTooltipOpen] = useState(false)
+    const [tooltipText, setTooltipText] = useState(t('runningModels.copy'))
 
     const handleCopy = (event) => {
-      event.stopPropagation();
-      navigator.clipboard.writeText(display)
+      event.stopPropagation()
+      navigator.clipboard
+        .writeText(display)
         .then(() => {
-          setTooltipText(t('runningModels.copied'));
+          setTooltipText(t('runningModels.copied'))
         })
         .catch(() => {
-          setTooltipText(t('runningModels.copyFailed'));
+          setTooltipText(t('runningModels.copyFailed'))
         })
         .finally(() => {
-          setTooltipOpen(true);
+          setTooltipOpen(true)
           setTimeout(() => {
-            setTooltipOpen(false);
-            setTooltipText(t('runningModels.copy'));
-          }, 1500);
-        });
-    };
+            setTooltipOpen(false)
+            setTooltipText(t('runningModels.copy'))
+          }, 1500)
+        })
+    }
 
     return (
       <div>
@@ -730,8 +731,8 @@ const RunningModels = () => {
           </IconButton>
         </Tooltip>
       </div>
-    );
-  };
+    )
+  }
 
   useEffect(() => {
     const dataMap = {
