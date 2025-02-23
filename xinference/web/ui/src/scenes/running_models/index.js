@@ -723,8 +723,26 @@ const RunningModels = () => {
     }
 
     return (
-      <div>
-        <span style={{ marginRight: 8 }}>{display}</span>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          maxWidth: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+            marginRight: 8,
+          }}
+        >
+          {display}
+        </span>
         <Tooltip title={tooltipText} open={tooltipOpen}>
           <IconButton size="small" onClick={handleCopy}>
             <ContentCopyOutlinedIcon fontSize="small" />
