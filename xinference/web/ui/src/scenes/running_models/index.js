@@ -707,7 +707,7 @@ const RunningModels = () => {
       event.stopPropagation()
 
       if (navigator.clipboard && window.isSecureContext) {
-        // **优先使用 Clipboard API（需要 HTTPS）**
+        // for HTTPS
         navigator.clipboard
           .writeText(display)
           .then(() => {
@@ -724,7 +724,7 @@ const RunningModels = () => {
             }, 1500)
           })
       } else {
-        // **非 HTTPS 回退到 execCommand('copy')**
+        // for HTTP
         const textArea = document.createElement('textarea')
         textArea.value = display
         textArea.style.position = 'absolute'
