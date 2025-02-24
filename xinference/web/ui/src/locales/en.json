@@ -106,7 +106,10 @@
     "replica": "Replica",
     "actions": "Actions",
     "noRunningModels": "No Running Models",
-    "noRunningModelsMatches": "No Running Models Matches"
+    "noRunningModelsMatches": "No Running Models Matches",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "copyFailed": "Copy failed"
   },
 
   "registerModel": {
