@@ -905,31 +905,15 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
-        if model_config is None:
-            model_config = VLLMModelConfig()
-
-        cuda_count = self._get_cuda_count()
-
-        model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", True)
-        model_config.setdefault("tensor_parallel_size", cuda_count)
-        model_config.setdefault("block_size", 16)
-        model_config.setdefault("swap_space", 4)
-        model_config.setdefault("gpu_memory_utilization", 0.90)
-        model_config.setdefault("max_num_seqs", 256)
-        model_config.setdefault("quantization", None)
-        model_config.setdefault("max_model_len", None)
-        model_config["limit_mm_per_prompt"] = (
-            json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
-            if model_config.get("limit_mm_per_prompt")
-            else {
-                "image": 2,  # default 2 images all chat
-            }
-        )
-        # Add scheduling policy if vLLM version is 0.6.3 or higher
-        if vllm.__version__ >= "0.6.3":
-            model_config.setdefault("scheduling_policy", "fcfs")
-
+        model_config = super()._sanitize_model_config(model_config)
+        if vllm.__version__ >= "0.5.5":
+            model_config["limit_mm_per_prompt"] = (
+                json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
+                if model_config.get("limit_mm_per_prompt")
+                else {
+                    "image": 2,  # default 2 images all chat
+                }
+            )
         return model_config
 
     def _sanitize_chat_config(
