@@ -705,21 +705,52 @@ const RunningModels = () => {
 
     const handleCopy = (event) => {
       event.stopPropagation()
-      navigator.clipboard
-        .writeText(display)
-        .then(() => {
-          setTooltipText(t('runningModels.copied'))
-        })
-        .catch(() => {
+
+      if (navigator.clipboard && window.isSecureContext) {
+        // **优先使用 Clipboard API（需要 HTTPS）**
+        navigator.clipboard
+          .writeText(display)
+          .then(() => {
+            setTooltipText(t('runningModels.copied'))
+          })
+          .catch(() => {
+            setTooltipText(t('runningModels.copyFailed'))
+          })
+          .finally(() => {
+            setTooltipOpen(true)
+            setTimeout(() => {
+              setTooltipOpen(false)
+              setTooltipText(t('runningModels.copy'))
+            }, 1500)
+          })
+      } else {
+        // **非 HTTPS 回退到 execCommand('copy')**
+        const textArea = document.createElement('textarea')
+        textArea.value = display
+        textArea.style.position = 'absolute'
+        textArea.style.left = '-9999px'
+        document.body.appendChild(textArea)
+        textArea.select()
+
+        try {
+          const success = document.execCommand('copy')
+          if (success) {
+            setTooltipText(t('runningModels.copied'))
+          } else {
+            setTooltipText(t('runningModels.copyFailed'))
+          }
+        } catch (err) {
           setTooltipText(t('runningModels.copyFailed'))
-        })
-        .finally(() => {
-          setTooltipOpen(true)
-          setTimeout(() => {
-            setTooltipOpen(false)
-            setTooltipText(t('runningModels.copy'))
-          }, 1500)
-        })
+        }
+
+        document.body.removeChild(textArea)
+
+        setTooltipOpen(true)
+        setTimeout(() => {
+          setTooltipOpen(false)
+          setTooltipText(t('runningModels.copy'))
+        }, 1500)
+      }
     }
 
     return (
