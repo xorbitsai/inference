@@ -7,7 +7,7 @@ ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 14.21.1
 
 RUN apt-get -y update \
-  && apt install -y curl procps git libgl1 ffmpeg \
+  && apt install -y curl procps git libgl1 ffmpeg libavcodec-extra-* \
   # upgrade libstdc++ and libc for llama-cpp-python
   && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
   && apt-get -y update \
