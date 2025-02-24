@@ -289,8 +289,8 @@ const ModelCard = ({
         parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
           ? null
           : nGPU === 'auto'
-            ? 'auto'
-            : parseInt(nGPU, 10),
+          ? 'auto'
+          : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
         String(requestLimits)?.trim() === ''
