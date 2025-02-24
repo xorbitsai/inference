@@ -14,7 +14,7 @@
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
-from vllm.executor.gpu_executor import GPUExecutorAsync
+from vllm.executor.mp_distributed_executor import MultiprocessingDistributedExecutor
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest, PoolerOutput
 from vllm.utils import is_pin_memory_available
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .scheduler import XavierScheduler
 
 
-class XavierExecutor(GPUExecutorAsync):
+class XavierExecutor(MultiprocessingDistributedExecutor):
     scheduler: Optional[List["XavierScheduler"]] = None
 
     def _init_executor(self) -> None:

@@ -33,6 +33,8 @@ The following is a list of built-in audio models in Xinference:
   
    fishspeech-1.5
   
+   kokoro-82m
+  
    melotts-chinese
   
    melotts-english

@@ -39,10 +39,28 @@
   font-size: 14px;
   padding: 0px 10px;
 }
+.pasteText {
+  font-size: 18px !important;
+  color: #1976d2;
+  cursor: pointer;
+  margin-inline: 10px;
+}
+.pasteText:hover {
+  color: #1976d2b3;
+}
+.copyToCommandLine {
+  font-size: 16px !important;
+  color: #1976d2;
+  cursor: pointer;
+}
+.copyToCommandLine:hover {
+  color: #1976d2b3;
+}
 .formContainer {
   height: 80%;
   overflow: scroll;
   padding: 0 10px;
+  padding-bottom: 160px;
 }
 .buttonsContainer {
   position: absolute;
@@ -180,4 +198,43 @@
   display: flex;
   justify-content: end;
   margin-top: 20px;
+}
+.drawer {
+  z-index: 1000;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0.3s ease, opacity 0.3s ease;
+}
+.drawer.open {
+  visibility: visible;
+  opacity: 1;
+}
+.drawer-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+.drawer-content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: white;
+  z-index: 1000;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  transform: translateX(100%);
+  overflow-y: auto;
+}
+.drawer.open .drawer-content {
+  transform: translateX(0);
 }

@@ -338,5 +338,13 @@
     "model_ability": "text-to-audio",
     "multilingual": false,
     "language": "KR"
+  },
+  {
+    "model_name": "Kokoro-82M",
+    "model_family": "Kokoro",
+    "model_id": "hexgrad/Kokoro-82M",
+    "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9",
+    "model_ability": "text-to-audio",
+    "multilingual": true
   }
 ]

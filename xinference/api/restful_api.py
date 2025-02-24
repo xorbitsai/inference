@@ -2000,25 +2000,22 @@ class RESTfulAPI(CancelMixin):
 
         from ..model.llm.utils import (
             GLM4_TOOL_CALL_FAMILY,
-            LLAMA3_TOOL_CALL_FAMILY,
             QWEN_TOOL_CALL_FAMILY,
+            TOOL_CALL_FAMILY,
         )
 
         model_family = desc.get("model_family", "")
-        function_call_models = (
-            QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY + LLAMA3_TOOL_CALL_FAMILY
-        )
 
-        if model_family not in function_call_models:
+        if model_family not in TOOL_CALL_FAMILY:
             if body.tools:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Only {function_call_models} support tool calls",
+                    detail=f"Only {TOOL_CALL_FAMILY} support tool calls",
                 )
             if has_tool_message:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Only {function_call_models} support tool messages",
+                    detail=f"Only {TOOL_CALL_FAMILY} support tool messages",
                 )
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()

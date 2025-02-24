@@ -11,5 +11,6 @@ User Guide
    client_api
    auth_system
    metrics
+   distributed_inference
    continuous_batching
    vllm_enhancement

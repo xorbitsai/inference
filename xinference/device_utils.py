@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
+from typing import Dict, Literal, Union
 
 import torch
-from typing_extensions import Literal, Union
 
 DeviceType = Literal["cuda", "mps", "xpu", "npu", "cpu"]
 DEVICE_TO_ENV_NAME = {
@@ -122,3 +122,45 @@ def gpu_count():
         return torch.npu.device_count()
     else:
         return 0
+
+
+def _get_nvidia_gpu_mem_info(gpu_id: int) -> Dict[str, float]:
+    from pynvml import (
+        nvmlDeviceGetHandleByIndex,
+        nvmlDeviceGetMemoryInfo,
+        nvmlDeviceGetName,
+        nvmlDeviceGetUtilizationRates,
+    )
+
+    handler = nvmlDeviceGetHandleByIndex(gpu_id)
+    gpu_name = nvmlDeviceGetName(handler)
+    mem_info = nvmlDeviceGetMemoryInfo(handler)
+    utilization = nvmlDeviceGetUtilizationRates(handler)
+    return {
+        "name": gpu_name,
+        "total": mem_info.total,
+        "used": mem_info.used,
+        "free": mem_info.free,
+        "util": utilization.gpu,
+    }
+
+
+def get_nvidia_gpu_info() -> Dict:
+    from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+    try:
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
+        res = {}
+        for i in range(device_count):
+            res[f"gpu-{i}"] = _get_nvidia_gpu_mem_info(i)
+        return res
+    except:
+        # TODO: add log here
+        # logger.debug(f"Cannot init nvml. Maybe due to lack of NVIDIA GPUs or incorrect installation of CUDA.")
+        return {}
+    finally:
+        try:
+            nvmlShutdown()
+        except:
+            pass

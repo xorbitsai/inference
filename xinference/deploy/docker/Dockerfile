@@ -31,7 +31,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements.txt && \
     pip install -i "$PIP_INDEX" --no-deps sglang && \
     pip uninstall flashinfer -y && \
-    pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4 && \
+    pip install flashinfer-python -i https://flashinfer.ai/whl/cu124/torch2.5 && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \

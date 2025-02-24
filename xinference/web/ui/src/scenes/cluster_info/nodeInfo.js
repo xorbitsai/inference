@@ -267,7 +267,7 @@ class NodeInfo extends React.Component {
                 {this.t('clusterInfo.nodeType')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
-                Address{this.t('clusterInfo.address')}
+                {this.t('clusterInfo.address')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
                 {this.t('clusterInfo.cpuUsage')}

@@ -226,6 +226,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
         xavier_config: Optional[Dict] = None,
+        n_worker: Optional[int] = 1,
+        shard: Optional[int] = 0,
+        driver_info: Optional[dict] = None,  # for model across workers
     ):
         super().__init__()
         from ..model.llm.lmdeploy.core import LMDeployModel
@@ -263,6 +266,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             "quantization": self._model_description.get("quantization", "none"),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        # model across workers
+        self._n_worker = n_worker
+        self._shard = shard
+        self._driver_info = driver_info
 
         self._scheduler_ref = None
         self._text_to_image_scheduler_ref = None
@@ -455,6 +462,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             i += 1
             try:
                 self._model.load()
+                if hasattr(self._model, "driver_info"):
+                    self._driver_info = self._model.driver_info
                 break
             except Exception as e:
                 if (
@@ -477,6 +486,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         logger.info(f"{self} loaded")
 
+    async def wait_for_load(self):
+        if hasattr(self._model, "wait_for_load"):
+            self._model.wait_for_load()
+
     def model_uid(self):
         return (
             self._model.model_uid
@@ -487,6 +500,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 else None  # return None for UT
             )
         )
+
+    def get_driver_info(self):
+        # driver info is used for model across workers,
+        # the driver model actor(always the first worker)
+        # will hold driver information includes dist store etc.
+        return self._driver_info
 
     async def _handle_oom_error(self, ex):
         error_message = (

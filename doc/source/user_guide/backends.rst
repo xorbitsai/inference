@@ -22,6 +22,8 @@ transformers
 ~~~~~~~~~~~~
 Transformers supports the inference of most state-of-art models. It is the default backend for models in PyTorch format.
 
+.. _vllm_backend:
+
 vLLM
 ~~~~
 vLLM is a fast and easy-to-use library for LLM inference and serving.
@@ -51,7 +53,7 @@ Currently, supported model includes:
 - ``codestral-v0.1``
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``
+- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
 - ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
@@ -71,13 +73,18 @@ Currently, supported model includes:
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
+- ``internlm3-instruct``
 .. vllm_end
+
+.. _sglang_backend:
 
 SGLang
 ~~~~~~
 `SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance inference runtime with RadixAttention.
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
+
+.. _mlx_backend:
 
 MLX
 ~~~

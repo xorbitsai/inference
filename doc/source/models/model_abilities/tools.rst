@@ -56,7 +56,7 @@ Example using OpenAI Client
         api_key="cannot be empty", 
         base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1"
     )
-    client.chat.completions.create(
+    response = client.chat.completions.create(
         model="<MODEL_UID>",
         messages=[{
             "role": "user",

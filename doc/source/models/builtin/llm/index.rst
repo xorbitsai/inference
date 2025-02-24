@@ -131,6 +131,16 @@ The following is a list of built-in LLM in Xinference:
      - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
+   * - :ref:`deepseek-r1 <models_llm_deepseek-r1>`
+     - chat
+     - 163840
+     - DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
+
+   * - :ref:`deepseek-r1-distill-llama <models_llm_deepseek-r1-distill-llama>`
+     - chat
+     - 131072
+     - deepseek-r1-distill-llama is distilled from DeepSeek-R1 based on Llama
+
    * - :ref:`deepseek-r1-distill-qwen <models_llm_deepseek-r1-distill-qwen>`
      - chat
      - 131072
@@ -155,6 +165,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 128000
      - DeepSeek-V2.5 is an upgraded version that combines DeepSeek-V2-Chat and DeepSeek-Coder-V2-Instruct. The new model integrates the general and coding abilities of the two previous versions.
+
+   * - :ref:`deepseek-v3 <models_llm_deepseek-v3>`
+     - chat
+     - 163840
+     - DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. 
 
    * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
      - chat, vision
@@ -220,6 +235,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 262144
      - InternLM2.5 series of the InternLM model supports 1M long-context
+
+   * - :ref:`internlm3-instruct <models_llm_internlm3-instruct>`
+     - chat, tools
+     - 32768
+     - InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning.
 
    * - :ref:`internvl-chat <models_llm_internvl-chat>`
      - chat, vision
@@ -642,6 +662,10 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-coder-instruct
   
+   deepseek-r1
+  
+   deepseek-r1-distill-llama
+  
    deepseek-r1-distill-qwen
   
    deepseek-v2
@@ -651,6 +675,8 @@ The following is a list of built-in LLM in Xinference:
    deepseek-v2-chat-0628
   
    deepseek-v2.5
+  
+   deepseek-v3
   
    deepseek-vl-chat
   
@@ -677,6 +703,8 @@ The following is a list of built-in LLM in Xinference:
    internlm2.5-chat
   
    internlm2.5-chat-1m
+  
+   internlm3-instruct
   
    internvl-chat
   

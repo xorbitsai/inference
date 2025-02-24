@@ -45,6 +45,8 @@ class Qwen2VLChatModel(PytorchChatModel):
     def match(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
+            return False
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-vl-instruct".lower() in llm_family.lower():
             return True

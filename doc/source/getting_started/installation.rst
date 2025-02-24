@@ -44,7 +44,7 @@ Currently, supported models include:
 - ``codestral-v0.1``
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``
+- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
 - ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
@@ -64,6 +64,7 @@ Currently, supported models include:
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
+- ``internlm3-instruct``
 .. vllm_end
 
 To install Xinference and vLLM::
