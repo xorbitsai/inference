@@ -28,10 +28,8 @@ def test_restful_api_for_qwen_vl(setup, model_format, quantization):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_uid="qwen2.5-vl-instruct",
-        model_name="qwen2.5-vl-instruct",
-        model_engine="vLLM",
-        model_size_in_billions=7,
+        model_uid="qwen-vl-chat",
+        model_name="qwen-vl-chat",
         model_format=model_format,
         quantization=quantization,
     )
