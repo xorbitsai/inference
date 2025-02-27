@@ -10307,5 +10307,37 @@
       "<|im_end|>",
       "<|endoftext|>"
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "moonlight-16b-a3b-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Kimi Muon is Scalable for LLM Training",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "moonshotai/Moonlight-16B-A3B-Instruct"
+      }
+    ],
+    "chat_template":"{%- for message in messages -%}{%- if loop.first and messages[0]['role'] != 'system' -%}<|im_system|>system<|im_middle|>You are a helpful assistant<|im_end|>{%- endif -%}{%- if message['role'] == 'system' -%}<|im_system|>{%- endif -%}{%- if message['role'] == 'user' -%}<|im_user|>{%- endif -%}{%- if message['role'] == 'assistant' -%}<|im_assistant|>{%- endif -%}{{ message['role'] }}<|im_middle|>{{message['content']}}<|im_end|>{%- endfor -%}{%- if add_generation_prompt -%}<|im_assistant|>assistant<|im_middle|>{%- endif -%}",
+    "stop_token_ids": [
+      163586
+    ],
+    "stop": [
+      "<|im_end|>"
+    ]
   }
 ]
