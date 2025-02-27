@@ -7,7 +7,7 @@ ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 14.21.1
 
 RUN apt-get -y update \
-  && apt install -y curl procps git libgl1 ffmpeg \
+  && apt install -y wget curl procps git libgl1 \
   # upgrade libstdc++ and libc for llama-cpp-python
   && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
   && apt-get -y update \
@@ -38,6 +38,15 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     # clean packages
     pip cache purge
+
+# Install Miniforge3 (only for FFmpeg, do not replace system Python)
+RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" && \
+    bash Miniforge3.sh -b -p /opt/conda && \
+    rm Miniforge3.sh
+
+RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
+    ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
+    /opt/conda/bin/conda clean --all -y
 
 # Overwrite the entrypoint of vllm's base image
 ENTRYPOINT []
