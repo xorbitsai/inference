@@ -132,7 +132,7 @@ def _pad_seqs_inplace(seqs: List[List[int]], reqs: List[InferenceRequest], pad: 
 
 def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
     max_new_tokens = int(
-        r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+        r.sanitized_generate_config.get("max_tokens") or max_tokens_field.default
     )
     return context_len - max_new_tokens - 8
 
