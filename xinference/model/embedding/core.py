@@ -693,7 +693,8 @@ class EmbeddingModel:
                 if not is_bge_m3_flag_model and not kwargs.get("return_sparse")
                 else "dict"
             ),
-            model=self._model_uid,
+            model=kwargs.get("model_uid"),  # type: ignore
+            model_replica=self._model_uid,
             data=embedding_list,
             usage=usage,
         )
