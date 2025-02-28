@@ -353,7 +353,6 @@ def test_restful_api_for_embedding(setup):
     }
     response = requests.post(url, json=payload)
     embedding_res = response.json()
-    print("embedding_res: ", embedding_res)
 
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
