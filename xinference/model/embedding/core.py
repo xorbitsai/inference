@@ -546,8 +546,10 @@ class EmbeddingModel:
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
                 if "clip" in self._model_spec.model_name.lower():
-                    all_token_nums += features["input_ids"].numel()
-                    all_token_nums += features["pixel_values"].numel()
+                    if "input_ids" in features and hasattr(features["input_ids"], "numel"):
+                        all_token_nums += features["input_ids"].numel()
+                    if "pixel_values" in features and hasattr(features["pixel_values"], "numel"):
+                        all_token_nums += features["pixel_values"].numel()
                 else:
                     all_token_nums += features["attention_mask"].sum().item()
 
