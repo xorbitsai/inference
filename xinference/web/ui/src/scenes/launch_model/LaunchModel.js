@@ -258,6 +258,9 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
               <MenuItem value="generate">{t('launchModel.generate')}</MenuItem>
               <MenuItem value="chat">{t('launchModel.chat')}</MenuItem>
               <MenuItem value="vision">{t('launchModel.vision')}</MenuItem>
+              <MenuItem value="reasoning">
+                {t('launchModel.reasoning')}
+              </MenuItem>
             </Select>
           </FormControl>
         )}

@@ -60,7 +60,7 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
         const [fuse_param, fuse_value] = value.split(/\s+/)
         peftModelConfig.image_lora_fuse_kwargs[fuse_param] = fuse_value
       } else {
-        if (normalizedKey === 'cpu_offload') {
+        if (['cpu_offload', 'reasoning_content'].includes(normalizedKey)) {
           params[normalizedKey] = value === 'true' ? true : false
         } else if (normalizedKey === 'size_in_billions') {
           params['model_size_in_billions'] = value

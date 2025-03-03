@@ -11,7 +11,7 @@ import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
 import LaunchCustom from './launchCustom'
-import LaunchModelComponent from './LaunchModel'
+import LaunchModelComponent from './launchModel'
 
 const featureModels = [
   {
