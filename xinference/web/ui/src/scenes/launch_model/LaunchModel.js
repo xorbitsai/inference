@@ -17,7 +17,7 @@ import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
-const modelAbilityArr = ['generate', 'chat', 'vision']
+const modelAbilityArr = ['generate', 'chat', 'vision', 'reasoning']
 
 const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
@@ -255,12 +255,11 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
               size="small"
               sx={{ width: '150px' }}
             >
-              <MenuItem value="generate">{t('launchModel.generate')}</MenuItem>
-              <MenuItem value="chat">{t('launchModel.chat')}</MenuItem>
-              <MenuItem value="vision">{t('launchModel.vision')}</MenuItem>
-              <MenuItem value="reasoning">
-                {t('launchModel.reasoning')}
-              </MenuItem>
+              {modelAbilityArr.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {t(`launchModel.${item}`)}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         )}
