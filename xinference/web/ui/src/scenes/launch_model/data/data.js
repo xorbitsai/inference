@@ -15,6 +15,7 @@ export const llmAllDataKey = [
   'gpu_idx',
   'download_hub',
   'model_path',
+  'reasoning_content',
   'gguf_quantization',
   'gguf_model_path',
   'cpu_offload',
