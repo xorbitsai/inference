@@ -26,13 +26,6 @@ from packaging import version
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
 
-@pytest.fixture
-def set_use_xllamacpp():
-    os.environ["USE_XLLAMACPP"] = "1"
-    yield
-    del os.environ["USE_XLLAMACPP"]
-
-
 @pytest.mark.asyncio
 async def test_restful_api(setup):
     endpoint, _ = setup
