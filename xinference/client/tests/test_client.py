@@ -110,10 +110,11 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="qwen1.5-chat",
+        model_name="tiny-llama",
         model_engine="llama.cpp",
-        model_size_in_billions="0_5",
-        quantization="q4_0",
+        model_size_in_billions=1,
+        model_format="ggufv2",
+        quantization="q2_K",
     )
     assert len(client.list_models()) == 1
 
