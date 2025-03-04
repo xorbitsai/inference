@@ -26,6 +26,13 @@ from packaging import version
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
 
+@pytest.fixture
+def set_use_xllamacpp():
+    os.environ["USE_XLLAMACPP"] = "1"
+    yield
+    del os.environ["USE_XLLAMACPP"]
+
+
 @pytest.mark.asyncio
 async def test_restful_api(setup):
     endpoint, _ = setup
@@ -315,6 +322,11 @@ async def test_restful_api(setup):
         if model_reg["model_name"] == "custom_model":
             custom_model_reg = model_reg
     assert custom_model_reg is None
+
+
+@pytest.mark.asyncio
+async def test_restful_api_xllamacpp(set_use_xllamacpp, setup):
+    await test_restful_api(setup)
 
 
 def test_restful_api_for_embedding(setup):
