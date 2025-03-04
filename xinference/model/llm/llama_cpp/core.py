@@ -489,5 +489,5 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
 
 if USE_XLLAMACPP:
-    LlamaCppModel = XllamaCppModel
-    LlamaCppChatModel = XllamaCppModel
+    LlamaCppModel = XllamaCppModel  # noqa: F811
+    LlamaCppChatModel = XllamaCppModel  # noqa: F811
