@@ -36,6 +36,8 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     python3 setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
+    pip uninstall xllamacpp -y && \
+    pip install -i "$PIP_INDEX" xllamacpp_cuda12x && \
     # clean packages
     pip cache purge
 
