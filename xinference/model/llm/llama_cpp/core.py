@@ -54,7 +54,7 @@ class XllamaCppModel(LLM):
             llamacpp_model_config
         )
         self._llm = None
-        self._executor = None
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
     def _sanitize_model_config(
         self, llamacpp_model_config: Optional[LlamaCppModelConfig]
@@ -76,10 +76,33 @@ class XllamaCppModel(LLM):
 
         if self._is_darwin_and_apple_silicon():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
-        elif self._is_linux() and self._can_apply_cublas():
+        elif self._is_linux():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
 
         return llamacpp_model_config
+
+    def _sanitize_generate_config(
+        self, generate_config: Optional[LlamaCppGenerateConfig]
+    ) -> LlamaCppGenerateConfig:
+        if generate_config is None:
+            generate_config = LlamaCppGenerateConfig(
+                **CreateCompletionLlamaCpp().dict()
+            )
+        else:
+            from llama_cpp import LlamaGrammar
+
+            grammar = generate_config.get("grammar")
+            if grammar is not None and not isinstance(grammar, LlamaGrammar):
+                generate_config["grammar"] = LlamaGrammar.from_string(
+                    generate_config["grammar"]
+                )
+            # Validate generate_config and fill default values to the generate config.
+            generate_config = LlamaCppGenerateConfig(
+                **CreateCompletionLlamaCpp(**generate_config).dict()
+            )
+        # Currently, llama.cpp does not support lora
+        generate_config.pop("lora_name", None)  # type: ignore
+        return generate_config
 
     @classmethod
     def match(
@@ -135,8 +158,9 @@ class XllamaCppModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
+        generate_config = self._sanitize_generate_config(generate_config)
         stream = generate_config.get("stream", False)
-        q = queue.Queue()
+        q: queue.Queue = queue.Queue()
         done = object()
 
         def _handle_completion():
@@ -157,6 +181,7 @@ class XllamaCppModel(LLM):
             finally:
                 q.put(done)
 
+        assert self._executor
         self._executor.submit(_handle_completion)
 
         if stream:
@@ -174,10 +199,10 @@ class XllamaCppModel(LLM):
         messages: List[Dict],
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        # model_family = self.model_family.model_family or self.model_family.model_name
+        generate_config = self._sanitize_generate_config(generate_config)
         stream = generate_config.get("stream", False)
         tools = generate_config.pop("tools", []) if generate_config else None
-        q = queue.Queue()
+        q: queue.Queue = queue.Queue()
         done = object()
 
         def _handle_chat_completion():
@@ -201,6 +226,7 @@ class XllamaCppModel(LLM):
             finally:
                 q.put(done)
 
+        assert self._executor
         self._executor.submit(_handle_chat_completion)
 
         if stream:
@@ -489,5 +515,5 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
 
 if USE_XLLAMACPP:
-    LlamaCppModel = XllamaCppModel  # noqa: F811
-    LlamaCppChatModel = XllamaCppModel  # noqa: F811
+    LlamaCppModel = XllamaCppModel  # type: ignore  # noqa: F811
+    LlamaCppChatModel = XllamaCppModel  # type: ignore  # noqa: F811
