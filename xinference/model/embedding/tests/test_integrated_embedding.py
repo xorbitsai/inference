@@ -18,7 +18,6 @@ from io import BytesIO
 import numpy as np
 import requests
 from PIL import Image
-
 from ....client import Client
 
 

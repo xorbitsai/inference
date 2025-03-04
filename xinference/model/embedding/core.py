@@ -266,7 +266,8 @@ class EmbeddingModel:
         self,
         sentences: Union[str, List[str]],
         **kwargs,
-    ):
+    ):  
+        kwargs.pop("model_uid", None)
         sentences = self._fix_langchain_openai_inputs(sentences)
 
         from sentence_transformers import SentenceTransformer
