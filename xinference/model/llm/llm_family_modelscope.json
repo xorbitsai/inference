@@ -8109,7 +8109,7 @@
   {
     "version": 1,
     "context_length": 32768,
-    "model_name": "SeaLLMs-v3-7B-Chat",
+    "model_name": "SeaLLMs-v3-Chat",
     "model_lang": [
       "en",
       "zh"
