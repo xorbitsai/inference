@@ -1123,6 +1123,20 @@ const ModelCard = ({
                   }
                 })()}
                 {(() => {
+                  if (modelType === 'audio' && modelData.model_ability) {
+                    return (
+                      <Chip
+                        label={modelData.model_ability}
+                        variant="outlined"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      />
+                    )
+                  }
+                })()}
+                {(() => {
                   if (modelData.cache_status) {
                     return (
                       <Chip
