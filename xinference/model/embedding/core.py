@@ -266,10 +266,9 @@ class EmbeddingModel:
         self,
         sentences: Union[str, List[str]],
         **kwargs,
-    ):  
-        kwargs.pop("model_uid", None)
+    ):
         sentences = self._fix_langchain_openai_inputs(sentences)
-
+        model_uid = kwargs.pop("model_uid", None)
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
@@ -700,7 +699,7 @@ class EmbeddingModel:
                 if not is_bge_m3_flag_model and not kwargs.get("return_sparse")
                 else "dict"
             ),
-            model=kwargs.get("model_uid"),  # type: ignore
+            model=model_uid,  # type: ignore
             model_replica=self._model_uid,
             data=embedding_list,
             usage=usage,
