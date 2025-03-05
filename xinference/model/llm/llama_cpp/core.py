@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
-import json
 import logging
 import os
 import queue
 import time
 from typing import Dict, Iterator, List, Optional, Union
+
+import orjson
 
 from ....types import (
     ChatCompletion,
@@ -36,6 +37,10 @@ from ..utils import DEEPSEEK_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelM
 logger = logging.getLogger(__name__)
 
 USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 0)))
+
+
+class _Sentinel:
+    pass
 
 
 class XllamaCppModel(LLM):
@@ -169,10 +174,9 @@ class XllamaCppModel(LLM):
         generate_config = self._sanitize_generate_config(generate_config)
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
-        done = object()
 
         def _handle_completion():
-            prompt_json = json.dumps(
+            prompt_json = orjson.dumps(
                 {
                     "prompt": prompt,
                     "stream": stream,
@@ -180,14 +184,15 @@ class XllamaCppModel(LLM):
             )
 
             def _res_callback(ok):
-                res = json.loads(ok)
-                res["model"] = self.model_uid
-                q.put(res)
+                try:
+                    res = orjson.loads(ok)
+                    res["model"] = self.model_uid
+                    q.put(res)
+                except Exception as e:
+                    logger.exception("handle_completions callback failed: %s", e)
 
-            try:
-                self._llm.handle_completions(prompt_json, _res_callback, _res_callback)
-            finally:
-                q.put(done)
+            self._llm.handle_completions(prompt_json, _res_callback, _res_callback)
+            q.put(_Sentinel)
 
         assert self._executor
         self._executor.submit(_handle_completion)
@@ -195,7 +200,7 @@ class XllamaCppModel(LLM):
         if stream:
 
             def _to_iterator():
-                while (r := q.get()) is not done:
+                while (r := q.get()) is not _Sentinel:
                     yield r
 
             return _to_iterator()
@@ -211,10 +216,9 @@ class XllamaCppModel(LLM):
         stream = generate_config.get("stream", False)
         tools = generate_config.pop("tools", []) if generate_config else None
         q: queue.Queue = queue.Queue()
-        done = object()
 
         def _handle_chat_completion():
-            prompt_json = json.dumps(
+            prompt_json = orjson.dumps(
                 {
                     "messages": messages,
                     "stream": stream,
@@ -223,16 +227,15 @@ class XllamaCppModel(LLM):
             )
 
             def _res_callback(ok):
-                res = json.loads(ok)
-                res["model"] = self.model_uid
-                q.put(res)
+                try:
+                    res = orjson.loads(ok)
+                    res["model"] = self.model_uid
+                    q.put(res)
+                except Exception as e:
+                    logger.exception("handle_chat_completions callback failed: %s", e)
 
-            try:
-                self._llm.handle_chat_completions(
-                    prompt_json, _res_callback, _res_callback
-                )
-            finally:
-                q.put(done)
+            self._llm.handle_chat_completions(prompt_json, _res_callback, _res_callback)
+            q.put(_Sentinel)
 
         assert self._executor
         self._executor.submit(_handle_chat_completion)
@@ -240,7 +243,7 @@ class XllamaCppModel(LLM):
         if stream:
 
             def _to_iterator():
-                while (r := q.get()) is not done:
+                while (r := q.get()) is not _Sentinel:
                     yield r
 
             return _to_iterator()
