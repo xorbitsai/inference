@@ -110,7 +110,10 @@ class XllamaCppModel(LLM):
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
             return False
-        if "chat" not in llm_family.model_ability:
+        if (
+            "chat" not in llm_family.model_ability
+            and "generate" not in llm_family.model_ability
+        ):
             return False
         return True
 
@@ -143,11 +146,16 @@ class XllamaCppModel(LLM):
         try:
             params = CommonParams()
             params.model = model_path
-            params.chat_template = self.model_family.chat_template
+            if self.model_family.chat_template:
+                params.chat_template = self.model_family.chat_template
+            params.n_parallel = os.cpu_count()
             params.cpuparams.n_threads = os.cpu_count()
             params.cpuparams_batch.n_threads = os.cpu_count()
             for k, v in self._llamacpp_model_config.items():
-                setattr(params, k, v)
+                try:
+                    setattr(params, k, v)
+                except Exception as e:
+                    logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
             self._llm = Server(params)
             self._executor = concurrent.futures.ThreadPoolExecutor(
                 max_workers=os.cpu_count()
