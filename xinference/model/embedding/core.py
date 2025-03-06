@@ -663,7 +663,7 @@ class EmbeddingModel:
                 self._model,
                 objs,
                 convert_to_numpy=False,
-                **self._kwargs,
+                **kwargs,
             )
         else:
             all_embeddings, all_token_nums = encode(
