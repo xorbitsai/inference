@@ -99,6 +99,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
     "QwQ-32B-Preview",
+    "QwQ-32B",
     "deepseek-r1-distill-qwen",
     "deepseek-r1-distill-llama",
     "deepseek-v3",
