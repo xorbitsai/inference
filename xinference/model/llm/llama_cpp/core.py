@@ -178,12 +178,19 @@ class XllamaCppModel(LLM):
         q: queue.Queue = queue.Queue()
 
         def _handle_completion():
-            prompt_json = orjson.dumps(
+            # TODO(fyrestone): Replace the LlamaCppGenerateConfig to OpenAI params.
+            data = generate_config
+            data.pop("stopping_criteria", None)
+            data.pop("logits_processor", None)
+            data.pop("suffix", None)
+            data.pop("best_of", None)
+            data.update(
                 {
                     "prompt": prompt,
                     "stream": stream,
                 }
             )
+            prompt_json = orjson.dumps(data)
 
             def _res_callback(ok):
                 try:
@@ -193,7 +200,10 @@ class XllamaCppModel(LLM):
                 except Exception as e:
                     logger.exception("handle_completions callback failed: %s", e)
 
-            self._llm.handle_completions(prompt_json, _res_callback, _res_callback)
+            try:
+                self._llm.handle_completions(prompt_json, _res_callback, _res_callback)
+            except Exception as ex:
+                logger.exception("handle_completions failed: %s", ex)
             q.put(_Sentinel)
 
         assert self._executor
@@ -220,13 +230,20 @@ class XllamaCppModel(LLM):
         q: queue.Queue = queue.Queue()
 
         def _handle_chat_completion():
-            prompt_json = orjson.dumps(
+            # TODO(fyrestone): Replace the LlamaCppGenerateConfig to OpenAI params.
+            data = generate_config
+            data.pop("stopping_criteria", None)
+            data.pop("logits_processor", None)
+            data.pop("suffix", None)
+            data.pop("best_of", None)
+            data.update(
                 {
                     "messages": messages,
                     "stream": stream,
                     "tools": tools,
                 }
             )
+            prompt_json = orjson.dumps(data)
 
             def _res_callback(ok):
                 try:
@@ -236,7 +253,12 @@ class XllamaCppModel(LLM):
                 except Exception as e:
                     logger.exception("handle_chat_completions callback failed: %s", e)
 
-            self._llm.handle_chat_completions(prompt_json, _res_callback, _res_callback)
+            try:
+                self._llm.handle_chat_completions(
+                    prompt_json, _res_callback, _res_callback
+                )
+            except Exception as ex:
+                logger.exception("handle_chat_completions failed: %s", ex)
             q.put(_Sentinel)
 
         assert self._executor
