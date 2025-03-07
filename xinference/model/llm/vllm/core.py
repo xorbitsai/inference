@@ -246,7 +246,6 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
-        self.reasoning_parser = None
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
@@ -815,7 +814,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         i = 0
         async for chunk in chunks:
             if i == 0:
-                yield self._get_first_chat_completion_chunk(chunk)
+                yield self._get_first_chat_completion_chunk(
+                    chunk, self.reasoning_parser
+                )
             # usage
             choices = chunk.get("choices")
             if not choices:
@@ -823,10 +824,13 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 if self.is_tool_call_chunk(chunk):
                     yield self._tool_calls_completion_chunk(
-                        self.model_family, self.model_uid, chunk
+                        self.model_family,
+                        self.model_uid,
+                        chunk,
+                        reasoning_parser=self.reasoning_parser,
                     )
                 else:
-                    yield self._to_chat_completion_chunk(chunk)
+                    yield self._to_chat_completion_chunk(chunk, self.reasoning_parser)
             i += 1
 
     @vllm_check
@@ -866,7 +870,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
+                return self._tool_calls_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
             return self._to_chat_completion(c, self.reasoning_parser)
 
 

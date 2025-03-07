@@ -57,6 +57,7 @@ class LLM(abc.ABC):
         self.model_spec = model_spec
         self.quantization = quantization
         self.model_path = model_path
+        self.reasoning_parser = None
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:

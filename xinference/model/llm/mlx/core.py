@@ -31,6 +31,8 @@ from ....types import (
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
+from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -45,6 +47,7 @@ class MLXModelConfig(TypedDict, total=False):
     revision: Optional[str]
     max_gpu_memory: str
     trust_remote_code: bool
+    reasoning_content: bool
 
 
 class MLXGenerateConfig(TypedDict, total=False):
@@ -95,6 +98,7 @@ class MLXModel(LLM):
             model_config = MLXModelConfig()
         model_config.setdefault("revision", self.model_spec.model_revision)
         model_config.setdefault("trust_remote_code", True)
+        model_config.setdefault("reasoning_content", False)
         return model_config
 
     def _sanitize_generate_config(
@@ -153,6 +157,17 @@ class MLXModel(LLM):
         )
 
     def load(self):
+        reasoning_content = self._model_config.pop("reasoning_content")
+
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in self.model_family.model_ability and reasoning_content:
+            module_name = self.model_family.model_family or self.model_family.model_name
+            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
+            self.reasoning_parser = self.reasoning_parser(
+                self.model_family.reasoning_start_tag,
+                self.model_family.reasoning_end_tag,
+            )
+
         kwargs = {}
         kwargs["revision"] = self._model_config.get(
             "revision", self.model_spec.model_revision
@@ -445,13 +460,15 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
+            return self._to_chat_completion_chunks(it, self.reasoning_parser)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
+                return self._tool_calls_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
+            return self._to_chat_completion(c, self.reasoning_parser)
 
 
 class MLXVisionModel(MLXModel, ChatModelMixin):

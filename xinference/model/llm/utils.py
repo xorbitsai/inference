@@ -41,6 +41,7 @@ from ...types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
+    ChatCompletionChunkDelta,
     ChatCompletionMessage,
     Completion,
     CompletionChoice,
@@ -243,62 +244,73 @@ class ChatModelMixin:
             raise ValueError(f"Invalid model family: {model_family}")
 
     @classmethod
-    def _to_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
-        choices = chunk.get("choices")
-        if (
-            chunk.get("object") == "chat.completion.chunk"
-            and choices
-            and "delta" in choices[0]
-        ):
-            # Already a ChatCompletionChunk, we don't need to convert chunk.
-            return cast(ChatCompletionChunk, chunk)
+    def _to_chat_completion_chunk(
+        cls,
+        chunk: CompletionChunk,
+        reasoning_parser: Optional[ReasoningParser] = None,
+        previous_texts: Optional[List[str]] = None,
+    ) -> ChatCompletionChunk:
+        choices_list = []
+        for i, choice in enumerate(chunk["choices"]):
+            delta = ChatCompletionChunkDelta()
+            if "text" in choice and choice["finish_reason"] is None:
+                if reasoning_parser is None:
+                    delta["content"] = choice["text"]
+                else:
+                    assert previous_texts is not None
+                    current_text = previous_texts[-1] + choice["text"]
+                    delta = reasoning_parser.extract_reasoning_content_streaming(
+                        previous_text=previous_texts[-1],
+                        current_text=current_text,
+                        delta_text=choice["text"],
+                    )
+                    previous_texts[-1] = current_text
+            if "tool_calls" in choice:
+                delta["tool_calls"] = choice["tool_calls"]
+            choices_list.append(
+                {
+                    "index": i,
+                    "delta": delta,
+                    "finish_reason": choice["finish_reason"],
+                }
+            )
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
             "created": chunk["created"],
             "object": "chat.completion.chunk",
-            "choices": [
-                {
-                    "index": i,
-                    "delta": {
-                        **(
-                            {"content": choice["text"]}
-                            if ("text" in choice and choice["finish_reason"] is None)
-                            else {}
-                        ),
-                        **(
-                            {"tool_calls": choice["tool_calls"]}
-                            if "tool_calls" in choice
-                            else {}
-                        ),
-                    },
-                    "finish_reason": choice["finish_reason"],
-                }
-                for i, choice in enumerate(chunk["choices"])
-            ],
+            "choices": choices_list,
         }
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
     def _get_first_chat_completion_chunk(
-        cls, chunk: CompletionChunk
+        cls,
+        chunk: CompletionChunk,
+        reasoning_parser: Optional[ReasoningParser] = None,
     ) -> ChatCompletionChunk:
+        choices_list = []
+        for i, choice in enumerate(chunk["choices"]):
+            delta = {
+                "role": "assistant",
+            }
+            if reasoning_parser is None:
+                delta["content"] = ""
+            else:
+                delta["reasoning_content"] = ""
+            choices_list.append(
+                {
+                    "index": i,
+                    "delta": delta,
+                    "finish_reason": None,
+                }
+            )
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
             "created": chunk["created"],
             "object": "chat.completion.chunk",
-            "choices": [
-                {
-                    "index": i,
-                    "delta": {
-                        "role": "assistant",
-                        "content": "",
-                    },
-                    "finish_reason": None,
-                }
-                for i, choice in enumerate(chunk["choices"])
-            ],
+            "choices": choices_list,
         }
         return cast(ChatCompletionChunk, chat_chunk)
 
@@ -324,15 +336,18 @@ class ChatModelMixin:
         chunks: Iterator[CompletionChunk],
         reasoning_parse: Optional[ReasoningParser] = None,
     ) -> Iterator[ChatCompletionChunk]:
+        previous_texts = [""]
         for i, chunk in enumerate(chunks):
             if i == 0:
-                yield cls._get_first_chat_completion_chunk(chunk)
+                yield cls._get_first_chat_completion_chunk(chunk, reasoning_parse)
             # usage
             choices = chunk.get("choices")
             if not choices:
                 yield cls._get_final_chat_completion_chunk(chunk)
             else:
-                yield cls._to_chat_completion_chunk(chunk)
+                yield cls._to_chat_completion_chunk(
+                    chunk, reasoning_parse, previous_texts
+                )
 
     @classmethod
     def _tools_to_messages_for_deepseek(
@@ -370,33 +385,19 @@ class ChatModelMixin:
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
-        previous_text = ""
-        current_text = ""
+        previous_texts = [""]
         async for chunk in chunks:
             if i == 0:
-                chat_chunk = cls._get_first_chat_completion_chunk(chunk)
+                chat_chunk = cls._get_first_chat_completion_chunk(
+                    chunk, reasoning_parser
+                )
             elif not chunk.get("choices"):
                 # usage
                 chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
-                chat_chunk = cls._to_chat_completion_chunk(chunk)
-            if reasoning_parser is not None:
-                choices = chat_chunk.get("choices")
-                if choices is None:
-                    continue
-                for choice in choices:
-                    delta = choice.get("delta")
-                    if not delta:
-                        continue
-                    current_text = previous_text + delta.get("content", "")
-                    choice[
-                        "delta"
-                    ] = reasoning_parser.extract_reasoning_content_streaming(
-                        previous_text=previous_text,
-                        current_text=current_text,
-                        delta=delta,
-                    )
-                    previous_text = current_text
+                chat_chunk = cls._to_chat_completion_chunk(
+                    chunk, reasoning_parser, previous_texts
+                )
             yield chat_chunk
             i += 1
 
@@ -565,7 +566,14 @@ class ChatModelMixin:
         return result
 
     @classmethod
-    def _tool_calls_completion_chunk(cls, model_family, model_uid, c, chunk_id=None):
+    def _tool_calls_completion_chunk(
+        cls,
+        model_family,
+        model_uid,
+        c,
+        chunk_id=None,
+        reasoning_parser: Optional[ReasoningParser] = None,
+    ):
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
         tool_result = cls._eval_tool_arguments(model_family, c)
         tool_calls = []
@@ -585,11 +593,22 @@ class ChatModelMixin:
             else:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
+
+        reasoning_content = None
+        content = ". ".join(failed_contents) if failed_contents else None
+        if reasoning_parser is not None:
+            reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
+                content
+            )
         d = {
             "role": "assistant",
-            "content": ". ".join(failed_contents) if failed_contents else None,
+            "content": content,
             "tool_calls": tool_calls,
         }
+        # add only reasoning_content is None
+        if reasoning_content is not None:
+            d["reasoning_content"] = reasoning_content
+
         try:
             usage = c.get("usage")
             assert "prompt_tokens" in usage
@@ -616,7 +635,13 @@ class ChatModelMixin:
         }
 
     @classmethod
-    def _tool_calls_completion(cls, model_family, model_uid, c):
+    def _tool_calls_completion(
+        cls,
+        model_family,
+        model_uid,
+        c,
+        reasoning_parser: Optional[ReasoningParser] = None,
+    ):
         _id = str(uuid.uuid4())
         tool_result = cls._eval_tool_arguments(model_family, c)
 
@@ -637,11 +662,22 @@ class ChatModelMixin:
             else:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
+
+        reasoning_content = None
+        content = ". ".join(failed_contents) if failed_contents else None
+        if reasoning_parser is not None:
+            reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
+                content
+            )
         m = {
             "role": "assistant",
-            "content": ". ".join(failed_contents) if failed_contents else None,
+            "content": content,
             "tool_calls": tool_calls,
         }
+        # add only reasoning_content is None
+        if reasoning_content is not None:
+            m["reasoning_content"] = reasoning_content
+
         try:
             usage = c.get("usage")
             assert "prompt_tokens" in usage

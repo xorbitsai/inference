@@ -39,6 +39,8 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
+from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
@@ -114,6 +116,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("trust_remote_code", True)
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
+        pytorch_model_config.setdefault("reasoning_content", False)
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -325,6 +328,17 @@ class PytorchModel(LLM):
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
             is_device_map_auto = True
+
+        reasoning_content = self._pytorch_model_config.pop("reasoning_content")
+
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in self.model_family.model_ability and reasoning_content:
+            module_name = self.model_family.model_family or self.model_family.model_name
+            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
+            self.reasoning_parser = self.reasoning_parser(
+                self.model_family.reasoning_start_tag,
+                self.model_family.reasoning_end_tag,
+            )
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer(**kwargs)
@@ -717,22 +731,33 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def handle_chat_result_non_streaming(self, req: InferenceRequest):
         if req.tools:
             req.completion[0] = self._tool_calls_completion(
-                self.model_family, self.model_uid, req.completion[0]
+                self.model_family,
+                self.model_uid,
+                req.completion[0],
+                self.reasoning_parser,
             )
         else:
-            req.completion[0] = self._to_chat_completion(req.completion[0])
+            req.completion[0] = self._to_chat_completion(
+                req.completion[0], self.reasoning_parser
+            )
 
     def handle_chat_result_streaming(self, req: InferenceRequest):
         results = []
         for i, c in enumerate(req.completion):
             if c == "<bos_stream>":
                 results.append(
-                    self._get_first_chat_completion_chunk(req.completion[i + 1])
+                    self._get_first_chat_completion_chunk(
+                        req.completion[i + 1], self.reasoning_parser
+                    )
                 )
             elif c == "<eos_stream>":
                 break
             else:
-                results.append(self._to_chat_completion_chunk(c))
+                results.append(
+                    self._to_chat_completion_chunk(
+                        c, self.reasoning_parser, req.previous_texts
+                    )
+                )
 
         if req.stopped and req.include_usage:
             results.append(self._get_final_chat_completion_chunk(req.completion[-1]))

@@ -97,6 +97,9 @@ class InferenceRequest:
         # check the integrity of args passed upstream
         self._check_args()
 
+        # for reasoning_content using
+        self.previous_texts = [""]
+
     def _check_args(self):
         assert len(self._inference_args) == 1
         # generate config

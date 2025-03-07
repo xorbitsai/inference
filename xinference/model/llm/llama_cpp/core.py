@@ -28,6 +28,8 @@ from ....types import (
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
+from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import DEEPSEEK_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelMixin
 
 logger = logging.getLogger(__name__)
@@ -76,6 +78,7 @@ class LlamaCppModel(LLM):
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
         elif self._is_linux() and self._can_apply_cublas():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
+        llamacpp_model_config.setdefault("reasoning_content", False)
 
         return llamacpp_model_config
 
@@ -122,6 +125,17 @@ class LlamaCppModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
+
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in self.model_family.model_ability and reasoning_content:
+            module_name = self.model_family.model_family or self.model_family.model_name
+            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
+            self.reasoning_parser = self.reasoning_parser(
+                self.model_family.reasoning_start_tag,
+                self.model_family.reasoning_end_tag,
+            )
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
@@ -292,10 +306,12 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
+            return self._to_chat_completion_chunks(it, self.reasoning_parser)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
+                return self._tool_calls_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
+            return self._to_chat_completion(c, self.reasoning_parser)

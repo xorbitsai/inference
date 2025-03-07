@@ -23,7 +23,7 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
         self,
         previous_text: str,
         current_text: str,
-        delta: ChatCompletionChunkDelta,
+        delta_text: str,
     ) -> ChatCompletionChunkDelta:
         """Extract reasoning content from DeepSeek-R1 model output in a streaming fashion.
 
@@ -34,10 +34,9 @@ class DeepSeekR1ReasoningParser(ReasoningParser):
         Yields:
             str: Extracted reasoning content chunks.
         """
-        if delta is None:
-            return delta
-
-        delta_text = delta["content"]
+        delta = ChatCompletionChunkDelta(
+            content=delta_text,
+        )
 
         # Check if <think> is present in previous or delta.
         # Keep compatibility with models that don't generate <think> tokens.
