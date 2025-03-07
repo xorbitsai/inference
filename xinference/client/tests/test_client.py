@@ -165,7 +165,6 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_RESTful_client_xllamacpp(set_use_xllamacpp, setup):
     test_RESTful_client(setup)
 

@@ -153,17 +153,19 @@ class XllamaCppModel(LLM):
             params.model = model_path
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
+            # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = os.cpu_count()
-            params.cpuparams.n_threads = os.cpu_count()
-            params.cpuparams_batch.n_threads = os.cpu_count()
             for k, v in self._llamacpp_model_config.items():
                 try:
                     setattr(params, k, v)
                 except Exception as e:
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
+            n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
+            params.cpuparams.n_threads = n_threads
+            params.cpuparams_batch.n_threads = n_threads
             self._llm = Server(params)
             self._executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=os.cpu_count()
+                max_workers=max(10, n_threads)
             )
         except AssertionError:
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
