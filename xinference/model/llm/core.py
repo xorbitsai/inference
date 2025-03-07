@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
 from ..core import ModelDescription
+from .reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
+from .reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
@@ -117,6 +119,16 @@ class LLM(abc.ABC):
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         raise NotImplementedError
+
+    def should_stream_with_reasoning_parsing(self, reasoning_content):
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in self.model_family.model_ability and reasoning_content:
+            module_name = self.model_family.model_family or self.model_family.model_name
+            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
+            self.reasoning_parser = self.reasoning_parser(
+                self.model_family.reasoning_start_tag,
+                self.model_family.reasoning_end_tag,
+            )
 
 
 class LLMDescription(ModelDescription):

@@ -43,8 +43,6 @@ from ....types import (
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
-from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
-from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -276,14 +274,8 @@ class VLLMModel(LLM):
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
 
-        # Initialize reasoning parser if model has reasoning ability
-        if "reasoning" in self.model_family.model_ability and reasoning_content:
-            module_name = self.model_family.model_family or self.model_family.model_name
-            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
-            self.reasoning_parser = self.reasoning_parser(
-                self.model_family.reasoning_start_tag,
-                self.model_family.reasoning_end_tag,
-            )
+        self.should_stream_with_reasoning_parsing(reasoning_content)
+
         if self.lora_modules is None:
             self.lora_requests = []
         else:

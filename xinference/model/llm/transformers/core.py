@@ -39,8 +39,6 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
-from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
@@ -330,15 +328,7 @@ class PytorchModel(LLM):
             is_device_map_auto = True
 
         reasoning_content = self._pytorch_model_config.pop("reasoning_content")
-
-        # Initialize reasoning parser if model has reasoning ability
-        if "reasoning" in self.model_family.model_ability and reasoning_content:
-            module_name = self.model_family.model_family or self.model_family.model_name
-            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
-            self.reasoning_parser = self.reasoning_parser(
-                self.model_family.reasoning_start_tag,
-                self.model_family.reasoning_end_tag,
-            )
+        self.should_stream_with_reasoning_parsing(reasoning_content)
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer(**kwargs)
