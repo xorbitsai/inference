@@ -163,6 +163,10 @@ class XllamaCppModel(LLM):
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads
+            if params.n_gpu_layers == -1:
+                # Number of layers to offload to GPU (-ngl). If -1, all layers are offloaded.
+                # 0x7FFFFFFF is INT32 max, will be auto set to all layers
+                params.n_gpu_layers = 0x7FFFFFFF
             self._llm = Server(params)
             self._executor = concurrent.futures.ThreadPoolExecutor(
                 max_workers=max(10, n_threads)
