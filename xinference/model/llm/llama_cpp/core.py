@@ -76,6 +76,7 @@ class LlamaCppModel(LLM):
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
         elif self._is_linux() and self._can_apply_cublas():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
+        llamacpp_model_config.setdefault("reasoning_content", False)
 
         return llamacpp_model_config
 
@@ -122,6 +123,9 @@ class LlamaCppModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
@@ -292,10 +296,12 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
+            return self._to_chat_completion_chunks(it, self.reasoning_parser)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
+            return self._to_chat_completion(c, self.reasoning_parser)
