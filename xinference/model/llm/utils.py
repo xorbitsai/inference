@@ -566,7 +566,7 @@ class ChatModelMixin:
         return result
 
     @classmethod
-    def _tool_calls_completion_chunk(
+    def _post_process_completion_chunk(
         cls,
         model_family,
         model_uid,

@@ -156,7 +156,7 @@ class MLXModel(LLM):
 
     def load(self):
         reasoning_content = self._model_config.pop("reasoning_content")
-        self.should_stream_with_reasoning_parsing(reasoning_content)
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         kwargs = {}
         kwargs["revision"] = self._model_config.get(

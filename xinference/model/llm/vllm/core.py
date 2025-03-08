@@ -274,7 +274,7 @@ class VLLMModel(LLM):
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
 
-        self.should_stream_with_reasoning_parsing(reasoning_content)
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         if self.lora_modules is None:
             self.lora_requests = []
@@ -817,7 +817,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 yield self._get_final_chat_completion_chunk(chunk)
             else:
                 if self.is_tool_call_chunk(chunk):
-                    yield self._tool_calls_completion_chunk(
+                    yield self._post_process_completion_chunk(
                         self.model_family,
                         self.model_uid,
                         chunk,

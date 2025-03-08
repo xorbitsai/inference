@@ -125,7 +125,7 @@ class LlamaCppModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
-        self.should_stream_with_reasoning_parsing(reasoning_content)
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path

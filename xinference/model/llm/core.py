@@ -120,7 +120,7 @@ class LLM(abc.ABC):
     ) -> bool:
         raise NotImplementedError
 
-    def should_stream_with_reasoning_parsing(self, reasoning_content):
+    def prepare_parse_reasoning_content(self, reasoning_content):
         # Initialize reasoning parser if model has reasoning ability
         if "reasoning" in self.model_family.model_ability and reasoning_content:
             module_name = self.model_family.model_family or self.model_family.model_name
