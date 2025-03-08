@@ -121,3 +121,4 @@ xgrammar>=0.1.10
 vllm==0.7.2
 cuda-python
 sgl-kernel>=0.0.3.post3
+IPython
