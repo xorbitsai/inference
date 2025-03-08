@@ -182,7 +182,7 @@ class XllamaCppModel(LLM):
         q: queue.Queue = queue.Queue()
 
         def _handle_completion():
-            # TODO(fyrestone): Replace the LlamaCppGenerateConfig to OpenAI params.
+            # TODO(fyrestone): Replace the LlamaCppGenerateConfig with OpenAI params.
             data = generate_config
             data.pop("stopping_criteria", None)
             data.pop("logits_processor", None)
@@ -234,7 +234,7 @@ class XllamaCppModel(LLM):
         q: queue.Queue = queue.Queue()
 
         def _handle_chat_completion():
-            # TODO(fyrestone): Replace the LlamaCppGenerateConfig to OpenAI params.
+            # TODO(fyrestone): Replace the LlamaCppGenerateConfig with OpenAI params.
             data = generate_config
             data.pop("stopping_criteria", None)
             data.pop("logits_processor", None)
