@@ -575,6 +575,8 @@ class VLLMModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        if self.reasoning_parser:
+            sanitized_generate_config.pop("stop")
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
