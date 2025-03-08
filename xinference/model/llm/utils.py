@@ -635,7 +635,7 @@ class ChatModelMixin:
         }
 
     @classmethod
-    def _tool_calls_completion(
+    def _post_process_completion(
         cls,
         model_family,
         model_uid,

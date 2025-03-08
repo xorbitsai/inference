@@ -383,7 +383,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 function_call = self._process_response_non_streaming(
                     response, tools, use_tool=True
                 )
-                return self._tool_calls_completion(
+                return self._post_process_completion(
                     self.model_family, self.model_uid, function_call
                 )
             else:
@@ -484,7 +484,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             function_call = self._process_response_non_streaming(
                 response, req.tools, use_tool=True
             )
-            req.completion[0] = self._tool_calls_completion(
+            req.completion[0] = self._post_process_completion(
                 self.model_family, self.model_uid, function_call
             )
             req.completion[0]["usage"] = usage

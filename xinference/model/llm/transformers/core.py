@@ -720,7 +720,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def handle_chat_result_non_streaming(self, req: InferenceRequest):
         if req.tools:
-            req.completion[0] = self._tool_calls_completion(
+            req.completion[0] = self._post_process_completion(
                 self.model_family,
                 self.model_uid,
                 req.completion[0],

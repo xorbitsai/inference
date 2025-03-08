@@ -455,7 +455,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(
+                return self._post_process_completion(
                     self.model_family, self.model_uid, c, self.reasoning_parser
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
@@ -643,5 +643,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             c = self.generate(inputs, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c
+                )
             return self._to_chat_completion(c)
