@@ -277,6 +277,7 @@ class LlamaCppModelConfig(TypedDict, total=False):
     use_mmap: bool
     use_mlock: bool
     n_threads: Optional[int]
+    n_parallel: Optional[int]
     n_batch: int
     last_n_tokens_size: int
     lora_base: Optional[str]
