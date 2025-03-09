@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 32 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 32
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/QwQ-32B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/QwQ-32B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/QwQ-32B-{quantization}>`__
 
