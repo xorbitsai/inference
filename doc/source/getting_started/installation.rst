@@ -65,6 +65,7 @@ Currently, supported models include:
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
 - ``internlm3-instruct``
+- ``moonlight-16b-a3b-instruct``
 .. vllm_end
 
 To install Xinference and vLLM::
