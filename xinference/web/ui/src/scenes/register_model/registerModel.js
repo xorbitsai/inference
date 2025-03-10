@@ -1365,12 +1365,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         <DialogTitle id="alert-dialog-title">
           {t('registerModel.messagesExample')}
         </DialogTitle>
-        <DialogContent>
-          <textarea
-            readOnly
-            className="textarea"
-            style={{ width: 500, height: 200 }}
-            value={JSON.stringify(messages, null, 4)}
+        <DialogContent style={{ width: 600 }}>
+          <TextField
+            multiline
+            fullWidth
+            rows={10}
+            disabled
+            defaultValue={JSON.stringify(messages, null, 4)}
           />
         </DialogContent>
         <DialogActions>
