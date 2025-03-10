@@ -43,7 +43,7 @@ class _Sentinel:
     pass
 
 
-class XllamaCppModel(LLM):
+class XllamaCppModel(LLM, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
@@ -83,6 +83,7 @@ class XllamaCppModel(LLM):
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
         elif self._is_linux():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
+        llamacpp_model_config.setdefault("reasoning_content", False)
 
         return llamacpp_model_config
 
@@ -130,6 +131,9 @@ class XllamaCppModel(LLM):
             installation_guide = ["Please make sure 'xllamacpp' is installed. "]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
@@ -274,9 +278,11 @@ class XllamaCppModel(LLM):
                 while (r := q.get()) is not _Sentinel:
                     yield r
 
-            return _to_iterator()
+            return self._to_chat_completion_chunks(
+                _to_iterator(), self.reasoning_parser
+            )
         else:
-            return q.get()
+            return self._to_chat_completion(q.get(), self.reasoning_parser)
 
 
 class LlamaCppModel(LLM):
