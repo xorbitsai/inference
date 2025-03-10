@@ -8185,38 +8185,5 @@
     "stop": [
       "<|im_end|>"
     ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "baichuan-m1-instruct",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Baichuan-14B-M1 is the industry's first open-source large language model developed from scratch by Baichuan Intelligence, specifically optimized for medical scenarios.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 14,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "baichuan-inc/Baichuan-M1-14B-Instruct",
-        "model_hub": "modelscope"
-      }
-    ],
-    "chat_template": "{% for message in messages %}{% if message['role'] == 'system' %}{{'<B_SYS>' + message['content']}}{% elif message['role'] == 'user_system' %}{{'<B_USYS>' + message['content']}}{% elif message['role'] == 'user' %}{{'<C_Q>' + message['content']}}{% elif message['role'] == 'assistant' %}{{'<C_A>' + message['content']}}{% elif message['role'] == 'function' %}{{'<B_FUNC>' + message['content']}}{% elif message['role'] == 'code' %}{{'<B_CODE>' + message['content']}}{% else %}{{ raise_exception('Invalid message role: ' + message['role']) }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{'<C_A>'}}{% endif %}",
-    "stop_token_ids": [
-      51
-    ],
-    "stop": [
-      "<|im_end|>"
-    ]
   }
 ]
