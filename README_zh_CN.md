@@ -34,6 +34,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- [Xllamacpp](https://github.com/xorbitsai/xllamacpp): 全新llama.cpp Python binding，由 Xinference 团队维护，支持持续并行且更生产可用: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 - 支持 Transformers 引擎的持续批处理: [#1724](https://github.com/xorbitsai/inference/pull/1724)
@@ -41,8 +42,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持加载模型时指定 worker 和 GPU 索引: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
-- 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 ### 新模型
+- 内置 [QwQ-32B](https://qwenlm.github.io/zh/blog/qwq-32b/): [#3005](https://github.com/xorbitsai/inference/pull/3005)
 - 内置 [DeepSeek V3 and R1](https://github.com/deepseek-ai/DeepSeek-R1): [#2864](https://github.com/xorbitsai/inference/pull/2864)
 - 内置 [InternVL2.5](https://internvl.github.io/blog/2024-12-05-InternVL-2.5/): [#2776](https://github.com/xorbitsai/inference/pull/2776)
 - 内置 [DeepSeek-R1-Distill-Llama](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2811](https://github.com/xorbitsai/inference/pull/2811)
@@ -183,6 +184,10 @@ $ xinference-local
     pages = "291--300",
 }
 ```
+
+## 合作
+
+* [琶洲实验室 | 黄埔](https://www.pazhoulab-huangpu.com/#/)
 
 ## 贡献者
 

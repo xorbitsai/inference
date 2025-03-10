@@ -126,11 +126,15 @@ def test_RESTful_client(setup):
             "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
         )
         if stream:
+            count = 0
+            has_text = False
             for chunk in completion:
                 assert "text" in chunk["choices"][0]
-                assert (
-                    chunk["choices"][0]["text"] or chunk["choices"][0]["finish_reason"]
-                )
+                if chunk["choices"][0]["text"]:
+                    has_text = True
+                count += 1
+            assert has_text
+            assert count > 2
         else:
             assert "text" in completion["choices"][0]
             assert len(completion["choices"][0]["text"]) > 0
@@ -159,6 +163,10 @@ def test_RESTful_client(setup):
 
     client.terminate_model(model_uid=model_uid2)
     assert len(client.list_models()) == 0
+
+
+def test_RESTful_client_xllamacpp(set_use_xllamacpp, setup):
+    test_RESTful_client(setup)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")

@@ -132,17 +132,17 @@ The following is a list of built-in LLM in Xinference:
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
    * - :ref:`deepseek-r1 <models_llm_deepseek-r1>`
-     - chat
+     - chat, reasoning
      - 163840
      - DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
 
    * - :ref:`deepseek-r1-distill-llama <models_llm_deepseek-r1-distill-llama>`
-     - chat
+     - chat, reasoning
      - 131072
      - deepseek-r1-distill-llama is distilled from DeepSeek-R1 based on Llama
 
    * - :ref:`deepseek-r1-distill-qwen <models_llm_deepseek-r1-distill-qwen>`
-     - chat
+     - chat, reasoning
      - 131072
      - deepseek-r1-distill-qwen is distilled from DeepSeek-R1 based on Qwen
 
@@ -250,6 +250,16 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 32768
      - InternVL 2 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
+
+   * - :ref:`internvl2.5 <models_llm_internvl2.5>`
+     - chat, vision
+     - 16384
+     - InternVL 2.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
+
+   * - :ref:`internvl2.5-mpo <models_llm_internvl2.5-mpo>`
+     - chat, vision
+     - 16384
+     - InternVL 2.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
 
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
@@ -386,6 +396,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - The Mixtral-8x7B Large Language Model (LLM) is a pretrained generative Sparse Mixture of Experts.
 
+   * - :ref:`moonlight-16b-a3b-instruct <models_llm_moonlight-16b-a3b-instruct>`
+     - chat
+     - 8192
+     - Kimi Muon is Scalable for LLM Training
+
    * - :ref:`omnilmm <models_llm_omnilmm>`
      - chat, vision
      - 2048
@@ -501,10 +516,20 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters.
 
+   * - :ref:`qwen2.5-instruct-1m <models_llm_qwen2.5-instruct-1m>`
+     - chat
+     - 1010000
+     - Qwen2.5-1M is the long-context version of the Qwen2.5 series models, supporting a context length of up to 1M tokens.
+
    * - :ref:`qwen2.5-vl-instruct <models_llm_qwen2.5-vl-instruct>`
      - chat, vision
      - 128000
      - Qwen2.5-VL: Qwen2.5-VL is the latest version of the vision language models in the Qwen model familities.
+
+   * - :ref:`qwq-32b <models_llm_qwq-32b>`
+     - chat, reasoning
+     - 32768
+     - QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.
 
    * - :ref:`qwq-32b-preview <models_llm_qwq-32b-preview>`
      - chat
@@ -710,6 +735,10 @@ The following is a list of built-in LLM in Xinference:
   
    internvl2
   
+   internvl2.5
+  
+   internvl2.5-mpo
+  
    llama-2
   
    llama-2-chat
@@ -764,6 +793,8 @@ The following is a list of built-in LLM in Xinference:
   
    mixtral-v0.1
   
+   moonlight-16b-a3b-instruct
+  
    omnilmm
   
    openhermes-2.5
@@ -810,7 +841,11 @@ The following is a list of built-in LLM in Xinference:
   
    qwen2.5-instruct
   
+   qwen2.5-instruct-1m
+  
    qwen2.5-vl-instruct
+  
+   qwq-32b
   
    qwq-32b-preview
   

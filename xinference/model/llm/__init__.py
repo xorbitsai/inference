@@ -129,7 +129,7 @@ def register_custom_model():
 
 
 def _install():
-    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
+    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel, XllamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
@@ -169,6 +169,7 @@ def _install():
         [
             LlamaCppChatModel,
             LlamaCppModel,
+            XllamaCppModel,
         ]
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])

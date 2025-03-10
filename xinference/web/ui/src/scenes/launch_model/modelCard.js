@@ -315,7 +315,7 @@ const ModelCard = ({
     }
 
     if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
-    if (modelData.model_ability.includes('reasoning'))
+    if (modelData.model_ability?.includes('reasoning'))
       modelDataWithID_LLM.reasoning_content = reasoningContent
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
@@ -1630,7 +1630,7 @@ const ModelCard = ({
                       />
                     </FormControl>
                   </Grid>
-                  {modelData.model_ability.includes('reasoning') && (
+                  {modelData.model_ability?.includes('reasoning') && (
                     <Grid item xs={12}>
                       <FormControl variant="outlined" margin="normal" fullWidth>
                         <div

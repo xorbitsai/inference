@@ -277,6 +277,7 @@ class LlamaCppModelConfig(TypedDict, total=False):
     use_mmap: bool
     use_mlock: bool
     n_threads: Optional[int]
+    n_parallel: Optional[int]
     n_batch: int
     last_n_tokens_size: int
     lora_base: Optional[str]
@@ -285,6 +286,7 @@ class LlamaCppModelConfig(TypedDict, total=False):
     n_gqa: Optional[int]  # (TEMPORARY) must be 8 for llama2 70b
     rms_norm_eps: Optional[float]  # (TEMPORARY)
     verbose: bool
+    reasoning_content: bool
 
 
 class PytorchGenerateConfig(TypedDict, total=False):
@@ -331,6 +333,7 @@ class PytorchModelConfig(TypedDict, total=False):
     trust_remote_code: bool
     max_num_seqs: int
     enable_tensorizer: Optional[bool]
+    reasoning_content: bool
 
 
 def get_pydantic_model_from_method(
