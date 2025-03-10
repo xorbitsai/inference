@@ -268,7 +268,7 @@ class EmbeddingModel:
         **kwargs,
     ):
         sentences = self._fix_langchain_openai_inputs(sentences)
-
+        model_uid = kwargs.pop("model_uid", None)
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
@@ -546,8 +546,14 @@ class EmbeddingModel:
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
                 if "clip" in self._model_spec.model_name.lower():
-                    all_token_nums += features["input_ids"].numel()
-                    all_token_nums += features["pixel_values"].numel()
+                    if "input_ids" in features and hasattr(
+                        features["input_ids"], "numel"
+                    ):
+                        all_token_nums += features["input_ids"].numel()
+                    if "pixel_values" in features and hasattr(
+                        features["pixel_values"], "numel"
+                    ):
+                        all_token_nums += features["pixel_values"].numel()
                 else:
                     all_token_nums += features["attention_mask"].sum().item()
 
@@ -657,7 +663,7 @@ class EmbeddingModel:
                 self._model,
                 objs,
                 convert_to_numpy=False,
-                **self._kwargs,
+                **kwargs,
             )
         else:
             all_embeddings, all_token_nums = encode(
@@ -693,7 +699,8 @@ class EmbeddingModel:
                 if not is_bge_m3_flag_model and not kwargs.get("return_sparse")
                 else "dict"
             ),
-            model=self._model_uid,
+            model=model_uid,  # type: ignore
+            model_replica=self._model_uid,
             data=embedding_list,
             usage=usage,
         )

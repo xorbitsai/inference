@@ -58,13 +58,14 @@ Currently, supported models include:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
-- ``QwQ-32B-Preview``
+- ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
 - ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
 - ``internlm3-instruct``
+- ``moonlight-16b-a3b-instruct``
 .. vllm_end
 
 To install Xinference and vLLM::

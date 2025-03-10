@@ -26,11 +26,13 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     python setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
+    pip install -i "$PIP_INDEX" xllamacpp && \
     # clean packages
     pip cache purge
 
 RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
+    ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
     /opt/conda/bin/conda clean --all -y
 
 ENTRYPOINT []

@@ -317,6 +317,11 @@ async def test_restful_api(setup):
     assert custom_model_reg is None
 
 
+@pytest.mark.asyncio
+async def test_restful_api_xllamacpp(set_use_xllamacpp, setup):
+    await test_restful_api(setup)
+
+
 def test_restful_api_for_embedding(setup):
     model_name = "gte-base"
     model_spec = BUILTIN_EMBEDDING_MODELS[model_name]
@@ -356,6 +361,9 @@ def test_restful_api_for_embedding(setup):
 
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
+    assert "model_replica" in embedding_res
+    assert embedding_res["model_replica"] is not None
+    assert embedding_res["model"] == payload["model"]
 
     # test multiple
     payload = {

@@ -36,6 +36,8 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     python3 setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
+    pip uninstall xllamacpp -y && \
+    pip install https://github.com/xorbitsai/xllamacpp/releases/download/v0.1.9-cu124/xllamacpp_cuda12x-0.1.9-cp310-cp310-manylinux_2_35_x86_64.whl && \
     # clean packages
     pip cache purge
 
@@ -46,6 +48,7 @@ RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/lat
 
 RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
+    ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
     /opt/conda/bin/conda clean --all -y
 
 # Overwrite the entrypoint of vllm's base image

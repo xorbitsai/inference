@@ -106,6 +106,7 @@ const ModelCard = ({
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
   const [modelPath, setModelPath] = useState('')
+  const [reasoningContent, setReasoningContent] = useState(false)
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
   const [cpuOffload, setCpuOffload] = useState(false)
@@ -314,6 +315,8 @@ const ModelCard = ({
     }
 
     if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
+    if (modelData.model_ability?.includes('reasoning'))
+      modelDataWithID_LLM.reasoning_content = reasoningContent
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
@@ -576,6 +579,7 @@ const ModelCard = ({
       gpu_idx,
       download_hub,
       model_path,
+      reasoning_content,
       peft_model_config,
     } = data
 
@@ -601,6 +605,7 @@ const ModelCard = ({
     setGPUIdx(gpu_idx?.join(',') || '')
     setDownloadHub(download_hub || '')
     setModelPath(model_path || '')
+    setReasoningContent(reasoning_content || false)
 
     let loraData = []
     peft_model_config?.lora_list?.forEach((item) => {
@@ -624,7 +629,8 @@ const ModelCard = ({
       worker_ip ||
       gpu_idx?.join(',') ||
       download_hub ||
-      model_path
+      model_path ||
+      reasoning_content
     )
       setIsOther(true)
 
@@ -742,6 +748,7 @@ const ModelCard = ({
       setGPUIdx('')
       setDownloadHub('')
       setModelPath('')
+      setReasoningContent(false)
       setLoraArr([])
       setCustomArr([])
       setIsOther(false)
@@ -1106,6 +1113,20 @@ const ModelCard = ({
                     return (
                       <Chip
                         label={modelData.model_family}
+                        variant="outlined"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      />
+                    )
+                  }
+                })()}
+                {(() => {
+                  if (modelType === 'audio' && modelData.model_ability) {
+                    return (
+                      <Chip
+                        label={modelData.model_ability}
                         variant="outlined"
                         size="small"
                         onClick={(e) => {
@@ -1609,6 +1630,26 @@ const ModelCard = ({
                       />
                     </FormControl>
                   </Grid>
+                  {modelData.model_ability?.includes('reasoning') && (
+                    <Grid item xs={12}>
+                      <FormControl variant="outlined" margin="normal" fullWidth>
+                        <div
+                          style={{
+                            marginBlock: '10px',
+                          }}
+                        >
+                          <FormControlLabel
+                            label={t('launchModel.parsingReasoningContent')}
+                            labelPlacement="start"
+                            control={<Switch checked={reasoningContent} />}
+                            onChange={(e) => {
+                              setReasoningContent(e.target.checked)
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                    </Grid>
+                  )}
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >

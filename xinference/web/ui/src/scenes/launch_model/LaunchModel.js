@@ -17,7 +17,8 @@ import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
-const modelAbilityArr = ['generate', 'chat', 'vision']
+const modelAbilityArr = ['generate', 'chat', 'vision', 'reasoning']
+const audioModelTypeArr = ['audio-to-text', 'text-to-audio', 'audio-to-audio']
 
 const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
@@ -28,7 +29,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const [registrationData, setRegistrationData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
-  const [modelAbility, setModelAbility] = useState('')
+  const [LLMModelAbility, setLLMModelAbility] = useState('')
   const [status, setStatus] = useState('')
   const [statusArr, setStatusArr] = useState([])
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
@@ -36,6 +37,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const [filterArr, setFilterArr] = useState([])
   const { t } = useTranslation()
   const [modelListType, setModelListType] = useState('featured')
+  const [audioModelAbility, setAudioModelAbility] = useState('')
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -64,7 +66,22 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       }
     }
 
-    if (modelAbility && registration.model_ability.indexOf(modelAbility) < 0)
+    if (
+      LLMModelAbility &&
+      ((Array.isArray(registration.model_ability) &&
+        registration.model_ability.indexOf(LLMModelAbility) < 0) ||
+        (typeof registration.model_ability === 'string' &&
+          registration.model_ability !== LLMModelAbility))
+    )
+      return false
+
+    if (
+      audioModelAbility &&
+      ((Array.isArray(registration.model_ability) &&
+        registration.model_ability.indexOf(audioModelAbility) < 0) ||
+        (typeof registration.model_ability === 'string' &&
+          registration.model_ability !== audioModelAbility))
+    )
       return false
 
     if (completeDeleteArr.includes(registration.model_name)) {
@@ -151,27 +168,35 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   }
 
   const handleChangeFilter = (type, value) => {
-    if (type === 'modelAbility') {
-      setModelAbility(value)
-      setFilterArr([
-        ...filterArr.filter((item) => {
-          return !modelAbilityArr.includes(item)
-        }),
-        value,
-      ])
-    } else {
-      setStatus(value)
-      const arr = [
-        ...filterArr.filter((item) => {
-          return item !== value
-        }),
-        value,
-      ]
-      setFilterArr(arr)
+    const typeMap = {
+      LLMModelAbility: {
+        setter: setLLMModelAbility,
+        filterArr: modelAbilityArr,
+      },
+      audioModelAbility: {
+        setter: setAudioModelAbility,
+        filterArr: audioModelTypeArr,
+      },
+      status: { setter: setStatus, filterArr: [] },
+    }
+
+    const { setter, filterArr: excludeArr } = typeMap[type] || {}
+    if (!setter) return
+
+    setter(value)
+
+    const updatedFilterArr = [
+      ...filterArr.filter((item) => !excludeArr.includes(item)),
+      value,
+    ]
+
+    setFilterArr(updatedFilterArr)
+
+    if (type === 'status') {
       setStatusArr(
-        arr.filter((item) => {
-          return !modelAbilityArr.includes(item)
-        })
+        updatedFilterArr.filter(
+          (item) => ![...modelAbilityArr, ...audioModelTypeArr].includes(item)
+        )
       )
     }
   }
@@ -182,8 +207,10 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         return subItem !== item
       })
     )
-    if (item === modelAbility) {
-      setModelAbility('')
+    if (item === LLMModelAbility) {
+      setLLMModelAbility('')
+    } else if (item === audioModelAbility) {
+      setAudioModelAbility('')
     } else {
       setStatusArr(
         statusArr.filter((subItem) => {
@@ -206,8 +233,9 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         style={{
           display: 'grid',
           gridTemplateColumns: (() => {
-            const baseColumns =
-              modelType === 'LLM' ? ['150px', '150px'] : ['150px']
+            const baseColumns = ['LLM', 'audio'].includes(modelType)
+              ? ['150px', '150px']
+              : ['150px']
             return featureModels.length
               ? [...baseColumns, '150px', '1fr'].join(' ')
               : [...baseColumns, '1fr'].join(' ')
@@ -249,15 +277,41 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
               labelId="ability-select-label"
               label="Model Ability"
               onChange={(e) =>
-                handleChangeFilter('modelAbility', e.target.value)
+                handleChangeFilter('LLMModelAbility', e.target.value)
               }
-              value={modelAbility}
+              value={LLMModelAbility}
               size="small"
               sx={{ width: '150px' }}
             >
-              <MenuItem value="generate">{t('launchModel.generate')}</MenuItem>
-              <MenuItem value="chat">{t('launchModel.chat')}</MenuItem>
-              <MenuItem value="vision">{t('launchModel.vision')}</MenuItem>
+              {modelAbilityArr.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {t(`launchModel.${item}`)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        {modelType === 'audio' && (
+          <FormControl sx={{ minWidth: 120 }} size="small">
+            <InputLabel id="ability-select-label">
+              {t('launchModel.modelAbility')}
+            </InputLabel>
+            <Select
+              id="ability"
+              labelId="ability-select-label"
+              label="Model Ability"
+              onChange={(e) =>
+                handleChangeFilter('audioModelAbility', e.target.value)
+              }
+              value={audioModelAbility}
+              size="small"
+              sx={{ width: '150px' }}
+            >
+              {audioModelTypeArr.map((item) => (
+                <MenuItem key={item} value={item}>
+                  {item}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         )}

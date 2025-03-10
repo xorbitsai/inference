@@ -43,8 +43,6 @@ from ....types import (
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
-from ..reasoning_parsers import deepseek_r1_reasoning_parser  # noqa: F401
-from ..reasoning_parsers.abs_reasoning_parsers import ReasoningParserManager
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -160,6 +158,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B-Preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B")
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-qwen")
 
@@ -217,7 +216,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.2":
 if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
 
-
 class VLLMModel(LLM):
     def __init__(
         self,
@@ -245,7 +243,6 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
-        self.reasoning_parser = None
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
@@ -276,14 +273,8 @@ class VLLMModel(LLM):
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
 
-        # Initialize reasoning parser if model has reasoning ability
-        if "reasoning" in self.model_family.model_ability and reasoning_content:
-            module_name = self.model_family.model_family or self.model_family.model_name
-            self.reasoning_parser = ReasoningParserManager.get_parser(module_name)
-            self.reasoning_parser = self.reasoning_parser(
-                self.model_family.reasoning_start_tag,
-                self.model_family.reasoning_end_tag,
-            )
+        self.prepare_parse_reasoning_content(reasoning_content)
+
         if self.lora_modules is None:
             self.lora_requests = []
         else:
@@ -583,6 +574,8 @@ class VLLMModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        if self.reasoning_parser:
+            sanitized_generate_config.pop("stop")
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -814,18 +807,23 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         i = 0
         async for chunk in chunks:
             if i == 0:
-                yield self._get_first_chat_completion_chunk(chunk)
+                yield self._get_first_chat_completion_chunk(
+                    chunk, self.reasoning_parser
+                )
             # usage
             choices = chunk.get("choices")
             if not choices:
                 yield self._get_final_chat_completion_chunk(chunk)
             else:
                 if self.is_tool_call_chunk(chunk):
-                    yield self._tool_calls_completion_chunk(
-                        self.model_family, self.model_uid, chunk
+                    yield self._post_process_completion_chunk(
+                        self.model_family,
+                        self.model_uid,
+                        chunk,
+                        reasoning_parser=self.reasoning_parser,
                     )
                 else:
-                    yield self._to_chat_completion_chunk(chunk)
+                    yield self._to_chat_completion_chunk(chunk, self.reasoning_parser)
             i += 1
 
     @vllm_check
@@ -865,7 +863,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
             return self._to_chat_completion(c, self.reasoning_parser)
 
 

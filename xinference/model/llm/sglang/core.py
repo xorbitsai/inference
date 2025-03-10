@@ -48,6 +48,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     nnodes: Optional[int]
     node_rank: Optional[int]
     dist_init_addr: Optional[str]
+    reasoning_content: bool
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
@@ -99,6 +100,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
     "QwQ-32B-Preview",
+    "QwQ-32B",
     "deepseek-r1-distill-qwen",
     "deepseek-r1-distill-llama",
     "deepseek-v3",
@@ -143,6 +145,8 @@ class SGLANGModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._model_config = self._sanitize_model_config(self._model_config)
+        reasoning_content = self._model_config.pop("reasoning_content")
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -255,6 +259,7 @@ class SGLANGModel(LLM):
             else:
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
+        model_config.setdefault("reasoning_content", False)
 
         return model_config
 
@@ -547,8 +552,8 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if stream:
             agen = await self.async_generate(full_prompt, generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
-            return self._async_to_chat_completion_chunks(agen)
+            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
             c = await self.async_generate(full_prompt, generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
-            return self._to_chat_completion(c)
+            return self._to_chat_completion(c, self.reasoning_parser)

@@ -45,6 +45,7 @@ class MLXModelConfig(TypedDict, total=False):
     revision: Optional[str]
     max_gpu_memory: str
     trust_remote_code: bool
+    reasoning_content: bool
 
 
 class MLXGenerateConfig(TypedDict, total=False):
@@ -95,6 +96,7 @@ class MLXModel(LLM):
             model_config = MLXModelConfig()
         model_config.setdefault("revision", self.model_spec.model_revision)
         model_config.setdefault("trust_remote_code", True)
+        model_config.setdefault("reasoning_content", False)
         return model_config
 
     def _sanitize_generate_config(
@@ -153,6 +155,9 @@ class MLXModel(LLM):
         )
 
     def load(self):
+        reasoning_content = self._model_config.pop("reasoning_content")
+        self.prepare_parse_reasoning_content(reasoning_content)
+
         kwargs = {}
         kwargs["revision"] = self._model_config.get(
             "revision", self.model_spec.model_revision
@@ -445,13 +450,15 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
+            return self._to_chat_completion_chunks(it, self.reasoning_parser)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
-            return self._to_chat_completion(c)
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
+            return self._to_chat_completion(c, self.reasoning_parser)
 
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
@@ -527,6 +534,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 text=detokenizer.last_segment,
                 token=token,
                 logprobs=logprobs,
+                from_draft=False,
                 prompt_tokens=len(input_ids),
                 prompt_tps=prompt_tps,
                 generation_tokens=n + 1,
@@ -539,6 +547,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             text=detokenizer.last_segment,
             token=token,
             logprobs=logprobs,
+            from_draft=False,
             prompt_tokens=len(input_ids),
             prompt_tps=prompt_tps,
             generation_tokens=n + 1,
@@ -634,5 +643,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             c = self.generate(inputs, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_family, self.model_uid, c)
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c
+                )
             return self._to_chat_completion(c)

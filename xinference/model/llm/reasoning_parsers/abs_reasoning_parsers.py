@@ -26,7 +26,7 @@ class ReasoningParser(ABC):
         self,
         previous_text: str,
         current_text: str,
-        delta: ChatCompletionChunkDelta,
+        delta_text: str,
     ) -> ChatCompletionChunkDelta:
         """Extract reasoning content from model output in a streaming fashion.
 
