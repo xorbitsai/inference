@@ -1,20 +1,17 @@
 import re
 from typing import Optional, Tuple, Union
 
-from ....types import ChatCompletionChunkDelta, CompletionChoice
-from .abs_reasoning_parsers import ReasoningParser, ReasoningParserManager
+from ...types import ChatCompletionChunkDelta, CompletionChoice
 
 
-@ReasoningParserManager.register_module("deepseek-v3")
-@ReasoningParserManager.register_module("deepseek-r1-distill-qwen")
-@ReasoningParserManager.register_module("deepseek-r1-distill-llama")
-class DeepSeekR1ReasoningParser(ReasoningParser):
-    """Reasoning parser for DeepSeek-R1 model."""
+class ReasoningParser:
+    """Reasoning parser for reasoning model."""
 
     def __init__(
         self, reasoning_start_tag: str = "<think>", reasoning_end_tag: str = "</think>"
     ):
-        super().__init__(reasoning_start_tag, reasoning_end_tag)
+        self.reasoning_start_tag = reasoning_start_tag
+        self.reasoning_end_tag = reasoning_end_tag
         self.reasoning_regex = re.compile(
             rf"{self.reasoning_start_tag}(.*?){self.reasoning_end_tag}", re.DOTALL
         )

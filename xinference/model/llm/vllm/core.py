@@ -576,6 +576,8 @@ class VLLMModel(LLM):
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         if self.reasoning_parser:
+            # For reasoning model, the </think> we be split into multiple words,
+            # if `stop` param is passed, so we pop it from config.
             sanitized_generate_config.pop("stop")
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
