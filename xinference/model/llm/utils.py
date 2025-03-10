@@ -55,7 +55,7 @@ from .llm_family import (
     _get_cache_dir,
     get_cache_status,
 )
-from .reasoning_parsers.abs_reasoning_parsers import ReasoningParser
+from .reasoning_parser import ReasoningParser
 
 logger = logging.getLogger(__name__)
 
