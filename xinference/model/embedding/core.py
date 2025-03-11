@@ -201,7 +201,7 @@ class EmbeddingModel:
             try:
                 from FlagEmbedding import BGEM3FlagModel
             except ImportError:
-                error_message = "Failed to impor     t module 'BGEM3FlagModel'"
+                error_message = "Failed to import module 'BGEM3FlagModel'"
                 installation_guide = [
                     "Please make sure 'FlagEmbedding' is installed. ",
                     "You can install it by `pip install FlagEmbedding`\n",
