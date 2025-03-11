@@ -249,6 +249,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
 
 
+
 class VLLMModel(LLM):
     def __init__(
         self,
