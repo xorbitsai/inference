@@ -7234,7 +7234,7 @@
   },
 {
     "version": 1,
-    "context_length": 32768,
+    "context_length": 131072,
     "model_name": "QwQ-32B",
     "model_lang": [
       "en",
