@@ -47,6 +47,7 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material'
+import { useTheme } from '@mui/material'
 import { styled } from '@mui/material/styles'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -139,6 +140,7 @@ const ModelCard = ({
 
   const parentRef = useRef(null)
   const { t } = useTranslation()
+  const theme = useTheme()
 
   const range = (start, end) => {
     return new Array(end - start + 1).fill(undefined).map((_, i) => i + start)
@@ -817,6 +819,49 @@ const ModelCard = ({
     )
   }
 
+  const getButtonStyle = (type) => {
+    if (type === 'goBack') {
+      return theme.palette.mode === 'dark' ? { color: '#e5e7eb' } : {}
+    }
+
+    const isDisabled = !(
+      modelFormat &&
+      modelSize &&
+      modelData &&
+      (quantization || (!modelData.is_builtin && modelFormat !== 'pytorch'))
+    )
+
+    return theme.palette.mode === 'dark'
+      ? {
+          color: '#e5e7eb',
+          ...(isDisabled ? { color: '#888', border: '1px solid #888' } : {}),
+        }
+      : isDisabled
+      ? { color: '#e5e7eb', border: '1px solid #e5e7eb' }
+      : { color: '#000000' }
+  }
+
+  const renderButtonContent = () => {
+    if (isCallingApi || isUpdatingModel) {
+      return (
+        <Box className="buttonItem" style={getButtonStyle('launch')}>
+          <CircularProgress
+            size="20px"
+            sx={{
+              color: theme.palette.mode === 'dark' ? '#f2f2f2' : '#000000',
+            }}
+          />
+        </Box>
+      )
+    }
+
+    return (
+      <Box className="buttonItem" style={getButtonStyle('launch')}>
+        <RocketLaunchOutlined size="20px" />
+      </Box>
+    )
+  }
+
   // Set two different states based on mouse hover
   return (
     <>
@@ -841,72 +886,73 @@ const ModelCard = ({
       >
         {modelType === 'LLM' ? (
           <Box className="descriptionCard">
-            {is_custom && (
-              <div className="cardTitle">
-                <TitleTypography value={modelData.model_name} />
-                <div className="iconButtonBox">
-                  <Tooltip title={t('launchModel.edit')} placement="top">
-                    <IconButton
-                      aria-label="show"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsJsonShow(true)
-                      }}
-                    >
-                      <EditNote />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={t('launchModel.delete')} placement="top">
-                    <IconButton
-                      aria-label="delete"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsDeleteCustomModel(true)
-                      }}
-                    >
-                      <Delete />
-                    </IconButton>
-                  </Tooltip>
-                </div>
-              </div>
-            )}
-            {!is_custom && (
-              <div className="cardTitle">
-                <TitleTypography value={modelData.model_name} />
-                <div className="iconButtonBox">
-                  {JSON.parse(localStorage.getItem('collectionArr'))?.includes(
-                    modelData.model_name
-                  ) ? (
-                    <Tooltip
-                      title={t('launchModel.unfavorite')}
-                      placement="top"
-                    >
+            <div className="cardTitle">
+              <TitleTypography value={modelData.model_name} />
+              <div className="iconButtonBox">
+                {is_custom ? (
+                  <>
+                    <Tooltip title={t('launchModel.edit')} placement="top">
                       <IconButton
-                        aria-label="collection"
+                        aria-label="show"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleCollection(false)
+                          setIsJsonShow(true)
                         }}
                       >
-                        <Grade style={{ color: 'rgb(255, 206, 0)' }} />
+                        <EditNote />
                       </IconButton>
                     </Tooltip>
-                  ) : (
-                    <Tooltip title={t('launchModel.favorite')} placement="top">
+                    <Tooltip title={t('launchModel.delete')} placement="top">
                       <IconButton
-                        aria-label="cancellation-of-collections"
+                        aria-label="delete"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleCollection(true)
+                          setIsDeleteCustomModel(true)
                         }}
                       >
-                        <StarBorder />
+                        <Delete />
                       </IconButton>
                     </Tooltip>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <>
+                    {JSON.parse(
+                      localStorage.getItem('collectionArr')
+                    )?.includes(modelData.model_name) ? (
+                      <Tooltip
+                        title={t('launchModel.unfavorite')}
+                        placement="top"
+                      >
+                        <IconButton
+                          aria-label="collection"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCollection(false)
+                          }}
+                        >
+                          <Grade style={{ color: 'rgb(255, 206, 0)' }} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip
+                        title={t('launchModel.favorite')}
+                        placement="top"
+                      >
+                        <IconButton
+                          aria-label="cancellation-of-collections"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCollection(true)
+                          }}
+                        >
+                          <StarBorder />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </>
+                )}
               </div>
-            )}
+            </div>
 
             <Stack
               spacing={1}
@@ -1955,50 +2001,7 @@ const ModelCard = ({
               onClick={() => launchModel(url, modelData)}
               disabled={!isModelStartable()}
             >
-              {(() => {
-                if (isCallingApi || isUpdatingModel) {
-                  return (
-                    <Box
-                      className="buttonItem"
-                      style={{
-                        backgroundColor: '#f2f2f2',
-                      }}
-                    >
-                      <CircularProgress
-                        size="20px"
-                        sx={{
-                          color: '#000000',
-                        }}
-                      />
-                    </Box>
-                  )
-                } else if (
-                  !(
-                    modelFormat &&
-                    modelSize &&
-                    modelData &&
-                    (quantization ||
-                      (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                  )
-                ) {
-                  return (
-                    <Box
-                      className="buttonItem"
-                      style={{
-                        backgroundColor: '#f2f2f2',
-                      }}
-                    >
-                      <RocketLaunchOutlined size="20px" />
-                    </Box>
-                  )
-                } else {
-                  return (
-                    <Box className="buttonItem">
-                      <RocketLaunchOutlined color="#000000" size="20px" />
-                    </Box>
-                  )
-                }
-              })()}
+              {renderButtonContent()}
             </button>
             <button
               title={t('launchModel.goBack')}
@@ -2008,8 +2011,8 @@ const ModelCard = ({
                 setHover(false)
               }}
             >
-              <Box className="buttonItem">
-                <UndoOutlined color="#000000" size="20px" />
+              <Box className="buttonItem" style={getButtonStyle('goBack')}>
+                <UndoOutlined size="20px" />
               </Box>
             </button>
           </Box>
@@ -2019,7 +2022,13 @@ const ModelCard = ({
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={isJsonShow}
       >
-        <div className="jsonDialog">
+        <div
+          className="jsonDialog"
+          style={{
+            backgroundColor: theme.palette.mode === 'dark' ? '#121212' : '#fff',
+            color: theme.palette.mode === 'dark' ? '#fff' : '#000',
+          }}
+        >
           <div className="jsonDialog-title">
             <div className="title-name">{modelData.model_name}</div>
             <CopyComponent
@@ -2028,10 +2037,12 @@ const ModelCard = ({
             />
           </div>
           <div className="main-box">
-            <textarea
-              readOnly
-              className="textarea-box"
-              value={JSON.stringify(modelData, null, 4)}
+            <TextField
+              multiline
+              fullWidth
+              rows={24}
+              disabled
+              defaultValue={JSON.stringify(modelData, null, 4)}
             />
           </div>
           <div className="but-box">
@@ -2069,7 +2080,13 @@ const ModelCard = ({
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={isOpenCachedList}
       >
-        <div className="dialogBox">
+        <div
+          className="dialogBox"
+          style={{
+            backgroundColor: theme.palette.mode === 'dark' ? '#121212' : '#fff',
+            color: theme.palette.mode === 'dark' ? '#fff' : '#000',
+          }}
+        >
           <div className="dialogTitle">
             <div className="dialogTitle-model_name">{modelData.model_name}</div>
             <Close

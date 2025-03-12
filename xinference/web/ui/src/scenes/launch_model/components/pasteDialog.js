@@ -4,14 +4,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  useTheme,
+  TextField,
 } from '@mui/material'
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
   const { t } = useTranslation()
-  const theme = useTheme()
   const [command, setCommand] = useState('')
 
   const handleClose = () => {
@@ -87,17 +86,15 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
       <DialogTitle>{t('launchModel.commandLineParsing')}</DialogTitle>
       <DialogContent>
         <div style={{ width: '500px', height: '120px' }}>
-          <textarea
-            className="textarea"
-            style={{
-              height: '100%',
-              color: theme.palette.mode === 'dark' && '#fff',
-            }}
+          <TextField
+            multiline
+            fullWidth
+            rows={5}
+            placeholder={t('launchModel.placeholderTip')}
             value={command}
-            onInput={(e) => {
+            onChange={(e) => {
               setCommand(e.target.value)
             }}
-            placeholder={t('launchModel.placeholderTip')}
           />
         </div>
       </DialogContent>
