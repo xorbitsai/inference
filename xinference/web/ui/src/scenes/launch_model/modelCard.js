@@ -1460,40 +1460,41 @@ const ModelCard = ({
                   </FormControl>
                 </Grid>
                 <Grid item xs={12}>
-                  {modelFormat !== 'ggufv2' && modelFormat !== 'ggmlv3' ? (
-                    <FormControl
-                      variant="outlined"
-                      margin="normal"
-                      fullWidth
-                      disabled={!modelFormat || !modelSize || !quantization}
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                    disabled={!modelFormat || !modelSize || !quantization}
+                  >
+                    <InputLabel id="n-gpu-label">
+                      {t(
+                        enginesWithNWorker.includes(modelEngine)
+                          ? 'launchModel.nGPUPerWorker'
+                          : 'launchModel.nGPU'
+                      )}
+                    </InputLabel>
+                    <Select
+                      labelId="n-gpu-label"
+                      value={nGPU}
+                      onChange={(e) => setNGPU(e.target.value)}
+                      label={t(
+                        enginesWithNWorker.includes(modelEngine)
+                          ? 'launchModel.nGPUPerWorker'
+                          : 'launchModel.nGPU'
+                      )}
                     >
-                      <InputLabel id="n-gpu-label">
-                        {t(
-                          enginesWithNWorker.includes(modelEngine)
-                            ? 'launchModel.nGPUPerWorker'
-                            : 'launchModel.nGPU'
-                        )}
-                      </InputLabel>
-                      <Select
-                        labelId="n-gpu-label"
-                        value={nGPU}
-                        onChange={(e) => setNGPU(e.target.value)}
-                        label={t(
-                          enginesWithNWorker.includes(modelEngine)
-                            ? 'launchModel.nGPUPerWorker'
-                            : 'launchModel.nGPU'
-                        )}
-                      >
-                        {getNGPURange().map((v) => {
-                          return (
-                            <MenuItem key={v} value={v}>
-                              {v}
-                            </MenuItem>
-                          )
-                        })}
-                      </Select>
-                    </FormControl>
-                  ) : (
+                      {getNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  {(modelFormat === 'ggufv2' || modelFormat === 'ggmlv3') && (
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
                         disabled={!modelFormat || !modelSize || !quantization}
