@@ -4673,7 +4673,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-1B",
+        "model_id": "OpenGVLab/InternVL2_5-1B-MPO",
         "model_revision": "master"
       },
       {
@@ -4685,7 +4685,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-2B",
+        "model_id": "OpenGVLab/InternVL2_5-2B-MPO",
         "model_revision": "master"
       },
       {
@@ -4697,7 +4697,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-4B",
+        "model_id": "OpenGVLab/InternVL2_5-4B-MPO",
         "model_revision": "master"
       },
       {
@@ -4707,7 +4707,7 @@
           "Int4"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-4B-AWQ",
+        "model_id": "OpenGVLab/InternVL2_5-4B-MPO-AWQ",
         "model_revision": "master"
       },
       {
@@ -4719,7 +4719,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-8B",
+        "model_id": "OpenGVLab/InternVL2_5-8B-MPO",
         "model_revision": "master"
       },
       {
@@ -4729,7 +4729,7 @@
           "Int4"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-8B-AWQ",
+        "model_id": "OpenGVLab/InternVL2_5-8B-MPO-AWQ",
         "model_revision": "master"
       },
       {
@@ -4741,7 +4741,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-26B",
+        "model_id": "OpenGVLab/InternVL2_5-26B-MPO",
         "model_revision": "master"
       },
       {
@@ -4751,7 +4751,7 @@
           "Int4"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-26B-AWQ",
+        "model_id": "OpenGVLab/InternVL2_5-26B-MPO-AWQ",
         "model_revision": "master"
       },
       {
@@ -4763,7 +4763,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-38B",
+        "model_id": "OpenGVLab/InternVL2_5-38B-MPO",
         "model_revision": "master"
       },
       {
@@ -4773,7 +4773,7 @@
           "Int4"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-38B-AWQ",
+        "model_id": "OpenGVLab/InternVL2_5-38B-MPO-AWQ",
         "model_revision": "master"
       },
       {
@@ -4785,7 +4785,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-78B",
+        "model_id": "OpenGVLab/InternVL2_5-78B-MPO",
         "model_revision": "master"
       },
       {
@@ -4795,7 +4795,7 @@
           "Int4"
         ],
         "model_hub": "modelscope",
-        "model_id": "OpenGVLab/InternVL2_5-MPO-78B-AWQ",
+        "model_id": "OpenGVLab/InternVL2_5-78B-MPO-AWQ",
         "model_revision": "master"
       }
     ],
