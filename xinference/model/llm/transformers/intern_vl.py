@@ -245,8 +245,6 @@ class InternVLChatModel(PytorchChatModel):
         family = model_family.model_family or model_family.model_name
         if "internvl" not in family.lower():
             return False
-        if "pytorch" not in model_spec.model_format:
-            return False
         return True
 
     def _get_model_class(self):
