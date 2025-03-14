@@ -146,6 +146,14 @@ Xinference is also compatible with the ``OPENAI`` Python SDK as well.
    client = OpenAI(base_url="<xinference endpoint>" + "/v1", api_key="<your_api_key>")
    client.models.list()
 
+For http request, pass ``Authorization: Bearer api-key`` in request header.
+
+.. code-block::
+
+    curl --request GET \
+      --url "<xinference endpoint>" \
+      --header "Authorization: Bearer <your_api_key>"
+
 
 Http Status Code
 ================
