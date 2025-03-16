@@ -260,7 +260,7 @@ class MLXModel(LLM):
         start = time.time()
         output = ""
         tokens = []
-        for chunk_resp, i in zip(
+        for i, chunk_resp in enumerate(
             self._generate_stream_inner(
                 prompt_token_ids=prompt_token_ids,
                 max_tokens=max_tokens,
@@ -269,8 +269,7 @@ class MLXModel(LLM):
                 repetition_penalty=kwargs["repetition_penalty"],
                 repetition_context_size=kwargs["repetition_context_size"],
                 prompt_cache=self._prompt_cache.cache if self._prompt_cache else None,  # type: ignore
-            ),
-            range(max_tokens),
+            )
         ):
             token = chunk_resp.token
             tokens.append(token)
@@ -507,19 +506,19 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         from mlx_lm.utils import GenerationResponse
         from mlx_vlm.utils import generate_step
 
-        inputs = kwargs["prompt_token_ids"]
+        inputs = kwargs.pop("prompt_token_ids")
 
-        max_tokens = kwargs.pop("max_tokens")
+        extra_kwargs = kwargs.copy()
         input_ids, pixel_values, mask, kwargs = inputs
+        kwargs.update(extra_kwargs)
 
         tokenizer = self._processor.tokenizer
         detokenizer = self._processor.detokenizer
 
         detokenizer.reset()
         tic = time.perf_counter()
-        for (token, logprobs), n in zip(
+        for n, (token, logprobs) in enumerate(
             generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
-            range(max_tokens),
         ):
             if n == 0:
                 prompt_time = time.perf_counter() - tic
