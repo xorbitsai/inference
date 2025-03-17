@@ -52,7 +52,7 @@
     "modelFormat": "Model Format",
     "modelSize": "Model Size",
     "quantization": "Quantization",
-    "nGPU": "GPU Count",
+    "nGPU": "GPU Count Per Replica",
     "nGPUPerWorker": "GPU Count Per Worker",
     "nGpuLayers": "N GPU Layers",
     "replica": "Replica",

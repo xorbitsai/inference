@@ -52,7 +52,7 @@
     "modelFormat": "模型格式",
     "modelSize": "模型大小",
     "quantization": "量化",
-    "nGPU": "GPU 数量",
+    "nGPU": "GPU 数量 (每个副本)",
     "nGPUPerWorker": "每个 Worker 上的 GPU 数量",
     "nGpuLayers": "GPU 层数",
     "replica": "副本",
