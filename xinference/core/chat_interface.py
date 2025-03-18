@@ -113,6 +113,7 @@ class GradioInterface:
             max_tokens: int,
             temperature: float,
             lora_name: str,
+            stream: bool,
         ) -> Generator:
             from ..client import RESTfulClient
 
@@ -123,29 +124,40 @@ class GradioInterface:
             messages = to_chat(flatten(history))
             messages.append(dict(role="user", content=message))
 
-            response_content = ""
-            for chunk in model.chat(
-                messages,
-                generate_config={
-                    "max_tokens": int(max_tokens),
-                    "temperature": temperature,
-                    "stream": True,
-                    "lora_name": lora_name,
-                },
-            ):
-                assert isinstance(chunk, dict)
-                delta = chunk["choices"][0]["delta"]
-                if "content" not in delta:
-                    continue
-                else:
-                    # some model like deepseek-r1-distill-qwen
-                    # will generate <think>...</think> ...
-                    # in gradio, no output will be rendered,
-                    # thus escape html tags in advance
-                    response_content += html.escape(delta["content"])
-                    yield response_content
+            if stream:
+                response_content = ""
+                for chunk in model.chat(
+                    messages,
+                    generate_config={
+                        "max_tokens": int(max_tokens),
+                        "temperature": temperature,
+                        "stream": True,
+                        "lora_name": lora_name,
+                    },
+                ):
+                    assert isinstance(chunk, dict)
+                    delta = chunk["choices"][0]["delta"]
+                    if "content" not in delta:
+                        continue
+                    else:
+                        # some model like deepseek-r1-distill-qwen
+                        # will generate <think>...</think> ...
+                        # in gradio, no output will be rendered,
+                        # thus escape html tags in advance
+                        response_content += html.escape(delta["content"])
+                        yield response_content
 
-            yield response_content
+                yield response_content
+            else:
+                result = model.chat(
+                    messages,
+                    generate_config={
+                        "max_tokens": int(max_tokens),
+                        "temperature": temperature,
+                        "lora_name": lora_name,
+                    },
+                )
+                yield html.escape(result["choices"][0]["message"]["content"])  # type: ignore
 
         return gr.ChatInterface(
             fn=generate_wrapper,
@@ -153,7 +165,9 @@ class GradioInterface:
                 gr.Slider(
                     minimum=1,
                     maximum=self.context_length,
-                    value=512,
+                    value=512
+                    if "reasoning" not in self.model_ability
+                    else self.context_length // 2,
                     step=1,
                     label="Max Tokens",
                 ),
@@ -161,6 +175,7 @@ class GradioInterface:
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
                 gr.Text(label="LoRA Name"),
+                gr.Checkbox(label="Stream", value=True),
             ],
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""

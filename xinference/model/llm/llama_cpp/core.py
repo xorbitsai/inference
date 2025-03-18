@@ -39,11 +39,16 @@ logger = logging.getLogger(__name__)
 USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 0)))
 
 
-class _Sentinel:
+class _Done:
     pass
 
 
-class XllamaCppModel(LLM):
+class _Error:
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class XllamaCppModel(LLM, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
@@ -83,6 +88,7 @@ class XllamaCppModel(LLM):
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
         elif self._is_linux():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
+        llamacpp_model_config.setdefault("reasoning_content", False)
 
         return llamacpp_model_config
 
@@ -130,6 +136,9 @@ class XllamaCppModel(LLM):
             installation_guide = ["Please make sure 'xllamacpp' is installed. "]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
@@ -196,7 +205,14 @@ class XllamaCppModel(LLM):
             )
             prompt_json = orjson.dumps(data)
 
-            def _res_callback(ok):
+            def _error_callback(err):
+                try:
+                    msg = orjson.loads(err)
+                    q.put(_Error(msg))
+                except Exception as e:
+                    q.put(_Error(str(e)))
+
+            def _ok_callback(ok):
                 try:
                     res = orjson.loads(ok)
                     res["model"] = self.model_uid
@@ -205,10 +221,10 @@ class XllamaCppModel(LLM):
                     logger.exception("handle_completions callback failed: %s", e)
 
             try:
-                self._llm.handle_completions(prompt_json, _res_callback, _res_callback)
+                self._llm.handle_completions(prompt_json, _error_callback, _ok_callback)
             except Exception as ex:
                 logger.exception("handle_completions failed: %s", ex)
-            q.put(_Sentinel)
+            q.put(_Done)
 
         assert self._executor
         self._executor.submit(_handle_completion)
@@ -216,12 +232,17 @@ class XllamaCppModel(LLM):
         if stream:
 
             def _to_iterator():
-                while (r := q.get()) is not _Sentinel:
+                while (r := q.get()) is not _Done:
+                    if type(r) is _Error:
+                        raise Exception("Got error in generate stream: %s", r.msg)
                     yield r
 
             return _to_iterator()
         else:
-            return q.get()
+            r = q.get()
+            if type(r) is _Error:
+                raise Exception("Got error in generate: %s", r.msg)
+            return r
 
     def chat(
         self,
@@ -249,7 +270,14 @@ class XllamaCppModel(LLM):
             )
             prompt_json = orjson.dumps(data)
 
-            def _res_callback(ok):
+            def _error_callback(err):
+                try:
+                    msg = orjson.loads(err)
+                    q.put(_Error(msg))
+                except Exception as e:
+                    q.put(_Error(str(e)))
+
+            def _ok_callback(ok):
                 try:
                     res = orjson.loads(ok)
                     res["model"] = self.model_uid
@@ -259,11 +287,11 @@ class XllamaCppModel(LLM):
 
             try:
                 self._llm.handle_chat_completions(
-                    prompt_json, _res_callback, _res_callback
+                    prompt_json, _error_callback, _ok_callback
                 )
             except Exception as ex:
                 logger.exception("handle_chat_completions failed: %s", ex)
-            q.put(_Sentinel)
+            q.put(_Done)
 
         assert self._executor
         self._executor.submit(_handle_chat_completion)
@@ -271,12 +299,19 @@ class XllamaCppModel(LLM):
         if stream:
 
             def _to_iterator():
-                while (r := q.get()) is not _Sentinel:
+                while (r := q.get()) is not _Done:
+                    if type(r) is _Error:
+                        raise Exception("Got error in chat stream: %s", r.msg)
                     yield r
 
-            return _to_iterator()
+            return self._to_chat_completion_chunks(
+                _to_iterator(), self.reasoning_parser
+            )
         else:
-            return q.get()
+            r = q.get()
+            if type(r) is _Error:
+                raise Exception("Got error in chat: %s", r.msg)
+            return self._to_chat_completion(r, self.reasoning_parser)
 
 
 class LlamaCppModel(LLM):

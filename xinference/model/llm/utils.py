@@ -55,7 +55,7 @@ from .llm_family import (
     _get_cache_dir,
     get_cache_status,
 )
-from .reasoning_parsers.abs_reasoning_parsers import ReasoningParser
+from .reasoning_parser import ReasoningParser
 
 logger = logging.getLogger(__name__)
 
@@ -250,8 +250,30 @@ class ChatModelMixin:
         reasoning_parser: Optional[ReasoningParser] = None,
         previous_texts: Optional[List[str]] = None,
     ) -> ChatCompletionChunk:
+        choices = chunk.get("choices")
+        if (
+            chunk.get("object") == "chat.completion.chunk"
+            and choices
+            and "delta" in choices[0]
+        ):
+            if reasoning_parser is not None:
+                # process parsing reasoning content
+                assert previous_texts is not None
+                delta = choices[0]["delta"]  # type: ignore
+                if text := delta.get("content"):
+                    current_text = previous_texts[-1] + text
+                    delta = reasoning_parser.extract_reasoning_content_streaming(
+                        previous_text=previous_texts[-1],
+                        current_text=current_text,
+                        delta_text=text,
+                    )
+                    previous_texts[-1] = current_text
+                    choices[0]["delta"] = delta  # type: ignore
+            # Already a ChatCompletionChunk, we don't need to convert chunk.
+            return cast(ChatCompletionChunk, chunk)
+
         choices_list = []
-        for i, choice in enumerate(chunk["choices"]):
+        for i, choice in enumerate(choices):  # type: ignore
             delta = ChatCompletionChunkDelta()
             if "text" in choice and choice["finish_reason"] is None:
                 if reasoning_parser is None:
@@ -345,9 +367,10 @@ class ChatModelMixin:
             if not choices:
                 yield cls._get_final_chat_completion_chunk(chunk)
             else:
-                yield cls._to_chat_completion_chunk(
+                r = cls._to_chat_completion_chunk(
                     chunk, reasoning_parse, previous_texts
                 )
+                yield r
 
     @classmethod
     def _tools_to_messages_for_deepseek(
@@ -405,6 +428,21 @@ class ChatModelMixin:
     def _to_chat_completion(
         completion: Completion, reasoning_parser: Optional[ReasoningParser] = None
     ) -> ChatCompletion:
+        if completion.get("object") == "chat.completion" and completion.get("choices"):
+            # Already a ChatCompletion
+            if reasoning_parser is not None:
+                for choice in completion["choices"]:
+                    message = choice["message"]  # type: ignore
+                    text = message["content"]
+                    (
+                        reasoning_content,
+                        content,
+                    ) = reasoning_parser.extract_reasoning_content(text)
+                    message["content"] = content
+                    if reasoning_content is not None:
+                        message["reasoning_content"] = reasoning_content
+            return cast(ChatCompletion, completion)
+
         choices = []
         for i, choice in enumerate(completion["choices"]):
             content = choice["text"]

@@ -6923,7 +6923,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-1B"
+          "model_id": "OpenGVLab/InternVL2_5-1B-MPO"
         },
         {
           "model_format": "pytorch",
@@ -6933,7 +6933,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-2B"
+          "model_id": "OpenGVLab/InternVL2_5-2B-MPO"
         },
         {
           "model_format": "pytorch",
@@ -6943,7 +6943,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-4B"
+          "model_id": "OpenGVLab/InternVL2_5-4B-MPO"
         },
         {
           "model_format": "awq",
@@ -6961,7 +6961,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-8B"
+          "model_id": "OpenGVLab/InternVL2_5-8B-MPO"
         },
         {
           "model_format": "awq",
@@ -6969,7 +6969,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-8B-AWQ"
+          "model_id": "OpenGVLab/InternVL2_5-8B-MPO-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6979,7 +6979,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-26B"
+          "model_id": "OpenGVLab/InternVL2_5-26B-MPO"
         },
         {
           "model_format": "awq",
@@ -6987,7 +6987,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-26B-AWQ"
+          "model_id": "OpenGVLab/InternVL2_5-26B-MPO-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -6997,7 +6997,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-38B"
+          "model_id": "OpenGVLab/InternVL2_5-38B-MPO"
         },
         {
           "model_format": "awq",
@@ -7005,7 +7005,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-38B-AWQ"
+          "model_id": "OpenGVLab/InternVL2_5-38B-MPO-AWQ"
         },
         {
           "model_format": "pytorch",
@@ -7015,7 +7015,7 @@
             "8-bit",
             "none"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-78B"
+          "model_id": "OpenGVLab/InternVL2_5-78B-MPO"
         },
         {
           "model_format": "awq",
@@ -7023,7 +7023,7 @@
           "quantizations": [
             "Int4"
           ],
-          "model_id": "OpenGVLab/InternVL2_5-MPO-78B-AWQ"
+          "model_id": "OpenGVLab/InternVL2_5-78B-MPO-AWQ"
         }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
