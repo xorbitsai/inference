@@ -34,7 +34,7 @@ export const additionalParameterTipList = {
     'scheduling_policy',
     'tensor_parallel_size',
     'pipeline_parallel_size',
-    'enable_prefix_cache',
+    'enable_prefix_caching',
     'enable_chunked_prefill',
     'enforce_eager',
     'cpu_offload_gb',
