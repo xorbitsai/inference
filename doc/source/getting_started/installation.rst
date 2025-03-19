@@ -82,13 +82,40 @@ To install Xinference and vLLM::
 
 Llama.cpp Backend
 ~~~~~~~~~~~~~~~~~
-Xinference supports models in ``gguf`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
+Xinference supports models in ``gguf`` format via ``xllamacpp`` or ``llama-cpp-python``.
+`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team,
+and will be the sole backend for llama.cpp in the future.
+
+.. note::
+
+    ``llama-cpp-python`` is the default option for llama.cpp backend.
+    To enable xllamacpp, add environment variable ``USE_XLLAMACPP=1``.
+
+    e.g. Starting local Xinference via
+
+    ``USE_XLLAMACPP=1 xinference-local``
+
+.. warning::
+
+    For upcoming Xinference v1.5.0,
+    ``xllamacpp`` will become default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
+    For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
 
 Initial setup::
 
    pip install xinference
 
-Hardware-Specific installations:
+Installation instructions for ``xllamacpp``:
+
+- CPU or Mac Metal::
+
+   pip install -U xllamacpp
+
+- Cuda::
+
+   pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124
+
+Hardware-Specific installations for ``llama-cpp-python``:
 
 - Apple Silicon::
 

@@ -39,6 +39,7 @@ export const additionalParameterTipList = {
     'enforce_eager',
     'cpu_offload_gb',
     'disable_custom_all_reduce',
+    'limit_mm_per_prompt',
   ],
   'sglang': [
     'mem_fraction_static',
