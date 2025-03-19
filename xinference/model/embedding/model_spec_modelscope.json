@@ -272,5 +272,21 @@
     "language": ["zh", "en"],
     "model_id": "BAAI/BGE-VL-large",
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "BGE-VL-MLLM-S1",
+    "dimensions": 768,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "BAAI/BGE-VL-MLLM-S1",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "BGE-VL-MLLM-S2",
+    "dimensions": 768,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "BAAI/BGE-VL-MLLM-S2",
+    "model_hub": "modelscope"
   }
 ]
