@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-28 18:03+0800\n"
+"POT-Creation-Date: 2025-03-19 12:55+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/user_guide/auth_system.rst:5
 msgid "Simple OAuth2 System (experimental)"
@@ -155,8 +155,9 @@ msgid ""
 "``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 "
 "alphanumeric characters."
 msgstr ""
-"``api_keys``: 字符串列表，表示该用户拥有的 api-key 。用户可以通过这些 api-key ，无需登录步骤即可访问 xinference 接口。"
-"这里的 api_key 组成与 ``OPENAI_API_KEY`` 相似，总是以 ``sk-`` 开头，后跟 13 个数字、大小写字母。"
+"``api_keys``: 字符串列表，表示该用户拥有的 api-key 。用户可以通过这些 api"
+"-key ，无需登录步骤即可访问 xinference 接口。这里的 api_key 组成与 ``"
+"OPENAI_API_KEY`` 相似，总是以 ``sk-`` 开头，后跟 13 个数字、大小写字母。"
 
 #: ../../source/user_guide/auth_system.rst:86
 msgid ""
@@ -215,37 +216,44 @@ msgid ""
 "For command line users, just add ``--api-key`` or ``-ak`` option in the "
 "command you want to use."
 msgstr ""
-"对于命令行用户，仅需在所要运行的命令上新增 ``--api-key`` 或 ``-ak`` 选项即可。"
+"对于命令行用户，仅需在所要运行的命令上新增 ``--api-key`` 或 ``-ak`` 选项"
+"即可。"
 
 #: ../../source/user_guide/auth_system.rst:133
 msgid ""
 "For python SDK users, pass the ``api_key`` parameter when initializing "
 "the client, just like the ``OPENAI`` Python client."
 msgstr ""
-"对于 Python 客户端用户，在客户端对象初始化时传入 ``api_key`` 参数即可，就像 ``OPENAI`` 客户端那样。"
+"对于 Python 客户端用户，在客户端对象初始化时传入 ``api_key`` 参数即可，就"
+"像 ``OPENAI`` 客户端那样。"
 
 #: ../../source/user_guide/auth_system.rst:141
 msgid "Xinference is also compatible with the ``OPENAI`` Python SDK as well."
-msgstr ""
-"当然，Xinference 也与 ``OPENAI`` Python 客户端的使用方式完全兼容。"
+msgstr "当然，Xinference 也与 ``OPENAI`` Python 客户端的使用方式完全兼容。"
 
-#: ../../source/user_guide/auth_system.rst:151
+#: ../../source/user_guide/auth_system.rst:149
+msgid ""
+"For http request, pass ``Authorization: Bearer api-key`` in request "
+"header."
+msgstr "对于 HTTP 请求，在请求头中传递 ``Authorization: Bearer api-key``。"
+
+#: ../../source/user_guide/auth_system.rst:159
 msgid "Http Status Code"
 msgstr "Http 状态码"
 
-#: ../../source/user_guide/auth_system.rst:152
+#: ../../source/user_guide/auth_system.rst:160
 msgid "Add the following two HTTP status codes:"
 msgstr "添加了以下两种 HTTP 状态码："
 
-#: ../../source/user_guide/auth_system.rst:154
+#: ../../source/user_guide/auth_system.rst:162
 msgid "``401 Unauthorized``: login information or token verifies failed."
 msgstr "``401 Unauthorized``: 登录信息或者令牌验证失效。"
 
-#: ../../source/user_guide/auth_system.rst:155
+#: ../../source/user_guide/auth_system.rst:163
 msgid "``403 Forbidden``: No enough permissions when accessing interfaces."
 msgstr "``403 Forbidden``: 没有足够的权限访问接口。"
 
-#: ../../source/user_guide/auth_system.rst:157
+#: ../../source/user_guide/auth_system.rst:165
 msgid ""
 "For the command line, SDK, or web UI users, there will be clear "
 "information prompts when encountering authorization and permissions "
@@ -254,11 +262,11 @@ msgstr ""
 "对于命令行、SDK 或 Web UI 用户，在遇到授权和权限问题时，会有明确的信息"
 "提示。"
 
-#: ../../source/user_guide/auth_system.rst:161
+#: ../../source/user_guide/auth_system.rst:169
 msgid "Note"
 msgstr "注意"
 
-#: ../../source/user_guide/auth_system.rst:162
+#: ../../source/user_guide/auth_system.rst:170
 msgid ""
 "This feature is still in an experimental stage. Feel free to provide "
 "feedback on usage issues or improvement suggestions through `GitHub "
