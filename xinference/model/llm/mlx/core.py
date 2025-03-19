@@ -148,11 +148,15 @@ class MLXModel(LLM):
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
 
-        return load(
+        model, tokenizer = load(
             self.model_path,
             tokenizer_config=tokenizer_config,
             model_config=self._model_config,
         )
+        if stop_token_ids := self.model_family.stop_token_ids:
+            for stop_token_id in stop_token_ids:
+                tokenizer.add_eos_token(stop_token_id)
+        return model, tokenizer
 
     def load(self):
         reasoning_content = self._model_config.pop("reasoning_content")
