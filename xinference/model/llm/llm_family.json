@@ -5866,8 +5866,8 @@
           "Q8_0",
           "bf16"
         ],
-        "model_id": "bartowski/gemma-3-1b-it-GGUF",
-        "model_file_name_template": "gemma-3-1b-it-{quantization}.gguf"
+        "model_id": "bartowski/google_gemma-3-1b-it-GGUF",
+        "model_file_name_template": "google_gemma-3-1b-it-{quantization}.gguf"
       },
       {
         "model_format": "ggufv2",
@@ -5897,8 +5897,8 @@
           "Q8_0",
           "bf16"
         ],
-        "model_id": "bartowski/gemma-3-4b-it-GGUF",
-        "model_file_name_template": "gemma-3-4b-it-{quantization}.gguf"
+        "model_id": "bartowski/google_gemma-3-4b-it-GGUF",
+        "model_file_name_template": "google_gemma-3-4b-it-{quantization}.gguf"
       },
       {
         "model_format": "ggufv2",
@@ -5928,8 +5928,8 @@
           "Q8_0",
           "bf16"
         ],
-        "model_id": "bartowski/gemma-3-12b-it-GGUF",
-        "model_file_name_template": "gemma-3-12b-it-{quantization}.gguf"
+        "model_id": "bartowski/google_gemma-3-12b-it-GGUF",
+        "model_file_name_template": "google_gemma-3-12b-it-{quantization}.gguf"
       },
       {
         "model_format": "ggufv2",
@@ -5959,8 +5959,8 @@
           "Q8_0",
           "bf16"
         ],
-        "model_id": "bartowski/gemma-3-27b-it-GGUF",
-        "model_file_name_template": "gemma-3-27b-it-{quantization}.gguf"
+        "model_id": "bartowski/google_gemma-3-27b-it-GGUF",
+        "model_file_name_template": "google_gemma-3-27b-it-{quantization}.gguf"
       },
       {
         "model_format": "mlx",
