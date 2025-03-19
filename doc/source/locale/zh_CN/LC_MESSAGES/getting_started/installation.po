@@ -250,14 +250,14 @@ msgid ""
 "<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference "
 "team, and will be the sole backend for llama.cpp in the future."
 msgstr "Xinference 通过 xllamacpp 或 llama-cpp-python 支持 gguf 格式的模型。"
-"xllamacpp <https://github.com/xorbitsai/xllamacpp>_ 由 Xinference 团队开发，"
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，"
 "并将在未来成为 llama.cpp 的唯一后端。"
 
 #: ../../source/getting_started/installation.rst:91
 msgid ""
 "``llama-cpp-python`` is the default option for llama.cpp backend. To "
 "enable xllamacpp, add environment variable ``USE_XLLAMACPP=1``."
-msgstr "llama-cpp-python 是 llama.cpp 后端的默认选项。"
+msgstr "``llama-cpp-python`` 是 llama.cpp 后端的默认选项。"
 "要启用 xllamacpp，请添加环境变量 USE_XLLAMACPP=1。"
 
 #: ../../source/getting_started/installation.rst:94
@@ -273,8 +273,8 @@ msgid ""
 "For upcoming Xinference v1.5.0, ``xllamacpp`` will become default option "
 "for llama.cpp, and ``llama-cpp-python`` will be deprecated. For "
 "Xinference v1.6.0, ``llama-cpp-python`` will be removed."
-msgstr "在即将发布的 Xinference v1.5.0 中，xllamacpp 将成为 llama.cpp 的默认选项，"
-"而 llama-cpp-python 将被弃用。在 Xinference v1.6.0 中，llama-cpp-python 将被移除。"
+msgstr "在即将发布的 Xinference v1.5.0 中，``xllamacpp`` 将成为 llama.cpp 的默认选项，"
+"而 ``llama-cpp-python`` 将被弃用。在 Xinference v1.6.0 中，``llama-cpp-python`` 将被移除。"
 
 #: ../../source/getting_started/installation.rst:104
 #: ../../source/getting_started/installation.rst:137
@@ -284,7 +284,7 @@ msgstr "初始步骤："
 
 #: ../../source/getting_started/installation.rst:108
 msgid "Installation instructions for ``xllamacpp``:"
-msgstr "xllamacpp 的安装说明："
+msgstr "``xllamacpp`` 的安装说明："
 
 #: ../../source/getting_started/installation.rst:110
 msgid "CPU or Mac Metal::"
