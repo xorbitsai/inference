@@ -31,9 +31,7 @@ class ReasoningParser:
         Yields:
             str: Extracted reasoning content chunks.
         """
-        delta = ChatCompletionChunkDelta(
-            content=delta_text,
-        )
+        delta = ChatCompletionChunkDelta()
 
         # Check if <think> is present in previous or delta.
         # Keep compatibility with models that don't generate <think> tokens.
@@ -47,17 +45,21 @@ class ReasoningParser:
                 delta["reasoning_content"] = reasoning_content
                 if content is not None:
                     delta["content"] = content
+                else:
+                    delta["content"] = None
                 return delta
             elif self.reasoning_end_tag in previous_text:
                 # <think> in previous, </think> in previous,
                 # <think> in previous, </think> in previous,
                 # reasoning content ends
+                delta["reasoning_content"] = None
+                delta["content"] = delta_text
                 return delta
             else:
                 # <think> in previous, no </think> in previous or delta,
                 # reasoning content continues
                 delta["reasoning_content"] = delta_text
-                delta["content"] = ""
+                delta["content"] = None
                 return delta
         elif self.reasoning_start_tag in delta_text:
             if self.reasoning_end_tag in delta_text:
@@ -71,12 +73,14 @@ class ReasoningParser:
                 delta["reasoning_content"] = reasoning_content
                 if content is not None:
                     delta["content"] = content
+                else:
+                    delta["content"] = None
                 return delta
             else:
                 # <think> in delta, no </think> in delta,
                 # reasoning content continues
                 delta["reasoning_content"] = delta_text
-                delta["content"] = ""
+                delta["content"] = None
                 return delta
         else:
             # No <think> in previous or delta, also need to check for </think>.
@@ -91,14 +95,18 @@ class ReasoningParser:
                 delta["reasoning_content"] = reasoning_content
                 if content is not None:
                     delta["content"] = content
+                else:
+                    delta["content"] = None
                 return delta
             elif self.reasoning_end_tag in previous_text:
                 # </think> in previous, thinking content ends
+                delta["reasoning_content"] = None
+                delta["content"] = delta_text
                 return delta
             else:
                 # no </think> in previous or delta, reasoning content continues
                 delta["reasoning_content"] = delta_text
-                delta["content"] = ""
+                delta["content"] = None
                 return delta
 
     def extract_reasoning_content(

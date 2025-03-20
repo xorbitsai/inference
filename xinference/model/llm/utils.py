@@ -296,12 +296,19 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
             )
+        assert choices is not None
+        usage = (
+            chunk["usage"]
+            if choices[0]["finish_reason"] is not None and reasoning_parser is not None
+            else None
+        )
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
             "created": chunk["created"],
             "object": "chat.completion.chunk",
             "choices": choices_list,
+            "usage": usage,
         }
         return cast(ChatCompletionChunk, chat_chunk)
 
@@ -313,12 +320,8 @@ class ChatModelMixin:
     ) -> ChatCompletionChunk:
         choices_list = []
         for i, choice in enumerate(chunk["choices"]):
-            delta = {
-                "role": "assistant",
-            }
-            if reasoning_parser is None:
-                delta["content"] = ""
-            else:
+            delta = {"role": "assistant", "content": ""}
+            if reasoning_parser is not None:
                 delta["reasoning_content"] = ""
             choices_list.append(
                 {
@@ -359,9 +362,7 @@ class ChatModelMixin:
         reasoning_parse: Optional[ReasoningParser] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
-        for i, chunk in enumerate(chunks):
-            if i == 0:
-                yield cls._get_first_chat_completion_chunk(chunk, reasoning_parse)
+        for _, chunk in enumerate(chunks):
             # usage
             choices = chunk.get("choices")
             if not choices:
@@ -407,14 +408,10 @@ class ChatModelMixin:
         chunks: AsyncGenerator[CompletionChunk, None],
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        i = 0
         previous_texts = [""]
         async for chunk in chunks:
-            if i == 0:
-                chat_chunk = cls._get_first_chat_completion_chunk(
-                    chunk, reasoning_parser
-                )
-            elif not chunk.get("choices"):
+            choices = chunk.get("choices")
+            if not choices:
                 # usage
                 chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
@@ -422,7 +419,6 @@ class ChatModelMixin:
                     chunk, reasoning_parser, previous_texts
                 )
             yield chat_chunk
-            i += 1
 
     @staticmethod
     def _to_chat_completion(

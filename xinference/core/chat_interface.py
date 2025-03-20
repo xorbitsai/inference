@@ -137,7 +137,7 @@ class GradioInterface:
                 ):
                     assert isinstance(chunk, dict)
                     delta = chunk["choices"][0]["delta"]
-                    if "content" not in delta:
+                    if "content" not in delta or delta["content"] is None:
                         continue
                     else:
                         # some model like deepseek-r1-distill-qwen

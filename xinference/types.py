@@ -201,8 +201,8 @@ class ChatCompletion(TypedDict):
 
 class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
-    reasoning_content: NotRequired[str]
-    content: NotRequired[str]
+    reasoning_content: NotRequired[Union[str, None]]
+    content: NotRequired[Union[str, None]]
     tool_calls: NotRequired[List[ToolCalls]]
 
 
