@@ -61,6 +61,7 @@ Currently, supported models include:
 - ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
 - ``gemma-it``, ``gemma-2-it``
+- ``gemma-3-it``, ``gemma-3-27b-it``, ``gemma-3-12b-it``, ``gemma-3-4b-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
