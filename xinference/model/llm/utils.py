@@ -79,8 +79,7 @@ LLAMA3_TOOL_CALL_FAMILY = [
 ]
 
 DEEPSEEK_TOOL_CALL_FAMILY = [
-    "deepseek-r1-distill-qwen",
-    "deepseek-r1-distill-llama",
+    "deepseek-v3",
 ]
 
 TOOL_CALL_FAMILY = (
@@ -529,7 +528,7 @@ class ChatModelMixin:
     @classmethod
     def _eval_deepseek_chat_arguments(cls, c) -> List[Tuple]:
         """
-        Parses tool calls from deepseek-r1 format and removes duplicates.
+        Parses tool calls from deepseek-v3 format and removes duplicates.
 
         Returns:
         List[Tuple[Optional[str], Optional[str], Optional[dict]]]
@@ -537,20 +536,24 @@ class ChatModelMixin:
         - (content, None, None) if parsing failed (content is raw JSON text).
 
         Example input:
-        <｜tool▁call｜>get_current_weather
         ```json
-        {"location": "tokyo", "unit": "fahrenheit"}
+        {
+            "name": "get_weather_and_time",
+            "parameters": {
+                "location": "Hangzhou"
+            }
+        }
         ```
 
         Output:
         [
-            (None, "get_current_weather", {"location": "tokyo", "unit": "fahrenheit"})
+            (None, "get_current_weather", {"location": "Hangzhou"})
         ]
         """
 
         text = c["choices"][0]["text"]
 
-        pattern = r"<｜tool▁call｜>(\w+)\s*```json\s*(.*?)\s*```"
+        pattern = r"\s*```json\s*(.*?)\s*```"
         matches = re.findall(pattern, text, re.DOTALL)
 
         if not matches:
@@ -559,22 +562,31 @@ class ChatModelMixin:
         tool_calls = set()  # Used for deduplication
         results = []
 
-        for function_name, args_json in matches:
+        for raw_json in matches:
+            func_and_args = None
             try:
-                arguments = json.loads(args_json)
+                func_and_args = json.loads(raw_json)
                 # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(arguments.items())
-                tool_call_tuple = (None, function_name, arguments)
+                arguments_hashable = frozenset(func_and_args["parameters"])
+                tool_call_tuple = (
+                    None,
+                    func_and_args["name"],
+                    func_and_args["parameters"],
+                )
             except json.JSONDecodeError:
                 tool_call_tuple = (
-                    args_json,
+                    raw_json,
                     None,
                     None,
                 )  # If parsing fails, treat as raw content
                 arguments_hashable = None  # No need for hashing
 
             # Avoid duplicate entries
-            dedup_key = (function_name, arguments_hashable)
+            dedup_key = (
+                (func_and_args["name"], arguments_hashable)
+                if func_and_args is not None
+                else (raw_json)
+            )
             if dedup_key not in tool_calls:
                 tool_calls.add(dedup_key)
                 results.append(tool_call_tuple)
