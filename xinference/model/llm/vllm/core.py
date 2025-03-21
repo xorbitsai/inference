@@ -843,10 +843,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = {}
         if tools:
-            if model_family in QWEN_TOOL_CALL_FAMILY:
+            if (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            ):
                 full_context_kwargs["tools"] = tools
-            elif model_family in DEEPSEEK_TOOL_CALL_FAMILY:
-                self._tools_to_messages_for_deepseek(messages, tools)
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
