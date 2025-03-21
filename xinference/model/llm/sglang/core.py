@@ -94,6 +94,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "mixtral-instruct-v0.1",
     "gemma-it",
     "gemma-2-it",
+    "gemma-3-1b-it",
     "gemma-3-it",
     "deepseek-v2.5",
     "deepseek-v2-chat",
