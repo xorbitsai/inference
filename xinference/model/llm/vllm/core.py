@@ -217,7 +217,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
-    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-it")
+    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
 
 
 class VLLMModel(LLM):

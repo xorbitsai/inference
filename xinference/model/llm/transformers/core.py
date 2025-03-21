@@ -79,6 +79,8 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "glm-edge-v",
     "QvQ-72B-Preview",
     "cogagent",
+    "gemma-3-1b-it",
+    "gemma-3-it",
 ]
 
 

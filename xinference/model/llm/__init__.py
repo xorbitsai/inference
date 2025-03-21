@@ -143,6 +143,7 @@ def _install():
         DeepSeekV2PytorchModel,
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
+    from .transformers.gemma3 import Gemma3ChatModel, Gemma3TextChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.glm_edge_v import GlmEdgeVModel
     from .transformers.intern_vl import InternVLChatModel
@@ -198,6 +199,8 @@ def _install():
             OptPytorchModel,
             GlmEdgeVModel,
             CogAgentChatModel,
+            Gemma3TextChatModel,
+            Gemma3ChatModel,
         ]
     )
     if OmniLMMModel:  # type: ignore

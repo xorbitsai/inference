@@ -65,8 +65,9 @@ export const featureModels = [
       'qwen2.5-instruct',
       'qwen2.5-vl-instruct',
       'qwen2.5-coder-instruct',
-      'llama-3.1-instruct',
       'QwQ-32B',
+      'llama-3.1-instruct',
+      'gemma-3-it',
     ],
   },
   {
