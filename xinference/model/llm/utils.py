@@ -414,7 +414,6 @@ class ChatModelMixin:
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         previous_texts = [""]
         async for chunk in chunks:
-            print(chunk)
             choices = chunk.get("choices")
             if not choices:
                 # usage
@@ -423,7 +422,6 @@ class ChatModelMixin:
                 chat_chunk = cls._to_chat_completion_chunk(
                     chunk, reasoning_parser, previous_texts
                 )
-            print(chat_chunk)
             yield chat_chunk
 
     @staticmethod
