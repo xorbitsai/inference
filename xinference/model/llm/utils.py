@@ -286,7 +286,11 @@ class ChatModelMixin:
                         delta_text=choice["text"],
                     )
                     previous_texts[-1] = current_text
-            if "tool_calls" in choice:
+            elif "text" in choice and choice["finish_reason"] is not None:
+                delta["content"] = choice["text"]
+                if reasoning_parser is not None:
+                    delta["reasoning_content"] = None
+            elif "tool_calls" in choice:
                 delta["tool_calls"] = choice["tool_calls"]
             choices_list.append(
                 {
@@ -409,6 +413,7 @@ class ChatModelMixin:
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         previous_texts = [""]
         async for chunk in chunks:
+            print(chunk)
             choices = chunk.get("choices")
             if not choices:
                 # usage
@@ -417,6 +422,7 @@ class ChatModelMixin:
                 chat_chunk = cls._to_chat_completion_chunk(
                     chunk, reasoning_parser, previous_texts
                 )
+            print(chat_chunk)
             yield chat_chunk
 
     @staticmethod
