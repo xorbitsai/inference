@@ -161,6 +161,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B")
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-qwen")
+    VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
