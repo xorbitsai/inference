@@ -1031,7 +1031,9 @@ class WorkerActor(xo.StatelessActor):
             logger.debug("Remove sub pools: %s", to_remove_addresses)
             coros = []
             for to_remove_addr in to_remove_addresses:
-                coros.append(self._main_pool.remove_sub_pool(to_remove_addr, force=True))
+                coros.append(
+                    self._main_pool.remove_sub_pool(to_remove_addr, force=True)
+                )
             await asyncio.gather(*coros)
         except Exception as e:
             logger.debug(
