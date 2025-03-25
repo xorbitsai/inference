@@ -65,7 +65,7 @@ import PasteDialog from './components/pasteDialog'
 import { additionalParameterTipList, llmAllDataKey } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
-const enginesWithNWorker = ['SGLang']
+const enginesWithNWorker = ['SGLang', "vLLM"]
 
 const ModelCard = ({
   url,
