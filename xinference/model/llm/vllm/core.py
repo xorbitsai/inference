@@ -373,7 +373,9 @@ class VLLMModel(LLM):
             self._engine = XavierEngine.from_engine_args(
                 engine_args, xavier_config=self._xavier_config
             )
-        elif self._n_worker > 1 or self._device_count > 1:
+        elif self._n_worker > 1 or (
+            self._device_count > 1 and vllm.__version__ >= "0.7.0"
+        ):
             # model across multiple workers or GPUs
             engine_args = AsyncEngineArgs(
                 model=self.model_path,
