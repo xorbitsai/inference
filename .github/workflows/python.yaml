@@ -136,7 +136,6 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install tomli 
           else
-            pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
             pip install "transformers<4.49"
             pip install attrdict
             pip install "timm>=0.9.16"
