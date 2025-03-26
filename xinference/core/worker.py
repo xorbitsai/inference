@@ -1013,8 +1013,12 @@ class WorkerActor(xo.StatelessActor):
 
         pool_addresses = None
         if model_ref is not None:
-            # pool addresses if model.need_create_pools()
-            pool_addresses = await model_ref.get_pool_addresses()
+            try:
+                # pool addresses if model.need_create_pools()
+                pool_addresses = await model_ref.get_pool_addresses()
+            except Exception as e:
+                # process may disappear, we just ignore it.
+                logger.debug("Fail to get pool addresses, error: %s", e)
 
         try:
             await xo.destroy_actor(model_ref)
