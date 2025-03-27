@@ -122,6 +122,8 @@ class _ModelWrapper(nn.Module):
 
     def forward(self, **kwargs):
         attention_mask = kwargs["attention_mask"]
+        # when batching, the attention mask 1 means there is a token
+        # thus we just sum up it to get the total number of tokens
         self.n_tokens += attention_mask.sum().item()
         return self._module(**kwargs)
 
