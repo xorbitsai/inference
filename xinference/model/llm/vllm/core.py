@@ -308,8 +308,6 @@ class VLLMModel(LLM):
             from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.executor.executor_base import ExecutorBase
             from vllm.lora.request import LoRARequest
-
-            from .distributed_executor import XinferenceDistributedExecutor
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -376,6 +374,8 @@ class VLLMModel(LLM):
         elif self._n_worker > 1 or (
             self._device_count > 1 and vllm.__version__ >= "0.7.0"
         ):
+            from .distributed_executor import XinferenceDistributedExecutor
+
             # model across multiple workers or GPUs
             engine_args = AsyncEngineArgs(
                 model=self.model_path,
