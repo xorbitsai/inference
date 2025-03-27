@@ -212,6 +212,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cu124
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
@@ -250,7 +251,10 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_restart_supervisor.py
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
@@ -267,6 +271,6 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests --ignore xinference/model/embedding/tests/test_integrated_embedding.py xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_restart_supervisor.py --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests --ignore xinference/model/embedding/tests/test_integrated_embedding.py xinference
           fi
         working-directory: .
