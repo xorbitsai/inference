@@ -109,7 +109,7 @@ def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[D
 class _ModelWrapper(nn.Module):
     def __init__(self, module: nn.Module):
         super().__init__()
-        self._module = module
+        self.model = module
         self._local_data = threading.local()
 
     @property
@@ -117,18 +117,22 @@ class _ModelWrapper(nn.Module):
         return getattr(self._local_data, "n_tokens", 0)
 
     @n_tokens.setter
-    def n_tokens(self, new_n_tokens):
-        self._local_data.n_tokens = new_n_tokens
+    def n_tokens(self, value):
+        self._local_data.n_tokens = value
 
     def forward(self, **kwargs):
-        attention_mask = kwargs["attention_mask"]
+        attention_mask = kwargs.get("attention_mask")
         # when batching, the attention mask 1 means there is a token
         # thus we just sum up it to get the total number of tokens
-        self.n_tokens += attention_mask.sum().item()
-        return self._module(**kwargs)
+        if attention_mask is not None:
+            self.n_tokens += attention_mask.sum().item()
+        return self.model(**kwargs)
 
     def __getattr__(self, attr):
-        return getattr(self._module, attr)
+        try:
+            return super().__getattr__(attr)
+        except AttributeError:
+            return getattr(self.model, attr)
 
 
 class RerankModel:
