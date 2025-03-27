@@ -286,7 +286,11 @@ class ChatModelMixin:
                         delta_text=choice["text"],
                     )
                     previous_texts[-1] = current_text
-            if "tool_calls" in choice:
+            elif "text" in choice and choice["finish_reason"] is not None:
+                delta["content"] = choice["text"]
+                if reasoning_parser is not None:
+                    delta["reasoning_content"] = None
+            elif "tool_calls" in choice:
                 delta["tool_calls"] = choice["tool_calls"]
             choices_list.append(
                 {
@@ -319,8 +323,9 @@ class ChatModelMixin:
     ) -> ChatCompletionChunk:
         choices_list = []
         for i, choice in enumerate(chunk["choices"]):
-            delta = {"role": "assistant", "content": ""}
+            delta = ChatCompletionChunkDelta(role="assistant", content="")
             if reasoning_parser is not None:
+                delta["content"] = None
                 delta["reasoning_content"] = ""
             choices_list.append(
                 {
