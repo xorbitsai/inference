@@ -874,7 +874,7 @@ class WorkerActor(xo.StatelessActor):
             subpool_address, devices = await self._create_subpool(
                 model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
             )
-
+            all_subpool_addresses = [subpool_address]
             try:
                 xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
                 if xavier_config is not None:
@@ -885,7 +885,7 @@ class WorkerActor(xo.StatelessActor):
                     # add a few kwargs
                     model_kwargs.update(
                         dict(
-                            address=self.address,
+                            address=subpool_address,
                             n_worker=n_worker,
                             shard=shard,
                             driver_info=driver_info,
@@ -923,11 +923,28 @@ class WorkerActor(xo.StatelessActor):
                     shard=shard,
                     driver_info=driver_info,
                 )
+                if await model_ref.need_create_pools() and (
+                    len(devices) > 1 or n_worker > 1  # type: ignore
+                ):
+                    coros = []
+                    env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
+                    env_value = ",".join(devices)
+                    for device in devices:
+                        coros.append(
+                            self._main_pool.append_sub_pool(
+                                env={env_name: env_value},
+                                start_method=self._get_start_method(),
+                            )
+                        )
+                    pool_addresses = await asyncio.gather(*coros)
+                    all_subpool_addresses.extend(pool_addresses)
+                    await model_ref.set_pool_addresses(pool_addresses)
                 await model_ref.load()
             except:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
-                await self._main_pool.remove_sub_pool(subpool_address)
+                for addr in all_subpool_addresses:
+                    await self._main_pool.remove_sub_pool(addr)
                 raise
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_description
@@ -994,6 +1011,15 @@ class WorkerActor(xo.StatelessActor):
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
 
+        pool_addresses = None
+        if model_ref is not None:
+            try:
+                # pool addresses if model.need_create_pools()
+                pool_addresses = await model_ref.get_pool_addresses()
+            except Exception as e:
+                # process may disappear, we just ignore it.
+                logger.debug("Fail to get pool addresses, error: %s", e)
+
         try:
             await xo.destroy_actor(model_ref)
         except Exception as e:
@@ -1001,8 +1027,18 @@ class WorkerActor(xo.StatelessActor):
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
             )
         try:
+            to_remove_addresses = []
             subpool_address = self._model_uid_to_addr[model_uid]
-            await self._main_pool.remove_sub_pool(subpool_address, force=True)
+            to_remove_addresses.append(subpool_address)
+            if pool_addresses:
+                to_remove_addresses.extend(pool_addresses)
+            logger.debug("Remove sub pools: %s", to_remove_addresses)
+            coros = []
+            for to_remove_addr in to_remove_addresses:
+                coros.append(
+                    self._main_pool.remove_sub_pool(to_remove_addr, force=True)
+                )
+            await asyncio.gather(*coros)
         except Exception as e:
             logger.debug(
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
@@ -1204,18 +1240,23 @@ class WorkerActor(xo.StatelessActor):
         model_ref = self._model_uid_to_model[rep_model_uid]
         await model_ref.start_transfer_for_vllm(rank_addresses)
 
-    @log_async(logger=logger, level=logging.INFO)
-    async def launch_rank0_model(
-        self, rep_model_uid: str, xavier_config: Dict[str, Any]
-    ) -> Tuple[str, int]:
-        from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
-
+    @staticmethod
+    def _get_start_method():
         if os.name != "nt" and platform.system() != "Darwin":
             # Linux
             start_method = "forkserver"
         else:
             # Windows and macOS
             start_method = "spawn"
+        return start_method
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def launch_rank0_model(
+        self, rep_model_uid: str, xavier_config: Dict[str, Any]
+    ) -> Tuple[str, int]:
+        from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
+
+        start_method = self._get_start_method()
         subpool_address = await self._main_pool.append_sub_pool(
             start_method=start_method
         )
