@@ -33,7 +33,7 @@ sentence-transformers>=3.1.0
 FlagEmbedding
 controlnet_aux
 orjson
-auto-gptq
+gptqmodel
 autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft
