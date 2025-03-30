@@ -629,6 +629,6 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
-            c = await self.async_generate(fuinputsll_prompt, generate_config)  # type: ignore
+            c = await self.async_generate(inputs, generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)
