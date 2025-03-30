@@ -118,7 +118,7 @@ pyzmq>=25.1.2
 torchao>=0.7.0
 uvloop
 xgrammar>=0.1.10
-vllm==0.7.2
+vllm==0.7.3
 cuda-python
 sgl-kernel>=0.0.3.post3
 IPython
