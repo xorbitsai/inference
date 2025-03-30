@@ -108,6 +108,9 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-v3",
     "deepseek-r1",
 ]
+SGLANG_SUPPORTED_VISION_MODEL_LIST =[
+    "qwen2.5-vl-instruct",
+]
 
 
 class SGLANGModel(LLM):
@@ -559,3 +562,35 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             c = await self.async_generate(full_prompt, generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)
+
+class SGLANGVisionModel(VLLMModel, ChatModelMixin):
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if not cls._has_cuda_device():
+            return False
+        if not cls._is_linux():
+            return False
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and not (quantization is None):
+                return False
+        if llm_spec.model_format == "awq":
+            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
+            if "4" not in quantization:
+                return False
+        if llm_spec.model_format == "gptq":
+            if SGLANG_INSTALLED:
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        else:
+            if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return SGLANG_INSTALLED
