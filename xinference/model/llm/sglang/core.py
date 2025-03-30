@@ -607,11 +607,9 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         messages = self._transform_messages(messages)
-        tools = generate_config.pop("tools", []) if generate_config else None
-
         model_family = self.model_family.model_family or self.model_family.model_name
 
-        prompt, images = self.get_specific_prompt(model_family, messages)
+        prompt, images = self.get_full_context(model_family, messages)
 
         inputs = [{"type": "text", "text": prompt}]
 
@@ -622,10 +620,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            agen = await self.async_generate(inputs, generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
-            c = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            c = await self.async_generate(fuinputsll_prompt, generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)
