@@ -606,10 +606,15 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        from qwen_vl_utils import process_vision_info
+
         messages = self._transform_messages(messages)
         model_family = self.model_family.model_family or self.model_family.model_name
 
-        prompt, images = self.get_full_context(model_family, messages)
+        prompt = self.get_full_context(messages, self.model_family.chat_template)
+        images, video_inputs = process_vision_info(messages)
+        if video_inputs:
+            raise ValueError("Not support video input now.")
 
         inputs = [{"type": "text", "text": prompt}]
 
