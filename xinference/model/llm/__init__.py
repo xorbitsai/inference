@@ -132,7 +132,7 @@ def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel, XllamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
-    from .sglang.core import SGLANGChatModel, SGLANGModel
+    from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
     from .transformers.chatglm import ChatglmPytorchChatModel
     from .transformers.cogagent import CogAgentChatModel
     from .transformers.cogvlm2 import CogVLM2Model
@@ -173,7 +173,7 @@ def _install():
             XllamaCppModel,
         ]
     )
-    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
+    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel, SGLANGVisionModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
