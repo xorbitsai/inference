@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1
 - **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** google/gemma-3-1b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-3-1b-it>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/gemma-3-1b-it>`__
 

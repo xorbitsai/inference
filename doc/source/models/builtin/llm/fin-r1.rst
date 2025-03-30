@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** SUFE-AIFLM-Lab/Fin-R1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/SUFE-AIFLM-Lab/Fin-R1>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Fin-R1>`__
 

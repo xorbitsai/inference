@@ -47,7 +47,7 @@ Currently, supported models include:
 - ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
+- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
 - ``baichuan-2-chat``
 - ``internlm2-chat``
 - ``internlm2.5-chat``, ``internlm2.5-chat-1m``
@@ -60,8 +60,8 @@ Currently, supported models include:
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
 - ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
-- ``gemma-it``, ``gemma-2-it``
-- ``gemma-3-it``, ``gemma-3-27b-it``, ``gemma-3-12b-it``, ``gemma-3-4b-it``, ``gemma-3-1b-it``
+- ``fin-r1``
+- ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
