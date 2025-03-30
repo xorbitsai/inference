@@ -564,7 +564,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             return self._to_chat_completion(c, self.reasoning_parser)
 
 
-class SGLANGVisionModel(VLLMModel, ChatModelMixin):
+class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
