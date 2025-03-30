@@ -176,9 +176,24 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - DeepSeek-VL possesses general multimodal understanding capabilities, capable of processing logical diagrams, web pages, formula recognition, scientific literature, natural images, and embodied intelligence in complex scenarios.
 
+   * - :ref:`fin-r1 <models_llm_fin-r1>`
+     - chat
+     - 131072
+     - Fin-R1 is a large language model specifically designed for the field of financial reasoning
+
    * - :ref:`gemma-2-it <models_llm_gemma-2-it>`
      - chat
      - 8192
+     - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
+
+   * - :ref:`gemma-3-1b-it <models_llm_gemma-3-1b-it>`
+     - chat
+     - 32768
+     - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
+
+   * - :ref:`gemma-3-it <models_llm_gemma-3-it>`
+     - chat, vision
+     - 131072
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
    * - :ref:`gemma-it <models_llm_gemma-it>`
@@ -528,7 +543,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`qwq-32b <models_llm_qwq-32b>`
      - chat, reasoning
-     - 32768
+     - 131072
      - QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.
 
    * - :ref:`qwq-32b-preview <models_llm_qwq-32b-preview>`
@@ -705,7 +720,13 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-vl-chat
   
+   fin-r1
+  
    gemma-2-it
+  
+   gemma-3-1b-it
+  
+   gemma-3-it
   
    gemma-it
   

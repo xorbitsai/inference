@@ -43,6 +43,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### 新模型
+- 内置 [Gemma-3-it](https://blog.google/technology/developers/gemma-3/): [#3077](https://github.com/xorbitsai/inference/pull/3077)
 - 内置 [QwQ-32B](https://qwenlm.github.io/zh/blog/qwq-32b/): [#3005](https://github.com/xorbitsai/inference/pull/3005)
 - 内置 [DeepSeek V3 and R1](https://github.com/deepseek-ai/DeepSeek-R1): [#2864](https://github.com/xorbitsai/inference/pull/2864)
 - 内置 [InternVL2.5](https://internvl.github.io/blog/2024-12-05-InternVL-2.5/): [#2776](https://github.com/xorbitsai/inference/pull/2776)
@@ -50,8 +51,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 内置 [DeepSeek-R1-Distill-Qwen](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2781](https://github.com/xorbitsai/inference/pull/2781)
 - 内置 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M): [#2790](https://github.com/xorbitsai/inference/pull/2790)
 - 内置 [qwen2.5-vl](https://github.com/QwenLM/Qwen2.5-VL): [#2788](https://github.com/xorbitsai/inference/pull/2788)
-- 内置 [internlm3-instruct](https://github.com/InternLM/InternLM): [#2789](https://github.com/xorbitsai/inference/pull/2789)
-- 内置 [MeloTTS](https://github.com/myshell-ai/MeloTTS): [#2760](https://github.com/xorbitsai/inference/pull/2760)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
