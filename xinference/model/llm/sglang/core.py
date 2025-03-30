@@ -303,10 +303,6 @@ class SGLANGModel(LLM):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
-            if "4" not in quantization:
-                return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
                 return False
@@ -514,10 +510,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
-                return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
-            if "4" not in quantization:
                 return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
