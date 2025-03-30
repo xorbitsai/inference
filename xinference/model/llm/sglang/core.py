@@ -25,6 +25,7 @@ from xoscar.utils import get_next_port
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
