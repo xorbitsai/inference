@@ -269,6 +269,7 @@ class ChatModelMixin:
                     previous_texts[-1] = current_text
                     choices[0]["delta"] = delta  # type: ignore
             # Already a ChatCompletionChunk, we don't need to convert chunk.
+
             return cast(ChatCompletionChunk, chunk)
 
         choices_list = []
@@ -368,6 +369,7 @@ class ChatModelMixin:
         previous_texts = [""]
         for _, chunk in enumerate(chunks):
             # usage
+            print(chunk)
             choices = chunk.get("choices")
             if not choices:
                 yield cls._get_final_chat_completion_chunk(chunk)
