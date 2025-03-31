@@ -124,7 +124,7 @@ class ChatModelMixin:
     def get_full_context(
         self,
         messages: List,
-        chat_template: str,
+        chat_template: Optional[str],
         tokenizer=None,
         tokenize=False,
         **kwargs,
@@ -751,7 +751,7 @@ class ChatModelMixin:
     def _transform_messages(
         self,
         messages: List[ChatCompletionMessage],
-    ):
+    ) -> List:
         transformed_messages = []
         for msg in messages:
             new_content = []

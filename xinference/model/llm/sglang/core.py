@@ -634,7 +634,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if video_inputs:
             raise ValueError("Not support video input now.")
 
-        base64_images: List[str] = None
+        base64_images: Optional[List[str]] = None
         if images:
             base64_images = []
             for image in images:
