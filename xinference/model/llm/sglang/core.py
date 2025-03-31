@@ -629,7 +629,9 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
 
         messages = self._transform_messages(messages)
 
-        prompt = self.get_full_context(messages, self.model_family.chat_template)
+        chat_template = self.model_family.chat_template if self.model_family else ""
+
+        prompt = self.get_full_context(messages, chat_template)
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
             raise ValueError("Not support video input now.")
