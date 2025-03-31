@@ -629,7 +629,9 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
 
         messages = self._transform_messages(messages)
 
-        chat_template = self.model_family.chat_template if self.model_family else ""
+        chat_template: str = (
+            self.model_family.chat_template if self.model_family.chat_template else ""
+        )
 
         prompt = self.get_full_context(messages, chat_template)
         images, video_inputs = process_vision_info(messages)
