@@ -375,12 +375,18 @@ class SGLANGModel(LLM):
             sampling_params.pop("lora_name", None)
         return sampling_params
 
-    async def _stream_generate(self, prompt: str, **sampling_params):
+    async def _stream_generate(
+        self,
+        prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
+        **sampling_params,
+    ):
         import aiohttp
 
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "image_data": image_data,
             "sampling_params": sampling_params,
             "stream": True,
         }
@@ -408,12 +414,18 @@ class SGLANGModel(LLM):
                             if need_stop:
                                 break
 
-    async def _non_stream_generate(self, prompt: str, **sampling_params) -> dict:
+    async def _non_stream_generate(
+        self,
+        prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
+        **sampling_params,
+    ) -> dict:
         import aiohttp
 
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "image_data": image_data,
             "sampling_params": sampling_params,
         }
         async with aiohttp.ClientSession(trust_env=True) as session:
@@ -425,6 +437,7 @@ class SGLANGModel(LLM):
     async def async_generate(
         self,
         prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
         generate_config: Optional[SGLANGGenerateConfig] = None,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
@@ -443,7 +456,9 @@ class SGLANGModel(LLM):
         if not request_id:
             request_id = str(uuid.uuid1())
         if not stream:
-            state = await self._non_stream_generate(prompt, **sanitized_generate_config)
+            state = await self._non_stream_generate(
+                prompt, image_data, **sanitized_generate_config
+            )
             return self._convert_state_to_completion(
                 request_id,
                 model=self.model_uid,
@@ -456,7 +471,7 @@ class SGLANGModel(LLM):
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
                 finish_reason = None
                 async for meta_info, out in self._stream_generate(
-                    prompt, **sanitized_generate_config
+                    prompt, image_data, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
                         request_id, self.model_uid, output_text=out
@@ -606,6 +621,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        import base64
+        from io import BytesIO
+
+        from PIL import Image
         from qwen_vl_utils import process_vision_info
 
         messages = self._transform_messages(messages)
@@ -615,19 +634,28 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if video_inputs:
             raise ValueError("Not support video input now.")
 
-        inputs = [{"type": "text", "text": prompt}]
-
+        base64_images = None
         if images:
+            base64_images: List[str] = []
             for image in images:
-                inputs.append({"type": "image_url", "image_url": {"url": image}})
+                if isinstance(image, Image.Image):
+                    buffered = BytesIO()
+                    image.save(buffered, format="JPEG", quality=100)
+                    base64_images.append(base64.b64encode(buffered.getvalue()).decode())
+                elif isinstance(image, str):
+                    base64_images.append(image)
+                else:
+                    raise ValueError(
+                        f"Unsupported image type: {type(image)}, only support PIL.Image and base64 string"
+                    )
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(inputs, generate_config)  # type: ignore
+            agen = await self.async_generate(prompt, base64_images, generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
-            c = await self.async_generate(inputs, generate_config)  # type: ignore
+            c = await self.async_generate(prompt, base64_images, generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)
