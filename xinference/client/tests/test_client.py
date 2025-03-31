@@ -54,13 +54,13 @@ def test_RESTful_client(setup):
     with pytest.raises(RuntimeError):
         completion = model.generate({"max_tokens": 64})
 
-    # completion = model.generate("Once upon a time, there was a very old computer")
-    # assert "text" in completion["choices"][0]
-    #
-    # completion = model.generate(
-    #     "Once upon a time, there was a very old computer", {"max_tokens": 64}
-    # )
-    # assert "text" in completion["choices"][0]
+    completion = model.generate("Once upon a time, there was a very old computer")
+    assert "text" in completion["choices"][0]
+
+    completion = model.generate(
+        "Once upon a time, there was a very old computer", {"max_tokens": 64}
+    )
+    assert "text" in completion["choices"][0]
 
     streaming_response = model.generate(
         "Once upon a time, there was a very old computer",

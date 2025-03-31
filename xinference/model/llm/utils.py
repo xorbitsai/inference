@@ -269,12 +269,13 @@ class ChatModelMixin:
                         )
                         previous_texts[-1] = current_text
                         choices[0]["delta"] = delta  # type: ignore
-            # Already a ChatCompletionChunk, we don't need to convert chunk.
             elif choices[0]["finish_reason"] is not None:
                 delta = choices[0]["delta"]  # type: ignore
-                delta["content"] = delta.get("content", "")  # type: ignore
+                if "content" not in delta:
+                    delta["content"] = ""  # type: ignore
                 if reasoning_parser is not None:
                     delta["reasoning_content"] = None  # type: ignore
+            # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
 
         choices_list = []
@@ -374,7 +375,6 @@ class ChatModelMixin:
         previous_texts = [""]
         for _, chunk in enumerate(chunks):
             # usage
-            print(chunk)
             choices = chunk.get("choices")
             if not choices:
                 yield cls._get_final_chat_completion_chunk(chunk)
