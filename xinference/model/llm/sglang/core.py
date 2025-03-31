@@ -96,7 +96,6 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "gemma-it",
     "gemma-2-it",
     "gemma-3-1b-it",
-    "gemma-3-it",
     "deepseek-v2.5",
     "deepseek-v2-chat",
     "deepseek-v2-chat-0628",
@@ -111,6 +110,9 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "qwen2.5-vl-instruct",
+    "gemma-3-it",
+    "MiniCPM-V",
+    "llama-3.2-vision-instruct",
 ]
 
 
