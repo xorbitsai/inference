@@ -43,7 +43,7 @@ class ReasoningParser:
                 reasoning_content = delta_text[:end_idx]
                 content = delta_text[end_idx + len(self.reasoning_end_tag) :]
                 delta["reasoning_content"] = reasoning_content
-                if content is not None:
+                if content:
                     delta["content"] = content
                 else:
                     delta["content"] = None
@@ -71,7 +71,7 @@ class ReasoningParser:
                 ]
                 content = delta_text[end_idx + len(self.reasoning_end_tag) :]
                 delta["reasoning_content"] = reasoning_content
-                if content is not None:
+                if content:
                     delta["content"] = content
                 else:
                     delta["content"] = None
@@ -93,7 +93,7 @@ class ReasoningParser:
                 reasoning_content = delta_text[:end_idx]
                 content = delta_text[end_idx + len(self.reasoning_end_tag) :]
                 delta["reasoning_content"] = reasoning_content
-                if content is not None:
+                if content:
                     delta["content"] = content
                 else:
                     delta["content"] = None
