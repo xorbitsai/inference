@@ -255,21 +255,26 @@ class ChatModelMixin:
             and choices
             and "delta" in choices[0]
         ):
-            if reasoning_parser is not None:
-                # process parsing reasoning content
-                assert previous_texts is not None
-                delta = choices[0]["delta"]  # type: ignore
-                if text := delta.get("content"):
-                    current_text = previous_texts[-1] + text
-                    delta = reasoning_parser.extract_reasoning_content_streaming(
-                        previous_text=previous_texts[-1],
-                        current_text=current_text,
-                        delta_text=text,
-                    )
-                    previous_texts[-1] = current_text
-                    choices[0]["delta"] = delta  # type: ignore
+            delta = ChatCompletionChunkDelta()
+            if choices[0]["finish_reason"] is None:
+                if reasoning_parser is not None:
+                    # process parsing reasoning content
+                    assert previous_texts is not None
+                    delta = choices[0]["delta"]  # type: ignore
+                    if text := delta.get("content"):
+                        current_text = previous_texts[-1] + text
+                        delta = reasoning_parser.extract_reasoning_content_streaming(
+                            previous_text=previous_texts[-1],
+                            current_text=current_text,
+                            delta_text=text,
+                        )
+                        previous_texts[-1] = current_text
+                        choices[0]["delta"] = delta  # type: ignore
             # Already a ChatCompletionChunk, we don't need to convert chunk.
-
+            elif choices[0]["finish_reason"] is not None:
+                delta["content"] = choices[0].get("content", "")
+                if reasoning_parser is not None:
+                    delta["reasoning_content"] = None
             return cast(ChatCompletionChunk, chunk)
 
         choices_list = []
