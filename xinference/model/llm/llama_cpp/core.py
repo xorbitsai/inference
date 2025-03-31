@@ -302,7 +302,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
                         raise Exception("Got error in chat stream: %s", r.msg)
-                    chunk_keys = ChatCompletionChunk.__annotations__.keys()
+                    # Get valid keys (O(1) lookup)
+                    chunk_keys = ChatCompletionChunk.__annotations__
+                    # Filter out keys that are not part of ChatCompletionChunk
                     yield {key: r[key] for key in chunk_keys if key in r}
 
             return self._to_chat_completion_chunks(
