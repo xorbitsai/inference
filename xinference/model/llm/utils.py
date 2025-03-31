@@ -255,7 +255,7 @@ class ChatModelMixin:
             and choices
             and "delta" in choices[0]
         ):
-            delta = ChatCompletionChunkDelta()
+            delta = {}
             if choices[0]["finish_reason"] is None:
                 if reasoning_parser is not None:
                     # process parsing reasoning content
