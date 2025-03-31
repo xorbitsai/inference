@@ -10795,7 +10795,7 @@
           "Int4",
           "Int8"
         ],
-        "model_id": "JunHowie/Fin-R1-GPTQ-{quantizations}"
+        "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}"
       },
       {
         "model_format": "fp8",
