@@ -90,7 +90,7 @@ def test_RESTful_client(setup):
                     "role" in chunk["choices"][0]["delta"]
                 )
             else:
-                assert chunk["choices"][0]["delta"] == {}
+                assert chunk["choices"][0]["delta"] == {"content": ""}
 
     _check_stream()
 
