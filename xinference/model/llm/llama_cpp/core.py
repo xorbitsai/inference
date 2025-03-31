@@ -304,7 +304,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         raise Exception("Got error in chat stream: %s", r.msg)
                     # Get valid keys (O(1) lookup)
                     chunk_keys = ChatCompletionChunk.__annotations__
-                    # Filter out keys that are not part of ChatCompletionChunk
+                    # The chunk may contain additional keys (e.g., system_fingerprint),
+                    # which might not conform to OpenAI/DeepSeek formats.
+                    # Filter out keys that are not part of ChatCompletionChunk.
                     yield {key: r[key] for key in chunk_keys if key in r}
 
             return self._to_chat_completion_chunks(
