@@ -1243,6 +1243,11 @@ class SupervisorActor(xo.StatelessActor):
                 available_workers.append(worker_ip)
 
         async def _launch_model():
+            # Validation of n_worker, intercept if it is greater than the available workers.
+            if n_worker > len(available_workers):
+                raise ValueError(
+                    "n_worker cannot be larger than the number of available workers."
+                )
             try:
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
