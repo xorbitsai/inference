@@ -94,6 +94,7 @@ g2p_en  # For MeloTTS
 anyascii  # For MeloTTS
 gruut[de,es,fr]  # For MeloTTS
 kokoro>=0.7.15  # Kokoro
+spacy>3.0.6
 misaki[en,ja,zh]>=0.7.15  # Kokoro
 en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl  # Kokoro misaki[en]
 en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl  # Kokoro misaki[en]
