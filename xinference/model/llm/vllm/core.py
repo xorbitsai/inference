@@ -80,6 +80,7 @@ class VLLMModelConfig(TypedDict, total=False):
     guided_decoding_backend: Optional[str]
     scheduling_policy: Optional[str]
     reasoning_content: bool
+    model_quantization: Optional[str]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -519,7 +520,10 @@ class VLLMModel(LLM):
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
-        model_config.setdefault("quantization", None)
+        if "model_quantization" in model_config:
+            model_config["quantization"] = model_config.pop("model_quantization")
+        else:
+            model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("guided_decoding_backend", "outlines")
         model_config.setdefault("reasoning_content", False)

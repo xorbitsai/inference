@@ -40,6 +40,7 @@ export const additionalParameterTipList = {
     'cpu_offload_gb',
     'disable_custom_all_reduce',
     'limit_mm_per_prompt',
+    'model_quantization',
   ],
   'sglang': [
     'mem_fraction_static',
