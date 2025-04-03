@@ -143,6 +143,7 @@ def _install():
         DeepSeekV2PytorchModel,
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
+    from .transformers.deepseek_vl2 import DeepSeekVL2ChatModel
     from .transformers.gemma3 import Gemma3ChatModel, Gemma3TextChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.glm_edge_v import GlmEdgeVModel
@@ -187,6 +188,7 @@ def _install():
             Qwen2AudioChatModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
+            DeepSeekVL2ChatModel,
             InternVLChatModel,
             PytorchModel,
             CogVLM2Model,
