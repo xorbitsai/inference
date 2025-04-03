@@ -227,15 +227,12 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
         generated_text = ""
 
         for new_text in streamer:
-            # 如果 new_text 是张量，则解码为字符串
             if isinstance(new_text, torch.Tensor):
                 new_text = self._tokenizer.decode(new_text.cpu().tolist(), skip_special_tokens=True)
 
-            # 检查是否以 stop_str 结尾，并截断
             if new_text.endswith(stop_str):
                 new_text = new_text[: -len(stop_str)]
 
-            # 累积生成的文本
             generated_text += new_text
 
         return generate_chat_completion(self.model_uid, generated_text)
