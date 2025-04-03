@@ -1021,7 +1021,9 @@ class WorkerActor(xo.StatelessActor):
                 logger.debug("Fail to get pool addresses, error: %s", e)
 
         try:
-            await xo.destroy_actor(model_ref)
+            logger.debug("Start to destroy model actor: %s", model_ref)
+            coro = xo.destroy_actor(model_ref)
+            await asyncio.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
