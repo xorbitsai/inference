@@ -1952,6 +1952,7 @@ class RESTfulAPI(CancelMixin):
             "logit_bias",
             "logit_bias_type",
             "user",
+            "max_completion_tokens",
         }
 
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
@@ -1963,6 +1964,9 @@ class RESTfulAPI(CancelMixin):
         # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
+
+        if body.max_completion_tokens is not None:
+            kwargs["max_tokens"] = body.max_completion_tokens
 
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")

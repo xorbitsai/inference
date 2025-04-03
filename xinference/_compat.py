@@ -102,6 +102,7 @@ class CreateChatCompletionOpenAI(BaseModel):
     frequency_penalty: Optional[float]
     logit_bias: Optional[Dict[str, int]]
     logprobs: Optional[bool]
+    max_completion_tokens: Optional[int]
     max_tokens: Optional[int]
     n: Optional[int]
     parallel_tool_calls: Optional[bool]
