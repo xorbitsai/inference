@@ -53,7 +53,7 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
     def load(self):
         from transformers import AutoModelForCausalLM
 
-        from deepseek_vl2.models import (
+        from ....thirdparty.deepseek_vl2.models import (
             DeepseekVLV2Processor,
             DeepseekVLV2ForCausalLM
         )
@@ -182,7 +182,7 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
                     f"Unexpected message in messages: role: {role}, message: {message}"
                 )
 
-        from deepseek_vl2.utils.io import load_pil_images
+        from ....thirdparty.deepseek_vl2.utils.io import load_pil_images
 
         print(deepseek_messages)
         # load images and prepare for inputs
@@ -197,14 +197,9 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
         # run image encoder to get the image embeddings
         inputs_embeds = self._model.prepare_inputs_embeds(**prepare_inputs)
 
-        temperature = generate_config.get("temperature", 0.2)
-        top_p = generate_config.get("top_p", 0.95)
         max_new_tokens = generate_config.get("max_tokens", 512)
-        repetition_penalty = generate_config.get("repetition_penalty", 1.1)
-
         conversation = self._vl_chat_processor.new_chat_template()
         stop_str = conversation.sep2
-        stop_words = [stop_str]
 
         streamer = self._model.language.generate(
             inputs_embeds=inputs_embeds,
