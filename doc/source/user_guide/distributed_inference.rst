@@ -15,10 +15,10 @@ Supported Engines
 Now, Xinference supported below engines to run models across workers.
 
 * :ref:`SGLang <sglang_backend>` (supported in v1.3.0)
+* :ref:`vLLM <vllm_backend>` (supported in v1.4.1)
 
 Upcoming supports. Below engine will support distributed inference soon:
 
-* :ref:`vLLM <vllm_backend>`
 * :ref:`MLX <mlx_backend>`
 
 *****
