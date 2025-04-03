@@ -43,7 +43,7 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
 
     @classmethod
     def match(
-            cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name
         if "deepseek-vl2" == llm_family.lower():
@@ -54,8 +54,8 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
         from transformers import AutoModelForCausalLM
 
         from ....thirdparty.deepseek_vl2.models import (
+            DeepseekVLV2ForCausalLM,
             DeepseekVLV2Processor,
-            DeepseekVLV2ForCausalLM
         )
 
         self._device = self._pytorch_model_config.get("device", "auto")
@@ -82,7 +82,7 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
                 # e.g. f"data:image/jpeg;base64,{base64_image}"
                 _type, data = _url.split(";")
                 _, ext = _type.split("/")
-                data = data[len("base64,"):]
+                data = data[len("base64,") :]
                 data = base64.b64decode(data.encode("utf-8"))
 
                 with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as f:
@@ -140,9 +140,9 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
 
     @cache_clean
     def chat(
-            self,
-            messages: List[Dict],
-            generate_config: Optional[PytorchGenerateConfig] = None,
+        self,
+        messages: List[Dict],
+        generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if not generate_config:
             generate_config = {}
@@ -162,19 +162,24 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
             content = message["content"]
             if role == "user":
                 if isinstance(content, str):
-                    deepseek_messages.append({"role": "<|User|>", "content": '<image>\n<|ref|>' + content + '<|/ref|>'})
+                    deepseek_messages.append(
+                        {
+                            "role": "<|User|>",
+                            "content": "<image>\n<|ref|>" + content + "<|/ref|>",
+                        }
+                    )
                 else:
                     content, images = self._message_content_to_deepseek(content)
                     msg: Dict[str, Any] = {
                         "role": "<|User|>",
-                        "content": '<image>\n<|ref|>' + content + '<|/ref|>',
+                        "content": "<image>\n<|ref|>" + content + "<|/ref|>",
                     }
                     if images:
                         msg["images"] = images
                     deepseek_messages.append(msg)
                     deepseek_messages.append({"role": "<|Assistant|>", "content": ""})
                 if i == len(messages) - 1:
-                    prompt = '<image>\n<|ref|>' + content + '<|/ref|>'
+                    prompt = "<image>\n<|ref|>" + content + "<|/ref|>"
             elif role == "assistant":
                 deepseek_messages.append({"role": "<|Assistant|>", "content": content})
             else:
@@ -184,14 +189,13 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
 
         from ....thirdparty.deepseek_vl2.utils.io import load_pil_images
 
-        print(deepseek_messages)
         # load images and prepare for inputs
         pil_images = load_pil_images(deepseek_messages)
         prepare_inputs = self._vl_chat_processor(
             conversations=deepseek_messages,
             images=pil_images,
             force_batchify=True,
-            system_prompt=""
+            system_prompt="",
         ).to(self._model.device, self._model.dtype)
 
         # run image encoder to get the image embeddings
@@ -223,7 +227,9 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
 
         for new_text in streamer:
             if isinstance(new_text, torch.Tensor):
-                new_text = self._tokenizer.decode(new_text.cpu().tolist(), skip_special_tokens=True)
+                new_text = self._tokenizer.decode(
+                    new_text.cpu().tolist(), skip_special_tokens=True
+                )
 
             if new_text.endswith(stop_str):
                 new_text = new_text[: -len(stop_str)]
@@ -233,7 +239,7 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
         return generate_chat_completion(self.model_uid, generated_text)
 
     def _generate_stream(
-            self, streamer, stop_str, include_usage, prompt
+        self, streamer, stop_str, include_usage, prompt
     ) -> Iterator[CompletionChunk]:
         completion_id = str(uuid.uuid1())
         prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
