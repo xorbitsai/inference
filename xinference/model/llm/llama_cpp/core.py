@@ -159,7 +159,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         try:
             params = CommonParams()
-            params.model = model_path
+            # Compatible with xllamacpp changes
+            try:
+                params.model = model_path
+            except Exception:
+                params.model.path = model_path
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
             # This is the default value, could be overwritten by _llamacpp_model_config
