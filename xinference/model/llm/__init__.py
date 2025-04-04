@@ -151,6 +151,7 @@ def _install():
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.opt import OptPytorchModel
+    from .transformers.ovis2 import Ovis2ChatModel
     from .transformers.qwen2_audio import Qwen2AudioChatModel
     from .transformers.qwen2_vl import Qwen2VLChatModel
     from .transformers.qwen_vl import QwenVLChatModel
@@ -201,6 +202,7 @@ def _install():
             CogAgentChatModel,
             Gemma3TextChatModel,
             Gemma3ChatModel,
+            Ovis2ChatModel,
         ]
     )
     if OmniLMMModel:  # type: ignore
