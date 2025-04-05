@@ -1534,6 +1534,57 @@ class SupervisorActor(xo.StatelessActor):
             v["replica"] = self._model_uid_to_replica_info[k].replica
         return running_model_info
 
+    # Receive model infos of workers
+    @log_async(logger=logger)
+    async def sync_models(
+        self, worker_address: str, model_desc: Dict[str, Dict[str, Any]]
+    ):  # model_uid : ModelDescription{"address"}
+        for replica_model_uid, desc_dict in model_desc.items():
+            # Rebuild self._replica_model_uid_to_worker
+            if replica_model_uid in self._replica_model_uid_to_worker:
+                continue
+
+            model_name = desc_dict["model_name"] if "model_name" in desc_dict else ""
+            model_version = (
+                desc_dict["model_version"] if "model_version" in desc_dict else ""
+            )
+            logger.debug(
+                f"Receive model replica: {replica_model_uid} {worker_address} {model_name}"
+            )
+
+            assert (
+                worker_address in self._worker_address_to_worker
+            ), f"Worker {worker_address} not exists when sync_models"
+
+            self._replica_model_uid_to_worker[
+                replica_model_uid
+            ] = self._worker_address_to_worker[worker_address]
+
+            # Rebuild self._model_uid_to_replica_info
+            model_uid, rep_id = parse_replica_model_uid(replica_model_uid)
+            replica = rep_id + 1
+            if model_uid not in self._model_uid_to_replica_info:
+                self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
+                    replica=replica, scheduler=itertools.cycle(range(replica))
+                )
+            else:
+                if replica > self._model_uid_to_replica_info[model_uid].replica:
+                    self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
+                        replica=replica, scheduler=itertools.cycle(range(replica))
+                    )
+
+            # Rebuild self._status_guard_ref
+            instance_info = InstanceInfo(
+                model_name=model_name,
+                model_uid=model_uid,
+                model_version=model_version,
+                model_ability=[],
+                replica=replica,
+                status=LaunchStatus.READY.name,
+                instance_created_ts=int(time.time()),
+            )
+            await self._status_guard_ref.set_instance_info(model_uid, instance_info)
+
     def is_local_deployment(self) -> bool:
         # TODO: temporary.
         return (
