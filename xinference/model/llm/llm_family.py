@@ -263,6 +263,7 @@ SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
+
 # Add decorator definition
 def register_transformer(cls):
     """
@@ -280,6 +281,7 @@ def register_transformer(cls):
     # Append the class to the list of transformer classes
     TRANSFORMERS_CLASSES.append(cls)
     return cls
+
 
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC
