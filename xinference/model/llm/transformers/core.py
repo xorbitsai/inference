@@ -84,6 +84,32 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "deepseek-vl2",
 ]
 
+# Define the decorator to support multiple names registration
+def register_non_default_model(*model_names: str):
+    """
+    Decorator for registering new non-default model names (supports multiple names).
+
+    Args:
+        *model_names (str): One or more model names to be registered as non-default models.
+
+    Returns:
+        A decorator function that adds the provided model names to the NON_DEFAULT_MODEL_LIST.
+    """
+    def decorator(cls):
+        """
+        Inner decorator function that modifies the class by registering model names.
+
+        Args:
+            cls: The class to be decorated.
+
+        Returns:
+            The original class after registering the model names.
+        """
+        for name in model_names:
+            if name not in NON_DEFAULT_MODEL_LIST:
+                NON_DEFAULT_MODEL_LIST.append(name)
+        return cls
+    return decorator
 
 class PytorchModel(LLM):
     def __init__(
