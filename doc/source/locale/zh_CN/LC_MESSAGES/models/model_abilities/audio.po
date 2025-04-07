@@ -299,7 +299,6 @@ msgstr ""
 "FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
 
 #: ../../source/models/model_abilities/audio.rst:417
-#, fuzzy
 msgid "SenseVoiceSmall Offline Usage"
 msgstr "SenseVoiceSmall 离线使用"
 
