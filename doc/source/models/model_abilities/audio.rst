@@ -436,7 +436,10 @@ and add an additional parameter when starting the model.
 
 1. pip install misaki[zh]
 
-2. Initialize model with parameter lang_code='z'. If the model is started through the web UI, an additional
+2. Initialize the model with the parameter lang_code='z',
+   For all available ``lang_code`` options,
+   please refer to `kokoro source code <https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_.
+   If the model is started through the web UI, an additional
    parameter needs to be added, with the key as ``lang_code`` and the value as ``z``.
    If the model is started through the xinference client, the parameters are passed via the launch_model interface:
 
