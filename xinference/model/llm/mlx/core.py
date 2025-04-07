@@ -213,7 +213,16 @@ class MLXModel(LLM):
         return prompt
 
     def _generate_stream_inner(self, **kwargs):
-        from mlx_lm.utils import make_logits_processors, make_sampler, stream_generate
+        try:
+            from mlx_lm.utils import (
+                make_logits_processors,
+                make_sampler,
+                stream_generate,
+            )
+        except ImportError:
+            # for mlx-lm >= 0.22.3
+            from mlx_lm.generate import stream_generate
+            from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
         sampler = make_sampler(
             temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
@@ -508,7 +517,12 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
-        from mlx_lm.utils import GenerationResponse
+
+        try:
+            from mlx_lm.utils import GenerationResponse
+        except ImportError:
+            # for mlx-lm >= 0.22.3
+            from mlx_lm.generate import GenerationResponse
         from mlx_vlm.utils import generate_step
 
         inputs = kwargs.pop("prompt_token_ids")
