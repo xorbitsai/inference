@@ -517,7 +517,12 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
-        from mlx_lm.utils import GenerationResponse
+
+        try:
+            from mlx_lm.utils import GenerationResponse
+        except ImportError:
+            # for mlx-lm >= 0.22.3
+            from mlx_lm.generate import GenerationResponse
         from mlx_vlm.utils import generate_step
 
         inputs = kwargs.pop("prompt_token_ids")
