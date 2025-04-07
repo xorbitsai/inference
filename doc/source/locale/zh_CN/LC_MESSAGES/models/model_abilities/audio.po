@@ -283,8 +283,8 @@ msgid ""
 msgstr "更多指令和例子，可以参考 https://fun-audio-llm.github.io/ 。"
 
 #: ../../source/models/model_abilities/audio.rst:387
-msgid "FishSpeech 模型使用"
-msgstr ""
+msgid "FishSpeech Usage"
+msgstr "FishSpeech 模型使用"
 
 #: ../../source/models/model_abilities/audio.rst:391
 msgid ""
