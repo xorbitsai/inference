@@ -264,6 +264,25 @@ SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
 
+# Add decorator definition
+def register_transformer(cls):
+    """
+    Decorator function to register a class as a transformer.
+
+    This decorator appends the provided class to the TRANSFORMERS_CLASSES list.
+    It is used to keep track of classes that are considered transformers.
+
+    Args:
+        cls (class): The class to be registered as a transformer.
+
+    Returns:
+        class: The same class that was passed in, after being registered.
+    """
+    # Append the class to the list of transformer classes
+    TRANSFORMERS_CLASSES.append(cls)
+    return cls
+
+
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC
 
