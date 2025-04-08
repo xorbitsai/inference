@@ -59,17 +59,11 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "OmniLMM",
     "yi-vl-chat",
     "deepseek-vl-chat",
-    "internvl-chat",
-    "internvl2",
-    "Internvl2.5",
-    "Internvl2.5-MPO",
     "cogvlm2",
     "cogvlm2-video-llama3-chat",
     "MiniCPM-Llama3-V-2_5",
     "MiniCPM-V-2.6",
     "glm-4v",
-    "qwen2-vl-instruct",
-    "qwen2.5-vl-instruct",
     "qwen2-audio",
     "qwen2-audio-instruct",
     "deepseek-v2",
@@ -83,6 +77,36 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "gemma-3-it",
     "deepseek-vl2",
 ]
+
+
+# Define the decorator to support multiple names registration
+def register_non_default_model(*model_names: str):
+    """
+    Decorator for registering new non-default model names (supports multiple names).
+
+    Args:
+        *model_names (str): One or more model names to be registered as non-default models.
+
+    Returns:
+        A decorator function that adds the provided model names to the NON_DEFAULT_MODEL_LIST.
+    """
+
+    def decorator(cls):
+        """
+        Inner decorator function that modifies the class by registering model names.
+
+        Args:
+            cls: The class to be decorated.
+
+        Returns:
+            The original class after registering the model names.
+        """
+        for name in model_names:
+            if name not in NON_DEFAULT_MODEL_LIST:
+                NON_DEFAULT_MODEL_LIST.append(name)
+        return cls
+
+    return decorator
 
 
 class PytorchModel(LLM):

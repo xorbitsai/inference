@@ -25,14 +25,16 @@ from ....types import (
     ChatCompletionMessage,
     CompletionChunk,
 )
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import generate_chat_completion, generate_completion_chunk
-from .core import PytorchChatModel, PytorchGenerateConfig
+from .core import PytorchChatModel, PytorchGenerateConfig, register_non_default_model
 from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
 
+@register_transformer
+@register_non_default_model("qwen2-vl-instruct", "qwen2.5-vl-instruct")
 class Qwen2VLChatModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
