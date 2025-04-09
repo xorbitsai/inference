@@ -36,7 +36,7 @@ from ..utils import DEEPSEEK_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelM
 
 logger = logging.getLogger(__name__)
 
-USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 0)))
+USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 1)))
 
 
 class _Done:
