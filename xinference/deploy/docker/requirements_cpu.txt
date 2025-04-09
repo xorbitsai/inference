@@ -1,6 +1,5 @@
 xoscar>=0.4.4
 gradio==5.22.0
-typer[all]<0.12.0
 pillow
 click
 tqdm>=4.27
