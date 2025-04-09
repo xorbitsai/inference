@@ -2,7 +2,7 @@
 requires = [
     "setuptools<64; python_version<'3.12'",
     "setuptools>=75; python_version>='3.12'",
-    "wheel!=0.46.1; python_version<'3.12'",
+    "wheel<0.46.0; python_version<'3.12'",
     "wheel; python_version>='3.12'"
 ]
 build-backend = "setuptools.build_meta"
