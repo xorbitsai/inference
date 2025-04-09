@@ -57,5 +57,14 @@
     "max_tokens": 1024,
     "model_id": "OpenBMB/MiniCPM-Reranker",
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "jina-reranker-m0",
+    "type": "LLM-based",
+    "language": ["en", "zh"],
+    "max_tokens": 10240,
+    "model_id": "jinaai/jina-reranker-m0",
+    "model_revision": "master",
+    "model_hub": "modelscope"
   }
 ]
