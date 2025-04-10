@@ -346,5 +346,13 @@
     "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9",
     "model_ability": "text-to-audio",
     "multilingual": true
+  },
+  {
+    "model_name": "MegaTTS3",
+    "model_family": "MegaTTS",
+    "model_id": "ByteDance/MegaTTS3",
+    "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738",
+    "model_ability": "text-to-audio",
+    "multilingual": true
   }
 ]

@@ -95,3 +95,6 @@ datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 verovio>=4.3.1  # For got_ocr2
 gguf
+langdetect  # MegaTTS3
+pyloudnorm  # MegaTTS3
+openai-whisper  # MegaTTS3

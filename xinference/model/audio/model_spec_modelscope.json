@@ -109,5 +109,14 @@
     "model_revision": "master",
     "model_ability": "text-to-audio",
     "multilingual": true
+  },
+  {
+    "model_name": "MegaTTS3",
+    "model_family": "MegaTTS",
+    "model_hub": "modelscope",
+    "model_id": "ByteDance/MegaTTS3",
+    "model_revision": "master",
+    "model_ability": "text-to-audio",
+    "multilingual": true
   }
 ]
