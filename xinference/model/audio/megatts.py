@@ -81,6 +81,7 @@ class MegaTTSModel:
         if not prompt_latent:
             raise Exception("Please set prompt_latent for MegaTTS3.")
 
+        assert self._model is not None
         with io.BytesIO(prompt_latent) as prompt_latent_io:
             resource_context = self._model.preprocess(
                 prompt_speech, latent_file=prompt_latent_io
