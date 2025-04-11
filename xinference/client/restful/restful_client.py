@@ -723,6 +723,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         speed: float = 1.0,
         stream: bool = False,
         prompt_speech: Optional[bytes] = None,
+        prompt_latent: Optional[bytes] = None,
         **kwargs,
     ):
         """
@@ -743,6 +744,8 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             Use stream or not.
         prompt_speech: bytes
             The audio bytes to be provided to the model.
+        prompt_latent: bytes
+            The latent bytes to be provided to the model.
 
         Returns
         -------
@@ -759,14 +762,22 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "stream": stream,
             "kwargs": json.dumps(kwargs),
         }
+        files: List[Any] = []
         if prompt_speech:
-            files: List[Any] = []
             files.append(
                 (
                     "prompt_speech",
                     ("prompt_speech", prompt_speech, "application/octet-stream"),
                 )
             )
+        if prompt_latent:
+            files.append(
+                (
+                    "prompt_latent",
+                    ("prompt_latent", prompt_latent, "application/octet-stream"),
+                )
+            )
+        if files:
             response = requests.post(
                 url, data=params, files=files, headers=self.auth_headers, stream=stream
             )
