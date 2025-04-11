@@ -1252,13 +1252,16 @@ def test_launch_model_async(setup):
     assert model_uid_res == "test_qwen_15"
 
     status_url = f"{endpoint}/v1/models/instances?model_uid=test_qwen_15"
+    progress_url = f"{endpoint}/v1/requests/launching-test_qwen_15-0/progress"
     while True:
         response = requests.get(status_url)
         response_data = response.json()
         assert len(response_data) == 1
         res = response_data[0]
-        print(res)
+        progress = requests.get(progress_url).json()
+        assert progress["progress"] is not None
         if res["status"] == "READY":
+            assert progress["progress"] == 1.0
             break
         time.sleep(2)
 

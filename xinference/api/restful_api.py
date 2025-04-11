@@ -469,6 +469,26 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/models/{model_uid}/progress",
+            self.get_launch_model_progress,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/models/{model_uid}/cancel",
+            self.cancel_launch_model,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:stop"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/completions",
             self.create_completion,
             methods=["POST"],
@@ -1043,6 +1063,26 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=infos)
+
+    async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
+        try:
+            progress = await (
+                await self._get_supervisor_ref()
+            ).get_launch_builtin_model_progress(model_uid)
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content={"progress": progress})
+
+    async def cancel_launch_model(self, model_uid: str) -> JSONResponse:
+        try:
+            await (await self._get_supervisor_ref()).cancel_launch_builtin_model(
+                model_uid
+            )
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content=None)
 
     async def launch_model_by_version(
         self, request: Request, wait_ready: bool = Query(True)

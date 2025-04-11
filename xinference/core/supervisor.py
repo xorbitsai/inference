@@ -18,11 +18,13 @@ import os
 import signal
 import time
 import typing
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
+    DefaultDict,
     Dict,
     Iterator,
     List,
@@ -91,6 +93,9 @@ class WorkerStatus:
 class ReplicaInfo:
     replica: int
     scheduler: Iterator
+    replica_to_worker_refs: DefaultDict[
+        int, List[xo.ActorRefType["WorkerActor"]]
+    ] = field(default_factory=lambda: defaultdict(list))
 
 
 class SupervisorActor(xo.StatelessActor):
@@ -1113,6 +1118,9 @@ class SupervisorActor(xo.StatelessActor):
                         if target_ip_worker_ref is not None
                         else await self._choose_worker()
                     )
+                    self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
+                        _idx
+                    ].append(worker_ref)
                     if enable_xavier and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
@@ -1260,6 +1268,9 @@ class SupervisorActor(xo.StatelessActor):
                     driver_info = None
                     for i_worker in range(n_worker):
                         worker_ref = await self._choose_worker(available_workers)
+                        self._model_uid_to_replica_info[
+                            model_uid
+                        ].replica_to_worker_refs[_idx].append(worker_ref)
                         nonlocal model_type
                         model_type = model_type or "LLM"
                         if i_worker > 1:
@@ -1343,6 +1354,37 @@ class SupervisorActor(xo.StatelessActor):
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
         return model_uid
+
+    async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
+        info = self._model_uid_to_replica_info[model_uid]
+        all_progress = 0.0
+        i = 0
+        for rep_model_uid in iter_replica_model_uid(model_uid, info.replica):
+            request_id = f"launching-{rep_model_uid}"
+            try:
+                all_progress += await self._progress_tracker.get_progress(request_id)
+                i += 1
+            except KeyError:
+                continue
+
+        return all_progress / i if i > 0 else 0.0
+
+    async def cancel_launch_builtin_model(self, model_uid: str):
+        info = self._model_uid_to_replica_info[model_uid]
+        coros = []
+        for i, rep_model_uid in enumerate(
+            iter_replica_model_uid(model_uid, info.replica)
+        ):
+            worker_refs = self._model_uid_to_replica_info[
+                model_uid
+            ].replica_to_worker_refs[i]
+            for worker_ref in worker_refs:
+                coros.append(worker_ref.cancel_launch_model(rep_model_uid))
+        try:
+            await asyncio.gather(*coros)
+        except RuntimeError:
+            # some may have finished
+            pass
 
     async def get_instance_info(
         self, model_name: Optional[str], model_uid: Optional[str]
