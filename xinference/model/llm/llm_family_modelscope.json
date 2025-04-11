@@ -7546,8 +7546,30 @@
           "q6_k",
           "q8_0"
         ],
+        "quantization_parts": {
+          "fp16": [
+            "00001-of-00017",
+            "00002-of-00017",
+            "00003-of-00017",
+            "00004-of-00017",
+            "00005-of-00017",
+            "00006-of-00017",
+            "00007-of-00017",
+            "00008-of-00017",
+            "00009-of-00017",
+            "00010-of-00017",
+            "00011-of-00017",
+            "00012-of-00017",
+            "00013-of-00017",
+            "00014-of-00017",
+            "00015-of-00017",
+            "00016-of-00017",
+            "00017-of-00017"
+          ]
+        },
         "model_id": "Qwen/QwQ-32B-GGUF",
         "model_file_name_template": "qwq-32b-{quantization}.gguf",
+        "model_file_name_split_template": "qwq-32b-{quantization}-{part}.gguf",
         "model_hub": "modelscope"
       }
     ],
