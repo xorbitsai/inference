@@ -1,6 +1,5 @@
 xoscar>=0.4.4
-gradio==4.26.0
-typer[all]<0.12.0
+gradio==5.22.0
 pillow
 click
 tqdm>=4.27
@@ -33,7 +32,7 @@ sentence-transformers>=3.1.0
 FlagEmbedding
 controlnet_aux
 orjson
-auto-gptq
+gptqmodel
 autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft

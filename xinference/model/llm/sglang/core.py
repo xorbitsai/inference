@@ -25,6 +25,7 @@ from xoscar.utils import get_next_port
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -94,6 +95,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "mixtral-instruct-v0.1",
     "gemma-it",
     "gemma-2-it",
+    "gemma-3-1b-it",
     "deepseek-v2.5",
     "deepseek-v2-chat",
     "deepseek-v2-chat-0628",
@@ -105,6 +107,12 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-r1-distill-llama",
     "deepseek-v3",
     "deepseek-r1",
+]
+SGLANG_SUPPORTED_VISION_MODEL_LIST = [
+    "qwen2.5-vl-instruct",
+    "gemma-3-it",
+    "MiniCPM-V",
+    "llama-3.2-vision-instruct",
 ]
 
 
@@ -301,10 +309,6 @@ class SGLANGModel(LLM):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
-            if "4" not in quantization:
-                return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
                 return False
@@ -369,12 +373,18 @@ class SGLANGModel(LLM):
             sampling_params.pop("lora_name", None)
         return sampling_params
 
-    async def _stream_generate(self, prompt: str, **sampling_params):
+    async def _stream_generate(
+        self,
+        prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
+        **sampling_params,
+    ):
         import aiohttp
 
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "image_data": image_data,
             "sampling_params": sampling_params,
             "stream": True,
         }
@@ -402,12 +412,18 @@ class SGLANGModel(LLM):
                             if need_stop:
                                 break
 
-    async def _non_stream_generate(self, prompt: str, **sampling_params) -> dict:
+    async def _non_stream_generate(
+        self,
+        prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
+        **sampling_params,
+    ) -> dict:
         import aiohttp
 
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "image_data": image_data,
             "sampling_params": sampling_params,
         }
         async with aiohttp.ClientSession(trust_env=True) as session:
@@ -419,6 +435,7 @@ class SGLANGModel(LLM):
     async def async_generate(
         self,
         prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
         generate_config: Optional[SGLANGGenerateConfig] = None,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
@@ -437,7 +454,9 @@ class SGLANGModel(LLM):
         if not request_id:
             request_id = str(uuid.uuid1())
         if not stream:
-            state = await self._non_stream_generate(prompt, **sanitized_generate_config)
+            state = await self._non_stream_generate(
+                prompt, image_data, **sanitized_generate_config
+            )
             return self._convert_state_to_completion(
                 request_id,
                 model=self.model_uid,
@@ -450,7 +469,7 @@ class SGLANGModel(LLM):
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
                 finish_reason = None
                 async for meta_info, out in self._stream_generate(
-                    prompt, **sanitized_generate_config
+                    prompt, image_data, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
                         request_id, self.model_uid, output_text=out
@@ -513,10 +532,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
-            if "4" not in quantization:
-                return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
                 return False
@@ -555,5 +570,90 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
             c = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            assert not isinstance(c, AsyncGenerator)
+            return self._to_chat_completion(c, self.reasoning_parser)
+
+
+class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if not cls._has_cuda_device():
+            return False
+        if not cls._is_linux():
+            return False
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and not (quantization is None):
+                return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        else:
+            if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return SGLANG_INSTALLED
+
+    def _sanitize_chat_config(
+        self,
+        generate_config: Optional[Dict] = None,
+    ) -> Dict:
+        if not generate_config:
+            generate_config = {}
+        if self.model_family.stop:
+            if (not generate_config.get("stop")) and self.model_family.stop:
+                generate_config["stop"] = self.model_family.stop.copy()
+        return generate_config
+
+    async def async_chat(
+        self,
+        messages: List[ChatCompletionMessage],  # type: ignore
+        generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        import base64
+        from io import BytesIO
+
+        from PIL import Image
+        from qwen_vl_utils import process_vision_info
+
+        messages = self._transform_messages(messages)
+
+        chat_template: str = (
+            self.model_family.chat_template if self.model_family.chat_template else ""
+        )
+
+        prompt = self.get_full_context(messages, chat_template)
+        images, video_inputs = process_vision_info(messages)
+        if video_inputs:
+            raise ValueError("Not support video input now.")
+
+        base64_images: Optional[List[str]] = None
+        if images:
+            base64_images = []
+            for image in images:
+                if isinstance(image, Image.Image):
+                    buffered = BytesIO()
+                    image.save(buffered, format="JPEG", quality=100)
+                    base64_images.append(base64.b64encode(buffered.getvalue()).decode())
+                elif isinstance(image, str):
+                    base64_images.append(image)
+                else:
+                    raise ValueError(
+                        f"Unsupported image type: {type(image)}, only support PIL.Image and base64 string"
+                    )
+
+        generate_config = self._sanitize_chat_config(generate_config)
+        stream = generate_config.get("stream", None)
+        if stream:
+            agen = await self.async_generate(prompt, base64_images, generate_config)  # type: ignore
+            assert isinstance(agen, AsyncGenerator)
+            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
+        else:
+            c = await self.async_generate(prompt, base64_images, generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)

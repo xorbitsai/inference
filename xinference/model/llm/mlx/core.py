@@ -148,11 +148,15 @@ class MLXModel(LLM):
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
 
-        return load(
+        model, tokenizer = load(
             self.model_path,
             tokenizer_config=tokenizer_config,
             model_config=self._model_config,
         )
+        if stop_token_ids := self.model_family.stop_token_ids:
+            for stop_token_id in stop_token_ids:
+                tokenizer.add_eos_token(stop_token_id)
+        return model, tokenizer
 
     def load(self):
         reasoning_content = self._model_config.pop("reasoning_content")
@@ -209,7 +213,16 @@ class MLXModel(LLM):
         return prompt
 
     def _generate_stream_inner(self, **kwargs):
-        from mlx_lm.utils import make_logits_processors, make_sampler, stream_generate
+        try:
+            from mlx_lm.utils import (
+                make_logits_processors,
+                make_sampler,
+                stream_generate,
+            )
+        except ImportError:
+            # for mlx-lm >= 0.22.3
+            from mlx_lm.generate import stream_generate
+            from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
         sampler = make_sampler(
             temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
@@ -434,10 +447,11 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
         full_context_kwargs = {}
         if tools:
-            if model_family in QWEN_TOOL_CALL_FAMILY:
+            if (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            ):
                 full_context_kwargs["tools"] = tools
-            elif model_family in DEEPSEEK_TOOL_CALL_FAMILY:
-                self._tools_to_messages_for_deepseek(messages, tools)
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
@@ -503,7 +517,12 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
-        from mlx_lm.utils import GenerationResponse
+
+        try:
+            from mlx_lm.utils import GenerationResponse
+        except ImportError:
+            # for mlx-lm >= 0.22.3
+            from mlx_lm.generate import GenerationResponse
         from mlx_vlm.utils import generate_step
 
         inputs = kwargs.pop("prompt_token_ids")

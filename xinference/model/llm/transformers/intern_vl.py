@@ -19,14 +19,14 @@ from typing import Dict, Iterator, List, Optional, Union
 import torch
 
 from ....types import ChatCompletion, ChatCompletionChunk
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import (
     _decode_image,
     generate_chat_completion,
     generate_completion_chunk,
     parse_messages,
 )
-from .core import PytorchChatModel, PytorchGenerateConfig
+from .core import PytorchChatModel, PytorchGenerateConfig, register_non_default_model
 from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
@@ -232,6 +232,10 @@ def _load_video(video_path, bound=None, input_size=448, max_num=1, num_segments=
     return pixel_values, num_patches_list
 
 
+@register_transformer
+@register_non_default_model(
+    "internvl-chat", "internvl2", "Internvl2.5", "Internvl2.5-MPO"
+)
 class InternVLChatModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

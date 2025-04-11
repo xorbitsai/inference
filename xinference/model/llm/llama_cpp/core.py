@@ -36,7 +36,7 @@ from ..utils import DEEPSEEK_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelM
 
 logger = logging.getLogger(__name__)
 
-USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 0)))
+USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 1)))
 
 
 class _Done:
@@ -159,7 +159,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         try:
             params = CommonParams()
-            params.model = model_path
+            # Compatible with xllamacpp changes
+            try:
+                params.model = model_path
+            except Exception:
+                params.model.path = model_path
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
             # This is the default value, could be overwritten by _llamacpp_model_config
@@ -302,7 +306,12 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
                         raise Exception("Got error in chat stream: %s", r.msg)
-                    yield r
+                    # Get valid keys (O(1) lookup)
+                    chunk_keys = ChatCompletionChunk.__annotations__
+                    # The chunk may contain additional keys (e.g., system_fingerprint),
+                    # which might not conform to OpenAI/DeepSeek formats.
+                    # Filter out keys that are not part of ChatCompletionChunk.
+                    yield {key: r[key] for key in chunk_keys if key in r}
 
             return self._to_chat_completion_chunks(
                 _to_iterator(), self.reasoning_parser
@@ -562,10 +571,11 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
         full_context_kwargs = {}
         if tools:
-            if model_family in QWEN_TOOL_CALL_FAMILY:
+            if (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            ):
                 full_context_kwargs["tools"] = tools
-            elif model_family in DEEPSEEK_TOOL_CALL_FAMILY:
-                self._tools_to_messages_for_deepseek(messages, tools)
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs

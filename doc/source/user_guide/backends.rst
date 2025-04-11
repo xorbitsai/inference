@@ -9,11 +9,19 @@ xinference will automatically select the appropriate backend.
 
 llama.cpp
 ~~~~~~~~~
-`llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ is the python binding of
-`llama.cpp`. `llama-cpp` is developed based on the tensor library `ggml`, supporting inference of
+
+Xinference now supports `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ which developed by Xinference team,
+and `llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ to run llama.cpp backend.
+`llama.cpp` is developed based on the tensor library `ggml`, supporting inference of
 the LLaMA series models and their variants.
 
-We recommend that users install `llama-cpp-python` on the worker themselves and adjust the `cmake`
+.. warning::
+
+    For upcoming Xinference v1.5.0,
+    ``xllamacpp`` will become default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
+    For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
+
+For `llama-cpp-python`, we recommend that users install  on the worker themselves and adjust the `cmake`
 parameters according to the hardware to achieve the best inference efficiency. Please refer to the
 `llama-cpp-python installation guide <https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal>`_.
 
@@ -56,7 +64,7 @@ Currently, supported model includes:
 - ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
+- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
 - ``baichuan-2-chat``
 - ``internlm2-chat``
 - ``internlm2.5-chat``, ``internlm2.5-chat-1m``
@@ -69,7 +77,8 @@ Currently, supported model includes:
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
 - ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
-- ``gemma-it``, ``gemma-2-it``
+- ``fin-r1``
+- ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``

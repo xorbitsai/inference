@@ -79,8 +79,7 @@ LLAMA3_TOOL_CALL_FAMILY = [
 ]
 
 DEEPSEEK_TOOL_CALL_FAMILY = [
-    "deepseek-r1-distill-qwen",
-    "deepseek-r1-distill-llama",
+    "deepseek-v3",
 ]
 
 TOOL_CALL_FAMILY = (
@@ -256,19 +255,26 @@ class ChatModelMixin:
             and choices
             and "delta" in choices[0]
         ):
-            if reasoning_parser is not None:
-                # process parsing reasoning content
-                assert previous_texts is not None
+            if choices[0]["finish_reason"] is None:
+                if reasoning_parser is not None:
+                    # process parsing reasoning content
+                    assert previous_texts is not None
+                    delta = choices[0]["delta"]  # type: ignore
+                    if text := delta.get("content"):
+                        current_text = previous_texts[-1] + text
+                        delta = reasoning_parser.extract_reasoning_content_streaming(
+                            previous_text=previous_texts[-1],
+                            current_text=current_text,
+                            delta_text=text,
+                        )
+                        previous_texts[-1] = current_text
+                        choices[0]["delta"] = delta  # type: ignore
+            elif choices[0]["finish_reason"] is not None:
                 delta = choices[0]["delta"]  # type: ignore
-                if text := delta.get("content"):
-                    current_text = previous_texts[-1] + text
-                    delta = reasoning_parser.extract_reasoning_content_streaming(
-                        previous_text=previous_texts[-1],
-                        current_text=current_text,
-                        delta_text=text,
-                    )
-                    previous_texts[-1] = current_text
-                    choices[0]["delta"] = delta  # type: ignore
+                if "content" not in delta:
+                    delta["content"] = ""  # type: ignore
+                if reasoning_parser is not None:
+                    delta["reasoning_content"] = None  # type: ignore
             # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
 
@@ -287,7 +293,11 @@ class ChatModelMixin:
                         delta_text=choice["text"],
                     )
                     previous_texts[-1] = current_text
-            if "tool_calls" in choice:
+            elif "text" in choice and choice["finish_reason"] is not None:
+                delta["content"] = choice["text"]
+                if reasoning_parser is not None:
+                    delta["reasoning_content"] = None
+            elif "tool_calls" in choice:
                 delta["tool_calls"] = choice["tool_calls"]
             choices_list.append(
                 {
@@ -296,12 +306,19 @@ class ChatModelMixin:
                     "finish_reason": choice["finish_reason"],
                 }
             )
+        assert choices is not None
+        usage = (
+            chunk["usage"]
+            if choices[0]["finish_reason"] is not None and reasoning_parser is not None
+            else None
+        )
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
             "created": chunk["created"],
             "object": "chat.completion.chunk",
             "choices": choices_list,
+            "usage": usage,
         }
         return cast(ChatCompletionChunk, chat_chunk)
 
@@ -313,12 +330,9 @@ class ChatModelMixin:
     ) -> ChatCompletionChunk:
         choices_list = []
         for i, choice in enumerate(chunk["choices"]):
-            delta = {
-                "role": "assistant",
-            }
-            if reasoning_parser is None:
-                delta["content"] = ""
-            else:
+            delta = ChatCompletionChunkDelta(role="assistant", content="")
+            if reasoning_parser is not None:
+                delta["content"] = None
                 delta["reasoning_content"] = ""
             choices_list.append(
                 {
@@ -359,9 +373,7 @@ class ChatModelMixin:
         reasoning_parse: Optional[ReasoningParser] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
-        for i, chunk in enumerate(chunks):
-            if i == 0:
-                yield cls._get_first_chat_completion_chunk(chunk, reasoning_parse)
+        for _, chunk in enumerate(chunks):
             # usage
             choices = chunk.get("choices")
             if not choices:
@@ -407,14 +419,10 @@ class ChatModelMixin:
         chunks: AsyncGenerator[CompletionChunk, None],
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        i = 0
         previous_texts = [""]
         async for chunk in chunks:
-            if i == 0:
-                chat_chunk = cls._get_first_chat_completion_chunk(
-                    chunk, reasoning_parser
-                )
-            elif not chunk.get("choices"):
+            choices = chunk.get("choices")
+            if not choices:
                 # usage
                 chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
@@ -422,7 +430,6 @@ class ChatModelMixin:
                     chunk, reasoning_parser, previous_texts
                 )
             yield chat_chunk
-            i += 1
 
     @staticmethod
     def _to_chat_completion(
@@ -533,7 +540,7 @@ class ChatModelMixin:
     @classmethod
     def _eval_deepseek_chat_arguments(cls, c) -> List[Tuple]:
         """
-        Parses tool calls from deepseek-r1 format and removes duplicates.
+        Parses tool calls from deepseek-v3 format and removes duplicates.
 
         Returns:
         List[Tuple[Optional[str], Optional[str], Optional[dict]]]
@@ -541,20 +548,24 @@ class ChatModelMixin:
         - (content, None, None) if parsing failed (content is raw JSON text).
 
         Example input:
-        <｜tool▁call｜>get_current_weather
         ```json
-        {"location": "tokyo", "unit": "fahrenheit"}
+        {
+            "name": "get_weather_and_time",
+            "parameters": {
+                "location": "Hangzhou"
+            }
+        }
         ```
 
         Output:
         [
-            (None, "get_current_weather", {"location": "tokyo", "unit": "fahrenheit"})
+            (None, "get_current_weather", {"location": "Hangzhou"})
         ]
         """
 
         text = c["choices"][0]["text"]
 
-        pattern = r"<｜tool▁call｜>(\w+)\s*```json\s*(.*?)\s*```"
+        pattern = r"\s*```json\s*(.*?)\s*```"
         matches = re.findall(pattern, text, re.DOTALL)
 
         if not matches:
@@ -563,22 +574,31 @@ class ChatModelMixin:
         tool_calls = set()  # Used for deduplication
         results = []
 
-        for function_name, args_json in matches:
+        for raw_json in matches:
+            func_and_args = None
             try:
-                arguments = json.loads(args_json)
+                func_and_args = json.loads(raw_json)
                 # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(arguments.items())
-                tool_call_tuple = (None, function_name, arguments)
+                arguments_hashable = frozenset(func_and_args["parameters"])
+                tool_call_tuple = (
+                    None,
+                    func_and_args["name"],
+                    func_and_args["parameters"],
+                )
             except json.JSONDecodeError:
                 tool_call_tuple = (
-                    args_json,
+                    raw_json,
                     None,
                     None,
                 )  # If parsing fails, treat as raw content
                 arguments_hashable = None  # No need for hashing
 
             # Avoid duplicate entries
-            dedup_key = (function_name, arguments_hashable)
+            dedup_key = (
+                (func_and_args["name"], arguments_hashable)
+                if func_and_args is not None
+                else (raw_json)
+            )
             if dedup_key not in tool_calls:
                 tool_calls.add(dedup_key)
                 results.append(tool_call_tuple)

@@ -47,6 +47,7 @@ potential of cutting-edge AI models.
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### New Models
+- Built-in support for [Gemma-3-it](https://blog.google/technology/developers/gemma-3/): [#3077](https://github.com/xorbitsai/inference/pull/3077)
 - Built-in support for [QwQ-32B](https://qwenlm.github.io/blog/qwq-32b/): [#3005](https://github.com/xorbitsai/inference/pull/3005)
 - Built-in support for [DeepSeek V3 and R1](https://github.com/deepseek-ai/DeepSeek-R1): [#2864](https://github.com/xorbitsai/inference/pull/2864)
 - Built-in support for [InternVL2.5](https://internvl.github.io/blog/2024-12-05-InternVL-2.5/): [#2776](https://github.com/xorbitsai/inference/pull/2776)
@@ -54,7 +55,6 @@ potential of cutting-edge AI models.
 - Built-in support for [DeepSeek-R1-Distill-Qwen](https://github.com/deepseek-ai/DeepSeek-R1?tab=readme-ov-file#deepseek-r1-distill-models): [#2781](https://github.com/xorbitsai/inference/pull/2781)
 - Built-in support for [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M): [#2790](https://github.com/xorbitsai/inference/pull/2790)
 - Built-in support for [qwen2.5-vl](https://github.com/QwenLM/Qwen2.5-VL): [#2788](https://github.com/xorbitsai/inference/pull/2788)
-- Built-in support for [internlm3-instruct](https://github.com/InternLM/InternLM): [#2789](https://github.com/xorbitsai/inference/pull/2789)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.

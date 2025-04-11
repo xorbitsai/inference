@@ -1097,6 +1097,7 @@ class SupervisorActor(xo.StatelessActor):
                 xavier_config=xavier_config,
                 **kwargs,
             )
+            await worker_ref.wait_for_load(_replica_model_uid)
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
             return subpool_address
 
@@ -1242,6 +1243,11 @@ class SupervisorActor(xo.StatelessActor):
                 available_workers.append(worker_ip)
 
         async def _launch_model():
+            # Validation of n_worker, intercept if it is greater than the available workers.
+            if n_worker > len(available_workers):
+                raise ValueError(
+                    "n_worker cannot be larger than the number of available workers."
+                )
             try:
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)

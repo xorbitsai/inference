@@ -47,7 +47,7 @@ Currently, supported models include:
 - ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
+- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
 - ``baichuan-2-chat``
 - ``internlm2-chat``
 - ``internlm2.5-chat``, ``internlm2.5-chat-1m``
@@ -60,7 +60,8 @@ Currently, supported models include:
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
 - ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
-- ``gemma-it``, ``gemma-2-it``
+- ``fin-r1``
+- ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 - ``minicpm3-4b``
@@ -82,13 +83,40 @@ To install Xinference and vLLM::
 
 Llama.cpp Backend
 ~~~~~~~~~~~~~~~~~
-Xinference supports models in ``gguf`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
+Xinference supports models in ``gguf`` format via ``xllamacpp`` or ``llama-cpp-python``.
+`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team,
+and will be the sole backend for llama.cpp in the future.
+
+.. note::
+
+    ``llama-cpp-python`` is the default option for llama.cpp backend.
+    To enable xllamacpp, add environment variable ``USE_XLLAMACPP=1``.
+
+    e.g. Starting local Xinference via
+
+    ``USE_XLLAMACPP=1 xinference-local``
+
+.. warning::
+
+    For upcoming Xinference v1.5.0,
+    ``xllamacpp`` will become default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
+    For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
 
 Initial setup::
 
    pip install xinference
 
-Hardware-Specific installations:
+Installation instructions for ``xllamacpp``:
+
+- CPU or Mac Metal::
+
+   pip install -U xllamacpp
+
+- Cuda::
+
+   pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124
+
+Hardware-Specific installations for ``llama-cpp-python``:
 
 - Apple Silicon::
 

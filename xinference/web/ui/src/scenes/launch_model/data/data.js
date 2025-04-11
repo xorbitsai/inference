@@ -39,6 +39,8 @@ export const additionalParameterTipList = {
     'enforce_eager',
     'cpu_offload_gb',
     'disable_custom_all_reduce',
+    'limit_mm_per_prompt',
+    'model_quantization',
   ],
   'sglang': [
     'mem_fraction_static',
@@ -64,8 +66,9 @@ export const featureModels = [
       'qwen2.5-instruct',
       'qwen2.5-vl-instruct',
       'qwen2.5-coder-instruct',
-      'llama-3.1-instruct',
       'QwQ-32B',
+      'llama-3.1-instruct',
+      'gemma-3-it',
     ],
   },
   {

@@ -37,7 +37,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    pip install https://github.com/xorbitsai/xllamacpp/releases/download/v0.1.9-cu124/xllamacpp_cuda12x-0.1.9-cp310-cp310-manylinux_2_35_x86_64.whl && \
+    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
     # clean packages
     pip cache purge
 

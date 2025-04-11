@@ -1,7 +1,6 @@
 # required
 xoscar>=0.4.4
-gradio==4.26.0
-typer[all]<0.12.0  # fix typer required by gradio
+gradio==5.22.0
 pillow
 click
 tqdm>=4.27
@@ -37,7 +36,7 @@ tiktoken>=0.6.0
 sentence-transformers>=3.1.0
 controlnet_aux
 orjson
-auto-gptq
+gptqmodel
 autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 attrdict  # For deepseek VL
@@ -94,6 +93,7 @@ g2p_en  # For MeloTTS
 anyascii  # For MeloTTS
 gruut[de,es,fr]  # For MeloTTS
 kokoro>=0.7.15  # Kokoro
+spacy>3.0.6
 misaki[en,ja,zh]>=0.7.15  # Kokoro
 en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl  # Kokoro misaki[en]
 en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl  # Kokoro misaki[en]
@@ -118,7 +118,7 @@ pyzmq>=25.1.2
 torchao>=0.7.0
 uvloop
 xgrammar>=0.1.10
-vllm==0.7.2
+vllm==0.7.3
 cuda-python
 sgl-kernel>=0.0.3.post3
 IPython

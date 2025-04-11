@@ -54,6 +54,7 @@ class LLM(abc.ABC):
         **kwargs,
     ):
         self.model_uid, self.rep_id = parse_replica_model_uid(replica_model_uid)
+        self.raw_model_uid = replica_model_uid
         self.model_family = model_family
         self.model_spec = model_spec
         self.quantization = quantization
