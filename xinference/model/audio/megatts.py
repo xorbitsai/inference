@@ -51,6 +51,8 @@ class MegaTTSModel:
         sys.path.insert(
             0, os.path.join(os.path.dirname(__file__), "../../thirdparty/megatts3")
         )
+        # For whisper
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../thirdparty"))
 
         from tts.infer_cli import MegaTTS3DiTInfer
 
