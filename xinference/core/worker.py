@@ -24,7 +24,18 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union, no_type_check
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    no_type_check,
+)
 
 import xoscar as xo
 from async_timeout import timeout
@@ -40,13 +51,18 @@ from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import ModelDescription, create_model_instance
+from ..model.utils import CancellableDownloader
 from ..types import PeftModelConfig
+from ..utils import get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+
+if TYPE_CHECKING:
+    from .progress_tracker import Progressor
 
 logger = getLogger(__name__)
 
@@ -62,6 +78,14 @@ else:
 @dataclass
 class ModelStatus:
     last_error: str = ""
+
+
+@dataclass
+class LaunchInfo:
+    # downloader, report progress or cancel entire download
+    downloader: Optional[CancellableDownloader] = None
+    # sub pools created for the model
+    sub_pools: Optional[List[str]] = None
 
 
 class WorkerActor(xo.StatelessActor):
@@ -92,7 +116,7 @@ class WorkerActor(xo.StatelessActor):
 
         # internal states.
         # temporary placeholder during model launch process:
-        self._model_uid_launching_guard: Dict[str, bool] = {}
+        self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
         # attributes maintained after model launched:
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
@@ -352,6 +376,7 @@ class WorkerActor(xo.StatelessActor):
         self._cache_tracker_ref = await xo.actor_ref(
             address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
         )
+        self._progress_tracker_ref = None
         # cache_tracker is on supervisor
         from ..model.audio import get_audio_model_descriptions
         from ..model.embedding import get_embedding_model_descriptions
@@ -778,6 +803,34 @@ class WorkerActor(xo.StatelessActor):
                 version_info["model_file_location"],
             )
 
+    async def _get_progressor(self, request_id: str):
+        from .progress_tracker import Progressor, ProgressTrackerActor
+
+        progress_tracker_ref = self._progress_tracker_ref
+        if progress_tracker_ref is None:
+            progress_tracker_ref = self._progress_tracker_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=ProgressTrackerActor.default_uid()
+            )
+
+        progressor = Progressor(
+            request_id,
+            progress_tracker_ref,
+            asyncio.get_running_loop(),
+        )
+        await progressor.start()
+        return progressor
+
+    @classmethod
+    def _upload_download_progress(
+        cls, progressor: "Progressor", downloader: CancellableDownloader
+    ):
+        while not downloader.done:
+            progress = downloader.get_progress()
+            progressor.set_progress(progress)
+            downloader.wait(1)
+
+        progressor.set_progress(1.0, "Start to load model")
+
     @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
         self,
@@ -870,7 +923,8 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"{model_uid} is running")
 
         try:
-            self._model_uid_launching_guard[model_uid] = True
+            self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
+            request_id = "launching-" + model_uid
             subpool_address, devices = await self._create_subpool(
                 model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
             )
@@ -891,23 +945,34 @@ class WorkerActor(xo.StatelessActor):
                             driver_info=driver_info,
                         )
                     )
-                model, model_description = await asyncio.to_thread(
-                    create_model_instance,
-                    subpool_address,
-                    devices,
-                    model_uid,
-                    model_type,
-                    model_name,
-                    model_engine,
-                    model_format,
-                    model_size_in_billions,
-                    quantization,
-                    peft_model_config,
-                    download_hub,
-                    model_path,
-                    **model_kwargs,
-                )
-                await self.update_cache_status(model_name, model_description)
+                with CancellableDownloader() as downloader:
+                    launch_info.downloader = downloader
+                    progressor = await self._get_progressor(request_id)
+                    # split into download and launch
+                    progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
+                    with progressor:
+                        upload_progress_task = asyncio.create_task(
+                            asyncio.to_thread(
+                                self._upload_download_progress, progressor, downloader
+                            )
+                        )
+                        model, model_description = await asyncio.to_thread(
+                            create_model_instance,
+                            subpool_address,
+                            devices,
+                            model_uid,
+                            model_type,
+                            model_name,
+                            model_engine,
+                            model_format,
+                            model_size_in_billions,
+                            quantization,
+                            peft_model_config,
+                            download_hub,
+                            model_path,
+                            **model_kwargs,
+                        )
+                    await self.update_cache_status(model_name, model_description)
                 model_ref = await xo.create_actor(
                     ModelActor,
                     address=subpool_address,
@@ -939,7 +1004,11 @@ class WorkerActor(xo.StatelessActor):
                     pool_addresses = await asyncio.gather(*coros)
                     all_subpool_addresses.extend(pool_addresses)
                     await model_ref.set_pool_addresses(pool_addresses)
-                await model_ref.load()
+                # set all subpool addresses
+                # when cancelled, all subpool addresses need to be destroyed
+                launch_info.sub_pools = all_subpool_addresses
+                with progressor:
+                    await model_ref.load()
             except:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
@@ -977,6 +1046,22 @@ class WorkerActor(xo.StatelessActor):
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
         await model_ref.wait_for_load()
+
+    @log_sync(logger=logger, level=logging.INFO)
+    async def cancel_launch_model(self, model_uid: str):
+        try:
+            launch_info = self._model_uid_launching_guard[model_uid]
+            if launch_info.downloader:
+                launch_info.downloader.cancel()
+            if launch_info.sub_pools:
+                coros = []
+                for addr in launch_info.sub_pools:
+                    coros.append(self._main_pool.remove_sub_pool(addr, force=True))
+                await asyncio.gather(*coros)
+        except KeyError:
+            raise RuntimeError(
+                "Model is not launching, may have launched or not launched yet"
+            )
 
     @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
@@ -1157,16 +1242,9 @@ class WorkerActor(xo.StatelessActor):
             }
             path = list.get("model_file_location")
             cached_model["path"] = path
-            # parsing soft links
-            if os.path.isdir(path):
-                files = os.listdir(path)
-                # dir has files
-                if files:
-                    resolved_file = os.path.realpath(os.path.join(path, files[0]))
-                    if resolved_file:
-                        cached_model["real_path"] = os.path.dirname(resolved_file)
-            else:
-                cached_model["real_path"] = os.path.realpath(path)
+            real_path = get_real_path(path)
+            if real_path:
+                cached_model["real_path"] = real_path
             cached_model["actor_ip_address"] = self.address
             cached_models.append(cached_model)
         return cached_models
@@ -1267,7 +1345,7 @@ class WorkerActor(xo.StatelessActor):
         # Note that `store_port` needs to be generated on the worker,
         # as the TCP store is on rank 0, not on the supervisor.
         store_port = xo.utils.get_next_port()
-        self._model_uid_launching_guard[rep_model_uid] = True
+        self._model_uid_launching_guard[rep_model_uid] = LaunchInfo()
         try:
             try:
                 xavier_config["rank_address"] = subpool_address

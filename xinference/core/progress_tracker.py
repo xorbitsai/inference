@@ -92,22 +92,30 @@ class ProgressTrackerActor(xo.StatelessActor):
 
             await asyncio.sleep(self._check_interval)
 
-    def start(self, request_id: str):
+    def start(self, request_id: str, info: Optional[str] = None):
         self._request_id_to_progress[request_id] = _ProgressInfo(
-            progress=0.0, last_updated=time.time()
+            progress=0.0, last_updated=time.time(), info=info
         )
 
-    def set_progress(self, request_id: str, progress: float):
+    def set_progress(
+        self, request_id: str, progress: float, info: Optional[str] = None
+    ):
         assert progress <= 1.0
-        info = self._request_id_to_progress[request_id]
-        info.progress = progress
-        info.last_updated = time.time()
+        info_ = self._request_id_to_progress[request_id]
+        info_.progress = progress
+        info_.last_updated = time.time()
+        if info:
+            info_.info = info
         logger.debug(
             "Setting progress, request id: %s, progress: %s", request_id, progress
         )
 
     def get_progress(self, request_id: str) -> float:
         return self._request_id_to_progress[request_id].progress
+
+    def get_progress_info(self, request_id: str) -> Tuple[float, Optional[str]]:
+        info = self._request_id_to_progress[request_id]
+        return info.progress, info.info
 
 
 class Progressor:
@@ -169,7 +177,7 @@ class Progressor:
             self.set_progress(1.0)
         return False
 
-    def set_progress(self, progress: float):
+    def set_progress(self, progress: float, info: Optional[str] = None):
         if self.request_id:
             self._current_progress = (
                 self._current_sub_progress_start
@@ -179,7 +187,7 @@ class Progressor:
             if (
                 self._current_progress - self._last_report_progress >= self._upload_span
                 or 1.0 - progress < 1e-5
-            ):
+            ) or info:
                 set_progress = self.progress_tracker_ref.set_progress(
                     self.request_id, self._current_progress
                 )
