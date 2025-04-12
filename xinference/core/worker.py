@@ -852,6 +852,12 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_name or "uv", path
         )
         virtual_env_manager.create_env()
+        logger.info(
+            "Installing packages %s in virtual env %s, with settings(index_url=%s)",
+            packages,
+            path,
+            index_url,
+        )
         virtual_env_manager.install_packages(
             packages,
             index_url=index_url,
@@ -992,7 +998,7 @@ class WorkerActor(xo.StatelessActor):
                 xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
                 if xavier_config is not None:
                     xavier_config["rank_address"] = subpool_address
-                enable_virtual_env = kwargs.pop("enable_virtual_env", False)
+                enable_virtual_env = kwargs.pop("enable_virtual_env", None)
                 virtual_env_name = kwargs.pop("virtual_env_name", None)
                 model_kwargs = kwargs.copy()
                 if n_worker > 1:  # type: ignore
@@ -1058,8 +1064,12 @@ class WorkerActor(xo.StatelessActor):
                     virtual_env_name,
                     model_description.spec.virtualenv,
                 )
+                if virtual_env_manager is None:
+                    logger.info("Skip virtual env")
                 launch_info.virtual_env_manager = virtual_env_manager
-                env_path = virtual_env_manager.env_path if virtual_env_manager else None
+                env_path = (
+                    virtual_env_manager.get_lib_path() if virtual_env_manager else None
+                )
 
                 # check before creating model actor
                 check_cancel()
@@ -1078,7 +1088,6 @@ class WorkerActor(xo.StatelessActor):
                     n_worker=n_worker,
                     shard=shard,
                     driver_info=driver_info,
-                    env_path=env_path,
                 )
                 if await model_ref.need_create_pools() and (
                     len(devices) > 1 or n_worker > 1  # type: ignore

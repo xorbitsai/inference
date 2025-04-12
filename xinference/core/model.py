@@ -18,7 +18,6 @@ import inspect
 import json
 import os
 import queue
-import sys
 import time
 import types
 import uuid
@@ -230,9 +229,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         n_worker: Optional[int] = 1,
         shard: Optional[int] = 0,
         driver_info: Optional[dict] = None,  # for model across workers
-        env_path: Optional[str] = None,
     ):
         super().__init__()
+
         from ..model.llm.llama_cpp.core import XllamaCppModel
         from ..model.llm.lmdeploy.core import LMDeployModel
         from ..model.llm.sglang.core import SGLANGModel
@@ -277,9 +276,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         self._scheduler_ref = None
         self._text_to_image_scheduler_ref = None
-
-        if env_path:
-            sys.path.insert(0, env_path)
 
         if isinstance(self._model, VLLMModel):
             self._xavier_config = xavier_config
