@@ -65,7 +65,7 @@
   },
   {
     "model_name": "jina-reranker-m0",
-    "type": "LLM-based",
+    "type": "LLM-based multimodal",
     "language": ["en", "zh"],
     "max_tokens": 10240,
     "model_id": "jinaai/jina-reranker-m0",
