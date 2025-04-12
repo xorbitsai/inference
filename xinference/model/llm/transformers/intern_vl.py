@@ -272,9 +272,10 @@ class InternVLChatModel(PytorchChatModel):
         model_name = self.model_family.model_name.lower().replace("-mpo", "")
         model_name = f"{model_name}-{model_size}"
         if "internvl3" in model_name.lower():
-            num_layers = AutoConfig.from_pretrained(
+            config = AutoConfig.from_pretrained(
                 self.model_path, trust_remote_code=True
             )
+            num_layers = config.llm_config.num_hidden_layers
         else:
             num_layers = {
                 "internvl2-1B": 24,
