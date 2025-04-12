@@ -1058,6 +1058,11 @@ class WorkerActor(xo.StatelessActor):
                 for addr in launch_info.sub_pools:
                     coros.append(self._main_pool.remove_sub_pool(addr, force=True))
                 await asyncio.gather(*coros)
+            if self._status_guard_ref is not None:
+                await self._status_guard_ref.update_instance_info(
+                    parse_replica_model_uid(model_uid)[0],
+                    {"status": LaunchStatus.ERROR.name},
+                )
         except KeyError:
             raise RuntimeError(
                 "Model is not launching, may have launched or not launched yet"
