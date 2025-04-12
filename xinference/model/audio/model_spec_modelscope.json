@@ -50,8 +50,9 @@
   {
     "model_name": "paraformer-zh",
     "model_family": "funasr",
-    "model_id": "funasr/paraformer-zh",
-    "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e",
+    "model_hub": "modelscope",
+    "model_id": "iic/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
+    "model_revision": "master",
     "model_ability": "audio-to-text",
     "multilingual": false,
     "default_model_config": {
