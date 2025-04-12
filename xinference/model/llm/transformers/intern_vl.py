@@ -260,6 +260,7 @@ class InternVLChatModel(PytorchChatModel):
     # reference: https://huggingface.co/OpenGVLab/InternVL2-8B
     def _split_model(self):
         import math
+
         from transformers import AutoConfig
 
         device_map = {}
