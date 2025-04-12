@@ -45,21 +45,28 @@ from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DISABLE_METRICS,
+    XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_VIRTUAL_ENV_DIR,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
-from ..model.core import ModelDescription, create_model_instance
+from ..model.core import ModelDescription, VirtualEnvSettings, create_model_instance
 from ..model.utils import CancellableDownloader
 from ..types import PeftModelConfig
-from ..utils import get_real_path
+from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+
+try:
+    from xoscar.virtualenv import VirtualEnvManager
+except ImportError:
+    VirtualEnvManager = None
 
 if TYPE_CHECKING:
     from .progress_tracker import Progressor
@@ -83,6 +90,8 @@ class ModelStatus:
 @dataclass
 class LaunchInfo:
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    # virtualenv manager
+    virtual_env_manager: Optional["VirtualEnvManager"] = None
     # downloader, report progress or cancel entire download
     downloader: Optional[CancellableDownloader] = None
     # sub pools created for the model
@@ -804,6 +813,54 @@ class WorkerActor(xo.StatelessActor):
                 version_info["model_file_location"],
             )
 
+    @classmethod
+    def _prepare_virtualenv(
+        cls,
+        model_name: str,
+        enable_virtual_env: Optional[bool],
+        virtual_env_name: Optional[str],
+        settings: Optional[VirtualEnvSettings],
+    ):
+        if enable_virtual_env is None:
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        if not enable_virtual_env:
+            # skip preparing virtualenv
+            return
+
+        if not settings or not settings.packages:
+            # no settings or no packages
+            return
+
+        from xoscar.virtualenv import VirtualEnvManager, get_virtual_env_manager
+
+        if settings.inherit_pip_config:
+            # inherit pip config
+            pip_config = get_pip_config_args()
+            for k, v in pip_config.items():
+                if hasattr(settings, k) and not getattr(settings, k):
+                    setattr(settings, k, v)
+
+        packages = settings.packages
+        index_url = settings.index_url
+        extra_index_url = settings.extra_index_url
+        find_links = settings.find_links
+        trusted_host = settings.trusted_host
+
+        path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
+        virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
+            virtual_env_name or "uv", path
+        )
+        virtual_env_manager.create_env()
+        virtual_env_manager.install_packages(
+            packages,
+            index_url=index_url,
+            extra_index_url=extra_index_url,
+            find_links=find_links,
+            trusted_host=trusted_host,
+        )
+        return virtual_env_manager
+
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
 
@@ -935,6 +992,8 @@ class WorkerActor(xo.StatelessActor):
                 xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
                 if xavier_config is not None:
                     xavier_config["rank_address"] = subpool_address
+                enable_virtual_env = kwargs.pop("enable_virtual_env", False)
+                virtual_env_name = kwargs.pop("virtual_env_name", None)
                 model_kwargs = kwargs.copy()
                 if n_worker > 1:  # type: ignore
                     # for model across workers,
@@ -947,6 +1006,7 @@ class WorkerActor(xo.StatelessActor):
                             driver_info=driver_info,
                         )
                     )
+
                 with CancellableDownloader(
                     cancelled_event=launch_info.cancel_event
                 ) as downloader:
@@ -987,6 +1047,20 @@ class WorkerActor(xo.StatelessActor):
                             pass
                         downloader.raise_error(error_msg="Launch cancelled")
 
+                # check cancel before prepare virtual env
+                check_cancel()
+
+                # prepare virtual env
+                virtual_env_manager = await asyncio.to_thread(
+                    self._prepare_virtualenv,
+                    model_name,
+                    enable_virtual_env,
+                    virtual_env_name,
+                    model_description.spec.virtualenv,
+                )
+                launch_info.virtual_env_manager = virtual_env_manager
+                env_path = virtual_env_manager.env_path if virtual_env_manager else None
+
                 # check before creating model actor
                 check_cancel()
 
@@ -1004,6 +1078,7 @@ class WorkerActor(xo.StatelessActor):
                     n_worker=n_worker,
                     shard=shard,
                     driver_info=driver_info,
+                    env_path=env_path,
                 )
                 if await model_ref.need_create_pools() and (
                     len(devices) > 1 or n_worker > 1  # type: ignore
@@ -1090,6 +1165,8 @@ class WorkerActor(xo.StatelessActor):
             if launch_info.downloader:
                 logger.debug("Try to cancel download, %s")
                 launch_info.downloader.cancel()
+            if launch_info.virtual_env_manager:
+                launch_info.virtual_env_manager.cancel_install()
             if launch_info.sub_pools:
                 logger.debug("Try to stop sub pools: %s", launch_info.sub_pools)
                 coros = []

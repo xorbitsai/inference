@@ -144,6 +144,10 @@ class LLMDescription(ModelDescription):
         self._llm_spec = llm_spec
         self._quantization = quantization
 
+    @property
+    def spec(self):
+        return self._llm_family
+
     def to_dict(self):
         return {
             "model_type": "LLM",
