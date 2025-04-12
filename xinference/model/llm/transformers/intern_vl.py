@@ -234,7 +234,7 @@ def _load_video(video_path, bound=None, input_size=448, max_num=1, num_segments=
 
 @register_transformer
 @register_non_default_model(
-    "internvl-chat", "internvl2", "Internvl2.5", "Internvl2.5-MPO"
+    "internvl-chat", "internvl2", "Internvl2.5", "Internvl2.5-MPO", "InternVL3"
 )
 class InternVLChatModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
@@ -260,6 +260,7 @@ class InternVLChatModel(PytorchChatModel):
     # reference: https://huggingface.co/OpenGVLab/InternVL2-8B
     def _split_model(self):
         import math
+        from transformers import AutoConfig
 
         device_map = {}
         world_size = torch.cuda.device_count()
@@ -269,22 +270,27 @@ class InternVLChatModel(PytorchChatModel):
         model_size = f"{self.model_spec.model_size_in_billions}B"
         model_name = self.model_family.model_name.lower().replace("-mpo", "")
         model_name = f"{model_name}-{model_size}"
-        num_layers = {
-            "internvl2-1B": 24,
-            "internvl2-2B": 24,
-            "internvl2-4B": 32,
-            "internvl2-8B": 32,
-            "internvl2-26B": 48,
-            "internvl2-40B": 60,
-            "internvl2-76B": 80,
-            "internvl2.5-1B": 24,
-            "internvl2.5-2B": 24,
-            "internvl2.5-4B": 36,
-            "internvl2.5-8B": 32,
-            "internvl2.5-26B": 48,
-            "internvl2.5-38B": 64,
-            "internvl2.5-78B": 80,
-        }[model_name]
+        if "internvl3" in model_name.lower():
+            num_layers = AutoConfig.from_pretrained(
+                self.model_path, trust_remote_code=True
+            )
+        else:
+            num_layers = {
+                "internvl2-1B": 24,
+                "internvl2-2B": 24,
+                "internvl2-4B": 32,
+                "internvl2-8B": 32,
+                "internvl2-26B": 48,
+                "internvl2-40B": 60,
+                "internvl2-76B": 80,
+                "internvl2.5-1B": 24,
+                "internvl2.5-2B": 24,
+                "internvl2.5-4B": 36,
+                "internvl2.5-8B": 32,
+                "internvl2.5-26B": 48,
+                "internvl2.5-38B": 64,
+                "internvl2.5-78B": 80,
+            }[model_name]
 
         # Since the first GPU will be used for ViT, treat it as half a GPU.
         num_layers_per_gpu = math.ceil(num_layers / (world_size - 0.5))
