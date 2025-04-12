@@ -48,6 +48,21 @@
     }
   },
   {
+    "model_name": "paraformer-zh",
+    "model_family": "funasr",
+    "model_id": "funasr/paraformer-zh",
+    "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_hub": "modelscope",
@@ -62,7 +77,7 @@
     "model_hub": "modelscope",
     "model_id": "iic/CosyVoice-300M",
     "model_revision": "master",
-    "model_ability": "audio-to-audio",
+    "model_ability": "text-to-audio",
     "multilingual": true
   },
   {
