@@ -583,8 +583,9 @@ class WorkerActor(xo.StatelessActor):
         model_type: Optional[str] = None,
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
+        env=None,
     ) -> Tuple[str, List[str]]:
-        env = {}
+        env = {} if env is None else env
         devices = []
         env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
         if gpu_idx is None:
@@ -814,25 +815,36 @@ class WorkerActor(xo.StatelessActor):
             )
 
     @classmethod
-    def _prepare_virtualenv(
+    def _create_virtual_env_manager(
         cls,
-        model_name: str,
         enable_virtual_env: Optional[bool],
         virtual_env_name: Optional[str],
-        settings: Optional[VirtualEnvSettings],
-    ):
+        env_path: str,
+    ) -> Optional[VirtualEnvManager]:
         if enable_virtual_env is None:
             enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
 
         if not enable_virtual_env:
             # skip preparing virtualenv
-            return
+            return None
 
+        from xoscar.virtualenv import get_virtual_env_manager
+
+        virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
+            virtual_env_name or "uv", env_path
+        )
+        virtual_env_manager.create_env()
+        return virtual_env_manager
+
+    @classmethod
+    def _prepare_virtual_env(
+        cls,
+        virtual_env_manager: "VirtualEnvManager",
+        settings: Optional[VirtualEnvSettings],
+    ):
         if not settings or not settings.packages:
             # no settings or no packages
             return
-
-        from xoscar.virtualenv import VirtualEnvManager, get_virtual_env_manager
 
         if settings.inherit_pip_config:
             # inherit pip config
@@ -847,15 +859,10 @@ class WorkerActor(xo.StatelessActor):
         find_links = settings.find_links
         trusted_host = settings.trusted_host
 
-        path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
-        virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
-            virtual_env_name or "uv", path
-        )
-        virtual_env_manager.create_env()
         logger.info(
             "Installing packages %s in virtual env %s, with settings(index_url=%s)",
             packages,
-            path,
+            virtual_env_manager.env_path,
             index_url,
         )
         virtual_env_manager.install_packages(
@@ -865,7 +872,6 @@ class WorkerActor(xo.StatelessActor):
             find_links=find_links,
             trusted_host=trusted_host,
         )
-        return virtual_env_manager
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -989,17 +995,32 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
-            request_id = "launching-" + model_uid
+
+            # virtualenv
+            enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+            virtual_env_name = kwargs.pop("virtual_env_name", None)
+            virtual_env_path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
+            virtual_env_manager = await asyncio.to_thread(
+                self._create_virtual_env_manager,
+                enable_virtual_env,
+                virtual_env_name,
+                virtual_env_path,
+            )
+            # setting os.environ if virtualenv created
+            env = (
+                {"PYTHONPATH": virtual_env_manager.get_lib_path()}
+                if virtual_env_manager
+                else None
+            )
+
             subpool_address, devices = await self._create_subpool(
-                model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
+                model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx, env=env
             )
             all_subpool_addresses = [subpool_address]
             try:
                 xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
                 if xavier_config is not None:
                     xavier_config["rank_address"] = subpool_address
-                enable_virtual_env = kwargs.pop("enable_virtual_env", None)
-                virtual_env_name = kwargs.pop("virtual_env_name", None)
                 model_kwargs = kwargs.copy()
                 if n_worker > 1:  # type: ignore
                     # for model across workers,
@@ -1017,7 +1038,7 @@ class WorkerActor(xo.StatelessActor):
                     cancelled_event=launch_info.cancel_event
                 ) as downloader:
                     launch_info.downloader = downloader
-                    progressor = await self._get_progressor(request_id)
+                    progressor = await self._get_progressor("launching-" + model_uid)
                     # split into download and launch
                     progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
                     with progressor:
@@ -1056,20 +1077,14 @@ class WorkerActor(xo.StatelessActor):
                 # check cancel before prepare virtual env
                 check_cancel()
 
-                # prepare virtual env
-                virtual_env_manager = await asyncio.to_thread(
-                    self._prepare_virtualenv,
-                    model_name,
-                    enable_virtual_env,
-                    virtual_env_name,
-                    model_description.spec.virtualenv,
-                )
-                if virtual_env_manager is None:
-                    logger.info("Skip virtual env")
-                launch_info.virtual_env_manager = virtual_env_manager
-                env_path = (
-                    virtual_env_manager.get_lib_path() if virtual_env_manager else None
-                )
+                # install packages in virtual env
+                if virtual_env_manager:
+                    await asyncio.to_thread(
+                        self._prepare_virtual_env,
+                        virtual_env_manager,
+                        model_description.spec.virtualenv,
+                    )
+                    launch_info.virtual_env_manager = virtual_env_manager
 
                 # check before creating model actor
                 check_cancel()
