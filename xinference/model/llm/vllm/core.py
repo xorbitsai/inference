@@ -205,6 +205,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
