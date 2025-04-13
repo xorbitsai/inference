@@ -37,6 +37,7 @@ from typing import (
 )
 
 import xoscar as xo
+from typing_extensions import NotRequired
 
 from ....types import (
     ChatCompletion,
@@ -81,6 +82,7 @@ class VLLMModelConfig(TypedDict, total=False):
     scheduling_policy: Optional[str]
     reasoning_content: bool
     model_quantization: Optional[str]
+    mm_processor_kwargs: NotRequired[dict[str, Any]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -531,6 +533,14 @@ class VLLMModel(LLM):
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
             model_config.setdefault("scheduling_policy", "fcfs")
+            if "mm_processor_kwargs" in model_config:
+                mm_processor_kwargs = model_config.pop("mm_processor_kwargs")
+                if isinstance(mm_processor_kwargs, str):
+                    model_config["mm_processor_kwargs"] = json.loads(
+                        mm_processor_kwargs
+                    )
+                else:
+                    model_config["mm_processor_kwargs"] = mm_processor_kwargs
         return model_config
 
     @staticmethod

@@ -41,6 +41,7 @@ export const additionalParameterTipList = {
     'disable_custom_all_reduce',
     'limit_mm_per_prompt',
     'model_quantization',
+    'mm_processor_kwargs',
   ],
   'sglang': [
     'mem_fraction_static',
