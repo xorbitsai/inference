@@ -352,7 +352,8 @@
         "sentencepiece==0.1.99",
         "einops==0.6.1",
         "einops-exts==0.0.4",
-        "timm==0.6.13"
+        "timm==0.6.13",
+        "numpy==1.26.4"
       ]
     }
   }
