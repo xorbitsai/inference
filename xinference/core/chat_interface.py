@@ -183,6 +183,7 @@ class GradioInterface:
                         "lora_name": lora_name,
                     },
                 )
+                assert isinstance(result, dict)
                 if "reasoning_content" in result["choices"][0]["message"]:
                     reasoning_content = html.escape(
                         result["choices"][0]["message"]["reasoning_content"]
