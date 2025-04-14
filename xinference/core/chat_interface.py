@@ -17,10 +17,11 @@ import html
 import logging
 import os
 from io import BytesIO
-from typing import Dict, Generator, List, Optional
+from typing import Generator, List, Optional
 
 import gradio as gr
 import PIL.Image
+from gradio import ChatMessage
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
@@ -91,25 +92,10 @@ class GradioInterface:
         interface.favicon_path = favicon_path
         return interface
 
-    def build_chat_interface(
-        self,
-    ) -> "gr.Blocks":
-        def flatten(matrix: List[List[str]]) -> List[str]:
-            flat_list = []
-            for row in matrix:
-                flat_list += row
-            return flat_list
-
-        def to_chat(lst: List[str]) -> List[Dict]:
-            res = []
-            for i in range(len(lst)):
-                role = "assistant" if i % 2 == 1 else "user"
-                res.append(dict(role=role, content=lst[i]))
-            return res
-
+    def build_chat_interface(self) -> "gr.Blocks":
         def generate_wrapper(
             message: str,
-            history: List[List[str]],
+            history: List[ChatMessage],
             max_tokens: int,
             temperature: float,
             lora_name: str,
@@ -121,13 +107,22 @@ class GradioInterface:
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulChatModelHandle)
-            messages = to_chat(flatten(history))
-            messages.append(dict(role="user", content=message))
+
+            # Convert history to messages format
+            messages = []
+            for msg in history:
+                # ignore thinking content
+                if msg["metadata"]:
+                    continue
+                messages.append({"role": msg["role"], "content": msg["content"]})
 
             if stream:
                 response_content = ""
+                reasoning_content = ""
+                is_first_reasoning_content = True
+                is_first_content = True
                 for chunk in model.chat(
-                    messages,
+                    messages=messages,
                     generate_config={
                         "max_tokens": int(max_tokens),
                         "temperature": temperature,
@@ -137,46 +132,75 @@ class GradioInterface:
                 ):
                     assert isinstance(chunk, dict)
                     delta = chunk["choices"][0]["delta"]
-                    if "content" not in delta or delta["content"] is None:
-                        continue
-                    else:
-                        # some model like deepseek-r1-distill-qwen
-                        # will generate <think>...</think> ...
-                        # in gradio, no output will be rendered,
-                        # thus escape html tags in advance
-                        response_content += html.escape(delta["content"])
-                        yield response_content
 
-                yield response_content
+                    if (
+                        "reasoning_content" in delta
+                        and delta["reasoning_content"] is not None
+                        and is_first_reasoning_content
+                    ):
+                        reasoning_content += html.escape(delta["reasoning_content"])
+                        history.append(
+                            ChatMessage(
+                                role="assistant",
+                                content=reasoning_content,
+                                metadata={"title": "💭 Thinking Process"},
+                            )
+                        )
+                        is_first_reasoning_content = False
+                    elif (
+                        "reasoning_content" in delta
+                        and delta["reasoning_content"] is not None
+                    ):
+                        reasoning_content += html.escape(delta["reasoning_content"])
+                        history[-1] = ChatMessage(
+                            role="assistant",
+                            content=reasoning_content,
+                            metadata={"title": "💭  Thinking Process"},
+                        )
+                    elif (
+                        "content" in delta
+                        and delta["content"] is not None
+                        and is_first_content
+                    ):
+                        response_content += html.escape(delta["content"])
+                        history.append(
+                            ChatMessage(role="assistant", content=response_content)
+                        )
+                        is_first_content = False
+                    elif "content" in delta and delta["content"] is not None:
+                        response_content += html.escape(delta["content"])
+                        # Replace thinking message with actual response
+                        history[-1] = ChatMessage(
+                            role="assistant", content=response_content
+                        )
+                    yield history
             else:
                 result = model.chat(
-                    messages,
+                    messages=messages,
                     generate_config={
                         "max_tokens": int(max_tokens),
                         "temperature": temperature,
                         "lora_name": lora_name,
                     },
                 )
-                yield html.escape(result["choices"][0]["message"]["content"])  # type: ignore
+                if "reasoning_content" in result["choices"][0]["message"]:
+                    reasoning_content = html.escape(
+                        result["choices"][0]["message"]["reasoning_content"]
+                    )
+                    history.append(
+                        ChatMessage(
+                            role="assistant",
+                            content=reasoning_content,
+                            metadata={"title": "💭 Thinking Process"},
+                        )
+                    )
+                response_content = html.escape(
+                    result["choices"][0]["message"]["content"]
+                )
+                history.append(ChatMessage(role="assistant", content=response_content))
+                yield history
 
-        return gr.ChatInterface(
-            fn=generate_wrapper,
-            additional_inputs=[
-                gr.Slider(
-                    minimum=1,
-                    maximum=self.context_length,
-                    value=512
-                    if "reasoning" not in self.model_ability
-                    else self.context_length // 2,
-                    step=1,
-                    label="Max Tokens",
-                ),
-                gr.Slider(
-                    minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
-                ),
-                gr.Text(label="LoRA Name"),
-                gr.Checkbox(label="Stream", value=True),
-            ],
+        with gr.Blocks(
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
             .center{
@@ -187,22 +211,70 @@ class GradioInterface:
                 color: #9ea4b0 !important;
             }
             """,
-            description=f"""
-            <div class="center">
-            Model ID: {self.model_uid}
-            </div>
-            <div class="center">
-            Model Size: {self.model_size_in_billions} Billion Parameters
-            </div>
-            <div class="center">
-            Model Format: {self.model_format}
-            </div>
-            <div class="center">
-            Model Quantization: {self.quantization}
-            </div>
-            """,
             analytics_enabled=False,
-        )
+        ) as chat_interface:
+            gr.Markdown(f"# 🚀 Xinference Chat Bot : {self.model_name} 🚀")
+            gr.Markdown(
+                f"""
+                <div class="center">Model ID: {self.model_uid}</div>
+                <div class="center">Model Size: {self.model_size_in_billions} Billion Parameters</div>
+                <div class="center">Model Format: {self.model_format}</div>
+                <div class="center">Model Quantization: {self.quantization}</div>
+                """
+            )
+
+            chatbot = gr.Chatbot(
+                type="messages", render_markdown=True, label=self.model_name
+            )
+
+            with gr.Row():
+                with gr.Column(scale=12):
+                    textbox = gr.Textbox(
+                        show_label=False,
+                        placeholder="Type a message...",
+                        container=False,
+                    )
+                with gr.Column(scale=1, min_width=50):
+                    submit_btn = gr.Button("Enter", variant="primary")
+
+            with gr.Accordion("Additional Inputs", open=False):
+                max_tokens = gr.Slider(
+                    minimum=1,
+                    maximum=self.context_length,
+                    value=512
+                    if "reasoning" not in self.model_ability
+                    else self.context_length // 2,
+                    step=1,
+                    label="Max Tokens",
+                )
+                temperature = gr.Slider(
+                    minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
+                )
+                stream = gr.Checkbox(label="Stream", value=True)
+                lora_name = gr.Text(label="LoRA Name")
+
+            # 处理消息提交
+            textbox.submit(
+                lambda m, h: ("", h + [ChatMessage(role="user", content=m)]),
+                [textbox, chatbot],
+                [textbox, chatbot],
+            ).then(
+                generate_wrapper,
+                [textbox, chatbot, max_tokens, temperature, lora_name, stream],
+                chatbot,
+            )
+
+            submit_btn.click(
+                lambda m, h: ("", h + [ChatMessage(role="user", content=m)]),
+                [textbox, chatbot],
+                [textbox, chatbot],
+            ).then(
+                generate_wrapper,
+                [textbox, chatbot, max_tokens, temperature, lora_name, stream],
+                chatbot,
+            )
+
+            return chat_interface
 
     def build_chat_vl_interface(
         self,
