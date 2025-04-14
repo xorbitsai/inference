@@ -184,19 +184,22 @@ class GradioInterface:
                     },
                 )
                 assert isinstance(result, dict)
-                if "reasoning_content" in result["choices"][0]["message"]:
-                    reasoning_content = html.escape(
-                        result["choices"][0]["message"]["reasoning_content"]
-                    )
-                    history.append(
-                        ChatMessage(
-                            role="assistant",
-                            content=reasoning_content,
-                            metadata={"title": "💭 Thinking Process"},
+                mg = result["choices"][0]["message"]
+                if "reasoning_content" in mg:
+                    reasoning_content = mg["reasoning_content"]
+                    if reasoning_content is not None:
+                        reasoning_content = html.escape(str(reasoning_content))
+                        history.append(
+                            ChatMessage(
+                                role="assistant",
+                                content=reasoning_content,
+                                metadata={"title": "💭 Thinking Process"},
+                            )
                         )
-                    )
-                response_content = html.escape(
-                    result["choices"][0]["message"]["content"]
+
+                content = mg["content"]
+                response_content = (
+                    html.escape(str(content)) if content is not None else ""
                 )
                 history.append(ChatMessage(role="assistant", content=response_content))
                 yield history
