@@ -257,7 +257,7 @@ class GradioInterface:
                 stream = gr.Checkbox(label="Stream", value=True)
                 lora_name = gr.Text(label="LoRA Name")
 
-            # deat with message submit
+            # deal with message submit
             textbox.submit(
                 lambda m, h: ("", h + [ChatMessage(role="user", content=m)]),
                 [textbox, chatbot],
