@@ -1,4 +1,4 @@
-xoscar>=0.4.4
+xoscar>=0.6.0
 gradio==5.22.0
 pillow
 click
@@ -38,6 +38,7 @@ optimum
 peft
 timm
 setproctitle
+uv
 opencv-contrib-python-headless
 funasr<1.1.17
 omegaconf~=2.3.0  # For ChatTTS
