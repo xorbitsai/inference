@@ -231,6 +231,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
+    VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
+
 
 class VLLMModel(LLM):
     def __init__(
