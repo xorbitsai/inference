@@ -918,7 +918,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "ggufv2"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
