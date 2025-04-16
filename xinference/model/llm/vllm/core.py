@@ -37,6 +37,7 @@ from typing import (
 )
 
 import xoscar as xo
+from typing_extensions import NotRequired
 
 from ....types import (
     ChatCompletion,
@@ -81,6 +82,9 @@ class VLLMModelConfig(TypedDict, total=False):
     scheduling_policy: Optional[str]
     reasoning_content: bool
     model_quantization: Optional[str]
+    mm_processor_kwargs: NotRequired[dict[str, Any]]
+    min_pixels: NotRequired[int]
+    max_pixels: NotRequired[int]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -536,6 +540,31 @@ class VLLMModel(LLM):
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
             model_config.setdefault("scheduling_policy", "fcfs")
+            # init mm_processor_kwargs params
+            mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
+            if isinstance(mm_processor_kwargs, str):
+                try:
+                    mm_processor_kwargs = json.loads(mm_processor_kwargs)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Failed to parse mm_processor_kwargs as JSON, using default empty dict"
+                    )
+                    mm_processor_kwargs = {}
+                except Exception as e:
+                    logger.warning(
+                        f"Unexpected error parsing mm_processor_kwargs: {e}, using default empty dict"
+                    )
+                    mm_processor_kwargs = {}
+            pixel_params: Dict[str, int] = {}
+            if "min_pixels" in model_config:
+                pixel_params["min_pixels"] = model_config.pop("min_pixels")
+            if "max_pixels" in model_config:
+                pixel_params["max_pixels"] = model_config.pop("max_pixels")
+            if pixel_params or mm_processor_kwargs:
+                model_config["mm_processor_kwargs"] = {
+                    **mm_processor_kwargs,
+                    **pixel_params,
+                }
         return model_config
 
     @staticmethod

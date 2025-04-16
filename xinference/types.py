@@ -334,6 +334,8 @@ class PytorchModelConfig(TypedDict, total=False):
     max_num_seqs: int
     enable_tensorizer: Optional[bool]
     reasoning_content: bool
+    min_pixels: NotRequired[int]
+    max_pixels: NotRequired[int]
 
 
 def get_pydantic_model_from_method(
