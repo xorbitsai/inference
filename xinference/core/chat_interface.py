@@ -217,13 +217,15 @@ class GradioInterface:
             .main-container {
                 display: flex;
                 flex-direction: column;
-                height: 100vh;
-                padding: 0.5rem;  /* 减小内边距 */
+                padding: 0.5rem;
                 box-sizing: border-box;
-                gap: 0.25rem;  /* 添加较小的间距 */
+                gap: 0.25rem;
+                flex-grow: 1;
+                min-width: min(320px, 100%);
+                height: calc(100vh - 70px)!important;
             }
             .header {
-                flex: 0 0 auto;
+                flex-grow: 0!important;
             }
             .header h1 {
                 margin: 0.5rem 0;  /* 减小标题边距 */
@@ -239,8 +241,11 @@ class GradioInterface:
                 min-height: 0;
                 margin: 0.25rem 0;  /* 减小边距 */
             }
+            .chat-container .block {
+                height: 100%!important;
+            }
             .input-container {
-                flex: 0 0 auto;
+                flex-grow: 0!important;
             }
             """,
             analytics_enabled=False,
