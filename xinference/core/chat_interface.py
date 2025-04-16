@@ -228,18 +228,18 @@ class GradioInterface:
                 flex-grow: 0!important;
             }
             .header h1 {
-                margin: 0.5rem 0;  /* 减小标题边距 */
-                font-size: 1.5rem;  /* 减小标题大小 */
+                margin: 0.5rem 0;
+                font-size: 1.5rem;
             }
             .center {
-                font-size: 0.9rem;  /* 减小模型信息文字大小 */
-                margin: 0.1rem 0;   /* 减小模型信息间距 */
+                font-size: 0.9rem;
+                margin: 0.1rem 0; 
             }
             .chat-container {
                 flex: 1;
                 display: flex;
                 min-height: 0;
-                margin: 0.25rem 0;  /* 减小边距 */
+                margin: 0.25rem 0;
             }
             .chat-container .block {
                 height: 100%!important;
