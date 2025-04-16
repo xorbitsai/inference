@@ -214,48 +214,93 @@ class GradioInterface:
                 padding: 0px;
                 color: #9ea4b0 !important;
             }
+            .main-container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                padding: 0.5rem;  /* 减小内边距 */
+                box-sizing: border-box;
+                gap: 0.25rem;  /* 添加较小的间距 */
+            }
+            .header {
+                flex: 0 0 auto;
+            }
+            .header h1 {
+                margin: 0.5rem 0;  /* 减小标题边距 */
+                font-size: 1.5rem;  /* 减小标题大小 */
+            }
+            .center {
+                font-size: 0.9rem;  /* 减小模型信息文字大小 */
+                margin: 0.1rem 0;   /* 减小模型信息间距 */
+            }
+            .chat-container {
+                flex: 1;
+                display: flex;
+                min-height: 0;
+                margin: 0.25rem 0;  /* 减小边距 */
+            }
+            .input-container {
+                flex: 0 0 auto;
+            }
             """,
             analytics_enabled=False,
         ) as chat_interface:
-            gr.Markdown(f"# 🚀 Xinference Chat Bot : {self.model_name} 🚀")
-            gr.Markdown(
-                f"""
-                <div class="center">Model ID: {self.model_uid}</div>
-                <div class="center">Model Size: {self.model_size_in_billions} Billion Parameters</div>
-                <div class="center">Model Format: {self.model_format}</div>
-                <div class="center">Model Quantization: {self.quantization}</div>
-                """
-            )
-
-            chatbot = gr.Chatbot(
-                type="messages", render_markdown=True, label=self.model_name
-            )
-
-            with gr.Row():
-                with gr.Column(scale=12):
-                    textbox = gr.Textbox(
-                        show_label=False,
-                        placeholder="Type a message...",
-                        container=False,
+            with gr.Column(elem_classes="main-container"):
+                # Header section
+                with gr.Column(elem_classes="header"):
+                    gr.Markdown(
+                        f"""<h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Chat Bot : {self.model_name} 🚀</h1>"""
                     )
-                with gr.Column(scale=1, min_width=50):
-                    submit_btn = gr.Button("Enter", variant="primary")
+                    gr.Markdown(
+                        f"""
+                        <div class="center">Model ID: {self.model_uid}</div>
+                        <div class="center">Model Size: {self.model_size_in_billions} Billion Parameters</div>
+                        <div class="center">Model Format: {self.model_format}</div>
+                        <div class="center">Model Quantization: {self.quantization}</div>
+                        """
+                    )
 
-            with gr.Accordion("Additional Inputs", open=False):
-                max_tokens = gr.Slider(
-                    minimum=1,
-                    maximum=self.context_length,
-                    value=512
-                    if "reasoning" not in self.model_ability
-                    else self.context_length // 2,
-                    step=1,
-                    label="Max Tokens",
-                )
-                temperature = gr.Slider(
-                    minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
-                )
-                stream = gr.Checkbox(label="Stream", value=True)
-                lora_name = gr.Text(label="LoRA Name")
+                # Chat container
+                with gr.Column(elem_classes="chat-container"):
+                    chatbot = gr.Chatbot(
+                        type="messages",
+                        label=self.model_name,
+                        show_label=True,
+                        render_markdown=True,
+                        container=True,
+                    )
+
+                # Input container
+                with gr.Column(elem_classes="input-container"):
+                    with gr.Row():
+                        with gr.Column(scale=12):
+                            textbox = gr.Textbox(
+                                show_label=False,
+                                placeholder="Type a message...",
+                                container=False,
+                            )
+                        with gr.Column(scale=1, min_width=50):
+                            submit_btn = gr.Button("Enter", variant="primary")
+
+                    with gr.Accordion("Additional Inputs", open=False):
+                        max_tokens = gr.Slider(
+                            minimum=1,
+                            maximum=self.context_length,
+                            value=512
+                            if "reasoning" not in self.model_ability
+                            else self.context_length // 2,
+                            step=1,
+                            label="Max Tokens",
+                        )
+                        temperature = gr.Slider(
+                            minimum=0,
+                            maximum=2,
+                            value=1,
+                            step=0.01,
+                            label="Temperature",
+                        )
+                        stream = gr.Checkbox(label="Stream", value=True)
+                        lora_name = gr.Text(label="LoRA Name")
 
             # deal with message submit
             textbox.submit(
