@@ -74,7 +74,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
 
     def _transform_messages(
         self,
-        messages: List[ChatCompletionMessage],
+        messages: Union[List[ChatCompletionMessage], List[dict]],
     ):
         import librosa
 
