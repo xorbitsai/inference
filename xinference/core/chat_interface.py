@@ -67,7 +67,7 @@ class GradioInterface:
 
     def build(self) -> "gr.Blocks":
         if "vision" in self.model_ability:
-            interface = self.build_chat_vl_interface()
+            interface = self.build_chat_multimodel_interface()
         elif "chat" in self.model_ability:
             interface = self.build_chat_interface()
         else:
@@ -331,7 +331,7 @@ class GradioInterface:
 
             return chat_interface
 
-    def build_chat_vl_interface(
+    def build_chat_multimodel_interface(
         self,
     ) -> "gr.Blocks":
         def predict(history, bot, max_tokens, temperature, stream):
