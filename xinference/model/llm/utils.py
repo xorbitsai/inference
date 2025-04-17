@@ -31,6 +31,7 @@ from typing import (
     List,
     Optional,
     Tuple,
+    Union,
     cast,
 )
 
@@ -762,7 +763,7 @@ class ChatModelMixin:
 
     def _transform_messages(
         self,
-        messages: List[ChatCompletionMessage],
+        messages: Union[List[ChatCompletionMessage], List[dict]],
     ):
         transformed_messages = []
         for msg in messages:
