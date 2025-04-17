@@ -204,6 +204,21 @@
     }
   },
   {
+    "model_name": "paraformer-zh",
+    "model_family": "funasr",
+    "model_id": "funasr/paraformer-zh",
+    "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_id": "2Noise/ChatTTS",
@@ -216,7 +231,7 @@
     "model_family": "CosyVoice",
     "model_id": "FunAudioLLM/CosyVoice-300M",
     "model_revision": "39c4e13d46bd4dfb840d214547623e5fcd2428e2",
-    "model_ability": "audio-to-audio",
+    "model_ability": "text-to-audio",
     "multilingual": true
   },
   {
@@ -344,6 +359,14 @@
     "model_family": "Kokoro",
     "model_id": "hexgrad/Kokoro-82M",
     "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "MegaTTS3",
+    "model_family": "MegaTTS",
+    "model_id": "ByteDance/MegaTTS3",
+    "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738",
     "model_ability": "text-to-audio",
     "multilingual": true
   }

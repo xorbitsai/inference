@@ -37,6 +37,7 @@ from typing import (
 )
 
 import xoscar as xo
+from typing_extensions import NotRequired
 
 from ....types import (
     ChatCompletion,
@@ -81,6 +82,9 @@ class VLLMModelConfig(TypedDict, total=False):
     scheduling_policy: Optional[str]
     reasoning_content: bool
     model_quantization: Optional[str]
+    mm_processor_kwargs: NotRequired[dict[str, Any]]
+    min_pixels: NotRequired[int]
+    max_pixels: NotRequired[int]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -170,6 +174,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-qwen")
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
+    VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -205,6 +211,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
@@ -228,6 +235,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
+    VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
 
 class VLLMModel(LLM):
@@ -531,6 +541,31 @@ class VLLMModel(LLM):
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
             model_config.setdefault("scheduling_policy", "fcfs")
+            # init mm_processor_kwargs params
+            mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
+            if isinstance(mm_processor_kwargs, str):
+                try:
+                    mm_processor_kwargs = json.loads(mm_processor_kwargs)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Failed to parse mm_processor_kwargs as JSON, using default empty dict"
+                    )
+                    mm_processor_kwargs = {}
+                except Exception as e:
+                    logger.warning(
+                        f"Unexpected error parsing mm_processor_kwargs: {e}, using default empty dict"
+                    )
+                    mm_processor_kwargs = {}
+            pixel_params: Dict[str, int] = {}
+            if "min_pixels" in model_config:
+                pixel_params["min_pixels"] = model_config.pop("min_pixels")
+            if "max_pixels" in model_config:
+                pixel_params["max_pixels"] = model_config.pop("max_pixels")
+            if pixel_params or mm_processor_kwargs:
+                model_config["mm_processor_kwargs"] = {
+                    **mm_processor_kwargs,
+                    **pixel_params,
+                }
         return model_config
 
     @staticmethod

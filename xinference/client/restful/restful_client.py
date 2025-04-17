@@ -723,6 +723,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         speed: float = 1.0,
         stream: bool = False,
         prompt_speech: Optional[bytes] = None,
+        prompt_latent: Optional[bytes] = None,
         **kwargs,
     ):
         """
@@ -743,6 +744,8 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             Use stream or not.
         prompt_speech: bytes
             The audio bytes to be provided to the model.
+        prompt_latent: bytes
+            The latent bytes to be provided to the model.
 
         Returns
         -------
@@ -759,14 +762,22 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "stream": stream,
             "kwargs": json.dumps(kwargs),
         }
+        files: List[Any] = []
         if prompt_speech:
-            files: List[Any] = []
             files.append(
                 (
                     "prompt_speech",
                     ("prompt_speech", prompt_speech, "application/octet-stream"),
                 )
             )
+        if prompt_latent:
+            files.append(
+                (
+                    "prompt_latent",
+                    ("prompt_latent", prompt_latent, "application/octet-stream"),
+                )
+            )
+        if files:
             response = requests.post(
                 url, data=params, files=files, headers=self.auth_headers, stream=stream
             )
@@ -999,10 +1010,17 @@ class Client:
             "model_path": model_path,
         }
 
+        wait_ready = kwargs.pop("wait_ready", True)
+
         for key, value in kwargs.items():
             payload[str(key)] = value
 
-        response = requests.post(url, json=payload, headers=self._headers)
+        if wait_ready:
+            response = requests.post(url, json=payload, headers=self._headers)
+        else:
+            response = requests.post(
+                url, json=payload, headers=self._headers, params={"wait_ready": False}
+            )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to launch model, detail: {_get_error_string(response)}"
@@ -1034,6 +1052,68 @@ class Client:
             raise RuntimeError(
                 f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
+
+    def get_launch_model_progress(self, model_uid: str) -> dict:
+        """
+        Get progress of the specific model.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model we want.
+
+        Returns
+        -------
+        result: dict
+            Result that contains progress.
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/progress"
+
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Fail to get model launching progress, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def cancel_launch_model(self, model_uid: str):
+        """
+        Cancel launching model.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model we want.
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/cancel"
+
+        response = requests.post(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Fail to cancel launching model, detail: {_get_error_string(response)}"
+            )
+
+    def get_instance_info(self, model_name: str, model_uid: str):
+        url = f"{self.base_url}/v1/models/instances"
+        response = requests.get(
+            url,
+            headers=self._headers,
+            params={"model_name": model_name, "model_uid": model_uid},
+        )
+        if response.status_code != 200:
+            raise RuntimeError("Failed to get instance info")
+        response_data = response.json()
+        return response_data
 
     def _get_supervisor_internal_address(self):
         url = f"{self.base_url}/v1/address"
