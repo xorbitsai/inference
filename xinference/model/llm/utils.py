@@ -783,6 +783,15 @@ class ChatModelMixin:
                         new_content.append(
                             {"type": "video", "video": item["video_url"]["url"]}
                         )
+                    elif "audio_url" in item:
+                        new_content.append(
+                            {"type": "audio", "audio": item["audio_url"]["url"]}
+                        )
+                    else:
+                        logger.warning(
+                            "Unknown message type, message: %s, this message may be ignored",
+                            messages,
+                        )
             new_message = {"role": role, "content": new_content}
             transformed_messages.append(new_message)
 
