@@ -818,6 +818,7 @@ class WorkerActor(xo.StatelessActor):
             asyncio.get_running_loop(),
         )
         await progressor.start()
+        progressor.set_progress(0.0, "start to launch model")
         return progressor
 
     @classmethod
@@ -973,6 +974,19 @@ class WorkerActor(xo.StatelessActor):
                             **model_kwargs,
                         )
                     await self.update_cache_status(model_name, model_description)
+
+                def check_cancel():
+                    # check downloader first, sometimes download finished
+                    # cancelled already
+                    if downloader.cancelled:
+                        with progressor:
+                            # just report progress
+                            pass
+                        downloader.raise_error(error_msg="Launch cancelled")
+
+                # check before creating model actor
+                check_cancel()
+
                 model_ref = await xo.create_actor(
                     ModelActor,
                     address=subpool_address,
@@ -1004,16 +1018,28 @@ class WorkerActor(xo.StatelessActor):
                     pool_addresses = await asyncio.gather(*coros)
                     all_subpool_addresses.extend(pool_addresses)
                     await model_ref.set_pool_addresses(pool_addresses)
+
+                # check before loading
+                check_cancel()
+
                 # set all subpool addresses
                 # when cancelled, all subpool addresses need to be destroyed
                 launch_info.sub_pools = all_subpool_addresses
+
                 with progressor:
-                    await model_ref.load()
+                    try:
+                        await model_ref.load()
+                    except xo.ServerClosed:
+                        check_cancel()
+                        raise
             except:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
                 for addr in all_subpool_addresses:
-                    await self._main_pool.remove_sub_pool(addr)
+                    try:
+                        await self._main_pool.remove_sub_pool(addr)
+                    except KeyError:
+                        continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_description
@@ -1052,8 +1078,10 @@ class WorkerActor(xo.StatelessActor):
         try:
             launch_info = self._model_uid_launching_guard[model_uid]
             if launch_info.downloader:
+                logger.debug("Try to cancel download, %s")
                 launch_info.downloader.cancel()
             if launch_info.sub_pools:
+                logger.debug("Try to stop sub pools: %s", launch_info.sub_pools)
                 coros = []
                 for addr in launch_info.sub_pools:
                     coros.append(self._main_pool.remove_sub_pool(addr, force=True))
@@ -1064,6 +1092,7 @@ class WorkerActor(xo.StatelessActor):
                     {"status": LaunchStatus.ERROR.name},
                 )
         except KeyError:
+            logger.error("Fail to cancel launching", exc_info=True)
             raise RuntimeError(
                 "Model is not launching, may have launched or not launched yet"
             )

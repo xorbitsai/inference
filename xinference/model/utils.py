@@ -378,7 +378,8 @@ class CancellableDownloader:
             finished_tasks += main_progress.n
 
         if tasks == 0:
-            return 0.0
+            # we assumed at least 1 task
+            tasks = 1
 
         finished_ratio = finished_tasks / tasks
 
@@ -406,11 +407,18 @@ class CancellableDownloader:
         self._cancelled = True
 
     @property
+    def cancelled(self):
+        return self._cancelled
+
+    @property
     def done(self):
         return self._done_event.is_set()
 
     def wait(self, timeout: float):
         self._done_event.wait(timeout)
+
+    def raise_error(self, error_msg: str = "Download cancelled"):
+        raise self._cancel_error_cls(error_msg)
 
     def patch_tqdm(self):
         # patch tqdm
@@ -420,7 +428,7 @@ class CancellableDownloader:
 
         def patched_update(self, n):
             if downloader._cancelled:
-                raise downloader._cancel_error_cls("Download cancelled")
+                downloader.raise_error()
             if not self.disable:
                 progresses = (
                     downloader._main_progresses
