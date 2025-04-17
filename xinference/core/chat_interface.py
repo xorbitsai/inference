@@ -16,6 +16,7 @@ import base64
 import html
 import logging
 import os
+import tempfile
 from io import BytesIO
 from typing import Generator, List, Optional
 
@@ -377,8 +378,24 @@ class GradioInterface:
                     },
                 )
                 history.append(response["choices"][0]["message"])
-                bot[-1][1] = history[-1]["content"]
-                yield history, bot
+                if "audio" in history[-1]:
+                    # audio output
+                    audio_bytes = base64.b64decode(history[-1]["audio"]["data"])
+                    audio_file = tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".wav"
+                    )
+                    audio_file.write(audio_bytes)
+
+                    # split into two messages
+                    # one audio
+                    bot[-1] = (bot[-1][0], history[-1]["content"])
+                    yield history, bot
+                    # the other is text
+                    bot.append((None, gr.Audio(audio_file.name)))
+                    yield history, bot
+                else:
+                    bot[-1][1] = history[-1]["content"]
+                    yield history, bot
 
         def add_text(history, bot, text, image, video):
             logger.debug("Add text, text: %s, image: %s, video: %s", text, image, video)

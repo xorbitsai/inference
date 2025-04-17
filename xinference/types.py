@@ -176,10 +176,18 @@ class Completion(TypedDict):
     usage: CompletionUsage
 
 
+class ChatCompletionAudio(TypedDict):
+    id: str
+    data: str
+    expires_at: int
+    transcript: str
+
+
 class ChatCompletionMessage(TypedDict):
     role: str
     reasoning_content: NotRequired[str]
     content: Optional[str]
+    audio: NotRequired[ChatCompletionAudio]
     user: NotRequired[str]
     tool_calls: NotRequired[List]
 
