@@ -14,6 +14,7 @@ import {
   HelpOutline,
   RocketLaunchOutlined,
   StarBorder,
+  StopCircle,
   UndoOutlined,
 } from '@mui/icons-material'
 import {
@@ -22,7 +23,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Collapse,
   FormControl,
   FormControlLabel,
@@ -62,6 +62,7 @@ import AddPair from './components/addPair'
 import CopyToCommandLine from './components/copyComponent'
 import Drawer from './components/drawer'
 import PasteDialog from './components/pasteDialog'
+import Progress from './components/progress'
 import { additionalParameterTipList, llmAllDataKey } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
@@ -137,8 +138,11 @@ const ModelCard = ({
   const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
   const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
   const [isOpenPasteDialog, setIsOpenPasteDialog] = useState(false)
+  const [isShowProgress, setIsShowProgress] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   const parentRef = useRef(null)
+  const intervalRef = useRef(null)
   const { t } = useTranslation()
   const theme = useTheme()
 
@@ -276,6 +280,30 @@ const ModelCard = ({
       })
   }
 
+  const fetchProgress = async () => {
+    try {
+      const res = await fetchWrapper.get(
+        `/v1/models/${modelData.model_name}/progress`
+      )
+      if (res.progress !== 1.0) setProgress(Number(res.progress))
+    } catch (err) {
+      stopPolling()
+      setIsCallingApi(false)
+    }
+  }
+
+  const startPolling = () => {
+    if (intervalRef.current) return
+    intervalRef.current = setInterval(fetchProgress, 500)
+  }
+
+  const stopPolling = () => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
   const handleModelData = () => {
     const modelDataWithID_LLM = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
@@ -372,6 +400,8 @@ const ModelCard = ({
     }
 
     setIsCallingApi(true)
+    setProgress(0)
+    setIsShowProgress(true)
 
     try {
       const modelDataWithID = handleModelData()
@@ -407,10 +437,26 @@ const ModelCard = ({
           }
           setIsCallingApi(false)
         })
+        .finally(() => {
+          stopPolling()
+          setIsShowProgress(false)
+        })
+      startPolling()
     } catch (error) {
       setOpenErrorSnackbar(true)
       setErrorSnackbarValue(`${error}`)
       setIsCallingApi(false)
+    }
+  }
+
+  const cancelModel = async () => {
+    try {
+      await fetchWrapper.post(`/v1/models/${modelData.model_name}/cancel`)
+      setIsCallingApi(false)
+      stopPolling()
+      setIsShowProgress(false)
+    } catch (err) {
+      console.log('err', err)
     }
   }
 
@@ -839,27 +885,6 @@ const ModelCard = ({
       : isDisabled
       ? { color: '#e5e7eb', border: '1px solid #e5e7eb' }
       : { color: '#000000' }
-  }
-
-  const renderButtonContent = () => {
-    if (isCallingApi || isUpdatingModel) {
-      return (
-        <Box className="buttonItem" style={getButtonStyle('launch')}>
-          <CircularProgress
-            size="20px"
-            sx={{
-              color: theme.palette.mode === 'dark' ? '#f2f2f2' : '#000000',
-            }}
-          />
-        </Box>
-      )
-    }
-
-    return (
-      <Box className="buttonItem" style={getButtonStyle('launch')}>
-        <RocketLaunchOutlined size="20px" />
-      </Box>
-    )
   }
 
   // Set two different states based on mouse hover
@@ -1996,26 +2021,43 @@ const ModelCard = ({
             </Box>
           )}
           <Box className="buttonsContainer">
-            <button
-              title={t('launchModel.launch')}
-              className="buttonContainer"
-              onClick={() => launchModel(url, modelData)}
-              disabled={!isModelStartable()}
-            >
-              {renderButtonContent()}
-            </button>
-            <button
-              title={t('launchModel.goBack')}
-              className="buttonContainer"
-              onClick={() => {
-                setSelected(false)
-                setHover(false)
-              }}
-            >
-              <Box className="buttonItem" style={getButtonStyle('goBack')}>
-                <UndoOutlined size="20px" />
-              </Box>
-            </button>
+            {isShowProgress && <Progress progress={progress} />}
+            <div className="buttons">
+              {isCallingApi || isUpdatingModel ? (
+                <button
+                  title={t('launchModel.launch')}
+                  className="buttonContainer"
+                  onClick={() => cancelModel()}
+                >
+                  <Box className="buttonItem" style={getButtonStyle('launch')}>
+                    <StopCircle size="20px" />
+                  </Box>
+                </button>
+              ) : (
+                <button
+                  title={t('launchModel.launch')}
+                  className="buttonContainer"
+                  onClick={() => launchModel(url, modelData)}
+                  disabled={!isModelStartable()}
+                >
+                  <Box className="buttonItem" style={getButtonStyle('launch')}>
+                    <RocketLaunchOutlined size="20px" />
+                  </Box>
+                </button>
+              )}
+              <button
+                title={t('launchModel.goBack')}
+                className="buttonContainer"
+                onClick={() => {
+                  setSelected(false)
+                  setHover(false)
+                }}
+              >
+                <Box className="buttonItem" style={getButtonStyle('goBack')}>
+                  <UndoOutlined size="20px" />
+                </Box>
+              </button>
+            </div>
           </Box>
         </div>
       </Drawer>
