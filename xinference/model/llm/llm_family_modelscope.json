@@ -5067,7 +5067,7 @@
         "model_format": "awq",
         "model_size_in_billions": 1,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-1B-AWQ",
         "model_hub": "modelscope"
@@ -5087,7 +5087,7 @@
         "model_format": "awq",
         "model_size_in_billions": 2,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-2B-AWQ",
         "model_hub": "modelscope"
@@ -5107,7 +5107,7 @@
         "model_format": "awq",
         "model_size_in_billions": 8,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-8B-AWQ",
         "model_hub": "modelscope"
@@ -5127,7 +5127,7 @@
         "model_format": "awq",
         "model_size_in_billions": 9,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-9B-AWQ",
         "model_hub": "modelscope"
@@ -5147,7 +5147,7 @@
         "model_format": "awq",
         "model_size_in_billions": 14,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-14B-AWQ",
         "model_hub": "modelscope"
@@ -5167,7 +5167,7 @@
         "model_format": "awq",
         "model_size_in_billions": 38,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-38B-AWQ",
         "model_hub": "modelscope"
@@ -5187,7 +5187,7 @@
         "model_format": "awq",
         "model_size_in_billions": 78,
         "quantizations": [
-          "none"
+          "Int4"
         ],
         "model_id": "OpenGVLab/InternVL3-78B-AWQ",
         "model_hub": "modelscope"
