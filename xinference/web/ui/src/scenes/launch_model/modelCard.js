@@ -86,11 +86,9 @@ const ModelCard = ({
   const [isOther, setIsOther] = useState(false)
   const [isPeftModelConfig, setIsPeftModelConfig] = useState(false)
   const [openSnackbar, setOpenSnackbar] = useState(false)
-  const [openErrorSnackbar, setOpenErrorSnackbar] = useState(false)
-  const [errorSnackbarValue, setErrorSnackbarValue] = useState('')
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
+  const { setErrorMsg, setSuccessMsg } = useContext(ApiContext)
   const navigate = useNavigate()
 
   // Model parameter selections
@@ -434,7 +432,9 @@ const ModelCard = ({
         })
         .catch((error) => {
           console.error('Error:', error)
-          if (error.response?.status !== 403) {
+          if (error.response?.status === 499) {
+            setSuccessMsg(t('launchModel.cancelledSuccessfully'))
+          } else if (error.response?.status !== 403) {
             setErrorMsg(error.message)
           }
         })
@@ -446,8 +446,7 @@ const ModelCard = ({
         })
       startPolling()
     } catch (error) {
-      setOpenErrorSnackbar(true)
-      setErrorSnackbarValue(`${error}`)
+      setErrorMsg(`${error}`)
       setIsCallingApi(false)
     }
   }
@@ -842,8 +841,7 @@ const ModelCard = ({
         handleOtherHistory(data)
       }
     } else {
-      setOpenErrorSnackbar(true)
-      setErrorSnackbarValue(t('launchModel.commandLineTip'))
+      setErrorMsg(t('launchModel.commandLineTip'))
     }
   }
 
@@ -2093,15 +2091,6 @@ const ModelCard = ({
         onClose={() => setOpenSnackbar(false)}
         message={t('launchModel.fillCompleteParametersBeforeAdding')}
       />
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={openErrorSnackbar}
-        onClose={() => setOpenErrorSnackbar(false)}
-      >
-        <Alert severity="error" variant="filled" sx={{ width: '100%' }}>
-          {errorSnackbarValue}
-        </Alert>
-      </Snackbar>
 
       <Backdrop
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
