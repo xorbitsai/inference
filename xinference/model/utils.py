@@ -350,8 +350,14 @@ def set_all_random_seed(seed: int):
 
 
 class CancellableDownloader:
-    def __init__(self, cancel_error_cls: Type[BaseException] = asyncio.CancelledError):
-        self._cancelled = False
+    def __init__(
+        self,
+        cancel_error_cls: Type[BaseException] = asyncio.CancelledError,
+        cancelled_event: Optional[threading.Event] = None,
+    ):
+        self._cancelled = cancelled_event
+        if self._cancelled is None:
+            self._cancelled = threading.Event()
         self._done_event = threading.Event()
         self._cancel_error_cls = cancel_error_cls
         self._original_update = None
@@ -368,7 +374,7 @@ class CancellableDownloader:
         self._download_progresses.clear()
 
     def get_progress(self) -> float:
-        if self._cancelled or self.done:
+        if self.cancelled or self.done:
             # directly return 1.0 when cancelled or finished
             return 1.0
 
@@ -404,11 +410,11 @@ class CancellableDownloader:
             return finished_ratio
 
     def cancel(self):
-        self._cancelled = True
+        self._cancelled.set()
 
     @property
     def cancelled(self):
-        return self._cancelled
+        return self._cancelled.is_set()
 
     @property
     def done(self):
@@ -427,7 +433,7 @@ class CancellableDownloader:
         downloader = self
 
         def patched_update(self, n):
-            if downloader._cancelled:
+            if downloader.cancelled:
                 downloader.raise_error()
             if not self.disable:
                 progresses = (

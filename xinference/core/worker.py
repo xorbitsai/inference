@@ -22,7 +22,7 @@ import signal
 import threading
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
@@ -82,6 +82,7 @@ class ModelStatus:
 
 @dataclass
 class LaunchInfo:
+    cancel_event: threading.Event = field(default_factory=threading.Event)
     # downloader, report progress or cancel entire download
     downloader: Optional[CancellableDownloader] = None
     # sub pools created for the model
@@ -946,7 +947,9 @@ class WorkerActor(xo.StatelessActor):
                             driver_info=driver_info,
                         )
                     )
-                with CancellableDownloader() as downloader:
+                with CancellableDownloader(
+                    cancelled_event=launch_info.cancel_event
+                ) as downloader:
                     launch_info.downloader = downloader
                     progressor = await self._get_progressor(request_id)
                     # split into download and launch
@@ -1077,6 +1080,13 @@ class WorkerActor(xo.StatelessActor):
     async def cancel_launch_model(self, model_uid: str):
         try:
             launch_info = self._model_uid_launching_guard[model_uid]
+
+            # downloader shared same cancel event
+            # sometimes cancel happens very early before downloader
+            # even if users cancel at this time,
+            # downloader will know and stop everything
+            launch_info.cancel_event.set()
+
             if launch_info.downloader:
                 logger.debug("Try to cancel download, %s")
                 launch_info.downloader.cancel()
