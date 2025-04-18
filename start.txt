@@ -1,0 +1,2 @@
+set XINFERENCE_HOME=D:\\model
+xinference-local --host 127.0.0.1 --port 9999
