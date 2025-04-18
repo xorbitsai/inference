@@ -23,6 +23,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Collapse,
   FormControl,
   FormControlLabel,
@@ -140,6 +141,8 @@ const ModelCard = ({
   const [isOpenPasteDialog, setIsOpenPasteDialog] = useState(false)
   const [isShowProgress, setIsShowProgress] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [isShowCancel, setIsShowCancel] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const parentRef = useRef(null)
   const intervalRef = useRef(null)
@@ -402,6 +405,7 @@ const ModelCard = ({
     setIsCallingApi(true)
     setProgress(0)
     setIsShowProgress(true)
+    setIsShowCancel(true)
 
     try {
       const modelDataWithID = handleModelData()
@@ -427,19 +431,18 @@ const ModelCard = ({
             historyArr.push(modelDataWithID)
           }
           localStorage.setItem('historyArr', JSON.stringify(historyArr))
-
-          setIsCallingApi(false)
         })
         .catch((error) => {
           console.error('Error:', error)
-          if (error.response.status !== 403) {
+          if (error.response?.status !== 403) {
             setErrorMsg(error.message)
           }
-          setIsCallingApi(false)
         })
         .finally(() => {
+          setIsCallingApi(false)
           stopPolling()
           setIsShowProgress(false)
+          setIsLoading(false)
         })
       startPolling()
     } catch (error) {
@@ -452,12 +455,13 @@ const ModelCard = ({
   const cancelModel = async () => {
     try {
       await fetchWrapper.post(`/v1/models/${modelData.model_name}/cancel`)
-      setIsCallingApi(false)
-      stopPolling()
-      setIsShowProgress(false)
     } catch (err) {
       console.log('err', err)
     }
+    stopPolling()
+    setIsShowProgress(false)
+    setIsShowCancel(false)
+    setIsLoading(true)
   }
 
   const handleGPUIdx = (data) => {
@@ -859,32 +863,22 @@ const ModelCard = ({
           !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
           !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
           requestLimitsAlert ||
-          GPUIdxAlert)) ||
+          GPUIdxAlert) &&
+        !isShowCancel) ||
       ((modelType === 'embedding' || modelType === 'rerank') && GPUIdxAlert) ||
       !judgeArr(customParametersArr, ['key', 'value'])
     )
   }
 
-  const getButtonStyle = (type) => {
-    if (type === 'goBack') {
-      return theme.palette.mode === 'dark' ? { color: '#e5e7eb' } : {}
+  const renderButtonContent = () => {
+    if (isShowCancel) {
+      return <StopCircle sx={{ fontSize: 26 }} />
+    }
+    if (isLoading) {
+      return <CircularProgress size={26} />
     }
 
-    const isDisabled = !(
-      modelFormat &&
-      modelSize &&
-      modelData &&
-      (quantization || (!modelData.is_builtin && modelFormat !== 'pytorch'))
-    )
-
-    return theme.palette.mode === 'dark'
-      ? {
-          color: '#e5e7eb',
-          ...(isDisabled ? { color: '#888', border: '1px solid #888' } : {}),
-        }
-      : isDisabled
-      ? { color: '#e5e7eb', border: '1px solid #e5e7eb' }
-      : { color: '#000000' }
+    return <RocketLaunchOutlined sx={{ fontSize: 26 }} />
   }
 
   // Set two different states based on mouse hover
@@ -1554,6 +1548,22 @@ const ModelCard = ({
                     />
                   </FormControl>
                 </Grid>
+                {modelData.model_ability?.includes('reasoning') && (
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <div>
+                        <FormControlLabel
+                          label={t('launchModel.parsingReasoningContent')}
+                          labelPlacement="start"
+                          control={<Switch checked={reasoningContent} />}
+                          onChange={(e) => {
+                            setReasoningContent(e.target.checked)
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                  </Grid>
+                )}
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
@@ -1702,26 +1712,6 @@ const ModelCard = ({
                       />
                     </FormControl>
                   </Grid>
-                  {modelData.model_ability?.includes('reasoning') && (
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <div
-                          style={{
-                            marginBlock: '10px',
-                          }}
-                        >
-                          <FormControlLabel
-                            label={t('launchModel.parsingReasoningContent')}
-                            labelPlacement="start"
-                            control={<Switch checked={reasoningContent} />}
-                            onChange={(e) => {
-                              setReasoningContent(e.target.checked)
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                    </Grid>
-                  )}
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
@@ -2023,40 +2013,34 @@ const ModelCard = ({
           <Box className="buttonsContainer">
             {isShowProgress && <Progress progress={progress} />}
             <div className="buttons">
-              {isCallingApi || isUpdatingModel ? (
-                <button
-                  title={t('launchModel.launch')}
-                  className="buttonContainer"
-                  onClick={() => cancelModel()}
-                >
-                  <Box className="buttonItem" style={getButtonStyle('launch')}>
-                    <StopCircle size="20px" />
-                  </Box>
-                </button>
-              ) : (
-                <button
-                  title={t('launchModel.launch')}
-                  className="buttonContainer"
-                  onClick={() => launchModel(url, modelData)}
-                  disabled={!isModelStartable()}
-                >
-                  <Box className="buttonItem" style={getButtonStyle('launch')}>
-                    <RocketLaunchOutlined size="20px" />
-                  </Box>
-                </button>
-              )}
-              <button
+              <Button
+                variant="outlined"
+                title={t(
+                  isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
+                )}
+                style={{ flex: 1 }}
+                disabled={!isModelStartable() || isLoading}
+                onClick={() => {
+                  if (isShowCancel) {
+                    cancelModel()
+                  } else {
+                    launchModel(url, modelData)
+                  }
+                }}
+              >
+                {renderButtonContent()}
+              </Button>
+              <Button
+                variant="outlined"
                 title={t('launchModel.goBack')}
-                className="buttonContainer"
+                style={{ flex: 1 }}
                 onClick={() => {
                   setSelected(false)
                   setHover(false)
                 }}
               >
-                <Box className="buttonItem" style={getButtonStyle('goBack')}>
-                  <UndoOutlined size="20px" />
-                </Box>
-              </button>
+                <UndoOutlined sx={{ fontSize: 26 }} />
+              </Button>
             </div>
           </Box>
         </div>
