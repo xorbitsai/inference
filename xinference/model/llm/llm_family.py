@@ -135,7 +135,9 @@ class LLMFamilyV1(BaseModel):
     model_name: str
     model_lang: List[str]
     model_ability: List[
-        Literal["embed", "generate", "chat", "tools", "vision", "audio", "reasoning"]
+        Literal[
+            "embed", "generate", "chat", "tools", "vision", "audio", "omni", "reasoning"
+        ]
     ]
     model_description: Optional[str]
     # reason for not required str here: legacy registration

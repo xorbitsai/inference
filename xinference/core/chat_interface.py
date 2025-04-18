@@ -16,6 +16,7 @@ import base64
 import html
 import logging
 import os
+import tempfile
 from io import BytesIO
 from typing import Generator, List, Optional
 
@@ -66,7 +67,7 @@ class GradioInterface:
 
     def build(self) -> "gr.Blocks":
         if "vision" in self.model_ability:
-            interface = self.build_chat_vl_interface()
+            interface = self.build_chat_multimodel_interface()
         elif "chat" in self.model_ability:
             interface = self.build_chat_interface()
         else:
@@ -330,7 +331,7 @@ class GradioInterface:
 
             return chat_interface
 
-    def build_chat_vl_interface(
+    def build_chat_multimodel_interface(
         self,
     ) -> "gr.Blocks":
         def predict(history, bot, max_tokens, temperature, stream):
@@ -377,11 +378,46 @@ class GradioInterface:
                     },
                 )
                 history.append(response["choices"][0]["message"])
-                bot[-1][1] = history[-1]["content"]
-                yield history, bot
+                if "audio" in history[-1]:
+                    # audio output
+                    audio_bytes = base64.b64decode(history[-1]["audio"]["data"])
+                    audio_file = tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".wav"
+                    )
+                    audio_file.write(audio_bytes)
+                    audio_file.close()
 
-        def add_text(history, bot, text, image, video):
-            logger.debug("Add text, text: %s, image: %s, video: %s", text, image, video)
+                    def audio_to_base64(audio_path):
+                        with open(audio_path, "rb") as audio_file:
+                            return base64.b64encode(audio_file.read()).decode("utf-8")
+
+                    def generate_html_audio(audio_path):
+                        base64_audio = audio_to_base64(audio_path)
+                        audio_format = audio_path.split(".")[-1]
+                        return (
+                            f"<audio controls style='max-width:100%;'>"
+                            f"<source src='data:audio/{audio_format};base64,{base64_audio}' type='audio/{audio_format}'>"
+                            f"Your browser does not support the audio tag.</audio>"
+                        )
+
+                    bot[-1] = (bot[-1][0], history[-1]["content"])
+                    yield history, bot
+
+                    # append html audio tag instead of gr.Audio
+                    bot.append((None, generate_html_audio(audio_file.name)))
+                    yield history, bot
+                else:
+                    bot[-1][1] = history[-1]["content"]
+                    yield history, bot
+
+        def add_text(history, bot, text, image, video, audio):
+            logger.debug(
+                "Add text, text: %s, image: %s, video: %s, audio: %s",
+                text,
+                image,
+                video,
+                audio,
+            )
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
@@ -432,19 +468,53 @@ class GradioInterface:
                         },
                     ],
                 }
+
+            elif audio:
+
+                def audio_to_base64(audio_path):
+                    with open(audio_path, "rb") as audio_file:
+                        encoded_string = base64.b64encode(audio_file.read()).decode(
+                            "utf-8"
+                        )
+                    return encoded_string
+
+                def generate_html_audio(audio_path):
+                    base64_audio = audio_to_base64(audio_path)
+                    audio_format = audio_path.split(".")[-1]
+                    return (
+                        f"<audio controls style='max-width:100%;'>"
+                        f"<source src='data:audio/{audio_format};base64,{base64_audio}' type='audio/{audio_format}'>"
+                        f"Your browser does not support the audio tag.</audio>"
+                    )
+
+                display_content = f"{generate_html_audio(audio)}<br>{text}"
+                message = {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": text},
+                        {
+                            "type": "audio_url",
+                            "audio_url": {"url": audio},
+                        },
+                    ],
+                }
+
             else:
                 display_content = text
                 message = {"role": "user", "content": text}
             history = history + [message]
             bot = bot + [[display_content, None]]
-            return history, bot, "", None, None
+            return history, bot, "", None, None, None
 
         def clear_history():
             logger.debug("Clear history.")
-            return [], None, "", None, None
+            return [], None, "", None, None, None
 
         def update_button(text):
             return gr.update(interactive=bool(text))
+
+        has_vision = "vision" in self.model_ability
+        has_audio = "audio" in self.model_ability
 
         with gr.Blocks(
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
@@ -484,11 +554,29 @@ class GradioInterface:
             state = gr.State([])
             with gr.Row():
                 chatbot = gr.Chatbot(
-                    elem_id="chatbot", label=self.model_name, height=700, scale=7
+                    elem_id="chatbot", label=self.model_name, scale=7, min_height=900
                 )
                 with gr.Column(scale=3):
-                    imagebox = gr.Image(type="filepath")
-                    videobox = gr.Video()
+                    if has_vision:
+                        imagebox = gr.Image(type="filepath")
+                        videobox = gr.Video()
+                    else:
+                        imagebox = gr.Image(type="filepath", visible=False)
+                        videobox = gr.Video(visible=False)
+
+                    if has_audio:
+                        audiobox = gr.Audio(
+                            sources=["microphone", "upload"],
+                            type="filepath",
+                            visible=True,
+                        )
+                    else:
+                        audiobox = gr.Audio(
+                            sources=["microphone", "upload"],
+                            type="filepath",
+                            visible=False,
+                        )
+
                     textbox = gr.Textbox(
                         show_label=False,
                         placeholder="Enter text and press ENTER",
@@ -516,8 +604,8 @@ class GradioInterface:
 
             textbox.submit(
                 add_text,
-                [state, chatbot, textbox, imagebox, videobox],
-                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
                 queue=False,
             ).then(
                 predict,
@@ -527,8 +615,8 @@ class GradioInterface:
 
             submit_btn.click(
                 add_text,
-                [state, chatbot, textbox, imagebox, videobox],
-                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
                 queue=False,
             ).then(
                 predict,
@@ -539,7 +627,7 @@ class GradioInterface:
             clear_btn.click(
                 clear_history,
                 None,
-                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
                 queue=False,
             )
 
