@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-19 12:51+0800\n"
+"POT-Creation-Date: 2025-04-19 00:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -160,7 +160,7 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:50
 msgid ""
 "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-"
-"instruct``"
+"instruct``, ``qwen2.5-instruct-1m``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:51
@@ -212,109 +212,108 @@ msgid "``marco-o1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:63
-msgid "``gemma-it``, ``gemma-2-it``"
+msgid "``fin-r1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:64
-msgid "``orion-chat``, ``orion-chat-rag``"
+msgid "``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:65
-msgid "``c4ai-command-r-v01``"
+msgid "``orion-chat``, ``orion-chat-rag``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:66
-msgid "``minicpm3-4b``"
+msgid "``c4ai-command-r-v01``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:67
-msgid "``internlm3-instruct``"
+msgid "``minicpm3-4b``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:68
+msgid "``internlm3-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:69
 msgid "``moonlight-16b-a3b-instruct``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:71
+#: ../../source/getting_started/installation.rst:72
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:84
+#: ../../source/getting_started/installation.rst:85
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:85
+#: ../../source/getting_started/installation.rst:86
 msgid ""
 "Xinference supports models in ``gguf`` format via ``xllamacpp`` or "
 "``llama-cpp-python``. `xllamacpp "
 "<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference "
 "team, and will be the sole backend for llama.cpp in the future."
-msgstr "Xinference 通过 xllamacpp 或 llama-cpp-python 支持 gguf 格式的模型。"
-"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，"
-"并将在未来成为 llama.cpp 的唯一后端。"
-
-#: ../../source/getting_started/installation.rst:91
-msgid ""
-"``llama-cpp-python`` is the default option for llama.cpp backend. To "
-"enable xllamacpp, add environment variable ``USE_XLLAMACPP=1``."
-msgstr "``llama-cpp-python`` 是 llama.cpp 后端的默认选项。"
-"要启用 xllamacpp，请添加环境变量 USE_XLLAMACPP=1。"
-
-#: ../../source/getting_started/installation.rst:94
-msgid "e.g. Starting local Xinference via"
-msgstr "例如，通过以下方式启动本地 Xinference"
-
-#: ../../source/getting_started/installation.rst:96
-msgid "``USE_XLLAMACPP=1 xinference-local``"
 msgstr ""
+"Xinference 通过 xllamacpp 或 llama-cpp-python 支持 gguf 格式的模型。`"
+"xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队"
+"开发，并将在未来成为 llama.cpp 的唯一后端。"
+
+#: ../../source/getting_started/installation.rst:92
+msgid ""
+"``xllamacpp`` is the default option for llama.cpp backend since v1.5.0. "
+"To enable ``llama-cpp-python``, add environment variable "
+"``USE_XLLAMACPP=0``."
+msgstr ""
+"自 v1.5.0 起，``xllamacpp`` 成为 llama.cpp 后端的默认选项。"
+"如需启用 ``llama-cpp-python``，请设置环境变量 ``USE_XLLAMACPP=0``。"
+
+#: ../../source/getting_started/installation.rst:97
+msgid ""
+"Since Xinference v1.5.0, ``llama-cpp-python`` will be deprecated. For "
+"Xinference v1.6.0, ``llama-cpp-python`` will be removed."
+msgstr ""
+"自 Xinference v1.5.0 起，``llama-cpp-python`` 将被弃用；"
+"在 Xinference v1.6.0 中，该后端将被移除。"
 
 #: ../../source/getting_started/installation.rst:100
-msgid ""
-"For upcoming Xinference v1.5.0, ``xllamacpp`` will become default option "
-"for llama.cpp, and ``llama-cpp-python`` will be deprecated. For "
-"Xinference v1.6.0, ``llama-cpp-python`` will be removed."
-msgstr "在即将发布的 Xinference v1.5.0 中，``xllamacpp`` 将成为 llama.cpp 的默认选项，"
-"而 ``llama-cpp-python`` 将被弃用。在 Xinference v1.6.0 中，``llama-cpp-python`` 将被移除。"
-
-#: ../../source/getting_started/installation.rst:104
-#: ../../source/getting_started/installation.rst:137
-#: ../../source/getting_started/installation.rst:150
+#: ../../source/getting_started/installation.rst:133
+#: ../../source/getting_started/installation.rst:146
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:108
+#: ../../source/getting_started/installation.rst:104
 msgid "Installation instructions for ``xllamacpp``:"
 msgstr "``xllamacpp`` 的安装说明："
 
-#: ../../source/getting_started/installation.rst:110
+#: ../../source/getting_started/installation.rst:106
 msgid "CPU or Mac Metal::"
 msgstr "CPU 或 Mac Metal："
 
-#: ../../source/getting_started/installation.rst:114
+#: ../../source/getting_started/installation.rst:110
 msgid "Cuda::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:118
+#: ../../source/getting_started/installation.rst:114
 msgid "Hardware-Specific installations for ``llama-cpp-python``:"
 msgstr "``llama-cpp-python`` 不同硬件的安装方式："
 
-#: ../../source/getting_started/installation.rst:120
+#: ../../source/getting_started/installation.rst:116
 msgid "Apple Silicon::"
 msgstr "Apple M系列"
 
-#: ../../source/getting_started/installation.rst:124
+#: ../../source/getting_started/installation.rst:120
 msgid "Nvidia cards::"
 msgstr "英伟达显卡："
 
-#: ../../source/getting_started/installation.rst:128
+#: ../../source/getting_started/installation.rst:124
 msgid "AMD cards::"
 msgstr "AMD 显卡："
 
-#: ../../source/getting_started/installation.rst:134
+#: ../../source/getting_started/installation.rst:130
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:135
+#: ../../source/getting_started/installation.rst:131
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -325,19 +324,19 @@ msgstr ""
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:147
+#: ../../source/getting_started/installation.rst:143
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:148
+#: ../../source/getting_started/installation.rst:144
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:155
+#: ../../source/getting_started/installation.rst:151
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:157
+#: ../../source/getting_started/installation.rst:153
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
 
@@ -363,4 +362,18 @@ msgstr ""
 #~ "` 支持 ``gguf`` 格式的模型。"
 #~ "建议根据当前使用的硬件手动安装依赖，从而"
 #~ "获得最佳的加速效果。"
+
+#~ msgid ""
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, "
+#~ "``qwen2.5-coder-instruct``"
+#~ msgstr ""
+
+#~ msgid "``gemma-it``, ``gemma-2-it``"
+#~ msgstr ""
+
+#~ msgid "e.g. Starting local Xinference via"
+#~ msgstr "例如，通过以下方式启动本地 Xinference"
+
+#~ msgid "``USE_XLLAMACPP=1 xinference-local``"
+#~ msgstr ""
 
