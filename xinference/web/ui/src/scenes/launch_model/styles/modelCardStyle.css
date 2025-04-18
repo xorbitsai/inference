@@ -67,26 +67,18 @@
   bottom: 50px;
   left: 100px;
   right: 100px;
+}
+.buttons {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 20px;
 }
-.buttonContainer {
-  width: 45%;
-  border-width: 0px;
-  background-color: transparent;
+.css-1be5mm1-MuiLinearProgress-root-MuiMobileStepper-progress {
+  width: 100% !important;
 }
-.buttonItem {
-  cursor: pointer;
-  width: 100%;
-  padding: 5px;
-  border-radius: 4px;
-  border: 1px solid #e5e7eb;
-  border-width: 1px;
-  border-color: #e5e7eb;
-}
-.buttonItem:hover {
-  border-color: #888;
+.css-r5rjnf-MuiLinearProgress-root-MuiMobileStepper-progress {
+  width: 100% !important;
 }
 .instructionText {
   font-size: 12px;

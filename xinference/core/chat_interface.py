@@ -72,7 +72,7 @@ class GradioInterface:
         else:
             interface = self.build_generate_interface()
 
-        interface.queue()
+        interface.queue(default_concurrency_limit=os.cpu_count())
         # Gradio initiates the queue during a startup event, but since the app has already been
         # started, that event will not run, so manually invoke the startup events.
         # See: https://github.com/gradio-app/gradio/issues/5228

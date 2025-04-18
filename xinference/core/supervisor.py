@@ -1385,6 +1385,8 @@ class SupervisorActor(xo.StatelessActor):
         except RuntimeError:
             # some may have finished
             pass
+        # remove replica info
+        self._model_uid_to_replica_info.pop(model_uid, None)
 
     async def get_instance_info(
         self, model_name: Optional[str], model_uid: Optional[str]

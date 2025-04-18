@@ -12,7 +12,7 @@ huggingface-hub>=0.19.4
 typing_extensions
 boto3>=1.28.55,<1.28.65
 tensorizer~=2.9.0
-modelscope>=1.10.0
+modelscope>=1.19.0
 sse_starlette>=1.6.5
 openai>1
 python-jose[cryptography]
