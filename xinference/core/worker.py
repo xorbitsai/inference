@@ -833,7 +833,6 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
             virtual_env_name or "uv", env_path
         )
-        virtual_env_manager.create_env()
         return virtual_env_manager
 
     @classmethod
@@ -845,6 +844,9 @@ class WorkerActor(xo.StatelessActor):
         if not settings or not settings.packages:
             # no settings or no packages
             return
+
+        # create env
+        virtual_env_manager.create_env()
 
         if settings.inherit_pip_config:
             # inherit pip config
