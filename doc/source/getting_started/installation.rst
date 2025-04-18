@@ -107,9 +107,13 @@ Installation instructions for ``xllamacpp``:
 
    pip install -U xllamacpp
 
-- Cuda::
+- CUDA::
 
    pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124
+
+- HIP::
+
+   pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/rocm-6.0.2
 
 Hardware-Specific installations for ``llama-cpp-python``:
 
