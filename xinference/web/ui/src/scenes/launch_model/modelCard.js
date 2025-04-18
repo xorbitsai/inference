@@ -14,6 +14,7 @@ import {
   HelpOutline,
   RocketLaunchOutlined,
   StarBorder,
+  StopCircle,
   UndoOutlined,
 } from '@mui/icons-material'
 import {
@@ -62,6 +63,7 @@ import AddPair from './components/addPair'
 import CopyToCommandLine from './components/copyComponent'
 import Drawer from './components/drawer'
 import PasteDialog from './components/pasteDialog'
+import Progress from './components/progress'
 import { additionalParameterTipList, llmAllDataKey } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
@@ -84,11 +86,9 @@ const ModelCard = ({
   const [isOther, setIsOther] = useState(false)
   const [isPeftModelConfig, setIsPeftModelConfig] = useState(false)
   const [openSnackbar, setOpenSnackbar] = useState(false)
-  const [openErrorSnackbar, setOpenErrorSnackbar] = useState(false)
-  const [errorSnackbarValue, setErrorSnackbarValue] = useState('')
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
+  const { setErrorMsg, setSuccessMsg } = useContext(ApiContext)
   const navigate = useNavigate()
 
   // Model parameter selections
@@ -137,8 +137,13 @@ const ModelCard = ({
   const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
   const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
   const [isOpenPasteDialog, setIsOpenPasteDialog] = useState(false)
+  const [isShowProgress, setIsShowProgress] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [isShowCancel, setIsShowCancel] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const parentRef = useRef(null)
+  const intervalRef = useRef(null)
   const { t } = useTranslation()
   const theme = useTheme()
 
@@ -276,6 +281,30 @@ const ModelCard = ({
       })
   }
 
+  const fetchProgress = async () => {
+    try {
+      const res = await fetchWrapper.get(
+        `/v1/models/${modelData.model_name}/progress`
+      )
+      if (res.progress !== 1.0) setProgress(Number(res.progress))
+    } catch (err) {
+      stopPolling()
+      setIsCallingApi(false)
+    }
+  }
+
+  const startPolling = () => {
+    if (intervalRef.current) return
+    intervalRef.current = setInterval(fetchProgress, 500)
+  }
+
+  const stopPolling = () => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
   const handleModelData = () => {
     const modelDataWithID_LLM = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
@@ -372,6 +401,9 @@ const ModelCard = ({
     }
 
     setIsCallingApi(true)
+    setProgress(0)
+    setIsShowProgress(true)
+    setIsShowCancel(true)
 
     try {
       const modelDataWithID = handleModelData()
@@ -397,21 +429,38 @@ const ModelCard = ({
             historyArr.push(modelDataWithID)
           }
           localStorage.setItem('historyArr', JSON.stringify(historyArr))
-
-          setIsCallingApi(false)
         })
         .catch((error) => {
           console.error('Error:', error)
-          if (error.response.status !== 403) {
+          if (error.response?.status === 499) {
+            setSuccessMsg(t('launchModel.cancelledSuccessfully'))
+          } else if (error.response?.status !== 403) {
             setErrorMsg(error.message)
           }
-          setIsCallingApi(false)
         })
+        .finally(() => {
+          setIsCallingApi(false)
+          stopPolling()
+          setIsShowProgress(false)
+          setIsLoading(false)
+        })
+      startPolling()
     } catch (error) {
-      setOpenErrorSnackbar(true)
-      setErrorSnackbarValue(`${error}`)
+      setErrorMsg(`${error}`)
       setIsCallingApi(false)
     }
+  }
+
+  const cancelModel = async () => {
+    try {
+      await fetchWrapper.post(`/v1/models/${modelData.model_name}/cancel`)
+    } catch (err) {
+      console.log('err', err)
+    }
+    stopPolling()
+    setIsShowProgress(false)
+    setIsShowCancel(false)
+    setIsLoading(true)
   }
 
   const handleGPUIdx = (data) => {
@@ -792,8 +841,7 @@ const ModelCard = ({
         handleOtherHistory(data)
       }
     } else {
-      setOpenErrorSnackbar(true)
-      setErrorSnackbarValue(t('launchModel.commandLineTip'))
+      setErrorMsg(t('launchModel.commandLineTip'))
     }
   }
 
@@ -813,53 +861,22 @@ const ModelCard = ({
           !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
           !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
           requestLimitsAlert ||
-          GPUIdxAlert)) ||
+          GPUIdxAlert) &&
+        !isShowCancel) ||
       ((modelType === 'embedding' || modelType === 'rerank') && GPUIdxAlert) ||
       !judgeArr(customParametersArr, ['key', 'value'])
     )
   }
 
-  const getButtonStyle = (type) => {
-    if (type === 'goBack') {
-      return theme.palette.mode === 'dark' ? { color: '#e5e7eb' } : {}
-    }
-
-    const isDisabled = !(
-      modelFormat &&
-      modelSize &&
-      modelData &&
-      (quantization || (!modelData.is_builtin && modelFormat !== 'pytorch'))
-    )
-
-    return theme.palette.mode === 'dark'
-      ? {
-          color: '#e5e7eb',
-          ...(isDisabled ? { color: '#888', border: '1px solid #888' } : {}),
-        }
-      : isDisabled
-      ? { color: '#e5e7eb', border: '1px solid #e5e7eb' }
-      : { color: '#000000' }
-  }
-
   const renderButtonContent = () => {
-    if (isCallingApi || isUpdatingModel) {
-      return (
-        <Box className="buttonItem" style={getButtonStyle('launch')}>
-          <CircularProgress
-            size="20px"
-            sx={{
-              color: theme.palette.mode === 'dark' ? '#f2f2f2' : '#000000',
-            }}
-          />
-        </Box>
-      )
+    if (isShowCancel) {
+      return <StopCircle sx={{ fontSize: 26 }} />
+    }
+    if (isLoading) {
+      return <CircularProgress size={26} />
     }
 
-    return (
-      <Box className="buttonItem" style={getButtonStyle('launch')}>
-        <RocketLaunchOutlined size="20px" />
-      </Box>
-    )
+    return <RocketLaunchOutlined sx={{ fontSize: 26 }} />
   }
 
   // Set two different states based on mouse hover
@@ -1529,6 +1546,22 @@ const ModelCard = ({
                     />
                   </FormControl>
                 </Grid>
+                {modelData.model_ability?.includes('reasoning') && (
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <div>
+                        <FormControlLabel
+                          label={t('launchModel.parsingReasoningContent')}
+                          labelPlacement="start"
+                          control={<Switch checked={reasoningContent} />}
+                          onChange={(e) => {
+                            setReasoningContent(e.target.checked)
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                  </Grid>
+                )}
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
@@ -1677,26 +1710,6 @@ const ModelCard = ({
                       />
                     </FormControl>
                   </Grid>
-                  {modelData.model_ability?.includes('reasoning') && (
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <div
-                          style={{
-                            marginBlock: '10px',
-                          }}
-                        >
-                          <FormControlLabel
-                            label={t('launchModel.parsingReasoningContent')}
-                            labelPlacement="start"
-                            control={<Switch checked={reasoningContent} />}
-                            onChange={(e) => {
-                              setReasoningContent(e.target.checked)
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                    </Grid>
-                  )}
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
@@ -1996,26 +2009,37 @@ const ModelCard = ({
             </Box>
           )}
           <Box className="buttonsContainer">
-            <button
-              title={t('launchModel.launch')}
-              className="buttonContainer"
-              onClick={() => launchModel(url, modelData)}
-              disabled={!isModelStartable()}
-            >
-              {renderButtonContent()}
-            </button>
-            <button
-              title={t('launchModel.goBack')}
-              className="buttonContainer"
-              onClick={() => {
-                setSelected(false)
-                setHover(false)
-              }}
-            >
-              <Box className="buttonItem" style={getButtonStyle('goBack')}>
-                <UndoOutlined size="20px" />
-              </Box>
-            </button>
+            {isShowProgress && <Progress progress={progress} />}
+            <div className="buttons">
+              <Button
+                variant="outlined"
+                title={t(
+                  isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
+                )}
+                style={{ flex: 1 }}
+                disabled={!isModelStartable() || isLoading}
+                onClick={() => {
+                  if (isShowCancel) {
+                    cancelModel()
+                  } else {
+                    launchModel(url, modelData)
+                  }
+                }}
+              >
+                {renderButtonContent()}
+              </Button>
+              <Button
+                variant="outlined"
+                title={t('launchModel.goBack')}
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setSelected(false)
+                  setHover(false)
+                }}
+              >
+                <UndoOutlined sx={{ fontSize: 26 }} />
+              </Button>
+            </div>
           </Box>
         </div>
       </Drawer>
@@ -2067,15 +2091,6 @@ const ModelCard = ({
         onClose={() => setOpenSnackbar(false)}
         message={t('launchModel.fillCompleteParametersBeforeAdding')}
       />
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={openErrorSnackbar}
-        onClose={() => setOpenErrorSnackbar(false)}
-      >
-        <Alert severity="error" variant="filled" sx={{ width: '100%' }}>
-          {errorSnackbarValue}
-        </Alert>
-      </Snackbar>
 
       <Backdrop
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
