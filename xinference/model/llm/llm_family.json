@@ -7942,7 +7942,13 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview",
+        "numpy==1.26.4"
+      ]
+    }
   },
   {
     "version": 1,
