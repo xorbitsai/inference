@@ -48,5 +48,53 @@
     },
     "default_generate_config": {
     }
+  },
+  {
+    "model_name": "Wan2.1-1.3B",
+    "model_family": "Wan",
+    "model_hub": "modelscope",
+    "model_id": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "numpy==1.26.4"
+      ]
+    }
+  },
+  {
+    "model_name": "Wan2.1-14B",
+    "model_family": "Wan",
+    "model_hub": "modelscope",
+    "model_id": "Wan-AI/Wan2.1-T2V-14B-Diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "numpy==1.26.4"
+      ]
+    }
   }
 ]
