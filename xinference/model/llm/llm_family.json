@@ -7946,7 +7946,9 @@
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview",
-        "numpy==1.26.4"
+        "numpy==1.26.4",
+        "qwen_omni_utils",
+        "soundfile"
       ]
     }
   },
