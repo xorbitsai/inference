@@ -281,6 +281,16 @@ class VLLMModel(LLM):
         self._all_worker_ready: Optional[threading.Event] = None
         # used to call async
         self._loop = None
+        # model path processing for gguf
+        from ..llm_family import LlamaCppLLMSpecV1
+        if isinstance(self.model_spec, LlamaCppLLMSpecV1):
+            if self.model_spec.model_format=='ggufv2':
+                gguf_path=self.model_spec.model_file_name_template.format(quantization=quantization)
+                self.model_path=os.path.join(self.model_path, gguf_path)
+                if 'tokenizer' not in self._model_config.keys():
+                    self._model_config.update({'tokenizer':os.path.dirname(self.model_path)})
+                if 'hf_config_path' not in self._model_config.keys():
+                    self._model_config.update({'hf_config_path':os.path.dirname(self.model_path)})
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
@@ -938,7 +948,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "ggufv2"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -954,6 +964,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False
+        if llm_spec.model_format == "ggufv2":
+            if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
+                return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
