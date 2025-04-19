@@ -210,8 +210,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "top_n": top_n,
             "max_chunks_per_doc": max_chunks_per_doc,
             "return_documents": return_documents,
-            "return_len": return_len,
-            "kwargs": json.dumps(kwargs),
+            "return_len": return_len
         }
         request_body.update(kwargs)
         response = requests.post(url, json=request_body, headers=self.auth_headers)
