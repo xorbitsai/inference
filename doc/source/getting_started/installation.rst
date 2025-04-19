@@ -89,17 +89,12 @@ and will be the sole backend for llama.cpp in the future.
 
 .. note::
 
-    ``llama-cpp-python`` is the default option for llama.cpp backend.
-    To enable xllamacpp, add environment variable ``USE_XLLAMACPP=1``.
-
-    e.g. Starting local Xinference via
-
-    ``USE_XLLAMACPP=1 xinference-local``
+    ``xllamacpp`` is the default option for llama.cpp backend since v1.5.0.
+    To enable ``llama-cpp-python``, add environment variable ``USE_XLLAMACPP=0``.
 
 .. warning::
 
-    For upcoming Xinference v1.5.0,
-    ``xllamacpp`` will become default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
+    Since Xinference v1.5.0, ``llama-cpp-python`` will be deprecated.
     For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
 
 Initial setup::
@@ -112,9 +107,13 @@ Installation instructions for ``xllamacpp``:
 
    pip install -U xllamacpp
 
-- Cuda::
+- CUDA::
 
    pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124
+
+- HIP::
+
+   pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/rocm-6.0.2
 
 Hardware-Specific installations for ``llama-cpp-python``:
 
