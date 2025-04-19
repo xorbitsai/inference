@@ -35,6 +35,8 @@ The following is a list of built-in audio models in Xinference:
   
    kokoro-82m
   
+   megatts3
+  
    melotts-chinese
   
    melotts-english
@@ -50,6 +52,8 @@ The following is a list of built-in audio models in Xinference:
    melotts-korean
   
    melotts-spanish
+  
+   paraformer-zh
   
    sensevoicesmall
   

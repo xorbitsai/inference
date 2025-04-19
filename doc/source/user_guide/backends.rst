@@ -17,8 +17,8 @@ the LLaMA series models and their variants.
 
 .. warning::
 
-    For upcoming Xinference v1.5.0,
-    ``xllamacpp`` will become default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
+    Since Xinference v1.5.0,
+    ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
     For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
 
 For `llama-cpp-python`, we recommend that users install  on the worker themselves and adjust the `cmake`

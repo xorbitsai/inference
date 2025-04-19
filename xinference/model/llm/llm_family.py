@@ -36,6 +36,7 @@ from ...constants import (
     XINFERENCE_ENV_CSG_TOKEN,
     XINFERENCE_MODEL_DIR,
 )
+from ..core import VirtualEnvSettings
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     create_symlink,
@@ -134,7 +135,9 @@ class LLMFamilyV1(BaseModel):
     model_name: str
     model_lang: List[str]
     model_ability: List[
-        Literal["embed", "generate", "chat", "tools", "vision", "audio", "reasoning"]
+        Literal[
+            "embed", "generate", "chat", "tools", "vision", "audio", "omni", "reasoning"
+        ]
     ]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
@@ -145,6 +148,7 @@ class LLMFamilyV1(BaseModel):
     stop: Optional[List[str]]
     reasoning_start_tag: Optional[str]
     reasoning_end_tag: Optional[str]
+    virtualenv: Optional[VirtualEnvSettings]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):

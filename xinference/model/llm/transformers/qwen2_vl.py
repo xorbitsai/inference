@@ -24,6 +24,7 @@ from ....types import (
     ChatCompletionChunk,
     ChatCompletionMessage,
     CompletionChunk,
+    PytorchModelConfig,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import generate_chat_completion, generate_completion_chunk
@@ -42,6 +43,15 @@ class Qwen2VLChatModel(PytorchChatModel):
         self._model = None
         self._device = None
         self._processor = None
+
+    def _sanitize_model_config(
+        self, pytorch_model_config: Optional[PytorchModelConfig]
+    ) -> PytorchModelConfig:
+        pytorch_model_config = super()._sanitize_model_config(pytorch_model_config)
+        assert pytorch_model_config is not None
+        pytorch_model_config.setdefault("min_pixels", 256 * 28 * 28)
+        pytorch_model_config.setdefault("max_pixels", 1280 * 28 * 28)
+        return pytorch_model_config
 
     @classmethod
     def match(
@@ -71,9 +81,13 @@ class Qwen2VLChatModel(PytorchChatModel):
         self._device = device
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
-
+        min_pixels = self._pytorch_model_config.get("min_pixels")
+        max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=True,
+            min_pixels=min_pixels,
+            max_pixels=max_pixels,
         )
         self._tokenizer = self._processor.tokenizer
         flash_attn_installed = importlib.util.find_spec("flash_attn") is not None

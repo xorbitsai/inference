@@ -231,6 +231,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         driver_info: Optional[dict] = None,  # for model across workers
     ):
         super().__init__()
+
         from ..model.llm.llama_cpp.core import XllamaCppModel
         from ..model.llm.lmdeploy.core import LMDeployModel
         from ..model.llm.sglang.core import SGLANGModel

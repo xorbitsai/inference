@@ -99,7 +99,8 @@
     "confirmDeleteCacheFiles": "确认删除缓存文件吗？此操作无法恢复。",
     "commandLineTip": "请确定模型名称是否一致。",
     "featured": "推荐",
-    "all": "全部"
+    "all": "全部",
+    "cancelledSuccessfully": "取消成功!"
   },
 
   "runningModels": {
