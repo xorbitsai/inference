@@ -20,7 +20,9 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu-base.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu-ml.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu-models.txt && \
     CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install llama-cpp-python && \
     cd /opt/inference && \
     python setup.py build_web && \
