@@ -61,6 +61,8 @@ Currently, supported models include:
 - ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
 - ``fin-r1``
+- ``seallms-v3``
+- ``skywork-or1-preview``
 - ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
