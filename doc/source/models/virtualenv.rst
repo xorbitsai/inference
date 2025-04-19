@@ -65,6 +65,7 @@ Currently, this feature supports the following models:
 
 * :ref:`GOT-OCR2 <models_builtin_got-ocr2_0>`
 * :ref:`Qwen2.5-omni <models_llm_qwen2.5-omni>`
+* ... (New models since v1.5.0 will all consider to add support)
 
 Storage Location
 ################
