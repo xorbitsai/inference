@@ -21,6 +21,15 @@ Solution
 
 To address this issue, we have introduced the **Model Virtual Environment** feature.
 
+Install requirements for this functionality via
+
+.. code-block:: bash
+
+    # all
+    pip install 'xinference[all]'
+    # or virtualenv
+    pip install 'xinference[virtualenv]'
+
 Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``.
 
 Example usage:
@@ -36,6 +45,8 @@ Example usage:
 .. warning::
 
   This feature requires internet access or a self-hosted PyPI mirror.
+
+  Xinference will by default inherit the config for current pip.
 
 .. note::
 
