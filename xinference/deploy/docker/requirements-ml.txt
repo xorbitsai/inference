@@ -1,3 +1,4 @@
+uv
 transformers>=4.46.0
 accelerate>=0.28.0
 sentencepiece

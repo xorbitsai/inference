@@ -40,3 +40,4 @@ natsort  # For Fish Speech
 ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 silero-vad  # For Fish Speech
+qwen_omni_utils  # For qwen2.5-omni
