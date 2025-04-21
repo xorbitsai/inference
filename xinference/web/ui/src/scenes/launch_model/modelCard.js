@@ -1327,7 +1327,7 @@ const ModelCard = ({
                       {t('launchModel.modelEngine')}
                     </InputLabel>
                     <Select
-                      className='textHighlight'
+                      className="textHighlight"
                       labelId="modelEngine-label"
                       value={modelEngine}
                       onChange={(e) => setModelEngine(e.target.value)}
@@ -1369,7 +1369,7 @@ const ModelCard = ({
                       {t('launchModel.modelFormat')}
                     </InputLabel>
                     <Select
-                      className='textHighlight'
+                      className="textHighlight"
                       labelId="modelFormat-label"
                       value={modelFormat}
                       onChange={(e) => setModelFormat(e.target.value)}
@@ -1406,7 +1406,7 @@ const ModelCard = ({
                       {t('launchModel.modelSize')}
                     </InputLabel>
                     <Select
-                      className='textHighlight'
+                      className="textHighlight"
                       labelId="modelSize-label"
                       value={modelSize}
                       onChange={(e) => setModelSize(e.target.value)}
@@ -1444,7 +1444,7 @@ const ModelCard = ({
                       {t('launchModel.quantization')}
                     </InputLabel>
                     <Select
-                      className='textHighlight'
+                      className="textHighlight"
                       labelId="quantization-label"
                       value={quantization}
                       onChange={(e) => setQuantization(e.target.value)}
@@ -1496,7 +1496,7 @@ const ModelCard = ({
                       )}
                     </InputLabel>
                     <Select
-                      className='textHighlight'
+                      className="textHighlight"
                       labelId="n-gpu-label"
                       value={nGPU}
                       onChange={(e) => setNGPU(e.target.value)}
@@ -1520,7 +1520,7 @@ const ModelCard = ({
                   {(modelFormat === 'ggufv2' || modelFormat === 'ggmlv3') && (
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
-                        className='textHighlight'
+                        className="textHighlight"
                         disabled={!modelFormat || !modelSize || !quantization}
                         type="number"
                         label={t('launchModel.nGpuLayers')}
@@ -1540,7 +1540,7 @@ const ModelCard = ({
                 <Grid item xs={12}>
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
-                      className='textHighlight'
+                      className="textHighlight"
                       disabled={!modelFormat || !modelSize || !quantization}
                       type="number"
                       InputProps={{
@@ -1583,7 +1583,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
-                        className='textHighlight'
+                        className="textHighlight"
                         variant="outlined"
                         value={modelUID}
                         label={t('launchModel.modelUID.optional')}
@@ -1594,7 +1594,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
-                        className='textHighlight'
+                        className="textHighlight"
                         value={requestLimits}
                         label={t('launchModel.requestLimits.optional')}
                         onChange={(e) => {
@@ -1622,7 +1622,7 @@ const ModelCard = ({
                     {enginesWithNWorker.includes(modelEngine) && (
                       <FormControl variant="outlined" margin="normal" fullWidth>
                         <TextField
-                          className='textHighlight'
+                          className="textHighlight"
                           type="number"
                           InputProps={{
                             inputProps: {
@@ -1641,7 +1641,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
-                        className='textHighlight'
+                        className="textHighlight"
                         variant="outlined"
                         value={workerIp}
                         label={t('launchModel.workerIp.optional')}
@@ -1652,7 +1652,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
-                        className='textHighlight'
+                        className="textHighlight"
                         value={GPUIdx}
                         label={t('launchModel.GPUIdx.optional')}
                         onChange={(e) => {
@@ -1680,7 +1680,7 @@ const ModelCard = ({
                         {t('launchModel.downloadHub.optional')}
                       </InputLabel>
                       <Select
-                        className='textHighlight'
+                        className="textHighlight"
                         labelId="download_hub-label"
                         value={downloadHub}
                         onChange={(e) => {
@@ -1717,7 +1717,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
-                        className='textHighlight'
+                        className="textHighlight"
                         variant="outlined"
                         value={modelPath}
                         label={t('launchModel.modelPath.optional')}
@@ -1786,14 +1786,14 @@ const ModelCard = ({
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <TextField
-                  className='textHighlight'
+                  className="textHighlight"
                   variant="outlined"
                   value={modelUID}
                   label={t('launchModel.modelUID.optional')}
                   onChange={(e) => setModelUID(e.target.value)}
                 />
                 <TextField
-                  className='textHighlight'
+                  className="textHighlight"
                   style={{ marginTop: '25px' }}
                   type="number"
                   InputProps={{
@@ -1810,7 +1810,7 @@ const ModelCard = ({
                     {t('launchModel.device')}
                   </InputLabel>
                   <Select
-                    className='textHighlight'
+                    className="textHighlight"
                     labelId="n-gpu-label"
                     value={nGpu}
                     onChange={(e) => setNGpu(e.target.value)}
@@ -1828,7 +1828,7 @@ const ModelCard = ({
                 {nGpu === 'GPU' && (
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
-                      className='textHighlight'
+                      className="textHighlight"
                       value={GPUIdx}
                       label={t('launchModel.GPUIdx')}
                       onChange={(e) => {
@@ -1852,7 +1852,7 @@ const ModelCard = ({
                 )}
                 <FormControl variant="outlined" margin="normal" fullWidth>
                   <TextField
-                    className='textHighlight'
+                    className="textHighlight"
                     variant="outlined"
                     value={workerIp}
                     label={t('launchModel.workerIp')}
@@ -1864,7 +1864,7 @@ const ModelCard = ({
                     {t('launchModel.downloadHub.optional')}
                   </InputLabel>
                   <Select
-                    className='textHighlight'
+                    className="textHighlight"
                     labelId="download_hub-label"
                     value={downloadHub}
                     onChange={(e) => {
@@ -1887,7 +1887,7 @@ const ModelCard = ({
                 </FormControl>
                 <FormControl variant="outlined" margin="normal" fullWidth>
                   <TextField
-                    className='textHighlight'
+                    className="textHighlight"
                     variant="outlined"
                     value={modelPath}
                     label={t('launchModel.modelPath.optional')}
@@ -1900,7 +1900,7 @@ const ModelCard = ({
                       {t('launchModel.GGUFQuantization.optional')}
                     </InputLabel>
                     <Select
-                      className='textHighlight'
+                      className="textHighlight"
                       labelId="gguf_quantizations-label"
                       value={ggufQuantizations}
                       onChange={(e) => {
@@ -1923,7 +1923,7 @@ const ModelCard = ({
                 {modelData.gguf_quantizations && (
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
-                      className='textHighlight'
+                      className="textHighlight"
                       variant="outlined"
                       value={ggufModelPath}
                       label={t('launchModel.GGUFModelPath.optional')}
