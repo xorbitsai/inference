@@ -442,6 +442,7 @@ const ModelCard = ({
           setIsCallingApi(false)
           stopPolling()
           setIsShowProgress(false)
+          setIsShowCancel(false)
           setIsLoading(false)
         })
       startPolling()
