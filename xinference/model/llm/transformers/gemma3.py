@@ -128,7 +128,12 @@ class Gemma3ChatModel(PytorchChatModel):
         ).to(self._device)
         input_len = inputs["input_ids"].shape[-1]
 
-        generation = self._model.generate(**inputs, do_sample=False)
+        generation = self._model.generate(
+            **inputs,
+            do_sample=False,
+            max_new_tokens=config.get("max_tokens", 512),
+            temperature=config.get("temperature", 1),
+        )
         generation = generation[0][input_len:]
 
         decoded = self._processor.decode(generation, skip_special_tokens=True)
@@ -159,7 +164,11 @@ class Gemma3ChatModel(PytorchChatModel):
 
         def model_generate():
             try:
-                return self._model.generate(**gen_kwargs)
+                return self._model.generate(
+                    **gen_kwargs,
+                    max_new_tokens=config.get("max_tokens", 512),
+                    temperature=config.get("temperature", 1),
+                )
             except Exception:
                 nonlocal error
                 error = sys.exc_info()
