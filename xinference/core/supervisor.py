@@ -1356,7 +1356,12 @@ class SupervisorActor(xo.StatelessActor):
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
-        info = self._model_uid_to_replica_info[model_uid]
+        try:
+            info = self._model_uid_to_replica_info[model_uid]
+        except KeyError:
+            # Not launched perhaps, just return 0.0 to prevent error
+            return 0.0
+
         all_progress = 0.0
         i = 0
         for rep_model_uid in iter_replica_model_uid(model_uid, info.replica):
@@ -1370,7 +1375,11 @@ class SupervisorActor(xo.StatelessActor):
         return all_progress / i if i > 0 else 0.0
 
     async def cancel_launch_builtin_model(self, model_uid: str):
-        info = self._model_uid_to_replica_info[model_uid]
+        try:
+            info = self._model_uid_to_replica_info[model_uid]
+        except KeyError:
+            raise RuntimeError(f"Model {model_uid} has not been launched yet")
+
         coros = []
         for i, rep_model_uid in enumerate(
             iter_replica_model_uid(model_uid, info.replica)
