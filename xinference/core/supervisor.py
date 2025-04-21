@@ -1378,7 +1378,7 @@ class SupervisorActor(xo.StatelessActor):
         try:
             info = self._model_uid_to_replica_info[model_uid]
         except KeyError:
-            raise RuntimeError(f"Model {model_uid} has not bee launched yet")
+            raise RuntimeError(f"Model {model_uid} has not been launched yet")
 
         coros = []
         for i, rep_model_uid in enumerate(
