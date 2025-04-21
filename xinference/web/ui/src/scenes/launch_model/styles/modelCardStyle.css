@@ -218,3 +218,12 @@
 .drawer.open .drawer-content {
   transform: translateX(0);
 }
+.textHighlight .css-11u53oe-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
+  color: #1976d2;
+}
+.textHighlight .css-1t8l2tu-MuiInputBase-input-MuiOutlinedInput-input {
+  color: #1976d2;
+}
+.textHighlight .css-nxo287-MuiInputBase-input-MuiOutlinedInput-input {
+  color: #1976d2;
+}

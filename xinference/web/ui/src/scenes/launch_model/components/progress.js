@@ -1,15 +1,12 @@
-import MobileStepper from '@mui/material/MobileStepper'
+import LinearProgress from '@mui/material/LinearProgress'
 import React from 'react'
 
 const Progress = ({ progress }) => {
-  console.log('progress', progress)
   return (
-    <div>
-      <MobileStepper
-        variant="progress"
-        steps={100}
-        position="static"
-        activeStep={progress * 100}
+    <div style={{marginBottom: 10}}>
+      <LinearProgress
+        variant="determinate"
+        value={progress * 100}
       />
     </div>
   )
