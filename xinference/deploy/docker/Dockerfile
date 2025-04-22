@@ -6,7 +6,7 @@ WORKDIR /opt/inference
 ENV NVM_DIR=/usr/local/nvm
 ENV NODE_VERSION=14.21.1
 
-# 安装系统依赖和 Node.js       (libfst-dev应该能解决pyini的错)
+# Install system dependencies and Node.js (libfst-dev should be able to solve the errors of pyini)
 RUN apt-get -y update \
   && apt install -y wget curl procps git libgl1 libfst-dev cmake libssl-dev \
   && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
@@ -29,7 +29,7 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
 ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
 
-# 安装 pip 依赖
+# Install pip dependencies
 ARG LLAMA_CPP_USE_CUDA=true
 ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
@@ -61,14 +61,14 @@ RUN apt-get install -y wget && \
     bash Miniforge3.sh -b -p /opt/conda && \
     rm Miniforge3.sh
 
-# 安装 Conda 环境，只安装 FFmpeg，避免修改系统 Python
+# When installing the Conda environment, only FFmpeg should be installed to avoid modifying the system Python
 RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
-    # 创建软链接到系统路径
+    #Create a soft link to the system path
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
-    # 清理 Conda 缓存
+    # Clear the Conda cache
     /opt/conda/bin/conda clean --all -y
 
-# 覆盖 vllm 基础镜像的默认 entrypoint
+# Override the default entrypoint of the vllm base image
 ENTRYPOINT []
 CMD ["/bin/bash"]
