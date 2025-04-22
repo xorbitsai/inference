@@ -888,7 +888,6 @@ const ModelCard = ({
           <Chip
             key={v}
             label={v}
-            variant="outlined"
             size="small"
             onClick={(e) => {
               e.stopPropagation()
@@ -900,7 +899,6 @@ const ModelCard = ({
       return (
         <Chip
           label={modelData.model_ability}
-          variant="outlined"
           size="small"
           onClick={(e) => {
             e.stopPropagation()
