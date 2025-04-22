@@ -1,14 +1,14 @@
-FROM vllm/vllm-openai:v0.6.0
+FROM vllm/vllm-openai:latest
 
 COPY . /opt/inference
 WORKDIR /opt/inference
 
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 14.21.1
+ENV NVM_DIR=/usr/local/nvm
+ENV NODE_VERSION=14.21.1
 
+# 安装系统依赖和 Node.js       (libfst-dev应该能解决pyini的错)
 RUN apt-get -y update \
-  && apt install -y wget curl procps git libgl1 \
-  # upgrade libstdc++ and libc for llama-cpp-python
+  && apt install -y wget curl procps git libgl1 libfst-dev cmake libssl-dev \
   && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
   && apt-get -y update \
   && apt-get install -y --only-upgrade libstdc++6 && apt install -y libc6 libnuma1 \
@@ -29,6 +29,8 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
 ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
 
+# 安装 pip 依赖
+ARG LLAMA_CPP_USE_CUDA=true
 ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
@@ -59,11 +61,14 @@ RUN apt-get install -y wget && \
     bash Miniforge3.sh -b -p /opt/conda && \
     rm Miniforge3.sh
 
+# 安装 Conda 环境，只安装 FFmpeg，避免修改系统 Python
 RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
+    # 创建软链接到系统路径
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
+    # 清理 Conda 缓存
     /opt/conda/bin/conda clean --all -y
 
-# Overwrite the entrypoint of vllm's base image
+# 覆盖 vllm 基础镜像的默认 entrypoint
 ENTRYPOINT []
 CMD ["/bin/bash"]
