@@ -218,3 +218,9 @@
 .drawer.open .drawer-content {
   transform: translateX(0);
 }
+.textHighlight .MuiSelect-select {
+  color: #1976d2;
+}
+.textHighlight .MuiInputBase-input {
+  color: #1976d2;
+}
