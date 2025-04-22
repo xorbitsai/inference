@@ -99,7 +99,8 @@
     "confirmDeleteCacheFiles": "Confirm deletion of cache files? This action is irreversible.",
     "commandLineTip": "Please confirm whether the model names are consistent.",
     "featured": "featured",
-    "all": "all"
+    "all": "all",
+    "cancelledSuccessfully": "Cancelled Successfully!"
   },
 
   "runningModels": {

@@ -8,6 +8,7 @@ export const ApiContextProvider = ({ children }) => {
   const [isCallingApi, setIsCallingApi] = useState(false)
   const [isUpdatingModel, setIsUpdatingModel] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
   const endPoint = getEndpoint()
 
   return (
@@ -20,6 +21,8 @@ export const ApiContextProvider = ({ children }) => {
         endPoint,
         errorMsg,
         setErrorMsg,
+        successMsg,
+        setSuccessMsg,
       }}
     >
       {children}

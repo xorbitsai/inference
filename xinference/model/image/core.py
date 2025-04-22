@@ -21,7 +21,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import PeftModelConfig
-from ..core import CacheableModelSpec, ModelDescription
+from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     retry_download,
@@ -59,6 +59,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     gguf_model_id: Optional[str]
     gguf_quantizations: Optional[List[str]]
     gguf_model_file_name_template: Optional[str]
+    virtualenv: Optional[VirtualEnvSettings]
 
 
 class ImageModelDescription(ModelDescription):
@@ -71,6 +72,10 @@ class ImageModelDescription(ModelDescription):
     ):
         super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
+
+    @property
+    def spec(self):
+        return self._model_spec
 
     def to_dict(self):
         if self._model_spec.controlnet is not None:

@@ -22,6 +22,7 @@ RUN apt-get -y update \
 
 ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
+ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
 
 # Install pip dependencies
 ARG LLAMA_CPP_USE_CUDA=true
@@ -37,6 +38,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
         echo "⚙️ Using CPU version llama-cpp-python..." && \
         pip install "llama-cpp-python>=0.2.82" -i "$PIP_INDEX";  \
     fi && \
+    pip install flash-attn --no-build-isolation && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \

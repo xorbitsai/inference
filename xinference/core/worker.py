@@ -22,7 +22,7 @@ import signal
 import threading
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
@@ -45,21 +45,28 @@ from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DISABLE_METRICS,
+    XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_VIRTUAL_ENV_DIR,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
-from ..model.core import ModelDescription, create_model_instance
+from ..model.core import ModelDescription, VirtualEnvSettings, create_model_instance
 from ..model.utils import CancellableDownloader
 from ..types import PeftModelConfig
-from ..utils import get_real_path
+from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+
+try:
+    from xoscar.virtualenv import VirtualEnvManager
+except ImportError:
+    VirtualEnvManager = None
 
 if TYPE_CHECKING:
     from .progress_tracker import Progressor
@@ -82,6 +89,9 @@ class ModelStatus:
 
 @dataclass
 class LaunchInfo:
+    cancel_event: threading.Event = field(default_factory=threading.Event)
+    # virtualenv manager
+    virtual_env_manager: Optional["VirtualEnvManager"] = None
     # downloader, report progress or cancel entire download
     downloader: Optional[CancellableDownloader] = None
     # sub pools created for the model
@@ -573,8 +583,9 @@ class WorkerActor(xo.StatelessActor):
         model_type: Optional[str] = None,
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
+        env: Optional[Dict[str, str]] = None,
     ) -> Tuple[str, List[str]]:
-        env = {}
+        env = {} if env is None else env
         devices = []
         env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
         if gpu_idx is None:
@@ -803,6 +814,67 @@ class WorkerActor(xo.StatelessActor):
                 version_info["model_file_location"],
             )
 
+    @classmethod
+    def _create_virtual_env_manager(
+        cls,
+        enable_virtual_env: Optional[bool],
+        virtual_env_name: Optional[str],
+        env_path: str,
+    ) -> Optional[VirtualEnvManager]:
+        if enable_virtual_env is None:
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        if not enable_virtual_env:
+            # skip preparing virtualenv
+            return None
+
+        from xoscar.virtualenv import get_virtual_env_manager
+
+        virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
+            virtual_env_name or "uv", env_path
+        )
+        return virtual_env_manager
+
+    @classmethod
+    def _prepare_virtual_env(
+        cls,
+        virtual_env_manager: "VirtualEnvManager",
+        settings: Optional[VirtualEnvSettings],
+    ):
+        if not settings or not settings.packages:
+            # no settings or no packages
+            return
+
+        # create env
+        virtual_env_manager.create_env()
+
+        if settings.inherit_pip_config:
+            # inherit pip config
+            pip_config = get_pip_config_args()
+            for k, v in pip_config.items():
+                if hasattr(settings, k) and not getattr(settings, k):
+                    setattr(settings, k, v)
+
+        packages = settings.packages
+        index_url = settings.index_url
+        extra_index_url = settings.extra_index_url
+        find_links = settings.find_links
+        trusted_host = settings.trusted_host
+
+        logger.info(
+            "Installing packages %s in virtual env %s, with settings(index_url=%s)",
+            packages,
+            virtual_env_manager.env_path,
+            index_url,
+        )
+        virtual_env_manager.install_packages(
+            packages,
+            index_url=index_url,
+            extra_index_url=extra_index_url,
+            find_links=find_links,
+            trusted_host=trusted_host,
+        )
+
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
 
@@ -818,6 +890,7 @@ class WorkerActor(xo.StatelessActor):
             asyncio.get_running_loop(),
         )
         await progressor.start()
+        progressor.set_progress(0.0, "start to launch model")
         return progressor
 
     @classmethod
@@ -924,9 +997,26 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
-            request_id = "launching-" + model_uid
+
+            # virtualenv
+            enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+            virtual_env_name = kwargs.pop("virtual_env_name", None)
+            virtual_env_path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
+            virtual_env_manager = await asyncio.to_thread(
+                self._create_virtual_env_manager,
+                enable_virtual_env,
+                virtual_env_name,
+                virtual_env_path,
+            )
+            # setting os.environ if virtualenv created
+            env = (
+                {"PYTHONPATH": virtual_env_manager.get_lib_path()}
+                if virtual_env_manager
+                else None
+            )
+
             subpool_address, devices = await self._create_subpool(
-                model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
+                model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx, env=env
             )
             all_subpool_addresses = [subpool_address]
             try:
@@ -945,9 +1035,12 @@ class WorkerActor(xo.StatelessActor):
                             driver_info=driver_info,
                         )
                     )
-                with CancellableDownloader() as downloader:
+
+                with CancellableDownloader(
+                    cancelled_event=launch_info.cancel_event
+                ) as downloader:
                     launch_info.downloader = downloader
-                    progressor = await self._get_progressor(request_id)
+                    progressor = await self._get_progressor("launching-" + model_uid)
                     # split into download and launch
                     progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
                     with progressor:
@@ -973,6 +1066,31 @@ class WorkerActor(xo.StatelessActor):
                             **model_kwargs,
                         )
                     await self.update_cache_status(model_name, model_description)
+
+                def check_cancel():
+                    # check downloader first, sometimes download finished
+                    # cancelled already
+                    if downloader.cancelled:
+                        with progressor:
+                            # just report progress
+                            pass
+                        downloader.raise_error(error_msg="Launch cancelled")
+
+                # check cancel before prepare virtual env
+                check_cancel()
+
+                # install packages in virtual env
+                if virtual_env_manager:
+                    await asyncio.to_thread(
+                        self._prepare_virtual_env,
+                        virtual_env_manager,
+                        model_description.spec.virtualenv,
+                    )
+                    launch_info.virtual_env_manager = virtual_env_manager
+
+                # check before creating model actor
+                check_cancel()
+
                 model_ref = await xo.create_actor(
                     ModelActor,
                     address=subpool_address,
@@ -1004,16 +1122,28 @@ class WorkerActor(xo.StatelessActor):
                     pool_addresses = await asyncio.gather(*coros)
                     all_subpool_addresses.extend(pool_addresses)
                     await model_ref.set_pool_addresses(pool_addresses)
+
+                # check before loading
+                check_cancel()
+
                 # set all subpool addresses
                 # when cancelled, all subpool addresses need to be destroyed
                 launch_info.sub_pools = all_subpool_addresses
+
                 with progressor:
-                    await model_ref.load()
+                    try:
+                        await model_ref.load()
+                    except xo.ServerClosed:
+                        check_cancel()
+                        raise
             except:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
                 for addr in all_subpool_addresses:
-                    await self._main_pool.remove_sub_pool(addr)
+                    try:
+                        await self._main_pool.remove_sub_pool(addr)
+                    except KeyError:
+                        continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_description
@@ -1051,9 +1181,20 @@ class WorkerActor(xo.StatelessActor):
     async def cancel_launch_model(self, model_uid: str):
         try:
             launch_info = self._model_uid_launching_guard[model_uid]
+
+            # downloader shared same cancel event
+            # sometimes cancel happens very early before downloader
+            # even if users cancel at this time,
+            # downloader will know and stop everything
+            launch_info.cancel_event.set()
+
             if launch_info.downloader:
+                logger.debug("Try to cancel download, %s")
                 launch_info.downloader.cancel()
+            if launch_info.virtual_env_manager:
+                launch_info.virtual_env_manager.cancel_install()
             if launch_info.sub_pools:
+                logger.debug("Try to stop sub pools: %s", launch_info.sub_pools)
                 coros = []
                 for addr in launch_info.sub_pools:
                     coros.append(self._main_pool.remove_sub_pool(addr, force=True))
@@ -1064,6 +1205,7 @@ class WorkerActor(xo.StatelessActor):
                     {"status": LaunchStatus.ERROR.name},
                 )
         except KeyError:
+            logger.error("Fail to cancel launching", exc_info=True)
             raise RuntimeError(
                 "Model is not launching, may have launched or not launched yet"
             )

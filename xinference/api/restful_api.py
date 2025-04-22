@@ -56,6 +56,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
+    XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
@@ -1044,6 +1045,10 @@ class RESTfulAPI(CancelMixin):
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
             raise HTTPException(status_code=503, detail=str(re))
+        except asyncio.CancelledError as ce:
+            # cancelled by user
+            logger.error(str(ce), exc_info=True)
+            raise HTTPException(status_code=499, detail=str(ce))
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -1334,7 +1339,9 @@ class RESTfulAPI(CancelMixin):
                 finally:
                     await model.decrease_serve_count()
 
-            return EventSourceResponse(stream_results())
+            return EventSourceResponse(
+                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            )
         else:
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
@@ -1602,7 +1609,9 @@ class RESTfulAPI(CancelMixin):
                         await model.decrease_serve_count()
 
                 return EventSourceResponse(
-                    media_type="application/octet-stream", content=stream_results()
+                    media_type="application/octet-stream",
+                    content=stream_results(),
+                    ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                 )
             else:
                 return Response(media_type="application/octet-stream", content=out)
@@ -2118,7 +2127,9 @@ class RESTfulAPI(CancelMixin):
                 finally:
                     await model.decrease_serve_count()
 
-            return EventSourceResponse(stream_results())
+            return EventSourceResponse(
+                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            )
         else:
             try:
                 data = await model.chat(

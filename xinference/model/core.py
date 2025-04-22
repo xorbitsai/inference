@@ -30,6 +30,11 @@ class ModelDescription(ABC):
         self.devices = devices
         self._model_path = model_path
 
+    @property
+    @abstractmethod
+    def spec(self):
+        pass
+
     def to_dict(self):
         """
         Return a dict to describe some information about model.
@@ -155,3 +160,12 @@ class CacheableModelSpec(BaseModel):
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
+
+
+class VirtualEnvSettings(BaseModel):
+    packages: List[str]
+    inherit_pip_config: bool = True
+    index_url: Optional[str] = None
+    extra_index_url: Optional[str] = None
+    find_links: Optional[str] = None
+    trusted_host: Optional[str] = None
