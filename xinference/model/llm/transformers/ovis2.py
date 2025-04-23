@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
 import torch
+from PIL import Image
 
 from ....types import (
     ChatCompletion,
@@ -23,13 +25,9 @@ from ....types import (
     CompletionChunk,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import generate_chat_completion
+from ..utils import generate_chat_completion, generate_completion_chunk
 from .core import PytorchChatModel, PytorchGenerateConfig
 from .utils import cache_clean
-from ..utils import (
-    generate_chat_completion,
-    generate_completion_chunk,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +77,7 @@ class Ovis2ChatModel(PytorchChatModel):
         stream = generate_config.get("stream", False) if generate_config else False
 
         if stream:
-            raise NotImplementedError("Stream is not supported for Ovis2 model.")
+            # raise NotImplementedError("Stream is not supported for Ovis2 model.")
             it = self._generate_stream(messages, generate_config)
             return self._to_chat_completion_chunks(it)
         else:
@@ -89,6 +87,115 @@ class Ovis2ChatModel(PytorchChatModel):
     def _generate(
         self, messages: List, config: PytorchGenerateConfig = {}
     ) -> ChatCompletion:
+        input_ids, attention_mask, pixel_values, gen_kwargs = self._generate_chat_data(
+            messages, config
+        )
+
+        # generate output
+        with torch.inference_mode():
+            gen_kwargs.update(
+                dict(
+                    pixel_values=pixel_values,
+                    attention_mask=attention_mask,
+                )
+            )
+
+            output_ids = self._model.generate(
+                input_ids,
+                **gen_kwargs,
+            )[0]
+            output = self._text_tokenizer.decode(output_ids, skip_special_tokens=True)
+        return generate_chat_completion(self.model_uid, output)
+
+    def _generate_stream(
+        self, messages: List, config: PytorchGenerateConfig = {}
+    ) -> Iterator[CompletionChunk]:
+        from threading import Thread
+
+        from transformers import TextIteratorStreamer
+
+        input_ids, attention_mask, pixel_values, gen_kwargs = self._generate_chat_data(
+            messages, config
+        )
+
+        _, inputs_embeds, _, attention_mask = self._model.merge_multimodal(
+            text_input_ids=input_ids,
+            text_attention_masks=attention_mask,
+            text_labels=None,
+            pixel_values=pixel_values,
+            left_padding=True,
+        )
+
+        streamer = TextIteratorStreamer(
+            self._text_tokenizer, timeout=60, skip_prompt=True, skip_special_tokens=True
+        )
+
+        gen_kwargs.update(
+            dict(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                streamer=streamer,
+            )
+        )
+
+        inputs_embeds = inputs_embeds.detach()
+        torch.cuda.empty_cache()
+
+        # 在单独的线程中运行生成过程
+        thread = Thread(target=self._model.llm.generate, kwargs=gen_kwargs)
+        thread.start()
+
+        # 生成唯一的完成ID
+        completion_id = str(uuid.uuid1())
+
+        # 迭代输出生成的文本块
+        for new_text in streamer:
+            yield generate_completion_chunk(
+                chunk_text=new_text,
+                finish_reason=None,
+                chunk_id=completion_id,
+                model_uid=self.model_uid,
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
+                has_choice=True,
+                has_content=True,
+            )
+
+        # 输出最终的完成块，表示生成已完成
+        yield generate_completion_chunk(
+            chunk_text=None,
+            finish_reason="stop",
+            chunk_id=completion_id,
+            model_uid=self.model_uid,
+            prompt_tokens=-1,
+            completion_tokens=-1,
+            total_tokens=-1,
+            has_choice=True,
+            has_content=False,
+        )
+
+    def parse_messages_ovis(self, messages: List[Dict]) -> List[Dict]:
+        ovis_msgs = []
+        for mess in messages:
+            contents = mess["content"]
+            role = mess["role"]
+            if role == "user":
+                role = "human"
+            elif role == "assistant":
+                role = "gpt"
+            elif role == "system":
+                role = "system"
+
+            for content in contents:
+                if content["type"] == "text":
+                    ovis_msgs.append({"from": role, "value": content["text"]})
+
+        return ovis_msgs
+
+    def _generate_chat_data(
+        self, messages: List[Dict], config: PytorchGenerateConfig = {}
+    ):
         from qwen_vl_utils import process_vision_info
 
         messages_ovis = self.parse_messages_ovis(messages)
@@ -114,7 +221,14 @@ class Ovis2ChatModel(PytorchChatModel):
                     + prompt
                 )
         elif video_inputs and len(video_inputs) > 0:
+            if isinstance(video_inputs[0], torch.Tensor):
+                # Convert from list[Tensor] to list[Image]
+                pil_images = self._convert_video_tensors_to_pil(video_inputs)
+
+                video_inputs = pil_images  # Update video_inputs to PIL image list
+
             max_partition = 1
+            image_inputs = video_inputs
             prompt = "\n".join(["<image>"] * len(video_inputs)) + "\n" + prompt
         else:
             max_partition = 0
@@ -122,14 +236,10 @@ class Ovis2ChatModel(PytorchChatModel):
 
         messages_ovis[-1]["value"] = prompt
 
-        logger.info(
-            f"===[Ovis2][img cnt: {len(image_inputs)}] prompt: {prompt}, ovis_msgs: {messages_ovis}"
-        )
         # format conversation
         prompt, input_ids, pixel_values = self._model.preprocess_inputs(
             messages_ovis, image_inputs, max_partition=max_partition
         )
-        logger.info(f"===[Ovis2][preprocess_inputs] prompt: {prompt}")
 
         attention_mask = torch.ne(input_ids, self._text_tokenizer.pad_token_id)
         input_ids = input_ids.unsqueeze(0).to(device=self._model.device)
@@ -140,48 +250,58 @@ class Ovis2ChatModel(PytorchChatModel):
             )
         pixel_values = [pixel_values]
 
-        # generate output
-        with torch.inference_mode():
-            gen_kwargs = dict(
-                max_new_tokens=config.get("max_tokens", 1024),
-                do_sample=False,
-                top_p=None,
-                top_k=None,
-                temperature=config.get("temperature", None),
-                repetition_penalty=None,
-                eos_token_id=self._model.generation_config.eos_token_id,
-                pad_token_id=self._text_tokenizer.pad_token_id,
-                use_cache=True,
-            )
-            output_ids = self._model.generate(
-                input_ids,
-                pixel_values=pixel_values,
-                attention_mask=attention_mask,
-                **gen_kwargs,
-            )[0]
-            output = self._text_tokenizer.decode(output_ids, skip_special_tokens=True)
-            logger.info(f"===[Ovis2] output: {output}")
-        return generate_chat_completion(self.model_uid, output)
+        # 准备生成参数
+        gen_kwargs = dict(
+            max_new_tokens=config.get("max_tokens", 1024),
+            do_sample=False,
+            top_p=None,
+            top_k=None,
+            temperature=config.get("temperature", None),
+            repetition_penalty=None,
+            eos_token_id=self._model.generation_config.eos_token_id,
+            pad_token_id=self._text_tokenizer.pad_token_id,
+            use_cache=True,
+        )
 
-    def parse_messages_ovis(self, messages: List[Dict]) -> List[Dict]:
-        """
-        Some older models still follow the old way of parameter passing.
-        This function helps to parse out the needed information from OpenAI-compatible `messages`.
-        """
-        logger.info(f"===[Ovis2] parse_messages_ovis: {messages}")
-        ovis_msgs = []
-        for mess in messages:
-            contents = mess["content"]
-            role = mess["role"]
-            if role == "user":
-                role = "human"
-            elif role == "assistant":
-                role = "gpt"
-            elif role == "system":
-                role = "system"
+        return input_ids, attention_mask, pixel_values, gen_kwargs
 
-            for content in contents:
-                if content["type"] == "text":
-                    ovis_msgs.append({"from": role, "value": content["text"]})
+    def _convert_video_tensors_to_pil(self, video_inputs: List) -> List[Image.Image]:
+        """Convert video tensors to a list of PIL images"""
+        from torchvision import transforms
 
-        return ovis_msgs
+        to_pil = transforms.ToPILImage()
+        pil_images = []
+
+        for video_tensor_4d in video_inputs:
+            if isinstance(video_tensor_4d, torch.Tensor):
+                # Verify it's a 4D tensor
+                if video_tensor_4d.ndim == 4:
+                    # Iterate through the first dimension (frames) of 4D tensor
+                    for i in range(video_tensor_4d.size(0)):
+                        frame_tensor_3d = video_tensor_4d[
+                            i
+                        ]  # Get 3D frame tensor [C, H, W]
+                        # Ensure tensor is on CPU before conversion
+                        if frame_tensor_3d.is_cuda:
+                            frame_tensor_3d = frame_tensor_3d.cpu()
+                        try:
+                            pil_image = to_pil(frame_tensor_3d)
+                            pil_images.append(pil_image)
+                        except Exception as e:
+                            logger.error(
+                                f"Error converting frame {i} to PIL Image: {e}"
+                            )
+                            # Can choose to skip this frame or handle error differently
+                else:
+                    logger.warning(
+                        f"Expected 4D tensor in video_inputs, but got {video_tensor_4d.ndim}D. Skipping this tensor."
+                    )
+            elif isinstance(video_tensor_4d, Image.Image):
+                # If fetch_video returns Image list, add directly
+                pil_images.append(video_tensor_4d)
+            else:
+                logger.warning(
+                    f"Unexpected type in video_inputs: {type(video_tensor_4d)}. Skipping."
+                )
+
+        return pil_images
