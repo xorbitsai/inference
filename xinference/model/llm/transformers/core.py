@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 
@@ -265,46 +265,11 @@ class PytorchModel(LLM):
                     f"PEFT adaptor '{peft_model.lora_name}' successfully loaded for model '{self.model_uid}'."
                 )
 
-    def load(self):
-        import torch
-
-        num_gpus = gpu_count()
-        device = self._pytorch_model_config.get("device", "auto")
-        self._pytorch_model_config["device"] = select_device(device)
-        self._device = self._pytorch_model_config["device"]
-
-        kwargs = {}
-
-        dtype = get_device_preferred_dtype(self._device)
-
-        if dtype is not None:
-            kwargs["torch_dtype"] = dtype
-        else:
-            raise ValueError(f"Device {self._device} is not supported in temporary")
-
-        kwargs["revision"] = self._pytorch_model_config.get(
-            "revision", self.model_spec.model_revision
-        )
-        kwargs["trust_remote_code"] = self._pytorch_model_config.get(
-            "trust_remote_code"
-        )
+    def apply_bnb_quantization(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         model_format = self.model_spec.model_format
-
-        is_device_map_auto = False
-
-        # This is required for Intel GPU to actually work with accelerate device_map until
-        # https://github.com/intel/intel-extension-for-pytorch/issues/522
-        # is resolved
-        max_memory_env = os.getenv("ACCELERATE_MAX_MEMORY", None)
-
-        if max_memory_env is not None:
-            max_memory_raw = json.loads(max_memory_env)
-            max_memory = {
-                int(k) if k.isdigit() else k: max_memory_raw[k] for k in max_memory_raw
-            }
-            kwargs["max_memory"] = max_memory
-
-        # handle quantization
+        _kwargs = kwargs if kwargs is not None else {}
         if model_format == "pytorch":
             quantization_config = self._pytorch_model_config.get(
                 "quantization_config", {}
@@ -327,9 +292,49 @@ class PytorchModel(LLM):
 
                 from transformers import BitsAndBytesConfig
 
-                kwargs["quantization_config"] = BitsAndBytesConfig(
+                _kwargs["quantization_config"] = BitsAndBytesConfig(
                     **quantization_config
                 )
+        return _kwargs
+
+    def load(self):
+        num_gpus = gpu_count()
+        device = self._pytorch_model_config.get("device", "auto")
+        self._pytorch_model_config["device"] = select_device(device)
+        self._device = self._pytorch_model_config["device"]
+
+        kwargs = {}
+
+        dtype = get_device_preferred_dtype(self._device)
+
+        if dtype is not None:
+            kwargs["torch_dtype"] = dtype
+        else:
+            raise ValueError(f"Device {self._device} is not supported in temporary")
+
+        kwargs["revision"] = self._pytorch_model_config.get(
+            "revision", self.model_spec.model_revision
+        )
+        kwargs["trust_remote_code"] = self._pytorch_model_config.get(
+            "trust_remote_code"
+        )
+
+        is_device_map_auto = False
+
+        # This is required for Intel GPU to actually work with accelerate device_map until
+        # https://github.com/intel/intel-extension-for-pytorch/issues/522
+        # is resolved
+        max_memory_env = os.getenv("ACCELERATE_MAX_MEMORY", None)
+
+        if max_memory_env is not None:
+            max_memory_raw = json.loads(max_memory_env)
+            max_memory = {
+                int(k) if k.isdigit() else k: max_memory_raw[k] for k in max_memory_raw
+            }
+            kwargs["max_memory"] = max_memory
+
+        # handle bnb quantization
+        kwargs = self.apply_bnb_quantization(kwargs)
 
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})

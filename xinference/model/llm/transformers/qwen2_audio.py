@@ -58,6 +58,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
         self._device = device
+        kwargs = self.apply_bnb_quantization()
 
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
@@ -70,6 +71,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
             device_map=device,
             # trust_remote_code=True,
             revision=self.model_spec.model_revision,
+            **kwargs,
         )
 
     def _transform_messages(
