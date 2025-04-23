@@ -84,7 +84,7 @@ class WorkerWrapper:
         return await self._worker_actor_ref.execute_method(method, *args, **kwargs)
 
     def kill(self):
-        coro = xo.kill_actor(self._worker_actor_ref)
+        coro = xo.destroy_actor(self._worker_actor_ref)
         return asyncio.run_coroutine_threadsafe(coro, self._loop)
 
 
@@ -108,6 +108,7 @@ class XinferenceDistributedExecutor(DistributedExecutorBase):
         self._pool_addresses = pool_addresses
         self._loop = loop
         self._n_worker = n_worker
+        self._is_shutdown = False
         super().__init__(vllm_config, *args, **kwargs)
 
     def _init_executor(self) -> None:
@@ -247,11 +248,16 @@ class XinferenceDistributedExecutor(DistributedExecutorBase):
         return
 
     def shutdown(self) -> None:
+        if self._is_shutdown:
+            return
+
         try:
+            self._is_shutdown = True
             futs = [worker.kill() for worker in self.workers]
             _ = [fut.result() for fut in futs]
-        except (RuntimeError, ConnectionError):
+        except (RuntimeError, ConnectionError, xo.ActorNotExist):
             # event loop closed already, ignore
+            # or actor already removed
             pass
 
     def __del__(self):

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-21 16:54+0800\n"
+"POT-Creation-Date: 2025-04-03 20:25+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -29,7 +29,8 @@ msgid ""
 "too large to fit into GPus on a single machine, Xinference supported "
 "running these models across multiple machines."
 msgstr ""
-"一些语言模型，包括 **DeepSeek V3**、**DeepSeek R1** 等，体积过大，无法适配单台机器上的 GPU，Xinference 支持在多台机器上运行这些模型。"
+"一些语言模型，包括 **DeepSeek V3**、**DeepSeek R1** 等，体积过大，无法"
+"适配单台机器上的 GPU，Xinference 支持在多台机器上运行这些模型。"
 
 #: ../../source/user_guide/distributed_inference.rst:10
 msgid "This feature is added in v1.3.0."
@@ -47,13 +48,13 @@ msgstr "现在，Xinference 支持如下引擎在多台 worker 上运行模型�
 msgid ":ref:`SGLang <sglang_backend>` (supported in v1.3.0)"
 msgstr ":ref:`SGLang <sglang_backend>` （在 v1.3.0 中支持）"
 
-#: ../../source/user_guide/distributed_inference.rst:19
+#: ../../source/user_guide/distributed_inference.rst:18
+msgid ":ref:`vLLM <vllm_backend>` (supported in v1.4.1)"
+msgstr ":ref:`vLLM <vllm_backend>` （在 v1.4.1 中支持）"
+
+#: ../../source/user_guide/distributed_inference.rst:20
 msgid "Upcoming supports. Below engine will support distributed inference soon:"
 msgstr "以下引擎即将支持分布式推理："
-
-#: ../../source/user_guide/distributed_inference.rst:21
-msgid ":ref:`vLLM <vllm_backend>`"
-msgstr ""
 
 #: ../../source/user_guide/distributed_inference.rst:22
 msgid ":ref:`MLX <mlx_backend>`"
@@ -69,8 +70,9 @@ msgid ""
 " to :ref:`running Xinference in cluster <distributed_getting_started>` to"
 " create a Xinference cluster including supervisor and workers."
 msgstr ""
-"首先，您需要至少 2 个工作节点来支持分布式推理。请参考 :ref:`在集群中运行 Xinference <distributed_getting_started>` "
-"以创建包含 supervisor 节点和 worker 节点的 Xinference 集群。"
+"首先，您需要至少 2 个工作节点来支持分布式推理。请参考 :ref:`在集群中运行 "
+"Xinference <distributed_getting_started>` 以创建包含 supervisor 节点和 "
+"worker 节点的 Xinference 集群。"
 
 #: ../../source/user_guide/distributed_inference.rst:31
 msgid ""
@@ -79,13 +81,18 @@ msgid ""
 "``--n-worker <machine number>`` when launching a model. The model will be"
 " launched across multiple workers accordingly."
 msgstr ""
-"然后，如果您使用的是 Web UI，请在可选配置中选择期望的机器数量作为 ``worker count``；"
-"如果您使用的是命令行，启动模型时请添加 ``--n-worker <机器数量>``。模型将相应地在多个工作节点上启动。"
+"然后，如果您使用的是 Web UI，请在可选配置中选择期望的机器数量作为 ``"
+"worker count``；如果您使用的是命令行，启动模型时请添加 ``--n-worker <机器"
+"数量>``。模型将相应地在多个工作节点上启动。"
 
 #: ../../source/user_guide/distributed_inference.rst:39
 msgid ""
 "``GPU count`` on web UI, or ``--n-gpu`` for command line now mean GPUs "
 "count per worker if you are using distributed inference."
 msgstr ""
-"使用分布式推理时，在 Web UI 中的 ``GPU count`` 或命令行中的 ``--n-gpu`` 现在表示"
-"每个工作节点的 GPU 数量。"
+"使用分布式推理时，在 Web UI 中的 ``GPU count`` 或命令行中的 ``--n-gpu`` "
+"现在表示每个工作节点的 GPU 数量。"
+
+#~ msgid ":ref:`vLLM <vllm_backend>`"
+#~ msgstr ""
+

@@ -36,6 +36,7 @@ from ...constants import (
     XINFERENCE_ENV_CSG_TOKEN,
     XINFERENCE_MODEL_DIR,
 )
+from ..core import VirtualEnvSettings
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     create_symlink,
@@ -134,7 +135,9 @@ class LLMFamilyV1(BaseModel):
     model_name: str
     model_lang: List[str]
     model_ability: List[
-        Literal["embed", "generate", "chat", "tools", "vision", "audio", "reasoning"]
+        Literal[
+            "embed", "generate", "chat", "tools", "vision", "audio", "omni", "reasoning"
+        ]
     ]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
@@ -145,6 +148,7 @@ class LLMFamilyV1(BaseModel):
     stop: Optional[List[str]]
     reasoning_start_tag: Optional[str]
     reasoning_end_tag: Optional[str]
+    virtualenv: Optional[VirtualEnvSettings]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):
@@ -262,6 +266,25 @@ LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
+
+
+# Add decorator definition
+def register_transformer(cls):
+    """
+    Decorator function to register a class as a transformer.
+
+    This decorator appends the provided class to the TRANSFORMERS_CLASSES list.
+    It is used to keep track of classes that are considered transformers.
+
+    Args:
+        cls (class): The class to be registered as a transformer.
+
+    Returns:
+        class: The same class that was passed in, after being registered.
+    """
+    # Append the class to the list of transformer classes
+    TRANSFORMERS_CLASSES.append(cls)
+    return cls
 
 
 def download_from_self_hosted_storage() -> bool:

@@ -435,6 +435,7 @@ class SGLANGModel(LLM):
     async def async_generate(
         self,
         prompt: str,
+        *,
         image_data: Optional[Union[List[str], str]] = None,
         generate_config: Optional[SGLANGGenerateConfig] = None,
         request_id: Optional[str] = None,
@@ -565,11 +566,11 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            agen = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
-            c = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            c = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)
 
@@ -650,10 +651,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(prompt, base64_images, generate_config)  # type: ignore
+            agen = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
-            c = await self.async_generate(prompt, base64_images, generate_config)  # type: ignore
+            c = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c, self.reasoning_parser)

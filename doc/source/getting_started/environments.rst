@@ -14,6 +14,8 @@ XINFERENCE_MODEL_SRC
 Modelhub used for downloading models. Default is "huggingface", or you
 can set "modelscope" as downloading source.
 
+.. _environments_xinference_home:
+
 XINFERENCE_HOME
 ~~~~~~~~~~~~~~~~
 By default, Xinference uses ``<HOME>/.xinference`` as home path to store

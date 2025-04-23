@@ -1,7 +1,6 @@
 # required
-xoscar>=0.4.4
-gradio==4.26.0
-typer[all]<0.12.0  # fix typer required by gradio
+xoscar>=0.6.1
+gradio==5.22.0
 pillow
 click
 tqdm>=4.27
@@ -12,7 +11,7 @@ fastapi>=0.110.3
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions
-modelscope>=1.10.0
+modelscope>=1.19.0
 sse_starlette>=1.6.5  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
 openai>=1.40.0  # For typing
 python-jose[cryptography]
@@ -26,6 +25,7 @@ opencv-contrib-python-headless
 setproctitle
 
 # all
+uv
 transformers>=4.46.0
 accelerate>=0.28.0
 sentencepiece
@@ -94,15 +94,19 @@ g2p_en  # For MeloTTS
 anyascii  # For MeloTTS
 gruut[de,es,fr]  # For MeloTTS
 kokoro>=0.7.15  # Kokoro
+spacy>3.0.6
 misaki[en,ja,zh]>=0.7.15  # Kokoro
 en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl  # Kokoro misaki[en]
 en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl  # Kokoro misaki[en]
 qwen-vl-utils!=0.0.9 # For qwen2-vl
+qwen_omni_utils  # For qwen2.5-omni
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 deepcache # for sd
 verovio>=4.3.1  # For got_ocr2
 gguf
+langdetect  # MegaTTS3
+pyloudnorm  # MegaTTS3
 
 # sglang
 decord

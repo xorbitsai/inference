@@ -143,17 +143,16 @@ def _install():
         DeepSeekV2PytorchModel,
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
+    from .transformers.deepseek_vl2 import DeepSeekVL2ChatModel
     from .transformers.gemma3 import Gemma3ChatModel, Gemma3TextChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.glm_edge_v import GlmEdgeVModel
-    from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.opt import OptPytorchModel
     from .transformers.ovis2 import Ovis2ChatModel
     from .transformers.qwen2_audio import Qwen2AudioChatModel
-    from .transformers.qwen2_vl import Qwen2VLChatModel
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
@@ -184,11 +183,10 @@ def _install():
             PytorchChatModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
-            Qwen2VLChatModel,
             Qwen2AudioChatModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
-            InternVLChatModel,
+            DeepSeekVL2ChatModel,
             PytorchModel,
             CogVLM2Model,
             CogVLM2VideoModel,

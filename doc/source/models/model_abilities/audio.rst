@@ -413,7 +413,7 @@ This arguments is aligned to voice cloning of CosyVoice.
     )
 
 
-SenseVoiceSmall Offline usage
+SenseVoiceSmall Offline Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be downloaded thus network required.
@@ -425,3 +425,38 @@ Assume downloaded to ``/path/to/fsmn-vad``.
 
 Then when launching SenseVoiceSmall with Web UI, you can add an additional parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is the downloaded path.
 When launching with command line, you can add an option ``--vad_model /path/to/fsmn-vad``.
+
+
+Kokoro Usage
+~~~~~~~~~~~~
+
+The Kokoro model supports multiple languages, but the default language is English.
+If you want to use other languages, such as Chinese, you need to install additional dependency packages
+and add an additional parameter when starting the model.
+
+1. pip install misaki[zh]
+
+2. Initialize the model with the parameter lang_code='z',
+   For all available ``lang_code`` options,
+   please refer to `kokoro source code <https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_.
+   If the model is started through the web UI, an additional
+   parameter needs to be added, with the key as ``lang_code`` and the value as ``z``.
+   If the model is started through the xinference client, the parameters are passed via the launch_model interface:
+
+   .. code-block::
+
+       model_uid = client.launch_model(
+           model_name="Kokoro-82M",
+           model_type="audio",
+           compile=False,
+           download_hub="huggingface",
+           lang_code="z",
+       )
+
+3. When inferring, the voice must start with 'z', for example: ``zf_xiaoyi``.
+   The currently supported voices are: https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices. For example:
+
+   .. code-block::
+
+       input_string = "重新启动即可更新"
+       response = model.speech(input_string, voice="zf_xiaoyi")

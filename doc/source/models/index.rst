@@ -156,6 +156,12 @@ following way to free up the resources it occupies:
     client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     client.terminate_model(model_uid="<MODEL_UID>")
 
+.. note::
+
+  For models that are no longer maintained and depend on outdated libraries (such as ``transformers``),
+  we recommend enabling the :ref:`Model Virtual Environment <model_virtual_env>` feature
+  to ensure they can run properly in a compatible environment.
+
 
 Model Usage
 ============================
@@ -228,5 +234,6 @@ Model Usage
    builtin/index
    custom
    sources/sources
+   virtualenv
    lora
    model_memory
