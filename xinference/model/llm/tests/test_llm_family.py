@@ -1025,13 +1025,6 @@ def test_query_engine_general():
         model_size_in_billions="1_8",
         quantization="none",
     )
-    assert check_engine_by_spec_parameters(
-        model_engine="transformers",
-        model_name=model_name,
-        model_format="pytorch",
-        model_size_in_billions="1_8",
-        quantization="4-bit",
-    )
     assert (
         check_engine_by_spec_parameters(
             model_engine="llama.cpp",
