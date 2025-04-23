@@ -92,8 +92,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 2,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "microsoft/phi-2",
@@ -117,8 +115,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 4,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "microsoft/Phi-3-mini-128k-instruct",
@@ -126,7 +122,7 @@
       }
     ],
     "chat_template": "{% for message in messages %}{% if message['role'] == 'system' %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ '<|endoftext|>' }}{% endif %}",
-    "stop_token_ids":[
+    "stop_token_ids": [
       32000,
       32001,
       32007
@@ -163,8 +159,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 4,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "microsoft/Phi-3-mini-4k-instruct",
@@ -172,7 +166,7 @@
       }
     ],
     "chat_template": "{% for message in messages %}{% if message['role'] == 'system' %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ '<|endoftext|>' }}{% endif %}",
-    "stop_token_ids":[
+    "stop_token_ids": [
       32000,
       32001,
       32007
@@ -201,8 +195,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat-hf",
@@ -265,8 +257,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat-1m-hf",
@@ -329,8 +319,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-4v-9b",
@@ -366,8 +354,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/codegeex4-all-9b",
@@ -418,8 +404,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "xverse/XVERSE-7B-Chat",
@@ -429,8 +413,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "xverse/XVERSE-13B-Chat",
@@ -462,8 +444,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "xverse/XVERSE-7B",
@@ -473,8 +453,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "xverse/XVERSE-13B",
@@ -484,8 +462,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 65,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "xverse/XVERSE-65B",
@@ -578,8 +554,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Llama-2-7b-chat-hf",
@@ -621,8 +595,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Llama-2-13b-chat-hf",
@@ -648,8 +620,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Llama-2-70b-chat-hf",
@@ -658,7 +628,7 @@
     ],
     "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
     "stop_token_ids": [
-        2
+      2
     ],
     "stop": []
   },
@@ -763,8 +733,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Llama-2-7b-hf",
@@ -774,8 +742,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Llama-2-13b-hf",
@@ -801,8 +767,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Llama-2-70b-hf",
@@ -842,8 +806,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-8B"
@@ -874,8 +836,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-70B"
@@ -921,8 +881,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-8B-Instruct"
@@ -942,8 +900,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-70B-Instruct"
@@ -1046,8 +1002,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3.1-8B"
@@ -1078,8 +1032,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3.1-70B"
@@ -1088,8 +1040,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 405,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3.1-405B"
@@ -1142,7 +1092,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
       },
@@ -1205,7 +1155,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit"
       },
@@ -1277,8 +1227,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 405,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3.1-405B-Instruct"
@@ -1327,8 +1275,8 @@
       "th"
     ],
     "model_ability": [
-	"chat",
-	"vision"
+      "chat",
+      "vision"
     ],
     "model_description": "Llama 3.2-Vision instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image...",
     "model_specs": [
@@ -1351,14 +1299,14 @@
     ],
     "chat_template": "{% for message in messages %}{% if loop.index0 == 0 %}{{ bos_token }}{% endif %}{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' }}{% if message['content'] is string %}{{ message['content'] }}{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' %}{{ '<|image|>' }}{% elif content['type'] == 'text' %}{{ content['text'] }}{% endif %}{% endfor %}{% endif %}{{ '<|eot_id|>' }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",
     "stop_token_ids": [
-	128001,
-	128008,
-	128009
+      128001,
+      128008,
+      128009
     ],
     "stop": [
       "<|end_of_text|>",
-	"<|eot_id|>",
-	"<|eom_id|>"
+      "<|eot_id|>",
+      "<|eom_id|>"
     ]
   },
   {
@@ -1376,8 +1324,8 @@
       "th"
     ],
     "model_ability": [
-	"generate",
-	"vision"
+      "generate",
+      "vision"
     ],
     "model_description": "The Llama 3.2-Vision instruction-tuned models are optimized for visual recognition, image reasoning, captioning, and answering general questions about an image...",
     "model_specs": [
@@ -1507,8 +1455,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 1,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "facebook/opt-125m",
@@ -1551,8 +1497,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_8",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen-1_8B-Chat",
@@ -1562,8 +1506,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen-7B-Chat",
@@ -1573,8 +1515,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen-14B-Chat",
@@ -1584,8 +1524,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen-72B-Chat",
@@ -1658,8 +1596,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-0.5B-Chat"
@@ -1668,8 +1604,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_8",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-1.8B-Chat"
@@ -1678,8 +1612,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 4,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-4B-Chat"
@@ -1688,8 +1620,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-7B-Chat"
@@ -1698,8 +1628,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-14B-Chat"
@@ -1708,8 +1636,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-32B-Chat"
@@ -1718,8 +1644,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-72B-Chat"
@@ -1728,8 +1652,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 110,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-110B-Chat"
@@ -2013,8 +1935,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "2_7",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat"
@@ -2057,8 +1977,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/CodeQwen1.5-7B"
@@ -2098,8 +2016,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/CodeQwen1.5-7B-Chat"
@@ -2143,8 +2059,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2-0.5B-Instruct"
@@ -2153,8 +2067,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2-1.5B-Instruct"
@@ -2163,8 +2075,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2-7B-Instruct"
@@ -2173,8 +2083,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2-72B-Instruct"
@@ -2443,8 +2351,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2-57B-A14B-Instruct"
@@ -2537,8 +2443,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "WizardLMTeam/WizardMath-7B-V1.0",
@@ -2548,8 +2452,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "WizardLMTeam/WizardMath-70B-V1.0",
@@ -2580,8 +2482,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "TheBloke/CodeLlama-7B-fp16",
@@ -2591,8 +2491,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "TheBloke/CodeLlama-13B-fp16",
@@ -2602,8 +2500,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "TheBloke/CodeLlama-34B-fp16",
@@ -2687,8 +2583,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "TheBloke/CodeLlama-7B-Python-fp16",
@@ -2698,8 +2592,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "TheBloke/CodeLlama-13B-Python-fp16",
@@ -2709,8 +2601,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "TheBloke/CodeLlama-34B-Python-fp16",
@@ -2794,8 +2684,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "codellama/CodeLlama-7b-Instruct-hf",
@@ -2805,8 +2693,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "codellama/CodeLlama-13b-Instruct-hf",
@@ -2816,8 +2702,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "codellama/CodeLlama-34b-Instruct-hf",
@@ -2886,7 +2770,7 @@
     ],
     "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
     "stop_token_ids": [
-        2
+      2
     ],
     "stop": [
       "</s>"
@@ -2909,8 +2793,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "baichuan-inc/Baichuan2-7B-Chat",
@@ -2920,8 +2802,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "baichuan-inc/Baichuan2-13B-Chat",
@@ -2952,8 +2832,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "baichuan-inc/Baichuan2-7B-Base",
@@ -2963,8 +2841,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "baichuan-inc/Baichuan2-13B-Base",
@@ -2988,8 +2864,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mistral-7B-v0.1",
@@ -3033,8 +2907,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mistral-7B-Instruct-v0.1",
@@ -3101,8 +2973,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mistral-7B-Instruct-v0.2",
@@ -3169,8 +3039,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
@@ -3253,7 +3121,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 12,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
         "model_revision": "1d85adc9e0fff0b8e4479a037bd75fe1346333ca"
@@ -3262,7 +3130,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 12,
         "quantizations": [
-          "8-bit"
+          "none"
         ],
         "model_id": "afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit",
         "model_revision": "1d2dacf18a486c745219317d1507441406bc7e25"
@@ -3368,7 +3236,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 123,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "unsloth/Mistral-Large-Instruct-2407-bnb-4bit"
       },
@@ -3499,8 +3367,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 22,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Codestral-22B-v0.1",
@@ -3560,8 +3426,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "teknium/OpenHermes-2.5-Mistral-7B",
@@ -3650,8 +3514,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "46_7",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mixtral-8x7B-v0.1",
@@ -3703,8 +3565,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "46_7",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -3771,8 +3631,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "141",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
@@ -3921,8 +3779,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-6B",
@@ -3932,8 +3788,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-9B",
@@ -3943,8 +3797,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-34B",
@@ -3969,8 +3821,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-6B-200K",
@@ -3980,8 +3830,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-34B-200K",
@@ -4014,8 +3862,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-6B-Chat",
@@ -4025,8 +3871,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-34B-Chat",
@@ -4084,8 +3928,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-6B",
@@ -4095,8 +3937,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-9B",
@@ -4106,8 +3946,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-34B",
@@ -4132,8 +3970,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-6B-Chat",
@@ -4143,8 +3979,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-9B-Chat",
@@ -4154,8 +3988,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-34B-Chat",
@@ -4256,8 +4088,7 @@
         ],
         "model_id": "modelscope/Yi-1.5-34B-Chat-AWQ",
         "model_revision": "26234fea6ac49d456f32f8017289021fb1087a04"
-      }
-      ,
+      },
       {
         "model_format": "mlx",
         "model_size_in_billions": 6,
@@ -4344,8 +4175,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-9B-Chat-16K",
@@ -4355,8 +4184,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "01-ai/Yi-1.5-34B-Chat-16K",
@@ -4432,8 +4259,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "WizardLMTeam/WizardCoder-Python-13B-V1.0",
@@ -4443,8 +4268,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "WizardLMTeam/WizardCoder-Python-34B-V1.0",
@@ -4627,8 +4450,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-llm-7b-base",
@@ -4638,8 +4459,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 67,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-llm-67b-base",
@@ -4704,8 +4523,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-llm-7b-chat",
@@ -4715,8 +4532,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 67,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-llm-67b-chat",
@@ -4788,8 +4603,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_3",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-1.3b-base",
@@ -4799,8 +4612,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "6_7",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-6.7b-base",
@@ -4810,8 +4621,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-7b-base-v1.5",
@@ -4821,8 +4630,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 33,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-33b-base",
@@ -4980,8 +4787,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_3",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
@@ -4991,8 +4796,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "6_7",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
@@ -5002,8 +4805,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-7b-instruct-v1.5",
@@ -5013,8 +4814,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 33,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
@@ -5179,7 +4978,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "skywork/Skywork-13B-base",
@@ -5204,7 +5002,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "skywork/Skywork-13B-Math",
@@ -5443,36 +5240,36 @@
     ]
   },
   {
-    "version":1,
-    "context_length":2048,
-    "model_name":"OmniLMM",
-    "model_lang":[
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "OmniLMM",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision"
     ],
-    "model_description":"OmniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
-    "model_specs":[
+    "model_description": "OmniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":3,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
           "none"
         ],
-        "model_id":"openbmb/MiniCPM-V",
-        "model_revision":"bec7d1cd1c9e804c064ec291163e40624825eaaa"
+        "model_id": "openbmb/MiniCPM-V",
+        "model_revision": "bec7d1cd1c9e804c064ec291163e40624825eaaa"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":12,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
           "none"
         ],
-        "model_id":"openbmb/OmniLMM-12B",
-        "model_revision":"ef62bae5af34be653b9801037cd613e05ab24fdc"
+        "model_id": "openbmb/OmniLMM-12B",
+        "model_revision": "ef62bae5af34be653b9801037cd613e05ab24fdc"
       }
     ],
     "chat_template": "",
@@ -5484,36 +5281,36 @@
     ]
   },
   {
-    "version":1,
-    "context_length":8192,
-    "model_name":"MiniCPM-Llama3-V-2_5",
-    "model_lang":[
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "MiniCPM-Llama3-V-2_5",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision"
     ],
-    "model_description":"MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.",
-    "model_specs":[
+    "model_description": "MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":8,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
           "none"
         ],
-        "model_id":"openbmb/MiniCPM-Llama3-V-2_5",
-        "model_revision":"285a637ba8a30a0660dfcccad16f9a864f75abfd"
+        "model_id": "openbmb/MiniCPM-Llama3-V-2_5",
+        "model_revision": "285a637ba8a30a0660dfcccad16f9a864f75abfd"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":8,
-        "quantizations":[
-          "int4"
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
         ],
-        "model_id":"openbmb/MiniCPM-Llama3-V-2_5-{quantization}",
-        "model_revision":"f92aff28552de35de3be204e8fe292dd4824e544"
+        "model_id": "openbmb/MiniCPM-Llama3-V-2_5-{quantization}",
+        "model_revision": "f92aff28552de35de3be204e8fe292dd4824e544"
       }
     ],
     "chat_template": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}",
@@ -5525,36 +5322,36 @@
     ]
   },
   {
-    "version":1,
-    "context_length":32768,
-    "model_name":"MiniCPM-V-2.6",
-    "model_lang":[
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "MiniCPM-V-2.6",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision"
     ],
-    "model_description":"MiniCPM-V 2.6 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters.",
-    "model_specs":[
+    "model_description": "MiniCPM-V 2.6 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":8,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
           "none"
         ],
-        "model_id":"openbmb/MiniCPM-V-2_6",
-        "model_revision":"3f7a8da1b7a8b928b5ee229fae33cf43fd64cf31"
+        "model_id": "openbmb/MiniCPM-V-2_6",
+        "model_revision": "3f7a8da1b7a8b928b5ee229fae33cf43fd64cf31"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":8,
-        "quantizations":[
-          "4-bit"
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
         ],
-        "model_id":"openbmb/MiniCPM-V-2_6-int4",
-        "model_revision":"051e2df6505f1fc4305f2c9bd42ed90db8bf4874"
+        "model_id": "openbmb/MiniCPM-V-2_6-int4",
+        "model_revision": "051e2df6505f1fc4305f2c9bd42ed90db8bf4874"
       }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
@@ -5629,9 +5426,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "OrionStarAI/Orion-14B-Chat",
         "model_revision": "ea6fb9b7e1917f3693935accbeb0bfecfd6552a7"
@@ -5674,9 +5469,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "OrionStarAI/Orion-14B-Chat-RAG",
         "model_revision": "eba2e20808407fb431a76b90d5d506e04a0325f2"
@@ -5757,9 +5550,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 2,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-2b-it"
       },
@@ -5767,9 +5558,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-7b-it"
       }
@@ -5802,9 +5591,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 1,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-3-1b-it"
       },
@@ -5880,9 +5667,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 4,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-3-4b-it"
       },
@@ -5890,9 +5675,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 12,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-3-12b-it"
       },
@@ -5900,9 +5683,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 27,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-3-27b-it"
       },
@@ -6061,9 +5842,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 2,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-2-2b-it"
       },
@@ -6071,9 +5850,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-2-9b-it"
       },
@@ -6081,9 +5858,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 27,
         "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
+          "none"
         ],
         "model_id": "google/gemma-2-27b-it"
       },
@@ -6744,7 +6519,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 35,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
         "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
@@ -6782,7 +6557,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 104,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
         "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
@@ -6824,8 +6599,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "berkeley-nest/Starling-LM-7B-alpha",
@@ -6847,48 +6620,42 @@
     "context_length": 32768,
     "model_name": "internvl-chat",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
-          "model_format": "pytorch",
-          "model_size_in_billions": 2,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
-          "model_revision": "ecbbd21dcf38caa74d925967b997167b0c7b3f47"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/Mini-InternVL-Chat-4B-V1-5",
-          "model_revision": "ce1559ddf9d87f5130aa5233b0e93b95e4e4161a"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL-Chat-V1-5",
-          "model_revision": "9db32d9127cac0c85961e169d75da57a18a847b1"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
+        "model_revision": "ecbbd21dcf38caa74d925967b997167b0c7b3f47"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/Mini-InternVL-Chat-4B-V1-5",
+        "model_revision": "ce1559ddf9d87f5130aa5233b0e93b95e4e4161a"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL-Chat-V1-5",
+        "model_revision": "9db32d9127cac0c85961e169d75da57a18a847b1"
+      }
     ],
     "chat_template": "{{ '<s>' }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
     "stop_token_ids": [
@@ -6907,125 +6674,111 @@
     "context_length": 32768,
     "model_name": "internvl2",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "InternVL 2 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
-          "model_format": "pytorch",
-          "model_size_in_billions": 1,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-1B"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 2,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-2B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 2,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-2B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-4B"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 8,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-8B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 8,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-8B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-26B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-26B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 40,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-40B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 40,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-40B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 76,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2-Llama3-76B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 76,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-1B"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-2B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2-2B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-4B"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-8B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2-8B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-26B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2-26B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 40,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-40B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 40,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2-40B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 76,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2-Llama3-76B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 76,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ"
+      }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
     "stop_token_ids": [],
@@ -7036,125 +6789,111 @@
     "context_length": 16384,
     "model_name": "InternVL2.5",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "InternVL 2.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
-          "model_format": "pytorch",
-          "model_size_in_billions": 1,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-1B"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 2,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-2B"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-4B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-4B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 8,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-8B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 8,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-8B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-26B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-26B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 38,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-38B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 38,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-38B-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 78,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-78B"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 78,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-78B-AWQ"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-1B"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-2B"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-4B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-4B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-8B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-8B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-26B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-26B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 38,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-38B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 38,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-38B-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 78,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-78B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 78,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-78B-AWQ"
+      }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
     "stop_token_ids": [],
@@ -7165,125 +6904,111 @@
     "context_length": 16384,
     "model_name": "InternVL2.5-MPO",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "InternVL 2.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
-          "model_format": "pytorch",
-          "model_size_in_billions": 1,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-1B-MPO"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 2,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-2B-MPO"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-4B-MPO"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-4B-MPO-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 8,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-8B-MPO"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 8,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-8B-MPO-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-26B-MPO"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 26,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-26B-MPO-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 38,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-38B-MPO"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 38,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-38B-MPO-AWQ"
-        },
-        {
-          "model_format": "pytorch",
-          "model_size_in_billions": 78,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-78B-MPO"
-        },
-        {
-          "model_format": "awq",
-          "model_size_in_billions": 78,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2_5-78B-MPO-AWQ"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-1B-MPO"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-2B-MPO"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-4B-MPO"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-4B-MPO-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-8B-MPO"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-8B-MPO-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-26B-MPO"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 26,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-26B-MPO-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 38,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-38B-MPO"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 38,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-38B-MPO-AWQ"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 78,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-78B-MPO"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 78,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "OpenGVLab/InternVL2_5-78B-MPO-AWQ"
+      }
     ],
     "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
     "stop_token_ids": [],
@@ -7294,12 +7019,12 @@
     "context_length": 8192,
     "model_name": "InternVL3",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "InternVL3, an advanced multimodal large language model (MLLM) series that demonstrates superior overall performance.",
     "model_specs": [
@@ -7307,7 +7032,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 1,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-1B"
@@ -7324,7 +7048,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 2,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-2B"
@@ -7341,7 +7064,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-8B"
@@ -7358,7 +7080,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-9B"
@@ -7375,7 +7096,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-14B"
@@ -7392,7 +7112,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 38,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-38B"
@@ -7409,7 +7128,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 78,
         "quantizations": [
-          "8-bit",
           "none"
         ],
         "model_id": "OpenGVLab/InternVL3-78B"
@@ -7436,12 +7154,12 @@
     "context_length": 8192,
     "model_name": "cogvlm2",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
     "model_specs": [
@@ -7458,7 +7176,7 @@
         "model_format": "pytorch",
         "model_size_in_billions": 20,
         "quantizations": [
-          "int4"
+          "none"
         ],
         "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}",
         "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
@@ -7479,12 +7197,12 @@
     "context_length": 8192,
     "model_name": "cogvlm2-video-llama3-chat",
     "model_lang": [
-        "en",
-        "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
-        "chat",
-        "vision"
+      "chat",
+      "vision"
     ],
     "model_description": "CogVLM2-Video achieves state-of-the-art performance on multiple video question answering tasks.",
     "model_specs": [
@@ -7492,8 +7210,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 12,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/cogvlm2-video-llama3-chat",
@@ -7527,8 +7243,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Tele-AI/telechat-7B"
@@ -7546,8 +7260,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 12,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Tele-AI/TeleChat-12B"
@@ -7565,8 +7277,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 52,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Tele-AI/TeleChat-52B"
@@ -7636,142 +7346,142 @@
     ]
   },
   {
-    "version":1,
-    "context_length":32768,
-    "model_name":"qwen2-vl-instruct",
-    "model_lang":[
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-vl-instruct",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision"
     ],
-    "model_description":"Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
-    "model_specs":[
+    "model_description": "Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":2,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2-VL-2B-Instruct",
-        "model_revision":"096da3b96240e3d66d35be0e5ccbe282eea8d6b1"
+        "model_id": "Qwen/Qwen2-VL-2B-Instruct",
+        "model_revision": "096da3b96240e3d66d35be0e5ccbe282eea8d6b1"
       },
-         {
-        "model_format":"gptq",
-        "model_size_in_billions":2,
-        "quantizations":[
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 2,
+        "quantizations": [
           "Int8"
         ],
-        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
-        "model_revision":"d15fb11857ccc566903e2e71341f9db7babb567b"
-      },
-        {
-        "model_format":"gptq",
-        "model_size_in_billions":2,
-        "quantizations":[
-          "Int4"
-        ],
-        "model_id":"Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
-        "model_revision":"800d396518c82960ce6d231adecd07bbc474f0a9"
+        "model_id": "Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+        "model_revision": "d15fb11857ccc566903e2e71341f9db7babb567b"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":2,
-        "quantizations":[
+        "model_format": "gptq",
+        "model_size_in_billions": 2,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2-VL-2B-Instruct-AWQ",
-        "model_revision":"ea8c5854c0044e28626719292de0d9b1a671f6fc"
+        "model_id": "Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+        "model_revision": "800d396518c82960ce6d231adecd07bbc474f0a9"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":2,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-VL-2B-Instruct-AWQ",
+        "model_revision": "ea8c5854c0044e28626719292de0d9b1a671f6fc"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "quantizations": [
           "4bit",
           "8bit"
         ],
-        "model_id":"mlx-community/Qwen2-VL-2B-Instruct-{quantization}"
+        "model_id": "mlx-community/Qwen2-VL-2B-Instruct-{quantization}"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2-VL-7B-Instruct",
-        "model_revision":"6010982c1010c3b222fa98afc81575f124aa9bd6"
+        "model_id": "Qwen/Qwen2-VL-7B-Instruct",
+        "model_revision": "6010982c1010c3b222fa98afc81575f124aa9bd6"
       },
       {
-        "model_format":"gptq",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "Int8"
         ],
-        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
-        "model_revision":"3d152a77eaccfd72d59baedb0b183a1b8fd56e48"
+        "model_id": "Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+        "model_revision": "3d152a77eaccfd72d59baedb0b183a1b8fd56e48"
       },
       {
-        "model_format":"gptq",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
-        "model_revision":"5ab897112fa83b9699826be8753ef9184585c77d"
+        "model_id": "Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+        "model_revision": "5ab897112fa83b9699826be8753ef9184585c77d"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2-VL-7B-Instruct-AWQ",
-        "model_revision":"f94216e8b513933bccd567bcd9b7350199f32538"
+        "model_id": "Qwen/Qwen2-VL-7B-Instruct-AWQ",
+        "model_revision": "f94216e8b513933bccd567bcd9b7350199f32538"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "4bit",
           "8bit"
         ],
-        "model_id":"mlx-community/Qwen2-VL-7B-Instruct-{quantization}"
+        "model_id": "mlx-community/Qwen2-VL-7B-Instruct-{quantization}"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct"
+        "model_id": "Qwen/Qwen2-VL-72B-Instruct"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct-AWQ"
+        "model_id": "Qwen/Qwen2-VL-72B-Instruct-AWQ"
       },
       {
-        "model_format":"gptq",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "Int4",
           "Int8"
         ],
-        "model_id":"Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
+        "model_id": "Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "4bit",
           "8bit"
         ],
-        "model_id":"mlx-community/Qwen2-VL-72B-Instruct-{quantization}"
+        "model_id": "mlx-community/Qwen2-VL-72B-Instruct-{quantization}"
       }
     ],
     "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
@@ -7785,118 +7495,118 @@
     ]
   },
   {
-    "version":1,
-    "context_length":128000,
-    "model_name":"qwen2.5-vl-instruct",
-    "model_lang":[
+    "version": 1,
+    "context_length": 128000,
+    "model_name": "qwen2.5-vl-instruct",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision"
     ],
-    "model_description":"Qwen2.5-VL: Qwen2.5-VL is the latest version of the vision language models in the Qwen model familities.",
-    "model_specs":[
+    "model_description": "Qwen2.5-VL: Qwen2.5-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":3,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-3B-Instruct"
+        "model_id": "Qwen/Qwen2.5-VL-3B-Instruct"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-7B-Instruct"
+        "model_id": "Qwen/Qwen2.5-VL-7B-Instruct"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":32,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-32B-Instruct"
+        "model_id": "Qwen/Qwen2.5-VL-32B-Instruct"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-72B-Instruct"
+        "model_id": "Qwen/Qwen2.5-VL-72B-Instruct"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":3,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 3,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
+        "model_id": "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
+        "model_id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":32,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 32,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-32B-Instruct-AWQ"
+        "model_id": "Qwen/Qwen2.5-VL-32B-Instruct-AWQ"
       },
       {
-        "model_format":"awq",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "Int4"
         ],
-        "model_id":"Qwen/Qwen2.5-VL-72B-Instruct-AWQ"
+        "model_id": "Qwen/Qwen2.5-VL-72B-Instruct-AWQ"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":3,
-        "quantizations":[
+        "model_format": "mlx",
+        "model_size_in_billions": 3,
+        "quantizations": [
           "3bit",
           "4bit",
           "6bit",
           "8bit",
           "bf16"
         ],
-        "model_id":"mlx-community/Qwen2.5-VL-3B-Instruct-{quantization}"
+        "model_id": "mlx-community/Qwen2.5-VL-3B-Instruct-{quantization}"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "3bit",
           "4bit",
           "6bit",
           "8bit",
           "bf16"
         ],
-        "model_id":"mlx-community/Qwen2.5-VL-7B-Instruct-{quantization}"
+        "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-{quantization}"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":72,
-        "quantizations":[
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
           "3bit",
           "4bit",
           "6bit",
           "8bit",
           "bf16"
         ],
-        "model_id":"mlx-community/Qwen2.5-VL-72B-Instruct-{quantization}"
+        "model_id": "mlx-community/Qwen2.5-VL-72B-Instruct-{quantization}"
       }
     ],
     "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
@@ -7910,28 +7620,28 @@
     ]
   },
   {
-    "version":1,
-    "context_length":32768,
-    "model_name":"qwen2.5-omni",
-    "model_lang":[
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2.5-omni",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision",
       "audio",
       "omni"
     ],
-    "model_description":"Qwen2.5-Omni: the new flagship end-to-end multimodal model in the Qwen series.",
-    "model_specs":[
+    "model_description": "Qwen2.5-Omni: the new flagship end-to-end multimodal model in the Qwen series.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2.5-Omni-7B"
+        "model_id": "Qwen/Qwen2.5-Omni-7B"
       }
     ],
     "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
@@ -7994,33 +7704,33 @@
     ]
   },
   {
-    "version":1,
-    "context_length":32768,
-    "model_name":"qwen2-audio-instruct",
-    "model_lang":[
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-audio-instruct",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "audio"
     ],
-    "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
-    "model_specs":[
+    "model_description": "Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2-Audio-7B-Instruct",
-        "model_revision":"bac62d2c6808845904c709c17a0402d817558c64"
+        "model_id": "Qwen/Qwen2-Audio-7B-Instruct",
+        "model_revision": "bac62d2c6808845904c709c17a0402d817558c64"
       }
     ],
-    "prompt_style":{
-      "style_name":"QWEN",
-      "system_prompt":"You are a helpful assistant",
-      "roles":[
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant",
+      "roles": [
         "user",
         "assistant"
       ],
@@ -8031,33 +7741,33 @@
     }
   },
   {
-    "version":1,
-    "context_length":32768,
-    "model_name":"qwen2-audio",
-    "model_lang":[
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-audio",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "generate",
       "audio"
     ],
-    "model_description":"Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
-    "model_specs":[
+    "model_description": "Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "none"
         ],
-        "model_id":"Qwen/Qwen2-Audio-7B",
-        "model_revision":"8577bc71d330c8fa32ffe9f8a1374100759f2466"
+        "model_id": "Qwen/Qwen2-Audio-7B",
+        "model_revision": "8577bc71d330c8fa32ffe9f8a1374100759f2466"
       }
     ],
-    "prompt_style":{
-      "style_name":"QWEN",
-      "system_prompt":"You are a helpful assistant",
-      "roles":[
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant",
+      "roles": [
         "user",
         "assistant"
       ],
@@ -8084,8 +7794,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 16,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V2-Lite",
@@ -8095,8 +7803,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 236,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V2",
@@ -8121,8 +7827,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 16,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V2-Lite-Chat",
@@ -8132,8 +7836,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 236,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V2-Chat",
@@ -8165,8 +7867,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 236,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
@@ -8198,8 +7898,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 236,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V2.5",
@@ -8231,8 +7929,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 671,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-V3",
@@ -8378,8 +8074,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 671,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1",
@@ -8672,8 +8366,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-0.5B",
@@ -8683,8 +8375,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-1.5B",
@@ -8694,8 +8384,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 3,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-3B",
@@ -8705,8 +8393,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-7B",
@@ -8716,8 +8402,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-14B",
@@ -8727,8 +8411,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-32B",
@@ -8738,8 +8420,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-72B",
@@ -8765,8 +8445,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-0.5B-Instruct"
@@ -8775,8 +8453,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-1.5B-Instruct"
@@ -8785,8 +8461,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 3,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-3B-Instruct"
@@ -8795,8 +8469,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-7B-Instruct"
@@ -8805,8 +8477,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-14B-Instruct"
@@ -8815,8 +8485,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-32B-Instruct"
@@ -8825,8 +8493,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-72B-Instruct"
@@ -9200,7 +8866,7 @@
         "model_file_name_template": "qwen2_5-72b-instruct-{quantization}.gguf",
         "model_file_name_split_template": "qwen2.5-72b-instruct-{quantization}-{part}.gguf",
         "quantization_parts": {
-           "q2_k": [
+          "q2_k": [
             "00001-of-00007",
             "00002-of-00007",
             "00003-of-00007",
@@ -9519,8 +9185,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-0.5B"
@@ -9529,8 +9193,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-1.5B"
@@ -9539,8 +9201,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "3",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-3B"
@@ -9549,8 +9209,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-7B"
@@ -9559,8 +9217,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-14B"
@@ -9569,8 +9225,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-32B"
@@ -9595,8 +9249,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-0.5B-Instruct"
@@ -9605,8 +9257,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct"
@@ -9615,8 +9265,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "3",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-3B-Instruct"
@@ -9625,8 +9273,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct"
@@ -9635,8 +9281,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct"
@@ -9645,8 +9289,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-32B-Instruct"
@@ -9655,8 +9297,8 @@
         "model_format": "gptq",
         "model_size_in_billions": "0_5",
         "quantizations": [
-            "Int4",
-            "Int8"
+          "Int4",
+          "Int8"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-0.5B-Instruct-GPTQ-{quantization}"
       },
@@ -9664,8 +9306,8 @@
         "model_format": "gptq",
         "model_size_in_billions": "1_5",
         "quantizations": [
-            "Int4",
-            "Int8"
+          "Int4",
+          "Int8"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GPTQ-{quantization}"
       },
@@ -9673,8 +9315,8 @@
         "model_format": "gptq",
         "model_size_in_billions": "3",
         "quantizations": [
-            "Int4",
-            "Int8"
+          "Int4",
+          "Int8"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-3B-Instruct-GPTQ-{quantization}"
       },
@@ -9682,8 +9324,8 @@
         "model_format": "gptq",
         "model_size_in_billions": "7",
         "quantizations": [
-            "Int4",
-            "Int8"
+          "Int4",
+          "Int8"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GPTQ-{quantization}"
       },
@@ -9691,8 +9333,8 @@
         "model_format": "gptq",
         "model_size_in_billions": "14",
         "quantizations": [
-            "Int4",
-            "Int8"
+          "Int4",
+          "Int8"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct-GPTQ-{quantization}"
       },
@@ -9700,8 +9342,8 @@
         "model_format": "gptq",
         "model_size_in_billions": "32",
         "quantizations": [
-            "Int4",
-            "Int8"
+          "Int4",
+          "Int8"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-32B-Instruct-GPTQ-{quantization}"
       },
@@ -9709,7 +9351,7 @@
         "model_format": "awq",
         "model_size_in_billions": "0_5",
         "quantizations": [
-            "Int4"
+          "Int4"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-0.5B-Instruct-AWQ"
       },
@@ -9717,7 +9359,7 @@
         "model_format": "awq",
         "model_size_in_billions": "1_5",
         "quantizations": [
-            "Int4"
+          "Int4"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct-AWQ"
       },
@@ -9725,7 +9367,7 @@
         "model_format": "awq",
         "model_size_in_billions": "3",
         "quantizations": [
-            "Int4"
+          "Int4"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-3B-Instruct-AWQ"
       },
@@ -9733,7 +9375,7 @@
         "model_format": "awq",
         "model_size_in_billions": "7",
         "quantizations": [
-            "Int4"
+          "Int4"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ"
       },
@@ -9741,7 +9383,7 @@
         "model_format": "awq",
         "model_size_in_billions": "14",
         "quantizations": [
-            "Int4"
+          "Int4"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
       },
@@ -9749,11 +9391,10 @@
         "model_format": "awq",
         "model_size_in_billions": "32",
         "quantizations": [
-            "Int4"
+          "Int4"
         ],
         "model_id": "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ"
       },
-
       {
         "model_format": "ggufv2",
         "model_size_in_billions": "1_5",
@@ -9844,8 +9485,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/QwQ-32B-Preview"
@@ -9925,8 +9564,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/QwQ-32B"
@@ -10020,8 +9657,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
@@ -10073,8 +9708,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
@@ -10127,8 +9760,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
@@ -10173,8 +9804,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
@@ -10244,8 +9873,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
@@ -10298,8 +9925,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
@@ -10391,8 +10016,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "1_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-edge-1.5b-chat"
@@ -10401,8 +10024,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "4",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-edge-4b-chat"
@@ -10496,8 +10117,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "2",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-edge-v-2b"
@@ -10506,8 +10125,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/glm-edge-v-5b"
@@ -10619,8 +10236,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 72,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/QVQ-72B-Preview"
@@ -10666,8 +10281,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "AIDC-AI/Marco-o1"
@@ -10725,8 +10338,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "9",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "THUDM/cogagent-9b-20241220"
@@ -10762,8 +10373,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "internlm/internlm3-8b-instruct"
@@ -10801,12 +10410,12 @@
         "model_file_name_template": "internlm3-8b-instruct-{quantization}.gguf"
       },
       {
-        "model_format":"mlx",
-        "model_size_in_billions":8,
-        "quantizations":[
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
           "4bit"
         ],
-        "model_id":"mlx-community/internlm3-8b-instruct-{quantization}"
+        "model_id": "mlx-community/internlm3-8b-instruct-{quantization}"
       }
     ],
     "chat_template": "{{ bos_token }}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
@@ -10836,8 +10445,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-7B-Instruct-1M"
@@ -10846,8 +10453,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2.5-14B-Instruct-1M"
@@ -10880,14 +10485,12 @@
         "model_format": "pytorch",
         "model_size_in_billions": 3,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "moonshotai/Moonlight-16B-A3B-Instruct"
       }
     ],
-    "chat_template":"{%- for message in messages -%}{%- if loop.first and messages[0]['role'] != 'system' -%}<|im_system|>system<|im_middle|>You are a helpful assistant<|im_end|>{%- endif -%}{%- if message['role'] == 'system' -%}<|im_system|>{%- endif -%}{%- if message['role'] == 'user' -%}<|im_user|>{%- endif -%}{%- if message['role'] == 'assistant' -%}<|im_assistant|>{%- endif -%}{{ message['role'] }}<|im_middle|>{{message['content']}}<|im_end|>{%- endfor -%}{%- if add_generation_prompt -%}<|im_assistant|>assistant<|im_middle|>{%- endif -%}",
+    "chat_template": "{%- for message in messages -%}{%- if loop.first and messages[0]['role'] != 'system' -%}<|im_system|>system<|im_middle|>You are a helpful assistant<|im_end|>{%- endif -%}{%- if message['role'] == 'system' -%}<|im_system|>{%- endif -%}{%- if message['role'] == 'user' -%}<|im_user|>{%- endif -%}{%- if message['role'] == 'assistant' -%}<|im_assistant|>{%- endif -%}{{ message['role'] }}<|im_middle|>{{message['content']}}<|im_end|>{%- endfor -%}{%- if add_generation_prompt -%}<|im_assistant|>assistant<|im_middle|>{%- endif -%}",
     "stop_token_ids": [
       163586
     ],
@@ -10912,28 +10515,26 @@
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "SUFE-AIFLM-Lab/Fin-R1"
       },
       {
-        "model_format":"gptq",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "Int4",
           "Int8"
         ],
-        "model_id":"JunHowie/Fin-R1-GPTQ-{quantization}"
+        "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}"
       },
       {
-        "model_format":"fp8",
-        "model_size_in_billions":7,
-        "quantizations":[
+        "model_format": "fp8",
+        "model_size_in_billions": 7,
+        "quantizations": [
           "FP8"
         ],
-        "model_id":"JunHowie/Fin-R1-FP8-Dynamic"
+        "model_id": "JunHowie/Fin-R1-FP8-Dynamic"
       }
     ],
     "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",

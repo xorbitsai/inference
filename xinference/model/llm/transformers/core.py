@@ -142,6 +142,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
         pytorch_model_config.setdefault("reasoning_content", False)
+        pytorch_model_config.setdefault("quantization_config", {})
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -265,15 +266,8 @@ class PytorchModel(LLM):
                 )
 
     def load(self):
-        try:
-            import torch
-        except ImportError:
-            raise ImportError(
-                f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
-            )
-        from .compression import load_compress_model
+        import torch
 
-        quantization = self.quantization
         num_gpus = gpu_count()
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = select_device(device)
@@ -310,45 +304,32 @@ class PytorchModel(LLM):
             }
             kwargs["max_memory"] = max_memory
 
-        if quantization != "none" and model_format == "pytorch":
-            if self._device == "cuda" and self._is_linux():
-                kwargs["device_map"] = "auto"
-                is_device_map_auto = True
-                if quantization == "4-bit":
-                    kwargs["load_in_4bit"] = True
-                    kwargs["bnb_4bit_compute_dtype"] = torch.float16
-                    kwargs["bnb_4bit_use_double_quant"] = True
-                    kwargs["llm_int8_skip_modules"] = [
-                        "lm_head",
-                        "encoder",
-                        "EncDecAttention",
-                    ]
-                elif quantization == "8-bit":
-                    kwargs["load_in_8bit"] = True
-                else:
-                    raise ValueError(
-                        f"Quantization {quantization} is not supported in temporary"
+        # handle quantization
+        if model_format == "pytorch":
+            quantization_config = self._pytorch_model_config.get(
+                "quantization_config", {}
+            )
+            if quantization_config:
+                # If `load_in_4bit` is enabled, apply default quantization presets.
+                if quantization_config.get("load_in_4bit", False):
+                    quantization_config.setdefault(
+                        "bnb_4bit_compute_dtype", torch.float16
                     )
-            else:
-                if num_gpus != 1 and self._device == "cuda":
-                    raise ValueError(f"Quantization is not supported for multi-gpu")
-                elif quantization != "8-bit":
-                    raise ValueError(
-                        f"Only 8-bit quantization is supported if it is not linux system or cuda device"
+                    quantization_config.setdefault("bnb_4bit_use_double_quant", True)
+                    quantization_config.setdefault(
+                        "llm_int8_skip_modules",
+                        [
+                            "lm_head",
+                            "encoder",
+                            "EncDecAttention",
+                        ],
                     )
-                else:
-                    (
-                        self._model,
-                        self._tokenizer,
-                    ) = load_compress_model(
-                        model_path=self.model_path,
-                        device=self._device,
-                        torch_dtype=kwargs["torch_dtype"],
-                        use_fast=self._use_fast_tokenizer,
-                        revision=kwargs["revision"],
-                    )
-                    logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
-                    return
+
+                from transformers import BitsAndBytesConfig
+
+                kwargs["quantization_config"] = BitsAndBytesConfig(
+                    **quantization_config
+                )
 
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
