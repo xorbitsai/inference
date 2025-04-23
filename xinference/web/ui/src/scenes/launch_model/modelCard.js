@@ -880,34 +880,6 @@ const ModelCard = ({
     return <RocketLaunchOutlined sx={{ fontSize: 26 }} />
   }
 
-  const showAbilityParameter = () => {
-    if (!modelData.model_ability) return
-    if (Array.isArray(modelData.model_ability)) {
-      return modelData.model_ability.map((v) => {
-        return (
-          <Chip
-            key={v}
-            label={v}
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation()
-            }}
-          />
-        )
-      })
-    } else {
-      return (
-        <Chip
-          label={modelData.model_ability}
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation()
-          }}
-        />
-      )
-    }
-  }
-
   // Set two different states based on mouse hover
   return (
     <>
@@ -1007,7 +979,6 @@ const ModelCard = ({
               flexWrap="wrap"
               sx={{ marginLeft: 1 }}
             >
-              {showAbilityParameter()}
               {modelData.model_lang &&
                 (() => {
                   return modelData.model_lang.map((v) => {
@@ -1187,7 +1158,6 @@ const ModelCard = ({
                 flexWrap="wrap"
                 sx={{ marginLeft: 1 }}
               >
-                {showAbilityParameter()}
                 {(() => {
                   if (modelData.language) {
                     return normalizeLanguage(modelData.language).map((v) => {
@@ -1207,6 +1177,20 @@ const ModelCard = ({
                     return (
                       <Chip
                         label={modelData.model_family}
+                        variant="outlined"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      />
+                    )
+                  }
+                })()}
+                {(() => {
+                  if (modelType === 'audio' && modelData.model_ability) {
+                    return (
+                      <Chip
+                        label={modelData.model_ability}
                         variant="outlined"
                         size="small"
                         onClick={(e) => {
