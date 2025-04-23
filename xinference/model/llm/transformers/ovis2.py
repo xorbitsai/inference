@@ -141,14 +141,11 @@ class Ovis2ChatModel(PytorchChatModel):
         inputs_embeds = inputs_embeds.detach()
         torch.cuda.empty_cache()
 
-        # 在单独的线程中运行生成过程
         thread = Thread(target=self._model.llm.generate, kwargs=gen_kwargs)
         thread.start()
 
-        # 生成唯一的完成ID
         completion_id = str(uuid.uuid1())
 
-        # 迭代输出生成的文本块
         for new_text in streamer:
             yield generate_completion_chunk(
                 chunk_text=new_text,
@@ -162,7 +159,6 @@ class Ovis2ChatModel(PytorchChatModel):
                 has_content=True,
             )
 
-        # 输出最终的完成块，表示生成已完成
         yield generate_completion_chunk(
             chunk_text=None,
             finish_reason="stop",
@@ -250,7 +246,6 @@ class Ovis2ChatModel(PytorchChatModel):
             )
         pixel_values = [pixel_values]
 
-        # 准备生成参数
         gen_kwargs = dict(
             max_new_tokens=config.get("max_tokens", 1024),
             do_sample=False,
