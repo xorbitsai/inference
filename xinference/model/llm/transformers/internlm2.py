@@ -71,7 +71,7 @@ class Internlm2PytorchChatModel(PytorchChatModel):
         return model, tokenizer
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         model_family = llm_family.model_family or llm_family.model_name

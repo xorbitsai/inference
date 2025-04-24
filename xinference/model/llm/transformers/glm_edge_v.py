@@ -42,7 +42,7 @@ class GlmEdgeVModel(PytorchChatModel):
         self._processor = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name

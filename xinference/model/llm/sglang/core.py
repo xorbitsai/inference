@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import importlib.util
 import json
 import logging
 import sys
@@ -297,7 +297,11 @@ class SGLANGModel(LLM):
         return generate_config
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("sglang") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
@@ -525,7 +529,7 @@ class SGLANGModel(LLM):
 
 class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
@@ -577,7 +581,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
 
 class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():

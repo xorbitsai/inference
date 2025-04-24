@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
+import importlib.util
 import logging
 import os
 import queue
@@ -116,7 +117,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return generate_config
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("xllamacpp") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
@@ -464,7 +469,11 @@ class LlamaCppModel(LLM):
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("llama_cpp") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
@@ -565,7 +574,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         )
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
