@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import importlib.util
 import logging
 import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
@@ -113,7 +114,11 @@ class LMDeployModel(LLM):
         raise ValueError("LMDEPLOY engine has not supported generate yet.")
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("lmdeploy") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         return False
@@ -166,7 +171,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         )
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format == "awq":

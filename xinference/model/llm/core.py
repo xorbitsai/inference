@@ -65,6 +65,11 @@ class LLM(abc.ABC):
         if kwargs:
             raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
 
+    @classmethod
+    @abstractmethod
+    def check_lib(cls) -> bool:
+        raise NotImplementedError
+
     @staticmethod
     def _is_darwin_and_apple_silicon():
         return platform.system() == "Darwin" and platform.processor() == "arm"
@@ -116,6 +121,15 @@ class LLM(abc.ABC):
 
     @classmethod
     def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if not cls.check_lib():
+            return False
+        return cls.match_json(llm_family, llm_spec, quantization)
+
+    @classmethod
+    @abstractmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         raise NotImplementedError

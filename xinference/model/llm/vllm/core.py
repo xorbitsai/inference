@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import importlib.util
 import itertools
 import json
 import logging
@@ -642,7 +643,11 @@ class VLLMModel(LLM):
         return sanitized
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("vllm") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
@@ -935,7 +940,7 @@ class VLLMModel(LLM):
 
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
@@ -1055,7 +1060,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
