@@ -36,7 +36,7 @@ from ..utils import DEEPSEEK_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelM
 
 logger = logging.getLogger(__name__)
 
-USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 0)))
+USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 1)))
 
 
 class _Done:
@@ -142,20 +142,30 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
-            model_path = os.path.realpath(self.model_path)
+            model_path = self.model_path
         else:
             # handle legacy cache.
-            model_path = os.path.realpath(
-                os.path.join(
+            if (
+                self.model_spec.model_file_name_split_template
+                and self.model_spec.quantization_parts
+            ):
+                part = self.model_spec.quantization_parts[self.quantization]
+                model_path = os.path.join(
+                    self.model_path,
+                    self.model_spec.model_file_name_split_template.format(
+                        quantization=self.quantization, part=part[0]
+                    ),
+                )
+            else:
+                model_path = os.path.join(
                     self.model_path,
                     self.model_spec.model_file_name_template.format(
                         quantization=self.quantization
                     ),
                 )
-            )
-            legacy_model_file_path = os.path.join(self.model_path, "model.bin")
-            if os.path.exists(legacy_model_file_path):
-                model_path = legacy_model_file_path
+                legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+                if os.path.exists(legacy_model_file_path):
+                    model_path = legacy_model_file_path
 
         try:
             params = CommonParams()
@@ -419,20 +429,30 @@ class LlamaCppModel(LLM):
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
-            model_path = os.path.realpath(self.model_path)
+            model_path = self.model_path
         else:
             # handle legacy cache.
-            model_path = os.path.realpath(
-                os.path.join(
+            if (
+                self.model_spec.model_file_name_split_template
+                and self.model_spec.quantization_parts
+            ):
+                part = self.model_spec.quantization_parts[self.quantization]
+                model_path = os.path.join(
+                    self.model_path,
+                    self.model_spec.model_file_name_split_template.format(
+                        quantization=self.quantization, part=part[0]
+                    ),
+                )
+            else:
+                model_path = os.path.join(
                     self.model_path,
                     self.model_spec.model_file_name_template.format(
                         quantization=self.quantization
                     ),
                 )
-            )
-            legacy_model_file_path = os.path.join(self.model_path, "model.bin")
-            if os.path.exists(legacy_model_file_path):
-                model_path = legacy_model_file_path
+                legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+                if os.path.exists(legacy_model_file_path):
+                    model_path = legacy_model_file_path
 
         try:
             self._llm = Llama(

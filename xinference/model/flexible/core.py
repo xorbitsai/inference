@@ -20,7 +20,7 @@ from threading import Lock
 from typing import Dict, List, Optional, Tuple
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
-from ..core import CacheableModelSpec, ModelDescription
+from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from .utils import get_launcher
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ class FlexibleModelSpec(CacheableModelSpec):
     model_uri: Optional[str]
     launcher: str
     launcher_args: Optional[str]
+    virtualenv: Optional[VirtualEnvSettings]
 
     def parser_args(self):
         return json.loads(self.launcher_args)
@@ -49,6 +50,10 @@ class FlexibleModelDescription(ModelDescription):
     ):
         super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
+
+    @property
+    def spec(self):
+        return self._model_spec
 
     def to_dict(self):
         return {

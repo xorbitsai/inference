@@ -24,7 +24,7 @@ import torch
 from ..._compat import ROOT_KEY, ErrorWrapper, ValidationError
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
-from ..core import CacheableModelSpec, ModelDescription
+from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import get_cache_dir, is_model_cached
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ class EmbeddingModelSpec(CacheableModelSpec):
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
+    virtualenv: Optional[VirtualEnvSettings]
 
 
 class EmbeddingModelDescription(ModelDescription):
@@ -69,6 +70,10 @@ class EmbeddingModelDescription(ModelDescription):
     ):
         super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
+
+    @property
+    def spec(self):
+        return self._model_spec
 
     def to_dict(self):
         return {

@@ -121,11 +121,16 @@ const AddPair = ({
                         updateArr(index, customData.key, newValue)
                       }}
                       renderInput={(params) => (
-                        <TextField {...params} label={customData.key} />
+                        <TextField
+                          className="textHighlight"
+                          {...params}
+                          label={customData.key}
+                        />
                       )}
                     />
                   ) : (
                     <TextField
+                      className="textHighlight"
                       label={customData.key}
                       value={item[customData.key]}
                       onChange={(e) => {
@@ -135,6 +140,7 @@ const AddPair = ({
                     />
                   )}
                   <TextField
+                    className="textHighlight"
                     label={customData.value}
                     value={item[customData.value]}
                     onChange={(e) => {
