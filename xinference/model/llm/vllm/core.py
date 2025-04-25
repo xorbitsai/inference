@@ -498,10 +498,7 @@ class VLLMModel(LLM):
                 "provide `model_path` with merged file"
             )
 
-        if (
-            "tokenizer" not in self._model_config
-            and "hf_config_path" not in self._model_config
-        ):
+        if "tokenizer" not in self._model_config:
             # find pytorch format without quantization
             non_quant_spec = next(
                 spec
