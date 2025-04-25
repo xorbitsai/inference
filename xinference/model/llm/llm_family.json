@@ -11176,6 +11176,7 @@
     "virtualenv": {
       "packages": [
         "transformers>=4.51.3",
+        "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
         "numpy==1.26.4"
       ]
     }
