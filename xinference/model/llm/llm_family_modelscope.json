@@ -8959,7 +8959,13 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.51.3",
+        "numpy==1.26.4"
+      ]
+    }
   },
   {
     "version": 1,
