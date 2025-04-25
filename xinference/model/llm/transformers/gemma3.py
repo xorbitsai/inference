@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 class Gemma3TextChatModel(PytorchChatModel):
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
@@ -56,7 +56,7 @@ class Gemma3ChatModel(PytorchChatModel):
         self._processor = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
