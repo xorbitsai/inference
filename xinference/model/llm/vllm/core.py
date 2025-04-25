@@ -276,16 +276,6 @@ class VLLMModel(LLM):
         self._all_worker_ready: Optional[threading.Event] = None
         # used to call async
         self._loop = None
-        # # model path processing for gguf
-        # from ..llm_family import LlamaCppLLMSpecV1
-        # if isinstance(self.model_spec, LlamaCppLLMSpecV1):
-        #     if self.model_spec.model_format=='ggufv2':
-        #         gguf_path=self.model_spec.model_file_name_template.format(quantization=quantization)
-        #         self.model_path=os.path.join(self.model_path, gguf_path)
-        #         if 'tokenizer' not in self._model_config.keys():
-        #             self._model_config.update({'tokenizer':os.path.dirname(self.model_path)})
-        #         if 'hf_config_path' not in self._model_config.keys():
-        #             self._model_config.update({'hf_config_path':os.path.dirname(self.model_path)})
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
