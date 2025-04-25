@@ -17,7 +17,6 @@ import os
 from threading import Lock
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
-import huggingface_hub
 from typing_extensions import Annotated, Literal
 
 from ..._compat import (
@@ -377,8 +376,10 @@ def cache_model_tokenizer_and_config(
     cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec, "tokenizer_config")
     os.makedirs(cache_dir, exist_ok=True)
     if llm_spec.model_hub == "huggingface":
+        from huggingface_hub import snapshot_download
+
         download_dir = retry_download(
-            huggingface_hub.snapshot_download,
+            snapshot_download,
             llm_family.model_name,
             {
                 "model_size": llm_spec.model_size_in_billions,
