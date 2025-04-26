@@ -8908,6 +8908,95 @@
         ],
         "model_id": "ZhipuAI/GLM-4-32B-0414",
         "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/GLM-4-9B-0414-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4bit",
+          "8bit"
+        ],
+        "model_id": "mlx-community/GLM-4-32B-0414-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "IQ2_M",
+          "IQ3_M",
+          "IQ3_XS",
+          "IQ3_XXS",
+          "IQ4_NL",
+          "IQ4_XS",
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q3_K_XL",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_L",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_L",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q6_K_L",
+          "Q8_0",
+          "bf16"
+        ],
+        "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
+        "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "IQ2_M",
+          "IQ2_S",
+          "IQ2_XS",
+          "IQ3_M",
+          "IQ3_XS",
+          "IQ3_XXS",
+          "IQ4_NL",
+          "IQ4_XS",
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q3_K_XL",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_L",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_L",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q6_K_L",
+          "Q8_0"
+        ],
+        "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
+        "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
+        "model_hub": "modelscope"
       }
     ],
     "chat_template": "[gMASK]<sop>{%- if tools -%}<|system|>\n# 可用工具\n{% for tool in tools %}{%- set function = tool.function if tool.get(\"function\") else tool %}\n\n## {{ function.name }}\n\n{{ function | tojson(indent=4, ensure_ascii=False) }}\n在调用上述函数时，请使用 Json 格式表示调用的参数。{%- endfor %}{%- endif -%}{%- for msg in messages %}{%- if msg.role == 'system' %}<|system|>\n{{ msg.content }}{%- endif %}{%- endfor %}{%- for message in messages if message.role != 'system' %}{%- set role = message['role'] %}{%- set content = message['content'] %}{%- set meta = message.get(\"metadata\", \"\") %}{%- if role == 'user' %}<|user|>\n{{ content }}{%- elif role == 'assistant' and not meta %}<|assistant|>\n{{ content }}{%- elif role == 'assistant' and meta %}<|assistant|>{{ meta }} \n{{ content }}{%- elif role == 'observation' %}<|observation|>\n{{ content }}{%- endif %}{%- endfor %}{% if add_generation_prompt %}<|assistant|>{% endif %}",
@@ -8920,7 +9009,14 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.51.3",
+        "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
+        "numpy==1.26.4"
+      ]
+    }
   },
   {
     "version": 1,

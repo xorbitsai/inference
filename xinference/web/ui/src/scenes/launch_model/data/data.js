@@ -68,7 +68,7 @@ export const featureModels = [
       'deepseek-r1-distill-llama',
       'qwen2.5-instruct',
       'qwen2.5-vl-instruct',
-      'qwen2.5-coder-instruct',
+      'glm4-0414',
       'QwQ-32B',
       'llama-3.1-instruct',
       'gemma-3-it',

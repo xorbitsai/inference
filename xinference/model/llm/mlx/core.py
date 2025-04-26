@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import importlib.util
 import logging
 import platform
 import sys
@@ -172,7 +172,11 @@ class MLXModel(LLM):
         self._model, self._tokenizer = self._load_model(**kwargs)
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("mlx_lm") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["mlx"]:
@@ -423,7 +427,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         return generate_config
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["mlx"]:
@@ -476,7 +480,11 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("mlx_vlm") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["mlx"]:

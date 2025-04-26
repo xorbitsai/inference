@@ -54,7 +54,7 @@ class Qwen2VLChatModel(PytorchChatModel):
         return pytorch_model_config
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
