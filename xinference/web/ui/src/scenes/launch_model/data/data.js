@@ -20,6 +20,7 @@ export const llmAllDataKey = [
   'gguf_model_path',
   'cpu_offload',
   'peft_model_config',
+  'quantization_config',
 ]
 
 export const additionalParameterTipList = {
@@ -57,6 +58,19 @@ export const additionalParameterTipList = {
   ],
   'mlx': ['cache_limit_gb', 'max_kv_size'],
 }
+
+export const quantizationParametersTipList = [
+  'load_in_8bit',
+  'load_in_4bit',
+  'llm_int8_threshold',
+  'llm_int8_skip_modules',
+  'llm_int8_enable_fp32_cpu_offload',
+  'llm_int8_has_fp16_weight',
+  'bnb_4bit_compute_dtype',
+  'bnb_4bit_quant_type',
+  'bnb_4bit_use_double_quant',
+  'bnb_4bit_quant_storage',
+]
 
 export const featureModels = [
   {
