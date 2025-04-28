@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetchWrapper from '../../components/fetchWrapper'
+import SuccessMessageSnackBar from '../../components/successMessageSnackBar'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
 import { featureModels } from './data/data'
@@ -62,6 +63,7 @@ const LaunchModel = () => {
     <Box m="20px">
       <Title title={t('menu.launchModel')} />
       <ErrorMessageSnackBar />
+      <SuccessMessageSnackBar />
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">

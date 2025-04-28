@@ -41,6 +41,9 @@ export const additionalParameterTipList = {
     'disable_custom_all_reduce',
     'limit_mm_per_prompt',
     'model_quantization',
+    'mm_processor_kwargs',
+    'min_pixels',
+    'max_pixels',
   ],
   'sglang': [
     'mem_fraction_static',
@@ -65,7 +68,7 @@ export const featureModels = [
       'deepseek-r1-distill-llama',
       'qwen2.5-instruct',
       'qwen2.5-vl-instruct',
-      'qwen2.5-coder-instruct',
+      'glm4-0414',
       'QwQ-32B',
       'llama-3.1-instruct',
       'gemma-3-it',

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-11 10:26+0800\n"
+"POT-Creation-Date: 2025-04-28 18:35+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/getting_started/troubleshooting.rst:5
 msgid "Troubleshooting"
@@ -202,5 +202,65 @@ msgid ""
 "``model_engine`` parameter. For specific information, please refer to "
 ":ref:`here <about_model_engine>`."
 msgstr ""
-"自 ``v0.11.0`` 版本开始，加载 LLM 模型时需要传入额外参数 ``model_engine`` 。"
-"具体信息请参考 :ref:`这里 <about_model_engine>` 。"
+"自 ``v0.11.0`` 版本开始，加载 LLM 模型时需要传入额外参数 ``model_engine``"
+" 。具体信息请参考 :ref:`这里 <about_model_engine>` 。"
+
+#: ../../source/getting_started/troubleshooting.rst:112
+msgid ""
+"Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is "
+"incompatible with libgomp-a34b3233.so.1 library."
+msgstr ""
+"错误：mkl-service + Intel(R) MKL：MKL_THREADING_LAYER=INTEL 与 libgomp-a34b3233.so.1 库不兼容。"
+
+#: ../../source/getting_started/troubleshooting.rst:114
+msgid ""
+"When start Xinference server and you hit the error \"ValueError: Model "
+"architectures ['Qwen2ForCausalLM'] failed to be inspected. Please check "
+"the logs for more details. \""
+msgstr ""
+"在启动 Xinference 服务器时，如果遇到错误：“ValueError: Model architectures "
+"['Qwen2ForCausalLM'] failed to be inspected. Please check the logs for more details.”"
+
+#: ../../source/getting_started/troubleshooting.rst:116
+msgid ""
+"The logs shows the error, ``\"Error: mkl-service + Intel(R) MKL: "
+"MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 "
+"library. Try to import numpy first or set the threading layer "
+"accordingly. Set MKL_SERVICE_FORCE_INTEL to force it.\"``"
+msgstr ""
+"日志中显示错误：Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL "
+"is incompatible with libgomp-a34b3233.so.1 library. Try to import numpy first "
+"or set the threading layer accordingly. Set MKL_SERVICE_FORCE_INTEL to force it."
+
+
+#: ../../source/getting_started/troubleshooting.rst:118
+msgid ""
+"This is mostly because your NumPy is installed by conda and conda's Numpy"
+" is built with Intel MKL optimizations, which is causing a conflict with "
+"the GNU OpenMP library (libgomp) that's already loaded in the "
+"environment."
+msgstr ""
+"这通常是因为你的 NumPy 是通过 conda 安装的，而 conda 的 NumPy 是使用 Intel MKL 优化构建的，"
+"这导致它与环境中已加载的 GNU OpenMP 库（libgomp）产生冲突。"
+
+#: ../../source/getting_started/troubleshooting.rst:124
+msgid ""
+"Setting ``MKL_THREADING_LAYER=GNU`` forces Intel's Math Kernel Library to"
+" use GNU's OpenMP implementation instead of Intel's own implementation."
+msgstr ""
+"设置 MKL_THREADING_LAYER=GNU 可以强制 Intel 数学核心库（MKL）使用 GNU 的 OpenMP 实现，而不是使用 Intel 自己的实现。"
+
+#: ../../source/getting_started/troubleshooting.rst:126
+msgid "Or you can uninstall conda's numpy and reinstall with pip."
+msgstr ""
+"或者你也可以卸载 conda 安装的 numpy，然后使用 pip 重新安装。"
+
+#: ../../source/getting_started/troubleshooting.rst:128
+msgid ""
+"On a related subject, if you use vllm, do not install pytorch with conda,"
+" check "
+"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html for "
+"detailed information."
+msgstr ""
+"相关地，如果你使用 vllm，不要通过 conda 安装 pytorch，详细信息请参考：https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html 。"
+

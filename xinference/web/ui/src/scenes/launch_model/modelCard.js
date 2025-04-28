@@ -14,6 +14,7 @@ import {
   HelpOutline,
   RocketLaunchOutlined,
   StarBorder,
+  StopCircle,
   UndoOutlined,
 } from '@mui/icons-material'
 import {
@@ -62,6 +63,7 @@ import AddPair from './components/addPair'
 import CopyToCommandLine from './components/copyComponent'
 import Drawer from './components/drawer'
 import PasteDialog from './components/pasteDialog'
+import Progress from './components/progress'
 import { additionalParameterTipList, llmAllDataKey } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
@@ -84,11 +86,9 @@ const ModelCard = ({
   const [isOther, setIsOther] = useState(false)
   const [isPeftModelConfig, setIsPeftModelConfig] = useState(false)
   const [openSnackbar, setOpenSnackbar] = useState(false)
-  const [openErrorSnackbar, setOpenErrorSnackbar] = useState(false)
-  const [errorSnackbarValue, setErrorSnackbarValue] = useState('')
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
+  const { setErrorMsg, setSuccessMsg } = useContext(ApiContext)
   const navigate = useNavigate()
 
   // Model parameter selections
@@ -137,8 +137,13 @@ const ModelCard = ({
   const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
   const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
   const [isOpenPasteDialog, setIsOpenPasteDialog] = useState(false)
+  const [isShowProgress, setIsShowProgress] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [isShowCancel, setIsShowCancel] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const parentRef = useRef(null)
+  const intervalRef = useRef(null)
   const { t } = useTranslation()
   const theme = useTheme()
 
@@ -276,6 +281,30 @@ const ModelCard = ({
       })
   }
 
+  const fetchProgress = async () => {
+    try {
+      const res = await fetchWrapper.get(
+        `/v1/models/${modelData.model_name}/progress`
+      )
+      if (res.progress !== 1.0) setProgress(Number(res.progress))
+    } catch (err) {
+      stopPolling()
+      setIsCallingApi(false)
+    }
+  }
+
+  const startPolling = () => {
+    if (intervalRef.current) return
+    intervalRef.current = setInterval(fetchProgress, 500)
+  }
+
+  const stopPolling = () => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
   const handleModelData = () => {
     const modelDataWithID_LLM = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
@@ -372,6 +401,9 @@ const ModelCard = ({
     }
 
     setIsCallingApi(true)
+    setProgress(0)
+    setIsShowProgress(true)
+    setIsShowCancel(true)
 
     try {
       const modelDataWithID = handleModelData()
@@ -397,21 +429,39 @@ const ModelCard = ({
             historyArr.push(modelDataWithID)
           }
           localStorage.setItem('historyArr', JSON.stringify(historyArr))
-
-          setIsCallingApi(false)
         })
         .catch((error) => {
           console.error('Error:', error)
-          if (error.response.status !== 403) {
+          if (error.response?.status === 499) {
+            setSuccessMsg(t('launchModel.cancelledSuccessfully'))
+          } else if (error.response?.status !== 403) {
             setErrorMsg(error.message)
           }
-          setIsCallingApi(false)
         })
+        .finally(() => {
+          setIsCallingApi(false)
+          stopPolling()
+          setIsShowProgress(false)
+          setIsShowCancel(false)
+          setIsLoading(false)
+        })
+      startPolling()
     } catch (error) {
-      setOpenErrorSnackbar(true)
-      setErrorSnackbarValue(`${error}`)
+      setErrorMsg(`${error}`)
       setIsCallingApi(false)
     }
+  }
+
+  const cancelModel = async () => {
+    try {
+      await fetchWrapper.post(`/v1/models/${modelData.model_name}/cancel`)
+    } catch (err) {
+      console.log('err', err)
+    }
+    stopPolling()
+    setIsShowProgress(false)
+    setIsShowCancel(false)
+    setIsLoading(true)
   }
 
   const handleGPUIdx = (data) => {
@@ -792,8 +842,7 @@ const ModelCard = ({
         handleOtherHistory(data)
       }
     } else {
-      setOpenErrorSnackbar(true)
-      setErrorSnackbarValue(t('launchModel.commandLineTip'))
+      setErrorMsg(t('launchModel.commandLineTip'))
     }
   }
 
@@ -813,53 +862,50 @@ const ModelCard = ({
           !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
           !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
           requestLimitsAlert ||
-          GPUIdxAlert)) ||
+          GPUIdxAlert) &&
+        !isShowCancel) ||
       ((modelType === 'embedding' || modelType === 'rerank') && GPUIdxAlert) ||
       !judgeArr(customParametersArr, ['key', 'value'])
     )
   }
 
-  const getButtonStyle = (type) => {
-    if (type === 'goBack') {
-      return theme.palette.mode === 'dark' ? { color: '#e5e7eb' } : {}
+  const renderButtonContent = () => {
+    if (isShowCancel) {
+      return <StopCircle sx={{ fontSize: 26 }} />
+    }
+    if (isLoading) {
+      return <CircularProgress size={26} />
     }
 
-    const isDisabled = !(
-      modelFormat &&
-      modelSize &&
-      modelData &&
-      (quantization || (!modelData.is_builtin && modelFormat !== 'pytorch'))
-    )
-
-    return theme.palette.mode === 'dark'
-      ? {
-          color: '#e5e7eb',
-          ...(isDisabled ? { color: '#888', border: '1px solid #888' } : {}),
-        }
-      : isDisabled
-      ? { color: '#e5e7eb', border: '1px solid #e5e7eb' }
-      : { color: '#000000' }
+    return <RocketLaunchOutlined sx={{ fontSize: 26 }} />
   }
 
-  const renderButtonContent = () => {
-    if (isCallingApi || isUpdatingModel) {
-      return (
-        <Box className="buttonItem" style={getButtonStyle('launch')}>
-          <CircularProgress
-            size="20px"
-            sx={{
-              color: theme.palette.mode === 'dark' ? '#f2f2f2' : '#000000',
+  const showAbilityParameter = () => {
+    if (!modelData.model_ability) return
+    if (Array.isArray(modelData.model_ability)) {
+      return modelData.model_ability.map((v) => {
+        return (
+          <Chip
+            key={v}
+            label={v}
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation()
             }}
           />
-        </Box>
+        )
+      })
+    } else {
+      return (
+        <Chip
+          label={modelData.model_ability}
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+          }}
+        />
       )
     }
-
-    return (
-      <Box className="buttonItem" style={getButtonStyle('launch')}>
-        <RocketLaunchOutlined size="20px" />
-      </Box>
-    )
   }
 
   // Set two different states based on mouse hover
@@ -961,6 +1007,7 @@ const ModelCard = ({
               flexWrap="wrap"
               sx={{ marginLeft: 1 }}
             >
+              {showAbilityParameter()}
               {modelData.model_lang &&
                 (() => {
                   return modelData.model_lang.map((v) => {
@@ -1140,6 +1187,7 @@ const ModelCard = ({
                 flexWrap="wrap"
                 sx={{ marginLeft: 1 }}
               >
+                {showAbilityParameter()}
                 {(() => {
                   if (modelData.language) {
                     return normalizeLanguage(modelData.language).map((v) => {
@@ -1159,20 +1207,6 @@ const ModelCard = ({
                     return (
                       <Chip
                         label={modelData.model_family}
-                        variant="outlined"
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                        }}
-                      />
-                    )
-                  }
-                })()}
-                {(() => {
-                  if (modelType === 'audio' && modelData.model_ability) {
-                    return (
-                      <Chip
-                        label={modelData.model_ability}
                         variant="outlined"
                         size="small"
                         onClick={(e) => {
@@ -1309,6 +1343,7 @@ const ModelCard = ({
                       {t('launchModel.modelEngine')}
                     </InputLabel>
                     <Select
+                      className="textHighlight"
                       labelId="modelEngine-label"
                       value={modelEngine}
                       onChange={(e) => setModelEngine(e.target.value)}
@@ -1350,6 +1385,7 @@ const ModelCard = ({
                       {t('launchModel.modelFormat')}
                     </InputLabel>
                     <Select
+                      className="textHighlight"
                       labelId="modelFormat-label"
                       value={modelFormat}
                       onChange={(e) => setModelFormat(e.target.value)}
@@ -1386,6 +1422,7 @@ const ModelCard = ({
                       {t('launchModel.modelSize')}
                     </InputLabel>
                     <Select
+                      className="textHighlight"
                       labelId="modelSize-label"
                       value={modelSize}
                       onChange={(e) => setModelSize(e.target.value)}
@@ -1423,6 +1460,7 @@ const ModelCard = ({
                       {t('launchModel.quantization')}
                     </InputLabel>
                     <Select
+                      className="textHighlight"
                       labelId="quantization-label"
                       value={quantization}
                       onChange={(e) => setQuantization(e.target.value)}
@@ -1474,6 +1512,7 @@ const ModelCard = ({
                       )}
                     </InputLabel>
                     <Select
+                      className="textHighlight"
                       labelId="n-gpu-label"
                       value={nGPU}
                       onChange={(e) => setNGPU(e.target.value)}
@@ -1497,6 +1536,7 @@ const ModelCard = ({
                   {(modelFormat === 'ggufv2' || modelFormat === 'ggmlv3') && (
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
+                        className="textHighlight"
                         disabled={!modelFormat || !modelSize || !quantization}
                         type="number"
                         label={t('launchModel.nGpuLayers')}
@@ -1516,6 +1556,7 @@ const ModelCard = ({
                 <Grid item xs={12}>
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
+                      className="textHighlight"
                       disabled={!modelFormat || !modelSize || !quantization}
                       type="number"
                       InputProps={{
@@ -1529,6 +1570,22 @@ const ModelCard = ({
                     />
                   </FormControl>
                 </Grid>
+                {modelData.model_ability?.includes('reasoning') && (
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <div>
+                        <FormControlLabel
+                          label={t('launchModel.parsingReasoningContent')}
+                          labelPlacement="start"
+                          control={<Switch checked={reasoningContent} />}
+                          onChange={(e) => {
+                            setReasoningContent(e.target.checked)
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                  </Grid>
+                )}
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
@@ -1542,6 +1599,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
+                        className="textHighlight"
                         variant="outlined"
                         value={modelUID}
                         label={t('launchModel.modelUID.optional')}
@@ -1552,6 +1610,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
+                        className="textHighlight"
                         value={requestLimits}
                         label={t('launchModel.requestLimits.optional')}
                         onChange={(e) => {
@@ -1579,6 +1638,7 @@ const ModelCard = ({
                     {enginesWithNWorker.includes(modelEngine) && (
                       <FormControl variant="outlined" margin="normal" fullWidth>
                         <TextField
+                          className="textHighlight"
                           type="number"
                           InputProps={{
                             inputProps: {
@@ -1597,6 +1657,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
+                        className="textHighlight"
                         variant="outlined"
                         value={workerIp}
                         label={t('launchModel.workerIp.optional')}
@@ -1607,6 +1668,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
+                        className="textHighlight"
                         value={GPUIdx}
                         label={t('launchModel.GPUIdx.optional')}
                         onChange={(e) => {
@@ -1634,6 +1696,7 @@ const ModelCard = ({
                         {t('launchModel.downloadHub.optional')}
                       </InputLabel>
                       <Select
+                        className="textHighlight"
                         labelId="download_hub-label"
                         value={downloadHub}
                         onChange={(e) => {
@@ -1670,6 +1733,7 @@ const ModelCard = ({
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
+                        className="textHighlight"
                         variant="outlined"
                         value={modelPath}
                         label={t('launchModel.modelPath.optional')}
@@ -1677,26 +1741,6 @@ const ModelCard = ({
                       />
                     </FormControl>
                   </Grid>
-                  {modelData.model_ability?.includes('reasoning') && (
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <div
-                          style={{
-                            marginBlock: '10px',
-                          }}
-                        >
-                          <FormControlLabel
-                            label={t('launchModel.parsingReasoningContent')}
-                            labelPlacement="start"
-                            control={<Switch checked={reasoningContent} />}
-                            onChange={(e) => {
-                              setReasoningContent(e.target.checked)
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                    </Grid>
-                  )}
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
@@ -1758,12 +1802,14 @@ const ModelCard = ({
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <TextField
+                  className="textHighlight"
                   variant="outlined"
                   value={modelUID}
                   label={t('launchModel.modelUID.optional')}
                   onChange={(e) => setModelUID(e.target.value)}
                 />
                 <TextField
+                  className="textHighlight"
                   style={{ marginTop: '25px' }}
                   type="number"
                   InputProps={{
@@ -1780,6 +1826,7 @@ const ModelCard = ({
                     {t('launchModel.device')}
                   </InputLabel>
                   <Select
+                    className="textHighlight"
                     labelId="n-gpu-label"
                     value={nGpu}
                     onChange={(e) => setNGpu(e.target.value)}
@@ -1797,6 +1844,7 @@ const ModelCard = ({
                 {nGpu === 'GPU' && (
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
+                      className="textHighlight"
                       value={GPUIdx}
                       label={t('launchModel.GPUIdx')}
                       onChange={(e) => {
@@ -1820,6 +1868,7 @@ const ModelCard = ({
                 )}
                 <FormControl variant="outlined" margin="normal" fullWidth>
                   <TextField
+                    className="textHighlight"
                     variant="outlined"
                     value={workerIp}
                     label={t('launchModel.workerIp')}
@@ -1831,6 +1880,7 @@ const ModelCard = ({
                     {t('launchModel.downloadHub.optional')}
                   </InputLabel>
                   <Select
+                    className="textHighlight"
                     labelId="download_hub-label"
                     value={downloadHub}
                     onChange={(e) => {
@@ -1853,6 +1903,7 @@ const ModelCard = ({
                 </FormControl>
                 <FormControl variant="outlined" margin="normal" fullWidth>
                   <TextField
+                    className="textHighlight"
                     variant="outlined"
                     value={modelPath}
                     label={t('launchModel.modelPath.optional')}
@@ -1865,6 +1916,7 @@ const ModelCard = ({
                       {t('launchModel.GGUFQuantization.optional')}
                     </InputLabel>
                     <Select
+                      className="textHighlight"
                       labelId="gguf_quantizations-label"
                       value={ggufQuantizations}
                       onChange={(e) => {
@@ -1887,6 +1939,7 @@ const ModelCard = ({
                 {modelData.gguf_quantizations && (
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
+                      className="textHighlight"
                       variant="outlined"
                       value={ggufModelPath}
                       label={t('launchModel.GGUFModelPath.optional')}
@@ -1996,26 +2049,37 @@ const ModelCard = ({
             </Box>
           )}
           <Box className="buttonsContainer">
-            <button
-              title={t('launchModel.launch')}
-              className="buttonContainer"
-              onClick={() => launchModel(url, modelData)}
-              disabled={!isModelStartable()}
-            >
-              {renderButtonContent()}
-            </button>
-            <button
-              title={t('launchModel.goBack')}
-              className="buttonContainer"
-              onClick={() => {
-                setSelected(false)
-                setHover(false)
-              }}
-            >
-              <Box className="buttonItem" style={getButtonStyle('goBack')}>
-                <UndoOutlined size="20px" />
-              </Box>
-            </button>
+            {isShowProgress && <Progress progress={progress} />}
+            <div className="buttons">
+              <Button
+                variant="outlined"
+                title={t(
+                  isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
+                )}
+                style={{ flex: 1 }}
+                disabled={!isModelStartable() || isLoading}
+                onClick={() => {
+                  if (isShowCancel) {
+                    cancelModel()
+                  } else {
+                    launchModel(url, modelData)
+                  }
+                }}
+              >
+                {renderButtonContent()}
+              </Button>
+              <Button
+                variant="outlined"
+                title={t('launchModel.goBack')}
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setSelected(false)
+                  setHover(false)
+                }}
+              >
+                <UndoOutlined sx={{ fontSize: 26 }} />
+              </Button>
+            </div>
           </Box>
         </div>
       </Drawer>
@@ -2067,15 +2131,6 @@ const ModelCard = ({
         onClose={() => setOpenSnackbar(false)}
         message={t('launchModel.fillCompleteParametersBeforeAdding')}
       />
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={openErrorSnackbar}
-        onClose={() => setOpenErrorSnackbar(false)}
-      >
-        <Alert severity="error" variant="filled" sx={{ width: '100%' }}>
-          {errorSnackbarValue}
-        </Alert>
-      </Snackbar>
 
       <Backdrop
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}

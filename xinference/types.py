@@ -176,10 +176,18 @@ class Completion(TypedDict):
     usage: CompletionUsage
 
 
+class ChatCompletionAudio(TypedDict):
+    id: str
+    data: str
+    expires_at: int
+    transcript: str
+
+
 class ChatCompletionMessage(TypedDict):
     role: str
     reasoning_content: NotRequired[str]
     content: Optional[str]
+    audio: NotRequired[ChatCompletionAudio]
     user: NotRequired[str]
     tool_calls: NotRequired[List]
 
@@ -334,6 +342,8 @@ class PytorchModelConfig(TypedDict, total=False):
     max_num_seqs: int
     enable_tensorizer: Optional[bool]
     reasoning_content: bool
+    min_pixels: NotRequired[int]
+    max_pixels: NotRequired[int]
 
 
 def get_pydantic_model_from_method(

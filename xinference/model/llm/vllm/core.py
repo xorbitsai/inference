@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import importlib.util
 import itertools
 import json
 import logging
@@ -37,6 +38,7 @@ from typing import (
 )
 
 import xoscar as xo
+from typing_extensions import NotRequired
 
 from ....types import (
     ChatCompletion,
@@ -49,7 +51,7 @@ from ....types import (
     LoRA,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
-from ..llm_family import CustomLLMFamilyV1
+from ..llm_family import CustomLLMFamilyV1, cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -81,6 +83,9 @@ class VLLMModelConfig(TypedDict, total=False):
     scheduling_policy: Optional[str]
     reasoning_content: bool
     model_quantization: Optional[str]
+    mm_processor_kwargs: NotRequired[dict[str, Any]]
+    min_pixels: NotRequired[int]
+    max_pixels: NotRequired[int]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -170,6 +175,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-qwen")
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
+    VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -205,6 +212,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
@@ -228,6 +236,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
+    VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
 
 class VLLMModel(LLM):
@@ -320,8 +331,10 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        if vllm.__version__ >= "0.3.1":
-            # from vllm v0.3.1, it uses cupy as NCCL backend
+        from ..llm_family import LlamaCppLLMSpecV1
+
+        if "0.3.1" <= vllm.__version__ <= "0.3.3":
+            # from vllm v0.3.1 to v0.3.3, it uses cupy as NCCL backend
             # in which cupy will fork a process
             # only for xoscar >= 0.3.0, new process is allowed in subpool
             # besides, xinference set start method as forkserver for unix
@@ -333,6 +346,13 @@ class VLLMModel(LLM):
         reasoning_content = self._model_config.pop("reasoning_content")
 
         self.prepare_parse_reasoning_content(reasoning_content)
+
+        if (
+            isinstance(self.model_spec, LlamaCppLLMSpecV1)
+            and self.model_spec.model_format == "ggufv2"
+        ):
+            # gguf
+            self._preprocess_load_gguf()
 
         if self.lora_modules is None:
             self.lora_requests = []
@@ -472,6 +492,45 @@ class VLLMModel(LLM):
                 _, err, tb = self._loading_error
                 raise err.with_traceback(tb)
 
+    def _preprocess_load_gguf(self):
+        # check if it is multi gguf files
+        if (
+            not os.path.isfile(self.model_path)
+            and self.model_spec.quantization_parts
+            and self.quantization in self.model_spec.quantization_parts
+        ):
+            raise RuntimeError(
+                "vllm does not support multiple gguf files, please merge them first and "
+                "provide `model_path` with merged file"
+            )
+
+        if "tokenizer" not in self._model_config:
+            # find pytorch format without quantization
+            non_quant_spec = next(
+                spec
+                for spec in self.model_family.model_specs
+                if spec.model_format == "pytorch"
+                and "none" in spec.quantizations
+                and spec.model_size_in_billions
+                == self.model_spec.model_size_in_billions
+            )
+
+            path = cache_model_tokenizer_and_config(self.model_family, non_quant_spec)
+            # other than gguf file, vllm requires to provide tokenizer and hf_config_path
+            self._model_config["tokenizer"] = self._model_config[
+                "hf_config_path"
+            ] = path
+
+        if not os.path.isfile(self.model_path):
+            self.model_path = os.path.realpath(
+                os.path.join(
+                    self.model_path,
+                    self.model_spec.model_file_name_template.format(
+                        quantization=self.quantization
+                    ),
+                )
+            )
+
     def stop(self):
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
@@ -531,6 +590,31 @@ class VLLMModel(LLM):
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
             model_config.setdefault("scheduling_policy", "fcfs")
+            # init mm_processor_kwargs params
+            mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
+            if isinstance(mm_processor_kwargs, str):
+                try:
+                    mm_processor_kwargs = json.loads(mm_processor_kwargs)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Failed to parse mm_processor_kwargs as JSON, using default empty dict"
+                    )
+                    mm_processor_kwargs = {}
+                except Exception as e:
+                    logger.warning(
+                        f"Unexpected error parsing mm_processor_kwargs: {e}, using default empty dict"
+                    )
+                    mm_processor_kwargs = {}
+            pixel_params: Dict[str, int] = {}
+            if "min_pixels" in model_config:
+                pixel_params["min_pixels"] = model_config.pop("min_pixels")
+            if "max_pixels" in model_config:
+                pixel_params["max_pixels"] = model_config.pop("max_pixels")
+            if pixel_params or mm_processor_kwargs:
+                model_config["mm_processor_kwargs"] = {
+                    **mm_processor_kwargs,
+                    **pixel_params,
+                }
         return model_config
 
     @staticmethod
@@ -607,7 +691,11 @@ class VLLMModel(LLM):
         return sanitized
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("vllm") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
@@ -900,10 +988,10 @@ class VLLMModel(LLM):
 
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "ggufv2"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -919,6 +1007,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False
+        if llm_spec.model_format == "ggufv2":
+            if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
+                return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
@@ -1020,7 +1111,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():

@@ -24,6 +24,7 @@ from ....types import (
     ChatCompletionChunk,
     ChatCompletionMessage,
     CompletionChunk,
+    PytorchModelConfig,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import generate_chat_completion, generate_completion_chunk
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 class Gemma3TextChatModel(PytorchChatModel):
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
@@ -55,7 +56,7 @@ class Gemma3ChatModel(PytorchChatModel):
         self._processor = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
@@ -65,6 +66,15 @@ class Gemma3ChatModel(PytorchChatModel):
             return True
         return False
 
+    def _sanitize_model_config(
+        self, pytorch_model_config: Optional[PytorchModelConfig]
+    ) -> PytorchModelConfig:
+        pytorch_model_config = super()._sanitize_model_config(pytorch_model_config)
+        assert pytorch_model_config is not None
+        pytorch_model_config.setdefault("min_pixels", 256 * 28 * 28)
+        pytorch_model_config.setdefault("max_pixels", 1280 * 28 * 28)
+        return pytorch_model_config
+
     def load(self):
         from transformers import AutoProcessor, Gemma3ForConditionalGeneration
 
@@ -73,8 +83,13 @@ class Gemma3ChatModel(PytorchChatModel):
         self._device = device
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
-
-        self._processor = AutoProcessor.from_pretrained(self.model_path)
+        min_pixels = self._pytorch_model_config.get("min_pixels")
+        max_pixels = self._pytorch_model_config.get("max_pixels")
+        self._processor = AutoProcessor.from_pretrained(
+            self.model_path,
+            min_pixels=min_pixels,
+            max_pixels=max_pixels,
+        )
         self._tokenizer = self._processor.tokenizer
         self._model = Gemma3ForConditionalGeneration.from_pretrained(
             self.model_path,
@@ -113,7 +128,12 @@ class Gemma3ChatModel(PytorchChatModel):
         ).to(self._device)
         input_len = inputs["input_ids"].shape[-1]
 
-        generation = self._model.generate(**inputs, do_sample=False)
+        generation = self._model.generate(
+            **inputs,
+            do_sample=False,
+            max_new_tokens=config.get("max_tokens", 512),
+            temperature=config.get("temperature", 1),
+        )
         generation = generation[0][input_len:]
 
         decoded = self._processor.decode(generation, skip_special_tokens=True)
@@ -144,7 +164,11 @@ class Gemma3ChatModel(PytorchChatModel):
 
         def model_generate():
             try:
-                return self._model.generate(**gen_kwargs)
+                return self._model.generate(
+                    **gen_kwargs,
+                    max_new_tokens=config.get("max_tokens", 512),
+                    temperature=config.get("temperature", 1),
+                )
             except Exception:
                 nonlocal error
                 error = sys.exc_info()

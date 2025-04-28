@@ -36,6 +36,7 @@ from ...constants import (
     XINFERENCE_ENV_CSG_TOKEN,
     XINFERENCE_MODEL_DIR,
 )
+from ..core import VirtualEnvSettings
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     create_symlink,
@@ -134,7 +135,9 @@ class LLMFamilyV1(BaseModel):
     model_name: str
     model_lang: List[str]
     model_ability: List[
-        Literal["embed", "generate", "chat", "tools", "vision", "audio", "reasoning"]
+        Literal[
+            "embed", "generate", "chat", "tools", "vision", "audio", "omni", "reasoning"
+        ]
     ]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
@@ -145,6 +148,7 @@ class LLMFamilyV1(BaseModel):
     stop: Optional[List[str]]
     reasoning_start_tag: Optional[str]
     reasoning_end_tag: Optional[str]
+    virtualenv: Optional[VirtualEnvSettings]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):
@@ -366,6 +370,53 @@ def cache_from_uri(
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
+def cache_model_tokenizer_and_config(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+) -> str:
+    """
+    Download model config.json and tokenizers only
+    """
+    cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec, "tokenizer_config")
+    os.makedirs(cache_dir, exist_ok=True)
+    if llm_spec.model_hub == "huggingface":
+        from huggingface_hub import snapshot_download
+
+        download_dir = retry_download(
+            snapshot_download,
+            llm_family.model_name,
+            {
+                "model_size": llm_spec.model_size_in_billions,
+                "model_format": llm_spec.model_format,
+            },
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            allow_patterns=["tokenizer*", "config.json"],
+            local_dir=cache_dir,
+        )
+    elif llm_spec.model_hub == "modelscope":
+        from modelscope.hub.snapshot_download import snapshot_download
+
+        download_dir = retry_download(
+            snapshot_download,
+            llm_family.model_name,
+            {
+                "model_size": llm_spec.model_size_in_billions,
+                "model_format": llm_spec.model_format,
+            },
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            allow_patterns=["tokenizer*", "config.json"],
+            local_dir=cache_dir,
+        )
+    else:
+        raise NotImplementedError(
+            f"Does not support download config.json and "
+            f"tokenizer related files via {llm_spec.model_hub}"
+        )
+    return download_dir
+
+
 def cache_model_config(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -373,7 +424,7 @@ def cache_model_config(
     """Download model config.json into cache_dir,
     returns local filepath
     """
-    cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec)
+    cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec, "model_mem")
     config_file = os.path.join(cache_dir, "config.json")
     if not os.path.islink(config_file) and not os.path.exists(config_file):
         os.makedirs(cache_dir, exist_ok=True)
@@ -396,10 +447,13 @@ def cache_model_config(
 def _get_cache_dir_for_model_mem(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
+    category: str,
     create_if_not_exist=True,
 ):
     """
-    For cal-model-mem only. (might called from supervisor / cli)
+    Get file dir for special usage, like `cal-model-mem` and download partial files for
+
+    e.g. for cal-model-mem, (might called from supervisor / cli)
     Temporary use separate dir from worker's cache_dir, due to issue of different style of symlink.
     """
     quant_suffix = ""
@@ -414,7 +468,7 @@ def _get_cache_dir_for_model_mem(
     if quant_suffix:
         cache_dir_name += f"-{quant_suffix}"
     cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, "model_mem", cache_dir_name)
+        os.path.join(XINFERENCE_CACHE_DIR, category, cache_dir_name)
     )
     if create_if_not_exist and not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)

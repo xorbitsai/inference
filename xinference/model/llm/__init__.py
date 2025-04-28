@@ -57,7 +57,7 @@ from .llm_family import (
 
 def check_format_with_engine(model_format, engine):
     # only llama-cpp-python support and only support ggufv2
-    if model_format in ["ggufv2"] and engine != "llama.cpp":
+    if model_format in ["ggufv2"] and engine not in ["llama.cpp", "vLLM"]:
         return False
     if model_format not in ["ggufv2"] and engine == "llama.cpp":
         return False
@@ -151,6 +151,7 @@ def _install():
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.opt import OptPytorchModel
+    from .transformers.ovis2 import Ovis2ChatModel
     from .transformers.qwen2_audio import Qwen2AudioChatModel
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
@@ -199,6 +200,7 @@ def _install():
             CogAgentChatModel,
             Gemma3TextChatModel,
             Gemma3ChatModel,
+            Ovis2ChatModel,
         ]
     )
     if OmniLMMModel:  # type: ignore

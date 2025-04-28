@@ -20,7 +20,12 @@ import torch
 from PIL import Image
 
 from ....core.scheduler import InferenceRequest
-from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
+from ....types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    CompletionChunk,
+    PytorchModelConfig,
+)
 from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import (
@@ -44,13 +49,22 @@ class MiniCPMV26Model(PytorchChatModel):
         self._processor = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
         if "MiniCPM-V-2.6".lower() in family.lower():
             return True
         return False
+
+    def _sanitize_model_config(
+        self, pytorch_model_config: Optional[PytorchModelConfig]
+    ) -> PytorchModelConfig:
+        pytorch_model_config = super()._sanitize_model_config(pytorch_model_config)
+        assert pytorch_model_config is not None
+        pytorch_model_config.setdefault("min_pixels", 256 * 28 * 28)
+        pytorch_model_config.setdefault("max_pixels", 1280 * 28 * 28)
+        return pytorch_model_config
 
     def _get_model_class(self):
         from transformers import AutoModel
@@ -99,8 +113,13 @@ class MiniCPMV26Model(PytorchChatModel):
             self.model_path,
             trust_remote_code=True,
         )
+        min_pixels = self._pytorch_model_config.get("min_pixels")
+        max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=True,
+            min_pixels=min_pixels,
+            max_pixels=max_pixels,
         )
         self._device = self._model.device
         self._save_tensorizer()

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
+import importlib.util
 import logging
 import os
 import queue
@@ -36,7 +37,7 @@ from ..utils import DEEPSEEK_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY, ChatModelM
 
 logger = logging.getLogger(__name__)
 
-USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 0)))
+USE_XLLAMACPP = bool(int(os.environ.get("USE_XLLAMACPP", 1)))
 
 
 class _Done:
@@ -116,7 +117,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return generate_config
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("xllamacpp") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
@@ -142,20 +147,30 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
-            model_path = os.path.realpath(self.model_path)
+            model_path = self.model_path
         else:
             # handle legacy cache.
-            model_path = os.path.realpath(
-                os.path.join(
+            if (
+                self.model_spec.model_file_name_split_template
+                and self.model_spec.quantization_parts
+            ):
+                part = self.model_spec.quantization_parts[self.quantization]
+                model_path = os.path.join(
+                    self.model_path,
+                    self.model_spec.model_file_name_split_template.format(
+                        quantization=self.quantization, part=part[0]
+                    ),
+                )
+            else:
+                model_path = os.path.join(
                     self.model_path,
                     self.model_spec.model_file_name_template.format(
                         quantization=self.quantization
                     ),
                 )
-            )
-            legacy_model_file_path = os.path.join(self.model_path, "model.bin")
-            if os.path.exists(legacy_model_file_path):
-                model_path = legacy_model_file_path
+                legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+                if os.path.exists(legacy_model_file_path):
+                    model_path = legacy_model_file_path
 
         try:
             params = CommonParams()
@@ -419,20 +434,30 @@ class LlamaCppModel(LLM):
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
-            model_path = os.path.realpath(self.model_path)
+            model_path = self.model_path
         else:
             # handle legacy cache.
-            model_path = os.path.realpath(
-                os.path.join(
+            if (
+                self.model_spec.model_file_name_split_template
+                and self.model_spec.quantization_parts
+            ):
+                part = self.model_spec.quantization_parts[self.quantization]
+                model_path = os.path.join(
+                    self.model_path,
+                    self.model_spec.model_file_name_split_template.format(
+                        quantization=self.quantization, part=part[0]
+                    ),
+                )
+            else:
+                model_path = os.path.join(
                     self.model_path,
                     self.model_spec.model_file_name_template.format(
                         quantization=self.quantization
                     ),
                 )
-            )
-            legacy_model_file_path = os.path.join(self.model_path, "model.bin")
-            if os.path.exists(legacy_model_file_path):
-                model_path = legacy_model_file_path
+                legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+                if os.path.exists(legacy_model_file_path):
+                    model_path = legacy_model_file_path
 
         try:
             self._llm = Llama(
@@ -444,7 +469,11 @@ class LlamaCppModel(LLM):
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("llama_cpp") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
@@ -545,7 +574,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         )
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:

@@ -42,7 +42,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
         self._device = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name
@@ -74,7 +74,7 @@ class Qwen2AudioChatModel(PytorchChatModel):
 
     def _transform_messages(
         self,
-        messages: List[ChatCompletionMessage],
+        messages: Union[List[ChatCompletionMessage], List[dict]],
     ):
         import librosa
 
