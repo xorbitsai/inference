@@ -177,6 +177,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
     VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
     VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")

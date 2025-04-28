@@ -7253,7 +7253,7 @@
   {
     "version": 1,
     "context_length": 32768,
-    "model_name": "DianJin/DianJin-R1",
+    "model_name": "DianJin-R1",
     "model_lang": [
       "en",
       "zh"
