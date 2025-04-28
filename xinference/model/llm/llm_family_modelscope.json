@@ -9224,7 +9224,10 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "generate",
+      "chat",
+      "reasoning",
+      "tools"
     ],
     "model_description": "Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support",
     "model_specs": [
@@ -9240,6 +9243,15 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "fp8",
+        "model_size_in_billions": "0_6",
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-0.6B-FP8",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": "1_7",
         "quantizations": [
@@ -9248,6 +9260,15 @@
           "none"
         ],
         "model_id": "Qwen/Qwen3-1.7B",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": "1_7",
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-1.7B-FP8",
         "model_hub": "modelscope"
       },
       {
@@ -9262,6 +9283,15 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "fp8",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-4B-FP8",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
@@ -9270,6 +9300,15 @@
           "none"
         ],
         "model_id": "Qwen/Qwen3-8B",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-8B-FP8",
         "model_hub": "modelscope"
       },
       {
@@ -9284,6 +9323,15 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "fp8",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-14B-FP8",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 30,
         "quantizations": [
@@ -9295,6 +9343,15 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-30B-A3B-FP8",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
@@ -9303,6 +9360,35 @@
           "none"
         ],
         "model_id": "Qwen/Qwen3-32B",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-32B-FP8",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 235,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen3-235B",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 235,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_id": "Qwen/Qwen3-235B-FP8",
         "model_hub": "modelscope"
       }
     ],
