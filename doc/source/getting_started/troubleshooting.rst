@@ -109,7 +109,7 @@ Since version ``v0.11.0``, launching LLM models requires an additional ``model_e
 For specific information, please refer to :ref:`here <about_model_engine>`.
 
 Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 library.
-============================================================
+================================================================================================================
 
 When start Xinference server and you hit the error "ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be inspected. Please check the logs for more details. "
 
