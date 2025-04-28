@@ -75,6 +75,7 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "cogagent",
     "gemma-3-1b-it",
     "gemma-3-it",
+    "Ovis2",
     "deepseek-vl2",
 ]
 
