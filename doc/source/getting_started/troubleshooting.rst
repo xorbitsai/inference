@@ -107,3 +107,22 @@ Missing ``model_engine`` parameter when launching LLM models
 
 Since version ``v0.11.0``, launching LLM models requires an additional ``model_engine`` parameter.
 For specific information, please refer to :ref:`here <about_model_engine>`.
+
+Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 library.
+================================================================================================================
+
+When start Xinference server and you hit the error "ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be inspected. Please check the logs for more details. "
+
+The logs shows the error, ``"Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 library. Try to import numpy first or set the threading layer accordingly. Set MKL_SERVICE_FORCE_INTEL to force it."``
+
+This is mostly because your NumPy is installed by conda and conda's Numpy is built with Intel MKL optimizations, which is causing a conflict with the GNU OpenMP library (libgomp) that's already loaded in the environment.
+
+.. code-block:: text
+
+    MKL_THREADING_LAYER=GNU xinference-local
+
+Setting ``MKL_THREADING_LAYER=GNU`` forces Intel's Math Kernel Library to use GNU's OpenMP implementation instead of Intel's own implementation.
+
+Or you can uninstall conda's numpy and reinstall with pip.
+
+On a related subject, if you use vllm, do not install pytorch with conda, check https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html for detailed information.
