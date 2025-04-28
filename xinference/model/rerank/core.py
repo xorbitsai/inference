@@ -248,6 +248,7 @@ class RerankModel:
                 if self._device:
                     self._model.to(self._device)
                 self._model.eval()
+                return
 
             except ImportError:
                 error_message = "Failed to import module 'transformers'"
@@ -294,18 +295,6 @@ class RerankModel:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
 
-        # 获取文档类型，默认为text
-        doc_type = kwargs.pop("doc_type", "text")
-
-        # 检查模型是否支持该文档类型
-        if (
-            hasattr(self._model_spec, "supported_doc_types")
-            and doc_type not in self._model_spec.supported_doc_types
-        ):
-            raise ValueError(
-                f"Model {self._model_spec.model_name} does not support document type: {doc_type}"
-            )
-
         sentence_combinations = [[query, doc] for doc in documents]
         # reset n tokens
         self._model.model.n_tokens = 0
@@ -319,6 +308,19 @@ class RerankModel:
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
         elif self._model_spec.type == "LLM-based multimodal":
+            # 获取文档类型，默认为text
+            doc_type = kwargs.pop("doc_type", "text")
+
+            # 检查模型是否支持该文档类型
+            if (
+                hasattr(self._model_spec, "supported_doc_types")
+                and doc_type not in self._model_spec.supported_doc_types
+            ):
+                raise ValueError(
+                    f"Model {self._model_spec.model_name} does not support document type: {doc_type}"
+                )
+
+
             # 多模态模型处理逻辑
             max_length = kwargs.pop("max_length", 1024)
             similarity_scores = self._model.compute_score(
@@ -404,7 +406,7 @@ class RerankModel:
             for i in range(10):
                 items.append(docs[i])
             items = list(items)
-        else :
+        else:
             items.append(docs[0])
 
         items.append(docs[0])
