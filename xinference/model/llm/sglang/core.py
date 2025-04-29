@@ -107,6 +107,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-r1-distill-llama",
     "deepseek-v3",
     "deepseek-r1",
+    "qwen3",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "qwen2.5-vl-instruct",
@@ -556,6 +557,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if self.model_family.stop:
             if (not generate_config.get("stop")) and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
+        generate_config.pop("chat_template_kwargs", None)
         return generate_config
 
     async def async_chat(

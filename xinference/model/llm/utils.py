@@ -68,6 +68,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen2-moe-instruct",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
+    "qwen3",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
