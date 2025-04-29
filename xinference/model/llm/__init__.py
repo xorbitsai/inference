@@ -147,13 +147,11 @@ def _install():
     from .transformers.gemma3 import Gemma3ChatModel, Gemma3TextChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.glm_edge_v import GlmEdgeVModel
-    from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.opt import OptPytorchModel
     from .transformers.qwen2_audio import Qwen2AudioChatModel
     from .transformers.qwen_vl import QwenVLChatModel
-    from .transformers.yi_vl import YiVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
     try:
@@ -180,10 +178,8 @@ def _install():
         [
             ChatglmPytorchChatModel,
             PytorchChatModel,
-            Internlm2PytorchChatModel,
             QwenVLChatModel,
             Qwen2AudioChatModel,
-            YiVLChatModel,
             DeepSeekVLChatModel,
             DeepSeekVL2ChatModel,
             PytorchModel,
