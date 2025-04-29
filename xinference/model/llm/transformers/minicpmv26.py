@@ -324,7 +324,7 @@ class MiniCPMV26Model(PytorchChatModel):
             "input_image": images,
         }
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools):  # type: ignore
         msgs, video_existed = self._convert_to_specific_style(messages)
         if video_existed:
             raise RuntimeError(
