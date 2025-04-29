@@ -101,6 +101,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-v2-chat-0628",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
+    "XiYanSQL-QwenCoder-2504",
     "QwQ-32B-Preview",
     "QwQ-32B",
     "deepseek-r1-distill-qwen",
