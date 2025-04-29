@@ -155,6 +155,31 @@ class ChatModelMixin:
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod
+    def _get_chat_template_kwargs_from_generate_config(
+        generate_config: Optional[dict],
+    ) -> Optional[dict]:
+        if not generate_config:
+            return None
+        if "chat_template_kwargs" in generate_config:
+            kwargs = generate_config["chat_template_kwargs"]
+            if isinstance(kwargs, str):
+                try:
+                    return json.loads(kwargs)
+                except json.JSONDecodeError:
+                    raise TypeError(
+                        f"`chat_template_kwargs` should be json parsable, "
+                        f"got: {kwargs}"
+                    )
+            elif isinstance(kwargs, dict):
+                return kwargs
+            else:
+                raise TypeError(
+                    f"`chat_template_kwargs` but be a JSON parsable str "
+                    f"or dict, got: {kwargs}"
+                )
+        return None
+
+    @staticmethod
     def convert_messages_with_content_list_to_str_conversion(
         messages: List[Dict],
     ) -> List[Dict]:
