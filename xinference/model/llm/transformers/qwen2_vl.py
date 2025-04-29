@@ -81,6 +81,8 @@ class Qwen2VLChatModel(PytorchChatModel):
         self._device = device
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
+        kwargs = self.apply_bnb_quantization()
+
         min_pixels = self._pytorch_model_config.get("min_pixels")
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
@@ -106,6 +108,7 @@ class Qwen2VLChatModel(PytorchChatModel):
                 device_map=device,
                 attn_implementation="flash_attention_2",
                 trust_remote_code=True,
+                **kwargs,
             ).eval()
         elif is_npu_available():
             # Ascend do not support bf16
@@ -114,6 +117,7 @@ class Qwen2VLChatModel(PytorchChatModel):
                 device_map="auto",
                 trust_remote_code=True,
                 torch_dtype="float16",
+                **kwargs,
             ).eval()
         else:
             self._model = model_cls.from_pretrained(

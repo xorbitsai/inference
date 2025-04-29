@@ -73,6 +73,7 @@
     "CPUOffload.tip": "将模型卸载到CPU。当资源有限或使用GGUF选项时，建议启用此功能。",
     "loraConfig": "Lora 配置",
     "loraModelConfig": "Lora 模型配置",
+    "additionalQuantizationParametersForInferenceEngine": "传递给推理引擎的量化参数",
     "additionalParametersForInferenceEngine": "传递给推理引擎的附加参数",
     "enterIntegerGreaterThanZero": "请输入大于 0 的整数。",
     "enterCommaSeparatedNumbers": "请输入以逗号分隔的数字数据，例如：0,1,2",

@@ -11,7 +11,13 @@ function CopyComponent({ modelData, predefinedKeys }) {
 
   const generateCommandLineStatement = (params) => {
     const args = Object.entries(params)
-      .filter(([, value]) => value !== null && value !== undefined)
+      .filter(
+        ([key, value]) =>
+          (predefinedKeys.includes(key) &&
+            value !== null &&
+            value !== undefined) ||
+          !predefinedKeys.includes(key)
+      )
       .map(([key, value]) => {
         if (key === 'gpu_idx' && Array.isArray(value)) {
           return `--gpu-idx ${value.join(',')}`
@@ -39,6 +45,15 @@ function CopyComponent({ modelData, predefinedKeys }) {
             )
           }
           return peftArgs.join(' ')
+        } else if (key === 'quantization_config' && typeof value === 'object') {
+          let peftArgs = []
+          peftArgs.push(
+            ...Object.entries(value).map(
+              ([k, v]) =>
+                `--quantization-config ${k} ${v === null ? 'none' : v}`
+            )
+          )
+          return peftArgs.join(' ')
         } else if (predefinedKeys.includes(key)) {
           let newKey
           if (key === 'model_size_in_billions') {
@@ -46,9 +61,13 @@ function CopyComponent({ modelData, predefinedKeys }) {
           } else {
             newKey = `--${key.replace(/_/g, '-')}`
           }
-          return `${newKey} ${value || value === false ? `${value}` : ''}`
+          return `${newKey} ${
+            value === false ? 'false' : value === null ? 'none' : value
+          }`
         } else {
-          return `--${key} ${value || value === false ? `${value}` : ''}`
+          return `--${key} ${
+            value === false ? 'false' : value === null ? 'none' : value
+          }`
         }
       })
       .join(' ')

@@ -85,6 +85,7 @@ class Gemma3ChatModel(PytorchChatModel):
         device = "auto" if device == "cuda" else device
         min_pixels = self._pytorch_model_config.get("min_pixels")
         max_pixels = self._pytorch_model_config.get("max_pixels")
+        kwargs = self.apply_bnb_quantization()
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
             min_pixels=min_pixels,
@@ -92,9 +93,7 @@ class Gemma3ChatModel(PytorchChatModel):
         )
         self._tokenizer = self._processor.tokenizer
         self._model = Gemma3ForConditionalGeneration.from_pretrained(
-            self.model_path,
-            device_map="auto",
-            torch_dtype="bfloat16",
+            self.model_path, device_map="auto", torch_dtype="bfloat16", **kwargs
         )
 
     @cache_clean

@@ -17,8 +17,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen2-0.5B-Instruct",
@@ -53,36 +51,6 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 32768,
-    "model_name": "csg-wukong-chat-v0.1",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "csg-wukong-1B is a 1 billion-parameter small language model(SLM) pretrained on 1T tokens.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 1,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "OpenCSG/csg-wukong-1B-chat-v0.1",
-        "model_hub": "csghub"
-      }
-    ],
-    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n' }}{% elif loop.first %}{{ '<|system|>\nYou are a creative super artificial intelligence assistant, possessing all the knowledge of humankind. Your name is csg-wukong, developed by OpenCSG. You need to understand and infer the true intentions of users based on the topics discussed in the chat history, and respond to user questions correctly as required. You enjoy responding to users with accurate and insightful answers. Please pay attention to the appropriate style and format when replying, try to avoid repetitive words and sentences, and keep your responses as concise and profound as possible. You carefully consider the context of the discussion when replying to users. When the user says \"continue,\" please proceed with the continuation of the previous assistant\\'s response.</s>\n' }}{% endif %}{% if item['role'] == 'user' %}{{ '<|user|>\n' + item['content'] + '</s>\n' }}{% elif item['role'] == 'assistant' %}{{ '<|assistant|>\n' + item['content'] + '</s>\n' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% endif %}",
-    "stop_token_ids": [
-      2
-    ],
-    "stop": [
-      "</s>"
     ]
   }
 ]
