@@ -599,7 +599,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}  # type: ignore
         )
         if tools:
             if (
