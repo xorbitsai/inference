@@ -48,13 +48,14 @@ class DeepSeekV2PytorchModel(PytorchModel):
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map="auto",
+            **kwargs,
         )
         model.generation_config = GenerationConfig.from_pretrained(self.model_path)
         model.generation_config.pad_token_id = model.generation_config.eos_token_id
         return model, tokenizer
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format != "pytorch":
@@ -95,13 +96,14 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map="auto",
+            **kwargs,
         )
         model.generation_config = GenerationConfig.from_pretrained(self.model_path)
         model.generation_config.pad_token_id = model.generation_config.eos_token_id
         return model, tokenizer
 
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format != "pytorch":

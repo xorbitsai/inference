@@ -64,7 +64,7 @@ class CogVLM2Model(PytorchChatModel):
         self._model = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
@@ -72,7 +72,7 @@ class CogVLM2Model(PytorchChatModel):
             return True
         return False
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformers.generation import GenerationConfig
 
@@ -88,6 +88,8 @@ class CogVLM2Model(PytorchChatModel):
             self._model, self._tokenizer = self._load_tensorizer()
             return
 
+        kwargs = self.apply_bnb_quantization()
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
@@ -99,6 +101,7 @@ class CogVLM2Model(PytorchChatModel):
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             device_map="auto",
+            **kwargs
         ).eval()
 
         # Specify hyperparameters for generation

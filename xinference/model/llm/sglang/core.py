@@ -11,16 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import importlib.util
 import json
 import logging
+import sys
+import threading
 import time
 import uuid
 from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
+from xoscar.utils import get_next_port
+
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -40,6 +45,11 @@ class SGLANGModelConfig(TypedDict, total=False):
     mem_fraction_static: float
     log_level: str
     attention_reduce_in_fp32: bool  # For gemma
+    # distributed
+    nnodes: Optional[int]
+    node_rank: Optional[int]
+    dist_init_addr: Optional[str]
+    reasoning_content: bool
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
@@ -85,12 +95,24 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "mixtral-instruct-v0.1",
     "gemma-it",
     "gemma-2-it",
+    "gemma-3-1b-it",
     "deepseek-v2.5",
     "deepseek-v2-chat",
     "deepseek-v2-chat-0628",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
     "QwQ-32B-Preview",
+    "QwQ-32B",
+    "deepseek-r1-distill-qwen",
+    "deepseek-r1-distill-llama",
+    "deepseek-v3",
+    "deepseek-r1",
+]
+SGLANG_SUPPORTED_VISION_MODEL_LIST = [
+    "qwen2.5-vl-instruct",
+    "gemma-3-it",
+    "MiniCPM-V",
+    "llama-3.2-vision-instruct",
 ]
 
 
@@ -107,6 +129,16 @@ class SGLANGModel(LLM):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._model_config = model_config
         self._engine = None
+        self._address = model_config.pop("address", None)  # type: ignore
+        self._n_worker = model_config.pop("n_worker", 1)  # type: ignore
+        self._shard = model_config.pop("shard", 0)  # type: ignore
+        self._driver_info = model_config.pop("driver_info", None)  # type: ignore
+        self._loading_thread = None
+        self._loading_error = None
+
+    @property
+    def driver_info(self) -> Optional[dict]:
+        return self._driver_info
 
     def load(self):
         try:
@@ -121,6 +153,8 @@ class SGLANGModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._model_config = self._sanitize_model_config(self._model_config)
+        reasoning_content = self._model_config.pop("reasoning_content")
+        self.prepare_parse_reasoning_content(reasoning_content)
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -128,18 +162,84 @@ class SGLANGModel(LLM):
         else:
             self._model_config.setdefault("attention_reduce_in_fp32", False)
 
-        logger.info(
-            f"Loading {self.model_uid} with following model config: {self._model_config}"
-        )
+        # gen port for sgl Runtime,
+        # this is useful for sglang service on a same machine.
+        # sglang typically find a port between [port, 40000]
+        # we need to ensure the generated port < 40000
+        sgl_port = None
+        for _ in range(10):
+            sgl_port = get_next_port()
+            if sgl_port >= 40000:
+                sgl_port = None
+            else:
+                break
+        if sgl_port is None:
+            raise ValueError("Failed to find a port for sglang")
 
-        self._engine = sgl.Runtime(
-            model_path=self.model_path,
-            tokenizer_path=self.model_path,
-            **self._model_config,
-        )
+        if self._n_worker > 1:
+            # distributed inference
+            self._model_config["nnodes"] = self._n_worker
+            self._model_config["node_rank"] = self._shard
+            # model across multiple workers
+            if self._shard == 0:
+                # distributed, need to init driver_info
+                assert self._driver_info is None
+                # This must run inside Xoscar pool
+                dist_init_addr = f"{self._address.split(':', 1)[0]}:{get_next_port()}"
+                self._driver_info = {"dist_init_addr": dist_init_addr}
+                self._model_config["dist_init_addr"] = dist_init_addr
+            else:
+                assert self._driver_info is not None
+                self._model_config["dist_init_addr"] = self._driver_info[
+                    "dist_init_addr"
+                ]
+
+            logger.info(
+                f"Loading {self.model_uid}, shard({self._shard} of {self._n_worker}) with following model config: {self._model_config}"
+            )
+
+            def _load():
+                try:
+                    self._engine = sgl.Runtime(
+                        model_path=self.model_path,
+                        tokenizer_path=self.model_path,
+                        port=sgl_port,
+                        **self._model_config,
+                    )
+                except:
+                    logger.exception("Creating sglang Runtime failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+            if self._shard == 0:
+                # wait for 3 seconds to ensure torch distributed inited first
+                self._loading_thread.join(3)
+        else:
+            logger.info(
+                f"Loading {self.model_uid} with following model config: {self._model_config}"
+            )
+
+            self._engine = sgl.Runtime(
+                model_path=self.model_path,
+                tokenizer_path=self.model_path,
+                port=sgl_port,
+                **self._model_config,
+            )
+
+    def wait_for_load(self):
+        if self._loading_thread:
+            if self._shard == 0:
+                # for the shard 0, we wait it to complete
+                # the sglang will serve forever for the other shards,
+                # so we only check if any error happens.
+                self._loading_thread.join()
+            if self._loading_error:
+                _, err, tb = self._loading_error
+                raise err.with_traceback(tb)
 
     def stop(self):
-        logger.info("Stopping SGLang engine")
+        logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
         self._engine.shutdown()
 
     def _sanitize_model_config(
@@ -151,7 +251,7 @@ class SGLANGModel(LLM):
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", True)
-        model_config.setdefault("tp_size", cuda_count)
+        model_config.setdefault("tp_size", cuda_count * self._n_worker)
         # See https://github.com/sgl-project/sglang/blob/00023d622a6d484e67ef4a0e444f708b8fc861c8/python/sglang/srt/server_args.py#L100-L109
         mem_fraction_static = model_config.get("mem_fraction_static")
         if mem_fraction_static is None:
@@ -159,7 +259,7 @@ class SGLANGModel(LLM):
             if tp_size >= 16:
                 model_config["mem_fraction_static"] = 0.79
             elif tp_size >= 8:
-                model_config["mem_fraction_static"] = 0.83
+                model_config["mem_fraction_static"] = 0.81
             elif tp_size >= 4:
                 model_config["mem_fraction_static"] = 0.85
             elif tp_size >= 2:
@@ -167,6 +267,7 @@ class SGLANGModel(LLM):
             else:
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
+        model_config.setdefault("reasoning_content", False)
 
         return model_config
 
@@ -196,7 +297,11 @@ class SGLANGModel(LLM):
         return generate_config
 
     @classmethod
-    def match(
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("sglang") is not None
+
+    @classmethod
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
@@ -207,10 +312,6 @@ class SGLANGModel(LLM):
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
-                return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
-            if "4" not in quantization:
                 return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
@@ -276,12 +377,18 @@ class SGLANGModel(LLM):
             sampling_params.pop("lora_name", None)
         return sampling_params
 
-    async def _stream_generate(self, prompt: str, **sampling_params):
+    async def _stream_generate(
+        self,
+        prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
+        **sampling_params,
+    ):
         import aiohttp
 
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "image_data": image_data,
             "sampling_params": sampling_params,
             "stream": True,
         }
@@ -309,12 +416,18 @@ class SGLANGModel(LLM):
                             if need_stop:
                                 break
 
-    async def _non_stream_generate(self, prompt: str, **sampling_params) -> dict:
+    async def _non_stream_generate(
+        self,
+        prompt: str,
+        image_data: Optional[Union[List[str], str]] = None,
+        **sampling_params,
+    ) -> dict:
         import aiohttp
 
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "image_data": image_data,
             "sampling_params": sampling_params,
         }
         async with aiohttp.ClientSession(trust_env=True) as session:
@@ -326,6 +439,8 @@ class SGLANGModel(LLM):
     async def async_generate(
         self,
         prompt: str,
+        *,
+        image_data: Optional[Union[List[str], str]] = None,
         generate_config: Optional[SGLANGGenerateConfig] = None,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
@@ -344,7 +459,9 @@ class SGLANGModel(LLM):
         if not request_id:
             request_id = str(uuid.uuid1())
         if not stream:
-            state = await self._non_stream_generate(prompt, **sanitized_generate_config)
+            state = await self._non_stream_generate(
+                prompt, image_data, **sanitized_generate_config
+            )
             return self._convert_state_to_completion(
                 request_id,
                 model=self.model_uid,
@@ -357,7 +474,7 @@ class SGLANGModel(LLM):
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
                 finish_reason = None
                 async for meta_info, out in self._stream_generate(
-                    prompt, **sanitized_generate_config
+                    prompt, image_data, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
                         request_id, self.model_uid, output_text=out
@@ -412,17 +529,13 @@ class SGLANGModel(LLM):
 
 class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     @classmethod
-    def match(
+    def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
-                return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
-            if "4" not in quantization:
                 return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
@@ -457,10 +570,95 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            agen = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
-            return self._async_to_chat_completion_chunks(agen)
+            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
-            c = await self.async_generate(full_prompt, generate_config)  # type: ignore
+            c = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
-            return self._to_chat_completion(c)
+            return self._to_chat_completion(c, self.reasoning_parser)
+
+
+class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
+    @classmethod
+    def match_json(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if not cls._has_cuda_device():
+            return False
+        if not cls._is_linux():
+            return False
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and not (quantization is None):
+                return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        else:
+            if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return SGLANG_INSTALLED
+
+    def _sanitize_chat_config(
+        self,
+        generate_config: Optional[Dict] = None,
+    ) -> Dict:
+        if not generate_config:
+            generate_config = {}
+        if self.model_family.stop:
+            if (not generate_config.get("stop")) and self.model_family.stop:
+                generate_config["stop"] = self.model_family.stop.copy()
+        return generate_config
+
+    async def async_chat(
+        self,
+        messages: List[ChatCompletionMessage],  # type: ignore
+        generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        import base64
+        from io import BytesIO
+
+        from PIL import Image
+        from qwen_vl_utils import process_vision_info
+
+        messages = self._transform_messages(messages)
+
+        chat_template: str = (
+            self.model_family.chat_template if self.model_family.chat_template else ""
+        )
+
+        prompt = self.get_full_context(messages, chat_template)
+        images, video_inputs = process_vision_info(messages)
+        if video_inputs:
+            raise ValueError("Not support video input now.")
+
+        base64_images: Optional[List[str]] = None
+        if images:
+            base64_images = []
+            for image in images:
+                if isinstance(image, Image.Image):
+                    buffered = BytesIO()
+                    image.save(buffered, format="JPEG", quality=100)
+                    base64_images.append(base64.b64encode(buffered.getvalue()).decode())
+                elif isinstance(image, str):
+                    base64_images.append(image)
+                else:
+                    raise ValueError(
+                        f"Unsupported image type: {type(image)}, only support PIL.Image and base64 string"
+                    )
+
+        generate_config = self._sanitize_chat_config(generate_config)
+        stream = generate_config.get("stream", None)
+        if stream:
+            agen = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
+            assert isinstance(agen, AsyncGenerator)
+            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
+        else:
+            c = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
+            assert not isinstance(c, AsyncGenerator)
+            return self._to_chat_completion(c, self.reasoning_parser)

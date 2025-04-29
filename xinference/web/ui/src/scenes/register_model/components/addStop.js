@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { Alert, Button, TextField } from '@mui/material'
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 const regex = /^-?[0-9]\d*$/
 
@@ -13,6 +14,7 @@ const AddStop = ({
   onGetError,
   helperText,
 }) => {
+  const { t } = useTranslation()
   const handleChange = (value, index) => {
     const arr = [...formData]
     arr[index] = value
@@ -60,7 +62,7 @@ const AddStop = ({
             className="addBtn"
             onClick={handleAdd}
           >
-            more
+            {t('registerModel.more')}
           </Button>
         </div>
         <div
@@ -70,7 +72,6 @@ const AddStop = ({
             gap: 10,
             marginInline: 50,
             padding: 20,
-            backgroundColor: '#eee',
             borderRadius: 10,
           }}
         >
@@ -93,7 +94,9 @@ const AddStop = ({
               </div>
 
               {handleShowAlert(item) && (
-                <Alert severity="error">Please enter an integer.</Alert>
+                <Alert severity="error">
+                  {t('registerModel.enterInteger')}
+                </Alert>
               )}
             </div>
           ))}

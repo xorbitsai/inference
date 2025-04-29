@@ -17,21 +17,25 @@ import sys
 import uuid
 from typing import Iterator, List, Optional, Union
 
+from ....device_utils import is_npu_available
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
     CompletionChunk,
+    PytorchModelConfig,
 )
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import generate_chat_completion, generate_completion_chunk
-from .core import PytorchChatModel, PytorchGenerateConfig
+from .core import PytorchChatModel, PytorchGenerateConfig, register_non_default_model
 from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
 
 
+@register_transformer
+@register_non_default_model("qwen2-vl-instruct", "qwen2.5-vl-instruct")
 class Qwen2VLChatModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,39 +44,83 @@ class Qwen2VLChatModel(PytorchChatModel):
         self._device = None
         self._processor = None
 
+    def _sanitize_model_config(
+        self, pytorch_model_config: Optional[PytorchModelConfig]
+    ) -> PytorchModelConfig:
+        pytorch_model_config = super()._sanitize_model_config(pytorch_model_config)
+        assert pytorch_model_config is not None
+        pytorch_model_config.setdefault("min_pixels", 256 * 28 * 28)
+        pytorch_model_config.setdefault("max_pixels", 1280 * 28 * 28)
+        return pytorch_model_config
+
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
+            return False
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-vl-instruct".lower() in llm_family.lower():
+            return True
+        if "qwen2.5-vl-instruct".lower() in llm_family.lower():
+            return True
+        if "qvq-72b-preview".lower() in llm_family.lower():
             return True
         return False
 
     def load(self):
         from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
+        try:
+            from transformers import Qwen2_5_VLForConditionalGeneration
+        except ImportError:
+            Qwen2_5_VLForConditionalGeneration = None
+
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
         self._device = device
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
+        kwargs = self.apply_bnb_quantization()
 
+        min_pixels = self._pytorch_model_config.get("min_pixels")
+        max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=True,
+            min_pixels=min_pixels,
+            max_pixels=max_pixels,
         )
         self._tokenizer = self._processor.tokenizer
         flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+        llm_family = self.model_family.model_family or self.model_family.model_name
+        model_cls = (
+            Qwen2_5_VLForConditionalGeneration
+            if "qwen2.5" in llm_family
+            else Qwen2VLForConditionalGeneration
+        )
+        if model_cls is None:
+            raise ImportError("`transformers` version is too old, please upgrade it")
         if flash_attn_installed:
-            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self._model = model_cls.from_pretrained(
                 self.model_path,
                 torch_dtype="bfloat16",
                 device_map=device,
                 attn_implementation="flash_attention_2",
                 trust_remote_code=True,
+                **kwargs,
+            ).eval()
+        elif is_npu_available():
+            # Ascend do not support bf16
+            self._model = model_cls.from_pretrained(
+                self.model_path,
+                device_map="auto",
+                trust_remote_code=True,
+                torch_dtype="float16",
+                **kwargs,
             ).eval()
         else:
-            self._model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self._model = model_cls.from_pretrained(
                 self.model_path, device_map=device, trust_remote_code=True
             ).eval()
 
@@ -112,7 +160,7 @@ class Qwen2VLChatModel(PytorchChatModel):
             padding=True,
             return_tensors="pt",
         )
-        inputs = inputs.to("cuda")
+        inputs = inputs.to(self._device)
 
         # Inference: Generation of the output
         generated_ids = self._model.generate(

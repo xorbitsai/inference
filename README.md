@@ -13,7 +13,7 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
-[![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
+[![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
 <p align="center">
@@ -33,32 +33,34 @@ researcher, developer, or data scientist, Xorbits Inference empowers you to unle
 potential of cutting-edge AI models.
 
 <div align="center">
-<i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
+<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a></i>
 </div>
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- [Xllamacpp](https://github.com/xorbitsai/xllamacpp): New llama.cpp Python binding, maintained by Xinference team, supports continuous batching and is more production-ready.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
+- Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
+- VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 - Support Continuous batching for Transformers engine: [#1724](https://github.com/xorbitsai/inference/pull/1724)
 - Support MLX backend for Apple Silicon chips: [#1765](https://github.com/xorbitsai/inference/pull/1765)
 - Support specifying worker and GPU indexes for launching models: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
-- Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
-- Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
-- Built-in support for [F5-TTS](https://github.com/SWivid/F5-TTS): [#2626](https://github.com/xorbitsai/inference/pull/2626)
-- Built-in support for [GLM Edge](https://github.com/THUDM/GLM-Edge): [#2582](https://github.com/xorbitsai/inference/pull/2582)
-- Built-in support for [QwQ-32B-Preview](https://qwenlm.github.io/blog/qwq-32b-preview/): [#2602](https://github.com/xorbitsai/inference/pull/2602)
-- Built-in support for [Qwen 2.5 Series](https://qwenlm.github.io/blog/qwen2.5/): [#2325](https://github.com/xorbitsai/inference/pull/2325)
-- Built-in support for [Fish Speech V1.4](https://huggingface.co/fishaudio/fish-speech-1.4): [#2295](https://github.com/xorbitsai/inference/pull/2295)
-- Built-in support for [DeepSeek-V2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5): [#2292](https://github.com/xorbitsai/inference/pull/2292)
-- Built-in support for [Qwen2-Audio](https://github.com/QwenLM/Qwen2-Audio): [#2271](https://github.com/xorbitsai/inference/pull/2271)
-- Built-in support for [Qwen2-vl-instruct](https://github.com/QwenLM/Qwen2-VL): [#2205](https://github.com/xorbitsai/inference/pull/2205)
+- Built-in support for [Qwen2.5-Omni](https://github.com/QwenLM/Qwen2.5-Omni): [#3279](https://github.com/xorbitsai/inference/pull/3279)
+- Built-in support for [Skywork-OR1](https://github.com/SkyworkAI/Skywork-OR1): [#3274](https://github.com/xorbitsai/inference/pull/3274)
+- Built-in support for [GLM-4-0414](https://github.com/THUDM/GLM-4): [#3251](https://github.com/xorbitsai/inference/pull/3251)
+- Built-in support for [SeaLLMs-v3](https://github.com/DAMO-NLP-SG/DAMO-SeaLLMs): [#3248](https://github.com/xorbitsai/inference/pull/3248)
+- Built-in support for [paraformer-zh](https://huggingface.co/funasr/paraformer-zh): [#3236](https://github.com/xorbitsai/inference/pull/3236)
+- Built-in support for [InternVL3](https://internvl.github.io/blog/2025-04-11-InternVL-3.0/): [#3235](https://github.com/xorbitsai/inference/pull/3235)
+- Built-in support for [MegaTTS3](https://github.com/bytedance/MegaTTS3): [#3224](https://github.com/xorbitsai/inference/pull/3224)
+- Built-in support for [Deepseek-VL2](https://github.com/deepseek-ai/DeepSeek-VL2): [#3179](https://github.com/xorbitsai/inference/pull/3179)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
-- [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 - [RAGFlow](https://github.com/infiniflow/ragflow): is an open-source RAG engine based on deep document understanding.
+- [MaxKB](https://github.com/1Panel-dev/MaxKB): MaxKB = Max Knowledge Base, it is a chatbot based on Large Language Models (LLM) and Retrieval-Augmented Generation (RAG). 
+- [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 
 
 ## Key Features
@@ -174,11 +176,11 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 
 ## Getting involved
 
-| Platform                                                                                      | Purpose                                            |
-|-----------------------------------------------------------------------------------------------|----------------------------------------------------|
-| [Github Issues](https://github.com/xorbitsai/inference/issues)                                | Reporting bugs and filing feature requests.        |
-| [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg) | Collaborating with other Xorbits users.            |
-| [Twitter](https://twitter.com/xorbitsio)                                                      | Staying up-to-date on new features.                |
+| Platform                                                                                        | Purpose                                     |
+|-------------------------------------------------------------------------------------------------|---------------------------------------------|
+| [Github Issues](https://github.com/xorbitsai/inference/issues)                                  | Reporting bugs and filing feature requests. |
+| [Discord](https://discord.gg/Xw9tszSkr5) | Collaborating with other Xinference users.  |
+| [Twitter](https://twitter.com/xorbitsio)                                                        | Staying up-to-date on new features.         |
 
 ## Citation
 

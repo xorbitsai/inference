@@ -317,6 +317,11 @@ async def test_restful_api(setup):
     assert custom_model_reg is None
 
 
+@pytest.mark.asyncio
+async def test_restful_api_xllamacpp(set_use_xllamacpp, setup):
+    await test_restful_api(setup)
+
+
 def test_restful_api_for_embedding(setup):
     model_name = "gte-base"
     model_spec = BUILTIN_EMBEDDING_MODELS[model_name]
@@ -356,6 +361,9 @@ def test_restful_api_for_embedding(setup):
 
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
+    assert "model_replica" in embedding_res
+    assert embedding_res["model_replica"] is not None
+    assert embedding_res["model"] == payload["model"]
 
     # test multiple
     payload = {
@@ -1244,13 +1252,16 @@ def test_launch_model_async(setup):
     assert model_uid_res == "test_qwen_15"
 
     status_url = f"{endpoint}/v1/models/instances?model_uid=test_qwen_15"
+    progress_url = f"{endpoint}/v1/models/test_qwen_15/progress"
     while True:
         response = requests.get(status_url)
         response_data = response.json()
         assert len(response_data) == 1
         res = response_data[0]
-        print(res)
+        progress = requests.get(progress_url).json()
+        assert progress["progress"] is not None
         if res["status"] == "READY":
+            assert progress["progress"] == 1.0
             break
         time.sleep(2)
 
@@ -1260,6 +1271,42 @@ def test_launch_model_async(setup):
 
     response = requests.get(status_url)
     assert len(response.json()) == 0
+
+
+def test_cancel_launch_model(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models?wait_ready=false"
+
+    payload = {
+        "model_uid": "test_qwen_25",
+        "model_engine": "llama.cpp",
+        "model_name": "qwen2.5-instruct",
+        "model_size_in_billions": "0_5",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_qwen_25"
+
+    status_url = f"{endpoint}/v1/models/instances?model_uid=test_qwen_25"
+    cancel_url = f"{endpoint}/v1/models/test_qwen_25/cancel"
+
+    cancel_called = False
+
+    while True:
+        response = requests.get(status_url)
+        response_data = response.json()[0]
+
+        if response_data["status"] == "CREATING":
+            if not cancel_called:
+                requests.post(cancel_url)
+                cancel_called = True
+            continue
+        else:
+            assert response_data["status"] == "ERROR"
+            break
 
 
 def test_events(setup):
@@ -1332,77 +1379,3 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_qwen15"
     requests.delete(url)
-
-
-@pytest.mark.skip(reason="Cost too many resources.")
-def test_restful_api_for_qwen_audio(setup):
-    model_name = "qwen2-audio-instruct"
-
-    endpoint, _ = setup
-    url = f"{endpoint}/v1/models"
-
-    # list
-    response = requests.get(url)
-    response_data = response.json()
-    assert len(response_data["data"]) == 0
-
-    # launch
-    payload = {
-        "model_uid": "test_audio",
-        "model_name": model_name,
-        "model_engine": "transformers",
-        "model_size_in_billions": 7,
-        "model_format": "pytorch",
-        "quantization": "none",
-    }
-
-    response = requests.post(url, json=payload)
-    response_data = response.json()
-    model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_audio"
-
-    response = requests.get(url)
-    response_data = response.json()
-    assert len(response_data["data"]) == 1
-
-    url = f"{endpoint}/v1/chat/completions"
-    payload = {
-        "model": model_uid_res,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "audio",
-                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/glass-breaking-151256.mp3",
-                    },
-                    {"type": "text", "text": "What's that sound?"},
-                ],
-            },
-            {"role": "assistant", "content": "It is the sound of glass shattering."},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What can you do when you hear that?"},
-                ],
-            },
-            {
-                "role": "assistant",
-                "content": "Stay alert and cautious, and check if anyone is hurt or if there is any damage to property.",
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "audio",
-                        "audio_url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen2-Audio/audio/1272-128104-0000.flac",
-                    },
-                    {"type": "text", "text": "What does the person say?"},
-                ],
-            },
-        ],
-    }
-    response = requests.post(url, json=payload)
-    completion = response.json()
-    assert len(completion["choices"][0]["message"]) > 0

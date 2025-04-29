@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-12-12 06:41+0000\n"
+"POT-Creation-Date: 2025-04-07 10:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -152,7 +152,7 @@ msgid "CosyVoice"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:66
-msgid "FishSpeech-1.4"
+msgid "FishSpeech-1.5"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:67
@@ -284,22 +284,22 @@ msgstr "更多指令和例子，可以参考 https://fun-audio-llm.github.io/ �
 
 #: ../../source/models/model_abilities/audio.rst:387
 msgid "FishSpeech Usage"
-msgstr ""
+msgstr "FishSpeech 模型使用"
 
 #: ../../source/models/model_abilities/audio.rst:391
 msgid ""
-"Clone voice, launch model ``FishSpeech-1.4``. Please use `prompt_speech` "
+"Clone voice, launch model ``FishSpeech-1.5``. Please use `prompt_speech` "
 "instead of `reference_audio` and `prompt_text` instead of "
 "`reference_text` to clone voice from the reference audio for the "
 "FishSpeech model. This arguments is aligned to voice cloning of "
 "CosyVoice."
 msgstr ""
-"克隆语音，启动模型 ``FishSpeech-1.4``。请使用 `prompt_speech`而不是 `"
-"reference_audio` 以及 `prompt_text` 而不是 `reference_text` "
-"来为 FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
+"克隆语音，启动模型 ``FishSpeech-1.5``。请使用 `prompt_speech`而不是 `"
+"reference_audio` 以及 `prompt_text` 而不是 `reference_text` 来为 "
+"FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
 
 #: ../../source/models/model_abilities/audio.rst:417
-msgid "SenseVoiceSmall Offline usage"
+msgid "SenseVoiceSmall Offline Usage"
 msgstr "SenseVoiceSmall 离线使用"
 
 #: ../../source/models/model_abilities/audio.rst:419
@@ -334,4 +334,48 @@ msgstr ""
 "然后当用 Web UI 加载 SenseVoiceSmall 时，添加额外选项，key 是 ``vad_model"
 "``，值是之前的下载路径 ``/path/to/fsmn-vad``。用命令行加载时，增加选项 ``"
 "--vad_model /path/to/fsmn-vad``。"
+
+#: ../../source/models/model_abilities/audio.rst:431
+msgid "Kokoro Usage"
+msgstr "Kokoro 模型使用"
+
+#: ../../source/models/model_abilities/audio.rst:433
+msgid ""
+"The Kokoro model supports multiple languages, but the default language is"
+" English. If you want to use other languages, such as Chinese, you need "
+"to install additional dependency packages and add an additional parameter"
+" when starting the model."
+msgstr ""
+"Kokoro模型支持多语言，默认是英文。如果你想使用非默认语言，例如中文，则"
+"需要安装额外依赖包并且在模型启动时增加对应参数。"
+
+#: ../../source/models/model_abilities/audio.rst:437
+msgid "pip install misaki[zh]"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:439
+msgid ""
+"Initialize the model with the parameter lang_code='z', For all available "
+"``lang_code`` options, please refer to `kokoro source code "
+"<https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_. "
+"If the model is started through the web UI, an additional parameter needs"
+" to be added, with the key as ``lang_code`` and the value as ``z``. If "
+"the model is started through the xinference client, the parameters are "
+"passed via the launch_model interface:"
+msgstr ""
+"使用 lang_code='z' 参数初始化模型，可以参考 `kokoro source code <https://"
+"github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_ 查看所有"
+"支持的 lang_code。如果你是通过 Web UI启动的模型，则需要添加额外参数，key"
+"是 ``lang_code``，value是 ``z``。如果你是通过 xinference client启动的模型"
+"，则可以参考如下代码传递参数："
+
+#: ../../source/models/model_abilities/audio.rst:456
+msgid ""
+"When inferring, the voice must start with 'z', for example: "
+"``zf_xiaoyi``. The currently supported voices are: "
+"https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices. For example:"
+msgstr ""
+"当推理时，需要使用 'z' 开头的 voice，例如：``zf_xiaoyi``。目前支持的 "
+"voices 可以参考 https://huggingface.co/hexgrad/Kokoro-82M/tree/main/"
+"voices。使用方法如下："
 

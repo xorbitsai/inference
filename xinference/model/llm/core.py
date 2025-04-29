@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
 from ..core import ModelDescription
+from .reasoning_parser import ReasoningParser
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
@@ -53,14 +54,21 @@ class LLM(abc.ABC):
         **kwargs,
     ):
         self.model_uid, self.rep_id = parse_replica_model_uid(replica_model_uid)
+        self.raw_model_uid = replica_model_uid
         self.model_family = model_family
         self.model_spec = model_spec
         self.quantization = quantization
         self.model_path = model_path
+        self.reasoning_parser = None
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:
             raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
+
+    @classmethod
+    @abstractmethod
+    def check_lib(cls) -> bool:
+        raise NotImplementedError
 
     @staticmethod
     def _is_darwin_and_apple_silicon():
@@ -115,7 +123,24 @@ class LLM(abc.ABC):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if not cls.check_lib():
+            return False
+        return cls.match_json(llm_family, llm_spec, quantization)
+
+    @classmethod
+    @abstractmethod
+    def match_json(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
         raise NotImplementedError
+
+    def prepare_parse_reasoning_content(self, reasoning_content):
+        # Initialize reasoning parser if model has reasoning ability
+        if "reasoning" in self.model_family.model_ability and reasoning_content:
+            self.reasoning_parser = ReasoningParser(
+                self.model_family.reasoning_start_tag,
+                self.model_family.reasoning_end_tag,
+            )
 
 
 class LLMDescription(ModelDescription):
@@ -132,6 +157,10 @@ class LLMDescription(ModelDescription):
         self._llm_family = llm_family
         self._llm_spec = llm_spec
         self._quantization = quantization
+
+    @property
+    def spec(self):
+        return self._llm_family
 
     def to_dict(self):
         return {

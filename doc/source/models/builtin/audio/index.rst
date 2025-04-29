@@ -25,9 +25,35 @@ The following is a list of built-in audio models in Xinference:
   
    cosyvoice-300m-sft
   
+   cosyvoice2-0.5b
+  
    f5-tts
   
-   fishspeech-1.4
+   f5-tts-mlx
+  
+   fishspeech-1.5
+  
+   kokoro-82m
+  
+   megatts3
+  
+   melotts-chinese
+  
+   melotts-english
+  
+   melotts-english-v2
+  
+   melotts-english-v3
+  
+   melotts-french
+  
+   melotts-japanese
+  
+   melotts-korean
+  
+   melotts-spanish
+  
+   paraformer-zh
   
    sensevoicesmall
   

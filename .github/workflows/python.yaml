@@ -107,7 +107,8 @@ jobs:
 
       - name: Install numpy
         if: |
-          startsWith(matrix.os, 'macos') && matrix.python-version == '3.12'
+          (startsWith(matrix.os, 'macos') && (matrix.python-version == '3.12' || matrix.python-version == '3.9')) || 
+          (startsWith(matrix.os, 'windows') && matrix.python-version == '3.9')
         run: |
           python -m pip install "numpy<2"
 
@@ -124,17 +125,19 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
+          pip install xllamacpp
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
+            pip install "mlx>=0.22.0"
             pip install mlx-lm
             pip install mlx-vlm
             pip install mlx-whisper
             pip install f5-tts-mlx
-            pip install qwen-vl-utils
+            pip install qwen-vl-utils!=0.0.9
             pip install tomli 
           else
             pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-            pip install transformers
+            pip install "transformers<4.49"
             pip install attrdict
             pip install "timm>=0.9.16"
             pip install torch torchvision
@@ -151,7 +154,7 @@ jobs:
             pip install "jinja2==3.1.2"
             pip install tensorizer
             pip install jj-pytorchvideo
-            pip install qwen-vl-utils
+            pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
           fi
@@ -162,6 +165,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
@@ -170,7 +174,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers<4.49"
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr<1.1.17"
@@ -237,7 +241,16 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_melotts.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_kokoro.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_megatts.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py

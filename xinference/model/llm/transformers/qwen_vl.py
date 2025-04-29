@@ -41,7 +41,7 @@ class QwenVLChatModel(PytorchChatModel):
         self._device = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name
@@ -66,6 +66,8 @@ class QwenVLChatModel(PytorchChatModel):
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
 
+        kwargs = self.apply_bnb_quantization()
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
@@ -76,6 +78,7 @@ class QwenVLChatModel(PytorchChatModel):
             device_map=device,
             trust_remote_code=True,
             code_revision=self.model_spec.model_revision,
+            **kwargs,
         ).eval()
 
         # Specify hyperparameters for generation

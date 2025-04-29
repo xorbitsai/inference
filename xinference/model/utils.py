@@ -11,17 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import asyncio
 import json
 import logging
 import os
 import random
+import threading
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union
 
 import huggingface_hub
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 
 from ..constants import (
     XINFERENCE_CACHE_DIR,
@@ -343,3 +347,116 @@ def set_all_random_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+class CancellableDownloader:
+    def __init__(
+        self,
+        cancel_error_cls: Type[BaseException] = asyncio.CancelledError,
+        cancelled_event: Optional[threading.Event] = None,
+    ):
+        self._cancelled = cancelled_event
+        if self._cancelled is None:
+            self._cancelled = threading.Event()
+        self._done_event = threading.Event()
+        self._cancel_error_cls = cancel_error_cls
+        self._original_update = None
+        # progress for tqdm that is main
+        self._main_progresses: Set[tqdm] = set()
+        # progress for file downloader
+        # mainly when tqdm unit is set
+        self._download_progresses: Set[tqdm] = set()
+        # tqdm original update
+        self._original_tqdm_update = None
+
+    def reset(self):
+        self._main_progresses.clear()
+        self._download_progresses.clear()
+
+    def get_progress(self) -> float:
+        if self.cancelled or self.done:
+            # directly return 1.0 when cancelled or finished
+            return 1.0
+
+        tasks = finished_tasks = 0
+        for main_progress in self._main_progresses:
+            tasks += main_progress.total or 0
+            finished_tasks += main_progress.n
+
+        if tasks == 0:
+            # we assumed at least 1 task
+            tasks = 1
+
+        finished_ratio = finished_tasks / tasks
+
+        all_download_progress = finished_download_progress = 0
+        for download_progress in self._download_progresses:
+            # we skip finished download
+            if download_progress.n == download_progress.total:
+                continue
+            all_download_progress += download_progress.total or (
+                download_progress.n * 10
+            )
+            finished_download_progress += download_progress.n
+
+        if all_download_progress > 0:
+            rest_ratio = (
+                (tasks - finished_tasks)
+                / tasks
+                * (finished_download_progress / all_download_progress)
+            )
+            return finished_ratio + rest_ratio
+        else:
+            return finished_ratio
+
+    def cancel(self):
+        self._cancelled.set()
+
+    @property
+    def cancelled(self):
+        return self._cancelled.is_set()
+
+    @property
+    def done(self):
+        return self._done_event.is_set()
+
+    def wait(self, timeout: float):
+        self._done_event.wait(timeout)
+
+    def raise_error(self, error_msg: str = "Download cancelled"):
+        raise self._cancel_error_cls(error_msg)
+
+    def patch_tqdm(self):
+        # patch tqdm
+        # raise error if cancelled
+        self._original_update = original_update = tqdm.update
+        downloader = self
+
+        def patched_update(self, n):
+            if downloader.cancelled:
+                downloader.raise_error()
+            if not self.disable:
+                progresses = (
+                    downloader._main_progresses
+                    if getattr(self, "unit", "it") == "it"
+                    else downloader._download_progresses
+                )
+                progresses.add(self)
+            return original_update(self, n)
+
+        tqdm.update = patched_update
+
+    def unpatch_tqdm(self):
+        from tqdm.auto import tqdm
+
+        if self._original_update:
+            tqdm.update = self._original_update
+
+    def __enter__(self):
+        self.patch_tqdm()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.unpatch_tqdm()
+        self._done_event.set()
+        self.reset()

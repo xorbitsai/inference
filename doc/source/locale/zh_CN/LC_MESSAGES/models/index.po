@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"POT-Creation-Date: 2025-04-19 00:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -140,70 +140,78 @@ msgid ""
 msgstr "当你不再需要当前正在运行的模型时，以下列方式释放其占用的资源："
 
 #: ../../source/models/index.rst:161
+msgid ""
+"For models that are no longer maintained and depend on outdated libraries"
+" (such as ``transformers``), we recommend enabling the :ref:`Model "
+"Virtual Environment <model_virtual_env>` feature to ensure they can run "
+"properly in a compatible environment."
+msgstr "对于不再维护且依赖旧版库（如 ``transformers`` ）的模型，建议启用 :ref:`模型虚拟空间 <model_virtual_env>` 功能，以确保它们能在兼容的环境中正常运行。"
+
+#: ../../source/models/index.rst:167
 msgid "Model Usage"
 msgstr "模型使用"
 
-#: ../../source/models/index.rst:166
+#: ../../source/models/index.rst:172
 msgid "Chat & Generate"
 msgstr "聊天 & 生成"
 
-#: ../../source/models/index.rst:170
+#: ../../source/models/index.rst:176
 msgid "Learn how to chat with LLMs in Xinference."
 msgstr "学习如何在 Xinference 中与 LLM聊天。"
 
-#: ../../source/models/index.rst:172
+#: ../../source/models/index.rst:178
 msgid "Tools"
 msgstr "工具"
 
-#: ../../source/models/index.rst:176
+#: ../../source/models/index.rst:182
 msgid "Learn how to connect LLM with external tools."
 msgstr "学习如何将 LLM 与外部工具连接起来。"
 
-#: ../../source/models/index.rst:181
+#: ../../source/models/index.rst:187
 msgid "Embeddings"
 msgstr "嵌入"
 
-#: ../../source/models/index.rst:185
+#: ../../source/models/index.rst:191
 msgid "Learn how to create text embeddings in Xinference."
 msgstr "学习如何在 Xinference 中创建文本嵌入。"
 
-#: ../../source/models/index.rst:187
+#: ../../source/models/index.rst:193
 msgid "Rerank"
 msgstr "重排序"
 
-#: ../../source/models/index.rst:191
+#: ../../source/models/index.rst:197
 msgid "Learn how to use rerank models in Xinference."
 msgstr "学习如何在 Xinference 中使用重排序模型。"
 
-#: ../../source/models/index.rst:196
+#: ../../source/models/index.rst:202
 msgid "Images"
 msgstr "图像"
 
-#: ../../source/models/index.rst:200
+#: ../../source/models/index.rst:206
 msgid "Learn how to generate images with Xinference."
 msgstr "学习如何使用Xinference生成图像。"
 
-#: ../../source/models/index.rst:202
-msgid "Vision"
-msgstr "视觉"
+#: ../../source/models/index.rst:208
+msgid "Multimodal"
+msgstr "多模态"
 
-#: ../../source/models/index.rst:206
-msgid "Learn how to process image with LLMs."
-msgstr "学习如何使用 LLM 处理图像。"
+#: ../../source/models/index.rst:212
+msgid "Learn how to process images and audio with LLMs."
+msgstr "学习如何使用 LLM 处理图像和音频。"
 
-#: ../../source/models/index.rst:211
+#: ../../source/models/index.rst:217
 msgid "Audio"
 msgstr "音频"
 
-#: ../../source/models/index.rst:215
+#: ../../source/models/index.rst:221
 msgid "Learn how to turn audio into text or text into audio with Xinference."
 msgstr "学习如何使用 Xinference 将音频转换为文本或将文本转换为音频。"
 
-#: ../../source/models/index.rst:217
+#: ../../source/models/index.rst:223
 msgid "Video"
 msgstr "视频"
 
-#: ../../source/models/index.rst:221
+#: ../../source/models/index.rst:227
 msgid "Learn how to generate video with Xinference."
 msgstr "学习如何使用Xinference生成视频。"
 

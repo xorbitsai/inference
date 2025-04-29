@@ -97,6 +97,9 @@ class InferenceRequest:
         # check the integrity of args passed upstream
         self._check_args()
 
+        # for reasoning_content using
+        self.previous_texts = [""]
+
     def _check_args(self):
         assert len(self._inference_args) == 1
         # generate config
@@ -269,16 +272,13 @@ class InferenceRequest:
         )
 
 
-def _get_valid_batch_kv_cache(data, skipped_indexes: Set[int]):
-    from transformers.cache_utils import DynamicCache
-
-    cache = DynamicCache.from_legacy_cache(data)
+def _get_valid_batch_kv_cache(cache, skipped_indexes: Set[int]):
     batch_size = cache.key_cache[0].shape[0]
     batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
     for idx in range(len(cache)):
-        cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::]
-        cache.value_cache[idx] = cache.value_cache[idx][batch_slices, ::]
-    return cache.to_legacy_cache()
+        cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
+        cache.value_cache[idx] = cache.value_cache[idx][batch_slices, ::].contiguous()
+    return cache
 
 
 class SchedulerActor(xo.StatelessActor):

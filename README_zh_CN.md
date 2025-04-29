@@ -34,27 +34,29 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- [Xllamacpp](https://github.com/xorbitsai/xllamacpp): 全新llama.cpp Python binding，由 Xinference 团队维护，支持持续并行且更生产可用: [#2997](https://github.com/xorbitsai/inference/pull/2997)
+- 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
+- VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 - 支持 Transformers 引擎的持续批处理: [#1724](https://github.com/xorbitsai/inference/pull/1724)
 - 支持针对苹果芯片优化的MLX后端: [#1765](https://github.com/xorbitsai/inference/pull/1765)
 - 支持加载模型时指定 worker 和 GPU 索引: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
-- 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
-- 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### 新模型
-- 内置 [F5-TTS](https://github.com/SWivid/F5-TTS): [#2626](https://github.com/xorbitsai/inference/pull/2626)
-- 内置 [GLM Edge](https://github.com/THUDM/GLM-Edge): [#2582](https://github.com/xorbitsai/inference/pull/2582)
-- 内置 [QwQ-32B-Preview](https://qwenlm.github.io/blog/qwq-32b-preview/): [#2602](https://github.com/xorbitsai/inference/pull/2602)
-- 内置 [Qwen 2.5 Series](https://qwenlm.github.io/blog/qwen2.5/): [#2325](https://github.com/xorbitsai/inference/pull/2325)
-- 内置 [Fish Speech V1.4](https://huggingface.co/fishaudio/fish-speech-1.4): [#2295](https://github.com/xorbitsai/inference/pull/2295)
-- 内置 [DeepSeek-V2.5](https://huggingface.co/deepseek-ai/DeepSeek-V2.5): [#2292](https://github.com/xorbitsai/inference/pull/2292)
-- 内置 [Qwen2-Audio](https://github.com/QwenLM/Qwen2-Audio): [#2271](https://github.com/xorbitsai/inference/pull/2271)
-- 内置 [Qwen2-vl-instruct](https://github.com/QwenLM/Qwen2-VL): [#2205](https://github.com/xorbitsai/inference/pull/2205)
+- 内置 [Qwen2.5-Omni](https://github.com/QwenLM/Qwen2.5-Omni): [#3279](https://github.com/xorbitsai/inference/pull/3279)
+- 内置 [Skywork-OR1](https://github.com/SkyworkAI/Skywork-OR1): [#3274](https://github.com/xorbitsai/inference/pull/3274)
+- 内置 [GLM-4-0414](https://github.com/THUDM/GLM-4): [#3251](https://github.com/xorbitsai/inference/pull/3251)
+- 内置 [SeaLLMs-v3](https://github.com/DAMO-NLP-SG/DAMO-SeaLLMs): [#3248](https://github.com/xorbitsai/inference/pull/3248)
+- 内置 [paraformer-zh](https://huggingface.co/funasr/paraformer-zh): [#3236](https://github.com/xorbitsai/inference/pull/3236)
+- 内置 [InternVL3](https://internvl.github.io/blog/2025-04-11-InternVL-3.0/): [#3235](https://github.com/xorbitsai/inference/pull/3235)
+- 内置 [MegaTTS3](https://github.com/bytedance/MegaTTS3): [#3224](https://github.com/xorbitsai/inference/pull/3224)
+- 内置 [Deepseek-VL2](https://github.com/deepseek-ai/DeepSeek-VL2): [#3179](https://github.com/xorbitsai/inference/pull/3179)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
-- [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
 - [RAGFlow](https://github.com/infiniflow/ragflow): 是一款基于深度文档理解构建的开源 RAG 引擎。
+- [MaxKB](https://github.com/1Panel-dev/MaxKB): MaxKB = Max Knowledge Base，是一款基于大语言模型和 RAG 的开源知识库问答系统，广泛应用于智能客服、企业内部知识库、学术研究与教育等场景。
+- [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
 
 ## 主要功能
 🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型的部署工作。 
@@ -156,13 +158,13 @@ $ xinference-local
 
 ## 参与其中
 
-| 平台                                                                                          | 目的                                              |
-|------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| [Github 问题](https://github.com/xorbitsai/inference/issues)                                  | 报告错误和提交功能请求。                          |
-| [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)   | 与其他 Xorbits 用户合作。                          |
-| [Twitter](https://twitter.com/xorbitsio)                                                     | 及时了解新功能。                                  |
-| [微信社群](https://xorbits.cn/assets/images/wechat_work_qr.png)                                     | 与其他 Xorbits 用户交流。                         |
-| [知乎](https://zhihu.com/org/xorbits)                                                         | 了解团队最新的进展。                                  |
+| 平台                                                                                              | 目的                   |
+|-------------------------------------------------------------------------------------------------|----------------------|
+| [Github 问题](https://github.com/xorbitsai/inference/issues)                                      | 报告错误和提交功能请求。         |
+| [Discord](https://discord.gg/Xw9tszSkr5) | 与其他 Xinference 用户合作。 |
+| [Twitter](https://twitter.com/xorbitsio)                                                        | 及时了解新功能。             |
+| [微信社群](https://xorbits.cn/assets/images/wechat_work_qr.png)                                     | 与其他 Xinference 用户交流。 |
+| [知乎](https://zhihu.com/org/xorbits)                                                             | 了解团队最新的进展。           |
 
 ## 引用
 
@@ -181,6 +183,10 @@ $ xinference-local
     pages = "291--300",
 }
 ```
+
+## 合作
+
+* [琶洲实验室 | 黄埔](https://www.pazhoulab-huangpu.com/#/)
 
 ## 贡献者
 

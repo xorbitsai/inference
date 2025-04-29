@@ -13,3 +13,6 @@ from .restful.restful_client import (  # noqa: F401
 from .restful.restful_client import (  # noqa: F401
     RESTfulImageModelHandle as ImageModelHandle,
 )
+from .restful.restful_client import (  # noqa: F401
+    RESTfulVideoModelHandle as VideoModelHandle,
+)

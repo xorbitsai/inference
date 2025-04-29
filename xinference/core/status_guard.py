@@ -39,6 +39,7 @@ class InstanceInfo(BaseModel):
     replica: int
     status: str
     instance_created_ts: int
+    n_worker: Optional[int] = 1
 
     def update(self, **kwargs):
         for field, value in kwargs.items():

@@ -132,7 +132,7 @@ def _pad_seqs_inplace(seqs: List[List[int]], reqs: List[InferenceRequest], pad: 
 
 def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
     max_new_tokens = int(
-        r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+        r.sanitized_generate_config.get("max_tokens") or max_tokens_field.default
     )
     return context_len - max_new_tokens - 8
 
@@ -193,16 +193,14 @@ def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
 
 def _merge_kv_cache(
     xinf_model_obj: "PytorchModel",
-    past_kv: Tuple[Tuple[torch.Tensor]],
-    new_kv: Tuple[Tuple[torch.Tensor]],
-):
+    past_cache: DynamicCache,
+    new_cache: DynamicCache,
+) -> DynamicCache:
     from torch.nn.functional import pad
 
     _, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
-    past_cache = DynamicCache.from_legacy_cache(past_kv)
-    new_cache = DynamicCache.from_legacy_cache(new_kv)
-    past_seq_len = past_kv[0][0].shape[seq_len_idx]
-    new_seq_len = new_kv[0][0].shape[seq_len_idx]
+    past_seq_len = past_cache[0][0].shape[seq_len_idx]
+    new_seq_len = new_cache[0][0].shape[seq_len_idx]
     if past_seq_len != new_seq_len:
         padding_target = new_cache if past_seq_len > new_seq_len else past_cache
         padding_len = abs(past_seq_len - new_seq_len)
@@ -219,13 +217,26 @@ def _merge_kv_cache(
     for idx in range(len(past_cache)):
         k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
         v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
-        ret_kv.update(torch.cat((k1, k2), 0), torch.cat((v1, v2), 0), idx)
-    return ret_kv.to_legacy_cache()
+        ret_kv.update(
+            torch.cat((k1, k2), 0).contiguous(),
+            torch.cat((v1, v2), 0).contiguous(),
+            idx,
+        )
+    return ret_kv
 
 
 def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel"):
     bs_idx, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
+
+
+def convert_to_cache_cls(cache) -> DynamicCache:
+    """
+    Compatible with some old models
+    """
+    if isinstance(cache, tuple):
+        return DynamicCache.from_legacy_cache(cache)
+    return cache
 
 
 @torch.inference_mode()
@@ -269,7 +280,7 @@ def _batch_inference_one_step_internal(
         out = model(**prefill_kws, use_cache=True)
 
         logits = out.logits
-        past_key_values = out.past_key_values
+        past_key_values = convert_to_cache_cls(out.past_key_values)
 
         for i, r in enumerate(prefill_reqs):
             (
@@ -317,7 +328,7 @@ def _batch_inference_one_step_internal(
         )
         out = model(**inf_kws, use_cache=True, past_key_values=past_key_values)
         logits = out.logits
-        past_key_values = out.past_key_values
+        past_key_values = convert_to_cache_cls(out.past_key_values)
 
         for i, r in enumerate(valid_req_list):
             (

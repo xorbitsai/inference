@@ -7,7 +7,8 @@ const HotkeyFocusTextField = ({
   label,
   value,
   onChange,
-  hotkey = '/',
+  hotkey = 'Enter',
+  t,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false)
@@ -46,7 +47,7 @@ const HotkeyFocusTextField = ({
           !isFocused && !value ? (
             <InputAdornment position="end">
               <Typography color="textSecondary" style={{ fontSize: 'inherit' }}>
-                Type {hotkey} to search
+                {t('launchModel.searchInstruction', { hotkey })}
               </Typography>
             </InputAdornment>
           ) : null,

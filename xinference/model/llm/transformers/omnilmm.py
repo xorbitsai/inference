@@ -35,7 +35,7 @@ class OmniLMMModel(PytorchChatModel):
         self._model = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name

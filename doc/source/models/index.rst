@@ -156,6 +156,12 @@ following way to free up the resources it occupies:
     client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     client.terminate_model(model_uid="<MODEL_UID>")
 
+.. note::
+
+  For models that are no longer maintained and depend on outdated libraries (such as ``transformers``),
+  we recommend enabling the :ref:`Model Virtual Environment <model_virtual_env>` feature
+  to ensure they can run properly in a compatible environment.
+
 
 Model Usage
 ============================
@@ -199,11 +205,11 @@ Model Usage
 
       Learn how to generate images with Xinference.
 
-    .. grid-item-card::  Vision
-      :link: vision
+    .. grid-item-card::  Multimodal
+      :link: multimodal
       :link-type: ref
 
-      Learn how to process image with LLMs.
+      Learn how to process images and audio with LLMs.
 
 
 .. grid:: 2
@@ -228,5 +234,6 @@ Model Usage
    builtin/index
    custom
    sources/sources
+   virtualenv
    lora
    model_memory

@@ -57,7 +57,7 @@ from .llm_family import (
 
 def check_format_with_engine(model_format, engine):
     # only llama-cpp-python support and only support ggufv2
-    if model_format in ["ggufv2"] and engine != "llama.cpp":
+    if model_format in ["ggufv2"] and engine not in ["llama.cpp", "vLLM"]:
         return False
     if model_format not in ["ggufv2"] and engine == "llama.cpp":
         return False
@@ -129,11 +129,12 @@ def register_custom_model():
 
 
 def _install():
-    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
+    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel, XllamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
-    from .sglang.core import SGLANGChatModel, SGLANGModel
+    from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
     from .transformers.chatglm import ChatglmPytorchChatModel
+    from .transformers.cogagent import CogAgentChatModel
     from .transformers.cogvlm2 import CogVLM2Model
     from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchModel
@@ -142,17 +143,16 @@ def _install():
         DeepSeekV2PytorchModel,
     )
     from .transformers.deepseek_vl import DeepSeekVLChatModel
+    from .transformers.deepseek_vl2 import DeepSeekVL2ChatModel
+    from .transformers.gemma3 import Gemma3ChatModel, Gemma3TextChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.glm_edge_v import GlmEdgeVModel
-    from .transformers.intern_vl import InternVLChatModel
-    from .transformers.internlm2 import Internlm2PytorchChatModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.opt import OptPytorchModel
+    from .transformers.ovis2 import Ovis2ChatModel
     from .transformers.qwen2_audio import Qwen2AudioChatModel
-    from .transformers.qwen2_vl import Qwen2VLChatModel
     from .transformers.qwen_vl import QwenVLChatModel
-    from .transformers.yi_vl import YiVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
     try:
@@ -168,9 +168,10 @@ def _install():
         [
             LlamaCppChatModel,
             LlamaCppModel,
+            XllamaCppModel,
         ]
     )
-    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
+    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel, SGLANGVisionModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
@@ -178,13 +179,10 @@ def _install():
         [
             ChatglmPytorchChatModel,
             PytorchChatModel,
-            Internlm2PytorchChatModel,
             QwenVLChatModel,
-            Qwen2VLChatModel,
             Qwen2AudioChatModel,
-            YiVLChatModel,
             DeepSeekVLChatModel,
-            InternVLChatModel,
+            DeepSeekVL2ChatModel,
             PytorchModel,
             CogVLM2Model,
             CogVLM2VideoModel,
@@ -195,6 +193,10 @@ def _install():
             DeepSeekV2PytorchChatModel,
             OptPytorchModel,
             GlmEdgeVModel,
+            CogAgentChatModel,
+            Gemma3TextChatModel,
+            Gemma3ChatModel,
+            Ovis2ChatModel,
         ]
     )
     if OmniLMMModel:  # type: ignore

@@ -29,7 +29,7 @@ import torch.nn as nn
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank, RerankTokens
-from ..core import CacheableModelSpec, ModelDescription
+from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import is_model_cached
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ class RerankModelSpec(CacheableModelSpec):
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
+    virtualenv: Optional[VirtualEnvSettings]
 
 
 class RerankModelDescription(ModelDescription):
@@ -68,6 +69,10 @@ class RerankModelDescription(ModelDescription):
     ):
         super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
+
+    @property
+    def spec(self):
+        return self._model_spec
 
     def to_dict(self):
         return {
@@ -106,9 +111,10 @@ def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[D
     return res
 
 
-class _ModelWrapper:
+class _ModelWrapper(nn.Module):
     def __init__(self, module: nn.Module):
-        self._module = module
+        super().__init__()
+        self.model = module
         self._local_data = threading.local()
 
     @property
@@ -116,18 +122,22 @@ class _ModelWrapper:
         return getattr(self._local_data, "n_tokens", 0)
 
     @n_tokens.setter
-    def n_tokens(self, new_n_tokens):
-        self._local_data.n_tokens = new_n_tokens
+    def n_tokens(self, value):
+        self._local_data.n_tokens = value
 
-    def __getattr__(self, attr):
-        return getattr(self._module, attr)
-
-    def __call__(self, **kwargs):
-        attention_mask = kwargs["attention_mask"]
+    def forward(self, **kwargs):
+        attention_mask = kwargs.get("attention_mask")
         # when batching, the attention mask 1 means there is a token
         # thus we just sum up it to get the total number of tokens
-        self.n_tokens += attention_mask.sum().item()
-        return self._module(**kwargs)
+        if attention_mask is not None:
+            self.n_tokens += attention_mask.sum().item()
+        return self.model(**kwargs)
+
+    def __getattr__(self, attr):
+        try:
+            return super().__getattr__(attr)
+        except AttributeError:
+            return getattr(self.model, attr)
 
 
 class RerankModel:

@@ -63,7 +63,7 @@ class CogVLM2VideoModel(PytorchChatModel):
         self._model = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
@@ -71,7 +71,7 @@ class CogVLM2VideoModel(PytorchChatModel):
             return True
         return False
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformers.generation import GenerationConfig
 
@@ -87,10 +87,7 @@ class CogVLM2VideoModel(PytorchChatModel):
             self._model, self._tokenizer = self._load_tensorizer()
             return
 
-        if "8-bit" in self.quantization.lower():
-            kwargs["load_in_8bit"] = True
-        elif "4-bit" in self.quantization.lower():
-            kwargs["load_in_4bit"] = True
+        kwargs = self.apply_bnb_quantization()
 
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,

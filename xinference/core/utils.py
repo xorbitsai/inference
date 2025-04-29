@@ -19,10 +19,9 @@ import string
 import uuid
 import weakref
 from enum import Enum
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Generator, List, Optional, Tuple, Union
 
 import orjson
-from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
 
 from .._compat import BaseModel
 from ..constants import (
@@ -62,12 +61,16 @@ def log_async(
 
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            try:
-                bound_args = sig.bind_partial(*args, **kwargs)
-                arguments = bound_args.arguments
-            except TypeError:
-                arguments = {}
-            request_id_str = arguments.get("request_id", "")
+            request_id_str = kwargs.get("request_id")
+            if not request_id_str:
+                # sometimes `request_id` not in kwargs
+                # we try to bind the arguments
+                try:
+                    bound_args = sig.bind_partial(*args, **kwargs)
+                    arguments = bound_args.arguments
+                except TypeError:
+                    arguments = {}
+                request_id_str = arguments.get("request_id", "")
             if not request_id_str:
                 request_id_str = uuid.uuid1()
                 if func_name == "text_to_image":
@@ -244,36 +247,9 @@ def parse_model_version(model_version: str, model_type: str) -> Tuple:
         raise ValueError(f"Not supported model_type: {model_type}")
 
 
-def _get_nvidia_gpu_mem_info(gpu_id: int) -> Dict[str, float]:
-    from pynvml import nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
-
-    handler = nvmlDeviceGetHandleByIndex(gpu_id)
-    mem_info = nvmlDeviceGetMemoryInfo(handler)
-    return {"total": mem_info.total, "used": mem_info.used, "free": mem_info.free}
-
-
-def get_nvidia_gpu_info() -> Dict:
-    try:
-        nvmlInit()
-        device_count = nvmlDeviceGetCount()
-        res = {}
-        for i in range(device_count):
-            res[f"gpu-{i}"] = _get_nvidia_gpu_mem_info(i)
-        return res
-    except:
-        # TODO: add log here
-        # logger.debug(f"Cannot init nvml. Maybe due to lack of NVIDIA GPUs or incorrect installation of CUDA.")
-        return {}
-    finally:
-        try:
-            nvmlShutdown()
-        except:
-            pass
-
-
 def assign_replica_gpu(
-    _replica_model_uid: str, replica: int, gpu_idx: Union[int, List[int]]
-) -> List[int]:
+    _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
+) -> Optional[List[int]]:
     model_uid, rep_id = parse_replica_model_uid(_replica_model_uid)
     rep_id, replica = int(rep_id), int(replica)
     if isinstance(gpu_idx, int):

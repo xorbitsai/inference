@@ -1,0 +1,136 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-04-19 16:39+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: ../../source/models/virtualenv.rst:5
+msgid "Model Virtual Environments"
+msgstr "模型虚拟空间"
+
+#: ../../source/models/virtualenv.rst:9
+msgid "New added in v1.5.0."
+msgstr "v1.5.0 新增。"
+
+#: ../../source/models/virtualenv.rst:12
+msgid "Background"
+msgstr "背景"
+
+#: ../../source/models/virtualenv.rst:14
+msgid ""
+"Some models are no longer maintained after their release, and the "
+"versions of the libraries they depend on remain outdated. For example, "
+"the ``GOT-OCR2`` model still relies on ``transformers`` version 4.37.2. "
+"If this library is updated to a newer version, the model can no longer "
+"function properly. On the other hand, many newer models require the "
+"latest version of ``transformers``. This version mismatch leads to "
+"dependency conflicts."
+msgstr ""
+"一些模型在发布后不再维护，其依赖的库版本也保持在较旧的状态。例如，``GOT-"
+"OCR2`` 模型仍依赖于 ``transformers`` 4.37.2。如果将该库升级为新版本，模型"
+"将无法正常运行；而许多新模型又需要最新版本的 ``transformers``。这种版本"
+"差异会导致依赖冲突。"
+
+#: ../../source/models/virtualenv.rst:20
+msgid "Solution"
+msgstr "解决方案"
+
+#: ../../source/models/virtualenv.rst:22
+msgid ""
+"To address this issue, we have introduced the **Model Virtual "
+"Environment** feature."
+msgstr "为了解决这个问题，我们引入了 **模型虚拟空间** 功能。"
+
+#: ../../source/models/virtualenv.rst:24
+msgid "Install requirements for this functionality via"
+msgstr "通过以下命令安装该功能所需的依赖"
+
+#: ../../source/models/virtualenv.rst:33
+msgid ""
+"Enable by setting environment variable "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
+msgstr "通过设置环境变量 ``XINFERENCE_ENABLE_VIRTUAL_ENV=1`` 启用该功能。"
+
+#: ../../source/models/virtualenv.rst:35
+msgid "Example usage:"
+msgstr "使用示例："
+
+#: ../../source/models/virtualenv.rst:47
+msgid "This feature requires internet access or a self-hosted PyPI mirror."
+msgstr "该功能需要联网，或使用自建的 PyPI 镜像服务。"
+
+#: ../../source/models/virtualenv.rst:49
+msgid "Xinference will by default inherit the config for current pip."
+msgstr "Xinference 默认会继承当前 pip 的配置。"
+
+#: ../../source/models/virtualenv.rst:53
+msgid ""
+"The model virtual environment feature is disabled by default (i.e., "
+"XINFERENCE_ENABLE_VIRTUAL_ENV is set to 0)."
+msgstr ""
+"模型虚拟空间功能默认处于关闭状态（即 ``XINFERENCE_ENABLE_VIRTUAL_ENV`` 的"
+"默认值为 0）。"
+
+#: ../../source/models/virtualenv.rst:55
+msgid "It will be enabled by default starting from Xinference v2.0.0."
+msgstr "该功能将在 Xinference v2.0.0 起默认开启。"
+
+#: ../../source/models/virtualenv.rst:57
+msgid ""
+"When enabled, Xinference will automatically create a dedicated virtual "
+"environment for each model when it is loaded, and install its specific "
+"dependencies there. This prevents dependency conflicts between models, "
+"allowing them to run in isolation without affecting one another."
+msgstr ""
+"启用该功能后，Xinference 会在加载模型时自动为其创建专属的虚拟环境，并在"
+"其中安装对应依赖。这可避免模型之间的依赖冲突，确保各模型在相互隔离的环境"
+"中独立运行。"
+
+#: ../../source/models/virtualenv.rst:62
+msgid "Supported Models"
+msgstr "支持的模型"
+
+#: ../../source/models/virtualenv.rst:64
+msgid "Currently, this feature supports the following models:"
+msgstr "当前，该功能支持以下模型："
+
+#: ../../source/models/virtualenv.rst:66
+msgid ":ref:`GOT-OCR2 <models_builtin_got-ocr2_0>`"
+msgstr ":ref:`GOT-OCR2 <models_builtin_got-ocr2_0>`"
+
+#: ../../source/models/virtualenv.rst:67
+msgid ":ref:`Qwen2.5-omni <models_llm_qwen2.5-omni>`"
+msgstr ":ref:`Qwen2.5-omni <models_llm_qwen2.5-omni>`"
+
+#: ../../source/models/virtualenv.rst:68
+msgid "... (New models since v1.5.0 will all consider to add support)"
+msgstr "……（自 v1.5.0 起的新模型都会考虑支持该功能）"
+
+#: ../../source/models/virtualenv.rst:71
+msgid "Storage Location"
+msgstr "存储位置"
+
+#: ../../source/models/virtualenv.rst:73
+msgid ""
+"By default, the model’s virtual environment is stored under path: :ref:`"
+"XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_"
+"name}"
+msgstr ""
+"默认情况下，模型的虚拟环境存储在以下路径：:ref:`XINFERENCE_HOME <"
+"environments_xinference_home>` / virtualenv / {model_name}"
+

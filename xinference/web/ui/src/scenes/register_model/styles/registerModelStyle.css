@@ -17,10 +17,9 @@
 .show-json {
   display: flex;
   align-items: center;
-  position: fixed;
+  position: absolute;
   top: 90px;
   right: 60px;
-  color: #444;
 }
 
 .icon {
@@ -76,7 +75,8 @@
   border: 1px solid #ddd;
   border-radius: 5px;
   resize: none;
-  color: #444;
+  color: #666;
+  background-color: transparent;
 }
 
 .addBtn {
@@ -85,7 +85,7 @@
 
 .item {
   position: relative;
-  background-color: #eee;
+  border: 1px solid #ddd;
   margin: 10px 50px 0;
   padding: 20px;
   border-radius: 10px;
@@ -145,7 +145,7 @@
 }
 
 .test_res_box {
-  background-color: #eee;
+  border: 1px solid #ddd;
   min-height: 55px;
   padding: 10px;
   margin-top: 5px;

@@ -31,6 +31,7 @@ import {
 import nunjucks from 'nunjucks'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
@@ -95,6 +96,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isStopTokenIdsAlert, setIsStopTokenIdsAlert] = useState(false)
   const [familyOptions, setFamilyOptions] = useState([])
   const [isEditableFamily, setIsEditableFamily] = useState(true)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (model_name) {
@@ -760,16 +762,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   return (
     <Box style={{ display: 'flex', overFlow: 'hidden', maxWidth: '100%' }}>
       <div className="show-json">
-        <p>Show custom json config used by api</p>
+        <p>{t('registerModel.showCustomJsonConfig')}</p>
         {isShow ? (
-          <Tooltip title="Pack up" placement="top">
+          <Tooltip title={t('registerModel.packUp')} placement="top">
             <KeyboardDoubleArrowRightIcon
               className="icon arrow"
               onClick={() => setIsShow(!isShow)}
             />
           </Tooltip>
         ) : (
-          <Tooltip title="Unfold" placement="top">
+          <Tooltip title={t('registerModel.unfold')} placement="top">
             <NotesIcon
               className="icon notes"
               onClick={() => setIsShow(!isShow)}
@@ -784,11 +786,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_name && (
             <>
               <TextField
-                label="Model Name"
+                label={t('registerModel.modelName')}
                 error={formData.model_name ? false : true}
                 value={formData.model_name}
                 size="small"
-                helperText="Alphanumeric characters with properly placed hyphens and underscores. Must not match any built-in model names."
+                helperText={t(
+                  'registerModel.alphanumericWithHyphensUnderscores'
+                )}
                 onChange={(event) =>
                   setFormData({ ...formData, model_name: event.target.value })
                 }
@@ -801,7 +805,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_description && (
             <>
               <TextField
-                label="Model Description (Optional)"
+                label={t('registerModel.modelDescription')}
                 value={formData.model_description}
                 size="small"
                 onChange={(event) =>
@@ -820,7 +824,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             <>
               <TextField
                 error={Number(formData.context_length) > 0 ? false : true}
-                label="Context Length"
+                label={t('registerModel.contextLength')}
                 value={formData.context_length}
                 size="small"
                 onChange={(event) => {
@@ -829,7 +833,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               />
               {isContextLengthAlert && (
                 <Alert severity="error">
-                  Please enter an integer greater than 0.
+                  {t('registerModel.enterIntegerGreaterThanZero')}
                 </Alert>
               )}
               <Box padding="15px"></Box>
@@ -840,7 +844,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.dimensions && (
             <>
               <TextField
-                label="Dimensions"
+                label={t('registerModel.dimensions')}
                 error={Number(formData.dimensions) > 0 ? false : true}
                 value={formData.dimensions}
                 size="small"
@@ -850,7 +854,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               />
               {isDimensionsAlert && (
                 <Alert severity="error">
-                  Please enter an integer greater than 0.
+                  {t('registerModel.enterIntegerGreaterThanZero')}
                 </Alert>
               )}
               <Box padding="15px"></Box>
@@ -861,7 +865,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.max_tokens && (
             <>
               <TextField
-                label="Max Tokens"
+                label={t('registerModel.maxTokens')}
                 error={Number(formData.max_tokens) > 0 ? false : true}
                 value={formData.max_tokens}
                 size="small"
@@ -871,7 +875,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               />
               {isMaxTokensAlert && (
                 <Alert severity="error">
-                  Please enter an integer greater than 0.
+                  {t('registerModel.enterIntegerGreaterThanZero')}
                 </Alert>
               )}
               <Box padding="15px"></Box>
@@ -882,11 +886,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_uri && (
             <>
               <TextField
-                label="Model Path"
+                label={t('registerModel.modelPath')}
                 error={formData.model_uri ? false : true}
                 value={formData.model_uri}
                 size="small"
-                helperText="Provide the model directory path."
+                helperText={t('registerModel.provideModelDirectoryPath')}
                 onChange={(event) =>
                   setFormData({ ...formData, model_uri: event.target.value })
                 }
@@ -911,7 +915,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       : 'inherit',
                 }}
               >
-                Model Languages
+                {t('registerModel.modelLanguages')}
               </label>
               <Box className="checkboxWrapper">
                 {SUPPORTED_LANGUAGES.map((lang) => (
@@ -936,10 +940,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   </Box>
                 ))}
                 <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
-                  <InputLabel>Languages</InputLabel>
+                  <InputLabel>{t('registerModel.languages')}</InputLabel>
                   <Select
                     value={''}
-                    label="Languages"
+                    label={t('registerModel.languages')}
                     onChange={(e) => handleSelectLanguages(e.target.value)}
                     MenuProps={{
                       PaperProps: {
@@ -981,7 +985,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   paddingLeft: 5,
                 }}
               >
-                Multilingual
+                {t('registerModel.multilingual')}
               </label>
               <FormControlLabel
                 style={{ marginLeft: 0, width: 50 }}
@@ -1004,7 +1008,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     formData.model_ability.length == 0 ? '#d32f2f' : 'inherit',
                 }}
               >
-                Model Abilities
+                {t('registerModel.modelAbilities')}
               </label>
               <Box className="checkboxWrapper">
                 {SUPPORTED_FEATURES.map((ability) => (
@@ -1046,14 +1050,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         {...params}
                         helperText={
                           isEditableFamily
-                            ? 'You can choose from the built-in models or input your own.'
-                            : 'You can only choose from the built-in models.'
+                            ? t('registerModel.chooseBuiltInOrCustomModel')
+                            : t('registerModel.chooseOnlyBuiltInModel')
                         }
                         InputProps={{
                           ...params.InputProps,
                           disabled: !isEditableFamily,
                         }}
-                        label="Model Family"
+                        label={t('registerModel.modelFamily')}
                       />
                     )}
                     value={formData.model_family}
@@ -1078,7 +1082,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         color: 'inherit',
                       }}
                     >
-                      Model Family
+                      {t('registerModel.modelFamily')}
                     </label>
                     <RadioGroup value={formData.model_family}>
                       <Box
@@ -1105,11 +1109,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             <>
               <div className="chat_template_box">
                 <TextField
-                  label="Chat Template"
+                  label={t('registerModel.chatTemplate')}
                   error={handleChatTemplateAlert()}
                   value={formData.chat_template || ''}
                   size="small"
-                  helperText="Please make sure this chat_template passes the test by clicking the TEST button on the right. Please note that this test may not cover all cases and will only be used for the most basic case."
+                  helperText={t('registerModel.ensureChatTemplatePassesTest')}
                   multiline
                   rows={6}
                   onChange={(event) =>
@@ -1125,14 +1129,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   onClick={handleTest}
                   style={{ marginTop: 50 }}
                 >
-                  test
+                  {t('registerModel.test')}
                 </Button>
                 <div className="chat_template_test">
                   <div className="chat_template_test_mainBox">
                     <div
                       style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                     >
-                      <span style={{ fontSize: 16 }}>messages example</span>
+                      <span style={{ fontSize: 16 }}>
+                        {t('registerModel.messagesExample')}
+                      </span>
                       <OpenInFullIcon
                         onClick={() => setIsOpenMessages(true)}
                         style={{
@@ -1151,7 +1157,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                           fontSize: 16,
                         }}
                       >
-                        test result
+                        {t('registerModel.testResult')}
                         {testErrorInfo ? (
                           <Cancel style={{ color: 'red' }} />
                         ) : testRes ? (
@@ -1165,19 +1171,19 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       <div
                         className="test_res_box"
                         style={{
-                          backgroundColor:
+                          borderColor:
                             testErrorInfo === ''
                               ? testRes
-                                ? 'rgb(237, 247, 237)'
-                                : ''
-                              : 'rgb(253, 237, 237)',
+                                ? 'rgb(46, 125, 50)'
+                                : '#ddd'
+                              : 'rgb(46, 125, 50)',
                         }}
                       >
                         {testErrorInfo !== ''
                           ? testErrorInfo
                           : testRes
                           ? testRes
-                          : 'No test results...'}
+                          : t('registerModel.noTestResults')}
                       </div>
                     </div>
                   </div>
@@ -1185,8 +1191,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     className="chat_template_test_tip"
                     style={{ color: testErrorInfo === '' ? '' : '#d32f2f' }}
                   >
-                    Please note that failure to pass test may prevent chats from
-                    working properly.
+                    {t('registerModel.testFailurePreventsChatWorking')}
                   </div>
                 </div>
               </div>
@@ -1198,7 +1203,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {formData.model_ability?.includes('chat') && (
             <>
               <AddStop
-                label="Stop Token Ids"
+                label={t('registerModel.stopTokenIds')}
                 arrItemType="number"
                 formData={formData.stop_token_ids}
                 onGetData={getStopTokenIds}
@@ -1209,7 +1214,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     setIsStopTokenIdsAlert(false)
                   }
                 }}
-                helperText="int type, used to control the stopping of chat models"
+                helperText={t('registerModel.stopControlForChatModels')}
               />
               <Box padding="15px"></Box>
             </>
@@ -1219,11 +1224,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {formData.model_ability?.includes('chat') && (
             <>
               <AddStop
-                label="Stop"
+                label={t('registerModel.stop')}
                 arrItemType="string"
                 formData={formData.stop}
                 onGetData={getStop}
-                helperText="string type, used to control the stopping of chat models"
+                helperText={t('registerModel.stopControlStringForChatModels')}
               />
               <Box padding="15px"></Box>
             </>
@@ -1259,11 +1264,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.launcher && (
             <>
               <TextField
-                label="Launcher"
+                label={t('registerModel.launcher')}
                 error={formData.launcher ? false : true}
                 value={formData.launcher}
                 size="small"
-                helperText="Provide the model launcher."
+                helperText={t('registerModel.provideModelLauncher')}
                 onChange={(event) =>
                   setFormData({ ...formData, launcher: event.target.value })
                 }
@@ -1276,10 +1281,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.launcher_args && (
             <>
               <TextField
-                label="Launcher Arguments (Optional)"
+                label={t('registerModel.launcherArguments')}
                 value={formData.launcher_args}
                 size="small"
-                helperText="A JSON-formatted dictionary representing the arguments passed to the Launcher."
+                helperText={t('registerModel.jsonArgumentsForLauncher')}
                 onChange={(event) => {
                   try {
                     JSON.parse(event.target.value)
@@ -1297,7 +1302,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               />
               {isValidLauncherArgsAlert && (
                 <Alert severity="error">
-                  Please enter the JSON-formatted dictionary.
+                  {t('registerModel.enterJsonFormattedDictionary')}
                 </Alert>
               )}
               <Box padding="15px"></Box>
@@ -1314,7 +1319,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               onClick={handleEdit}
               disabled={isEqual}
             >
-              Edit
+              {t('registerModel.edit')}
             </Button>
             <Button
               style={{ marginLeft: 30 }}
@@ -1323,7 +1328,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               type="submit"
               onClick={handleCancel}
             >
-              Cancel
+              {t('registerModel.cancel')}
             </Button>
           </>
         ) : (
@@ -1345,7 +1350,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 handleFamilyAlert()
               }
             >
-              Register Model
+              {t('registerModel.registerModel')}
             </Button>
           </Box>
         )}
@@ -1357,13 +1362,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">Messages Example</DialogTitle>
-        <DialogContent>
-          <textarea
-            readOnly
-            className="textarea"
-            style={{ width: 500, height: 200 }}
-            value={JSON.stringify(messages, null, 4)}
+        <DialogTitle id="alert-dialog-title">
+          {t('registerModel.messagesExample')}
+        </DialogTitle>
+        <DialogContent style={{ width: 600 }}>
+          <TextField
+            multiline
+            fullWidth
+            rows={10}
+            disabled
+            defaultValue={JSON.stringify(messages, null, 4)}
           />
         </DialogContent>
         <DialogActions>
@@ -1380,8 +1388,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       {/* JSON */}
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>
         <div className="jsonBox-header">
-          <div className="jsonBox-title">JSON Format</div>
-          <CopyComponent tip={'Copy all'} text={jsonData} />
+          <div className="jsonBox-title">{t('registerModel.JSONFormat')}</div>
+          <CopyComponent tip={t('registerModel.copyAll')} text={jsonData} />
         </div>
         <textarea readOnly className="textarea" value={jsonData} />
       </div>

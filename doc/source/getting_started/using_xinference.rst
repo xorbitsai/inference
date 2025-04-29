@@ -8,7 +8,7 @@ Using Xinference
 Run Xinference Locally
 ======================
 
-Let's start by running Xinference on a local machine and running a classic LLM model: ``llama-2-chat``.
+Let's start by running Xinference on a local machine and running a classic LLM model: ``qwen2.5-instruct``.
 
 After this quickstart, you will move on to learning how to deploy Xinference in a cluster environment.
 
@@ -82,14 +82,21 @@ The command line tool is ``xinference``. You can list the commands that can be u
         --help              Show this message and exit.
 
       Commands:
+        cached
+        cal-model-mem
         chat
+        engine
         generate
         launch
         list
+        login
         register
         registrations
+        remove-cache
+        stop-cluster
         terminate
         unregister
+        vllm-models
 
 
 You can install the Xinference Python client with minimal dependencies using the following command.
@@ -110,6 +117,7 @@ Currently, xinference supports the following inference engines:
 * ``sglang``
 * ``llama.cpp``
 * ``transformers``
+* ``MLX``
 
 About the details of these inference engine, please refer to :ref:`here <inference_backend>`.
 
@@ -145,11 +153,31 @@ you need to additionally pass the ``model_engine`` parameter.
 You can retrieve information about the supported inference engines and their related parameter combinations
 through the ``xinference engine`` command.
 
+.. note::
 
-Run Llama-2
------------
+    Here are some recommendations on when to use which engine:
 
-Let's start by running a built-in model: ``llama-2-chat``. When you start a model for the first time, Xinference will
+    - **Linux**
+
+       - When possible, prioritize using **vLLM** or **SGLang** for better performance.
+       - If resources are limited, consider using **llama.cpp**, as it offers more quantization options.
+       - For other cases, consider using **Transformers**, which supports nearly all models.
+
+    - **Windows**
+
+       - It is recommended to use **WSL**, and in this case, follow the same choices as Linux.
+       - Otherwise, prefer **llama.cpp**, and for unsupported models, opt for **Transformers**.
+
+    - **Mac**
+
+       - If supported by the model, use the **MLX engine**, as it delivers the best performance.
+       - For other cases, prefer **llama.cpp**, and for unsupported models, choose **Transformers**.
+
+
+Run qwen2.5-instruct
+--------------------
+
+Let's start by running a built-in model: ``qwen2.5-instruct``. When you start a model for the first time, Xinference will
 download the model parameters from HuggingFace, which might take a few minutes depending on the size of the model weights.
 We cache the model files locally, so there's no need to redownload them for subsequent starts.
 
@@ -163,13 +191,13 @@ We cache the model files locally, so there's no need to redownload them for subs
     XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997
 
 We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If not specified, Xinference will generate a unique ID.
-This create a new model instance with unique ID ``my-llama-2``:
+The default unique ID will be identical to the model name.
 
 .. tabs::
 
   .. code-tab:: bash shell
 
-    xinference launch --model-engine <inference_engine> -u my-llama-2 -n llama-2-chat -s 13 -f pytorch
+    xinference launch --model-engine <inference_engine> -n qwen2.5-instruct -s 0_5 -f pytorch
 
   .. code-tab:: bash cURL
 
@@ -179,10 +207,9 @@ This create a new model instance with unique ID ``my-llama-2``:
       -H 'Content-Type: application/json' \
       -d '{
       "model_engine": "<inference_engine>",
-      "model_uid": "my-llama-2",
-      "model_name": "llama-2-chat",
+      "model_name": "qwen2.5-instruct",
       "model_format": "pytorch",
-      "size_in_billions": 13
+      "size_in_billions": "0_5"
     }'
 
   .. code-tab:: python
@@ -191,16 +218,15 @@ This create a new model instance with unique ID ``my-llama-2``:
     client = RESTfulClient("http://127.0.0.1:9997")
     model_uid = client.launch_model(
       model_engine="<inference_engine>",
-      model_uid="my-llama-2",
-      model_name="llama-2-chat",
+      model_name="qwen2.5-instruct",
       model_format="pytorch",
-      size_in_billions=13
+      size_in_billions="0_5"
     )
     print('Model uid: ' + model_uid)
 
   .. code-tab:: bash output
 
-    Model uid: my-llama-2
+    Model uid: qwen2.5-instruct
 
 .. note::
   For some engines, such as vllm, users need to specify the engine-related parameters when
@@ -209,11 +235,11 @@ This create a new model instance with unique ID ``my-llama-2``:
 
   .. code-block:: bash
 
-    xinference launch --model-engine vllm -u my-llama-2 -n llama-2-chat -s 13 -f pytorch --gpu_memory_utilization 0.9
+    xinference launch --model-engine vllm -n qwen2.5-instruct -s 0_5 -f pytorch --gpu_memory_utilization 0.9
 
   `gpu_memory_utilization=0.9` will pass to vllm when launching model.
 
-Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either via cURL,
+Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once the model is running, we can try it out either via cURL,
 or via Xinference's python client:
 
 .. tabs::
@@ -225,7 +251,7 @@ or via Xinference's python client:
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
-        "model": "my-llama-2",
+        "model": "qwen2.5-instruct",
         "messages": [
             {
                 "role": "system",
@@ -242,7 +268,7 @@ or via Xinference's python client:
 
     from xinference.client import RESTfulClient
     client = RESTfulClient("http://127.0.0.1:9997")
-    model = client.get_model("my-llama-2")
+    model = client.get_model("qwen2.5-instruct")
     model.chat(
         messages=[
             {"role": "user", "content": "Who won the world series in 2020?"}
@@ -253,7 +279,7 @@ or via Xinference's python client:
 
     {
       "id": "chatcmpl-8d76b65a-bad0-42ef-912d-4a0533d90d61",
-      "model": "my-llama-2",
+      "model": "qwen2.5-instruct",
       "object": "chat.completion",
       "created": 1688919187,
       "choices": [
@@ -281,7 +307,7 @@ Xinference provides OpenAI-compatible APIs for its supported models, so you can 
   client = OpenAI(base_url="http://127.0.0.1:9997/v1", api_key="not used actually")
 
   response = client.chat.completions.create(
-      model="my-llama-2",
+      model="qwen2.5-instruct",
       messages=[
           {"role": "system", "content": "You are a helpful assistant."},
           {"role": "user", "content": "What is the largest animal?"}
@@ -345,17 +371,19 @@ When you no longer need a model that is currently running, you can remove it in 
 
   .. code-tab:: bash shell
 
-    xinference terminate --model-uid "my-llama-2"
+    xinference terminate --model-uid "qwen2.5-instruct"
 
   .. code-tab:: bash cURL
 
-    curl -X DELETE http://127.0.0.1:9997/v1/models/my-llama-2
+    curl -X DELETE http://127.0.0.1:9997/v1/models/qwen2.5-instruct
 
   .. code-tab:: python
 
     from xinference.client import RESTfulClient
     client = RESTfulClient("http://127.0.0.1:9997")
-    client.terminate_model(model_uid="my-llama-2")
+    client.terminate_model(model_uid="qwen2.5-instruct")
+
+.. _distributed_getting_started:
 
 Deploy Xinference In a Cluster
 ==============================
@@ -398,7 +426,7 @@ On each of the other servers where you want to run Xinference workers, run the f
 
   .. code-block:: bash
 
-      xinference launch -n llama-2-chat -s 13 -f pytorch -e "http://${supervisor_host}:9997"
+      xinference launch -n qwen2.5-instruct -s 0_5 -f pytorch -e "http://${supervisor_host}:9997"
 
 Using Xinference With Docker
 =============================

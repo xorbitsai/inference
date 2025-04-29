@@ -1,4 +1,4 @@
-.. _image:
+ .. _image:
 
 ======
 Images
@@ -41,6 +41,9 @@ The Text-to-image API is supported with the following models in Xinference:
 * stable-diffusion-v1.5
 * stable-diffusion-xl-base-1.0
 * sd3-medium
+* sd3.5-medium
+* sd3.5-large
+* sd3.5-large-turbo
 * FLUX.1-schnell
 * FLUX.1-dev
 
@@ -105,8 +108,15 @@ We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's
     }
 
 
-Tips for Large Image Models including SD3-Medium, FLUX.1
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Quantize Large Image Models e.g. SD3-Medium, FLUX.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    From v0.16.1, Xinference by default enabled quantization for
+    large image models like Flux.1 and SD3.5 series.
+    So if your Xinference version is newer than v0.16.1,
+    You barely need to do anything to run those large image models on GPUs with small memory.
 
 Useful extra parameters can be passed to launch including:
 
@@ -120,29 +130,77 @@ Useful extra parameters can be passed to launch including:
 * ``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive 4.7B parameter
   T5-XXL text encoder during inference can significantly decrease the memory requirements
   with only a slight loss in performance.
+* ``--transformer_nf4 True``: use nf4 for transformer quantization.
+* ``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell will switch to
+  MLX engine on Mac, and ``quantize`` can be used to quantize the model.
 
-If you are trying to run large image models liek sd3-medium or FLUX.1 series on GPU card
-that has less memory than 24GB, you may encounter OOM when launching or inference.
-Try below solutions.
+For WebUI, Just add additional parameters, e.g. add key ``cpu_offload`` and value ``True``
+to enable cpu offloading.
 
-For FLUX.1 series, try to apply quantization.
+Below list default options that used from v0.16.1.
 
-.. code:: bash
++-------------------+-----------------------+----------------------+------------------+
+| Model             | quantize_text_encoder | quantize             | transformer_nf4  |
++===================+=======================+======================+==================+
+| FLUX.1-dev        | text_encoder_2        | True                 | False            |
++-------------------+-----------------------+----------------------+------------------+
+| FLUX.1-schnell    | text_encoder_2        | True                 | False            |
++-------------------+-----------------------+----------------------+------------------+
+| sd3-medium        | text_encoder_3        | N/A                  | False            |
++-------------------+-----------------------+----------------------+------------------+
+| sd3.5-medium      | text_encoder_3        | N/A                  | False            |
++-------------------+-----------------------+----------------------+------------------+
+| sd3.5-large       | text_encoder_3        | N/A                  | True             |
++-------------------+-----------------------+----------------------+------------------+
+| sd3.5-large-turbo | text_encoder_3        | N/A                  | True             |
++-------------------+-----------------------+----------------------+------------------+
 
-    xinference launch --model-name FLUX.1-dev --model-type image --quantize_text_encoder text_encoder_2
+.. note::
 
-For sd3-medium, apply quantization to ``text_encoder_3``.
+    If you want to disable some quantization, just set the corresponding option to False.
+    e.g. for Web UI, set key ``quantize_text_encoder`` and value ``False``
+    and for command line, specify ``--quantize_text_encoder False`` to disable quantization
+    for text encoder.
 
-.. code:: bash
+GGUF file format
+~~~~~~~~~~~~~~~~
 
-    xinference launch --model-name sd3-medium --model-type image --quantize_text_encoder text_encoder_3
+GGUF file format for transformer provides various quantization options.
+To use gguf file, you can specify additional option ``gguf_quantization`` for web UI,
+or ``--gguf_quantization`` for command line for those image models which support
+internally by Xinference. Below is the mode list.
 
++-------------------+------------------------------------------------------------------------------------------+
+| Model             | supported gguf quantization                                                              |
++===================+==============================================+===========================================+
+| FLUX.1-dev        | F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0                    |
++-------------------+------------------------------------------------------------------------------------------+
+| FLUX.1-schnell    | F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0                    |
++-------------------+------------------------------------------------------------------------------------------+
+| sd3.5-medium      | F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S, Q6_K, Q8_0  |
++-------------------+------------------------------------------------------------------------------------------+
+| sd3.5-large       | F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0                                                        |
++-------------------+------------------------------------------------------------------------------------------+
+| sd3.5-large-turbo | F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0                                                        |
++-------------------+------------------------------------------------------------------------------------------+
 
-Or removing memory-intensive T5-XXL text encoder for sd3-medium.
+.. note::
 
-.. code:: bash
+    We stronly recommend to enable additional option ``cpu_offload`` with value ``True`` for WebUI,
+    or specify ``--cpu_offload True`` for command line.
 
-    xinference launch --model-name sd3-medium --model-type image --text_encoder_3 None
+Example:
+
+.. code-block::
+
+    xinference launch --model-name FLUX.1-dev --model-type image --gguf_quantization Q2_K --cpu_offload True
+
+With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run Flux.1-dev.
+
+For those models gguf options are not supported internally, or you want to download gguf files on you own,
+you can specify additional option ``gguf_model_path`` for web UI or spcecify
+``--gguf_model_path /path/to/model_quant.gguf`` for command line.
+
 
 Image-to-image
 --------------------

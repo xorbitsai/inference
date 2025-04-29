@@ -128,11 +128,6 @@ def test_continuous_batching(setup):
         "quantization": "none",
         "model_format": "pytorch",
         "model_size_in_billions": "0_5",
-        # here note that device must be `cpu` for macOS,
-        # since torch mps may have some issues for batch tensor calculation,
-        # see: https://github.com/pytorch/pytorch/issues/122030 and
-        # https://github.com/pytorch/pytorch/issues/126862
-        "device": "cpu",
     }
 
     response = requests.post(url, json=payload)

@@ -9,11 +9,19 @@ xinference will automatically select the appropriate backend.
 
 llama.cpp
 ~~~~~~~~~
-`llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ is the python binding of
-`llama.cpp`. `llama-cpp` is developed based on the tensor library `ggml`, supporting inference of
+
+Xinference now supports `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ which developed by Xinference team,
+and `llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ to run llama.cpp backend.
+`llama.cpp` is developed based on the tensor library `ggml`, supporting inference of
 the LLaMA series models and their variants.
 
-We recommend that users install `llama-cpp-python` on the worker themselves and adjust the `cmake`
+.. warning::
+
+    Since Xinference v1.5.0,
+    ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
+    For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
+
+For `llama-cpp-python`, we recommend that users install  on the worker themselves and adjust the `cmake`
 parameters according to the hardware to achieve the best inference efficiency. Please refer to the
 `llama-cpp-python installation guide <https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal>`_.
 
@@ -21,6 +29,8 @@ parameters according to the hardware to achieve the best inference efficiency. P
 transformers
 ~~~~~~~~~~~~
 Transformers supports the inference of most state-of-art models. It is the default backend for models in PyTorch format.
+
+.. _vllm_backend:
 
 vLLM
 ~~~~
@@ -51,10 +61,10 @@ Currently, supported model includes:
 - ``codestral-v0.1``
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``
+- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``
+- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
 - ``baichuan-2-chat``
 - ``internlm2-chat``
 - ``internlm2.5-chat``, ``internlm2.5-chat-1m``
@@ -65,17 +75,28 @@ Currently, supported model includes:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
-- ``QwQ-32B-Preview``
-- ``gemma-it``, ``gemma-2-it``
+- ``QwQ-32B-Preview``, ``QwQ-32B``
+- ``marco-o1``
+- ``fin-r1``
+- ``seallms-v3``
+- ``skywork-or1-preview``
+- ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
+- ``minicpm3-4b``
+- ``internlm3-instruct``
+- ``moonlight-16b-a3b-instruct``
 .. vllm_end
+
+.. _sglang_backend:
 
 SGLang
 ~~~~~~
 `SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance inference runtime with RadixAttention.
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
+
+.. _mlx_backend:
 
 MLX
 ~~~

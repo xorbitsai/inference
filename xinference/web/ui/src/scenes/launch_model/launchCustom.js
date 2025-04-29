@@ -1,6 +1,7 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab'
 import { Box, FormControl, Tab } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
@@ -19,6 +20,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
   const [value, setValue] = useState(sessionStorage.getItem('subType'))
+  const { t } = useTranslation()
 
   const navigate = useNavigate()
   const handleTabChange = (_, newValue) => {
@@ -96,16 +98,28 @@ const LaunchCustom = ({ gpuAvailable }) => {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
-            <Tab label="Language Models" value="/launch_model/custom/llm" />
             <Tab
-              label="Embedding Models"
+              label={t('model.languageModels')}
+              value="/launch_model/custom/llm"
+            />
+            <Tab
+              label={t('model.embeddingModels')}
               value="/launch_model/custom/embedding"
             />
-            <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
-            <Tab label="Image Models" value="/launch_model/custom/image" />
-            <Tab label="Audio Models" value="/launch_model/custom/audio" />
             <Tab
-              label="Flexible Models"
+              label={t('model.rerankModels')}
+              value="/launch_model/custom/rerank"
+            />
+            <Tab
+              label={t('model.imageModels')}
+              value="/launch_model/custom/image"
+            />
+            <Tab
+              label={t('model.audioModels')}
+              value="/launch_model/custom/audio"
+            />
+            <Tab
+              label={t('model.flexibleModels')}
               value="/launch_model/custom/flexible"
             />
           </TabList>
@@ -127,11 +141,12 @@ const LaunchCustom = ({ gpuAvailable }) => {
                 <HotkeyFocusTextField
                   id="search"
                   type="search"
-                  label="Search for custom model name"
+                  label={t('launchModel.search')}
                   value={searchTerm}
                   onChange={handleSearchChange}
                   size="small"
-                  hotkey="/"
+                  hotkey="Enter"
+                  t={t}
                 />
               </FormControl>
             </div>

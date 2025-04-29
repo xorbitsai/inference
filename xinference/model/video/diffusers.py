@@ -91,6 +91,26 @@ class DiffUsersVideoModel:
             pipeline = self._model = CogVideoXPipeline.from_pretrained(
                 self._model_path, **kwargs
             )
+        elif self._model_spec.model_family == "HunyuanVideo":
+            from diffusers import HunyuanVideoPipeline, HunyuanVideoTransformer3DModel
+
+            transformer_torch_dtype = kwargs.pop("transformer_torch_dtype")
+            if isinstance(transformer_torch_dtype, str):
+                transformer_torch_dtype = getattr(torch, transformer_torch_dtype)
+            transformer = HunyuanVideoTransformer3DModel.from_pretrained(
+                self._model_path,
+                subfolder="transformer",
+                torch_dtype=transformer_torch_dtype,
+            )
+            pipeline = self._model = HunyuanVideoPipeline.from_pretrained(
+                self._model_path, transformer=transformer, **kwargs
+            )
+        elif self.model_spec.model_family == "Wan":
+            from diffusers import WanPipeline
+
+            pipeline = self._model = WanPipeline.from_pretrained(
+                self._model_path, **kwargs
+            )
         else:
             raise Exception(
                 f"Unsupported model family: {self._model_spec.model_family}"
@@ -110,8 +130,16 @@ class DiffUsersVideoModel:
             pipeline.enable_model_cpu_offload()
             if kwargs.get("sequential_cpu_offload", True):
                 pipeline.enable_sequential_cpu_offload()
-            pipeline.vae.enable_slicing()
-            pipeline.vae.enable_tiling()
+            try:
+                pipeline.vae.enable_slicing()
+            except AttributeError:
+                # model does not support slicing
+                pass
+            try:
+                pipeline.vae.enable_tiling()
+            except AttributeError:
+                # model does support tiling
+                pass
         elif not kwargs.get("device_map"):
             logger.debug("Loading model to available device")
             if gpu_count() > 1:
@@ -131,6 +159,8 @@ class DiffUsersVideoModel:
     ) -> VideoList:
         import gc
 
+        from diffusers.utils import export_to_video
+
         # cv2 bug will cause the video cannot be normally displayed
         # thus we use the imageio one
         # from diffusers.utils import export_to_video
@@ -141,6 +171,7 @@ class DiffUsersVideoModel:
         generate_kwargs = self._model_spec.default_generate_config.copy()
         generate_kwargs.update(kwargs)
         generate_kwargs["num_videos_per_prompt"] = n
+        fps = generate_kwargs.pop("fps", 10)
         logger.debug(
             "diffusers text_to_video args: %s",
             generate_kwargs,
@@ -159,7 +190,12 @@ class DiffUsersVideoModel:
         urls = []
         for f in output.frames:
             path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".mp4")
-            p = export_to_video_imageio(f, path, fps=8)
+            export = (
+                export_to_video
+                if self.model_spec.model_family != "CogVideoX"
+                else export_to_video_imageio
+            )
+            p = export(f, path, fps=fps)
             urls.append(p)
         if response_format == "url":
             return VideoList(

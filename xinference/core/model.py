@@ -35,6 +35,7 @@ from typing import (
     List,
     Optional,
     Union,
+    no_type_check,
 )
 
 import sse_starlette.sse
@@ -78,6 +79,9 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
 ]
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
+XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
+    os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
+)
 
 
 def request_limit(fn):
@@ -118,20 +122,25 @@ def request_limit(fn):
 
 def oom_check(fn):
     @functools.wraps(fn)
-    def _wrapper(*args, **kwargs):
+    def _wrapper(self, *args, **kwargs):
         try:
-            return fn(*args, **kwargs)
-        except OutOfMemoryError:
-            logger.exception("Model actor is out of memory.")
-            os._exit(1)
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
+            return fn(self, *args, **kwargs)
+        except OutOfMemoryError as ex:
+            assert self._loop is not None
+            asyncio.run_coroutine_threadsafe(
+                self._handle_oom_error(ex), loop=self._loop
+            )
 
     @functools.wraps(fn)
-    async def _async_wrapper(*args, **kwargs):
+    async def _async_wrapper(self, *args, **kwargs):
         try:
-            return await fn(*args, **kwargs)
-        except OutOfMemoryError:
-            logger.exception("Model actor is out of memory.")
-            os._exit(1)
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
+            return await fn(self, *args, **kwargs)
+        except OutOfMemoryError as ex:
+            await self._handle_oom_error(ex)
 
     assert not inspect.isasyncgen(fn)
     assert not inspect.isgenerator(fn)
@@ -176,7 +185,17 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
-            self._model.stop()
+            await asyncio.to_thread(self._model.stop)
+
+        if isinstance(self._model, LLMVLLMModel):
+            if self._transfer_ref is not None:
+                try:
+                    await xo.destroy_actor(self._transfer_ref)
+                    del self._transfer_ref
+                except Exception as e:
+                    logger.debug(
+                        f"Destroy transfer actor failed, address: {self.address}, error: {e}"
+                    )
 
         if (
             isinstance(self._model, (LLMPytorchModel, LLMVLLMModel, SGLANGModel))
@@ -206,8 +225,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         replica_model_uid: str,
         model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
+        xavier_config: Optional[Dict] = None,
+        n_worker: Optional[int] = 1,
+        shard: Optional[int] = 0,
+        driver_info: Optional[dict] = None,  # for model across workers
     ):
         super().__init__()
+
+        from ..model.llm.llama_cpp.core import XllamaCppModel
         from ..model.llm.lmdeploy.core import LMDeployModel
         from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.transformers.core import PytorchModel
@@ -228,7 +253,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._lock = (
             None
             if isinstance(
-                self._model, (PytorchModel, VLLMModel, SGLANGModel, LMDeployModel)
+                self._model,
+                (PytorchModel, VLLMModel, SGLANGModel, LMDeployModel, XllamaCppModel),
             )
             else asyncio.locks.Lock()
         )
@@ -243,12 +269,23 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             "quantization": self._model_description.get("quantization", "none"),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        # model across workers
+        self._n_worker = n_worker
+        self._shard = shard
+        self._driver_info = driver_info
 
         self._scheduler_ref = None
         self._text_to_image_scheduler_ref = None
 
+        if isinstance(self._model, VLLMModel):
+            self._xavier_config = xavier_config
+            self._model.set_xavier_config(xavier_config)
+            self._transfer_ref = None
+
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
+
+        logger.debug("Starting ModelActor at %s, uid: %s", self.address, self.uid)
 
         self._handle_pending_requests_task = asyncio.create_task(
             self._handle_pending_requests()
@@ -277,6 +314,29 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     def decrease_serve_count(self):
         self._serve_count -= 1
+
+    @no_type_check
+    async def start_transfer_for_vllm(self, rank_addresses: List[str]):
+        from ..model.llm.vllm.core import VLLMModel
+        from ..model.llm.vllm.xavier.transfer import TransferActor
+
+        assert isinstance(self._model, VLLMModel)
+        rank = self._xavier_config.get("rank")  # type: ignore
+        self._transfer_ref = await xo.create_actor(
+            TransferActor,
+            address=self.address,
+            uid=f"{TransferActor.default_uid()}-{rank}",
+            rank=rank,
+            world_size=self._xavier_config.get("world_size"),  # type: ignore
+            rank_address=self._xavier_config.get("rank_address"),  # type: ignore
+            store_address=self._xavier_config.get("store_address"),  # type: ignore
+            store_port=self._xavier_config.get("store_port"),  # type: ignore
+            world_addresses=rank_addresses,
+        )
+        await self._model.init_xavier()
+        logger.debug(
+            f"Init transfer actor: {self._transfer_ref.address}, rank: {rank} done for vllm."  # type: ignore
+        )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -406,7 +466,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         while True:
             i += 1
             try:
-                self._model.load()
+                if hasattr(self._model, "set_loop"):
+                    self._model.set_loop(asyncio.get_running_loop())
+                await asyncio.to_thread(self._model.load)
+                if hasattr(self._model, "driver_info"):
+                    self._driver_info = self._model.driver_info
                 break
             except Exception as e:
                 if (
@@ -429,6 +493,26 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         logger.info(f"{self} loaded")
 
+    async def wait_for_load(self):
+        if hasattr(self._model, "wait_for_load"):
+            await asyncio.to_thread(self._model.wait_for_load)
+
+    def need_create_pools(self):
+        return getattr(self._model, "need_create_pools", False)
+
+    def set_pool_addresses(self, pool_addresses: List[str]):
+        if hasattr(self._model, "set_pool_addresses"):
+            self._model.set_pool_addresses(pool_addresses)
+
+    def get_pool_addresses(self) -> Optional[List[str]]:
+        if hasattr(self._model, "get_pool_addresses"):
+            return self._model.get_pool_addresses()
+        return None
+
+    def set_worker_addresses(self, shard: int, worker_addresses: List[str]):
+        if hasattr(self._model, "set_worker_addresses"):
+            self._model.set_worker_addresses(shard, worker_addresses)
+
     def model_uid(self):
         return (
             self._model.model_uid
@@ -440,11 +524,30 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         )
 
+    def get_driver_info(self):
+        # driver info is used for model across workers,
+        # the driver model actor(always the first worker)
+        # will hold driver information includes dist store etc.
+        return self._driver_info
+
+    async def _handle_oom_error(self, ex):
+        error_message = (
+            f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
+        )
+        logger.exception(error_message)
+        worker_ref = await self._get_worker_ref()
+        await worker_ref.update_model_status(
+            self._replica_model_uid, last_error=error_message
+        )
+        os._exit(1)
+
     def _to_generator(self, output_type: str, gen: types.GeneratorType):
         start_time = time.time()
         time_to_first_token = None
         final_usage = None
         try:
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
             for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
@@ -456,11 +559,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         output_type == "binary"
                     ), f"Unknown output type '{output_type}'"
                 yield sse_starlette.sse.ensure_bytes(v, None)
-        except OutOfMemoryError:
-            logger.exception(
-                "Model actor is out of memory, model id: %s", self.model_uid()
+        except OutOfMemoryError as ex:
+            assert self._loop is not None
+            asyncio.run_coroutine_threadsafe(
+                self._handle_oom_error(ex), loop=self._loop
             )
-            os._exit(1)
         finally:
             if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
@@ -482,6 +585,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         time_to_first_token = None
         final_usage = None
         try:
+            if XINFERENCE_TEST_OUT_OF_MEMORY_ERROR:
+                raise OutOfMemoryError("Test Out of Memory Error")
             async for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
@@ -494,11 +599,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         output_type == "binary"
                     ), f"Unknown output type '{output_type}'"
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
-        except OutOfMemoryError:
-            logger.exception(
-                "Model actor is out of memory, model id: %s", self.model_uid()
-            )
-            os._exit(1)
+        except OutOfMemoryError as ex:
+            await self._handle_oom_error(ex)
         finally:
             coros = []
             if time_to_first_token is not None:

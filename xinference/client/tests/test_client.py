@@ -90,7 +90,7 @@ def test_RESTful_client(setup):
                     "role" in chunk["choices"][0]["delta"]
                 )
             else:
-                assert chunk["choices"][0]["delta"] == {}
+                assert chunk["choices"][0]["delta"] == {"content": ""}
 
     _check_stream()
 
@@ -126,11 +126,15 @@ def test_RESTful_client(setup):
             "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
         )
         if stream:
+            count = 0
+            has_text = False
             for chunk in completion:
                 assert "text" in chunk["choices"][0]
-                assert (
-                    chunk["choices"][0]["text"] or chunk["choices"][0]["finish_reason"]
-                )
+                if chunk["choices"][0]["text"]:
+                    has_text = True
+                count += 1
+            assert has_text
+            assert count > 2
         else:
             assert "text" in completion["choices"][0]
             assert len(completion["choices"][0]["text"]) > 0
@@ -159,6 +163,10 @@ def test_RESTful_client(setup):
 
     client.terminate_model(model_uid=model_uid2)
     assert len(client.list_models()) == 0
+
+
+def test_RESTful_client_xllamacpp(set_use_xllamacpp, setup):
+    test_RESTful_client(setup)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -419,6 +427,13 @@ def set_auto_recover_limit():
 
 
 @pytest.fixture
+def set_test_oom_error():
+    os.environ["XINFERENCE_TEST_OUT_OF_MEMORY_ERROR"] = "1"
+    yield
+    del os.environ["XINFERENCE_TEST_OUT_OF_MEMORY_ERROR"]
+
+
+@pytest.fixture
 def setup_cluster():
     import xoscar as xo
 
@@ -488,3 +503,22 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
             time.sleep(1)
     else:
         assert False
+
+
+def test_model_error(set_test_oom_error, setup_cluster):
+    endpoint, _ = setup_cluster
+    client = RESTfulClient(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulChatModelHandle)
+
+    with pytest.raises(RuntimeError, match="Model actor is out of memory"):
+        model.generate("Once upon a time, there was a very old computer")

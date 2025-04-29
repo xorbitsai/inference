@@ -30,5 +30,66 @@
     "default_generate_config": {
       "guidance_scale": 7
     }
+  },
+  {
+    "model_name": "HunyuanVideo",
+    "model_family": "HunyuanVideo",
+    "model_id": "hunyuanvideo-community/HunyuanVideo",
+    "model_revision": "e8c2aaa66fe3742a32c11a6766aecbf07c56e773",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "transformer_torch_dtype": "bfloat16",
+      "torch_dtype": "float16"
+    },
+    "default_generate_config": {
+    }
+  },
+  {
+    "model_name": "Wan2.1-1.3B",
+    "model_family": "Wan",
+    "model_id": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+    "model_revision": "0fad780a534b6463e45facd96134c9f345acfa5b",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "numpy==1.26.4"
+      ]
+    }
+  },
+  {
+    "model_name": "Wan2.1-14B",
+    "model_family": "Wan",
+    "model_id": "Wan-AI/Wan2.1-T2V-14B-Diffusers",
+    "model_revision": "38ec498cb3208fb688890f8cc7e94ede2cbd7f68",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "numpy==1.26.4"
+      ]
+    }
   }
 ]

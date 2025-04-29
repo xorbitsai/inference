@@ -42,7 +42,7 @@ class GlmEdgeVModel(PytorchChatModel):
         self._processor = None
 
     @classmethod
-    def match(
+    def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
@@ -57,25 +57,7 @@ class GlmEdgeVModel(PytorchChatModel):
         self._device = select_device(device)
 
         kwargs = {"device_map": self._device}
-        quantization = self.quantization
-
-        # referenced from PytorchModel.load
-        if quantization != "none":
-            if self._device == "cuda" and self._is_linux():
-                kwargs["device_map"] = "auto"
-                if quantization == "4-bit":
-                    kwargs["load_in_4bit"] = True
-                elif quantization == "8-bit":
-                    kwargs["load_in_8bit"] = True
-                else:
-                    raise ValueError(
-                        f"Quantization {quantization} is not supported in temporary"
-                    )
-            else:
-                if quantization != "8-bit":
-                    raise ValueError(
-                        f"Only 8-bit quantization is supported if it is not linux system or cuda device"
-                    )
+        kwargs = self.apply_bnb_quantization(kwargs)
 
         processor = AutoImageProcessor.from_pretrained(
             self.model_path, trust_remote_code=True
@@ -87,6 +69,7 @@ class GlmEdgeVModel(PytorchChatModel):
             trust_remote_code=True,
             torch_dtype=torch.bfloat16,
             device_map="auto",
+            **kwargs
         )
 
         self._model = model

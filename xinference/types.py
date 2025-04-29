@@ -78,6 +78,7 @@ class EmbeddingData(TypedDict):
 class Embedding(TypedDict):
     object: Literal["list"]
     model: str
+    model_replica: str
     data: List[EmbeddingData]
     usage: EmbeddingUsage
 
@@ -175,9 +176,18 @@ class Completion(TypedDict):
     usage: CompletionUsage
 
 
+class ChatCompletionAudio(TypedDict):
+    id: str
+    data: str
+    expires_at: int
+    transcript: str
+
+
 class ChatCompletionMessage(TypedDict):
     role: str
+    reasoning_content: NotRequired[str]
     content: Optional[str]
+    audio: NotRequired[ChatCompletionAudio]
     user: NotRequired[str]
     tool_calls: NotRequired[List]
 
@@ -199,7 +209,8 @@ class ChatCompletion(TypedDict):
 
 class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
-    content: NotRequired[str]
+    reasoning_content: NotRequired[Union[str, None]]
+    content: NotRequired[Union[str, None]]
     tool_calls: NotRequired[List[ToolCalls]]
 
 
@@ -274,6 +285,7 @@ class LlamaCppModelConfig(TypedDict, total=False):
     use_mmap: bool
     use_mlock: bool
     n_threads: Optional[int]
+    n_parallel: Optional[int]
     n_batch: int
     last_n_tokens_size: int
     lora_base: Optional[str]
@@ -282,6 +294,7 @@ class LlamaCppModelConfig(TypedDict, total=False):
     n_gqa: Optional[int]  # (TEMPORARY) must be 8 for llama2 70b
     rms_norm_eps: Optional[float]  # (TEMPORARY)
     verbose: bool
+    reasoning_content: bool
 
 
 class PytorchGenerateConfig(TypedDict, total=False):
@@ -302,6 +315,19 @@ class PytorchGenerateConfig(TypedDict, total=False):
     request_id: Optional[str]
 
 
+class CogagentGenerateConfig(PytorchGenerateConfig, total=False):
+    platform: Optional[Literal["Mac", "WIN", "Mobile"]]
+    format: Optional[
+        Literal[
+            "(Answer in Action-Operation-Sensitive format.)",
+            "(Answer in Status-Plan-Action-Operation format.)",
+            "(Answer in Status-Action-Operation-Sensitive format.)",
+            "(Answer in Status-Action-Operation format.)",
+            "(Answer in Action-Operation format.)",
+        ]
+    ]
+
+
 class PytorchModelConfig(TypedDict, total=False):
     revision: Optional[str]
     device: str
@@ -315,6 +341,10 @@ class PytorchModelConfig(TypedDict, total=False):
     trust_remote_code: bool
     max_num_seqs: int
     enable_tensorizer: Optional[bool]
+    reasoning_content: bool
+    min_pixels: NotRequired[int]
+    max_pixels: NotRequired[int]
+    quantization_config: NotRequired[Dict]
 
 
 def get_pydantic_model_from_method(
@@ -322,8 +352,10 @@ def get_pydantic_model_from_method(
     exclude_fields: Optional[Iterable[str]] = None,
     include_fields: Optional[Dict[str, Any]] = None,
 ) -> BaseModel:
+    # The validate_arguments set Config.extra = "forbid" by default.
     f = validate_arguments(meth, config={"arbitrary_types_allowed": True})
     model = f.model
+    model.Config.extra = "ignore"
     model.__fields__.pop("self", None)
     model.__fields__.pop("args", None)
     model.__fields__.pop("kwargs", None)

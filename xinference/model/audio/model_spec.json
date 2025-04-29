@@ -204,6 +204,21 @@
     }
   },
   {
+    "model_name": "paraformer-zh",
+    "model_family": "funasr",
+    "model_id": "funasr/paraformer-zh",
+    "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e",
+    "model_ability": "audio-to-text",
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_id": "2Noise/ChatTTS",
@@ -216,7 +231,7 @@
     "model_family": "CosyVoice",
     "model_id": "FunAudioLLM/CosyVoice-300M",
     "model_revision": "39c4e13d46bd4dfb840d214547623e5fcd2428e2",
-    "model_ability": "audio-to-audio",
+    "model_ability": "text-to-audio",
     "multilingual": true
   },
   {
@@ -264,6 +279,94 @@
     "model_family": "F5-TTS-MLX",
     "model_id": "lucasnewman/f5-tts-mlx",
     "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "MeloTTS-English",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-English",
+    "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "EN"
+  },
+  {
+    "model_name": "MeloTTS-English-v2",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-English-v2",
+    "model_revision": "a53e3509c4ee4ff16d79272feb2474ff864e18f3",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "EN"
+  },
+  {
+    "model_name": "MeloTTS-English-v3",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-English-v3",
+    "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "EN"
+  },
+  {
+    "model_name": "MeloTTS-French",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-French",
+    "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "FR"
+  },
+  {
+    "model_name": "MeloTTS-Japanese",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-Japanese",
+    "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "JP"
+  },
+  {
+    "model_name": "MeloTTS-Spanish",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-Spanish",
+    "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "ES"
+  },
+  {
+    "model_name": "MeloTTS-Chinese",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-Chinese",
+    "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "ZH"
+  },
+  {
+    "model_name": "MeloTTS-Korean",
+    "model_family": "MeloTTS",
+    "model_id": "myshell-ai/MeloTTS-Korean",
+    "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323",
+    "model_ability": "text-to-audio",
+    "multilingual": false,
+    "language": "KR"
+  },
+  {
+    "model_name": "Kokoro-82M",
+    "model_family": "Kokoro",
+    "model_id": "hexgrad/Kokoro-82M",
+    "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9",
+    "model_ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "MegaTTS3",
+    "model_family": "MegaTTS",
+    "model_id": "ByteDance/MegaTTS3",
+    "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738",
     "model_ability": "text-to-audio",
     "multilingual": true
   }
