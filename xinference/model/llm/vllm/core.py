@@ -240,6 +240,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
+
 
 class VLLMModel(LLM):
     def __init__(
