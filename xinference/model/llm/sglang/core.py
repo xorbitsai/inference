@@ -107,7 +107,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-r1-distill-llama",
     "deepseek-v3",
     "deepseek-r1",
-    "HuatuoGPT-o1-Qwen2.5"
+    "HuatuoGPT-o1-Qwen2.5",
     "HuatuoGPT-o1-LLaMA-3.1",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
