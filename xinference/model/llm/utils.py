@@ -143,6 +143,7 @@ class ChatModelMixin:
                     add_generation_prompt=True,
                     **kwargs,
                 )
+                logger.debug("Prompt: %s", full_context)
                 return full_context
             except Exception as e:
                 logger.warning(

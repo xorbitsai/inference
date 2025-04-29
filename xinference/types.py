@@ -412,6 +412,7 @@ class CreateCompletionTorch(BaseModel):
     top_k: int = top_k_field
     lora_name: Optional[str]
     request_id: Optional[str]
+    chat_template_kwargs: Optional[Union[str, Dict[str, Any]]]
 
 
 CreateCompletionLlamaCpp: BaseModel
