@@ -156,7 +156,7 @@ class ChatModelMixin:
 
     @staticmethod
     def _get_chat_template_kwargs_from_generate_config(
-        generate_config: Optional[dict],
+        generate_config: Optional[Union[dict, Any]],
     ) -> Optional[dict]:
         if not generate_config:
             return None
