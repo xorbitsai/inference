@@ -46,8 +46,8 @@ class CogAgentChatModel(PytorchChatModel):
         self._device = None
         self._tokenizer = None
         self._model = None
-        self._platform: Literal["Mac", "WIN", "Mobile"] | None = "Mac"  # type: ignore
-        self._format: Literal[  # type: ignore
+        self._platform: Literal["Mac", "WIN", "Mobile"] | None = "Mac"
+        self._format: Literal[
             "(Answer in Action-Operation-Sensitive format.)",
             "(Answer in Status-Plan-Action-Operation format.)",
             "(Answer in Status-Action-Operation-Sensitive format.)",
@@ -206,9 +206,6 @@ class CogAgentChatModel(PytorchChatModel):
             "return_tensors": "pt",
             "return_dict": True,
         }
-        full_context_kwargs.update(
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}  # type: ignore
-        )
         assert self.model_family.chat_template is not None
         inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],

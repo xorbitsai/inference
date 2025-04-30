@@ -313,7 +313,7 @@ class QwenVLChatModel(PytorchChatModel):
 
         return raw_text, context_tokens
 
-    def _get_full_prompt(self, messages: List[Dict], tools):  # type: ignore
+    def _get_full_prompt(self, messages: List[Dict], tools):
         prompt, qwen_history = self._get_prompt_and_chat_history(messages)
         _, context_tokens = self.make_context(self._tokenizer, prompt, qwen_history)
         return context_tokens

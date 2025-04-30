@@ -462,12 +462,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     tools = list(tools) if tools is not None else None
                     tool_choice = r.generate_config.get("tool_choice", "none")
 
-                    full_context_kwargs = (
-                        self._get_chat_template_kwargs_from_generate_config(
-                            r.generate_config
-                        )
-                        or {}
-                    )
                     r.prompt = self._process_messages(
                         r.prompt, tools=tools, tool_choice=tool_choice
                     )
@@ -475,7 +469,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                         r.prompt,
                         self.model_family.chat_template,  # type: ignore
                         tokenizer=self._tokenizer,
-                        **full_context_kwargs,
                     )
                     if tools:
                         r.tools = tools
