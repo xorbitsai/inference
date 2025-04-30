@@ -59,6 +59,7 @@ pyarrow  # For CosyVoice, matcha
 HyperPyYAML  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+pyworld>=0.3.4  # For CosyVoice
 imageio-ffmpeg  # For video
 eva-decord  # For video in VL
 jj-pytorchvideo # For CogVLM2-video
