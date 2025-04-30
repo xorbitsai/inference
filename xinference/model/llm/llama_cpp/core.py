@@ -598,9 +598,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}  # type: ignore
-        )
+        full_context_kwargs = {}
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY

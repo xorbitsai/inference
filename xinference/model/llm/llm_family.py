@@ -72,10 +72,8 @@ class LlamaCppLLMSpecV1(BaseModel):
     model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
-    # for MOE model, illustrates the activated model size
-    activated_size_in_billions: Optional[Union[str, int]]
 
-    @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
+    @validator("model_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
         if isinstance(v, str):
             if (
@@ -96,10 +94,8 @@ class PytorchLLMSpecV1(BaseModel):
     model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
-    # for MOE model, illustrates the activated model size
-    activated_size_in_billions: Optional[Union[str, int]]
 
-    @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
+    @validator("model_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
         if isinstance(v, str):
             if (
@@ -120,10 +116,8 @@ class MLXLLMSpecV1(BaseModel):
     model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
-    # for MOE model, illustrates the activated model size
-    activated_size_in_billions: Optional[Union[str, int]]
 
-    @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
+    @validator("model_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
         if isinstance(v, str):
             if (

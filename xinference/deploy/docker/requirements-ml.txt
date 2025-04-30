@@ -1,5 +1,5 @@
 uv
-transformers>=4.51.3
+transformers>=4.46.0
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
@@ -36,22 +36,22 @@ vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
 torchdiffeq  # For F5-TTS
 x_transformers>=1.31.14  # For F5-TTS
 gguf
-vllm==0.8.5
+vllm==0.8.4
 
 # sglang
-decord
-hf_transfer
-huggingface_hub
-interegular
-outlines>=0.0.44,<=0.1.11
-packaging
-prometheus-client>=0.20.0
-psutil
-python-multipart
-pyzmq>=25.1.2
-torchao>=0.7.0
-uvloop
-xgrammar>=0.1.10
-cuda-python
-sgl-kernel>=0.0.3.post3
-IPython
+#decord
+#hf_transfer
+#huggingface_hub
+#interegular
+#outlines>=0.0.44,<=0.1.11
+#packaging
+#prometheus-client>=0.20.0
+#psutil
+#python-multipart
+#pyzmq>=25.1.2
+#torchao>=0.7.0
+#uvloop
+#xgrammar>=0.1.10
+#cuda-python
+#sgl-kernel>=0.0.3.post3
+#IPython
