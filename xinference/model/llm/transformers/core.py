@@ -699,9 +699,11 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def load(self):
         super().load()
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = {}
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        )
         if (
             tools
             and model_family in QWEN_TOOL_CALL_FAMILY
@@ -724,7 +726,9 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             try:
                 if not r.stopped and r.is_prefill:
                     tools = r.generate_config.get("tools", None)
-                    r.full_prompt = self._get_full_prompt(r.prompt, tools)
+                    r.full_prompt = self._get_full_prompt(
+                        r.prompt, tools, r.generate_config
+                    )
                     if tools:
                         r.tools = tools
             except Exception as e:
