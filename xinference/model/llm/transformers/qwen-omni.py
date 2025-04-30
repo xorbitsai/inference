@@ -83,6 +83,7 @@ class Qwen2_5OmniChatModel(PytorchChatModel):
             if not flash_attn_installed
             else {"attn_implementation": "flash_attention_2"}
         )
+        kwargs = self.apply_bnb_quantization(kwargs)
         logger.debug("Loading model with extra kwargs: %s", kwargs)
 
         self._processor = Qwen2_5OmniProcessor.from_pretrained(

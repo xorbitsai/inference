@@ -64,8 +64,8 @@ class CogAgentChatModel(PytorchChatModel):
             return True
         return False
 
-    def load(self, **kwargs):
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    def load(self):
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
@@ -73,19 +73,14 @@ class CogAgentChatModel(PytorchChatModel):
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        if self.quantization == "4-bit":
-            quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-        elif self.quantization == "8-bit":
-            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-        else:
-            quantization_config = None
+        kwargs = self.apply_bnb_quantization()
 
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map=self._device,
-            quantization_config=quantization_config,
+            **kwargs,
         ).eval()
 
     def _message_content_to_cogagent(self, content):

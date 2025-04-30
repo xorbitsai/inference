@@ -60,7 +60,8 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
 
         self._device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(self._device)
-        self._type = torch.float16 if self._device == "mps" else torch.bfloat16
+        self._type = torch.bfloat16
+        kwargs = self.apply_bnb_quantization()
 
         # specify the path to the model
         self._vl_chat_processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(  # type: ignore
@@ -69,9 +70,13 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
         self._tokenizer = self._vl_chat_processor.tokenizer
 
         vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(  # type: ignore
-            self.model_path, trust_remote_code=True, device_map=self._device
+            self.model_path,
+            trust_remote_code=True,
+            device_map=self._device,
+            torch_dtype=self._type,
+            **kwargs,
         )
-        self._model = vl_gpt.to(torch.bfloat16).cuda().eval()
+        self._model = vl_gpt.cuda().eval()
 
     @staticmethod
     def _message_content_to_deepseek(content) -> Tuple[str, List[str]]:

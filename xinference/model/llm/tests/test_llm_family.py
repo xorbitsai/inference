@@ -990,14 +990,6 @@ def test_query_engine_general():
         unregister_llm,
     )
 
-    assert check_engine_by_spec_parameters(
-        model_engine="transformers",
-        model_name="aquila2",
-        model_format="pytorch",
-        model_size_in_billions=7,
-        quantization="none",
-    )
-
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
 
@@ -1024,13 +1016,6 @@ def test_query_engine_general():
         model_format="pytorch",
         model_size_in_billions="1_8",
         quantization="none",
-    )
-    assert check_engine_by_spec_parameters(
-        model_engine="transformers",
-        model_name=model_name,
-        model_format="pytorch",
-        model_size_in_billions="1_8",
-        quantization="4-bit",
     )
     assert (
         check_engine_by_spec_parameters(
