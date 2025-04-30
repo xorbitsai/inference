@@ -1102,8 +1102,8 @@ class SupervisorActor(xo.StatelessActor):
                 xavier_config=xavier_config,
                 **kwargs,
             )
-            await worker_ref.wait_for_load(_replica_model_uid)
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+            await worker_ref.wait_for_load(_replica_model_uid)
             return subpool_address
 
         async def _launch_model():
