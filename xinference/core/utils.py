@@ -263,7 +263,7 @@ class CancelMixin:
     _CANCEL_TASK_NAME = "abort_block"
 
     def __init__(self):
-        self._running_tasks: weakref.WeakValueDictionary[
+        self._running_tasks: weakref.WeakValueDictionary[  # type: ignore
             str, asyncio.Task
         ] = weakref.WeakValueDictionary()
 

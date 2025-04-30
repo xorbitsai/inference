@@ -316,7 +316,7 @@ class CogVLM2Model(PytorchChatModel):
     def get_dtype(self):
         return self._torch_type
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools):  # type: ignore
         prompt, system_prompt, chat_history = parse_messages(messages)
         system_prompt = system_prompt or ""
         query, image, history = self.get_query_and_history(
