@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 8 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
-- **Quantizations:** int4
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** openbmb/MiniCPM-Llama3-V-2_5-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-Llama3-V-2_5-{quantization}>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-Llama3-V-2_5-{quantization}>`__

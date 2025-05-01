@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** mistralai/Mistral-7B-Instruct-v0.3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_K_S, Q4_K_M, Q5_K_S, Q5_K_M, Q6_K, Q8_0, fp16
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF>`__
 

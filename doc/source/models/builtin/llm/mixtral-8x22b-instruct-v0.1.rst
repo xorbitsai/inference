@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 141 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 141
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** mistralai/Mixtral-8x22B-Instruct-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (ggufv2, 141 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 141
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6, Q8_0, fp16
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF>`__
 

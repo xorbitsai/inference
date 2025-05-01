@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 12 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
-- **Quantizations:** 4-bit
-- **Engines**: Transformers
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407>`__
 
@@ -51,8 +51,8 @@ Model Spec 3 (pytorch, 12 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
-- **Quantizations:** 8-bit
-- **Engines**: Transformers
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (ggufv2, 12 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 12
 - **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_K_S, Q4_K_M, Q5_K_S, Q5_K_M, Q6_K, Q8_0, fp16
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF>`__
 
@@ -131,7 +131,7 @@ Model Spec 8 (mlx, 12 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 12
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Mistral-Nemo-Instruct-2407-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Mistral-Nemo-Instruct-2407-4bit>`__
@@ -147,7 +147,7 @@ Model Spec 9 (mlx, 12 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 12
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Mistral-Nemo-Instruct-2407-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Mistral-Nemo-Instruct-2407-8bit>`__

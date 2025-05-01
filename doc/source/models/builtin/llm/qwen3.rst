@@ -52,7 +52,7 @@ Model Spec 3 (gptq, 0_6 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 0_6
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-0.6B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-0.6B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-0.6B-GPTQ-{quantization}>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (mlx, 0_6 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 0_6
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-0.6B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-0.6B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-0.6B-{quantization}>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (gptq, 1_7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 1_7
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-1.7B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-1.7B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-1.7B-GPTQ-{quantization}>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (mlx, 1_7 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 1_7
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-1.7B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-1.7B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-1.7B-{quantization}>`__
 
@@ -212,7 +212,7 @@ Model Spec 13 (gptq, 4 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 4
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-4B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-4B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-4B-GPTQ-{quantization}>`__
 
@@ -228,7 +228,7 @@ Model Spec 14 (mlx, 4 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 4
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-4B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-4B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-4B-{quantization}>`__
 
@@ -292,7 +292,7 @@ Model Spec 18 (gptq, 8 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-8B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-8B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-8B-GPTQ-{quantization}>`__
 
@@ -308,7 +308,7 @@ Model Spec 19 (mlx, 8 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 8
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-8B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-8B-{quantization}>`__
 
@@ -372,7 +372,7 @@ Model Spec 23 (gptq, 14 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 14
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-14B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-14B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-14B-GPTQ-{quantization}>`__
 
@@ -388,7 +388,7 @@ Model Spec 24 (mlx, 14 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 14
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-14B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-14B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-14B-{quantization}>`__
 
@@ -437,8 +437,8 @@ Model Spec 27 (fp8, 30 Billion)
 - **Model Size (in billions):** 30
 - **Quantizations:** fp8
 - **Engines**: vLLM, SGLang
-- **Model ID:** Qwen/Qwen3-30B-FP8
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-30B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-30B-A3B-FP8>`__
+- **Model ID:** Qwen/Qwen3-30B-A3B-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-30B-A3B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-30B-A3B-FP8>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -452,7 +452,7 @@ Model Spec 28 (gptq, 30 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 30
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-30B-A3B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-30B-A3B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-30B-A3B-GPTQ-{quantization}>`__
 
@@ -468,7 +468,7 @@ Model Spec 29 (mlx, 30 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 30
 - **Quantizations:** 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-30B-A3B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-30B-A3B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-{quantization}>`__
 
@@ -532,7 +532,7 @@ Model Spec 33 (gptq, 32 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 32
 - **Quantizations:** Int4, Int8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Qwen3-32B-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Qwen3-32B-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Qwen3-32B-GPTQ-{quantization}>`__
 
@@ -548,7 +548,7 @@ Model Spec 34 (mlx, 32 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 32
 - **Quantizations:** 4bit, 6bit, 8bit, bf16
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-32B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-32B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-32B-{quantization}>`__
 
@@ -612,7 +612,7 @@ Model Spec 38 (mlx, 235 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 235
 - **Quantizations:** 3bit, 4bit, 8bit
-- **Engines**: MLX
+- **Engines**: 
 - **Model ID:** mlx-community/Qwen3-30B-A3B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3-30B-A3B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-{quantization}>`__
 
