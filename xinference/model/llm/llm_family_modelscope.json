@@ -7822,6 +7822,19 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": "0_6",
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-0.6B-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": "0_6",
         "quantizations": [
@@ -7880,6 +7893,19 @@
           "Int8"
         ],
         "model_id": "JunHowie/Qwen3-1.7B-GPTQ-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "1_7",
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-1.7B-{quantization}",
         "model_hub": "modelscope"
       },
       {
@@ -7944,6 +7970,19 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-4B-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 4,
         "quantizations": [
@@ -8002,6 +8041,19 @@
           "Int8"
         ],
         "model_id": "JunHowie/Qwen3-8B-GPTQ-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-8B-{quantization}",
         "model_hub": "modelscope"
       },
       {
@@ -8066,6 +8118,19 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-14B-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 14,
         "quantizations": [
@@ -8127,6 +8192,19 @@
           "Int8"
         ],
         "model_id": "JunHowie/Qwen3-30B-A3B-GPTQ-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "quantizations": [
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}",
         "model_hub": "modelscope"
       },
       {
@@ -8199,6 +8277,18 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-32B-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 32,
         "quantizations": [
@@ -8256,6 +8346,18 @@
           "fp8"
         ],
         "model_id": "Qwen/Qwen3-235B-FP8",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "8bit"
+        ],
+        "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}",
         "model_hub": "modelscope"
       },
       {
@@ -8371,6 +8473,7 @@
     "virtualenv": {
       "packages": [
         "transformers>=4.51.0",
+        "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
         "numpy==1.26.4"
       ]
     }
