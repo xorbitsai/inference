@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 4 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** microsoft/Phi-3-mini-128k-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/Phi-3-mini-128k-instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Phi-3-mini-128k-instruct>`__

@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 72 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 72
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/QVQ-72B-Preview
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/QVQ-72B-Preview>`__, `ModelScope <https://modelscope.cn/models/Qwen/QVQ-72B-Preview>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (mlx, 72 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 72
 - **Quantizations:** 3bit, 4bit, 6bit, 8bit, bf16
-- **Engines**: Transformers, MLX
+- **Engines**: MLX
 - **Model ID:** mlx-community/QVQ-72B-Preview-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/QVQ-72B-Preview-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/QVQ-72B-Preview-{quantization}>`__
 

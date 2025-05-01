@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 0_5 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 0_5
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-Coder-0.5B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-0.5B-Instruct>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 1_5 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-Coder-1.5B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-1.5B-Instruct>`__
 
@@ -51,8 +51,8 @@ Model Spec 3 (pytorch, 3 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 3
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-Coder-3B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-3B-Instruct>`__
 
@@ -67,8 +67,8 @@ Model Spec 4 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-Coder-7B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-7B-Instruct>`__
 
@@ -83,8 +83,8 @@ Model Spec 5 (pytorch, 14 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-Coder-14B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-14B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-14B-Instruct>`__
 
@@ -99,8 +99,8 @@ Model Spec 6 (pytorch, 32 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-Coder-32B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-32B-Instruct>`__
 
@@ -308,7 +308,7 @@ Model Spec 19 (ggufv2, 1_5 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1_5
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF>`__
 
@@ -324,7 +324,7 @@ Model Spec 20 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen2.5-Coder-7B-Instruct-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2.5-Coder-7B-Instruct-GGUF>`__
 

@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 20 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 20
-- **Quantizations:** int4
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}>`__

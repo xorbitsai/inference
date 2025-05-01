@@ -6,7 +6,7 @@ MeloTTS-French
 
 - **Model Name:** MeloTTS-French
 - **Model Family:** MeloTTS
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** False
 
 Specifications

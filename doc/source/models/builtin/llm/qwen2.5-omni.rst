@@ -14,7 +14,23 @@ Specifications
 ^^^^^^^^^^^^^^
 
 
-Model Spec 1 (pytorch, 7 Billion)
+Model Spec 1 (pytorch, 3 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 3
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen2.5-Omni-3B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-Omni-3B>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen2.5-Omni-3B>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-omni --size-in-billions 3 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 2 (pytorch, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch

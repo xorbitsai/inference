@@ -6,7 +6,7 @@ CosyVoice2-0.5B
 
 - **Model Name:** CosyVoice2-0.5B
 - **Model Family:** CosyVoice
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** True
 
 Specifications

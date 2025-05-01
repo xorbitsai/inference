@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** baichuan-inc/Baichuan2-7B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-inc/Baichuan2-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/baichuan-inc/Baichuan2-7B-Chat>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 13 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** baichuan-inc/Baichuan2-13B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat>`__, `ModelScope <https://modelscope.cn/models/baichuan-inc/Baichuan2-13B-Chat>`__
 

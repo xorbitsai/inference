@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 12 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** THUDM/cogvlm2-video-llama3-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/cogvlm2-video-llama3-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogvlm2-video-llama3-chat>`__

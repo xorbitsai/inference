@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 123 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 123
-- **Quantizations:** 4-bit
-- **Engines**: Transformers
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** unsloth/Mistral-Large-Instruct-2407-bnb-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Mistral-Large-Instruct-2407-bnb-4bit>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407-bnb-4bit>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (ggufv2, 123 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 123
 - **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_K_S, Q4_K_M
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF>`__
 
@@ -115,7 +115,7 @@ Model Spec 7 (mlx, 123 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 123
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Mistral-Large-Instruct-2407-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Mistral-Large-Instruct-2407-4bit>`__
@@ -131,7 +131,7 @@ Model Spec 8 (mlx, 123 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 123
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Mistral-Large-Instruct-2407-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Mistral-Large-Instruct-2407-8bit>`__
