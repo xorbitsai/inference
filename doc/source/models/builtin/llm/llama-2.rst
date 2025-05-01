@@ -99,8 +99,8 @@ Model Spec 6 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** meta-llama/Llama-2-7b-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-7b-hf>`__
 
@@ -115,8 +115,8 @@ Model Spec 7 (pytorch, 13 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** meta-llama/Llama-2-13b-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-13b-hf>`__
 
@@ -163,8 +163,8 @@ Model Spec 10 (pytorch, 70 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** meta-llama/Llama-2-70b-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-70b-hf>`__
 
