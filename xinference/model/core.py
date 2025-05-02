@@ -98,6 +98,7 @@ def create_model_instance(
             model_uid,
             model_name,
             download_hub,
+            kwargs.get("model_engine", "sentence_transformer"),
             model_path,
             **kwargs,
         )
