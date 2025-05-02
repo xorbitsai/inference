@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 0_5 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 0_5
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-0.5B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-0.5B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 1_8 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_8
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-1.8B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-1.8B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-1.8B-Chat>`__
 
@@ -51,8 +51,8 @@ Model Spec 3 (pytorch, 4 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-4B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-4B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-4B-Chat>`__
 
@@ -67,8 +67,8 @@ Model Spec 4 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-7B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-7B-Chat>`__
 
@@ -83,8 +83,8 @@ Model Spec 5 (pytorch, 14 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-14B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-14B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-14B-Chat>`__
 
@@ -99,8 +99,8 @@ Model Spec 6 (pytorch, 32 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-32B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-32B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-32B-Chat>`__
 
@@ -115,8 +115,8 @@ Model Spec 7 (pytorch, 72 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 72
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-72B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-72B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-72B-Chat>`__
 
@@ -131,8 +131,8 @@ Model Spec 8 (pytorch, 110 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 110
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen1.5-110B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-110B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-110B-Chat>`__
 
@@ -404,7 +404,7 @@ Model Spec 25 (ggufv2, 0_5 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 0_5
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-0.5B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-0.5B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat-GGUF>`__
 
@@ -420,7 +420,7 @@ Model Spec 26 (ggufv2, 1_8 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1_8
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-1.8B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-1.8B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-1.8B-Chat-GGUF>`__
 
@@ -436,7 +436,7 @@ Model Spec 27 (ggufv2, 4 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 4
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-4B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-4B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-4B-Chat-GGUF>`__
 
@@ -452,7 +452,7 @@ Model Spec 28 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-7B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-7B-Chat-GGUF>`__
 
@@ -468,7 +468,7 @@ Model Spec 29 (ggufv2, 14 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 14
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-14B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-14B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-14B-Chat-GGUF>`__
 
@@ -484,7 +484,7 @@ Model Spec 30 (ggufv2, 32 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 32
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-32B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-32B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-32B-Chat-GGUF>`__
 
@@ -500,7 +500,7 @@ Model Spec 31 (ggufv2, 72 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 72
 - **Quantizations:** q2_k, q3_k_m, q4_k_m
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/Qwen1.5-72B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-72B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-72B-Chat-GGUF>`__
 

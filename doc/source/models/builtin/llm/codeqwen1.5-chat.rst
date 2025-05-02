@@ -20,7 +20,7 @@ Model Spec 1 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** Qwen/CodeQwen1.5-7B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/CodeQwen1.5-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/CodeQwen1.5-7B-Chat-GGUF>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/CodeQwen1.5-7B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/CodeQwen1.5-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/CodeQwen1.5-7B-Chat>`__
 

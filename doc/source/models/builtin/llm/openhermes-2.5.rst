@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** teknium/OpenHermes-2.5-Mistral-7B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B>`__

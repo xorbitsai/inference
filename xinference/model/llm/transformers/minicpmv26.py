@@ -71,7 +71,7 @@ class MiniCPMV26Model(PytorchChatModel):
 
         return AutoModel
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModel, AutoProcessor, AutoTokenizer
         from transformers.generation import GenerationConfig
 
@@ -96,11 +96,13 @@ class MiniCPMV26Model(PytorchChatModel):
         if "int4" in self.model_path:
             model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
         else:
+            kwargs = self.apply_bnb_quantization()
             model = AutoModel.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
                 device_map=self._device,
+                **kwargs,
             )
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True
@@ -322,7 +324,7 @@ class MiniCPMV26Model(PytorchChatModel):
             "input_image": images,
         }
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools):  # type: ignore
         msgs, video_existed = self._convert_to_specific_style(messages)
         if video_existed:
             raise RuntimeError(

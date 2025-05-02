@@ -24,7 +24,7 @@ from .block import XavierPrefixCachingBlockAllocator
 class XavierCpuGpuBlockAllocator(CpuGpuBlockAllocator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._xavier_config: Optional[Dict[str, Any]] = None
+        self._xavier_config: Optional[Dict[str, Any]] = None  # type: ignore
 
     @property
     def xavier_config(self):

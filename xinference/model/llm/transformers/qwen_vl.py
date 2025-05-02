@@ -66,6 +66,8 @@ class QwenVLChatModel(PytorchChatModel):
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
 
+        kwargs = self.apply_bnb_quantization()
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
@@ -76,6 +78,7 @@ class QwenVLChatModel(PytorchChatModel):
             device_map=device,
             trust_remote_code=True,
             code_revision=self.model_spec.model_revision,
+            **kwargs,
         ).eval()
 
         # Specify hyperparameters for generation
@@ -310,7 +313,7 @@ class QwenVLChatModel(PytorchChatModel):
 
         return raw_text, context_tokens
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools):  # type: ignore
         prompt, qwen_history = self._get_prompt_and_chat_history(messages)
         _, context_tokens = self.make_context(self._tokenizer, prompt, qwen_history)
         return context_tokens

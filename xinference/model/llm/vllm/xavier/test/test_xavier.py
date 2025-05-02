@@ -46,7 +46,7 @@ async def actor_pool_context():
 async def test_block_tracker(actor_pool_context):
     actor_pool = actor_pool_context
     addr = actor_pool.external_address
-    tracker_ref: xo.ActorRefType[ExtendedBlockTracker] = await xo.create_actor(
+    tracker_ref: xo.ActorRefType[ExtendedBlockTracker] = await xo.create_actor(  # type: ignore
         ExtendedBlockTracker,
         address=addr,
         uid=VLLMBlockTracker.default_uid(),
