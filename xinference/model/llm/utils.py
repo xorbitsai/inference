@@ -68,6 +68,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen2-moe-instruct",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
+    "HuatuoGPT-o1-Qwen2.5",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -77,6 +78,7 @@ GLM4_TOOL_CALL_FAMILY = [
 
 LLAMA3_TOOL_CALL_FAMILY = [
     "llama-3.1-instruct",
+    "HuatuoGPT-o1-LLaMA-3.1",
 ]
 
 DEEPSEEK_TOOL_CALL_FAMILY = [
