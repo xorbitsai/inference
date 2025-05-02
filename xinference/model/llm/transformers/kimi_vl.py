@@ -51,7 +51,7 @@ class KimiVLChatModel(PytorchChatModel):
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         llm_family = model_family.model_family or model_family.model_name
-        if "kimi-vl".lower() in llm_family.lower():
+        if "kimi-vl-".lower() in llm_family.lower():
             return True
         return False
 

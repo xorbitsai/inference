@@ -9090,7 +9090,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "vision"
     ],
     "model_description": "Kimi-VL, an efficient open-source Mixture-of-Experts (MoE) vision-language model (VLM) that offers advanced multimodal reasoning, long-context understanding, and strong agent capabilities",
     "model_specs": [
@@ -9122,6 +9123,7 @@
     ],
     "model_ability": [
       "chat",
+      "vision",
       "reasoning"
     ],
     "model_description": "Kimi-VL, an efficient open-source Mixture-of-Experts (MoE) vision-language model (VLM) that offers advanced multimodal reasoning, long-context understanding, and strong agent capabilities",
