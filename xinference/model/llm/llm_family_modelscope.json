@@ -8353,7 +8353,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "Qwen/Qwen3-235B",
+        "model_id": "Qwen/Qwen3-235B-A22B",
         "model_hub": "modelscope"
       },
       {
@@ -8363,7 +8363,7 @@
         "quantizations": [
           "fp8"
         ],
-        "model_id": "Qwen/Qwen3-235B-FP8",
+        "model_id": "Qwen/Qwen3-235B-A22B-FP8",
         "model_hub": "modelscope"
       },
       {
@@ -8375,7 +8375,7 @@
           "4bit",
           "8bit"
         ],
-        "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}",
+        "model_id": "mlx-community/Qwen3-235B-A22B-{quantization}",
         "model_hub": "modelscope"
       },
       {
