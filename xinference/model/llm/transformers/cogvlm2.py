@@ -72,7 +72,7 @@ class CogVLM2Model(PytorchChatModel):
             return True
         return False
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformers.generation import GenerationConfig
 
@@ -88,6 +88,8 @@ class CogVLM2Model(PytorchChatModel):
             self._model, self._tokenizer = self._load_tensorizer()
             return
 
+        kwargs = self.apply_bnb_quantization()
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
@@ -99,6 +101,7 @@ class CogVLM2Model(PytorchChatModel):
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             device_map="auto",
+            **kwargs
         ).eval()
 
         # Specify hyperparameters for generation
@@ -313,7 +316,7 @@ class CogVLM2Model(PytorchChatModel):
     def get_dtype(self):
         return self._torch_type
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools):  # type: ignore
         prompt, system_prompt, chat_history = parse_messages(messages)
         system_prompt = system_prompt or ""
         query, image, history = self.get_query_and_history(

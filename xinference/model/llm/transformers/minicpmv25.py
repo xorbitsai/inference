@@ -55,7 +55,7 @@ class MiniCPMV25Model(PytorchChatModel):
 
         return AutoModel
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModel, AutoTokenizer
         from transformers.generation import GenerationConfig
 
@@ -76,11 +76,13 @@ class MiniCPMV25Model(PytorchChatModel):
         if "int4" in self.model_path:
             model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
         else:
+            kwargs = self.apply_bnb_quantization()
             model = AutoModel.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
                 device_map=self._device,
+                **kwargs
             )
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True

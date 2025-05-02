@@ -6,7 +6,7 @@ paraformer-zh
 
 - **Model Name:** paraformer-zh
 - **Model Family:** funasr
-- **Abilities:** audio-to-text
+- **Abilities:** ['audio2text']
 - **Multilingual:** False
 
 Specifications

@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 2 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** microsoft/phi-2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/phi-2>`__

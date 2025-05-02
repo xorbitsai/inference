@@ -69,6 +69,8 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
     "XiYanSQL-QwenCoder-2504",
+    "QwQ-32B",
+    "qwen3",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -144,6 +146,7 @@ class ChatModelMixin:
                     add_generation_prompt=True,
                     **kwargs,
                 )
+                logger.debug("Prompt: %s", full_context)
                 return full_context
             except Exception as e:
                 logger.warning(
@@ -154,6 +157,31 @@ class ChatModelMixin:
             # build from jinja
             # Compilation function uses a cache to avoid recompiling the same template
             return self._build_from_raw_template(messages, chat_template, **kwargs)
+
+    @staticmethod
+    def _get_chat_template_kwargs_from_generate_config(
+        generate_config: Optional[Union[dict, Any]],
+    ) -> Optional[dict]:
+        if not generate_config:
+            return None
+        if "chat_template_kwargs" in generate_config:
+            kwargs = generate_config["chat_template_kwargs"]
+            if isinstance(kwargs, str):
+                try:
+                    return json.loads(kwargs)
+                except json.JSONDecodeError:
+                    raise TypeError(
+                        f"`chat_template_kwargs` should be json parsable, "
+                        f"got: {kwargs}"
+                    )
+            elif isinstance(kwargs, dict):
+                return kwargs
+            else:
+                raise TypeError(
+                    f"`chat_template_kwargs` but be a JSON parsable str "
+                    f"or dict, got: {kwargs}"
+                )
+        return None
 
     @staticmethod
     def convert_messages_with_content_list_to_str_conversion(

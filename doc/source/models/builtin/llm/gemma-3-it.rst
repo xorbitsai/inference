@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 4 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
-- **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** google/gemma-3-4b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-3-4b-it>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/gemma-3-4b-it>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 12 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
-- **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** google/gemma-3-12b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-3-12b-it>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/gemma-3-12b-it>`__
 
@@ -51,8 +51,8 @@ Model Spec 3 (pytorch, 27 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 27
-- **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** google/gemma-3-27b-it
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-3-27b-it>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/gemma-3-27b-it>`__
 

@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 3 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 3
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** moonshotai/Moonlight-16B-A3B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/moonshotai/Moonlight-16B-A3B-Instruct>`__, `ModelScope <https://modelscope.cn/models/moonshotai/Moonlight-16B-A3B-Instruct>`__
 

@@ -46,8 +46,8 @@ class CogAgentChatModel(PytorchChatModel):
         self._device = None
         self._tokenizer = None
         self._model = None
-        self._platform: Literal["Mac", "WIN", "Mobile"] | None = "Mac"
-        self._format: Literal[
+        self._platform: Literal["Mac", "WIN", "Mobile"] | None = "Mac"  # type: ignore
+        self._format: Literal[  # type: ignore
             "(Answer in Action-Operation-Sensitive format.)",
             "(Answer in Status-Plan-Action-Operation format.)",
             "(Answer in Status-Action-Operation-Sensitive format.)",
@@ -64,8 +64,8 @@ class CogAgentChatModel(PytorchChatModel):
             return True
         return False
 
-    def load(self, **kwargs):
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    def load(self):
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
@@ -73,19 +73,14 @@ class CogAgentChatModel(PytorchChatModel):
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        if self.quantization == "4-bit":
-            quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-        elif self.quantization == "8-bit":
-            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-        else:
-            quantization_config = None
+        kwargs = self.apply_bnb_quantization()
 
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map=self._device,
-            quantization_config=quantization_config,
+            **kwargs,
         ).eval()
 
     def _message_content_to_cogagent(self, content):
@@ -211,6 +206,9 @@ class CogAgentChatModel(PytorchChatModel):
             "return_tensors": "pt",
             "return_dict": True,
         }
+        full_context_kwargs.update(
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}  # type: ignore
+        )
         assert self.model_family.chat_template is not None
         inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],
