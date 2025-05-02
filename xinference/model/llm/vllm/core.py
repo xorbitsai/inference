@@ -240,6 +240,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
+
 
 class VLLMModel(LLM):
     def __init__(
@@ -1074,7 +1077,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = {}
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        )
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -1192,7 +1197,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         if "internvl2" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
 
-            full_context_kwargs = {}
+            full_context_kwargs = (
+                self._get_chat_template_kwargs_from_generate_config(generate_config)
+                or {}
+            )
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

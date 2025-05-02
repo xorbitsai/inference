@@ -311,7 +311,7 @@ class InternVLChatModel(PytorchChatModel):
         device_map[f"language_model.model.layers.{num_layers - 1}"] = 0
         return device_map
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModel, AutoTokenizer
 
         if self._check_tensorizer_integrity():
@@ -329,10 +329,7 @@ class InternVLChatModel(PytorchChatModel):
         if device is not None:
             kwargs["device_map"] = device
 
-        if "8-bit" in self.quantization.lower():
-            kwargs["load_in_8bit"] = True
-        elif "4-bit" in self.quantization.lower():
-            kwargs["load_in_4bit"] = True
+        kwargs = self.apply_bnb_quantization(kwargs)
 
         self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
 

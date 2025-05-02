@@ -107,6 +107,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-r1-distill-llama",
     "deepseek-v3",
     "deepseek-r1",
+    "qwen3",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "qwen2.5-vl-instruct",
@@ -556,6 +557,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if self.model_family.stop:
             if (not generate_config.get("stop")) and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
+        generate_config.pop("chat_template_kwargs", None)
         return generate_config
 
     async def async_chat(
@@ -565,7 +567,12 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
-        full_prompt = self.get_full_context(messages, self.model_family.chat_template)
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        )
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, **full_context_kwargs
+        )
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
@@ -632,7 +639,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
 
-        prompt = self.get_full_context(messages, chat_template)
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        )
+        prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
             raise ValueError("Not support video input now.")

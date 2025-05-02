@@ -64,7 +64,11 @@ import CopyToCommandLine from './components/copyComponent'
 import Drawer from './components/drawer'
 import PasteDialog from './components/pasteDialog'
 import Progress from './components/progress'
-import { additionalParameterTipList, llmAllDataKey } from './data/data'
+import {
+  additionalParameterTipList,
+  llmAllDataKey,
+  quantizationParametersTipList,
+} from './data/data'
 
 const csghubArr = ['qwen2-instruct']
 const enginesWithNWorker = ['SGLang', 'vLLM']
@@ -119,6 +123,7 @@ const ModelCard = ({
   const [quantizationOptions, setQuantizationOptions] = useState([])
   const [customDeleted, setCustomDeleted] = useState(false)
   const [customParametersArr, setCustomParametersArr] = useState([])
+  const [quantizationParametersArr, setQuantizationParametersArr] = useState([])
   const [loraListArr, setLoraListArr] = useState([])
   const [imageLoraLoadKwargsArr, setImageLoraLoadKwargsArr] = useState([])
   const [imageLoraFuseKwargsArr, setImageLoraFuseKwargsArr] = useState([])
@@ -132,6 +137,7 @@ const ModelCard = ({
   const [isJsonShow, setIsJsonShow] = useState(false)
   const [isHistory, setIsHistory] = useState(false)
   const [customArr, setCustomArr] = useState([])
+  const [quantizationConfigArr, setQuantizationConfigArr] = useState([])
   const [loraArr, setLoraArr] = useState([])
   const [imageLoraLoadArr, setImageLoraLoadArr] = useState([])
   const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
@@ -392,6 +398,14 @@ const ModelCard = ({
       })
     }
 
+    if (quantizationParametersArr.length) {
+      const quantizationConfig = {}
+      quantizationParametersArr.forEach((item) => {
+        quantizationConfig[item.key] = handleValueType(item.value)
+      })
+      modelDataWithID['quantization_config'] = quantizationConfig
+    }
+
     return modelDataWithID
   }
 
@@ -455,13 +469,14 @@ const ModelCard = ({
   const cancelModel = async () => {
     try {
       await fetchWrapper.post(`/v1/models/${modelData.model_name}/cancel`)
+      setIsLoading(true)
     } catch (err) {
       console.log('err', err)
+    } finally {
+      stopPolling()
+      setIsShowProgress(false)
+      setIsShowCancel(false)
     }
-    stopPolling()
-    setIsShowProgress(false)
-    setIsShowCancel(false)
-    setIsLoading(true)
   }
 
   const handleGPUIdx = (data) => {
@@ -519,6 +534,10 @@ const ModelCard = ({
       return true
     } else if (str.toLowerCase() === 'false') {
       return false
+    } else if (str.includes(',')) {
+      return str.split(',')
+    } else if (str.includes('，')) {
+      return str.split('，')
     } else if (Number(str) || (str !== '' && Number(str) === 0)) {
       return Number(str)
     } else {
@@ -633,6 +652,7 @@ const ModelCard = ({
       model_path,
       reasoning_content,
       peft_model_config,
+      quantization_config,
     } = data
 
     if (!engineOptions.includes(model_engine)) {
@@ -671,9 +691,31 @@ const ModelCard = ({
     let customData = []
     for (let key in data) {
       !llmAllDataKey.includes(key) &&
-        customData.push({ key: key, value: data[key] || 'none' })
+        customData.push({
+          key: key,
+          value:
+            data[key] === null
+              ? 'none'
+              : data[key] === false
+              ? false
+              : data[key],
+        })
     }
     setCustomArr(customData)
+
+    let quantizationConfigData = []
+    for (let key in quantization_config) {
+      quantizationConfigData.push({
+        key: key,
+        value:
+          quantization_config[key] === null
+            ? 'none'
+            : quantization_config[key] === false
+            ? false
+            : quantization_config[key],
+      })
+    }
+    setQuantizationConfigArr(quantizationConfigData)
 
     if (
       model_uid ||
@@ -803,6 +845,7 @@ const ModelCard = ({
       setReasoningContent(false)
       setLoraArr([])
       setCustomArr([])
+      setQuantizationConfigArr([])
       setIsOther(false)
       setIsPeftModelConfig(false)
     } else {
@@ -865,7 +908,8 @@ const ModelCard = ({
           GPUIdxAlert) &&
         !isShowCancel) ||
       ((modelType === 'embedding' || modelType === 'rerank') && GPUIdxAlert) ||
-      !judgeArr(customParametersArr, ['key', 'value'])
+      !judgeArr(customParametersArr, ['key', 'value']) ||
+      !judgeArr(quantizationParametersArr, ['key', 'value'])
     )
   }
 
@@ -1772,6 +1816,23 @@ const ModelCard = ({
                     />
                   </Collapse>
                 </Collapse>
+                {modelEngine === 'Transformers' && (
+                  <AddPair
+                    customData={{
+                      title: t(
+                        'launchModel.additionalQuantizationParametersForInferenceEngine'
+                      ),
+                      key: 'key',
+                      value: 'value',
+                    }}
+                    onGetArr={(arr) => {
+                      setQuantizationParametersArr(arr)
+                    }}
+                    onJudgeArr={judgeArr}
+                    pairData={quantizationConfigArr}
+                    tipOptions={quantizationParametersTipList}
+                  />
+                )}
                 <AddPair
                   customData={{
                     title: `${t(

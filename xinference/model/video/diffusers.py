@@ -64,12 +64,17 @@ class DiffUsersVideoModel:
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec
+        self._abilities = model_spec.model_ability or []  # type: ignore
         self._model = None
         self._kwargs = kwargs
 
     @property
     def model_spec(self):
         return self._model_spec
+
+    @property
+    def model_ability(self):
+        return self._abilities
 
     def load(self):
         import torch

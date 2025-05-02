@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import torch
 
@@ -53,11 +53,8 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "opt",
     "glm4-chat",
     "glm4-chat-1m",
-    "internlm2-chat",
-    "internlm2.5-chat",
     "qwen-vl-chat",
     "OmniLMM",
-    "yi-vl-chat",
     "deepseek-vl-chat",
     "cogvlm2",
     "cogvlm2-video-llama3-chat",
@@ -143,6 +140,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
         pytorch_model_config.setdefault("reasoning_content", False)
+        pytorch_model_config.setdefault("quantization_config", {})
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -265,16 +263,39 @@ class PytorchModel(LLM):
                     f"PEFT adaptor '{peft_model.lora_name}' successfully loaded for model '{self.model_uid}'."
                 )
 
-    def load(self):
-        try:
-            import torch
-        except ImportError:
-            raise ImportError(
-                f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+    def apply_bnb_quantization(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        model_format = self.model_spec.model_format
+        _kwargs = kwargs if kwargs is not None else {}
+        if model_format == "pytorch":
+            quantization_config = self._pytorch_model_config.get(
+                "quantization_config", {}
             )
-        from .compression import load_compress_model
+            if quantization_config:
+                # If `load_in_4bit` is enabled, apply default quantization presets.
+                if quantization_config.get("load_in_4bit", False):
+                    quantization_config.setdefault(
+                        "bnb_4bit_compute_dtype", torch.float16
+                    )
+                    quantization_config.setdefault("bnb_4bit_use_double_quant", True)
+                    quantization_config.setdefault(
+                        "llm_int8_skip_modules",
+                        [
+                            "lm_head",
+                            "encoder",
+                            "EncDecAttention",
+                        ],
+                    )
 
-        quantization = self.quantization
+                from transformers import BitsAndBytesConfig
+
+                _kwargs["quantization_config"] = BitsAndBytesConfig(
+                    **quantization_config
+                )
+        return _kwargs
+
+    def load(self):
         num_gpus = gpu_count()
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = select_device(device)
@@ -295,7 +316,6 @@ class PytorchModel(LLM):
         kwargs["trust_remote_code"] = self._pytorch_model_config.get(
             "trust_remote_code"
         )
-        model_format = self.model_spec.model_format
 
         is_device_map_auto = False
 
@@ -311,45 +331,8 @@ class PytorchModel(LLM):
             }
             kwargs["max_memory"] = max_memory
 
-        if quantization != "none" and model_format == "pytorch":
-            if self._device == "cuda" and self._is_linux():
-                kwargs["device_map"] = "auto"
-                is_device_map_auto = True
-                if quantization == "4-bit":
-                    kwargs["load_in_4bit"] = True
-                    kwargs["bnb_4bit_compute_dtype"] = torch.float16
-                    kwargs["bnb_4bit_use_double_quant"] = True
-                    kwargs["llm_int8_skip_modules"] = [
-                        "lm_head",
-                        "encoder",
-                        "EncDecAttention",
-                    ]
-                elif quantization == "8-bit":
-                    kwargs["load_in_8bit"] = True
-                else:
-                    raise ValueError(
-                        f"Quantization {quantization} is not supported in temporary"
-                    )
-            else:
-                if num_gpus != 1 and self._device == "cuda":
-                    raise ValueError(f"Quantization is not supported for multi-gpu")
-                elif quantization != "8-bit":
-                    raise ValueError(
-                        f"Only 8-bit quantization is supported if it is not linux system or cuda device"
-                    )
-                else:
-                    (
-                        self._model,
-                        self._tokenizer,
-                    ) = load_compress_model(
-                        model_path=self.model_path,
-                        device=self._device,
-                        torch_dtype=kwargs["torch_dtype"],
-                        use_fast=self._use_fast_tokenizer,
-                        revision=kwargs["revision"],
-                    )
-                    logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
-                    return
+        # handle bnb quantization
+        kwargs = self.apply_bnb_quantization(kwargs)
 
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
@@ -716,9 +699,11 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def load(self):
         super().load()
 
-    def _get_full_prompt(self, messages: List[Dict], tools):
+    def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = {}
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        )
         if (
             tools
             and model_family in QWEN_TOOL_CALL_FAMILY
@@ -741,7 +726,9 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             try:
                 if not r.stopped and r.is_prefill:
                     tools = r.generate_config.get("tools", None)
-                    r.full_prompt = self._get_full_prompt(r.prompt, tools)
+                    r.full_prompt = self._get_full_prompt(
+                        r.prompt, tools, r.generate_config
+                    )
                     if tools:
                         r.tools = tools
             except Exception as e:

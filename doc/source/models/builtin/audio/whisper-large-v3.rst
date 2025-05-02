@@ -6,7 +6,7 @@ whisper-large-v3
 
 - **Model Name:** whisper-large-v3
 - **Model Family:** whisper
-- **Abilities:** audio-to-text
+- **Abilities:** ['audio2text']
 - **Multilingual:** True
 
 Specifications

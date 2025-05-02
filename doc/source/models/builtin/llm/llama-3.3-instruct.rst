@@ -84,7 +84,7 @@ Model Spec 5 (ggufv2, 70 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 70
 - **Quantizations:** Q3_K_L, Q4_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** lmstudio-community/Llama-3.3-70B-Instruct-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Llama-3.3-70B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/lmstudio-community/Llama-3.3-70B-Instruct-GGUF>`__
 
