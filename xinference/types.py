@@ -344,6 +344,7 @@ class PytorchModelConfig(TypedDict, total=False):
     reasoning_content: bool
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
+    quantization_config: NotRequired[Dict]
 
 
 def get_pydantic_model_from_method(
@@ -411,6 +412,7 @@ class CreateCompletionTorch(BaseModel):
     top_k: int = top_k_field
     lora_name: Optional[str]
     request_id: Optional[str]
+    chat_template_kwargs: Optional[Union[str, Dict[str, Any]]]
 
 
 CreateCompletionLlamaCpp: BaseModel

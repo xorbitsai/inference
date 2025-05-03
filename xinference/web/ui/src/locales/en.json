@@ -73,6 +73,7 @@
     "CPUOffload.tip": "Unload the model to the CPU. Recommend to enable this when resources are limited or when using the GGUF option.",
     "loraConfig": "Lora Config",
     "loraModelConfig": "Lora Model Config",
+    "additionalQuantizationParametersForInferenceEngine": "Additional quantization parameters passed to the inference engine",
     "additionalParametersForInferenceEngine": "Additional parameters passed to the inference engine",
     "enterIntegerGreaterThanZero": "Please enter an integer greater than 0.",
     "enterCommaSeparatedNumbers": "Please enter numeric data separated by commas, for example: 0,1,2",

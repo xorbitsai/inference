@@ -6,7 +6,7 @@ CosyVoice-300M
 
 - **Model Name:** CosyVoice-300M
 - **Model Family:** CosyVoice
-- **Abilities:** audio-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** True
 
 Specifications

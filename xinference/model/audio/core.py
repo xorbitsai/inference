@@ -52,7 +52,7 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_revision: Optional[str]
     multilingual: bool
     language: Optional[str]
-    model_ability: Optional[str]
+    model_ability: Optional[List[str]]
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
     engine: Optional[str]

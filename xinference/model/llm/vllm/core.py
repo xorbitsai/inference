@@ -51,7 +51,7 @@ from ....types import (
     LoRA,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
-from ..llm_family import CustomLLMFamilyV1
+from ..llm_family import CustomLLMFamilyV1, cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -170,6 +170,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
     VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("XiYanSQL-QwenCoder-2504")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B-Preview")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B")
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
@@ -240,6 +241,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
 
 
 class VLLMModel(LLM):
@@ -332,8 +336,10 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        if vllm.__version__ >= "0.3.1":
-            # from vllm v0.3.1, it uses cupy as NCCL backend
+        from ..llm_family import LlamaCppLLMSpecV1
+
+        if "0.3.1" <= vllm.__version__ <= "0.3.3":
+            # from vllm v0.3.1 to v0.3.3, it uses cupy as NCCL backend
             # in which cupy will fork a process
             # only for xoscar >= 0.3.0, new process is allowed in subpool
             # besides, xinference set start method as forkserver for unix
@@ -345,6 +351,13 @@ class VLLMModel(LLM):
         reasoning_content = self._model_config.pop("reasoning_content")
 
         self.prepare_parse_reasoning_content(reasoning_content)
+
+        if (
+            isinstance(self.model_spec, LlamaCppLLMSpecV1)
+            and self.model_spec.model_format == "ggufv2"
+        ):
+            # gguf
+            self._preprocess_load_gguf()
 
         if self.lora_modules is None:
             self.lora_requests = []
@@ -483,6 +496,45 @@ class VLLMModel(LLM):
             if self._loading_error:
                 _, err, tb = self._loading_error
                 raise err.with_traceback(tb)
+
+    def _preprocess_load_gguf(self):
+        # check if it is multi gguf files
+        if (
+            not os.path.isfile(self.model_path)
+            and self.model_spec.quantization_parts
+            and self.quantization in self.model_spec.quantization_parts
+        ):
+            raise RuntimeError(
+                "vllm does not support multiple gguf files, please merge them first and "
+                "provide `model_path` with merged file"
+            )
+
+        if "tokenizer" not in self._model_config:
+            # find pytorch format without quantization
+            non_quant_spec = next(
+                spec
+                for spec in self.model_family.model_specs
+                if spec.model_format == "pytorch"
+                and "none" in spec.quantizations
+                and spec.model_size_in_billions
+                == self.model_spec.model_size_in_billions
+            )
+
+            path = cache_model_tokenizer_and_config(self.model_family, non_quant_spec)
+            # other than gguf file, vllm requires to provide tokenizer and hf_config_path
+            self._model_config["tokenizer"] = self._model_config[
+                "hf_config_path"
+            ] = path
+
+        if not os.path.isfile(self.model_path):
+            self.model_path = os.path.realpath(
+                os.path.join(
+                    self.model_path,
+                    self.model_spec.model_file_name_template.format(
+                        quantization=self.quantization
+                    ),
+                )
+            )
 
     def stop(self):
         # though the vLLM engine will shutdown when deleted,
@@ -944,7 +996,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "ggufv2"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -960,6 +1012,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False
+        if llm_spec.model_format == "ggufv2":
+            if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
+                return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
@@ -1024,7 +1079,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = {}
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        )
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -1142,7 +1199,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         if "internvl2" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
 
-            full_context_kwargs = {}
+            full_context_kwargs = (
+                self._get_chat_template_kwargs_from_generate_config(generate_config)
+                or {}
+            )
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

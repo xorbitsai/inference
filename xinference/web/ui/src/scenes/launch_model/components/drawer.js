@@ -1,8 +1,20 @@
 import { useTheme } from '@mui/material'
-import React from 'react'
+import React, { useEffect } from 'react'
 
 const Drawer = ({ isOpen, onClose, children }) => {
   const theme = useTheme()
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
 
   return (
     <div className={`drawer ${isOpen ? 'open' : ''}`}>

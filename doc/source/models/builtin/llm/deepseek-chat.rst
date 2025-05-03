@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** deepseek-ai/deepseek-llm-7b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-llm-7b-chat>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-llm-7b-chat>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 67 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 67
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** deepseek-ai/deepseek-llm-67b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-llm-67b-chat>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-llm-67b-chat>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** TheBloke/deepseek-llm-7B-chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-llm-7B-chat-GGUF>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (ggufv2, 67 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 67
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** TheBloke/deepseek-llm-67b-chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-llm-67b-chat-GGUF>`__
 
