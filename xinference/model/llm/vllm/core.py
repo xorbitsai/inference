@@ -178,6 +178,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
     VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
     VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -208,6 +209,7 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-llama")
+    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
