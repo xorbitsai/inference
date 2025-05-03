@@ -17,6 +17,7 @@ from typing import Dict, Iterator, List, Optional, Union
 
 import torch
 from PIL import Image
+from torch.cuda import temperature
 
 from ....model.utils import select_device
 from ....types import (
@@ -25,9 +26,9 @@ from ....types import (
     ChatCompletionMessage,
     CompletionChunk,
 )
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import generate_chat_completion, generate_completion_chunk
-from .core import PytorchChatModel, PytorchGenerateConfig
+from .core import PytorchChatModel, PytorchGenerateConfig, register_non_default_model
 from .utils import cache_clean
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,9 @@ class KimiVLChatModel(PytorchChatModel):
                 "attn_implementation": "flash_attention_2"
             })
 
+        kwargs = self.apply_bnb_quantization()
+        model_kwargs.update(kwargs)
+
         self._model = AutoModelForCausalLM.from_pretrained(**model_kwargs)
         self._processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
 
@@ -93,8 +97,11 @@ class KimiVLChatModel(PytorchChatModel):
         stream = generate_config.get("stream", False) if generate_config else False
 
         if stream:
-            it = self._generate_stream(messages, generate_config)
-            return self._to_chat_completion_chunks(it)
+            raise NotImplementedError(
+                "Kimi-VL-A3B-Instruct does not support stream generation yet."
+            )
+            # it = self._generate_stream(messages, generate_config)
+            # return self._to_chat_completion_chunks(it)
         else:
             c = self._generate(messages, generate_config)
             return c
@@ -102,89 +109,23 @@ class KimiVLChatModel(PytorchChatModel):
     def _generate(
         self, messages: List, config: PytorchGenerateConfig = {}
     ) -> ChatCompletion:
-        input_ids, attention_mask, pixel_values, gen_kwargs = self._generate_chat_data(
-            messages, config
-        )
-
-        # generate output
-        with torch.inference_mode():
-            gen_kwargs.update(
-                dict(
-                    pixel_values=pixel_values,
-                    attention_mask=attention_mask,
-                )
-            )
-
-            output_ids = self._model.generate(
-                input_ids,
-                **gen_kwargs,
-            )[0]
-            output = self._text_tokenizer.decode(output_ids, skip_special_tokens=True)
-        return generate_chat_completion(self.model_uid, output)
+        text = self._processor.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt")
+        image = None
+        inputs = self._processor(images=image, text=text, return_tensors="pt", padding=True, truncation=True).to(self._model.device)
+        generated_ids = self._model.generate(**inputs, max_new_tokens=config.get("max_tokens", 2048), temperature=config.get("temperature", 0.7))
+        generated_ids_trimmed = [
+            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        response = self._processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0]
+        logger.info(f"============输出: {response}")
+        return generate_chat_completion(self.model_uid, response)
 
     def _generate_stream(
         self, messages: List, config: PytorchGenerateConfig = {}
     ) -> Iterator[CompletionChunk]:
-        from threading import Thread
-
-        from transformers import TextIteratorStreamer
-
-        input_ids, attention_mask, pixel_values, gen_kwargs = self._generate_chat_data(
-            messages, config
-        )
-
-        _, inputs_embeds, _, attention_mask = self._model.merge_multimodal(
-            text_input_ids=input_ids,
-            text_attention_masks=attention_mask,
-            text_labels=None,
-            pixel_values=pixel_values,
-            left_padding=True,
-        )
-
-        streamer = TextIteratorStreamer(
-            self._text_tokenizer, timeout=60, skip_prompt=True, skip_special_tokens=True
-        )
-
-        gen_kwargs.update(
-            dict(
-                inputs_embeds=inputs_embeds,
-                attention_mask=attention_mask,
-                streamer=streamer,
-            )
-        )
-
-        inputs_embeds = inputs_embeds.detach()
-        torch.cuda.empty_cache()
-
-        thread = Thread(target=self._model.llm.generate, kwargs=gen_kwargs)
-        thread.start()
-
-        completion_id = str(uuid.uuid1())
-
-        for new_text in streamer:
-            yield generate_completion_chunk(
-                chunk_text=new_text,
-                finish_reason=None,
-                chunk_id=completion_id,
-                model_uid=self.model_uid,
-                prompt_tokens=-1,
-                completion_tokens=-1,
-                total_tokens=-1,
-                has_choice=True,
-                has_content=True,
-            )
-
-        yield generate_completion_chunk(
-            chunk_text=None,
-            finish_reason="stop",
-            chunk_id=completion_id,
-            model_uid=self.model_uid,
-            prompt_tokens=-1,
-            completion_tokens=-1,
-            total_tokens=-1,
-            has_choice=True,
-            has_content=False,
-        )
+        pass
 
     def _convert_video_tensors_to_pil(self, video_inputs: List) -> List[Image.Image]:
         """Convert video tensors to a list of PIL images"""
