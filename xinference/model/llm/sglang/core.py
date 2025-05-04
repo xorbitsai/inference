@@ -110,6 +110,8 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-r1",
     "DianJin-R1",
     "qwen3",
+    "HuatuoGPT-o1-Qwen2.5",
+    "HuatuoGPT-o1-LLaMA-3.1",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "qwen2.5-vl-instruct",
