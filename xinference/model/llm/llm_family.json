@@ -7837,6 +7837,151 @@
   {
     "version": 1,
     "context_length": 32768,
+    "model_name": "DianJin-R1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Tongyi DianJin is a financial intelligence solution platform built by Alibaba Cloud, dedicated to providing financial business developers with a convenient artificial intelligence application development environment.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "DianJin/DianJin-R1-7B"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "DianJin/DianJin-R1-32B"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "IQ4_XS",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "f16"
+        ],
+        "model_id": "mradermacher/DianJin-R1-7B-GGUF",
+        "model_file_name_template": "DianJin-R1-7B.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "i1-IQ1_S",
+          "i1-IQ1_M",
+          "i1-IQ2_XXS",
+          "i1-IQ2_XS",
+          "i1-IQ2_S",
+          "i1-IQ2_M",
+          "i1-Q2_K_S",
+          "i1-Q2_K",
+          "i1-IQ3_XXS",
+          "i1-IQ3_XS",
+          "i1-Q3_K_S",
+          "i1-IQ3_S",
+          "i1-IQ3_M",
+          "i1-Q3_K_M",
+          "i1-Q3_K_L",
+          "i1-IQ4_XS",
+          "i1-IQ4_NL",
+          "i1-Q4_0",
+          "i1-Q4_K_S",
+          "i1-Q4_K_M",
+          "i1-Q4_1",
+          "i1-Q5_K_S",
+          "i1-Q5_K_M",
+          "i1-Q6_K"
+        ],
+        "model_id": "mradermacher/DianJin-R1-7B-i1-GGUF",
+        "model_file_name_template": "DianJin-R1-7B.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "IQ4_XS",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "mradermacher/DianJin-R1-32B-GGUF",
+        "model_file_name_template": "DianJin-R1-32B.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "i1-IQ1_S",
+          "i1-IQ1_M",
+          "i1-IQ2_XXS",
+          "i1-IQ2_XS",
+          "i1-IQ2_S",
+          "i1-IQ2_M",
+          "i1-Q2_K_S",
+          "i1-Q2_K",
+          "i1-IQ3_XXS",
+          "i1-IQ3_XS",
+          "i1-Q3_K_S",
+          "i1-IQ3_S",
+          "i1-IQ3_M",
+          "i1-Q3_K_M",
+          "i1-Q3_K_L",
+          "i1-IQ4_XS",
+          "i1-Q4_0",
+          "i1-Q4_K_S",
+          "i1-Q4_K_M",
+          "i1-Q4_1",
+          "i1-Q5_K_S",
+          "i1-Q5_K_M",
+          "i1-Q6_K"
+        ],
+        "model_id": "mradermacher/DianJin-R1-32B-i1-GGUF",
+        "model_file_name_template": "DianJin-R1-32B.{quantization}.gguf"
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
     "model_name": "qwen2.5-coder",
     "model_lang": [
       "en",

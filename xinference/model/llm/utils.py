@@ -72,6 +72,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "QwQ-32B",
     "qwen3",
     "HuatuoGPT-o1-Qwen2.5",
+    "DianJin-R1",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
