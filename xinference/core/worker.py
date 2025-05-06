@@ -584,7 +584,7 @@ class WorkerActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
-        start_python: str | None = None,
+        start_python: Optional[str] = None,
     ) -> Tuple[str, List[str]]:
         env = {} if env is None else env
         devices = []
