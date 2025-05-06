@@ -45,7 +45,7 @@ msgstr "Text-to-video 端点将一段文本提示词从头开始创建视频"
 msgid ""
 "The image-to-video endpoint create videos from scratch based on an input "
 "image."
-msgstr "Text-to-video 端点将一张图片从头开始创建视频"
+msgstr "Image-to-video 端点将一张图片从头开始创建视频"
 
 #: ../../source/models/model_abilities/video.rst:25
 msgid "API"
