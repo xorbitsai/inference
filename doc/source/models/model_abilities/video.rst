@@ -21,11 +21,14 @@ The Video API provides the ability to interact with videos:
    :widths: 25  50
    :header-rows: 1
 
-   * - API ENDPOINT
-     - OpenAI-compatible ENDPOINT
+   * - API
+     - URL
 
    * - Text-to-Video API
      - /v1/video/generations
+
+   * - Image-to-Video API
+     - /v1/video/generations/image
 
 Supported models
 -------------------
