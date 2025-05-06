@@ -9148,6 +9148,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 27,
+        "activated_size_in_billions": "4_5",
         "quantizations": [
           "none"
         ],
@@ -9156,6 +9157,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 16,
+        "activated_size_in_billions": "2_8",
         "quantizations": [
           "none"
         ],
@@ -9164,6 +9166,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 3,
+        "activated_size_in_billions": 1,
         "quantizations": [
           "none"
         ],
