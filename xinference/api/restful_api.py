@@ -678,6 +678,17 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/video/generations/image",
+            self.create_videos_from_images,
+            methods=["POST"],
+            response_model=VideoList,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/chat/completions",
             self.create_chat_completion,
             methods=["POST"],
@@ -1990,6 +2001,55 @@ class RESTfulAPI(CancelMixin):
             return Response(content=video_list, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_videos_from_images(
+        self,
+        model: str = Form(...),
+        image: UploadFile = File(media_type="application/octet-stream"),
+        prompt: Optional[Union[str, List[str]]] = Form(None),
+        negative_prompt: Optional[Union[str, List[str]]] = Form(None),
+        n: Optional[int] = Form(1),
+        kwargs: Optional[str] = Form(None),
+    ) -> Response:
+        model_uid = model
+        try:
+            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        request_id = None
+        try:
+            if kwargs is not None:
+                parsed_kwargs = json.loads(kwargs)
+            else:
+                parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
+            video_list = await model_ref.image_to_video(
+                image=Image.open(image.file),
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                n=n,
+                **parsed_kwargs,
+            )
+            return Response(content=video_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
+        except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
             self.handle_request_limit_error(e)
