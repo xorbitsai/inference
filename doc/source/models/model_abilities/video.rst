@@ -15,6 +15,7 @@ The Video API provides the ability to interact with videos:
 
 
 * The text-to-video endpoint create videos from scratch based on a text prompt.
+* The image-to-video endpoint create videos from scratch based on an input image.
 
 
 .. list-table::
@@ -22,7 +23,7 @@ The Video API provides the ability to interact with videos:
    :header-rows: 1
 
    * - API
-     - URL
+     - Endpoint
 
    * - Text-to-Video API
      - /v1/video/generations
