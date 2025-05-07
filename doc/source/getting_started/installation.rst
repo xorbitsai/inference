@@ -9,8 +9,24 @@ If you aim to serve all supported models, you can install all the necessary depe
 
    pip install "xinference[all]"
 
-.. note::
-   If you want to serve models in GGUF format, it's advised to install the ``llama-cpp-python`` dependency manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_gguf` section.
+
+Several usage scenarios require special attention.
+
+.. admonition:: **GGUF format** with **llama.cpp engine**
+
+   In this situation, it's advised to install its dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_gguf` section.
+
+.. admonition:: **AWQ or GPTQ** format with **transformers engine**
+
+   **This section is added in v1.6.0.**
+
+   This is because the dependencies at this stage require special options and are difficult to install. Please run command below in advance
+
+   .. code-block:: bash
+
+      pip install "xinference[transformers_quantization]" --no-build-isolation
+
+   Some dependencies like ``transformers`` might be downgraded, you can run ``pip install "xinference[all]"`` afterwards.
 
 
 If you want to install only the necessary backends, here's a breakdown of how to do it.
