@@ -1070,7 +1070,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                         reasoning_parser=self.reasoning_parser,
                     )
                 else:
-                    yield self._to_chat_completion_chunk(chunk, self.reasoning_parser, previous_texts)
+                    yield self._to_chat_completion_chunk(
+                        chunk, self.reasoning_parser, previous_texts
+                    )
             i += 1
 
     @vllm_check
