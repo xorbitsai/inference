@@ -62,9 +62,9 @@ class ReasoningParser:
                 delta["content"] = None
                 return delta
         elif self.reasoning_start_tag in delta_text:
+            start_idx = delta_text.find(self.reasoning_start_tag)
             if self.reasoning_end_tag in delta_text:
                 # <think> in delta, </think> in delta, extract reasoning content
-                start_idx = delta_text.find(self.reasoning_start_tag)
                 end_idx = delta_text.find(self.reasoning_end_tag)
                 reasoning_content = delta_text[
                     start_idx + len(self.reasoning_start_tag) : end_idx
@@ -79,7 +79,10 @@ class ReasoningParser:
             else:
                 # <think> in delta, no </think> in delta,
                 # reasoning content continues
-                delta["reasoning_content"] = delta_text
+                reasoning_content = delta_text[
+                    start_idx + len(self.reasoning_start_tag) :
+                ]
+                delta["reasoning_content"] = reasoning_content
                 delta["content"] = None
                 return delta
         else:
