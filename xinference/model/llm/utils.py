@@ -733,7 +733,7 @@ class ChatModelMixin:
                 text
             )
             c["choices"][0]["text"] = content
-        
+            
         tool_result = cls._eval_tool_arguments(model_family, c)
 
         tool_calls = []
