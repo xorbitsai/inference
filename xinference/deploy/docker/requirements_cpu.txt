@@ -33,7 +33,7 @@ FlagEmbedding
 controlnet_aux
 orjson
 gptqmodel
-autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
+autoawq!=0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft
 timm
