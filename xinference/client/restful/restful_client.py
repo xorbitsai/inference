@@ -464,6 +464,53 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def image_to_video(
+        self,
+        image: Union[str, bytes],
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        **kwargs,
+    ) -> "VideoList":
+        """
+        Creates a video by the input image and text.
+
+        Parameters
+        ----------
+        image: `Union[str, bytes]`
+            The input image to condition the generation on.
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation.
+        n: `int`, defaults to 1
+            The number of videos to generate per prompt. Must be between 1 and 10.
+        Returns
+        -------
+        VideoList
+            A list of video objects.
+        """
+        url = f"{self._base_url}/v1/video/generations/image"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "n": n,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the video from image, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
 
 class RESTfulGenerateModelHandle(RESTfulModelHandle):
     def generate(
