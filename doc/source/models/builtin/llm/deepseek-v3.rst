@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 671 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-V3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V3>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V3>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 671 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 671
 - **Quantizations:** Q2_K_L, Q2_K_XS, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/DeepSeek-V3-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/DeepSeek-V3-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/DeepSeek-V3-GGUF>`__
 

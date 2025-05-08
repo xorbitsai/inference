@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 46_7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 46_7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: Transformers, SGLang
 - **Model ID:** mistralai/Mixtral-8x7B-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mixtral-8x7B-v0.1>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mixtral-8x7B-v0.1>`__
 

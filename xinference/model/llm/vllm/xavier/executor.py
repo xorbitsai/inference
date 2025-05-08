@@ -38,7 +38,7 @@ class XavierExecutor(MultiprocessingDistributedExecutor):
         Retrieve the necessary transmission information from the `cache_engine`.
         """
         transfer_ref = await self._get_transfer_ref()
-        ref_cache_engine: CacheEngine = self.driver_worker.cache_engine[0]
+        ref_cache_engine: CacheEngine = self.driver_worker.cache_engine[0]  # type: ignore
         buffer_dtype = ref_cache_engine.dtype
         buffer_device = "cpu"
         buffer_pin_memory = is_pin_memory_available()

@@ -6287,6 +6287,14 @@
     "model_specs": [
       {
         "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2.5-Omni-3B"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
           "none"
@@ -8129,7 +8137,8 @@
     ],
     "model_ability": [
       "chat",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.",
     "model_specs": [
@@ -9588,14 +9597,13 @@
   },
   {
     "version": 1,
-    "context_length": 32768,
+    "context_length": 40960,
     "model_name": "qwen3",
     "model_lang": [
       "en",
       "zh"
     ],
     "model_ability": [
-      "generate",
       "chat",
       "reasoning",
       "tools"
@@ -9606,8 +9614,6 @@
         "model_format": "pytorch",
         "model_size_in_billions": "0_6",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-0.6B"
@@ -9621,11 +9627,62 @@
         "model_id": "Qwen/Qwen3-0.6B-FP8"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": "0_6",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-0.6B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "0_6",
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-0.6B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "0_6",
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "model_id": "unsloth/Qwen3-0.6B-GGUF",
+        "model_file_name_template": "Qwen3-0.6B-{quantization}.gguf"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": "1_7",
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-1.7B"
@@ -9639,11 +9696,62 @@
         "model_id": "Qwen/Qwen3-1.7B-FP8"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_7",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-1.7B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "1_7",
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-1.7B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_7",
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "model_id": "unsloth/Qwen3-1.7B-GGUF",
+        "model_file_name_template": "Qwen3-1.7B-{quantization}.gguf"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 4,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-4B"
@@ -9657,11 +9765,62 @@
         "model_id": "Qwen/Qwen3-4B-FP8"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-4B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-4B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "model_id": "unsloth/Qwen3-4B-GGUF",
+        "model_file_name_template": "Qwen3-4B-{quantization}.gguf"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 8,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-8B"
@@ -9675,11 +9834,62 @@
         "model_id": "Qwen/Qwen3-8B-FP8"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-8B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-8B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "model_id": "unsloth/Qwen3-8B-GGUF",
+        "model_file_name_template": "Qwen3-8B-{quantization}.gguf"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-14B"
@@ -9693,11 +9903,71 @@
         "model_id": "Qwen/Qwen3-14B-FP8"
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen3-14B-AWQ"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-14B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-14B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "model_id": "unsloth/Qwen3-14B-GGUF",
+        "model_file_name_template": "Qwen3-14B-{quantization}.gguf"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-30B-A3B"
@@ -9705,17 +9975,78 @@
       {
         "model_format": "fp8",
         "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
         "quantizations": [
           "fp8"
         ],
-        "model_id": "Qwen/Qwen3-30B-FP8"
+        "model_id": "Qwen/Qwen3-30B-A3B-FP8"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-30B-A3B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "quantizations": [
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "quantization_parts": {
+          "BF16": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ]
+        },
+        "model_id": "unsloth/Qwen3-30B-A3B-GGUF",
+        "model_file_name_template": "Qwen3-30B-A3B-{quantization}.gguf",
+        "model_file_name_split_template": "BF16/Qwen3-30B-A3B-{quantization}-{part}.gguf"
       },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 32,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
         "model_id": "Qwen/Qwen3-32B"
@@ -9729,25 +10060,198 @@
         "model_id": "Qwen/Qwen3-32B-FP8"
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen3-32B-AWQ"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "JunHowie/Qwen3-32B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_id": "mlx-community/Qwen3-32B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-IQ1_M",
+          "UD-IQ1_S",
+          "UD-IQ2_M",
+          "UD-IQ2_XXS",
+          "UD-IQ3_XXS",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "UD-Q4_K_XL",
+          "UD-Q5_K_XL",
+          "UD-Q6_K_XL",
+          "UD-Q8_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "quantization_parts": {
+          "BF16": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ]
+        },
+        "model_id": "unsloth/Qwen3-32B-GGUF",
+        "model_file_name_template": "Qwen3-32B-{quantization}.gguf",
+        "model_file_name_split_template": "BF16/Qwen3-32B-{quantization}-{part}.gguf"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
         "quantizations": [
-          "4-bit",
-          "8-bit",
           "none"
         ],
-        "model_id": "Qwen/Qwen3-235B"
+        "model_id": "Qwen/Qwen3-235B-A22B"
       },
       {
         "model_format": "fp8",
         "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
         "quantizations": [
           "fp8"
         ],
-        "model_id": "Qwen/Qwen3-235B-FP8"
+        "model_id": "Qwen/Qwen3-235B-A22B-FP8"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "quantizations": [
+          "3bit",
+          "4bit",
+          "8bit"
+        ],
+        "model_id": "mlx-community/Qwen/Qwen3-235B-A22B-{quantization}"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "UD-Q2_K_XL",
+          "UD-Q3_K_XL",
+          "IQ4_NL",
+          "IQ4_XS"
+        ],
+        "quantization_parts": {
+          "BF16": [
+            "00001-of-00010",
+            "00002-of-00010",
+            "00003-of-00010",
+            "00004-of-00010",
+            "00005-of-00010",
+            "00006-of-00010",
+            "00007-of-00010",
+            "00008-of-00010",
+            "00009-of-00010",
+            "00010-of-00010"
+          ],
+          "IQ4_XS": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q2_K": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q2_K_L": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q3_K_S": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q4_0": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q4_1": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q5_K_M": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q6_K": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q8_0": [
+            "00001-of-00006",
+            "00002-of-00006",
+            "00003-of-00006",
+            "00004-of-00006",
+            "00005-of-00006",
+            "00006-of-00006"
+          ],
+          "UD-Q2_K_XL": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "UD-Q3_K_XL": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ]
+        },
+        "model_id": "unsloth/Qwen3-235B-A22B-GGUF",
+        "model_file_name_template": "Qwen3-235B-A22B-{quantization}.gguf",
+        "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-{quantization}-{part}.gguf"
       }
     ],
-    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set content = message.content %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is defined and message.reasoning_content is not none %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in message.content %}\n                {%- set content = message.content.split('</think>')[-1].lstrip('\\n') %}\n                {%- set reasoning_content = message.content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined and enable_thinking is false %}\n        {{- '<think>\\n\\n</think>\\n\\n' }}\n    {%- endif %}\n{%- endif %}",
     "stop_token_ids": [
       151643,
       151644,
@@ -9757,6 +10261,15 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.51.0",
+        "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
+        "numpy==1.26.4"
+      ]
+    }
   }
 ]

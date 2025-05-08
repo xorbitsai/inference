@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 9 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** THUDM/codegeex4-all-9b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/codegeex4-all-9b>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (ggufv2, 9 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 9
 - **Quantizations:** IQ2_M, IQ3_M, Q4_K_M, Q5_K_M, Q6_K_L, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** THUDM/codegeex4-all-9b-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/codegeex4-all-9b-GGUF>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b-GGUF>`__
 

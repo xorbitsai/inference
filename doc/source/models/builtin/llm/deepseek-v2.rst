@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 16 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 16
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** deepseek-ai/DeepSeek-V2-Lite
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V2-Lite>`__
@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 236 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 236
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** deepseek-ai/DeepSeek-V2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V2>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V2>`__

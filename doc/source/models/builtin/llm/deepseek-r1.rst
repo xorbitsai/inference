@@ -7,7 +7,7 @@ deepseek-r1
 - **Context Length:** 163840
 - **Model Name:** deepseek-r1
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, reasoning
 - **Description:** DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
 
 Specifications
@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 671 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-R1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-R1>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-R1>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 671 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 671
 - **Quantizations:** UD-IQ1_S, UD-IQ1_M, UD-IQ2_XXS, UD-Q2_K_XL, Q2_K, Q2_K_L, Q2_K_XS, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, BF16
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/DeepSeek-R1-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/DeepSeek-R1-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/DeepSeek-R1-GGUF>`__
 
