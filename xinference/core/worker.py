@@ -828,6 +828,8 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
             virtual_env_name or "uv", env_path
         )
+        # create env
+        virtual_env_manager.create_env()
         return virtual_env_manager
 
     @classmethod
@@ -839,9 +841,6 @@ class WorkerActor(xo.StatelessActor):
         if not settings or not settings.packages:
             # no settings or no packages
             return
-
-        # create env
-        virtual_env_manager.create_env()
 
         if settings.inherit_pip_config:
             # inherit pip config
@@ -996,7 +995,9 @@ class WorkerActor(xo.StatelessActor):
             # virtualenv
             enable_virtual_env = kwargs.pop("enable_virtual_env", None)
             virtual_env_name = kwargs.pop("virtual_env_name", None)
-            virtual_env_path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
+            virtual_env_path = os.path.join(
+                XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
+            )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
                 enable_virtual_env,

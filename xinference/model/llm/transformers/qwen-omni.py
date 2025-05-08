@@ -67,6 +67,12 @@ class Qwen2_5OmniChatModel(PytorchChatModel):
         return False
 
     def load(self):
+        logger.debug(
+            "Try to load model, current python: %s, sys path: %s",
+            sys.executable,
+            sys.path,
+        )
+
         from transformers import (
             Qwen2_5OmniForConditionalGeneration,
             Qwen2_5OmniProcessor,
