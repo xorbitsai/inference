@@ -152,7 +152,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             # handle legacy cache.
             if (
                 self.model_spec.model_file_name_split_template
-                and self.model_spec.quantization_parts
+                and self.quantization in self.model_spec.quantization_parts
             ):
                 part = self.model_spec.quantization_parts[self.quantization]
                 model_path = os.path.join(
@@ -185,7 +185,14 @@ class XllamaCppModel(LLM, ChatModelMixin):
             params.n_parallel = os.cpu_count()
             for k, v in self._llamacpp_model_config.items():
                 try:
-                    setattr(params, k, v)
+                    if "." in k:
+                        parts = k.split(".")
+                        sub_param = params
+                        for p in parts[:-1]:
+                            sub_param = getattr(sub_param, p)
+                        setattr(sub_param, parts[-1], v)
+                    else:
+                        setattr(params, k, v)
                 except Exception as e:
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
