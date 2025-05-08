@@ -1,8 +1,10 @@
 import {
   AddBoxOutlined,
   ChevronRightOutlined,
+  DescriptionOutlined,
   DnsOutlined,
   GitHub,
+  OpenInNew,
   RocketLaunchOutlined,
   SmartToyOutlined,
 } from '@mui/icons-material'
@@ -55,6 +57,11 @@ const MenuSide = () => {
       text: 'cluster_information',
       label: t('menu.clusterInfo'),
       icon: <DnsOutlined />,
+    },
+    {
+      text: 'documentation',
+      label: t('menu.documentation'),
+      icon: <DescriptionOutlined />,
     },
     {
       text: 'contact_us',
@@ -156,6 +163,12 @@ const MenuSide = () => {
                           '_blank',
                           'noreferrer'
                         )
+                      } else if (text === 'documentation') {
+                        window.open(
+                          'https://inference.readthedocs.io',
+                          '_blank',
+                          'noreferrer'
+                        )
                       } else if (text === 'launch_model') {
                         sessionStorage.setItem('modelType', '/launch_model/llm')
                         navigate('/launch_model/llm')
@@ -198,7 +211,11 @@ const MenuSide = () => {
                       {icon}
                     </ListItemIcon>
                     <ListItemText primary={label} />
-                    <ChevronRightOutlined sx={{ ml: 'auto' }} />
+                    {(text === 'contact_us' || text === 'documentation') ? (
+                      <OpenInNew sx={{ ml: 'auto', mr: '0.5rem', fontSize: 'small' }} />
+                    ) : (
+                      <ChevronRightOutlined sx={{ ml: 'auto' }} />
+                    )}
                   </ListItemButton>
                 </ListItem>
               )
