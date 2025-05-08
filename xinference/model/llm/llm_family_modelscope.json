@@ -4386,6 +4386,18 @@
       },
       {
         "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "4bit",
+          "6bit",
+          "8bit",
+          "bf16"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}"
+      },
+      {
+        "model_format": "mlx",
         "model_size_in_billions": 72,
         "quantizations": [
           "3bit",
