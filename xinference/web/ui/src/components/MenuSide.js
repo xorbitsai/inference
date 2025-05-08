@@ -211,8 +211,10 @@ const MenuSide = () => {
                       {icon}
                     </ListItemIcon>
                     <ListItemText primary={label} />
-                    {(text === 'contact_us' || text === 'documentation') ? (
-                      <OpenInNew sx={{ ml: 'auto', mr: '0.5rem', fontSize: 'small' }} />
+                    {text === 'contact_us' || text === 'documentation' ? (
+                      <OpenInNew
+                        sx={{ ml: 'auto', mr: '0.5rem', fontSize: 'small' }}
+                      />
                     ) : (
                       <ChevronRightOutlined sx={{ ml: 'auto' }} />
                     )}
