@@ -35,7 +35,7 @@ const MenuSide = () => {
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
 
   const navItems = [
     {
@@ -165,7 +165,8 @@ const MenuSide = () => {
                         )
                       } else if (text === 'documentation') {
                         window.open(
-                          'https://inference.readthedocs.io',
+                          'https://inference.readthedocs.io/' +
+                            (i18n.language === 'zh' ? 'zh-cn' : ''),
                           '_blank',
                           'noreferrer'
                         )
