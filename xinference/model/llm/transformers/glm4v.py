@@ -196,7 +196,7 @@ class Glm4VModel(PytorchChatModel):
             has_content=False,
         )
 
-    def _get_full_prompt(self, messages, tools):
+    def _get_full_prompt(self, messages, tools, generate_config: dict):
         msgs = self._get_processed_msgs(messages)
         inputs = self._tokenizer.apply_chat_template(
             msgs,
