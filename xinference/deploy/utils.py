@@ -141,13 +141,10 @@ def get_config_dict(
 async def create_worker_actor_pool(
     address: str, logging_conf: Optional[dict] = None
 ) -> "MainActorPoolType":
-    subprocess_start_method = "forkserver" if os.name != "nt" else "spawn"
-
     return await xo.create_actor_pool(
         address=address,
         n_process=0,
         auto_recover="process",
-        subprocess_start_method=subprocess_start_method,
         logging_conf={"dict": logging_conf},
     )
 

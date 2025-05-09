@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-import sys
 
 import pytest
 import xoscar as xo
@@ -30,14 +28,7 @@ class ExtendedBlockTracker(VLLMBlockTracker):
 
 @pytest.fixture
 async def actor_pool_context():
-    start_method = (
-        os.environ.get("POOL_START_METHOD", "forkserver")
-        if sys.platform != "win32"
-        else None
-    )
-    pool = await xo.create_actor_pool(
-        "127.0.0.1", n_process=2, subprocess_start_method=start_method
-    )
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=2)
     async with pool:
         yield pool
 
