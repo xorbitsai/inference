@@ -55,10 +55,12 @@ class CosyVoiceModel:
         thirdparty_dir = os.path.join(os.path.dirname(__file__), "../../thirdparty")
         sys.path.insert(0, thirdparty_dir)
 
+        kwargs = {}
         if "CosyVoice2" in self._model_spec.model_name:
             from cosyvoice.cli.cosyvoice import CosyVoice2 as CosyVoice
 
             self._is_cosyvoice2 = True
+            kwargs = {"use_flow_cache": self._kwargs.get("use_flow_cache", False)}
         else:
             from cosyvoice.cli.cosyvoice import CosyVoice
 
@@ -69,7 +71,7 @@ class CosyVoiceModel:
             "compile", False
         )
         logger.info("Loading CosyVoice model, compile=%s...", load_jit)
-        self._model = CosyVoice(self._model_path, load_jit=load_jit)
+        self._model = CosyVoice(self._model_path, load_jit=load_jit, **kwargs)
         if self._is_cosyvoice2:
             spk2info_file = os.path.join(thirdparty_dir, "cosyvoice/bin/spk2info.pt")
             self._model.frontend.spk2info = torch.load(
@@ -112,7 +114,7 @@ class CosyVoiceModel:
                     input, prompt_speech_16k, stream=stream
                 )
         else:
-            available_speakers = self._model.list_avaliable_spks()
+            available_speakers = self._model.list_available_spks()
             if not voice:
                 voice = available_speakers[0]
                 logger.info("Auto select speaker: %s", voice)

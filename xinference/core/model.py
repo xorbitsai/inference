@@ -632,6 +632,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return await _gen.__anext__()  # noqa: F821
                 except StopAsyncIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             def _wrapper(_gen):
                 # Avoid issue: https://github.com/python/cpython/issues/112182
@@ -639,6 +641,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return next(_gen)
                 except StopIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             while True:
                 try:
@@ -699,6 +703,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -715,6 +721,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = await stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
