@@ -815,10 +815,6 @@ class VLLMModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
-        if self.reasoning_parser:
-            # For reasoning model, the </think> we be split into multiple words,
-            # if `stop` param is passed, so we pop it from config.
-            sanitized_generate_config.pop("stop")
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -1033,13 +1029,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if not generate_config.get("stop") and self.model_family.stop:
-            generate_config["stop"] = self.model_family.stop.copy()
-        if (
-            not generate_config.get("stop_token_ids")
-            and self.model_family.stop_token_ids
-        ):
-            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
+        if "reasoning" in getattr(self.model_family, "model_ability", []):
+            generate_config.pop("stop", None)
+            generate_config.pop("stop_token_ids", None)
+        else:
+            if not generate_config.get("stop") and self.model_family.stop:
+                generate_config["stop"] = self.model_family.stop.copy()
+            if (
+                not generate_config.get("stop_token_ids")
+                and self.model_family.stop_token_ids
+            ):
+                generate_config[
+                    "stop_token_ids"
+                ] = self.model_family.stop_token_ids.copy()
         return generate_config
 
     @staticmethod
