@@ -28,7 +28,6 @@ if TYPE_CHECKING:
         CompletionChunk,
         Embedding,
         ImageList,
-        LlamaCppGenerateConfig,
         PytorchGenerateConfig,
         VideoList,
     )
@@ -516,9 +515,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
     def generate(
         self,
         prompt: str,
-        generate_config: Optional[
-            Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
-        ] = None,
+        generate_config: Optional["PytorchGenerateConfig"] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
         """
         Creates a completion for the provided prompt and parameters via RESTful APIs.
@@ -527,9 +524,8 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         ----------
         prompt: str
             The user's message or user's input.
-        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+        generate_config: Optional["PytorchGenerateConfig"]
             Additional configuration for the chat generation.
-            "LlamaCppGenerateConfig" -> Configuration for llama-cpp-python model
             "PytorchGenerateConfig" -> Configuration for pytorch model
 
         Returns
@@ -575,9 +571,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         self,
         messages: List[Dict],
         tools: Optional[List[Dict]] = None,
-        generate_config: Optional[
-            Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
-        ] = None,
+        generate_config: Optional["PytorchGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         """
         Given a list of messages comprising a conversation, the model will return a response via RESTful APIs.
@@ -588,9 +582,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             A list of messages comprising the conversation so far.
         tools: Optional[List[Dict]]
             A tool list.
-        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+        generate_config: Optional["PytorchGenerateConfig"]
             Additional configuration for the chat generation.
-            "LlamaCppGenerateConfig" -> configuration for llama-cpp-python model
             "PytorchGenerateConfig" -> configuration for pytorch model
 
         Returns

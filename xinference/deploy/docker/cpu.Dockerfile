@@ -23,7 +23,6 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu-models.txt && \
-    CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install llama-cpp-python && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
