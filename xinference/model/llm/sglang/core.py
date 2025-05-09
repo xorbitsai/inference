@@ -101,13 +101,17 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-v2-chat-0628",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
+    "XiYanSQL-QwenCoder-2504",
     "QwQ-32B-Preview",
     "QwQ-32B",
     "deepseek-r1-distill-qwen",
     "deepseek-r1-distill-llama",
     "deepseek-v3",
     "deepseek-r1",
+    "DianJin-R1",
     "qwen3",
+    "HuatuoGPT-o1-Qwen2.5",
+    "HuatuoGPT-o1-LLaMA-3.1",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "qwen2.5-vl-instruct",

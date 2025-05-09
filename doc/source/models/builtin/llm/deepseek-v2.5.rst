@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 236 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 236
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-V2.5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V2.5>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V2.5>`__
 

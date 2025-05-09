@@ -6,7 +6,7 @@ CosyVoice-300M-Instruct
 
 - **Model Name:** CosyVoice-300M-Instruct
 - **Model Family:** CosyVoice
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** True
 
 Specifications

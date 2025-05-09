@@ -170,6 +170,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
     VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("XiYanSQL-QwenCoder-2504")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B-Preview")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B")
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
@@ -177,6 +178,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
     VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
     VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
+    VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -207,6 +210,7 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-llama")
+    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
@@ -811,10 +815,6 @@ class VLLMModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
-        if self.reasoning_parser:
-            # For reasoning model, the </think> we be split into multiple words,
-            # if `stop` param is passed, so we pop it from config.
-            sanitized_generate_config.pop("stop")
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -1029,13 +1029,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if not generate_config.get("stop") and self.model_family.stop:
-            generate_config["stop"] = self.model_family.stop.copy()
-        if (
-            not generate_config.get("stop_token_ids")
-            and self.model_family.stop_token_ids
-        ):
-            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
+        if "reasoning" in getattr(self.model_family, "model_ability", []):
+            generate_config.pop("stop", None)
+            generate_config.pop("stop_token_ids", None)
+        else:
+            if not generate_config.get("stop") and self.model_family.stop:
+                generate_config["stop"] = self.model_family.stop.copy()
+            if (
+                not generate_config.get("stop_token_ids")
+                and self.model_family.stop_token_ids
+            ):
+                generate_config[
+                    "stop_token_ids"
+                ] = self.model_family.stop_token_ids.copy()
         return generate_config
 
     @staticmethod
@@ -1047,6 +1053,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         chunks: AsyncGenerator[CompletionChunk, None],
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
+        previous_texts = [""]
         async for chunk in chunks:
             if i == 0:
                 yield self._get_first_chat_completion_chunk(
@@ -1065,7 +1072,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                         reasoning_parser=self.reasoning_parser,
                     )
                 else:
-                    yield self._to_chat_completion_chunk(chunk, self.reasoning_parser)
+                    yield self._to_chat_completion_chunk(
+                        chunk, self.reasoning_parser, previous_texts
+                    )
             i += 1
 
     @vllm_check

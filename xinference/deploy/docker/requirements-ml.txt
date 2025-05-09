@@ -9,7 +9,7 @@ einops
 tiktoken>=0.6.0
 sentence-transformers>=3.1.0
 controlnet_aux
-autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
+autoawq!=0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL

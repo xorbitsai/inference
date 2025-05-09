@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"POT-Creation-Date: 2025-05-06 20:32+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -41,61 +41,228 @@ msgid ""
 "prompt."
 msgstr "Text-to-video 端点将一段文本提示词从头开始创建视频"
 
-#: ../../source/models/model_abilities/video.rst:24
-msgid "API ENDPOINT"
-msgstr "API 端点"
+#: ../../source/models/model_abilities/video.rst:18
+msgid ""
+"The image-to-video endpoint create videos from scratch based on an input "
+"image."
+msgstr "Image-to-video 端点将一张图片从头开始创建视频"
 
 #: ../../source/models/model_abilities/video.rst:25
-msgid "OpenAI-compatible ENDPOINT"
-msgstr "OpenAI 兼容端点"
-
-#: ../../source/models/model_abilities/video.rst:27
-msgid "Text-to-Video API"
+msgid "API"
 msgstr ""
 
+#: ../../source/models/model_abilities/video.rst:26
+msgid "Endpoint"
+msgstr "端点"
+
 #: ../../source/models/model_abilities/video.rst:28
+msgid "Text-to-Video API"
+msgstr "文生视频 API"
+
+#: ../../source/models/model_abilities/video.rst:29
 msgid "/v1/video/generations"
 msgstr ""
 
 #: ../../source/models/model_abilities/video.rst:31
+msgid "Image-to-Video API"
+msgstr "图生视频 API"
+
+#: ../../source/models/model_abilities/video.rst:32
+msgid "/v1/video/generations/image"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:35
 msgid "Supported models"
 msgstr "支持的模型列表"
 
-#: ../../source/models/model_abilities/video.rst:33
+#: ../../source/models/model_abilities/video.rst:37
 msgid ""
-"The Text-to-video API is supported with the following models in "
+"The text-to-video API is supported with the following models in "
 "Xinference:"
 msgstr "Text-to-video API 在 Xinference 中支持以下模型："
 
-#: ../../source/models/model_abilities/video.rst:35
-msgid "CogVideoX-2b"
+#: ../../source/models/model_abilities/video.rst:39
+msgid ":ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/video.rst:39
+#: ../../source/models/model_abilities/video.rst:40
+msgid ":ref:`CogVideoX-5b <models_builtin_cogvideox-5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:41
+msgid ":ref:`HunyuanVideo <models_builtin_hunyuanvideo>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:42
+msgid ":ref:`Wan2.1-1.3B <models_builtin_wan2.1-1.3b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:43
+msgid ":ref:`Wan2.1-14B <models_builtin_wan2.1-14b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:45
+msgid ""
+"The image-to-video API is supported with the following models in "
+"Xinference:"
+msgstr "Image-to-video API 在 Xinference 中支持以下模型："
+
+#: ../../source/models/model_abilities/video.rst:47
+msgid ":ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:48
+msgid ":ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:51
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/video.rst:42
+#: ../../source/models/model_abilities/video.rst:54
 msgid "Text-to-video"
 msgstr "文生视频"
 
-#: ../../source/models/model_abilities/video.rst:44
+#: ../../source/models/model_abilities/video.rst:56
 msgid ""
-"You can try Text-to-video API out either via cURL, or Xinference's python"
+"You can try text-to-video API out either via cURL, or Xinference's python"
 " client:"
-msgstr "可以通过 cURL 或 Xinference 的方式尝试使用 Text-to-video API"
+msgstr "可以通过 cURL 或 Xinference 的方式尝试使用 text-to-video API"
 
-#: ../../source/models/model_abilities/video.rst:72
-msgid "Tips when running on GPU whose memory less than 24GB"
-msgstr "在小于 24GB 显存的 GPU 上运行贴士"
+#: ../../source/models/model_abilities/video.rst:83
+msgid "Image-to-video"
+msgstr "图生视频"
 
-#: ../../source/models/model_abilities/video.rst:74
+#: ../../source/models/model_abilities/video.rst:85
 msgid ""
-"Text-to-video will occupy huge GPU memory, for instance, running "
-"CogVideoX may require up to around 35 GB GPU memory. When running on GPU "
-"whose memory is less than 24 GB, we recommend to add ``--cpu_offload "
-"True`` when launching model."
+"You can try image-to-video API out either via cURL, or Xinference's "
+"python client:"
+msgstr "可以通过 cURL 或 Xinference 的方式尝试使用 image-to-video API"
+
+#: ../../source/models/model_abilities/video.rst:111
+msgid "Memory optimization"
+msgstr "内存优化"
+
+#: ../../source/models/model_abilities/video.rst:113
+msgid ""
+"Video generation will occupy huge GPU memory, for instance, running "
+"CogVideoX may require up to around 35 GB GPU memory."
 msgstr ""
-"Text-to-video 会占用大量显存，举例来说，运行 CogVideoX 可能会使用到约 35 GB 的显存，"
-"当在小于 24 GB 的 GPU 上运行时，推荐添加 ``--cpu_offload True`` 来加载模型。"
+"视频生成会占用大量显存，举例来说，运行 CogVideoX 可能会使用到约 35 GB 的"
+"显存。"
+
+#: ../../source/models/model_abilities/video.rst:116
+msgid ""
+"Xinference supports several options to optimize video model memory (VRAM)"
+" usage."
+msgstr "Xinference 支持若干选项，来优化视频模型显存（VRAM）使用。"
+
+#: ../../source/models/model_abilities/video.rst:118
+msgid "CPU offloading or block level group offloading."
+msgstr "CPU 卸载或块级分组卸载。"
+
+#: ../../source/models/model_abilities/video.rst:119
+msgid "Layerwise casting."
+msgstr "逐层类型转换（Layerwise casting）。"
+
+#: ../../source/models/model_abilities/video.rst:123
+msgid ""
+"CPU offloading and Block Level Group Offloading cannot be enabled at the "
+"same time, but layerwise casting can be used in combination with either "
+"of them."
+msgstr "CPU 卸载和块级分组卸载不能同时开启，但逐层类型转换可以与其中之一配合使用。"
+
+#: ../../source/models/model_abilities/video.rst:127
+msgid "CPU offloading"
+msgstr "CPU 卸载"
+
+#: ../../source/models/model_abilities/video.rst:129
+msgid ""
+"CPU offloading keeps the model weights on the CPU and only loads them to "
+"the GPU when a forward pass needs to be executed. It is suitable for "
+"scenarios with extremely limited GPU memory, but it has a significant "
+"impact on performance."
+msgstr ""
+"CPU 卸载会将模型权重保留在 CPU 上，仅在执行前向传播时才加载到 GPU。适用于"
+"显存极其有限的场景，但对性能影响较大。"
+
+#: ../../source/models/model_abilities/video.rst:133
+msgid ""
+"When running on GPU whose memory is less than 24 GB, we recommend to add "
+"``--cpu_offload True`` when launching model. For Web UI, add an extra "
+"option, ``cpu_offload`` with value set to ``True``."
+msgstr ""
+"当使用显存小于 24 GB 的 GPU 时，建议在启动模型时添加 ``--cpu_offload True"
+"``。对于 Web UI，可添加额外选项 ``cpu_offload``，值设为 ``True``。"
+
+#: ../../source/models/model_abilities/video.rst:142
+msgid "Block Level Group Offloading"
+msgstr "块级分组卸载"
+
+#: ../../source/models/model_abilities/video.rst:144
+msgid ""
+"Block Level Group Offloading groups multiple internal layers of the model"
+" (such as ``torch.nn.ModuleList`` or ``torch.nn.Sequential``) and loads "
+"these groups from the CPU to the GPU as needed during inference. Compared"
+" to CPU offloading, it uses more memory but has less impact on "
+"performance."
+msgstr ""
+"块级分组卸载将模型的多个内部层（如 ``torch.nn.ModuleList`` 或 ``torch.nn."
+"Sequential``）分组，并根据需要在推理过程中将这些分组从 CPU 加载到 GPU。与"
+" CPU 卸载相比，它使用更多的内存，但对性能的影响更小。"
+
+#: ../../source/models/model_abilities/video.rst:148
+msgid ""
+"For the command line, add the ``--group_offload True`` option; for the "
+"Web UI, add an additional option ``group_offload`` with the value set to "
+"``True``."
+msgstr ""
+"对于命令行，添加 ``--group_offload True`` 选项；对于 Web UI，添加一个额外"
+"选项 ``group_offload``，值设为 ``True``。"
+
+#: ../../source/models/model_abilities/video.rst:151
+msgid ""
+"We can speed up group offloading inference, by enabling the use of CUDA "
+"streams. However, using CUDA streams requires moving the model parameters"
+" into pinned memory. This allocation is handled by Pytorch under the "
+"hood, and can result in a significant spike in CPU RAM usage. Please "
+"consider this option if your CPU RAM is atleast 2X the size of the model "
+"you are group offloading. Enable CUDA streams via adding ``--use_stream "
+"True`` for command line; for the Web UI, add an additional option "
+"``use_stream`` with the value set to ``True``."
+msgstr ""
+"通过启用 CUDA 流，我们可以加速分组卸载推理。然而，使用 CUDA 流需要将模型"
+"参数移动到固定内存中。这项分配由 Pytorch 在后台处理，并可能导致 CPU RAM "
+"使用量显著增加。如果您的 CPU RAM 至少是模型大小的两倍，请考虑使用此选项。"
+"通过在命令行中添加 ``--use_stream True`` 启用 CUDA 流；对于 Web UI，添加"
+"一个额外选项 ``use_stream``，值设为 ``True``。"
+
+#: ../../source/models/model_abilities/video.rst:163
+msgid "Applying Layerwise Casting to the Transformer"
+msgstr "将逐层类型转换应用于 Transformer"
+
+#: ../../source/models/model_abilities/video.rst:165
+msgid ""
+"Layerwise casting will downcast each layer’s weights to ``torch.float8_"
+"e4m3fn``, temporarily upcast to ``torch.bfloat16`` during the forward "
+"pass of the layer, then revert to ``torch.float8_e4m3fn`` afterward. This"
+" approach reduces memory requirements by approximately 50% while "
+"introducing a minor quality reduction in the generated video due to the "
+"precision trade-off. Enable layerwise casting via adding ``--layerwise_"
+"cast True`` for command line; for the Web UI, add an additional option ``"
+"layerwise_cast`` with the value set to ``True``."
+msgstr ""
+"逐层类型转换将把每个层的权重降级为 ``torch.float8_e4m3fn``，在层的前向"
+"传播过程中暂时升级为 ``torch.bfloat16``，然后在之后恢复为 ``torch.float8_"
+"e4m3fn``。这种方法将内存需求减少约 50%，同时由于精度折衷，生成的视频质量"
+"会略有下降。通过在命令行中添加 ``--layerwise_cast True`` 来启用逐层"
+"类型转换；对于 Web UI，添加一个额外选项 ``layerwise_cast``，值设为 ``True"
+"``。"
+
+#: ../../source/models/model_abilities/video.rst:172
+msgid "This example will require 20GB of VRAM."
+msgstr "此示例将需要 20GB 的显存。"
+
+#~ msgid "OpenAI-compatible ENDPOINT"
+#~ msgstr "OpenAI 兼容端点"
 

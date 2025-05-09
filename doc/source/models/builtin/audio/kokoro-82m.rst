@@ -6,7 +6,7 @@ Kokoro-82M
 
 - **Model Name:** Kokoro-82M
 - **Model Family:** Kokoro
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** True
 
 Specifications

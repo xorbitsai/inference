@@ -4,7 +4,8 @@
     "runningModels": "运行模型",
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
-    "contactUs": "联系我们"
+    "contactUs": "联系我们",
+    "documentation": "文档"
   },
 
   "model": {

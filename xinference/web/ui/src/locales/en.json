@@ -4,7 +4,8 @@
     "runningModels": "Running Models",
     "registerModel": "Register Model",
     "clusterInfo": "Cluster Information",
-    "contactUs": "Contact Us"
+    "contactUs": "Contact Us",
+    "documentation": "Documentation"
   },
 
   "model": {

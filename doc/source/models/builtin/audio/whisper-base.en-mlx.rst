@@ -6,7 +6,7 @@ whisper-base.en-mlx
 
 - **Model Name:** whisper-base.en-mlx
 - **Model Family:** whisper
-- **Abilities:** audio-to-text
+- **Abilities:** ['audio2text']
 - **Multilingual:** False
 
 Specifications

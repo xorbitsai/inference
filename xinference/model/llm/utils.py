@@ -68,8 +68,11 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen2-moe-instruct",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
+    "XiYanSQL-QwenCoder-2504",
     "QwQ-32B",
     "qwen3",
+    "HuatuoGPT-o1-Qwen2.5",
+    "DianJin-R1",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -79,6 +82,7 @@ GLM4_TOOL_CALL_FAMILY = [
 
 LLAMA3_TOOL_CALL_FAMILY = [
     "llama-3.1-instruct",
+    "HuatuoGPT-o1-LLaMA-3.1",
 ]
 
 DEEPSEEK_TOOL_CALL_FAMILY = [
@@ -681,20 +685,12 @@ class ChatModelMixin:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 
-        reasoning_content = None
         content = ". ".join(failed_contents) if failed_contents else None
-        if reasoning_parser is not None:
-            reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
-                content
-            )
         d = {
             "role": "assistant",
             "content": content,
             "tool_calls": tool_calls,
         }
-        # add only reasoning_content is None
-        if reasoning_content is not None:
-            d["reasoning_content"] = reasoning_content
 
         try:
             usage = c.get("usage")
@@ -730,6 +726,14 @@ class ChatModelMixin:
         reasoning_parser: Optional[ReasoningParser] = None,
     ):
         _id = str(uuid.uuid4())
+        reasoning_content = None
+        if reasoning_parser is not None:
+            text = c["choices"][0]["text"]
+            reasoning_content, content = reasoning_parser.extract_reasoning_content(
+                text
+            )
+            c["choices"][0]["text"] = content
+
         tool_result = cls._eval_tool_arguments(model_family, c)
 
         tool_calls = []
@@ -750,12 +754,6 @@ class ChatModelMixin:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 
-        reasoning_content = None
-        content = ". ".join(failed_contents) if failed_contents else None
-        if reasoning_parser is not None:
-            reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
-                content
-            )
         m = {
             "role": "assistant",
             "content": content,

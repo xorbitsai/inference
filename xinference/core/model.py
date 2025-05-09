@@ -1250,6 +1250,32 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating video."
         )
 
+    @request_limit
+    @log_async(logger=logger)
+    async def image_to_video(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs.pop("request_id", None)
+        kwargs["negative_prompt"] = negative_prompt
+        if hasattr(self._model, "image_to_video"):
+            return await self._call_wrapper_json(
+                self._model.image_to_video,
+                image,
+                prompt,
+                n,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from image."
+        )
+
     async def record_metrics(self, name, op, kwargs):
         worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)
