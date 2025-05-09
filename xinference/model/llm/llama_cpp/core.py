@@ -16,19 +16,11 @@ import importlib.util
 import logging
 import os
 import queue
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, Union
 
 import orjson
 
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    Completion,
-    CompletionChunk,
-    CreateCompletionLlamaCpp,
-    LlamaCppGenerateConfig,
-    LlamaCppModelConfig,
-)
+from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
@@ -53,21 +45,16 @@ class XllamaCppModel(LLM, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
+        llamacpp_model_config: Optional[dict] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
-
-        self._llamacpp_model_config: LlamaCppModelConfig = self._sanitize_model_config(
-            llamacpp_model_config
-        )
+        self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
-    def _sanitize_model_config(
-        self, llamacpp_model_config: Optional[LlamaCppModelConfig]
-    ) -> LlamaCppModelConfig:
+    def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
-            llamacpp_model_config = LlamaCppModelConfig()
+            llamacpp_model_config = {}
 
         if self.model_family.context_length:
             llamacpp_model_config.setdefault("n_ctx", self.model_family.context_length)
@@ -88,29 +75,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
         llamacpp_model_config.setdefault("reasoning_content", False)
 
         return llamacpp_model_config
-
-    def _sanitize_generate_config(
-        self, generate_config: Optional[LlamaCppGenerateConfig]
-    ) -> LlamaCppGenerateConfig:
-        if generate_config is None:
-            generate_config = LlamaCppGenerateConfig(
-                **CreateCompletionLlamaCpp().dict()
-            )
-        else:
-            from llama_cpp import LlamaGrammar
-
-            grammar = generate_config.get("grammar")
-            if grammar is not None and not isinstance(grammar, LlamaGrammar):
-                generate_config["grammar"] = LlamaGrammar.from_string(
-                    generate_config["grammar"]
-                )
-            # Validate generate_config and fill default values to the generate config.
-            generate_config = LlamaCppGenerateConfig(
-                **CreateCompletionLlamaCpp(**generate_config).dict()
-            )
-        # Currently, llama.cpp does not support lora
-        generate_config.pop("lora_name", None)  # type: ignore
-        return generate_config
 
     @classmethod
     def check_lib(cls) -> bool:
@@ -206,14 +170,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
 
     def generate(
-        self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
+        self, prompt: str, generate_config: Optional[dict] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        generate_config = self._sanitize_generate_config(generate_config)
+        generate_config = generate_config or {}
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
 
         def _handle_completion():
-            # TODO(fyrestone): Replace the LlamaCppGenerateConfig with OpenAI params.
             data = generate_config
             data.pop("stopping_criteria", None)
             data.pop("logits_processor", None)
@@ -268,16 +231,15 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
     def chat(
         self,
-        messages: List[Dict],
-        generate_config: Optional[LlamaCppGenerateConfig] = None,
+        messages: List[dict],
+        generate_config: Optional[dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        generate_config = self._sanitize_generate_config(generate_config)
+        generate_config = generate_config or {}
         stream = generate_config.get("stream", False)
         tools = generate_config.pop("tools", []) if generate_config else None
         q: queue.Queue = queue.Queue()
 
         def _handle_chat_completion():
-            # TODO(fyrestone): Replace the LlamaCppGenerateConfig with OpenAI params.
             data = generate_config
             data.pop("stopping_criteria", None)
             data.pop("logits_processor", None)
