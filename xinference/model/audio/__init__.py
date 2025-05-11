@@ -81,10 +81,6 @@ def _install():
     for ud_audio in get_user_defined_audios():
         AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
-    del _model_spec_json
-    del _model_spec_modelscope_json
-
-
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(__file__), json_filename)
     target_families.update(
