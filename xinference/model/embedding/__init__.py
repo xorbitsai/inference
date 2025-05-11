@@ -84,3 +84,5 @@ def load_model_family_from_json(json_filename, target_families):
     )
     for model_name, model_spec in target_families.items():
         MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+    del json_path
