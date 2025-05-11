@@ -6,7 +6,7 @@ body:
     attributes:
       label: System Info / 系統信息
       description: Your operating environment / 您的运行环境信息
-      placeholder: Includes Cuda version, transformers / llama-cpp-python / vllm version, Python version, operating system... / 包括Cuda版本，transformers / llama-cpp-python / vllm版本，Python版本，操作系统等。
+      placeholder: Includes Cuda version, transformers / xllamacpp / vllm version, Python version, operating system... / 包括Cuda版本，transformers / xllamacpp / vllm版本，Python版本，操作系统等。
     validations:
       required: true
 

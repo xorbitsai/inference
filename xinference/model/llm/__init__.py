@@ -159,7 +159,7 @@ def load_model_family_from_json(json_filename, target_families):
 
 
 def _install():
-    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel, XllamaCppModel
+    from .llama_cpp.core import XllamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
@@ -196,8 +196,6 @@ def _install():
     # register llm classes.
     LLAMA_CLASSES.extend(
         [
-            LlamaCppChatModel,
-            LlamaCppModel,
             XllamaCppModel,
         ]
     )
