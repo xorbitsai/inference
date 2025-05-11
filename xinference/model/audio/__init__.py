@@ -87,7 +87,7 @@ def load_model_family_from_json(json_filename, target_families):
     target_families.update(
         dict(
             (spec["model_name"], AudioModelFamilyV1(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+            for spec in json.load(codecs.open(json_path, "r", encoding="utf-8"))
             if not _need_filter(spec)
         )
     )
