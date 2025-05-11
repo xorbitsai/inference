@@ -54,9 +54,12 @@ def register_custom_model():
             except Exception as e:
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
+
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
-    load_model_family_from_json("model_spec_modelscope.json", MODELSCOPE_EMBEDDING_MODELS)
+    load_model_family_from_json(
+        "model_spec_modelscope.json", MODELSCOPE_EMBEDDING_MODELS
+    )
 
     # register model description after recording model revision
     for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
@@ -73,6 +76,7 @@ def _install():
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )
+
 
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(__file__), json_filename)

@@ -84,6 +84,7 @@ def _install():
     del _model_spec_json
     del _model_spec_modelscope_json
 
+
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(__file__), json_filename)
     target_families.update(

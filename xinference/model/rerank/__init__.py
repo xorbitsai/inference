@@ -54,10 +54,10 @@ def register_custom_model():
             except Exception as e:
                 warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
+
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_RERANK_MODELS)
-    load_model_family_from_json("model_spec_modelscope.json",
-                                MODELSCOPE_RERANK_MODELS)
+    load_model_family_from_json("model_spec_modelscope.json", MODELSCOPE_RERANK_MODELS)
 
     # register model description after recording model revision
     for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
@@ -73,14 +73,13 @@ def _install():
     for ud_rerank in get_user_defined_reranks():
         RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
 
+
 def load_model_family_from_json(json_filename, target_families):
     _model_spec_json = os.path.join(os.path.dirname(__file__), json_filename)
     target_families.update(
         dict(
             (spec["model_name"], RerankModelSpec(**spec))
-            for spec in json.load(
-                codecs.open(_model_spec_json, "r", encoding="utf-8")
-            )
+            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
         )
     )
     for model_name, model_spec in target_families.items():

@@ -69,6 +69,7 @@ def _install():
     for ud_image in get_user_defined_images():
         IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))
 
+
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(__file__), json_filename)
     target_families.update(

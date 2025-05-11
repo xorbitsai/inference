@@ -129,9 +129,7 @@ def register_custom_model():
 
 
 def load_model_family_from_json(json_filename, target_families):
-    json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), json_filename
-    )
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), json_filename)
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         model_spec = LLMFamilyV1.parse_obj(json_obj)
         target_families.append(model_spec)
@@ -158,6 +156,7 @@ def load_model_family_from_json(json_filename, target_families):
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+
 
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel, XllamaCppModel
@@ -243,8 +242,12 @@ def _install():
 
     # 加载各种模型家族配置
     load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
-    load_model_family_from_json("llm_family_modelscope.json", BUILTIN_MODELSCOPE_LLM_FAMILIES)
-    load_model_family_from_json("llm_family_openmind_hub.json", BUILTIN_OPENMIND_HUB_LLM_FAMILIES)
+    load_model_family_from_json(
+        "llm_family_modelscope.json", BUILTIN_MODELSCOPE_LLM_FAMILIES
+    )
+    load_model_family_from_json(
+        "llm_family_openmind_hub.json", BUILTIN_OPENMIND_HUB_LLM_FAMILIES
+    )
     load_model_family_from_json("llm_family_csghub.json", BUILTIN_CSGHUB_LLM_FAMILIES)
 
     # 更新模型描述

@@ -39,6 +39,7 @@ def _install():
     ):
         VIDEO_MODEL_DESCRIPTIONS.update(generate_video_description(model_spec))
 
+
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(__file__), json_filename)
     target_families.update(
