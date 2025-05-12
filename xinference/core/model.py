@@ -214,8 +214,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             del self._model
-            gc.collect()
-            empty_cache()
+
+            def clean():
+                gc.collect()
+                empty_cache()
+
+            await asyncio.to_thread(clean)
 
     def __init__(
         self,
