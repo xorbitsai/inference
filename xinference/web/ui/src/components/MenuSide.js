@@ -26,6 +26,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import icon from '../media/icon.webp'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
+import VersionLabel from './versionLabel'
 
 const MenuSide = () => {
   const theme = useTheme()
@@ -227,9 +228,10 @@ const MenuSide = () => {
         </Box>
       </Box>
 
-      <Box display="flex" alignItems="center" marginLeft={'3rem'}>
+      <Box display="flex" alignItems="center" marginX={'3rem'}>
         <ThemeButton sx={{ m: '1rem' }} />
         <TranslateButton />
+        <VersionLabel sx={{ ml: 'auto' }} />
       </Box>
     </Drawer>
   )
