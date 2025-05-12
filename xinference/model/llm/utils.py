@@ -470,17 +470,24 @@ class ChatModelMixin:
     ) -> ChatCompletion:
         if completion.get("object") == "chat.completion" and completion.get("choices"):
             # Already a ChatCompletion
-            if reasoning_parser is not None:
+            if reasoning_parser:
                 for choice in completion["choices"]:
                     message = choice["message"]  # type: ignore
-                    text = message["content"]
-                    (
-                        reasoning_content,
-                        content,
-                    ) = reasoning_parser.extract_reasoning_content(text)
-                    message["content"] = content
-                    if reasoning_content is not None:
-                        message["reasoning_content"] = reasoning_content
+                    text = message["content"]  # Original content from the message
+
+                    if reasoning_parser.check_content_parser():
+                        # Parse into reasoning and content parts
+                        (
+                            reasoning_val,
+                            content_val,
+                        ) = reasoning_parser.extract_reasoning_content(text)
+                        message["content"] = content_val
+                        if reasoning_val is not None:
+                            message["reasoning_content"] = reasoning_val
+                    else:
+                        # Parse to get potentially modified content; no separate reasoning part expected.
+                        content_val = reasoning_parser.extract_content(text)
+                        message["content"] = content_val
             return cast(ChatCompletion, completion)
 
         choices = []
@@ -488,10 +495,13 @@ class ChatModelMixin:
             content = choice["text"]
             reasoning_content = None
 
-            if reasoning_parser is not None:
-                reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
-                    choice
-                )
+            if reasoning_parser:
+                if reasoning_parser.check_content_parser():
+                    reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
+                        choice
+                    )
+                else:
+                    content = reasoning_parser.extract_content(choice)
 
             message = {"role": "assistant", "content": content}
 

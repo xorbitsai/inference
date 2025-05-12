@@ -8,8 +8,12 @@ class ReasoningParser:
     """Reasoning parser for reasoning model."""
 
     def __init__(
-        self, reasoning_start_tag: str = "<think>", reasoning_end_tag: str = "</think>"
+        self,
+        reasoning_content: bool = False,
+        reasoning_start_tag: str = "<think>",
+        reasoning_end_tag: str = "</think>",
     ):
+        self.reasoning_content = reasoning_content
         self.reasoning_start_tag = reasoning_start_tag
         self.reasoning_end_tag = reasoning_end_tag
         self.reasoning_regex = re.compile(
@@ -145,3 +149,35 @@ class ReasoningParser:
             if len(final_output) == 0:
                 return reasoning_content, ""
             return reasoning_content, final_output
+
+    def extract_content(self, model_output: Union[str, CompletionChoice]) -> str:
+        """Ensures that the model output string starts with the reasoning_start_tag.
+
+        If the model_output is not a string (e.g., CompletionChoice), it extracts
+        the text content. If the reasoning_start_tag is not found in the text,
+        it prepends the tag to the text.
+
+        Args:
+            model_output (Union[str, CompletionChoice]): The model output, can be a raw string
+                or a CompletionChoice object from which text needs to be extracted.
+
+        Returns:
+            str: The model output string, guaranteed to start with reasoning_start_tag
+                 if it was initially missing.
+        """
+        text_to_process = model_output
+        # If model_output is a CompletionChoice object, extract the actual text.
+        if not isinstance(text_to_process, str):
+            text_to_process = text_to_process["text"]
+
+        # If the reasoning_start_tag (e.g., "<think>") is not in the text,
+        # prepend it to the beginning of the text.
+        if self.reasoning_start_tag not in text_to_process:
+            text_to_process = f"{self.reasoning_start_tag}{text_to_process}"
+            return text_to_process
+
+        # If the tag is already present, return the text as is.
+        return text_to_process
+
+    def check_content_parser(self):
+        return self.reasoning_content

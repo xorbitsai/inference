@@ -136,8 +136,9 @@ class LLM(abc.ABC):
 
     def prepare_parse_reasoning_content(self, reasoning_content):
         # Initialize reasoning parser if model has reasoning ability
-        if "reasoning" in self.model_family.model_ability and reasoning_content:
+        if "reasoning" in self.model_family.model_ability:
             self.reasoning_parser = ReasoningParser(
+                reasoning_content,
                 self.model_family.reasoning_start_tag,
                 self.model_family.reasoning_end_tag,
             )
