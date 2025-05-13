@@ -1255,6 +1255,13 @@ class WorkerActor(xo.StatelessActor):
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
             coro = xo.destroy_actor(model_ref)
+            # see https://github.com/xorbitsai/xoscar/pull/140
+            # asyncio.wait_for cannot work for Xoscar actor call,
+            # because when time out, the coroutine will be cancelled via raise CancelledEror,
+            # inside actor call, the error will be caught and
+            # a CancelMessage will be sent to dest actor pool,
+            # however the actor pool may be stuck already,
+            # thus the timeout will never be raised
             await xo.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
