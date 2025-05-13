@@ -331,8 +331,9 @@ def cache(
         else:
             # TODO(fyrestone): support multimodal_projector selection.
             multimodal_projector: Optional[str] = None
-            if llm_spec.multimodal_projectors:
-                multimodal_projector = llm_spec.multimodal_projectors[0]
+            multimodal_projectors = getattr(llm_spec, "multimodal_projectors", None)
+            if multimodal_projectors:
+                multimodal_projector = multimodal_projectors[0]
             if llm_spec.model_hub == "huggingface":
                 logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
                 return cache_from_huggingface(
