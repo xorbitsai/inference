@@ -238,7 +238,6 @@ def _install():
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
 
-    # 加载各种模型家族配置
     load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
     load_model_family_from_json(
         "llm_family_modelscope.json", BUILTIN_MODELSCOPE_LLM_FAMILIES
@@ -248,7 +247,6 @@ def _install():
     )
     load_model_family_from_json("llm_family_csghub.json", BUILTIN_CSGHUB_LLM_FAMILIES)
 
-    # 更新模型描述
     for llm_specs in [
         BUILTIN_LLM_FAMILIES,
         BUILTIN_MODELSCOPE_LLM_FAMILIES,
