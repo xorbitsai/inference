@@ -152,6 +152,7 @@ class LLMDescription(ModelDescription):
         llm_spec: "LLMSpecV1",
         quantization: Optional[str],
         model_path: Optional[str] = None,
+        multimodal_projector: Optional[str] = None,
     ):
         super().__init__(address, devices, model_path=model_path)
         self._llm_family = llm_family

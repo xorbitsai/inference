@@ -105,6 +105,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
         self.prepare_parse_reasoning_content(reasoning_content)
 
+        mmproj = ""
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
             model_path = self.model_path
@@ -131,6 +132,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 legacy_model_file_path = os.path.join(self.model_path, "model.bin")
                 if os.path.exists(legacy_model_file_path):
                     model_path = legacy_model_file_path
+            if self.model_spec.multimodal_projectors:
+                mmproj = os.path.join(
+                    self.model_path, self.model_spec.multimodal_projectors[0]
+                )
 
         try:
             params = CommonParams()
@@ -139,6 +144,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 params.model = model_path
             except Exception:
                 params.model.path = model_path
+            params.mmproj.path = mmproj
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
             # This is the default value, could be overwritten by _llamacpp_model_config
@@ -204,11 +210,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     q.put(res)
                 except Exception as e:
                     logger.exception("handle_completions callback failed: %s", e)
+                    q.put(_Error(str(e)))
 
             try:
                 self._llm.handle_completions(prompt_json, _error_callback, _ok_callback)
             except Exception as ex:
                 logger.exception("handle_completions failed: %s", ex)
+                q.put(_Error(str(ex)))
             q.put(_Done)
 
         assert self._executor
@@ -268,6 +276,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     q.put(res)
                 except Exception as e:
                     logger.exception("handle_chat_completions callback failed: %s", e)
+                    q.put(_Error(str(e)))
 
             try:
                 self._llm.handle_chat_completions(
@@ -275,6 +284,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 )
             except Exception as ex:
                 logger.exception("handle_chat_completions failed: %s", ex)
+                q.put(_Error(str(ex)))
             q.put(_Done)
 
         assert self._executor
