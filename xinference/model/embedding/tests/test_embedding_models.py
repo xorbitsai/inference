@@ -50,6 +50,15 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
     model_hub="modelscope",
 )
 
+TEST_MODEL_SPEC_JINA_CLIP_V2 = EmbeddingModelSpec(
+    model_name="jina-clip-v2",
+    dimensions=1024,
+    max_tokens=8192,
+    language=["89 languages supported"],
+    model_id="jinaai/jina-clip-v2",
+    model_hub="modelscope",
+)
+
 
 def test_model():
     model_path = None
@@ -81,6 +90,24 @@ def test_model():
             input_ids = model._model.tokenize([inp])["input_ids"]
             n_token += input_ids.shape[-1]
         assert r["usage"]["total_tokens"] == n_token
+
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
+
+
+def test_model_jina_clip_v2():
+    model_path = None
+    try:
+        model_path = cache(TEST_MODEL_SPEC_JINA_CLIP_V2)
+        model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_JINA_CLIP_V2)
+        # input is a string
+        input_text = "This is a picture of diagram"
+        model.load()
+        r = model.create_embedding(input_text)
+        assert len(r["data"]) == 1
+        for d in r["data"]:
+            assert len(d["embedding"]) == 1024
 
     finally:
         if model_path is not None:

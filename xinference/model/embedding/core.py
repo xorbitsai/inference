@@ -666,7 +666,7 @@ class EmbeddingModel:
                         logger.error("Please check the input data.")
             all_embeddings, all_token_nums = encode(
                 self._model,
-                objs,
+                objs if objs else sentences,
                 convert_to_numpy=False,
                 **kwargs,
             )
