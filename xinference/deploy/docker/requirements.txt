@@ -1,5 +1,5 @@
 # required
-xoscar>=0.7.0
+xoscar>=0.7.1
 gradio==5.22.0
 pillow
 click

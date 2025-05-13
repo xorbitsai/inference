@@ -148,7 +148,7 @@ class WorkerActor(xo.StatelessActor):
         elif metrics_exporter_host is not None or metrics_exporter_port is not None:
             # metrics export server.
             logger.info(
-                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
+                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"  # noqa: E231
             )
             q: queue.Queue = queue.Queue()
             self._metrics_thread = threading.Thread(
@@ -162,7 +162,9 @@ class WorkerActor(xo.StatelessActor):
             while self._metrics_thread.is_alive():
                 try:
                     host, port = q.get(block=False)[:2]
-                    logger.info(f"Metrics server is started at: http://{host}:{port}")
+                    logger.info(
+                        f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
+                    )
                     break
                 except queue.Empty:
                     pass
@@ -1253,7 +1255,7 @@ class WorkerActor(xo.StatelessActor):
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
             coro = xo.destroy_actor(model_ref)
-            await asyncio.wait_for(coro, timeout=5)
+            await xo.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
@@ -1432,7 +1434,7 @@ class WorkerActor(xo.StatelessActor):
                 else:
                     logger.debug(f"{path} is not a valid path.")
             except Exception as e:
-                logger.error(f"Fail to delete {path} with error:{e}.")
+                logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
                 return False
         await self._cache_tracker_ref.confirm_and_remove_model(
             model_version, self.address
