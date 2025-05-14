@@ -2002,14 +2002,22 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        request_id = None
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            request_id = kwargs.get("request_id")
+            self._add_running_task(request_id)
             video_list = await model.text_to_video(
                 prompt=body.prompt,
                 n=body.n,
                 **kwargs,
             )
             return Response(content=video_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
