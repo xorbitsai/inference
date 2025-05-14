@@ -54,7 +54,7 @@ def export_to_video_imageio(
     return output_video_path
 
 
-class DiffUsersVideoModel:
+class DiffusersVideoModel:
     def __init__(
         self,
         model_uid: str,
@@ -254,6 +254,8 @@ class DiffUsersVideoModel:
         image = self._process_image(image, max_area)
 
         height, width = image.height, image.width
+        generate_kwargs.pop("width", None)
+        generate_kwargs.pop("height", None)
         output = self._model(
             image=image, prompt=prompt, height=height, width=width, **generate_kwargs
         )

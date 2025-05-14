@@ -202,7 +202,7 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_lang: List[str]
 
 
-class BuildGradioImageInterfaceRequest(BaseModel):
+class BuildGradioMediaInterfaceRequest(BaseModel):
     model_type: str
     model_name: str
     model_family: str
@@ -353,7 +353,17 @@ class RESTfulAPI(CancelMixin):
         )
         self._router.add_api_route(
             "/v1/ui/images/{model_uid}",
-            self.build_gradio_images_interface,
+            self.build_gradio_media_interface,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/ui/videos/{model_uid}",
+            self.build_gradio_media_interface,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
@@ -1195,16 +1205,16 @@ class RESTfulAPI(CancelMixin):
 
         return JSONResponse(content={"model_uid": model_uid})
 
-    async def build_gradio_images_interface(
+    async def build_gradio_media_interface(
         self, model_uid: str, request: Request
     ) -> JSONResponse:
         """
         Build a Gradio interface for image processing models.
         """
         payload = await request.json()
-        body = BuildGradioImageInterfaceRequest.parse_obj(payload)
+        body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
         assert self._app is not None
-        assert body.model_type == "image"
+        assert body.model_type in ("image", "video")
 
         # asyncio.Lock() behaves differently in 3.9 than 3.10+
         # A event loop is required in 3.9 but not 3.10+
@@ -1218,12 +1228,12 @@ class RESTfulAPI(CancelMixin):
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from ..core.image_interface import ImageInterface
+        from ..core.media_interface import MediaInterface
 
         try:
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = ImageInterface(
+            interface = MediaInterface(
                 endpoint=f"http://{internal_host}:{self._port}",
                 model_uid=model_uid,
                 model_family=body.model_family,
@@ -1233,6 +1243,7 @@ class RESTfulAPI(CancelMixin):
                 controlnet=body.controlnet,
                 access_token=access_token,
                 model_ability=body.model_ability,
+                model_type=body.model_type,
             ).build()
 
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
