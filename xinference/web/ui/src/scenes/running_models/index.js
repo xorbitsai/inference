@@ -516,13 +516,13 @@ const RunningModels = () => {
         console.log('url: ' + url)
         const openUrl = `${endPoint}/` + url
         const closeUrl = `${endPoint}/v1/models/` + url
-        let pathType;
+        let pathType
         if (row.model_type === 'video') {
-          pathType = 'videos';
+          pathType = 'videos'
         } else {
-          pathType = 'images'; // default images
+          pathType = 'images' // default images
         }
-        const gradioUrl = `${endPoint}/v1/ui/${pathType}/` + url;
+        const gradioUrl = `${endPoint}/v1/ui/${pathType}/` + url
 
         if (url === 'IS_LOADING') {
           return <div></div>
