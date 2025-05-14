@@ -61,6 +61,7 @@ potential of cutting-edge AI models.
 - [RAGFlow](https://github.com/infiniflow/ragflow): is an open-source RAG engine based on deep document understanding.
 - [MaxKB](https://github.com/1Panel-dev/MaxKB): MaxKB = Max Knowledge Base, it is a chatbot based on Large Language Models (LLM) and Retrieval-Augmented Generation (RAG). 
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
+- [GPTLocalhost](https://gptlocalhost.com/demo/#Xinference): a local Add-in for Microsoft Word. 100% private.
 
 
 ## Key Features
