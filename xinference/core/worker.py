@@ -134,9 +134,9 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
-        self._user_specified_gpu_to_model_uids: Dict[
-            int, Set[Tuple[str, str]]
-        ] = defaultdict(set)
+        self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
+            defaultdict(set)
+        )
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
@@ -935,8 +935,10 @@ class WorkerActor(xo.StatelessActor):
             logger.exception(e)
             raise
         try:
+            print(f"get_supervisor_ref {origin_uid}")
             _ = await self.get_supervisor_ref()
             if self._event_collector_ref is not None:
+                print(f"self._event_collector_ref.report_event {origin_uid}")
                 await self._event_collector_ref.report_event(
                     origin_uid,
                     Event(
@@ -946,6 +948,7 @@ class WorkerActor(xo.StatelessActor):
                     ),
                 )
         except Exception as e:
+            print("report_event error")
             # Report callback error can be log and ignore, should not interrupt the Process
             logger.error("report_event error: %s" % (e), exc_info=True)
 
