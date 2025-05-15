@@ -1220,12 +1220,11 @@ class WorkerActor(xo.StatelessActor):
             origin_uid = model_uid.removesuffix("-rank0")
         else:
             origin_uid, _ = parse_replica_model_uid(model_uid)
-        logger.info(f"terminate_model debug")
         try:
-            logger.info(f"get_supervisor_ref {origin_uid}")
+            print(f"get_supervisor_ref {origin_uid}")
             _ = await self.get_supervisor_ref()
             if self._event_collector_ref is not None:
-                logger.info(f"self._event_collector_ref.report_event {origin_uid}")
+                print(f"self._event_collector_ref.report_event {origin_uid}")
                 await self._event_collector_ref.report_event(
                     origin_uid,
                     Event(
@@ -1235,7 +1234,7 @@ class WorkerActor(xo.StatelessActor):
                     ),
                 )
         except Exception as e:
-            logger.info(f"report_event error {e}")
+            print(f"report_event error {e}")
             # Report callback error can be log and ignore, should not interrupt the Process
             logger.error("report_event error: %s" % (e))
 
