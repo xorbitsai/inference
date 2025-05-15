@@ -981,7 +981,7 @@ def test_quert_engine_SGLang():
 
 
 def test_query_engine_general():
-    from ..llama_cpp.core import LlamaCppChatModel
+    from ..llama_cpp.core import XllamaCppModel
     from ..llm_family import (
         LLM_ENGINES,
         check_engine_by_spec_parameters,
@@ -1025,7 +1025,7 @@ def test_query_engine_general():
             model_size_in_billions="1_8",
             quantization="q2_k",
         )
-        is LlamaCppChatModel
+        is XllamaCppModel
     )
     with pytest.raises(ValueError) as exif:
         check_engine_by_spec_parameters(

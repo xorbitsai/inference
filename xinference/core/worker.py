@@ -148,7 +148,7 @@ class WorkerActor(xo.StatelessActor):
         elif metrics_exporter_host is not None or metrics_exporter_port is not None:
             # metrics export server.
             logger.info(
-                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
+                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"  # noqa: E231
             )
             q: queue.Queue = queue.Queue()
             self._metrics_thread = threading.Thread(
@@ -162,7 +162,9 @@ class WorkerActor(xo.StatelessActor):
             while self._metrics_thread.is_alive():
                 try:
                     host, port = q.get(block=False)[:2]
-                    logger.info(f"Metrics server is started at: http://{host}:{port}")
+                    logger.info(
+                        f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
+                    )
                     break
                 except queue.Empty:
                     pass
@@ -584,6 +586,7 @@ class WorkerActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
+        start_python: Optional[str] = None,
     ) -> Tuple[str, List[str]]:
         env = {} if env is None else env
         devices = []
@@ -609,14 +612,8 @@ class WorkerActor(xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        if os.name != "nt" and platform.system() != "Darwin":
-            # Linux
-            start_method = "forkserver"
-        else:
-            # Windows and macOS
-            start_method = "spawn"
         subpool_address = await self._main_pool.append_sub_pool(
-            env=env, start_method=start_method
+            env=env, start_python=start_python
         )
         return subpool_address, [str(dev) for dev in devices]
 
@@ -833,6 +830,8 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
             virtual_env_name or "uv", env_path
         )
+        # create env
+        virtual_env_manager.create_env()
         return virtual_env_manager
 
     @classmethod
@@ -844,9 +843,6 @@ class WorkerActor(xo.StatelessActor):
         if not settings or not settings.packages:
             # no settings or no packages
             return
-
-        # create env
-        virtual_env_manager.create_env()
 
         if settings.inherit_pip_config:
             # inherit pip config
@@ -1001,22 +997,26 @@ class WorkerActor(xo.StatelessActor):
             # virtualenv
             enable_virtual_env = kwargs.pop("enable_virtual_env", None)
             virtual_env_name = kwargs.pop("virtual_env_name", None)
-            virtual_env_path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
+            virtual_env_path = os.path.join(
+                XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
+            )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
                 enable_virtual_env,
                 virtual_env_name,
                 virtual_env_path,
             )
-            # setting os.environ if virtualenv created
-            env = (
-                {"PYTHONPATH": virtual_env_manager.get_lib_path()}
-                if virtual_env_manager
-                else None
+            subpool_python_path = (
+                None
+                if virtual_env_manager is None
+                else virtual_env_manager.get_python_path()
             )
-
             subpool_address, devices = await self._create_subpool(
-                model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx, env=env
+                model_uid,
+                model_type,
+                n_gpu=n_gpu,
+                gpu_idx=gpu_idx,
+                start_python=subpool_python_path,
             )
             all_subpool_addresses = [subpool_address]
             try:
@@ -1116,7 +1116,7 @@ class WorkerActor(xo.StatelessActor):
                         coros.append(
                             self._main_pool.append_sub_pool(
                                 env={env_name: env_value},
-                                start_method=self._get_start_method(),
+                                start_python=subpool_python_path,
                             )
                         )
                     pool_addresses = await asyncio.gather(*coros)
@@ -1255,7 +1255,14 @@ class WorkerActor(xo.StatelessActor):
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
             coro = xo.destroy_actor(model_ref)
-            await asyncio.wait_for(coro, timeout=5)
+            # see https://github.com/xorbitsai/xoscar/pull/140
+            # asyncio.wait_for cannot work for Xoscar actor call,
+            # because when time out, the coroutine will be cancelled via raise CancelledEror,
+            # inside actor call, the error will be caught and
+            # a CancelMessage will be sent to dest actor pool,
+            # however the actor pool may be stuck already,
+            # thus the timeout will never be raised
+            await xo.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
@@ -1434,7 +1441,7 @@ class WorkerActor(xo.StatelessActor):
                 else:
                     logger.debug(f"{path} is not a valid path.")
             except Exception as e:
-                logger.error(f"Fail to delete {path} with error:{e}.")
+                logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
                 return False
         await self._cache_tracker_ref.confirm_and_remove_model(
             model_version, self.address
@@ -1467,26 +1474,13 @@ class WorkerActor(xo.StatelessActor):
         model_ref = self._model_uid_to_model[rep_model_uid]
         await model_ref.start_transfer_for_vllm(rank_addresses)
 
-    @staticmethod
-    def _get_start_method():
-        if os.name != "nt" and platform.system() != "Darwin":
-            # Linux
-            start_method = "forkserver"
-        else:
-            # Windows and macOS
-            start_method = "spawn"
-        return start_method
-
     @log_async(logger=logger, level=logging.INFO)
     async def launch_rank0_model(
         self, rep_model_uid: str, xavier_config: Dict[str, Any]
     ) -> Tuple[str, int]:
         from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
 
-        start_method = self._get_start_method()
-        subpool_address = await self._main_pool.append_sub_pool(
-            start_method=start_method
-        )
+        subpool_address = await self._main_pool.append_sub_pool()
 
         store_address = subpool_address.split(":")[0]
         # Note that `store_port` needs to be generated on the worker,

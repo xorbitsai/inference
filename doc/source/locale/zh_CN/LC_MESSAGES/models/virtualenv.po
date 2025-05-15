@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-04-19 16:39+0000\n"
+"POT-Creation-Date: 2025-05-08 09:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -126,11 +126,23 @@ msgid "Storage Location"
 msgstr "存储位置"
 
 #: ../../source/models/virtualenv.rst:73
-msgid ""
-"By default, the model’s virtual environment is stored under path: :ref:`"
-"XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_"
-"name}"
+msgid "By default, the model’s virtual environment is stored under path:"
 msgstr ""
-"默认情况下，模型的虚拟环境存储在以下路径：:ref:`XINFERENCE_HOME <"
+"默认情况下，模型的虚拟环境存储在以下路径"
+
+#: ../../source/models/virtualenv.rst:75
+msgid ""
+"Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / {model_name}"
+msgstr ""
+"在 v1.6.0 之前：:ref:`XINFERENCE_HOME <"
 "environments_xinference_home>` / virtualenv / {model_name}"
+
+#: ../../source/models/virtualenv.rst:76
+msgid ""
+"Since v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v2 / {model_name}"
+msgstr ""
+"从 v1.6.0 开始：:ref:`XINFERENCE_HOME <"
+"environments_xinference_home>` / virtualenv / v2 / {model_name}"
 
