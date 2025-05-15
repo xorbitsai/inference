@@ -220,9 +220,7 @@ class ReasoningParser:
 
     async def prepare_reasoning_content_streaming(
         self, chunks: AsyncGenerator[CompletionChunk, None]
-    ) -> Union[
-        AsyncGenerator[CompletionChunk, None], AsyncGenerator[ChatCompletionChunk, None]
-    ]:
+    ):
         """Process the chunks from model output, check if the first chunk contains reasoning_start_tag,
         if not, add a chunk with the tag at the beginning.
 
@@ -288,9 +286,7 @@ class ReasoningParser:
                 # For non-first chunks, yield directly
                 yield chunk
 
-    def prepare_reasoning_content_sync(
-        self, chunks: Iterator[CompletionChunk]
-    ) -> Union[Iterator[CompletionChunk], Iterator[ChatCompletionChunk]]:
+    def prepare_reasoning_content_sync(self, chunks: Iterator[CompletionChunk]):
         """Process the chunks from model output, check if the first chunk contains reasoning_start_tag,
         if not, add a chunk with the tag at the beginning. This is a synchronous version of
         prepare_reasoning_content_streaming.

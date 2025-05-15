@@ -363,19 +363,19 @@ class ChatModelMixin:
         chunk: CompletionChunk,
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> List[ChatCompletionChunk]:
-        choices_list = []
-        chunks = []
+        choices_list: List[ChatCompletionChoice] = []
+        chunks: List[ChatCompletionChunk] = []
         for i, choice in enumerate(chunk["choices"]):
             delta = ChatCompletionChunkDelta(role="assistant", content="")
             if reasoning_parser and reasoning_parser.check_content_parser():
                 delta["content"] = None
                 delta["reasoning_content"] = ""
             choices_list.append(
-                {
-                    "index": i,
-                    "delta": delta,
-                    "finish_reason": None,
-                }
+                ChatCompletionChoice(
+                    index=i,
+                    delta=delta,
+                    finish_reason=None,
+                )
             )
         chat_chunk = ChatCompletionChunk(
             id="chat" + chunk["id"],
