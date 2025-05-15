@@ -258,7 +258,12 @@ class ReasoningParser:
                     and "delta" in choices[0]
                 ):
                     # For chat completion chunks with delta format
-                    text = choices[0].get("delta").get("content")
+                    delta = choices[0].get("delta")
+                    if delta is None:
+                        continue
+                    text = delta.get("content")
+                    if text is None:
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -314,7 +319,12 @@ class ReasoningParser:
                     and "delta" in choices[0]
                 ):
                     # For chat completion chunks with delta format
-                    text = choices[0].get("delta").get("content")
+                    delta = choices[0].get("delta")
+                    if delta is None:
+                        continue
+                    text = delta.get("content")
+                    if text is None:
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -385,9 +395,9 @@ class ReasoningParser:
             return chunks
 
         choices = chunk.get("choices")
-        if not choices or not choices[0]:
-            return chunks
         text = choices[0].get("text")
+        if not choices or not choices[0] or not text:
+            return chunks
 
         if self.reasoning_start_tag not in text:
             # Create chunks with reasoning_start_tag and newline
