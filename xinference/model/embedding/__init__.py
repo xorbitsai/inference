@@ -56,29 +56,10 @@ def register_custom_model():
 
 
 def _install():
-    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-    _model_spec_modelscope_json = os.path.join(
-        os.path.dirname(__file__), "model_spec_modelscope.json"
+    load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
+    load_model_family_from_json(
+        "model_spec_modelscope.json", MODELSCOPE_EMBEDDING_MODELS
     )
-    BUILTIN_EMBEDDING_MODELS.update(
-        dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-        )
-    )
-    for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-
-    MODELSCOPE_EMBEDDING_MODELS.update(
-        dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
-            for spec in json.load(
-                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
-            )
-        )
-    )
-    for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
     # register model description after recording model revision
     for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
@@ -96,5 +77,16 @@ def _install():
             generate_embedding_description(ud_embedding)
         )
 
-    del _model_spec_json
-    del _model_spec_modelscope_json
+
+def load_model_family_from_json(json_filename, target_families):
+    json_path = os.path.join(os.path.dirname(__file__), json_filename)
+    target_families.update(
+        dict(
+            (spec["model_name"], EmbeddingModelSpec(**spec))
+            for spec in json.load(codecs.open(json_path, "r", encoding="utf-8"))
+        )
+    )
+    for model_name, model_spec in target_families.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+    del json_path
