@@ -1463,6 +1463,8 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
+        logger.info("Supervisor terminate_model: %s", model_uid)
+
         async def _terminate_one_model(_replica_model_uid):
             worker_refs = self._replica_model_uid_to_worker.get(
                 _replica_model_uid, None
@@ -1490,6 +1492,8 @@ class SupervisorActor(xo.StatelessActor):
                     raise
         self._model_uid_to_replica_info.pop(model_uid, None)
 
+        logger.info("Supervisor terminated: %s", model_uid)
+
         # clear for xavier
         rank0_uid = model_uid + "-rank0"
         if rank0_uid in self._replica_model_uid_to_worker:
@@ -1509,6 +1513,8 @@ class SupervisorActor(xo.StatelessActor):
                 logger.debug(
                     f"Destroy collective_manager_ref done. model uid: {model_uid}"
                 )
+
+        logger.info("Clear collective_manager_ref: %s", model_uid)
         block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
         if block_tracker_ref is not None:
             try:
@@ -1521,6 +1527,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
             finally:
                 logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
+        logger.info("Clear block_tracker_ref: %s", model_uid)
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:

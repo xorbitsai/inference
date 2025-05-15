@@ -1262,6 +1262,7 @@ class WorkerActor(xo.StatelessActor):
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
             )
+        logger.info("After destroy model actor: %s", model_ref)
         try:
             to_remove_addresses = []
             subpool_address = self._model_uid_to_addr[model_uid]
@@ -1275,11 +1276,13 @@ class WorkerActor(xo.StatelessActor):
                     self._main_pool.remove_sub_pool(to_remove_addr, force=True)
                 )
             await asyncio.gather(*coros)
+            logger.info("After remove sub pools: %s", to_remove_addresses)
         except Exception as e:
             logger.debug(
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
+            logger.info("Finally")
             self._model_uid_to_model.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
             self.release_devices(model_uid)
@@ -1299,6 +1302,7 @@ class WorkerActor(xo.StatelessActor):
             await self._status_guard_ref.update_instance_info(
                 origin_uid, {"status": status}
             )
+            logger.info("Finally End")
 
     # Provide an interface for future version of supervisor to call
     def get_model_launch_status(self, model_uid: str) -> Optional[str]:
