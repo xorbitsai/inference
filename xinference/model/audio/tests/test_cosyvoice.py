@@ -26,7 +26,7 @@ def test_cosyvoice_sft(setup, model_name):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name=model_name, model_type="audio", download_hub="modelscope"
+        model_name=model_name, model_type="audio", download_hub="huggingface"
     )
     model = client.get_model(model_uid)
     input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
