@@ -2,6 +2,7 @@ import re
 from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Tuple, Union
 
 from ...types import (
+    ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionChunkDelta,
     Completion,
@@ -165,7 +166,7 @@ class ReasoningParser:
         return self.reasoning_content
 
     def _create_chat_completion_chunk(
-        self, chunk: Dict[str, Any], content: str
+        self, chunk: Union[Dict[str, Any], CompletionChunk], content: str
     ) -> ChatCompletionChunk:
         """Helper method to create a ChatCompletionChunk with specified content.
 
@@ -193,7 +194,7 @@ class ReasoningParser:
         )
 
     def _create_completion_chunk(
-        self, chunk: Dict[str, Any], text: str
+        self, chunk: Union[Dict[str, Any], CompletionChunk], text: str
     ) -> CompletionChunk:
         """Helper method to create a CompletionChunk with specified text.
 
@@ -333,7 +334,9 @@ class ReasoningParser:
                 # For non-first chunks, yield directly
                 yield chunk
 
-    def prepare_reasoning_content(self, completion: Completion) -> Completion:
+    def prepare_reasoning_content(
+        self, completion: Union[Completion, ChatCompletion]
+    ) -> Union[Completion, ChatCompletion]:
         """Ensures that the model output string starts with the reasoning_start_tag.
 
         If the model_output is not a string (e.g., CompletionChoice), it extracts
