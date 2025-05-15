@@ -19,18 +19,21 @@ import os
 import threading
 import time
 import uuid
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import gradio as gr
 import PIL.Image
 from gradio import Markdown
 
-from ..client.restful.restful_client import RESTfulImageModelHandle
+from ..client.restful.restful_client import (
+    RESTfulImageModelHandle,
+    RESTfulVideoModelHandle,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class ImageInterface:
+class MediaInterface:
     def __init__(
         self,
         endpoint: str,
@@ -40,6 +43,7 @@ class ImageInterface:
         model_id: str,
         model_revision: str,
         model_ability: List[str],
+        model_type: str,
         controlnet: Union[None, List[Dict[str, Union[str, None]]]],
         access_token: Optional[str],
     ):
@@ -50,13 +54,15 @@ class ImageInterface:
         self.model_id = model_id
         self.model_revision = model_revision
         self.model_ability = model_ability
+        self.model_type = model_type
         self.controlnet = controlnet
         self.access_token = (
             access_token.replace("Bearer ", "") if access_token is not None else None
         )
 
     def build(self) -> gr.Blocks:
-        assert "stable_diffusion" in self.model_family
+        if self.model_type == "image":
+            assert "stable_diffusion" in self.model_family
 
         interface = self.build_main_interface()
         interface.queue()
@@ -341,9 +347,242 @@ class ImageInterface:
             )
         return image2image_inteface
 
+    def text2video_interface(self) -> "gr.Blocks":
+        def text_generate_video(
+            prompt: str,
+            negative_prompt: str,
+            num_frames: int,
+            fps: int,
+            num_inference_steps: int,
+            guidance_scale: float,
+            width: int,
+            height: int,
+            progress=gr.Progress(),
+        ) -> List[Tuple[str, str]]:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulVideoModelHandle)
+
+            request_id = str(uuid.uuid4())
+            response = None
+            exc = None
+
+            # Run generation in a separate thread to allow progress tracking
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.text_to_video(
+                        request_id=request_id,
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        num_frames=num_frames,
+                        fps=fps,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        width=width,
+                        height=height,
+                        response_format="b64_json",
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+
+            # Update progress bar during generation
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except Exception:
+                    cur_progress = 0.0
+                progress(cur_progress, desc="Generating video")
+                time.sleep(1)
+
+            if exc:
+                raise exc
+
+            # Decode and return the generated video
+            videos = []
+            for video_dict in response["data"]:  # type: ignore
+                video_data = base64.b64decode(video_dict["b64_json"])
+                video_path = f"/tmp/{uuid.uuid4()}.mp4"
+                with open(video_path, "wb") as f:
+                    f.write(video_data)
+                videos.append((video_path, "Generated Video"))
+
+            return videos
+
+        # Gradio UI definition
+        with gr.Blocks() as text2video_ui:
+            # Prompt & Negative Prompt (stacked vertically)
+            prompt = gr.Textbox(label="Prompt", placeholder="Enter video prompt")
+            negative_prompt = gr.Textbox(
+                label="Negative Prompt", placeholder="Enter negative prompt"
+            )
+
+            # Parameters (2-column layout)
+            with gr.Row():
+                with gr.Column():
+                    width = gr.Number(label="Width", value=512)
+                    num_frames = gr.Number(label="Frames", value=16)
+                    steps = gr.Number(label="Inference Steps", value=25)
+                with gr.Column():
+                    height = gr.Number(label="Height", value=512)
+                    fps = gr.Number(label="FPS", value=8)
+                    guidance_scale = gr.Slider(
+                        label="Guidance Scale", minimum=1, maximum=20, value=7.5
+                    )
+
+            # Generate button
+            generate = gr.Button("Generate")
+
+            # Output gallery
+            gallery = gr.Gallery(label="Generated Videos", columns=2)
+
+            # Button click logic
+            generate.click(
+                fn=text_generate_video,
+                inputs=[
+                    prompt,
+                    negative_prompt,
+                    num_frames,
+                    fps,
+                    steps,
+                    guidance_scale,
+                    width,
+                    height,
+                ],
+                outputs=gallery,
+            )
+
+        return text2video_ui
+
+    def image2video_interface(self) -> "gr.Blocks":
+        def image_generate_video(
+            image: "PIL.Image",
+            prompt: str,
+            negative_prompt: str,
+            num_frames: int,
+            fps: int,
+            num_inference_steps: int,
+            guidance_scale: float,
+            width: int,
+            height: int,
+            progress=gr.Progress(),
+        ) -> List[Tuple[str, str]]:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulVideoModelHandle)
+
+            request_id = str(uuid.uuid4())
+            response = None
+            exc = None
+
+            # Convert uploaded image to base64
+            buffered = io.BytesIO()
+            image.save(buffered, format="PNG")
+
+            # Run generation in a separate thread
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.image_to_video(
+                        request_id=request_id,
+                        image=buffered.getvalue(),
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        num_frames=num_frames,
+                        fps=fps,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        width=width,
+                        height=height,
+                        response_format="b64_json",
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+
+            # Progress loop
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except Exception:
+                    cur_progress = 0.0
+                progress(cur_progress, desc="Generating video from image")
+                time.sleep(1)
+
+            if exc:
+                raise exc
+
+            # Decode and return video files
+            videos = []
+            for video_dict in response["data"]:  # type: ignore
+                video_data = base64.b64decode(video_dict["b64_json"])
+                video_path = f"/tmp/{uuid.uuid4()}.mp4"
+                with open(video_path, "wb") as f:
+                    f.write(video_data)
+                videos.append((video_path, "Generated Video"))
+
+            return videos
+
+        # Gradio UI
+        with gr.Blocks() as image2video_ui:
+            image = gr.Image(label="Input Image", type="pil")
+
+            prompt = gr.Textbox(label="Prompt", placeholder="Enter video prompt")
+            negative_prompt = gr.Textbox(
+                label="Negative Prompt", placeholder="Enter negative prompt"
+            )
+
+            with gr.Row():
+                with gr.Column():
+                    width = gr.Number(label="Width", value=512)
+                    num_frames = gr.Number(label="Frames", value=16)
+                    steps = gr.Number(label="Inference Steps", value=25)
+                with gr.Column():
+                    height = gr.Number(label="Height", value=512)
+                    fps = gr.Number(label="FPS", value=8)
+                    guidance_scale = gr.Slider(
+                        label="Guidance Scale", minimum=1, maximum=20, value=7.5
+                    )
+
+            generate = gr.Button("Generate")
+            gallery = gr.Gallery(label="Generated Videos", columns=2)
+
+            generate.click(
+                fn=image_generate_video,
+                inputs=[
+                    image,
+                    prompt,
+                    negative_prompt,
+                    num_frames,
+                    fps,
+                    steps,
+                    guidance_scale,
+                    width,
+                    height,
+                ],
+                outputs=gallery,
+            )
+
+        return image2video_ui
+
     def build_main_interface(self) -> "gr.Blocks":
+        if self.model_type == "image":
+            title = f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨"
+        else:
+            title = f"🎨 Xinference Video Generation: {self.model_name} 🎨"
         with gr.Blocks(
-            title=f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨",
+            title=title,
             css="""
                     .center{
                         display: flex;
@@ -357,7 +596,7 @@ class ImageInterface:
         ) as app:
             Markdown(
                 f"""
-                    <h1 class="center" style='text-align: center; margin-bottom: 1rem'>🎨 Xinference Stable Diffusion: {self.model_name} 🎨</h1>
+                    <h1 class="center" style='text-align: center; margin-bottom: 1rem'>{title}</h1>
                     """
             )
             Markdown(
@@ -373,5 +612,11 @@ class ImageInterface:
             if "image2image" in self.model_ability:
                 with gr.Tab("Image to Image"):
                     self.image2image_interface()
+            if "text2video" in self.model_ability:
+                with gr.Tab("Text to Video"):
+                    self.text2video_interface()
+            if "image2video" in self.model_ability:
+                with gr.Tab("Image to Video"):
+                    self.image2video_interface()
 
         return app

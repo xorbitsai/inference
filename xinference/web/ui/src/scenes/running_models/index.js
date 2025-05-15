@@ -511,12 +511,18 @@ const RunningModels = () => {
       filterable: false,
       disableColumnMenu: true,
       renderCell: ({ row }) => {
-        //这个url指的是model_uid
+        // this URL means model_uid
         const url = row.url
         console.log('url: ' + url)
         const openUrl = `${endPoint}/` + url
         const closeUrl = `${endPoint}/v1/models/` + url
-        const gradioUrl = `${endPoint}/v1/ui/images/` + url
+        let pathType
+        if (row.model_type === 'video') {
+          pathType = 'videos'
+        } else {
+          pathType = 'images' // default images
+        }
+        const gradioUrl = `${endPoint}/v1/ui/${pathType}/` + url
 
         if (url === 'IS_LOADING') {
           return <div></div>
@@ -659,7 +665,7 @@ const RunningModels = () => {
     },
   ]
   const audioModelColumns = embeddingModelColumns
-  const videoModelColumns = embeddingModelColumns
+  const videoModelColumns = imageModelColumns
   const rerankModelColumns = embeddingModelColumns
   const flexibleModelColumns = embeddingModelColumns
 

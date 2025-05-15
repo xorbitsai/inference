@@ -1229,15 +1229,18 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
-        if hasattr(self._model, "text_to_video"):
-            return await self._call_wrapper_json(
-                self._model.text_to_video,
-                prompt,
-                n,
-                *args,
-                **kwargs,
-            )
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "text_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.text_to_video,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video."
         )
@@ -1253,17 +1256,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
         kwargs["negative_prompt"] = negative_prompt
-        if hasattr(self._model, "image_to_video"):
-            return await self._call_wrapper_json(
-                self._model.image_to_video,
-                image,
-                prompt,
-                n,
-                *args,
-                **kwargs,
-            )
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "image_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.image_to_video,
+                    image,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video from image."
         )
