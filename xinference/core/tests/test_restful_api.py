@@ -1330,12 +1330,15 @@ def test_events(setup):
 
     # delete again
     url = f"{endpoint}/v1/models/test_qwen_15"
-    requests.delete(url)
+    response = requests.delete(url)
+    print(response.json())
+    response.raise_for_status()
 
     response = requests.get(events_url)
     response_data = response.json()
     # [{'event_type': 'INFO', 'event_ts': 1705896215, 'event_content': 'Launch model'},
     #  {'event_type': 'INFO', 'event_ts': 1705896215, 'event_content': 'Terminate model'}]
+    # If the model termination is too slow, the server will shutdown anyway.
     assert len(response_data) == 2
     assert "Terminate" in response_data[1]["event_content"]
 
