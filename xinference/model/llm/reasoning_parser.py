@@ -269,7 +269,7 @@ class ReasoningParser:
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_chat_completion_chunk(
-                            chunk, self.reasoning_start_tag + "\n"
+                            chunk, f"{self.reasoning_start_tag}\n"
                         )
                 else:
                     # For standard completion chunks
@@ -278,7 +278,7 @@ class ReasoningParser:
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_completion_chunk(
-                            chunk, self.reasoning_start_tag + "\n"
+                            chunk, f"{self.reasoning_start_tag}\n"
                         )
                 # Yield the original first chunk
                 yield chunk
