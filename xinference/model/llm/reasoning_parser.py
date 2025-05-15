@@ -1,7 +1,13 @@
 import re
-from typing import Optional, Tuple, Union
+from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Tuple, Union
 
-from ...types import ChatCompletionChunkDelta, CompletionChoice
+from ...types import (
+    ChatCompletionChunk,
+    ChatCompletionChunkDelta,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
+)
 
 
 class ReasoningParser:
@@ -10,8 +16,8 @@ class ReasoningParser:
     def __init__(
         self,
         reasoning_content: bool = False,
-        reasoning_start_tag: str = "<think>",
-        reasoning_end_tag: str = "</think>",
+        reasoning_start_tag: str = "",
+        reasoning_end_tag: str = "",
     ):
         self.reasoning_content = reasoning_content
         self.reasoning_start_tag = reasoning_start_tag
@@ -150,7 +156,179 @@ class ReasoningParser:
                 return reasoning_content, ""
             return reasoning_content, final_output
 
-    def extract_content(self, model_output: Union[str, CompletionChoice]) -> str:
+    def check_content_parser(self) -> bool:
+        """Check if the parser should extract reasoning content.
+
+        Returns:
+            bool: True if reasoning content should be extracted, False otherwise
+        """
+        return self.reasoning_content
+
+    def _create_chat_completion_chunk(
+        self, chunk: Dict[str, Any], content: str
+    ) -> ChatCompletionChunk:
+        """Helper method to create a ChatCompletionChunk with specified content.
+
+        Args:
+            chunk: The original chunk to copy metadata from
+            content: The content to include in the chunk
+
+        Returns:
+            ChatCompletionChunk: A new chat completion chunk
+        """
+        return ChatCompletionChunk(
+            id="chat" + chunk["id"],
+            model=chunk["model"],
+            created=chunk["created"],
+            object="chat.completion.chunk",
+            choices=[
+                {
+                    "index": 0,
+                    "delta": {
+                        "content": content,
+                    },
+                    "finish_reason": None,
+                }
+            ],
+        )
+
+    def _create_completion_chunk(
+        self, chunk: Dict[str, Any], text: str
+    ) -> CompletionChunk:
+        """Helper method to create a CompletionChunk with specified text.
+
+        Args:
+            chunk: The original chunk to copy metadata from
+            text: The text to include in the chunk
+
+        Returns:
+            CompletionChunk: A new completion chunk
+        """
+        return CompletionChunk(
+            id=chunk["id"],
+            model=chunk["model"],
+            created=chunk["created"],
+            object="completion.chunk",
+            choices=[
+                {
+                    "index": 0,
+                    "text": text,
+                    "finish_reason": None,
+                }
+            ],
+        )
+
+    async def prepare_reasoning_content_streaming(
+        self, chunks: AsyncGenerator[CompletionChunk, None]
+    ) -> AsyncGenerator[CompletionChunk, None]:
+        """Process the chunks from model output, check if the first chunk contains reasoning_start_tag,
+        if not, add a chunk with the tag at the beginning.
+
+        Args:
+            chunks (AsyncGenerator[CompletionChunk, None]): Chunks from model output
+
+        Yields:
+            AsyncGenerator[CompletionChunk, None]: Processed chunks
+        """
+
+        # If reasoning_start_tag is not set, yield chunks as is
+        if not self.reasoning_start_tag:
+            async for chunk in chunks:
+                yield chunk
+            return
+
+        # Flag to identify the first chunk
+        is_first_chunk = True
+
+        async for chunk in chunks:
+            if is_first_chunk:
+                # Reset the flag after processing the first chunk
+                is_first_chunk = False
+
+                if (
+                    chunk.get("object") == "chat.completion.chunk"
+                    and chunk.get("choices")
+                    and "delta" in chunk.get("choices")[0]
+                ):
+                    # For chat completion chunks with delta format
+                    text = chunk.get("choices")[0].get("delta").get("content")
+                    # If the first chunk doesn't contain the reasoning_start_tag
+                    if self.reasoning_start_tag not in text:
+                        # Create and yield chunks with reasoning_start_tag and newline
+                        yield self._create_chat_completion_chunk(
+                            chunk, self.reasoning_start_tag + "\n"
+                        )
+                else:
+                    # For standard completion chunks
+                    text = chunk.get("choices")[0].get("text")
+                    # If the first chunk doesn't contain the reasoning_start_tag
+                    if self.reasoning_start_tag not in text:
+                        # Create and yield chunks with reasoning_start_tag and newline
+                        yield self._create_completion_chunk(
+                            chunk, self.reasoning_start_tag + "\n"
+                        )
+                # Yield the original first chunk
+                yield chunk
+            else:
+                # For non-first chunks, yield directly
+                yield chunk
+
+    def prepare_reasoning_content_sync(
+        self, chunks: Iterator[CompletionChunk]
+    ) -> Iterator[CompletionChunk]:
+        """Process the chunks from model output, check if the first chunk contains reasoning_start_tag,
+        if not, add a chunk with the tag at the beginning. This is a synchronous version of
+        prepare_reasoning_content_streaming.
+
+        Args:
+            chunks (Iterator[CompletionChunk]): Chunks from model output
+
+        Returns:
+            Iterator[CompletionChunk]: Processed chunks
+        """
+        # If reasoning_start_tag is not set, return chunks as is
+        if not self.reasoning_start_tag:
+            for chunk in chunks:
+                yield chunk
+            return
+
+        # Flag to identify the first chunk
+        is_first_chunk = True
+
+        for chunk in chunks:
+            if is_first_chunk:
+                # Reset the flag after processing the first chunk
+                is_first_chunk = False
+
+                if (
+                    chunk.get("object") == "chat.completion.chunk"
+                    and chunk.get("choices")
+                    and "delta" in chunk.get("choices")[0]
+                ):
+                    # For chat completion chunks with delta format
+                    text = chunk.get("choices")[0].get("delta").get("content")
+                    # If the first chunk doesn't contain the reasoning_start_tag
+                    if self.reasoning_start_tag not in text:
+                        # Create and yield chunks with reasoning_start_tag and newline
+                        yield self._create_chat_completion_chunk(
+                            chunk, self.reasoning_start_tag + "\n"
+                        )
+                else:
+                    # For standard completion chunks
+                    text = chunk.get("choices")[0].get("text")
+                    # If the first chunk doesn't contain the reasoning_start_tag
+                    if self.reasoning_start_tag not in text:
+                        # Create and yield chunks with reasoning_start_tag and newline
+                        yield self._create_completion_chunk(
+                            chunk, self.reasoning_start_tag + "\n"
+                        )
+                # Yield the original first chunk
+                yield chunk
+            else:
+                # For non-first chunks, yield directly
+                yield chunk
+
+    def prepare_reasoning_content(self, completion: Completion) -> Completion:
         """Ensures that the model output string starts with the reasoning_start_tag.
 
         If the model_output is not a string (e.g., CompletionChoice), it extracts
@@ -158,26 +336,58 @@ class ReasoningParser:
         it prepends the tag to the text.
 
         Args:
-            model_output (Union[str, CompletionChoice]): The model output, can be a raw string
-                or a CompletionChoice object from which text needs to be extracted.
+            completion (Completion): The completion object containing model output,
+                which can be either a chat completion or a standard completion.
 
         Returns:
-            str: The model output string, guaranteed to start with reasoning_start_tag
-                 if it was initially missing.
+            Completion: The modified completion object with reasoning_start_tag
+                added to the content if it was initially missing.
         """
-        text_to_process = model_output
-        # If model_output is a CompletionChoice object, extract the actual text.
-        if not isinstance(text_to_process, str):
-            text_to_process = text_to_process["text"]
+        if not self.reasoning_start_tag:
+            return completion
 
-        # If the reasoning_start_tag (e.g., "<think>") is not in the text,
-        # prepend it to the beginning of the text.
-        if self.reasoning_start_tag not in text_to_process:
-            text_to_process = f"{self.reasoning_start_tag}{text_to_process}"
-            return text_to_process
+        if completion.get("object") == "chat.completion" and completion.get("choices"):
+            text = completion["choices"][0]["message"]["content"]
+            if self.reasoning_start_tag not in text:
+                text = f"{self.reasoning_start_tag}\n{text}"
+            completion["choices"][0]["message"]["content"] = text
+            return completion
 
-        # If the tag is already present, return the text as is.
-        return text_to_process
+        text = completion["choices"][0]["text"]
+        if self.reasoning_start_tag not in text:
+            text = f"{self.reasoning_start_tag}\n{text}"
+        completion["choices"][0]["text"] = text
+        return completion
 
-    def check_content_parser(self):
-        return self.reasoning_content
+    def prepare_first_reasoning_content_chunk(
+        self,
+        chunk: CompletionChunk,
+    ) -> List[ChatCompletionChunk]:
+        """Prepares the first chunk of a completion by adding reasoning_start_tag if needed.
+
+        This function checks if the first chunk contains the reasoning_start_tag. If not,
+        it creates two new chunks containing the reasoning_start_tag and a newline character
+        that will be inserted before the original chunk.
+
+        Args:
+            chunk (CompletionChunk): The first chunk of a completion to check and possibly modify
+
+        Returns:
+            List[ChatCompletionChunk]: A list of new chunks to insert before the original chunk,
+                or an empty list if no modification is needed
+        """
+        if not self.reasoning_start_tag:
+            return []
+
+        chunks = []
+        text = chunk.get("choices")[0].get("text")
+
+        if self.reasoning_start_tag not in text:
+            # Create chunks with reasoning_start_tag and newline
+            chunks.append(
+                self._create_chat_completion_chunk(
+                    chunk, self.reasoning_start_tag + "\n"
+                )
+            )
+
+        return chunks

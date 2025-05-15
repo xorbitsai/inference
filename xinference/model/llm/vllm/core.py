@@ -1054,6 +1054,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
         previous_texts = [""]
+        chunks = self.reasoning_parser.prepare_reasoning_content(chunks)
         async for chunk in chunks:
             if i == 0:
                 yield self._get_first_chat_completion_chunk(
