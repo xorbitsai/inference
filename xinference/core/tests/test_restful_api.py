@@ -1111,6 +1111,9 @@ async def test_openai(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1239,6 +1242,9 @@ def test_launch_model_async(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1278,6 +1284,9 @@ def test_cancel_launch_model(setup):
         "model_name": "qwen2.5-instruct",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
