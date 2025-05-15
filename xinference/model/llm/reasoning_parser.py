@@ -261,6 +261,7 @@ class ReasoningParser:
                     delta = choices[0].get("delta")
                     if delta is None:
                         continue
+                    assert isinstance(delta, dict)
                     text = delta.get("content")
                     if text is None:
                         continue
@@ -322,6 +323,7 @@ class ReasoningParser:
                     delta = choices[0].get("delta")
                     if delta is None:
                         continue
+                    assert isinstance(delta, dict)
                     text = delta.get("content")
                     if text is None:
                         continue
@@ -395,8 +397,10 @@ class ReasoningParser:
             return chunks
 
         choices = chunk.get("choices")
+        if not choices or not choices[0]:
+            return chunks
         text = choices[0].get("text")
-        if not choices or not choices[0] or not text:
+        if not text:
             return chunks
 
         if self.reasoning_start_tag not in text:
