@@ -220,7 +220,9 @@ class ReasoningParser:
 
     async def prepare_reasoning_content_streaming(
         self, chunks: AsyncGenerator[CompletionChunk, None]
-    ) -> AsyncGenerator[CompletionChunk, None]:
+    ) -> Union[
+        AsyncGenerator[CompletionChunk, None], AsyncGenerator[ChatCompletionChunk, None]
+    ]:
         """Process the chunks from model output, check if the first chunk contains reasoning_start_tag,
         if not, add a chunk with the tag at the beginning.
 
@@ -280,7 +282,7 @@ class ReasoningParser:
 
     def prepare_reasoning_content_sync(
         self, chunks: Iterator[CompletionChunk]
-    ) -> Iterator[CompletionChunk]:
+    ) -> Union[Iterator[CompletionChunk], Iterator[ChatCompletionChunk]]:
         """Process the chunks from model output, check if the first chunk contains reasoning_start_tag,
         if not, add a chunk with the tag at the beginning. This is a synchronous version of
         prepare_reasoning_content_streaming.
@@ -378,19 +380,20 @@ class ReasoningParser:
             List[ChatCompletionChunk]: A list of new chunks to insert before the original chunk,
                 or an empty list if no modification is needed
         """
+        chunks: List[ChatCompletionChunk] = []
         if not self.reasoning_start_tag:
-            return []
+            return chunks
 
-        chunks = []
-        choice = chunk.get("choices")[0]
-        assert choice is not None
-        text = choice.get("text")
+        choices = chunk.get("choices")
+        if not choices or not choices[0]:
+            return chunks
+        text = choices[0].get("text")
 
         if self.reasoning_start_tag not in text:
             # Create chunks with reasoning_start_tag and newline
             chunks.append(
                 self._create_chat_completion_chunk(
-                    chunk, self.reasoning_start_tag + "\n"
+                    chunk, f"{self.reasoning_start_tag}\n"
                 )
             )
 
