@@ -42,6 +42,7 @@ from ...types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
+    ChatCompletionChunkChoice,
     ChatCompletionChunkDelta,
     ChatCompletionMessage,
     Completion,
@@ -371,7 +372,7 @@ class ChatModelMixin:
                 delta["content"] = None
                 delta["reasoning_content"] = ""
             choices_list.append(
-                ChatCompletionChoice(
+                ChatCompletionChunkChoice(
                     index=i,
                     delta=delta,
                     finish_reason=None,
