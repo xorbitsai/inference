@@ -66,31 +66,8 @@ def _need_filter(spec: dict):
 
 
 def _install():
-    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-    _model_spec_modelscope_json = os.path.join(
-        os.path.dirname(__file__), "model_spec_modelscope.json"
-    )
-    BUILTIN_AUDIO_MODELS.update(
-        dict(
-            (spec["model_name"], AudioModelFamilyV1(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-            if not _need_filter(spec)
-        )
-    )
-    for model_name, model_spec in BUILTIN_AUDIO_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-
-    MODELSCOPE_AUDIO_MODELS.update(
-        dict(
-            (spec["model_name"], AudioModelFamilyV1(**spec))
-            for spec in json.load(
-                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
-            )
-            if not _need_filter(spec)
-        )
-    )
-    for model_name, model_spec in MODELSCOPE_AUDIO_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    load_model_family_from_json("model_spec.json", BUILTIN_AUDIO_MODELS)
+    load_model_family_from_json("model_spec_modelscope.json", MODELSCOPE_AUDIO_MODELS)
 
     # register model description after recording model revision
     for model_spec_info in [BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS]:
@@ -104,5 +81,17 @@ def _install():
     for ud_audio in get_user_defined_audios():
         AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
-    del _model_spec_json
-    del _model_spec_modelscope_json
+
+def load_model_family_from_json(json_filename, target_families):
+    json_path = os.path.join(os.path.dirname(__file__), json_filename)
+    target_families.update(
+        dict(
+            (spec["model_name"], AudioModelFamilyV1(**spec))
+            for spec in json.load(codecs.open(json_path, "r", encoding="utf-8"))
+            if not _need_filter(spec)
+        )
+    )
+    for model_name, model_spec in target_families.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+    del json_path
