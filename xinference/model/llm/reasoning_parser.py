@@ -274,6 +274,8 @@ class ReasoningParser:
                 else:
                     # For standard completion chunks
                     text = choices[0].get("text")
+                    if text is None:
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -336,6 +338,8 @@ class ReasoningParser:
                 else:
                     # For standard completion chunks
                     text = choices[0].get("text")
+                    if text is None:
+                        continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
