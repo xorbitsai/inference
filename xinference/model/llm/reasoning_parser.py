@@ -2,10 +2,8 @@ import re
 from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Tuple, Union
 
 from ...types import (
-    ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionChunkDelta,
-    Completion,
     CompletionChoice,
     CompletionChunk,
 )
@@ -250,14 +248,15 @@ class ReasoningParser:
             if is_first_chunk:
                 # Reset the flag after processing the first chunk
                 is_first_chunk = False
-
+                choices = chunk.get("choices")
+                if not choices or not choices[0]:
+                    continue
                 if (
                     chunk.get("object") == "chat.completion.chunk"
-                    and chunk.get("choices")
-                    and "delta" in chunk.get("choices")[0]
+                    and "delta" in choices[0]
                 ):
                     # For chat completion chunks with delta format
-                    text = chunk.get("choices")[0].get("delta").get("content")
+                    text = choices[0].get("delta").get("content")
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -266,7 +265,7 @@ class ReasoningParser:
                         )
                 else:
                     # For standard completion chunks
-                    text = chunk.get("choices")[0].get("text")
+                    text = choices[0].get("text")
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -305,14 +304,15 @@ class ReasoningParser:
             if is_first_chunk:
                 # Reset the flag after processing the first chunk
                 is_first_chunk = False
-
+                choices = chunk.get("choices")
+                if not choices or not choices[0]:
+                    continue
                 if (
                     chunk.get("object") == "chat.completion.chunk"
-                    and chunk.get("choices")
-                    and "delta" in chunk.get("choices")[0]
+                    and "delta" in choices[0]
                 ):
                     # For chat completion chunks with delta format
-                    text = chunk.get("choices")[0].get("delta").get("content")
+                    text = choices[0].get("delta").get("content")
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -321,7 +321,7 @@ class ReasoningParser:
                         )
                 else:
                     # For standard completion chunks
-                    text = chunk.get("choices")[0].get("text")
+                    text = choices[0].get("text")
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
                         # Create and yield chunks with reasoning_start_tag and newline
@@ -334,9 +334,7 @@ class ReasoningParser:
                 # For non-first chunks, yield directly
                 yield chunk
 
-    def prepare_reasoning_content(
-        self, completion: Union[Completion, ChatCompletion]
-    ) -> Union[Completion, ChatCompletion]:
+    def prepare_reasoning_content(self, completion):
         """Ensures that the model output string starts with the reasoning_start_tag.
 
         If the model_output is not a string (e.g., CompletionChoice), it extracts
@@ -344,12 +342,8 @@ class ReasoningParser:
         it prepends the tag to the text.
 
         Args:
-            completion (Completion): The completion object containing model output,
+            completion: The completion object containing model output,
                 which can be either a chat completion or a standard completion.
-
-        Returns:
-            Completion: The modified completion object with reasoning_start_tag
-                added to the content if it was initially missing.
         """
         if not self.reasoning_start_tag:
             return completion
@@ -388,7 +382,9 @@ class ReasoningParser:
             return []
 
         chunks = []
-        text = chunk.get("choices")[0].get("text")
+        choice = chunk.get("choices")[0]
+        assert choice is not None
+        text = choice.get("text")
 
         if self.reasoning_start_tag not in text:
             # Create chunks with reasoning_start_tag and newline
