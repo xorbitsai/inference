@@ -208,11 +208,12 @@ class ReasoningParser:
             id=chunk["id"],
             model=chunk["model"],
             created=chunk["created"],
-            object="completion.chunk",
+            object="text_completion",
             choices=[
                 {
                     "index": 0,
                     "text": text,
+                    "logprobs": None,
                     "finish_reason": None,
                 }
             ],
@@ -235,6 +236,10 @@ class ReasoningParser:
         if not self.reasoning_start_tag:
             async for chunk in chunks:
                 yield chunk
+            return
+
+        # If chunks is empty, return
+        if not chunks:
             return
 
         # Flag to identify the first chunk

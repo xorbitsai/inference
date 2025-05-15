@@ -377,13 +377,13 @@ class ChatModelMixin:
                     "finish_reason": None,
                 }
             )
-        chat_chunk = {
-            "id": "chat" + chunk["id"],
-            "model": chunk["model"],
-            "created": chunk["created"],
-            "object": "chat.completion.chunk",
-            "choices": choices_list,
-        }
+        chat_chunk = ChatCompletionChunk(
+            id="chat" + chunk["id"],
+            model=chunk["model"],
+            created=chunk["created"],
+            object="chat.completion.chunk",
+            choices=choices_list,
+        )
         chunks.append(chat_chunk)
         if reasoning_parser:
             chunks.extend(reasoning_parser.prepare_first_reasoning_content_chunk(chunk))
