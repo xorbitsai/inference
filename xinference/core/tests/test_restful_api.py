@@ -1314,6 +1314,9 @@ def test_events(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1331,14 +1334,12 @@ def test_events(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_qwen_15"
     response = requests.delete(url)
-    print(response.json())
     response.raise_for_status()
 
     response = requests.get(events_url)
     response_data = response.json()
     # [{'event_type': 'INFO', 'event_ts': 1705896215, 'event_content': 'Launch model'},
     #  {'event_type': 'INFO', 'event_ts': 1705896215, 'event_content': 'Terminate model'}]
-    # If the model termination is too slow, the server will shutdown anyway.
     assert len(response_data) == 2
     assert "Terminate" in response_data[1]["event_content"]
 
