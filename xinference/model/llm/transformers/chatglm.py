@@ -508,7 +508,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
         if "<bos_stream>" in req.completion:
             bos_pos = req.completion.index("<bos_stream>")
-            results.append(
+            results.extend(
                 self._get_first_chat_completion_chunk(req.completion[bos_pos + 1])
             )
 
