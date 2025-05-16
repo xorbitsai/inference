@@ -71,17 +71,22 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
-XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
-    "qwen-vl-chat",
-    "cogvlm2",
-    "glm-4v",
-    "MiniCPM-V-2.6",
-]
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
+
+
+def register_batching_multimodal_models(*model_names: str):
+    def decorator(cls):
+        for name in model_names:
+            if name not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS:
+                XINFERENCE_BATCHING_ALLOWED_VISION_MODELS.append(name)
+        return cls
+
+    return decorator
 
 
 def request_limit(fn):

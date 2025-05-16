@@ -16,12 +16,31 @@
 import importlib
 import os
 import pkgutil
+from typing import Dict
 
-# Get the path of the current package
+
+def import_submodules(package_path: str, package_name: str, globals_dict: Dict) -> None:
+    """
+    Recursively import all classes in submodules and subpackages
+    """
+    for _, module_name, is_pkg in pkgutil.iter_modules([package_path]):
+        full_module_name = f"{package_name}.{module_name}"
+
+        if module_name.startswith("_"):  # 跳过以下划线开头的模块
+            continue
+
+        module = importlib.import_module(full_module_name)
+        globals_dict[module_name] = module
+
+        # If it's a pkg, recursive processing
+        if is_pkg:
+            subpackage_path = os.path.join(package_path, module_name)
+            import_submodules(subpackage_path, full_module_name, globals_dict)
+
+
+# Get the path and name of the current package
 __path__ = [os.path.dirname(os.path.abspath(__file__))]
+__package__ = __name__
 
-# Automatically import all modules under the current package
-for _, module_name, is_pkg in pkgutil.iter_modules(__path__):
-    if not module_name.startswith("_"):  # Skip modules starting with underscore
-        module = importlib.import_module(f"{__name__}.{module_name}")
-        globals()[module_name] = module
+# Automatic import of all sub-modules and sub-packages
+import_submodules(__path__[0], __package__, globals())
