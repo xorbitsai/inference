@@ -50,6 +50,12 @@ def test_gguf_multimodal(setup):
     endpoint, _ = setup
     client = Client(endpoint)
 
+    r = client.query_engine_by_model_name("gemma-3-it")
+    assert (
+        "mmproj-google_gemma-3-4b-it-f16.gguf"
+        in r["llama.cpp"][0]["multimodal_projectors"]
+    )
+
     model_uid = client.launch_model(
         model_name="gemma-3-it",
         model_engine="llama.cpp",
