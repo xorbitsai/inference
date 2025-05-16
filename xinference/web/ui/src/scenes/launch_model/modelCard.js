@@ -258,7 +258,7 @@ const ModelCard = ({
     if (gpuAvailable > 0) {
       return ['auto', 'CPU'].concat(range(1, gpuAvailable))
     }
-    
+
     return ['auto', 'CPU']
   }
 
@@ -357,7 +357,8 @@ const ModelCard = ({
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
-    if (['image', 'video'].includes(modelType)) modelDataWithID_other.cpu_offload = cpuOffload
+    if (['image', 'video'].includes(modelType))
+      modelDataWithID_other.cpu_offload = cpuOffload
 
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
