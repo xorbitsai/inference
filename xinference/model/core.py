@@ -59,6 +59,7 @@ def create_model_instance(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
@@ -84,6 +85,7 @@ def create_model_instance(
             model_format,
             model_size_in_billions,
             quantization,
+            multimodal_projector,
             peft_model_config,
             download_hub,
             model_path,

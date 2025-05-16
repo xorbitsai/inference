@@ -56,6 +56,7 @@ def test_gguf_multimodal(setup):
         model_size_in_billions=4,
         model_format="ggufv2",
         quantization="IQ4_XS",
+        multimodal_projector="mmproj-google_gemma-3-4b-it-f16.gguf",
         n_ctx=512,
         n_parallel=1,
     )

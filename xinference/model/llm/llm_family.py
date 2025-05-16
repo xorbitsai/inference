@@ -314,6 +314,7 @@ def cache(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> str:
     legacy_cache_path = get_legacy_cache_path(
         llm_family.model_name,
@@ -329,11 +330,6 @@ def cache(
             logger.info(f"Caching from URI: {llm_spec.model_uri}")
             return cache_from_uri(llm_family, llm_spec)
         else:
-            # TODO(fyrestone): support multimodal_projector selection.
-            multimodal_projector: Optional[str] = None
-            multimodal_projectors = getattr(llm_spec, "multimodal_projectors", None)
-            if multimodal_projectors:
-                multimodal_projector = multimodal_projectors[0]
             if llm_spec.model_hub == "huggingface":
                 logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
                 return cache_from_huggingface(

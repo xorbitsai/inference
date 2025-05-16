@@ -105,7 +105,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
         self.prepare_parse_reasoning_content(reasoning_content)
 
-        mmproj = ""
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path
             model_path = self.model_path
@@ -132,10 +131,15 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 legacy_model_file_path = os.path.join(self.model_path, "model.bin")
                 if os.path.exists(legacy_model_file_path):
                     model_path = legacy_model_file_path
-            if self.model_spec.multimodal_projectors:
-                mmproj = os.path.join(
-                    self.model_path, self.model_spec.multimodal_projectors[0]
-                )
+
+        multimodal_projector = self._llamacpp_model_config.get(
+            "multimodal_projector", ""
+        )
+        mmproj = (
+            os.path.join(self.model_path, multimodal_projector)
+            if multimodal_projector
+            else ""
+        )
 
         try:
             params = CommonParams()
@@ -295,7 +299,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             def _to_iterator():
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
-                        raise Exception("Got error in chat stream: %s", r.msg)
+                        raise Exception(f"Got error in chat stream: {r.msg}")
                     # Get valid keys (O(1) lookup)
                     chunk_keys = ChatCompletionChunk.__annotations__
                     # The chunk may contain additional keys (e.g., system_fingerprint),
@@ -309,5 +313,5 @@ class XllamaCppModel(LLM, ChatModelMixin):
         else:
             r = q.get()
             if type(r) is _Error:
-                raise Exception("Got error in chat: %s", r.msg)
+                raise Exception(f"Got error in chat: {r.msg}")
             return self._to_chat_completion(r, self.reasoning_parser)
