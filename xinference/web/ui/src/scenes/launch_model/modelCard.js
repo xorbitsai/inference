@@ -255,11 +255,11 @@ const ModelCard = ({
   }, [customParametersArr])
 
   const getNGPURange = () => {
-    if (gpuAvailable === 0) {
-      // remain 'auto' for distributed situation
-      return ['auto', 'CPU']
+    if (gpuAvailable > 0) {
+      return ['auto', 'CPU'].concat(range(1, gpuAvailable))
     }
-    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+    
+    return ['auto', 'CPU']
   }
 
   const getNewNGPURange = () => {
