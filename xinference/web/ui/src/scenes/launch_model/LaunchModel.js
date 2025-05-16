@@ -18,7 +18,7 @@ import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
 const modelAbilityArr = ['generate', 'chat', 'vision', 'reasoning']
-const audioModelTypeArr = ['audio-to-text', 'text-to-audio', 'audio-to-audio']
+const audioModelTypeArr = ['audio2text', 'text2audio', 'audio2audio']
 
 const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
