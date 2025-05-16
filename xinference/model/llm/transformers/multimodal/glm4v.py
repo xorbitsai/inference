@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,31 +13,28 @@
 # limitations under the License.
 import logging
 import typing
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import torch
 
-from ....core.scheduler import InferenceRequest
-from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
-from ...utils import select_device
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import _decode_image, generate_chat_completion, generate_completion_chunk
-from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import cache_clean, get_max_src_len
+from .....core.model import register_batching_multimodal_models
+from .....core.scheduler import InferenceRequest
+from .....model.utils import select_device
+from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...utils import _decode_image
+from ..core import register_non_default_model
+from ..utils import get_max_src_len
+from .core import PytorchMultiModalModel
 
 logger = logging.getLogger(__name__)
 
 
-class Glm4VModel(PytorchChatModel):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._device = None
-        self._tokenizer = None
-        self._model = None
-
+@register_batching_multimodal_models("glm-4v")
+@register_transformer
+@register_non_default_model("glm-4v")
+class Glm4VModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
@@ -47,18 +44,22 @@ class Glm4VModel(PytorchChatModel):
             return True
         return False
 
-    def load(self):
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
+    def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
 
+    def load_processor(self):
+        from transformers import AutoTokenizer
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, trust_remote_code=True
+        )
+
+    def load_multimodal_model(self):
+        from transformers import AutoModelForCausalLM
+
         kwargs = {"device_map": self._device}
         kwargs = self.apply_bnb_quantization(kwargs)
-
-        if self._check_tensorizer_integrity():
-            self._model, self._tokenizer = self._load_tensorizer()
-            return
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
@@ -68,12 +69,6 @@ class Glm4VModel(PytorchChatModel):
             **kwargs,
         )
         self._model = model.eval()
-
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
-        )
-        self._tokenizer = tokenizer
-        self._save_tensorizer()
 
     @staticmethod
     def _get_processed_msgs(messages: List[Dict]) -> List[Dict]:
@@ -111,20 +106,12 @@ class Glm4VModel(PytorchChatModel):
                     res.append({"role": role, "content": text})
         return res
 
-    @cache_clean
-    def chat(
+    def build_inputs_from_messages(
         self,
         messages: List[Dict],
-        generate_config: Optional[PytorchGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        from transformers import TextIteratorStreamer
-
-        if not generate_config:
-            generate_config = {}
-
-        stream = generate_config.get("stream", False)
+        generate_config: Dict,
+    ):
         msgs = self._get_processed_msgs(messages)
-
         inputs = self._tokenizer.apply_chat_template(
             msgs,
             add_generation_prompt=True,
@@ -133,68 +120,45 @@ class Glm4VModel(PytorchChatModel):
             return_dict=True,
         )  # chat mode
         inputs = inputs.to(self._model.device)
+        return inputs
 
-        generate_kwargs = {
-            **inputs,
+    def build_generate_kwargs(
+        self,
+        generate_config: Dict,
+    ) -> Dict[str, Any]:
+        return {
             "eos_token_id": [151329, 151336, 151338],
             "do_sample": True,
             "max_length": generate_config.get("max_tokens", 2048),
             "temperature": generate_config.get("temperature", 0.7),
         }
-        stop_str = "<|endoftext|>"
 
-        if stream:
-            streamer = TextIteratorStreamer(
-                tokenizer=self._tokenizer,
-                timeout=60,
-                skip_prompt=True,
-                skip_special_tokens=True,
-            )
-            generate_kwargs = {
-                **generate_kwargs,
-                "streamer": streamer,
-            }
-            t = Thread(target=self._model.generate, kwargs=generate_kwargs)
-            t.start()
+    def get_stop_strs(self) -> List[str]:
+        return ["<|endoftext|>"]
 
-            it = self.chat_stream(streamer, stop_str)
-            return self._to_chat_completion_chunks(it)
-        else:
-            with torch.no_grad():
-                outputs = self._model.generate(**generate_kwargs)
-                outputs = outputs[:, inputs["input_ids"].shape[1] :]
-                response = self._tokenizer.decode(outputs[0])
-                if response.endswith(stop_str):
-                    response = response[: -len(stop_str)]
-            return generate_chat_completion(self.model_uid, response)
+    def build_streaming_iter(
+        self,
+        messages: List[Dict],
+        generate_config: Dict,
+    ) -> Tuple[Iterator, int]:
+        from transformers import TextIteratorStreamer
 
-    def chat_stream(self, streamer, stop_str) -> Iterator[CompletionChunk]:
-        completion_id = str(uuid.uuid1())
-        for new_text in streamer:
-            if not new_text.endswith(stop_str):
-                yield generate_completion_chunk(
-                    chunk_text=new_text,
-                    finish_reason=None,
-                    chunk_id=completion_id,
-                    model_uid=self.model_uid,
-                    prompt_tokens=-1,
-                    completion_tokens=-1,
-                    total_tokens=-1,
-                    has_choice=True,
-                    has_content=True,
-                )
-
-        yield generate_completion_chunk(
-            chunk_text=None,
-            finish_reason="stop",
-            chunk_id=completion_id,
-            model_uid=self.model_uid,
-            prompt_tokens=-1,
-            completion_tokens=-1,
-            total_tokens=-1,
-            has_choice=True,
-            has_content=False,
+        generate_kwargs = self.build_generate_kwargs(generate_config)
+        inputs = self.build_inputs_from_messages(messages, generate_config)
+        streamer = TextIteratorStreamer(
+            tokenizer=self._tokenizer,
+            timeout=60,
+            skip_prompt=True,
+            skip_special_tokens=True,
         )
+        kwargs = {
+            **inputs,
+            **generate_kwargs,
+            "streamer": streamer,
+        }
+        t = Thread(target=self._model.generate, kwargs=kwargs)
+        t.start()
+        return streamer, len(inputs.input_ids[0])
 
     def _get_full_prompt(self, messages, tools, generate_config: dict):
         msgs = self._get_processed_msgs(messages)
