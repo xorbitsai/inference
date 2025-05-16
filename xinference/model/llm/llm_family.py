@@ -650,7 +650,9 @@ def _generate_meta_file(
 
         from .core import LLMDescription
 
-        desc = LLMDescription(None, None, llm_family, llm_spec, quantization)
+        desc = LLMDescription(
+            None, None, llm_family, llm_spec, quantization, multimodal_projector
+        )
         json.dump(desc.to_dict(), f)
 
 
