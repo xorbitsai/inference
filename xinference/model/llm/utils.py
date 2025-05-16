@@ -165,7 +165,12 @@ class ChatModelMixin:
     @staticmethod
     def _get_chat_template_kwargs_from_generate_config(
         generate_config: Optional[Union[dict, Any]],
+        reasoning_parser: Optional[ReasoningParser] = None,
     ) -> Optional[dict]:
+        if reasoning_parser and not reasoning_parser.enable_thinking:
+            # hybrid model like qwen3,
+            # disabled thinking
+            return {"enable_thinking": False}
         if not generate_config:
             return None
         if "chat_template_kwargs" in generate_config:

@@ -17,6 +17,7 @@ class ReasoningParser:
         reasoning_content: bool = False,
         reasoning_start_tag: str = "",
         reasoning_end_tag: str = "",
+        enable_thinking: bool = True,
     ):
         self.reasoning_content = reasoning_content
         self.reasoning_start_tag = reasoning_start_tag
@@ -24,6 +25,9 @@ class ReasoningParser:
         self.reasoning_regex = re.compile(
             rf"{self.reasoning_start_tag}(.*?){self.reasoning_end_tag}", re.DOTALL
         )
+        # enable_thinking can be set to False only for hybrid model
+        # e.g. qwen3, which can support both thinking and non-thinking
+        self.enable_thinking = enable_thinking
 
     def extract_reasoning_content_streaming(
         self,

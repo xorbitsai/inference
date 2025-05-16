@@ -159,7 +159,10 @@ class SGLANGModel(LLM):
 
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":

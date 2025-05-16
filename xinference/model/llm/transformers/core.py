@@ -339,7 +339,10 @@ class PytorchModel(LLM):
             is_device_map_auto = True
 
         reasoning_content = self._pytorch_model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer(**kwargs)

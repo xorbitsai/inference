@@ -352,8 +352,10 @@ class VLLMModel(LLM):
         self._device_count = self._get_cuda_count()
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
-
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV1)

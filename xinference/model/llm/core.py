@@ -17,6 +17,7 @@ import inspect
 import logging
 import os
 import platform
+import warnings
 from abc import abstractmethod
 from collections import defaultdict
 from functools import lru_cache
@@ -134,12 +135,20 @@ class LLM(abc.ABC):
     ) -> bool:
         raise NotImplementedError
 
-    def prepare_parse_reasoning_content(self, reasoning_content):
+    def prepare_parse_reasoning_content(
+        self, reasoning_content: bool, enable_thinking: bool = True
+    ):
+        if "hybrid" not in self.model_family.model_ability and not enable_thinking:
+            enable_thinking = True
+            warnings.warn(
+                "enable_thinking cannot be disabled for non hybrid model, will be ignored"
+            )
         # Initialize reasoning parser if model has reasoning ability
-        self.reasoning_parser = ReasoningParser(
+        self.reasoning_parser = ReasoningParser(  # type: ignore
             reasoning_content,
-            self.model_family.reasoning_start_tag,
-            self.model_family.reasoning_end_tag,
+            self.model_family.reasoning_start_tag,  # type: ignore
+            self.model_family.reasoning_end_tag,  # type: ignore
+            enable_thinking=enable_thinking,
         )
 
 
