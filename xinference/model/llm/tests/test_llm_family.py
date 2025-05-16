@@ -771,8 +771,8 @@ def test_parse_chat_template():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
-        model_family="qwen-vl-chat",
-        chat_template="qwen-vl-chat",
+        model_family="qwen2-vl-instruct",
+        chat_template="qwen2-vl-instruct",
     )
     model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf-8"))
     assert "vision" in model_spec.model_ability

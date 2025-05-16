@@ -788,40 +788,6 @@
   {
     "version": 1,
     "context_length": 8192,
-    "model_name": "cogvlm2",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 20,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "AI-Research/cogvlm2-llama3-chinese-chat-19b",
-        "model_hub": "openmind_hub"
-      }
-    ],
-    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% else %}{{ '<|end_of_text|>' }}{% endif %}",
-    "stop_token_ids": [
-      128001,
-      128009
-    ],
-    "stop": [
-      "<|end_of_text|>",
-      "<|eot_id|>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
     "model_name": "telechat",
     "model_lang": [
       "en",
