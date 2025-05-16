@@ -753,7 +753,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         results = []
         for i, c in enumerate(req.completion):
             if c == "<bos_stream>":
-                results.append(
+                results.extend(
                     self._get_first_chat_completion_chunk(
                         req.completion[i + 1], self.reasoning_parser
                     )
