@@ -464,7 +464,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
                     full_context_kwargs = (
                         self._get_chat_template_kwargs_from_generate_config(
-                            r.generate_config
+                            r.generate_config, self.reasoning_parser
                         )
                         or {}
                     )
