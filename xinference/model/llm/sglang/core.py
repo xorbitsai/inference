@@ -575,7 +575,10 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
@@ -647,7 +650,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         )
 
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
         images, video_inputs = process_vision_info(messages)

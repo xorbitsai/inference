@@ -235,8 +235,9 @@ class ReasoningParser:
             AsyncGenerator[CompletionChunk, None]: Processed chunks
         """
 
-        # If reasoning_start_tag is not set, yield chunks as is
-        if not self.reasoning_start_tag:
+        # If reasoning_start_tag is not set, or disable thinking for hybrid model like qwen3,
+        # yield chunks as is
+        if not self.reasoning_start_tag or not self.enable_thinking:
             async for chunk in chunks:
                 yield chunk
             return
@@ -301,8 +302,9 @@ class ReasoningParser:
         Returns:
             Iterator[CompletionChunk]: Processed chunks
         """
-        # If reasoning_start_tag is not set, return chunks as is
-        if not self.reasoning_start_tag:
+        # If reasoning_start_tag is not set, or disable thinking for hybrid model like qwen3,
+        # yield chunks as is
+        if not self.reasoning_start_tag or not self.enable_thinking:
             for chunk in chunks:
                 yield chunk
             return
@@ -363,7 +365,7 @@ class ReasoningParser:
             completion: The completion object containing model output,
                 which can be either a chat completion or a standard completion.
         """
-        if not self.reasoning_start_tag:
+        if not self.reasoning_start_tag or not self.enable_thinking:
             return completion
 
         if completion.get("object") == "chat.completion" and completion.get("choices"):
@@ -397,7 +399,7 @@ class ReasoningParser:
                 or an empty list if no modification is needed
         """
         chunks: List[ChatCompletionChunk] = []
-        if not self.reasoning_start_tag:
+        if not self.reasoning_start_tag or not self.enable_thinking:
             return chunks
 
         choices = chunk.get("choices")

@@ -207,7 +207,7 @@ class CogAgentChatModel(PytorchChatModel):
             "return_dict": True,
         }
         full_context_kwargs.update(
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}  # type: ignore
+            self._get_chat_template_kwargs_from_generate_config(generate_config, self.reasoning_parser) or {}  # type: ignore
         )
         assert self.model_family.chat_template is not None
         inputs = self.get_full_context(

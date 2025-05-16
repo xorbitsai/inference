@@ -637,7 +637,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             from qwen_vl_utils import process_vision_info
 
             full_context_kwargs = (
-                self._get_chat_template_kwargs_from_generate_config(generate_config)  # type: ignore
+                self._get_chat_template_kwargs_from_generate_config(generate_config, self.reasoning_parser)  # type: ignore
                 or {}
             )
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:

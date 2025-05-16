@@ -705,7 +705,10 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         if (
             tools
