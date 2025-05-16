@@ -53,22 +53,7 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
             return True
         return False
 
-<<<<<<< HEAD:xinference/model/llm/transformers/qwen-omni.py
-    def load(self):
-        logger.debug(
-            "Try to load model, current python: %s, sys path: %s",
-            sys.executable,
-            sys.path,
-        )
-
-        from transformers import (
-            Qwen2_5OmniForConditionalGeneration,
-            Qwen2_5OmniProcessor,
-        )
-
-=======
     def decide_device(self):
->>>>>>> 9618739e (dev):xinference/model/llm/transformers/multimodal/qwen-omni.py
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
         self._device = device
