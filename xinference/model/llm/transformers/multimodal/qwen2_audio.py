@@ -69,7 +69,7 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
 
     def _transform_messages(
         self,
-        messages: List[dict],
+        messages: List[dict],  # type: ignore
     ):
         import librosa
 

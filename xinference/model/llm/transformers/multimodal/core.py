@@ -113,8 +113,8 @@ class PytorchMultiModalModel(PytorchChatModel):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> ChatCompletion:
-        generate_config = generate_config if generate_config else {}
-        streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)
+        generate_config = generate_config if generate_config else {}  # type: ignore
+        streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)  # type: ignore
         completion_tokens, total_tokens = 0, 0
         res = ""
         for i, new_text in enumerate(streamer):
@@ -137,8 +137,8 @@ class PytorchMultiModalModel(PytorchChatModel):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Iterator[CompletionChunk]:
-        generate_config = generate_config if generate_config else {}
-        streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)
+        generate_config = generate_config if generate_config else {}  # type: ignore
+        streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)  # type: ignore
         stream_options = generate_config.pop("stream_options", None)
         include_usage = (
             stream_options["include_usage"]
