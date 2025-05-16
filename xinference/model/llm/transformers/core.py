@@ -49,32 +49,8 @@ from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
-NON_DEFAULT_MODEL_LIST: List[str] = [
-    "opt",
-    "glm4-chat",
-    "glm4-chat-1m",
-    "qwen-vl-chat",
-    "OmniLMM",
-    "deepseek-vl-chat",
-    "cogvlm2",
-    "cogvlm2-video-llama3-chat",
-    "MiniCPM-Llama3-V-2_5",
-    "MiniCPM-V-2.6",
-    "glm-4v",
-    "qwen2-audio",
-    "qwen2-audio-instruct",
-    "deepseek-v2",
-    "deepseek-v2-chat",
-    "deepseek-v2.5",
-    "deepseek-v2-chat-0628",
-    "glm-edge-v",
-    "QvQ-72B-Preview",
-    "cogagent",
-    "gemma-3-1b-it",
-    "gemma-3-it",
-    "Ovis2",
-    "deepseek-vl2",
-]
+# !!!!! Do not add model_name to this list, use `register_non_default_model` below instead!
+NON_DEFAULT_MODEL_LIST: List[str] = []
 
 
 # Define the decorator to support multiple names registration
