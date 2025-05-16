@@ -26,6 +26,7 @@ import PIL.Image
 from gradio import Markdown
 
 from ..client.restful.restful_client import (
+    RESTfulAudioModelHandle,
     RESTfulImageModelHandle,
     RESTfulVideoModelHandle,
 )
@@ -576,11 +577,141 @@ class MediaInterface:
 
         return image2video_ui
 
+    def audio2text_interface(self) -> "gr.Blocks":
+        def transcribe_audio(
+            audio_path: str,
+            language: Optional[str],
+            prompt: Optional[str],
+            temperature: float,
+        ) -> str:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulAudioModelHandle)
+
+            with open(audio_path, "rb") as f:
+                audio_data = f.read()
+
+            response = model.transcriptions(
+                audio=audio_data,
+                language=language or None,
+                prompt=prompt or None,
+                temperature=temperature,
+                response_format="json",
+            )
+
+            return response.get("text", "No transcription result.")
+
+        with gr.Blocks() as audio2text_ui:
+            with gr.Row():
+                audio_input = gr.Audio(
+                    type="filepath",
+                    label="Upload or Record Audio",
+                    sources=["upload", "microphone"],  # ✅ support both
+                )
+            with gr.Row():
+                language = gr.Textbox(
+                    label="Language", placeholder="e.g. en or zh", value=""
+                )
+                prompt = gr.Textbox(
+                    label="Prompt (optional)",
+                    placeholder="Provide context or vocabulary",
+                )
+                temperature = gr.Slider(
+                    label="Temperature", minimum=0.0, maximum=1.0, value=0.0, step=0.1
+                )
+            transcribe_btn = gr.Button("Transcribe")
+            output_text = gr.Textbox(label="Transcription", lines=5)
+
+            transcribe_btn.click(
+                fn=transcribe_audio,
+                inputs=[audio_input, language, prompt, temperature],
+                outputs=output_text,
+            )
+
+        return audio2text_ui
+
+    def text2speech_interface(self) -> "gr.Blocks":
+        def tts_generate(
+            input_text: str,
+            voice: str,
+            speed: float,
+            prompt_speech_file,
+            prompt_text: Optional[str],
+        ) -> str:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert hasattr(model, "speech")
+
+            prompt_speech_bytes = None
+            if prompt_speech_file is not None:
+                with open(prompt_speech_file, "rb") as f:
+                    prompt_speech_bytes = f.read()
+
+            response = model.speech(
+                input=input_text,
+                voice=voice,
+                speed=speed,
+                response_format="mp3",
+                prompt_speech=prompt_speech_bytes,
+                prompt_text=prompt_text,
+            )
+
+            # Write to a temp .mp3 file and return its path
+            audio_path = f"/tmp/{uuid.uuid4()}.mp3"
+            with open(audio_path, "wb") as f:
+                f.write(response)
+
+            return audio_path
+
+        # Gradio UI
+        with gr.Blocks() as tts_ui:
+            with gr.Row():
+                with gr.Column():
+                    input_text = gr.Textbox(
+                        label="Text", placeholder="Enter text to synthesize"
+                    )
+                    voice = gr.Textbox(
+                        label="Voice", placeholder="Optional voice ID", value=""
+                    )
+                    speed = gr.Slider(
+                        label="Speed", minimum=0.5, maximum=2.0, value=1.0, step=0.1
+                    )
+
+                    prompt_speech = gr.Audio(
+                        label="Prompt Speech (for cloning)", type="filepath"
+                    )
+                    prompt_text = gr.Textbox(
+                        label="Prompt Text (for cloning)",
+                        placeholder="Text of the prompt speech",
+                    )
+
+                    generate = gr.Button("Generate")
+
+                with gr.Column():
+                    audio_output = gr.Audio(label="Generated Audio", type="filepath")
+
+            generate.click(
+                fn=tts_generate,
+                inputs=[input_text, voice, speed, prompt_speech, prompt_text],
+                outputs=audio_output,
+            )
+
+        return tts_ui
+
     def build_main_interface(self) -> "gr.Blocks":
         if self.model_type == "image":
             title = f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨"
-        else:
+        elif self.model_type == "video":
             title = f"🎨 Xinference Video Generation: {self.model_name} 🎨"
+        else:
+            assert self.model_type == "audio"
+            title = f"🎨 Xinference Audio Model: {self.model_name} 🎨"
         with gr.Blocks(
             title=title,
             css="""
@@ -618,5 +749,10 @@ class MediaInterface:
             if "image2video" in self.model_ability:
                 with gr.Tab("Image to Video"):
                     self.image2video_interface()
-
+            if "audio2text" in self.model_ability:
+                with gr.Tab("Audio to Text"):
+                    self.audio2text_interface()
+            if "text2audio" in self.model_ability:
+                with gr.Tab("Text to Audio"):
+                    self.text2speech_interface()
         return app

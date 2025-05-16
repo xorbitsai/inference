@@ -519,8 +519,10 @@ const RunningModels = () => {
         let pathType
         if (row.model_type === 'video') {
           pathType = 'videos'
+        } else if (row.model_type === 'audio') {
+          pathType = 'audios'
         } else {
-          pathType = 'images' // default images
+          pathType = 'images' // default
         }
         const gradioUrl = `${endPoint}/v1/ui/${pathType}/` + url
 
@@ -664,7 +666,7 @@ const RunningModels = () => {
       },
     },
   ]
-  const audioModelColumns = embeddingModelColumns
+  const audioModelColumns = imageModelColumns
   const videoModelColumns = imageModelColumns
   const rerankModelColumns = embeddingModelColumns
   const flexibleModelColumns = embeddingModelColumns

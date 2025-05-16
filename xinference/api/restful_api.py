@@ -208,7 +208,7 @@ class BuildGradioMediaInterfaceRequest(BaseModel):
     model_family: str
     model_id: str
     controlnet: Union[None, List[Dict[str, Union[str, dict, None]]]]
-    model_revision: str
+    model_revision: Optional[str]
     model_ability: List[str]
 
 
@@ -353,6 +353,16 @@ class RESTfulAPI(CancelMixin):
         )
         self._router.add_api_route(
             "/v1/ui/images/{model_uid}",
+            self.build_gradio_media_interface,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/ui/audios/{model_uid}",
             self.build_gradio_media_interface,
             methods=["POST"],
             dependencies=(
@@ -1214,7 +1224,7 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
         assert self._app is not None
-        assert body.model_type in ("image", "video")
+        assert body.model_type in ("image", "video", "audio")
 
         # asyncio.Lock() behaves differently in 3.9 than 3.10+
         # A event loop is required in 3.9 but not 3.10+
