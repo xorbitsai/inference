@@ -21,6 +21,7 @@ export const llmAllDataKey = [
   'cpu_offload',
   'peft_model_config',
   'quantization_config',
+  'enable_thinking',
 ]
 
 export const additionalParameterTipList = {

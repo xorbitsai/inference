@@ -69,6 +69,7 @@
     "modelPath.optional": "(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path.",
     "GGUFQuantization.optional": "(Optional) GGUF quantization format, quantizing the Transformer part.",
     "GGUFModelPath.optional": "(Optional) GGUF model path, should be a file ending with .gguf.",
+    "enableThinking": "Enable Thinking",
     "parsingReasoningContent": "Parsing Reasoning Content",
     "CPUOffload": "CPU Offload",
     "CPUOffload.tip": "Unload the model to the CPU. Recommend to enable this when resources are limited or when using the GGUF option.",
