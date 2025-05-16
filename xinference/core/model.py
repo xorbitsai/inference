@@ -71,6 +71,7 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
+# !!!!! DO NOT add model_name to this list, using `register_batching_multimodal_models` below instead.
 XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
