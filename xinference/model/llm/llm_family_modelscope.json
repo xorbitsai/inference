@@ -7995,6 +7995,16 @@
         "model_hub": "modelscope"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int8",
+          "Int4"
+        ],
+        "model_id": "JunHowie/Skywork-OR1-32B-GPTQ-{quantization}",
+        "model_hub": "modelscope"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
