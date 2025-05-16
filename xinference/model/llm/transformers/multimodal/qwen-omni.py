@@ -90,7 +90,7 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
 
     def _transform_messages(
         self,
-        messages: List[dict],
+        messages: List[dict],  # type: ignore
     ):
         messages = super()._transform_messages(messages)
         if messages[0]["role"] != "system":
@@ -177,9 +177,9 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
         """
         import soundfile as sf
 
-        generate_config = generate_config if generate_config else {}
-        config = self.build_generate_kwargs(generate_config)
-        inputs = self.build_inputs_from_messages(messages, generate_config)
+        generate_config = generate_config if generate_config else {}  # type: ignore
+        config = self.build_generate_kwargs(generate_config)  # type: ignore
+        inputs = self.build_inputs_from_messages(messages, generate_config)  # type: ignore
         use_audio_in_video = generate_config.get("use_audio_in_video", True)
         gen_kwargs = dict(**inputs, **config, use_audio_in_video=use_audio_in_video)
         generated_ids, audio = self._model.generate(**gen_kwargs)
