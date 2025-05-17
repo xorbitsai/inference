@@ -103,7 +103,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._llamacpp_model_config.pop("enable_thinking", True)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path

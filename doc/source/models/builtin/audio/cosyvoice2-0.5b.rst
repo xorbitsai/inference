@@ -12,7 +12,7 @@ CosyVoice2-0.5B
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** mrfakename/CosyVoice2-0.5B
+- **Model ID:** JunHowie/CosyVoice2-0.5B
 
 Execute the following command to launch the model::
 

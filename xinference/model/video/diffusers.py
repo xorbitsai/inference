@@ -30,6 +30,7 @@ from ...device_utils import gpu_count, move_model_to_available_device
 from ...types import Video, VideoList
 
 if TYPE_CHECKING:
+    from ....core.progress_tracker import Progressor
     from .core import VideoModelFamilyV1
 
 
@@ -54,7 +55,7 @@ def export_to_video_imageio(
     return output_video_path
 
 
-class DiffUsersVideoModel:
+class DiffusersVideoModel:
     def __init__(
         self,
         model_uid: str,
@@ -203,6 +204,26 @@ class DiffUsersVideoModel:
         # Recommended if your computer has < 64 GB of RAM
         pipeline.enable_attention_slicing()
 
+    @staticmethod
+    def _process_progressor(kwargs: dict):
+        import diffusers
+
+        progressor: Progressor = kwargs.pop("progressor", None)
+
+        def report_status_callback(
+            pipe: diffusers.DiffusionPipeline,
+            step: int,
+            timestep: int,
+            callback_kwargs: dict,
+        ):
+            num_steps = pipe.num_timesteps
+            progressor.set_progress((step + 1) / num_steps)
+
+            return callback_kwargs
+
+        if progressor and progressor.request_id:
+            kwargs["callback_on_step_end"] = report_status_callback
+
     def text_to_video(
         self,
         prompt: str,
@@ -221,6 +242,7 @@ class DiffUsersVideoModel:
             "diffusers text_to_video args: %s",
             generate_kwargs,
         )
+        self._process_progressor(generate_kwargs)
         output = self._model(
             prompt=prompt,
             num_inference_steps=num_inference_steps,
@@ -254,6 +276,9 @@ class DiffUsersVideoModel:
         image = self._process_image(image, max_area)
 
         height, width = image.height, image.width
+        generate_kwargs.pop("width", None)
+        generate_kwargs.pop("height", None)
+        self._process_progressor(generate_kwargs)
         output = self._model(
             image=image, prompt=prompt, height=height, width=width, **generate_kwargs
         )

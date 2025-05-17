@@ -178,6 +178,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
     VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
     VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1")
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
 
@@ -351,8 +352,10 @@ class VLLMModel(LLM):
         self._device_count = self._get_cuda_count()
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
-
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV1)
@@ -1054,11 +1057,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
         previous_texts = [""]
+        if self.reasoning_parser:
+            chunks = self.reasoning_parser.prepare_reasoning_content(chunks)
         async for chunk in chunks:
             if i == 0:
-                yield self._get_first_chat_completion_chunk(
+                for first_chunk in self._get_first_chat_completion_chunk(
                     chunk, self.reasoning_parser
-                )
+                ):
+                    yield first_chunk
             # usage
             choices = chunk.get("choices")
             if not choices:
@@ -1087,7 +1093,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         if tools:
             if (
@@ -1207,7 +1216,9 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             from qwen_vl_utils import process_vision_info
 
             full_context_kwargs = (
-                self._get_chat_template_kwargs_from_generate_config(generate_config)
+                self._get_chat_template_kwargs_from_generate_config(
+                    generate_config, self.reasoning_parser
+                )
                 or {}
             )
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:

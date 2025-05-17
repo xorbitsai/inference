@@ -42,6 +42,7 @@ from ...types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
+    ChatCompletionChunkChoice,
     ChatCompletionChunkDelta,
     ChatCompletionMessage,
     Completion,
@@ -164,7 +165,12 @@ class ChatModelMixin:
     @staticmethod
     def _get_chat_template_kwargs_from_generate_config(
         generate_config: Optional[Union[dict, Any]],
+        reasoning_parser: Optional[ReasoningParser] = None,
     ) -> Optional[dict]:
+        if reasoning_parser and not reasoning_parser.enable_thinking:
+            # hybrid model like qwen3,
+            # disabled thinking
+            return {"enable_thinking": False}
         if not generate_config:
             return None
         if "chat_template_kwargs" in generate_config:
@@ -289,7 +295,7 @@ class ChatModelMixin:
             and "delta" in choices[0]
         ):
             if choices[0]["finish_reason"] is None:
-                if reasoning_parser is not None:
+                if reasoning_parser and reasoning_parser.check_content_parser():
                     # process parsing reasoning content
                     assert previous_texts is not None
                     delta = choices[0]["delta"]  # type: ignore
@@ -306,7 +312,7 @@ class ChatModelMixin:
                 delta = choices[0]["delta"]  # type: ignore
                 if "content" not in delta:
                     delta["content"] = ""  # type: ignore
-                if reasoning_parser is not None:
+                if reasoning_parser and reasoning_parser.check_content_parser():
                     delta["reasoning_content"] = None  # type: ignore
             # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
@@ -315,7 +321,7 @@ class ChatModelMixin:
         for i, choice in enumerate(choices):  # type: ignore
             delta = ChatCompletionChunkDelta()
             if "text" in choice and choice["finish_reason"] is None:
-                if reasoning_parser is None:
+                if not reasoning_parser or not reasoning_parser.check_content_parser():
                     delta["content"] = choice["text"]
                 else:
                     assert previous_texts is not None
@@ -328,7 +334,7 @@ class ChatModelMixin:
                     previous_texts[-1] = current_text
             elif "text" in choice and choice["finish_reason"] is not None:
                 delta["content"] = choice["text"]
-                if reasoning_parser is not None:
+                if reasoning_parser and reasoning_parser.check_content_parser():
                     delta["reasoning_content"] = None
             elif "tool_calls" in choice:
                 delta["tool_calls"] = choice["tool_calls"]
@@ -342,7 +348,9 @@ class ChatModelMixin:
         assert choices is not None
         usage = (
             chunk["usage"]
-            if choices[0]["finish_reason"] is not None and reasoning_parser is not None
+            if choices[0]["finish_reason"] is not None
+            and reasoning_parser
+            and reasoning_parser.check_content_parser()
             else None
         )
         chat_chunk = {
@@ -360,28 +368,32 @@ class ChatModelMixin:
         cls,
         chunk: CompletionChunk,
         reasoning_parser: Optional[ReasoningParser] = None,
-    ) -> ChatCompletionChunk:
-        choices_list = []
+    ) -> List[ChatCompletionChunk]:
+        choices_list: List[ChatCompletionChunkChoice] = []
+        chunks: List[ChatCompletionChunk] = []
         for i, choice in enumerate(chunk["choices"]):
             delta = ChatCompletionChunkDelta(role="assistant", content="")
-            if reasoning_parser is not None:
+            if reasoning_parser and reasoning_parser.check_content_parser():
                 delta["content"] = None
                 delta["reasoning_content"] = ""
             choices_list.append(
-                {
-                    "index": i,
-                    "delta": delta,
-                    "finish_reason": None,
-                }
+                ChatCompletionChunkChoice(
+                    index=i,
+                    delta=delta,
+                    finish_reason=None,
+                )
             )
-        chat_chunk = {
-            "id": "chat" + chunk["id"],
-            "model": chunk["model"],
-            "created": chunk["created"],
-            "object": "chat.completion.chunk",
-            "choices": choices_list,
-        }
-        return cast(ChatCompletionChunk, chat_chunk)
+        chat_chunk = ChatCompletionChunk(
+            id="chat" + chunk["id"],
+            model=chunk["model"],
+            created=chunk["created"],
+            object="chat.completion.chunk",
+            choices=choices_list,
+        )
+        chunks.append(chat_chunk)
+        if reasoning_parser:
+            chunks.extend(reasoning_parser.prepare_first_reasoning_content_chunk(chunk))
+        return chunks
 
     @classmethod
     def _get_final_chat_completion_chunk(
@@ -406,6 +418,8 @@ class ChatModelMixin:
         reasoning_parse: Optional[ReasoningParser] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
+        if reasoning_parse:
+            chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
         for _, chunk in enumerate(chunks):
             # usage
             choices = chunk.get("choices")
@@ -453,6 +467,9 @@ class ChatModelMixin:
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         previous_texts = [""]
+        # Process chunks
+        if reasoning_parser:
+            chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
             choices = chunk.get("choices")
             if not choices:
@@ -468,19 +485,25 @@ class ChatModelMixin:
     def _to_chat_completion(
         completion: Completion, reasoning_parser: Optional[ReasoningParser] = None
     ) -> ChatCompletion:
+        # prepare reasoning content
+        if reasoning_parser:
+            completion = reasoning_parser.prepare_reasoning_content(completion)
+
         if completion.get("object") == "chat.completion" and completion.get("choices"):
             # Already a ChatCompletion
-            if reasoning_parser is not None:
-                for choice in completion["choices"]:
-                    message = choice["message"]  # type: ignore
-                    text = message["content"]
+            for choice in completion["choices"]:
+                message = choice["message"]  # type: ignore
+                text = message["content"]  # Original content from the message
+
+                if reasoning_parser and reasoning_parser.check_content_parser():
+                    # Parse into reasoning and content parts
                     (
-                        reasoning_content,
-                        content,
+                        reasoning_val,
+                        content_val,
                     ) = reasoning_parser.extract_reasoning_content(text)
-                    message["content"] = content
-                    if reasoning_content is not None:
-                        message["reasoning_content"] = reasoning_content
+                    message["content"] = content_val
+                    if reasoning_val is not None:
+                        message["reasoning_content"] = reasoning_val
             return cast(ChatCompletion, completion)
 
         choices = []
@@ -488,7 +511,7 @@ class ChatModelMixin:
             content = choice["text"]
             reasoning_content = None
 
-            if reasoning_parser is not None:
+            if reasoning_parser and reasoning_parser.check_content_parser():
                 reasoning_content, content = reasoning_parser.extract_reasoning_content(  # type: ignore
                     choice
                 )
@@ -725,9 +748,11 @@ class ChatModelMixin:
         c,
         reasoning_parser: Optional[ReasoningParser] = None,
     ):
+        if reasoning_parser:
+            c = reasoning_parser.prepare_reasoning_content(c)
         _id = str(uuid.uuid4())
         reasoning_content = None
-        if reasoning_parser is not None:
+        if reasoning_parser and reasoning_parser.check_content_parser():
             text = c["choices"][0]["text"]
             reasoning_content, content = reasoning_parser.extract_reasoning_content(
                 text
