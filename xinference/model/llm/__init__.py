@@ -73,7 +73,7 @@ def generate_engine_config_by_model_family(model_family):
         model_size_in_billions = spec.model_size_in_billions
         quantizations = spec.quantizations
         for quantization in quantizations:
-            # traverse all supported engines to match the name, format, size in billions and quatization of model
+            # traverse all supported engines to match the name, format, size in billions and quantization of model
             for engine in SUPPORTED_ENGINES:
                 if not check_format_with_engine(
                     model_format, engine
@@ -107,6 +107,10 @@ def generate_engine_config_by_model_family(model_family):
                                     "llm_class": cls,
                                 }
                             )
+                            if hasattr(spec, "multimodal_projectors"):
+                                engine_params[-1][
+                                    "multimodal_projectors"
+                                ] = spec.multimodal_projectors
                         engines[engine] = engine_params
                         break
     LLM_ENGINES[model_name] = engines

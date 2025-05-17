@@ -3330,6 +3330,11 @@
           "Q8_0",
           "bf16"
         ],
+        "multimodal_projectors": [
+          "mmproj-google_gemma-3-4b-it-f16.gguf",
+          "mmproj-google_gemma-3-4b-it-f32.gguf",
+          "mmproj-google_gemma-3-4b-it-bf16.gguf"
+        ],
         "model_id": "bartowski/google_gemma-3-4b-it-GGUF",
         "model_file_name_template": "google_gemma-3-4b-it-{quantization}.gguf",
         "model_hub": "modelscope"
@@ -3353,6 +3358,11 @@
           "Q8_0",
           "bf16"
         ],
+        "multimodal_projectors": [
+          "mmproj-google_gemma-3-12b-it-f16.gguf",
+          "mmproj-google_gemma-3-12b-it-f32.gguf",
+          "mmproj-google_gemma-3-12b-it-bf16.gguf"
+        ],
         "model_id": "bartowski/google_gemma-3-12b-it-GGUF",
         "model_file_name_template": "google_gemma-3-12b-it-{quantization}.gguf",
         "model_hub": "modelscope"
@@ -3375,6 +3385,11 @@
           "Q6_K_L",
           "Q8_0",
           "bf16"
+        ],
+        "multimodal_projectors": [
+          "mmproj-google_gemma-3-27b-it-f16.gguf",
+          "mmproj-google_gemma-3-27b-it-f32.gguf",
+          "mmproj-google_gemma-3-27b-it-bf16.gguf"
         ],
         "model_id": "bartowski/google_gemma-3-27b-it-GGUF",
         "model_file_name_template": "google_gemma-3-27b-it-{quantization}.gguf",

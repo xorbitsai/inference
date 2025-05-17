@@ -135,6 +135,15 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 if os.path.exists(legacy_model_file_path):
                     model_path = legacy_model_file_path
 
+        multimodal_projector = self._llamacpp_model_config.get(
+            "multimodal_projector", ""
+        )
+        mmproj = (
+            os.path.join(self.model_path, multimodal_projector)
+            if multimodal_projector
+            else ""
+        )
+
         try:
             params = CommonParams()
             # Compatible with xllamacpp changes
@@ -142,6 +151,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 params.model = model_path
             except Exception:
                 params.model.path = model_path
+            params.mmproj.path = mmproj
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
             # This is the default value, could be overwritten by _llamacpp_model_config
@@ -207,11 +217,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     q.put(res)
                 except Exception as e:
                     logger.exception("handle_completions callback failed: %s", e)
+                    q.put(_Error(str(e)))
 
             try:
                 self._llm.handle_completions(prompt_json, _error_callback, _ok_callback)
             except Exception as ex:
                 logger.exception("handle_completions failed: %s", ex)
+                q.put(_Error(str(ex)))
             q.put(_Done)
 
         assert self._executor
@@ -271,6 +283,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     q.put(res)
                 except Exception as e:
                     logger.exception("handle_chat_completions callback failed: %s", e)
+                    q.put(_Error(str(e)))
 
             try:
                 self._llm.handle_chat_completions(
@@ -278,6 +291,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 )
             except Exception as ex:
                 logger.exception("handle_chat_completions failed: %s", ex)
+                q.put(_Error(str(ex)))
             q.put(_Done)
 
         assert self._executor
@@ -288,7 +302,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             def _to_iterator():
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
-                        raise Exception("Got error in chat stream: %s", r.msg)
+                        raise Exception(f"Got error in chat stream: {r.msg}")
                     # Get valid keys (O(1) lookup)
                     chunk_keys = ChatCompletionChunk.__annotations__
                     # The chunk may contain additional keys (e.g., system_fingerprint),
@@ -302,5 +316,5 @@ class XllamaCppModel(LLM, ChatModelMixin):
         else:
             r = q.get()
             if type(r) is _Error:
-                raise Exception("Got error in chat: %s", r.msg)
+                raise Exception(f"Got error in chat: {r.msg}")
             return self._to_chat_completion(r, self.reasoning_parser)

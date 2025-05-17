@@ -65,6 +65,7 @@ class LlamaCppLLMSpecV1(BaseModel):
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantizations: List[str]
+    multimodal_projectors: Optional[List[str]]
     model_id: Optional[str]
     model_file_name_template: str
     model_file_name_split_template: Optional[str]
@@ -321,6 +322,7 @@ def cache(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> str:
     legacy_cache_path = get_legacy_cache_path(
         llm_family.model_name,
@@ -338,16 +340,24 @@ def cache(
         else:
             if llm_spec.model_hub == "huggingface":
                 logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
-                return cache_from_huggingface(llm_family, llm_spec, quantization)
+                return cache_from_huggingface(
+                    llm_family, llm_spec, quantization, multimodal_projector
+                )
             elif llm_spec.model_hub == "modelscope":
                 logger.info(f"Caching from Modelscope: {llm_spec.model_id}")
-                return cache_from_modelscope(llm_family, llm_spec, quantization)
+                return cache_from_modelscope(
+                    llm_family, llm_spec, quantization, multimodal_projector
+                )
             elif llm_spec.model_hub == "openmind_hub":
                 logger.info(f"Caching from openmind_hub: {llm_spec.model_id}")
-                return cache_from_openmind_hub(llm_family, llm_spec, quantization)
+                return cache_from_openmind_hub(
+                    llm_family, llm_spec, quantization, multimodal_projector
+                )
             elif llm_spec.model_hub == "csghub":
                 logger.info(f"Caching from CSGHub: {llm_spec.model_id}")
-                return cache_from_csghub(llm_family, llm_spec, quantization)
+                return cache_from_csghub(
+                    llm_family, llm_spec, quantization, multimodal_projector
+                )
             else:
                 raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
 
@@ -543,13 +553,34 @@ def _get_meta_path(
     model_format: str,
     model_hub: str,
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ):
     if model_format == "pytorch":
         if model_hub == "huggingface":
             return os.path.join(cache_dir, "__valid_download")
         else:
             return os.path.join(cache_dir, f"__valid_download_{model_hub}")
-    elif model_format in ["ggufv2", "gptq", "awq", "fp8", "mlx"]:
+    elif model_format == "ggufv2":
+        assert quantization is not None
+        if multimodal_projector is None:
+            # Compatible with old cache file to avoid re-download model.
+            if model_hub == "huggingface":
+                return os.path.join(cache_dir, f"__valid_download_{quantization}")
+            else:
+                return os.path.join(
+                    cache_dir, f"__valid_download_{model_hub}_{quantization}"
+                )
+        else:
+            if model_hub == "huggingface":
+                return os.path.join(
+                    cache_dir, f"__valid_download_{quantization}_{multimodal_projector}"
+                )
+            else:
+                return os.path.join(
+                    cache_dir,
+                    f"__valid_download_{model_hub}_{quantization}_{multimodal_projector}",
+                )
+    elif model_format in ["gptq", "awq", "fp8", "mlx"]:
         assert quantization is not None
         if model_hub == "huggingface":
             return os.path.join(cache_dir, f"__valid_download_{quantization}")
@@ -567,6 +598,7 @@ def _skip_download(
     model_hub: str,
     model_revision: Optional[str],
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> bool:
     if model_format in ["pytorch", "mindspore"]:
         model_hub_to_meta_path = {
@@ -591,7 +623,14 @@ def _skip_download(
                     logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
-    elif model_format in ["ggufv2", "gptq", "awq", "fp8", "mlx"]:
+    elif model_format == "ggufv2":
+        assert quantization is not None
+        return os.path.exists(
+            _get_meta_path(
+                cache_dir, model_format, model_hub, quantization, multimodal_projector
+            )
+        )
+    elif model_format in ["gptq", "awq", "fp8", "mlx"]:
         assert quantization is not None
         return os.path.exists(
             _get_meta_path(cache_dir, model_format, model_hub, quantization)
@@ -605,6 +644,7 @@ def _generate_meta_file(
     llm_family: "LLMFamilyV1",
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ):
     assert not valid_model_revision(
         meta_path, llm_spec.model_revision
@@ -614,12 +654,16 @@ def _generate_meta_file(
 
         from .core import LLMDescription
 
-        desc = LLMDescription(None, None, llm_family, llm_spec, quantization)
+        desc = LLMDescription(
+            None, None, llm_family, llm_spec, quantization, multimodal_projector
+        )
         json.dump(desc.to_dict(), f)
 
 
 def _generate_model_file_names(
-    llm_spec: "LLMSpecV1", quantization: Optional[str] = None
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> Tuple[List[str], str, bool]:
     file_names = []
     final_file_name = llm_spec.model_file_name_template.format(
@@ -650,6 +694,8 @@ def _generate_model_file_names(
                 quantization=quantization, part=part
             )
             file_names.append(file_name)
+    if multimodal_projector:
+        file_names.append(multimodal_projector)
 
     return file_names, final_file_name, need_merge
 
@@ -671,6 +717,7 @@ def cache_from_csghub(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> str:
     """
     Cache model from CSGHub. Return the cache directory.
@@ -686,6 +733,7 @@ def cache_from_csghub(
         llm_spec.model_hub,
         llm_spec.model_revision,
         quantization,
+        multimodal_projector,
     ):
         return cache_dir
 
@@ -705,7 +753,7 @@ def cache_from_csghub(
 
     elif llm_spec.model_format in ["ggufv2"]:
         file_names, final_file_name, need_merge = _generate_model_file_names(
-            llm_spec, quantization
+            llm_spec, quantization, multimodal_projector
         )
 
         for filename in file_names:
@@ -729,9 +777,15 @@ def cache_from_csghub(
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
 
     meta_path = _get_meta_path(
-        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        quantization,
+        multimodal_projector,
     )
-    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+    _generate_meta_file(
+        meta_path, llm_family, llm_spec, quantization, multimodal_projector
+    )
 
     return cache_dir
 
@@ -740,6 +794,7 @@ def cache_from_modelscope(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> str:
     """
     Cache model from Modelscope. Return the cache directory.
@@ -754,6 +809,7 @@ def cache_from_modelscope(
         llm_spec.model_hub,
         llm_spec.model_revision,
         quantization,
+        multimodal_projector,
     ):
         return cache_dir
 
@@ -772,7 +828,7 @@ def cache_from_modelscope(
 
     elif llm_spec.model_format in ["ggufv2"]:
         file_names, final_file_name, need_merge = _generate_model_file_names(
-            llm_spec, quantization
+            llm_spec, quantization, multimodal_projector
         )
 
         for filename in file_names:
@@ -795,7 +851,11 @@ def cache_from_modelscope(
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
 
     meta_path = _get_meta_path(
-        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        quantization,
+        multimodal_projector,
     )
     _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
 
@@ -806,6 +866,7 @@ def cache_from_openmind_hub(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> str:
     """
     Cache model from openmind_hub. Return the cache directory.
@@ -819,6 +880,7 @@ def cache_from_openmind_hub(
         llm_spec.model_hub,
         llm_spec.model_revision,
         quantization,
+        multimodal_projector,
     ):
         return cache_dir
 
@@ -839,7 +901,11 @@ def cache_from_openmind_hub(
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
 
     meta_path = _get_meta_path(
-        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        quantization,
+        multimodal_projector,
     )
     _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
 
@@ -850,6 +916,7 @@ def cache_from_huggingface(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    multimodal_projector: Optional[str] = None,
 ) -> str:
     """
     Cache model from Hugging Face. Return the cache directory.
@@ -863,6 +930,7 @@ def cache_from_huggingface(
         llm_spec.model_hub,
         llm_spec.model_revision,
         quantization,
+        multimodal_projector,
     ):
         return cache_dir
 
@@ -889,7 +957,7 @@ def cache_from_huggingface(
     elif llm_spec.model_format in ["ggufv2"]:
         assert isinstance(llm_spec, LlamaCppLLMSpecV1)
         file_names, final_file_name, need_merge = _generate_model_file_names(
-            llm_spec, quantization
+            llm_spec, quantization, multimodal_projector
         )
 
         for file_name in file_names:
@@ -914,7 +982,11 @@ def cache_from_huggingface(
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
     meta_path = _get_meta_path(
-        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        quantization,
+        multimodal_projector,
     )
     _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
 
