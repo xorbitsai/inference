@@ -30,7 +30,8 @@ from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import is_model_cached, preprocess_sentence
+from ..utils import is_model_cached
+from .utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
 
