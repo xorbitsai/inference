@@ -30,7 +30,7 @@ from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import is_model_cached
+from ..utils import is_model_cached, preprocess_sentence
 
 logger = logging.getLogger(__name__)
 
@@ -265,12 +265,11 @@ class RerankModel:
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
-        from .utils import pre_instruction
 
-        instruction = pre_instruction(
-            kwargs.get("instruction", None), self._model_spec.model_name
+        pre_query = preprocess_sentence(
+            query, kwargs.get("instruction", None), self._model_spec.model_name
         )
-        sentence_combinations = [[f"{instruction}{query}", doc] for doc in documents]
+        sentence_combinations = [[pre_query, doc] for doc in documents]
         # reset n tokens
         self._model.model.n_tokens = 0
         if self._model_spec.type == "normal":

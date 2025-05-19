@@ -25,11 +25,11 @@ instruction_cfg = {
 }
 
 
-def pre_instruction(instruction: Any, model_name: str) -> str:
+def preprocess_sentence(query: str, instruction: Any, model_name: str) -> str:
     if instruction and isinstance(instruction, str):
-        return instruction
+        return f"{instruction}{query}"
     if instruction is None:
         for k, v in instruction_cfg.items():
             if k.lower() in model_name.lower():
-                return v
-    return ""
+                return f"{v}{query}"
+    return query
