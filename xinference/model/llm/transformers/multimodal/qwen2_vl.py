@@ -15,6 +15,8 @@ import importlib.util
 import logging
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
+from .....core.model import register_batching_multimodal_models
+from .....core.scheduler import InferenceRequest
 from .....device_utils import is_npu_available
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
@@ -25,6 +27,9 @@ from .core import PytorchMultiModalModel
 logger = logging.getLogger(__name__)
 
 
+@register_batching_multimodal_models(
+    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview"
+)
 @register_transformer
 @register_non_default_model(
     "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview"
@@ -173,3 +178,47 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         thread = Thread(target=model_generate)
         thread.start()
         return streamer, len(inputs.input_ids[0])
+
+    def prepare_sanitize_generate_config(self, req: InferenceRequest):
+        """
+        This file corresponds to multiple models,
+        so the corresponding configuration is read directly through the transformers interface.
+        """
+        from transformers import GenerationConfig
+
+        gen_config = GenerationConfig.from_pretrained(self.model_path).to_dict()
+        raw_config = req.inference_kwargs.get("raw_params", {})
+        gen_config.update(raw_config)
+        return gen_config
+
+    def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
+        return self._transform_messages(messages)
+
+    def build_prefill_kwargs(self, prompts: List, req_list: List[InferenceRequest]):
+        import torch
+        from qwen_vl_utils import process_vision_info
+
+        batch_text = self._processor.apply_chat_template(
+            prompts, tokenize=False, add_generation_prompt=True
+        )
+        image_inputs, video_inputs = process_vision_info(prompts)
+        inputs = self._processor(
+            text=batch_text,
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            padding_side="left",
+            return_tensors="pt",
+        )
+        inputs = inputs.to(self._model.device)
+        for r, _ids, attn_mask in zip(
+            req_list, inputs["input_ids"], inputs["attention_mask"]
+        ):
+            r.prompt_tokens = _ids.tolist()
+            real_len = torch.sum(attn_mask).item()
+            r.padding_len = attn_mask.numel() - real_len
+            r.extra_kwargs["attention_mask_seq_len"] = real_len
+        input_ids = inputs["input_ids"]
+        batch_size, seq_len = input_ids.shape
+        position_ids = self.build_prefill_position_ids(batch_size, seq_len, req_list)
+        return {**inputs, "position_ids": position_ids}
