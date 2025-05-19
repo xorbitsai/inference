@@ -666,11 +666,11 @@ class EmbeddingModel:
                             else:
                                 objs.append(item["image"])
                         else:
-                            logger.error("Please check the input data.")
+                            raise ValueError("Please check the input data.")
                     elif isinstance(item, str):
                         objs.append(item)
                     else:
-                        logger.error("Please check the input data.")
+                        raise ValueError("Please check the input data.")
 
             all_embeddings, all_token_nums = encode(
                 self._model,
