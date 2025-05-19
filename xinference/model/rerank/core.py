@@ -31,7 +31,6 @@ from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import is_model_cached
-from .utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +265,8 @@ class RerankModel:
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
+
+        from .utils import preprocess_sentence
 
         pre_query = preprocess_sentence(
             query, kwargs.get("instruction", None), self._model_spec.model_name
