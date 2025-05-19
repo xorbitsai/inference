@@ -85,7 +85,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       return false
 
     if (completeDeleteArr.includes(registration.model_name)) {
-      registration.model_specs.forEach((item) => {
+      registration.model_specs?.forEach((item) => {
         item.cache_status = Array.isArray(item) ? [false] : false
       })
     }
