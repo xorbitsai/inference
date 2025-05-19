@@ -82,6 +82,7 @@ class AudioModelDescription(ModelDescription):
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
+            "model_ability": self._model_spec.model_ability,
         }
 
     def to_version_info(self):

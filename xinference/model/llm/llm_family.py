@@ -142,7 +142,15 @@ class LLMFamilyV1(BaseModel):
     model_lang: List[str]
     model_ability: List[
         Literal[
-            "embed", "generate", "chat", "tools", "vision", "audio", "omni", "reasoning"
+            "embed",
+            "generate",
+            "chat",
+            "tools",
+            "vision",
+            "audio",
+            "omni",
+            "reasoning",
+            "hybrid",
         ]
     ]
     model_description: Optional[str]

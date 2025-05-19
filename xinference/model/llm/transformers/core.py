@@ -339,7 +339,10 @@ class PytorchModel(LLM):
             is_device_map_auto = True
 
         reasoning_content = self._pytorch_model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._pytorch_model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer(**kwargs)
@@ -702,7 +705,10 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         if (
             tools
@@ -753,7 +759,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         results = []
         for i, c in enumerate(req.completion):
             if c == "<bos_stream>":
-                results.append(
+                results.extend(
                     self._get_first_chat_completion_chunk(
                         req.completion[i + 1], self.reasoning_parser
                     )

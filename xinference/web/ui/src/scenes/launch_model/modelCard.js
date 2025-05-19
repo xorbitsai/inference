@@ -111,6 +111,7 @@ const ModelCard = ({
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
   const [modelPath, setModelPath] = useState('')
+  const [enableThinking, setEnableThinking] = useState(true)
   const [reasoningContent, setReasoningContent] = useState(false)
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
@@ -255,11 +256,11 @@ const ModelCard = ({
   }, [customParametersArr])
 
   const getNGPURange = () => {
-    if (gpuAvailable === 0) {
-      // remain 'auto' for distributed situation
-      return ['auto', 'CPU']
+    if (gpuAvailable > 0) {
+      return ['auto', 'CPU'].concat(range(1, gpuAvailable))
     }
-    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+
+    return ['auto', 'CPU']
   }
 
   const getNewNGPURange = () => {
@@ -352,12 +353,18 @@ const ModelCard = ({
     }
 
     if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
-    if (modelData.model_ability?.includes('reasoning'))
+    if (modelData.model_ability?.includes('hybrid'))
+      modelDataWithID_LLM.enable_thinking = enableThinking
+    if (
+      modelData.model_ability?.includes('reasoning') &&
+      (!modelData.model_ability?.includes('hybrid') || enableThinking)
+    )
       modelDataWithID_LLM.reasoning_content = reasoningContent
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
-    if (modelType === 'image') modelDataWithID_other.cpu_offload = cpuOffload
+    if (['image', 'video'].includes(modelType))
+      modelDataWithID_other.cpu_offload = cpuOffload
 
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
@@ -650,6 +657,7 @@ const ModelCard = ({
       gpu_idx,
       download_hub,
       model_path,
+      enable_thinking,
       reasoning_content,
       peft_model_config,
       quantization_config,
@@ -677,6 +685,7 @@ const ModelCard = ({
     setGPUIdx(gpu_idx?.join(',') || '')
     setDownloadHub(download_hub || '')
     setModelPath(model_path || '')
+    setEnableThinking(enable_thinking !== false)
     setReasoningContent(reasoning_content || false)
 
     let loraData = []
@@ -842,6 +851,7 @@ const ModelCard = ({
       setGPUIdx('')
       setDownloadHub('')
       setModelPath('')
+      setEnableThinking(true)
       setReasoningContent(false)
       setLoraArr([])
       setCustomArr([])
@@ -1614,22 +1624,39 @@ const ModelCard = ({
                     />
                   </FormControl>
                 </Grid>
-                {modelData.model_ability?.includes('reasoning') && (
+                {modelData.model_ability?.includes('hybrid') && (
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <div>
                         <FormControlLabel
-                          label={t('launchModel.parsingReasoningContent')}
+                          label={t('launchModel.enableThinking')}
                           labelPlacement="start"
-                          control={<Switch checked={reasoningContent} />}
+                          control={<Switch checked={enableThinking} />}
                           onChange={(e) => {
-                            setReasoningContent(e.target.checked)
+                            setEnableThinking(e.target.checked)
                           }}
                         />
                       </div>
                     </FormControl>
                   </Grid>
                 )}
+                {modelData.model_ability?.includes('reasoning') &&
+                  enableThinking && (
+                    <Grid item xs={12}>
+                      <FormControl variant="outlined" margin="normal" fullWidth>
+                        <div>
+                          <FormControlLabel
+                            label={t('launchModel.parsingReasoningContent')}
+                            labelPlacement="start"
+                            control={<Switch checked={reasoningContent} />}
+                            onChange={(e) => {
+                              setReasoningContent(e.target.checked)
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                    </Grid>
+                  )}
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
@@ -2008,7 +2035,7 @@ const ModelCard = ({
                     />
                   </FormControl>
                 )}
-                {modelType === 'image' && (
+                {['image', 'video'].includes(modelType) && (
                   <>
                     <div
                       style={{

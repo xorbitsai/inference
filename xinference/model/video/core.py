@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import valid_model_revision
-from .diffusers import DiffUsersVideoModel
+from .diffusers import DiffusersVideoModel
 
 logger = logging.getLogger(__name__)
 
@@ -169,13 +169,13 @@ def create_video_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[DiffUsersVideoModel, VideoModelDescription]:
+) -> Tuple[DiffusersVideoModel, VideoModelDescription]:
     model_spec = match_diffusion(model_name, download_hub)
     if not model_path:
         model_path = cache(model_spec)
     assert model_path is not None
 
-    model = DiffUsersVideoModel(
+    model = DiffusersVideoModel(
         model_uid,
         model_path,
         model_spec,

@@ -106,7 +106,24 @@
     "model_id": "iic/CosyVoice2-0.5B",
     "model_revision": "master",
     "model_ability": ["text2audio"],
-    "multilingual": true
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "tiktoken",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "inflect",
+        "conformer",
+        "diffusers==0.29.0",
+        "gdown",
+        "pyarrow",
+        "HyperPyYAML",
+        "onnxruntime>=1.16.0",
+        "pyworld>=0.3.4",
+        "numpy==1.26.4",
+        "#system_torch#"
+      ]
+    }
   },
   {
     "model_name": "F5-TTS",

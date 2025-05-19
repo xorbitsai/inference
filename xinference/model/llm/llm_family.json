@@ -9887,6 +9887,64 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "skywork-or1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "We release the final version of Skywork-OR1 (Open Reasoner 1) series of models, including",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Skywork/Skywork-OR1-32B"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 32,
+        "quantizations": [
+          "Int8",
+          "Int4"
+        ],
+        "model_id": "JunHowie/Skywork-OR1-32B-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Skywork/Skywork-OR1-7B"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int8",
+          "Int4"
+        ],
+        "model_id": "JunHowie/Skywork-OR1-7B-GPTQ-{quantization}"
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='') %}{%- for message in messages %}{%- if message['role'] == 'system' %}{% set ns.system_prompt = message['content'] %}{%- endif %}{%- endfor %}{{bos_token}}{{ns.system_prompt}}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is none %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls']%}{%- if not ns.is_first %}{{'<｜Assistant｜><｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{%- set ns.is_first = true -%}{%- else %}{{'\\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\\n' + '```json' + '\\n' + tool['function']['arguments'] + '\\n' + '```' + '<｜tool▁call▁end｜>'}}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- endfor %}{%- endif %}{%- if message['role'] == 'assistant' and message['content'] is not none %}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{% set content = message['content'] %}{% if '</think>' in content %}{% set content = content.split('</think>')[-1] %}{% endif %}{{'<｜Assistant｜>' + content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_tool %}{{'<｜Assistant｜>'}}{% endif %}",
+    "stop_token_ids": [
+      151643
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>"
+  },
+  {
+    "version": 1,
     "context_length": 40960,
     "model_name": "qwen3",
     "model_lang": [
@@ -9896,6 +9954,7 @@
     "model_ability": [
       "chat",
       "reasoning",
+      "hybrid",
       "tools"
     ],
     "model_description": "Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support",
