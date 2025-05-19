@@ -159,7 +159,10 @@ class SGLANGModel(LLM):
 
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -572,7 +575,10 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
@@ -644,7 +650,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         )
 
         full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
         prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
         images, video_inputs = process_vision_info(messages)

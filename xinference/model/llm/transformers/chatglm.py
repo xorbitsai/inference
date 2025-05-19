@@ -464,7 +464,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
                     full_context_kwargs = (
                         self._get_chat_template_kwargs_from_generate_config(
-                            r.generate_config
+                            r.generate_config, self.reasoning_parser
                         )
                         or {}
                     )
@@ -508,7 +508,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
         if "<bos_stream>" in req.completion:
             bos_pos = req.completion.index("<bos_stream>")
-            results.append(
+            results.extend(
                 self._get_first_chat_completion_chunk(req.completion[bos_pos + 1])
             )
 

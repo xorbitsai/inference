@@ -55,29 +55,8 @@ def register_custom_model():
 
 
 def _install():
-    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-    _model_spec_modelscope_json = os.path.join(
-        os.path.dirname(__file__), "model_spec_modelscope.json"
-    )
-    BUILTIN_IMAGE_MODELS.update(
-        dict(
-            (spec["model_name"], ImageModelFamilyV1(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-        )
-    )
-    for model_name, model_spec in BUILTIN_IMAGE_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-
-    MODELSCOPE_IMAGE_MODELS.update(
-        dict(
-            (spec["model_name"], ImageModelFamilyV1(**spec))
-            for spec in json.load(
-                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
-            )
-        )
-    )
-    for model_name, model_spec in MODELSCOPE_IMAGE_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    load_model_family_from_json("model_spec.json", BUILTIN_IMAGE_MODELS)
+    load_model_family_from_json("model_spec_modelscope.json", MODELSCOPE_IMAGE_MODELS)
 
     # register model description
     for model_name, model_spec in chain(
@@ -90,5 +69,16 @@ def _install():
     for ud_image in get_user_defined_images():
         IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))
 
-    del _model_spec_json
-    del _model_spec_modelscope_json
+
+def load_model_family_from_json(json_filename, target_families):
+    json_path = os.path.join(os.path.dirname(__file__), json_filename)
+    target_families.update(
+        dict(
+            (spec["model_name"], ImageModelFamilyV1(**spec))
+            for spec in json.load(codecs.open(json_path, "r", encoding="utf-8"))
+        )
+    )
+    for model_name, model_spec in target_families.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+    del json_path
