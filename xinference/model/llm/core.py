@@ -241,7 +241,6 @@ def create_llm_model_instance(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
-    multimodal_projector: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
@@ -274,6 +273,7 @@ def create_llm_model_instance(
     )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
+    multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
         model_path = cache(llm_family, llm_spec, quantization, multimodal_projector)
 
@@ -298,7 +298,6 @@ def create_llm_model_instance(
                 model_uid, llm_family, llm_spec, quantization, model_path, kwargs
             )
     else:
-        kwargs["multimodal_projector"] = multimodal_projector
         model = llm_cls(
             model_uid, llm_family, llm_spec, quantization, model_path, kwargs
         )

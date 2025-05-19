@@ -997,7 +997,6 @@ class RESTfulAPI(CancelMixin):
         replica = payload.get("replica", 1)
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
-        multimodal_projector = payload.get("multimodal_projector", None)
         peft_model_config = payload.get("peft_model_config", None)
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
@@ -1015,7 +1014,6 @@ class RESTfulAPI(CancelMixin):
             "replica",
             "n_gpu",
             "request_limits",
-            "multimodal_projector",
             "peft_model_config",
             "worker_ip",
             "gpu_idx",
@@ -1065,7 +1063,6 @@ class RESTfulAPI(CancelMixin):
                 n_gpu=n_gpu,
                 request_limits=request_limits,
                 wait_ready=wait_ready,
-                multimodal_projector=multimodal_projector,
                 peft_model_config=peft_model_config,
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,

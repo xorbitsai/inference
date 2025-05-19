@@ -970,7 +970,6 @@ class Client:
         replica: int = 1,
         n_worker: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
-        multimodal_projector: Optional[str] = None,
         peft_model_config: Optional[Dict] = None,
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
@@ -1004,8 +1003,6 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto". If n_worker>1, means number of GPUs per worker.
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
-        multimodal_projector:  Optional[str]
-            The projector for multimodal inference with the llama.cpp backend.
         peft_model_config: Optional[Dict]
             - "lora_list": A List of PEFT (Parameter-Efficient Fine-Tuning) model and path.
             - "image_lora_load_kwargs": A Dict of lora load parameters for image model
@@ -1020,7 +1017,7 @@ class Client:
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         **kwargs:
-            Any other parameters been specified.
+            Any other parameters been specified. e.g. multimodal_projector for multimodal inference with the llama.cpp backend.
 
         Returns
         -------
@@ -1044,7 +1041,6 @@ class Client:
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
             "quantization": quantization,
-            "multimodal_projector": multimodal_projector,
             "replica": replica,
             "n_worker": n_worker,
             "n_gpu": n_gpu,
