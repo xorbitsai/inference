@@ -53,6 +53,7 @@
     "modelFormat": "Model Format",
     "modelSize": "Model Size",
     "quantization": "Quantization",
+    "multimodelProjector": "Multimodel Projector",
     "nGPU": "GPU Count per Replica",
     "nGPUPerWorker": "GPU Count per Worker",
     "nGpuLayers": "N GPU Layers",
