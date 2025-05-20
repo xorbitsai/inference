@@ -101,6 +101,7 @@ const ModelCard = ({
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [multimodalProjector, setMultimodalProjector] = useState('')
   const [nWorker, setNWorker] = useState(1)
   const [nGPU, setNGPU] = useState('auto')
   const [nGpu, setNGpu] = useState(gpuAvailable === 0 ? 'CPU' : 'GPU')
@@ -122,6 +123,9 @@ const ModelCard = ({
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
+  const [multimodalProjectorOptions, setMultimodalProjectorOptions] = useState(
+    []
+  )
   const [customDeleted, setCustomDeleted] = useState(false)
   const [customParametersArr, setCustomParametersArr] = useState([])
   const [quantizationParametersArr, setQuantizationParametersArr] = useState([])
@@ -232,12 +236,30 @@ const ModelCard = ({
             .flatMap((item) => item.quantizations)
         ),
       ]
+      const multimodal_projectors = [
+        ...new Set(
+          enginesObj[modelEngine]
+            .filter(
+              (item) =>
+                item.model_format === modelFormat &&
+                item.model_size_in_billions === convertModelSize(modelSize)
+            )
+            .flatMap((item) => item.multimodal_projectors || [])
+        ),
+      ]
       setQuantizationOptions(quants)
+      setMultimodalProjectorOptions(multimodal_projectors || [])
       if (!quants.includes(quantization)) {
         setQuantization('')
       }
       if (quants.length === 1) {
         setQuantization(quants[0])
+      }
+      if (!multimodal_projectors.includes(multimodalProjector)) {
+        setMultimodalProjector('')
+      }
+      if (multimodal_projectors.length > 0 && !multimodalProjector) {
+        setMultimodalProjector(multimodal_projectors[0])
       }
     }
   }, [modelEngine, modelFormat, modelSize])
@@ -352,6 +374,8 @@ const ModelCard = ({
       model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
+    if (multimodalProjector)
+      modelDataWithID_LLM.multimodal_projector = multimodalProjector
     if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
     if (modelData.model_ability?.includes('hybrid'))
       modelDataWithID_LLM.enable_thinking = enableThinking
@@ -647,6 +671,7 @@ const ModelCard = ({
       model_format,
       model_size_in_billions,
       quantization,
+      multimodal_projector,
       n_worker,
       n_gpu,
       n_gpu_layers,
@@ -671,6 +696,7 @@ const ModelCard = ({
     setModelFormat(model_format || '')
     setModelSize(String(model_size_in_billions) || '')
     setQuantization(quantization || '')
+    setMultimodalProjector(multimodal_projector || '')
     setNWorker(Number(n_worker) || 1)
     setNGPU(n_gpu || 'auto')
     if (n_gpu_layers >= 0) {
@@ -842,6 +868,7 @@ const ModelCard = ({
       setModelFormat('')
       setModelSize('')
       setQuantization('')
+      setMultimodalProjector('')
       setNWorker(1)
       setNGPU('auto')
       setReplica(1)
@@ -1551,6 +1578,56 @@ const ModelCard = ({
                     </Select>
                   </FormControl>
                 </Grid>
+                {multimodalProjectorOptions.length > 0 && (
+                  <Grid item xs={12}>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat || !modelSize}
+                    >
+                      <InputLabel id="multimodelProjector-label">
+                        {t('launchModel.multimodelProjector')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="multimodelProjector-label"
+                        value={multimodalProjector}
+                        onChange={(e) => setMultimodalProjector(e.target.value)}
+                        label={t('launchModel.multimodelProjector')}
+                      >
+                        {multimodalProjectorOptions.map((projector) => {
+                          const specs = modelData.model_specs
+                            .filter((spec) => spec.model_format === modelFormat)
+                            .filter(
+                              (spec) =>
+                                spec.model_size_in_billions ===
+                                convertModelSize(modelSize)
+                            )
+
+                          const spec = specs.find((s) => {
+                            return s.multimodal_projectors.includes(projector)
+                          })
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.multimodal_projectors.indexOf(projector)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedProjector = cached
+                            ? projector + ' ' + t('launchModel.cached')
+                            : projector
+
+                          return (
+                            <MenuItem key={projector} value={projector}>
+                              {displayedProjector}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
                 <Grid item xs={12}>
                   <FormControl
                     variant="outlined"

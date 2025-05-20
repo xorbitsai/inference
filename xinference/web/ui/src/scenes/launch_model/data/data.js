@@ -22,6 +22,7 @@ export const llmAllDataKey = [
   'peft_model_config',
   'quantization_config',
   'enable_thinking',
+  'multimodal_projectors',
 ]
 
 export const additionalParameterTipList = {

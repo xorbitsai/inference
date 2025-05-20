@@ -1017,7 +1017,7 @@ class Client:
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         **kwargs:
-            Any other parameters been specified.
+            Any other parameters been specified. e.g. multimodal_projector for multimodal inference with the llama.cpp backend.
 
         Returns
         -------

@@ -160,12 +160,14 @@ class LLMDescription(ModelDescription):
         llm_family: "LLMFamilyV1",
         llm_spec: "LLMSpecV1",
         quantization: Optional[str],
+        multimodal_projector: Optional[str] = None,
         model_path: Optional[str] = None,
     ):
         super().__init__(address, devices, model_path=model_path)
         self._llm_family = llm_family
         self._llm_spec = llm_spec
         self._quantization = quantization
+        self._multimodal_projector = multimodal_projector
 
     @property
     def spec(self):
@@ -185,6 +187,7 @@ class LLMDescription(ModelDescription):
             "model_family": self._llm_family.model_family
             or self._llm_family.model_name,
             "quantization": self._quantization,
+            "multimodal_projector": self._multimodal_projector,
             "model_hub": self._llm_spec.model_hub,
             "revision": self._llm_spec.model_revision,
             "context_length": self._llm_family.context_length,
@@ -204,6 +207,7 @@ class LLMDescription(ModelDescription):
             "model_file_location": model_file_location,
             "cache_status": cache_status,
             "quantization": self._quantization,
+            "multimodal_projector": self._multimodal_projector,
             "model_format": self._llm_spec.model_format,
             "model_size_in_billions": self._llm_spec.model_size_in_billions,
         }
@@ -212,10 +216,19 @@ class LLMDescription(ModelDescription):
 def generate_llm_description(llm_family: "LLMFamilyV1") -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     for spec in llm_family.model_specs:
+        multimodal_projectors = getattr(spec, "multimodal_projectors", None)
         for q in spec.quantizations:
-            res[llm_family.model_name].append(
-                LLMDescription(None, None, llm_family, spec, q).to_version_info()
-            )
+            if multimodal_projectors:
+                for mmproj in multimodal_projectors:
+                    res[llm_family.model_name].append(
+                        LLMDescription(
+                            None, None, llm_family, spec, q, mmproj
+                        ).to_version_info()
+                    )
+            else:
+                res[llm_family.model_name].append(
+                    LLMDescription(None, None, llm_family, spec, q).to_version_info()
+                )
     return res
 
 
@@ -260,8 +273,9 @@ def create_llm_model_instance(
     )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
+    multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
-        model_path = cache(llm_family, llm_spec, quantization)
+        model_path = cache(llm_family, llm_spec, quantization, multimodal_projector)
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
     if peft_model is not None:
@@ -288,5 +302,5 @@ def create_llm_model_instance(
             model_uid, llm_family, llm_spec, quantization, model_path, kwargs
         )
     return model, LLMDescription(
-        subpool_addr, devices, llm_family, llm_spec, quantization
+        subpool_addr, devices, llm_family, llm_spec, quantization, multimodal_projector
     )

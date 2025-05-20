@@ -317,11 +317,6 @@ async def test_restful_api(setup):
     assert custom_model_reg is None
 
 
-@pytest.mark.asyncio
-async def test_restful_api_xllamacpp(set_use_xllamacpp, setup):
-    await test_restful_api(setup)
-
-
 def test_restful_api_for_embedding(setup):
     model_name = "gte-base"
     model_spec = BUILTIN_EMBEDDING_MODELS[model_name]
@@ -1116,6 +1111,9 @@ async def test_openai(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1244,6 +1242,9 @@ def test_launch_model_async(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1283,6 +1284,9 @@ def test_cancel_launch_model(setup):
         "model_name": "qwen2.5-instruct",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1319,6 +1323,9 @@ def test_events(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1335,7 +1342,8 @@ def test_events(setup):
 
     # delete again
     url = f"{endpoint}/v1/models/test_qwen_15"
-    requests.delete(url)
+    response = requests.delete(url)
+    response.raise_for_status()
 
     response = requests.get(events_url)
     response_data = response.json()
