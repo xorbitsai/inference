@@ -6,6 +6,7 @@ import argparse
 import os
 import re
 import sys
+from dataclasses import dataclass
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -624,7 +625,7 @@ def main() -> None:
         dump_metadata(reader, args)
 
 
-def dump_metadata_json2(reader: GGUFReader, model_path: str) -> None:
+def dump_metadata_json2(reader: GGUFReader, model_path: str) -> dict:
     host_endian, file_endian = get_file_host_endian(reader)
     metadata: dict[str, Any] = {}
     tensors: dict[str, Any] = {}
@@ -646,15 +647,31 @@ def dump_metadata_json2(reader: GGUFReader, model_path: str) -> None:
             curr["value"] = field.contents()
         else:
             curr["value"] = field.contents()
-        for idx, tensor in enumerate(reader.tensors):
+        for i, tensor in enumerate(reader.tensors):
             tensors[tensor.name] = {
-                "index": idx,
+                "index": i,
                 "shape": tensor.shape.tolist(),
                 "type": tensor.tensor_type.name,
                 "offset": tensor.field.offset,
                 "n_bytes": tensor.n_bytes,
             }
     return result
+
+
+@dataclass
+class MemoryEstimate:
+    # How many layers we predict we can load
+    layers: int
+    # The size of the graph which occupies the main GPU
+    graph: int
+    # How much VRAM will be allocated given the number of layers we predict
+    vram_size: int
+    # The total size of the model if loaded into VRAM.  If all layers are loaded, vram_size == total_size
+    total_size: int
+    # For multi-GPU scenarios, this provides the tensor split parameter
+    tensor_split: str
+    # For multi-GPU scenarios, this is the size in bytes per GPU
+    gpu_sizes: list[int]
 
 
 def _get_max_min(value):
@@ -694,8 +711,7 @@ def graph_size(
     embedding_head_count_v = metadata.get(
         f"{architecture}.attention.value_length", {}
     ).get("value", embedding_head_count_max)
-    tensors = data["tensors"]
-    tensor_count = len(tensors)
+
     # f16(default)
     bytes_per_kv_element = {
         "q8_0": 1,  # 1/2 of fp16
@@ -791,37 +807,260 @@ def graph_size(
     if full_offload == 0:
         full_offload = partial_offload
 
-    import pprint
-
-    pprint.pprint(locals())
     return kv, partial_offload, full_offload
 
 
-def eval_memory_usage(
+def projector_memory_requirements(projector: str):
+    reader = GGUFReader(projector, "r")
+    data = dump_metadata_json2(reader, projector)
+    return sum(t["n_bytes"] for t in data["tensors"])
+
+
+def estimate_gpu_layers(
+    device_info: list[dict],
     model_path: str,
+    projectors: list[str],
     context_length: int,
     batch_size: int,
     num_parallel: int,
     kv_cache_type: str,
 ):
+    # Projectors loaded into GPU0 only
+    projector_weights = sum(map(projector_memory_requirements, projectors))
+    if projector_weights > 0:
+        # Multimodal models require at least 2048 context
+        context_length = max(context_length, 2048)
     reader = GGUFReader(model_path, "r")
     data = dump_metadata_json2(reader, model_path)
-    graph_size(
+    kv, graph_partial_offload, graph_full_offload = graph_size(
         data,
         context_length=context_length,
         batch_size=batch_size,
         num_parallel=num_parallel,
         kv_cache_type=kv_cache_type,
     )
-    print(data)
+    # Get all layer sizes
+    metadata = data["metadata"]
+    architecture = metadata["general.architecture"]["value"]
+    block_count = metadata[f"{architecture}.block_count"]["value"]
+    layer_sizes = [0] * block_count
+    for name, layer in data["tensors"].items():
+        if name.startswith("blk."):
+            index = int(name[len("blk.") :].split(".")[0])
+            layer_sizes[index] += layer["n_bytes"]
+    layer_size = layer_sizes[0] if layer_sizes else 0
+
+    if len(kv) > 0:
+        layer_size += kv[0]
+    # On metal there's no partial offload overhead
+    if device_info[0]["name"] == "Metal":
+        graph_partial_offload = graph_full_offload
+    elif len(device_info) > 1:
+        # Multi gpu should always use the partial graph size
+        graph_full_offload = graph_partial_offload
+
+    # Get output layer size
+    memory_layer_output = 0
+    # Output layer handled at the end if we have space
+    for name, layer in data["tensors"].items():
+        if any(
+            name.startswith(prefix)
+            for prefix in ["output_norm", "output", "token_embd"]
+        ):
+            memory_layer_output += layer["n_bytes"]
+
+    # Reduce set of GPUs to only those that have sufficient space to fit overhead and at least one layer
+    default_memory_min = 512 * 1024**3
+    gpu_allocations = [0] * len(device_info)
+    gpus_with_space = []
+    for i in range(len(device_info)):
+        gpu0_overhead = projector_weights if len(gpus_with_space) == 0 else 0
+        minimum_memory = device_info[i].get("memory_min", default_memory_min)
+        if (
+            device_info[i]["memory_free"]
+            < gpu0_overhead
+            + max(graph_partial_offload, graph_full_offload)
+            + minimum_memory
+            + 2 * layer_size
+        ):
+            continue
+        gpus_with_space.append(i)
+        gpu_allocations[i] += gpu0_overhead + minimum_memory + layer_size
+
+    overflow = 0
+    if len(gpus_with_space) == 0:
+        overflow = projector_weights
+
+    layer_count = 0
+    layer_counts = [0] * len(device_info)
+    for i in range(block_count - 1, -1, -1):
+        layer_size = layer_sizes[i]
+        layer_size += kv[i]
+
+        # Distribute the layers across the GPU(s) that have space
+        for j in range(len(gpus_with_space), 0, -1):
+            g = gpus_with_space[i % j]
+            used = gpu_allocations[g] + max(graph_partial_offload, graph_full_offload)
+            if device_info[g]["memory_free"] > used + layer_size:
+                gpu_allocations[g] += layer_size
+                layer_counts[g] += 1
+                layer_count += 1
+                break
+            else:
+                gpus_with_space = (
+                    gpus_with_space[: i % j] + gpus_with_space[i % j + 1 :]
+                )
+
+        if len(gpus_with_space) == 0:
+            overflow += layer_size
+
+    fully_loaded = False
+    if layer_count >= block_count:
+        fully_loaded = True
+
+    if memory_layer_output > 0:
+        for j in range(len(gpus_with_space), 0, -1):
+            g = gpus_with_space[layer_count % j]
+            used = gpu_allocations[g] + max(graph_partial_offload, graph_full_offload)
+            if device_info[g]["memory_free"] > used + memory_layer_output:
+                gpu_allocations[g] += memory_layer_output
+                layer_counts[g] += 1
+                layer_count += 1
+                break
+            else:
+                gpus_with_space = (
+                    gpus_with_space[: layer_count % j]
+                    + gpus_with_space[layer_count % j + 1 :]
+                )
+
+        if layer_count < block_count + 1:
+            fully_loaded = False
+            overflow += memory_layer_output
+
+    # Add the applicable (full or partial) graph allocations
+    for i in range(len(device_info)):
+        if layer_counts[i] <= 0:
+            continue
+        if fully_loaded:
+            gpu_allocations[i] += graph_full_offload
+        else:
+            gpu_allocations[i] += graph_partial_offload
+
+    if fully_loaded:
+        graph_offload = graph_full_offload
+    else:
+        graph_offload = graph_partial_offload
+
+    # Summaries
+    memory_required_partial = sum(gpu_allocations)
+    memory_required_total = memory_required_partial + overflow
+
+    tensor_split = ""
+    if len(device_info) > 1:
+        tensor_split = ",".join(str(c) for c in layer_counts)
+
+    estimate = MemoryEstimate(
+        layers=0,
+        graph=0,
+        vram_size=0,
+        total_size=memory_required_total,
+        tensor_split="",
+        gpu_sizes=[],
+    )
+    if device_info[0]["name"] == "CPU":
+        return estimate
+    if layer_count == 0:
+        return estimate
+
+    estimate.layers = layer_count
+    estimate.graph = graph_offload
+    estimate.vram_size = memory_required_partial
+    estimate.total_size = memory_required_total
+    estimate.tensor_split = tensor_split
+    estimate.gpu_sizes = gpu_allocations
+    return estimate
 
 
 if __name__ == "__main__":
     # main()
-    eval_memory_usage(
+    import xllamacpp
+
+    estimate = estimate_gpu_layers(
+        [{"name": "CPU", "memory_free": 0}],
         "/Users/po/Work/inference/xinference/model/llm/llama_cpp/dummy.gguf",
+        [],
         context_length=2048,
         batch_size=512,
         num_parallel=1,
         kv_cache_type="",
     )
+    assert estimate.layers == 0
+    assert estimate.graph == 0
+
+    graph_partial_offload = 202377216
+    graph_full_offload = 171968512
+    layer_size = 33554436
+    projector_size = 0
+    memory_layer_output = 4
+    gpu_minimum_memory = 2048
+
+    gpus = [
+        {
+            "name": "cuda",
+            "memory_min": gpu_minimum_memory
+        },
+        {
+            "name": "cuda",
+            "memory_min": gpu_minimum_memory
+        }
+    ]
+
+
+    @dataclass
+    class _TestInfo:
+        layer0: int
+        layer1: int
+        expect0: int
+        expect1: int
+
+    test_data = [_TestInfo(*v) for v in [
+        [1, 1, 1, 1],
+        [2, 1, 2, 1],
+        [2, 2, 2, 2],
+        [1, 2, 1, 2],
+        [3, 3, 3, 3],
+        [4, 4, 3, 3],
+        [6, 6, 3, 3],
+        [0, 3, 0, 3],
+    ]]
+    for i, s in enumerate(test_data):
+        gpus[0]["memory_free"] = 0
+        gpus[1]["memory_free"] = 0
+        gpus[0]["memory_free"] += projector_size
+        if s.layer0 > 0:
+            gpus[0]["memory_free"] += memory_layer_output
+        else:
+            gpus[1]["memory_free"] += memory_layer_output
+        gpus[0]["memory_free"] += gpu_minimum_memory + layer_size + s.layer0 * layer_size + 1
+        gpus[1]["memory_free"] += gpu_minimum_memory + layer_size + s.layer1 * layer_size + 1
+        gpus[0]["memory_free"] += max(graph_full_offload, graph_partial_offload)
+        gpus[1]["memory_free"] += max(graph_full_offload, graph_partial_offload)
+        estimate = estimate_gpu_layers(
+            gpus,
+            "/Users/po/Work/inference/xinference/model/llm/llama_cpp/dummy.gguf",
+            [],
+            context_length=2048,
+            batch_size=512,
+            num_parallel=1,
+            kv_cache_type="",
+        )
+        assert s.expect0 + s.expect1 == estimate.layers
+        assert f"{s.expect0},{s.expect1}" == estimate.tensor_split
+        layer_sums = sum(estimate.gpu_sizes)
+        print(f"vram size: {estimate.vram_size}")
+        if estimate.layers < 6:
+            assert estimate.vram_size < estimate.total_size
+            assert estimate.vram_size == layer_sums
+        else:
+            assert estimate.vram_size == estimate.total_size
+            assert estimate.total_size == layer_sums
