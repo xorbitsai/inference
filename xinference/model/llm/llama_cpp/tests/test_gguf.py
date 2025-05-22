@@ -171,7 +171,6 @@ def test_estimate_gpu_layers():
         assert s.expect0 + s.expect1 == estimate.layers
         assert f"{s.expect0},{s.expect1}" == estimate.tensor_split
         layer_sums = sum(estimate.gpu_sizes)
-        print(f"vram size: {estimate.vram_size}")
         if estimate.layers < 6:
             assert estimate.vram_size < estimate.total_size
             assert estimate.vram_size == layer_sums
