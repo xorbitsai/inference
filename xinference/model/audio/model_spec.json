@@ -219,6 +219,51 @@
     }
   },
   {
+    "model_name": "paraformer-zh-hotword",
+    "model_family": "funasr",
+    "model_id": "JunHowie/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404",
+    "model_revision": "26d622993683d7b0c517ee5ec9c1c8bdde76e324",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
+    "model_name": "paraformer-zh-long",
+    "model_family": "funasr",
+    "model_id": "JunHowie/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+    "model_revision": "b6d8cb81645e34056cd3dda41e5624a740587de3",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
+    "model_name": "paraformer-zh-spk",
+    "model_family": "funasr",
+    "model_id": "JunHowie/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
+    "model_revision": "36abd64af4392fe02bf76453bc86c081cf1ca6da",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },   
+  {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_id": "2Noise/ChatTTS",

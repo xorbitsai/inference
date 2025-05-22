@@ -51,6 +51,55 @@
     "model_name": "paraformer-zh",
     "model_family": "funasr",
     "model_hub": "modelscope",
+    "model_id": "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+    "model_revision": "master",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
+    "model_name": "paraformer-zh-hotword",
+    "model_family": "funasr",
+    "model_hub": "modelscope",
+    "model_id": "iic/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404",
+    "model_revision": "master",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "hotword": "",
+      "batch_size_s": 300
+    }
+  },
+    {
+    "model_name": "paraformer-zh-long",
+    "model_family": "funasr",
+    "model_hub": "modelscope",
+    "model_id": "iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+    "model_revision": "master",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    }
+  },
+  {
+    "model_name": "paraformer-zh-spk",
+    "model_family": "funasr",
+    "model_hub": "modelscope",
     "model_id": "iic/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
     "model_revision": "master",
     "model_ability": ["audio2text"],
