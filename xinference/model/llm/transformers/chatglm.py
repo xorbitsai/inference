@@ -22,17 +22,19 @@ import torch
 
 from ....core.scheduler import InferenceRequest
 from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import (
     GLM4_TOOL_CALL_FAMILY,
     generate_chat_completion,
     generate_completion_chunk,
 )
-from .core import PytorchChatModel, PytorchModelConfig
+from .core import PytorchChatModel, PytorchModelConfig, register_non_default_model
 
 logger = logging.getLogger(__name__)
 
 
+@register_transformer
+@register_non_default_model("glm4-chat", "glm4-chat-1m")
 class ChatglmPytorchChatModel(PytorchChatModel):
     def __init__(
         self,

@@ -1318,9 +1318,9 @@ def test_events(setup):
     url = f"{endpoint}/v1/models"
 
     payload = {
-        "model_uid": "test_qwen_15",
+        "model_uid": "test_qwen_25",
         "model_engine": "llama.cpp",
-        "model_name": "qwen1.5-chat",
+        "model_name": "qwen2.5-instruct",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
         "n_ctx": 128,
@@ -1331,9 +1331,9 @@ def test_events(setup):
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_qwen_15"
+    assert model_uid_res == "test_qwen_25"
 
-    events_url = f"{endpoint}/v1/models/test_qwen_15/events"
+    events_url = f"{endpoint}/v1/models/test_qwen_25/events"
     response = requests.get(events_url)
     response_data = response.json()
     # [{'event_type': 'INFO', 'event_ts': 1705896156, 'event_content': 'Launch model'}]
@@ -1341,7 +1341,7 @@ def test_events(setup):
     assert "Launch" in response_data[0]["event_content"]
 
     # delete again
-    url = f"{endpoint}/v1/models/test_qwen_15"
+    url = f"{endpoint}/v1/models/test_qwen_25"
     response = requests.delete(url)
     response.raise_for_status()
 
