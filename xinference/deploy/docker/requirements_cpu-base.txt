@@ -28,3 +28,4 @@ ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 imageio-ffmpeg  # For video
 opencv-contrib-python-headless
+gguf

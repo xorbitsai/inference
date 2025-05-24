@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from gguf import GGUFReader, GGUFValueType, ReaderTensor  # noqa: E402
+from gguf import GGUFReader, GGUFValueType  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
