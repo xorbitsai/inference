@@ -285,7 +285,7 @@ def estimate_gpu_layers(
     # Reduce set of GPUs to only those that have sufficient space to fit overhead and at least one layer
     default_memory_min = 512 * 1024**2
     gpu_allocations = [0] * len(gpus)
-    gpus_with_space = []
+    gpus_with_space: list[int] = []
     for i in range(len(gpus)):
         gpu0_overhead = projector_weights if len(gpus_with_space) == 0 else 0
         minimum_memory = gpus[i].get("memory_min", default_memory_min)
