@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_file_host_endian(reader: GGUFReader) -> tuple[str, str]:
-    file_endian = reader.endianess.name
+    file_endian = reader.endianess.name  # codespell:ignore
     if reader.byte_order == "S":
         host_endian = "BIG" if file_endian == "LITTLE" else "LITTLE"
     else:
