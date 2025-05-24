@@ -40,7 +40,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    pip install "xllamacpp>=0.1.17" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
+    pip install "xllamacpp>=0.1.18" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
     # clean packages
     pip cache purge
 
