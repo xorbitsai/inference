@@ -977,6 +977,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 response_format,
                 temperature,
                 timestamp_granularities,
+                **kwargs,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
