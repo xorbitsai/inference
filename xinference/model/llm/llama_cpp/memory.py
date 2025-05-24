@@ -138,73 +138,72 @@ def graph_size(
 
     full_offload = 0
     partial_offload = 0
-    match architecture:
-        case "llama" | "llama4":
-            full_offload = max(
-                4
-                * batch_size
-                * (1 + 4 * embedding_length + context_length * (1 + head_count_max)),
-                4 * batch_size * (embedding_length + vocab),
+    if architecture in ["llama", "llama4"]:
+        full_offload = max(
+            4
+            * batch_size
+            * (1 + 4 * embedding_length + context_length * (1 + head_count_max)),
+            4 * batch_size * (embedding_length + vocab),
+        )
+        partial_offload = 4 * batch_size * embedding_length
+        partial_offload += max(
+            4
+            * batch_size
+            * (1 + embedding_length + max(context_length, embedding_length))
+            + embedding_length * embedding_length * 9 / 16
+            + 4
+            * context_length
+            * (
+                batch_size * head_count_max
+                + embedding_head_count_max * head_count_kv_max
+            ),
+            4 * batch_size * (embedding_length + vocab)
+            + embedding_length * vocab * 105 / 128,
+        )
+    elif architecture in ["gemma", "gemma2", "gemma3"]:
+        full_offload = max(
+            4 * batch_size * (embedding_length + vocab),
+            4
+            * batch_size
+            * (
+                2
+                + context_length
+                + context_length * head_count_max
+                + 2 * embedding_length
+                + 2 * embedding_head_count_k * head_count_max
+            ),
+        )
+        partial_offload = max(
+            4 * embedding_length * batch_size
+            + embedding_length * vocab * 105 / 128
+            + 4 * vocab * batch_size,
+            4
+            * batch_size
+            * (
+                2 * embedding_length
+                + 1
+                + 2 * embedding_head_count_k * head_count_max
+                + context_length
+                + context_length * head_count_max
             )
-            partial_offload = 4 * batch_size * embedding_length
-            partial_offload += max(
-                4
-                * batch_size
-                * (1 + embedding_length + max(context_length, embedding_length))
-                + embedding_length * embedding_length * 9 / 16
-                + 4
-                * context_length
-                * (
-                    batch_size * head_count_max
-                    + embedding_head_count_max * head_count_kv_max
-                ),
-                4 * batch_size * (embedding_length + vocab)
-                + embedding_length * vocab * 105 / 128,
+            + 4 * embedding_head_count_k * context_length * 8
+            + embedding_length * embedding_head_count_k * head_count_max * 9 / 16,
+        )
+        if architecture == "gemma3":
+            gemma3_global_cache_count = 6
+            sliding_window = (
+                num_parallel
+                * metadata[f"{architecture}.attention.sliding_window"]["value"]
+                + batch_size
             )
-        case "gemma" | "gemma2" | "gemma3":
-            full_offload = max(
-                4 * batch_size * (embedding_length + vocab),
-                4
-                * batch_size
-                * (
-                    2
-                    + context_length
-                    + context_length * head_count_max
-                    + 2 * embedding_length
-                    + 2 * embedding_head_count_k * head_count_max
-                ),
-            )
-            partial_offload = max(
-                4 * embedding_length * batch_size
-                + embedding_length * vocab * 105 / 128
-                + 4 * vocab * batch_size,
-                4
-                * batch_size
-                * (
-                    2 * embedding_length
-                    + 1
-                    + 2 * embedding_head_count_k * head_count_max
-                    + context_length
-                    + context_length * head_count_max
-                )
-                + 4 * embedding_head_count_k * context_length * 8
-                + embedding_length * embedding_head_count_k * head_count_max * 9 / 16,
-            )
-            if architecture == "gemma3":
-                gemma3_global_cache_count = 6
-                sliding_window = (
-                    num_parallel
-                    * metadata[f"{architecture}.attention.sliding_window"]["value"]
-                    + batch_size
-                )
-                for i in range(block_count):
-                    if (i + 1) % gemma3_global_cache_count != 0:
-                        kv[i] = (
-                            sliding_window
-                            * (embedding_head_count_k + embedding_head_count_v)
-                            * head_count_kv_max
-                            * bytes_per_kv_element
-                        )
+            for i in range(block_count):
+                if (i + 1) % gemma3_global_cache_count != 0:
+                    kv[i] = (
+                        sliding_window
+                        * (embedding_head_count_k + embedding_head_count_v)
+                        * head_count_kv_max
+                        * bytes_per_kv_element
+                    )
 
     kv_total = sum(kv)
     if partial_offload == 0:
