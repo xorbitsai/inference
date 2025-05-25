@@ -102,19 +102,14 @@ To install Xinference and vLLM::
 
 Llama.cpp Backend
 ~~~~~~~~~~~~~~~~~
-Xinference supports models in ``gguf`` format via ``xllamacpp`` or ``llama-cpp-python``.
+Xinference supports models in ``gguf`` format via ``xllamacpp``.
 `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team,
-and will be the sole backend for llama.cpp in the future.
-
-.. note::
-
-    ``xllamacpp`` is the default option for llama.cpp backend since v1.5.0.
-    To enable ``llama-cpp-python``, add environment variable ``USE_XLLAMACPP=0``.
+and is the sole backend for llama.cpp since v1.6.0.
 
 .. warning::
 
-    Since Xinference v1.5.0, ``llama-cpp-python`` will be deprecated.
-    For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
+    Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated.
+    Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
 
 Initial setup::
 
@@ -133,20 +128,6 @@ Installation instructions for ``xllamacpp``:
 - HIP::
 
    pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/rocm-6.0.2
-
-Hardware-Specific installations for ``llama-cpp-python``:
-
-- Apple Silicon::
-
-   CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
-
-- Nvidia cards::
-
-   CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
-
-- AMD cards::
-
-   CMAKE_ARGS="-DLLAMA_HIPBLAS=on" pip install llama-cpp-python
 
 
 SGLang Backend

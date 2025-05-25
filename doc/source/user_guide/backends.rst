@@ -10,20 +10,16 @@ xinference will automatically select the appropriate backend.
 llama.cpp
 =========
 
-Xinference now supports `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ which developed by Xinference team,
-and `llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ to run llama.cpp backend.
+Xinference now supports `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ which developed by Xinference team
+to run llama.cpp backend.
 `llama.cpp` is developed based on the tensor library `ggml`, supporting inference of
 the LLaMA series models and their variants.
 
 .. warning::
 
     Since Xinference v1.5.0,
-    ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` will be deprecated.
-    For Xinference v1.6.0, ``llama-cpp-python`` will be removed.
-
-For `llama-cpp-python`, we recommend that users install  on the worker themselves and adjust the `cmake`
-parameters according to the hardware to achieve the best inference efficiency. Please refer to the
-`llama-cpp-python installation guide <https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal>`_.
+    ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` is deprecated.
+    Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
 
 Common Issues
 -------------
