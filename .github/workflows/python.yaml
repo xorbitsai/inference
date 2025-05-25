@@ -200,7 +200,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U cachetools
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U silero-vad
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U pydantic
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U diffusers
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "diffusers==0.29.0"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnx
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxconverter_common
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U torchdiffeq
