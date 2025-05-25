@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-05-07 17:55+0800\n"
+"POT-Creation-Date: 2025-05-25 21:01+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -51,7 +51,8 @@ msgid ""
 "based on your hardware specifications to enable acceleration. For more "
 "details, see the :ref:`installation_gguf` section."
 msgstr ""
-"在这种情况下，建议根据您的硬件规格手动安装其依赖项以启用加速。更多详情请参见 :ref:`installation_gguf` 部分。"
+"在这种情况下，建议根据您的硬件规格手动安装其依赖项以启用加速。更多详情请"
+"参见 :ref:`installation_gguf` 部分。"
 
 #: ../../source/getting_started/installation.rst:19
 msgid "**AWQ or GPTQ** format with **transformers engine**"
@@ -65,15 +66,17 @@ msgstr "**本节内容新增于 v1.6.0。**"
 msgid ""
 "This is because the dependencies at this stage require special options "
 "and are difficult to install. Please run command below in advance"
-msgstr "这是因为此阶段的依赖项需要特殊选项，并且安装起来比较困难。请提前运行以下命令"
+msgstr ""
+"这是因为此阶段的依赖项需要特殊选项，并且安装起来比较困难。请提前运行以下"
+"命令"
 
 #: ../../source/getting_started/installation.rst:29
 msgid ""
 "Some dependencies like ``transformers`` might be downgraded, you can run "
 "``pip install \"xinference[all]\"`` afterwards."
 msgstr ""
-"某些依赖项，如 ``transformers``，可能会被降级，您可以之后运行 "
-"``pip install \"xinference[all]\"``。"
+"某些依赖项，如 ``transformers``，可能会被降级，您可以之后运行 ``pip "
+"install \"xinference[all]\"``。"
 
 #: ../../source/getting_started/installation.rst:32
 msgid ""
@@ -288,75 +291,49 @@ msgstr "Llama.cpp 引擎"
 
 #: ../../source/getting_started/installation.rst:105
 msgid ""
-"Xinference supports models in ``gguf`` format via ``xllamacpp`` or "
-"``llama-cpp-python``. `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference "
-"team, and will be the sole backend for llama.cpp in the future."
+"Xinference supports models in ``gguf`` format via ``xllamacpp``. "
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
+"Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
-"Xinference 通过 xllamacpp 或 llama-cpp-python 支持 gguf 格式的模型。`"
+"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`"
 "xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队"
-"开发，并将在未来成为 llama.cpp 的唯一后端。"
+"开发，并从 v1.6.0 开始成为 llama.cpp 的唯一后端。"
 
 #: ../../source/getting_started/installation.rst:111
 msgid ""
-"``xllamacpp`` is the default option for llama.cpp backend since v1.5.0. "
-"To enable ``llama-cpp-python``, add environment variable "
-"``USE_XLLAMACPP=0``."
+"Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
+"Xinference v1.6.0, ``llama-cpp-python`` has been removed."
 msgstr ""
-"自 v1.5.0 起，``xllamacpp`` 成为 llama.cpp 后端的默认选项。如需启用 ``"
-"llama-cpp-python``，请设置环境变量 ``USE_XLLAMACPP=0``。"
+"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference "
+"从 v1.6.0 开始，该后端已被移除。"
 
-#: ../../source/getting_started/installation.rst:116
-msgid ""
-"Since Xinference v1.5.0, ``llama-cpp-python`` will be deprecated. For "
-"Xinference v1.6.0, ``llama-cpp-python`` will be removed."
-msgstr ""
-"自 Xinference v1.5.0 起，``llama-cpp-python`` 将被弃用；在 Xinference "
-"v1.6.0 中，该后端将被移除。"
-
-#: ../../source/getting_started/installation.rst:119
-#: ../../source/getting_started/installation.rst:156
-#: ../../source/getting_started/installation.rst:169
+#: ../../source/getting_started/installation.rst:114
+#: ../../source/getting_started/installation.rst:137
+#: ../../source/getting_started/installation.rst:150
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:123
+#: ../../source/getting_started/installation.rst:118
 msgid "Installation instructions for ``xllamacpp``:"
 msgstr "``xllamacpp`` 的安装说明："
 
-#: ../../source/getting_started/installation.rst:125
+#: ../../source/getting_started/installation.rst:120
 msgid "CPU or Mac Metal::"
 msgstr "CPU 或 Mac Metal："
 
-#: ../../source/getting_started/installation.rst:129
+#: ../../source/getting_started/installation.rst:124
 msgid "CUDA::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:133
+#: ../../source/getting_started/installation.rst:128
 msgid "HIP::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:137
-msgid "Hardware-Specific installations for ``llama-cpp-python``:"
-msgstr "``llama-cpp-python`` 不同硬件的安装方式："
-
-#: ../../source/getting_started/installation.rst:139
-msgid "Apple Silicon::"
-msgstr "Apple M系列"
-
-#: ../../source/getting_started/installation.rst:143
-msgid "Nvidia cards::"
-msgstr "英伟达显卡："
-
-#: ../../source/getting_started/installation.rst:147
-msgid "AMD cards::"
-msgstr "AMD 显卡："
-
-#: ../../source/getting_started/installation.rst:153
+#: ../../source/getting_started/installation.rst:134
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:154
+#: ../../source/getting_started/installation.rst:135
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -367,19 +344,19 @@ msgstr ""
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:166
+#: ../../source/getting_started/installation.rst:147
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:167
+#: ../../source/getting_started/installation.rst:148
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:174
+#: ../../source/getting_started/installation.rst:155
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:176
+#: ../../source/getting_started/installation.rst:157
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
 
@@ -425,4 +402,27 @@ msgstr ""
 
 #~ msgid "``glm4-chat``, ``glm4-chat-1m``"
 #~ msgstr ""
+
+#~ msgid ""
+#~ "``xllamacpp`` is the default option for"
+#~ " llama.cpp backend since v1.5.0. To "
+#~ "enable ``llama-cpp-python``, add "
+#~ "environment variable ``USE_XLLAMACPP=0``."
+#~ msgstr ""
+#~ "自 v1.5.0 起，``xllamacpp`` "
+#~ "成为 llama.cpp 后端的默认选项。如需"
+#~ "启用 ``llama-cpp-python``，请"
+#~ "设置环境变量 ``USE_XLLAMACPP=0``。"
+
+#~ msgid "Hardware-Specific installations for ``llama-cpp-python``:"
+#~ msgstr "``llama-cpp-python`` 不同硬件的安装方式："
+
+#~ msgid "Apple Silicon::"
+#~ msgstr "Apple M系列"
+
+#~ msgid "Nvidia cards::"
+#~ msgstr "英伟达显卡："
+
+#~ msgid "AMD cards::"
+#~ msgstr "AMD 显卡："
 
