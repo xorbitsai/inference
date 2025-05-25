@@ -204,6 +204,66 @@ def graph_size(
                         * head_count_kv_max
                         * bytes_per_kv_element
                     )
+    elif architecture == "qwen2":
+        full_offload = max(
+            4 * batch_size * (embedding_length + vocab),
+            4
+            * batch_size
+            * (
+                1
+                + 2 * embedding_length
+                + context_length
+                + context_length * head_count_max
+            ),
+        )
+
+        partial_offload = max(
+            4 * batch_size * (embedding_length + vocab)
+            + embedding_length * vocab * 105 / 128,
+            4
+            * (
+                batch_size
+                * (1 + 2 * embedding_length + context_length * (1 + head_count_max))
+                + embedding_length * (1 + context_length)
+            ),
+        )
+    elif architecture == "stablelm":
+        full_offload = (
+            4
+            * batch_size
+            * (context_length * (1 + head_count_max) + 3 * embedding_length + 2)
+        )
+        partial_offload = max(
+            4 * batch_size * (vocab + 2 * embedding_length), full_offload
+        )
+    elif architecture == "deepseek2":
+        full_offload = max(
+            4 * batch_size * (3 * embedding_length + vocab),
+            4
+            * batch_size
+            * (
+                3 * embedding_length
+                + 2
+                + context_length * (1 + head_count_kv_max)
+                + 2 * embedding_head_count_k * head_count_kv_max
+            ),
+        )
+
+        partial_offload = max(
+            4 * batch_size * (3 * embedding_length + vocab)
+            + embedding_length * vocab * 105 / 128,
+            4
+            * batch_size
+            * (
+                2 * embedding_length
+                + 1
+                + 2 * embedding_head_count_k * head_count_kv_max
+                + context_length
+                + context_length * head_count_kv_max
+            )
+            + 4 * embedding_head_count_k * context_length * head_count_kv_max
+            + embedding_length * embedding_head_count_k * head_count_kv_max * 9 / 16,
+        )
 
     kv_total = sum(kv)
     if partial_offload == 0:
