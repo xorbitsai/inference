@@ -46,6 +46,9 @@ The Text-to-image API is supported with the following models in Xinference:
 * sd3.5-large-turbo
 * FLUX.1-schnell
 * FLUX.1-dev
+* Kolors
+* hunyuandit-v1.2
+* hunyuandit-v1.2-distilled
 
 
 Quickstart
