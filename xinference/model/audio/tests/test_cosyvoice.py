@@ -19,6 +19,7 @@ import pytest
 
 
 @pytest.mark.parametrize("model_name", ["CosyVoice-300M-SFT", "CosyVoice2-0.5B"])
+@pytest.mark.skip(reason="The diffusers on the GPU CI action is not compatible.")
 def test_cosyvoice_sft(setup, model_name):
     endpoint, _ = setup
     from ....client import Client
@@ -72,6 +73,7 @@ def test_cosyvoice_sft(setup, model_name):
 
 
 @pytest.mark.parametrize("model_name", ["CosyVoice-300M", "CosyVoice2-0.5B"])
+@pytest.mark.skip(reason="The diffusers on the GPU CI action is not compatible.")
 def test_cosyvoice(setup, model_name):
     endpoint, _ = setup
     from ....client import Client
@@ -122,6 +124,7 @@ def test_cosyvoice(setup, model_name):
 
 
 @pytest.mark.parametrize("model_name", ["CosyVoice-300M-Instruct", "CosyVoice2-0.5B"])
+@pytest.mark.skip(reason="The diffusers on the GPU CI action is not compatible.")
 def test_cosyvoice_instruct(setup, model_name):
     endpoint, _ = setup
     from ....client import Client
@@ -154,7 +157,8 @@ def test_cosyvoice_instruct(setup, model_name):
     else:
         # inference without instruction
         response = model.speech(
-            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。", voice="中文男"
+            "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
+            voice="中文男",
         )
         assert type(response) is bytes
         assert len(response) > 0

@@ -125,7 +125,7 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install "xllamacpp>=0.1.16"
+          pip install "xllamacpp>=0.1.18" gguf
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
@@ -167,6 +167,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U gguf
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "python-jose[cryptography]"
