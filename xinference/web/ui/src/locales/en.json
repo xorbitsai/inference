@@ -207,6 +207,7 @@
   },
 
   "components": {
-    "copySuccess": "Copied to clipboard!"
+    "copySuccess": "Copied to clipboard!",
+    "suggestsCommonParameters": "Suggests common parameters; others allowed."
   }
 }
