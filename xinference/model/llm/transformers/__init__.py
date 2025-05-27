@@ -26,7 +26,7 @@ def import_submodules(package_path: str, package_name: str, globals_dict: Dict) 
     for _, module_name, is_pkg in pkgutil.iter_modules([package_path]):
         full_module_name = f"{package_name}.{module_name}"
 
-        if module_name.startswith("_"):  # 跳过以下划线开头的模块
+        if module_name.startswith("_"):  # Skip the modules which start with "_"
             continue
 
         module = importlib.import_module(full_module_name)
