@@ -207,6 +207,7 @@
   },
 
   "components": {
-    "copySuccess": "已复制到剪贴板！"
+    "copySuccess": "已复制到剪贴板！",
+    "suggestsCommonParameters": "提示常用参数，也允许输入其他参数"
   }
 }
