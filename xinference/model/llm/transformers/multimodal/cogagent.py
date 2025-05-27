@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,47 +13,36 @@
 # limitations under the License.
 import logging
 import re
-import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterator, List, Literal, Optional, Union
+from threading import Thread
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 import torch
 
-from ....model.utils import select_device
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    CogagentGenerateConfig,
-    CompletionChunk,
-)
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import (
-    _decode_image,
-    generate_chat_completion,
-    generate_completion_chunk,
-    parse_messages,
-)
-from .core import PytorchChatModel
-from .utils import cache_clean
+from .....model.utils import select_device
+from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...utils import _decode_image, parse_messages
+from ..core import register_non_default_model
+from .core import PytorchMultiModalModel
 
 logger = logging.getLogger(__name__)
 
 
-class CogAgentChatModel(PytorchChatModel):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._torch_type = None
-        self._device = None
-        self._tokenizer = None
-        self._model = None
-        self._platform: Literal["Mac", "WIN", "Mobile"] | None = "Mac"  # type: ignore
-        self._format: Literal[  # type: ignore
-            "(Answer in Action-Operation-Sensitive format.)",
-            "(Answer in Status-Plan-Action-Operation format.)",
-            "(Answer in Status-Action-Operation-Sensitive format.)",
-            "(Answer in Status-Action-Operation format.)",
-            "(Answer in Action-Operation format.)",
-        ] | None = "(Answer in Action-Operation-Sensitive format.)"
+@register_transformer
+@register_non_default_model("cogagent")
+class CogAgentChatModel(PytorchMultiModalModel):
+    def __init__(self, *args, **kws):
+        super().__init__(*args, **kws)
+        self._platform: Optional[Literal["Mac", "WIN", "Mobile"]] = "Mac"
+        self._format: Optional[
+            Literal[
+                "(Answer in Action-Operation-Sensitive format.)",
+                "(Answer in Status-Plan-Action-Operation format.)",
+                "(Answer in Status-Action-Operation-Sensitive format.)",
+                "(Answer in Status-Action-Operation format.)",
+                "(Answer in Action-Operation format.)",
+            ]
+        ] = "(Answer in Action-Operation-Sensitive format.)"
 
     @classmethod
     def match_json(
@@ -64,17 +53,21 @@ class CogAgentChatModel(PytorchChatModel):
             return True
         return False
 
-    def load(self):
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
+    def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
+
+    def load_processor(self):
+        from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True
         )
-        kwargs = self.apply_bnb_quantization()
 
+    def load_multimodal_model(self):
+        from transformers import AutoModelForCausalLM
+
+        kwargs = self.apply_bnb_quantization()
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
@@ -153,7 +146,7 @@ class CogAgentChatModel(PytorchChatModel):
 
         return history_step, history_action
 
-    def get_query_and_history(
+    def _get_query_and_history(
         self,
         prompt: Union[str, List[Dict]],
         chat_history: Optional[List[Dict]] = None,
@@ -181,26 +174,14 @@ class CogAgentChatModel(PytorchChatModel):
         logger.info(f"query:{query}")
         return query, image
 
-    @cache_clean
-    def chat(
+    def build_inputs_from_messages(
         self,
         messages: List[Dict],
-        generate_config: Optional[CogagentGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config is not None:
-            self._platform = generate_config.pop("platform", self._platform)
-            self._format = generate_config.pop("format", self._format)
-
-        sanitize_generate_config = self._sanitize_generate_config(generate_config)
-        stream = sanitize_generate_config.get("stream")
-        sanitized_config = {
-            "max_length": sanitize_generate_config.get("max_tokens", 512),
-            "top_k": sanitize_generate_config.get("top_k", 1),
-            "do_sample": True,
-        }
+        generate_config: Dict,
+    ):
         prompt, _, chat_history = parse_messages(messages)
 
-        query, image = self.get_query_and_history(prompt, chat_history)
+        query, image = self._get_query_and_history(prompt, chat_history)
 
         full_context_kwargs = {
             "return_tensors": "pt",
@@ -218,53 +199,35 @@ class CogAgentChatModel(PytorchChatModel):
             **full_context_kwargs,
         )
         inputs.to(self._model.device)
+        return inputs
 
-        if stream:
-            it = self._streaming_chat_response(inputs, sanitized_config)
-            return self._to_chat_completion_chunks(it)
-        else:
-            # Generate response
-            with torch.no_grad():
-                outputs = self._model.generate(**inputs, **sanitized_config)
-                outputs = outputs[:, inputs["input_ids"].shape[1] :]
-                response = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
+    def build_generate_kwargs(
+        self,
+        generate_config: Dict,
+    ) -> Dict[str, Any]:
+        generate_config = {} if generate_config is None else generate_config
+        self._platform = generate_config.pop("platform", self._platform)
+        self._format = generate_config.pop("format", self._format)
+        return {
+            "max_length": generate_config.get("max_tokens", 512),
+            "top_k": generate_config.get("top_k", 1),
+            "do_sample": True,
+        }
 
-            return generate_chat_completion(self.model_uid, response)
-
-    def _streaming_chat_response(
-        self, inputs: Dict, config: Dict
-    ) -> Iterator[CompletionChunk]:
-        from threading import Thread
-
+    def build_streaming_iter(
+        self,
+        messages: List[Dict],
+        generate_config: Dict,
+    ) -> Tuple[Iterator, int]:
         from transformers import TextIteratorStreamer
 
+        config = self.build_generate_kwargs(generate_config)
+        inputs = self.build_inputs_from_messages(messages, generate_config)
         streamer = TextIteratorStreamer(
             self._tokenizer, skip_prompt=True, skip_special_tokens=True
         )
-        generation_kwargs = {**inputs, **config}
+        generation_kwargs = {**inputs, **config, "streamer": streamer}
 
         thread = Thread(target=self._model.generate, kwargs=generation_kwargs)
         thread.start()
-
-        completion_id = str(uuid.uuid1())
-        for new_text in streamer:
-            yield generate_completion_chunk(
-                chunk_text=new_text,
-                finish_reason=None,
-                chunk_id=completion_id,
-                model_uid=self.model_uid,
-                prompt_tokens=-1,
-                completion_tokens=-1,
-                total_tokens=-1,
-            )
-        yield generate_completion_chunk(
-            chunk_text=None,
-            finish_reason="stop",
-            chunk_id=completion_id,
-            model_uid=self.model_uid,
-            prompt_tokens=-1,
-            completion_tokens=-1,
-            total_tokens=-1,
-            has_choice=True,
-            has_content=False,
-        )
+        return streamer, len(inputs.input_ids[0])

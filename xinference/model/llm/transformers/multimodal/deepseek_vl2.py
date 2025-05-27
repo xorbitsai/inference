@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,32 +13,28 @@
 # limitations under the License.
 import base64
 import logging
-import os.path
+import os
 import tempfile
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Tuple
 
 import requests
 import torch
 
-from ....model.utils import select_device
-from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import generate_chat_completion, generate_completion_chunk
-from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import cache_clean
+from .....model.utils import select_device
+from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ..core import register_non_default_model
+from .core import PytorchMultiModalModel
 
 logger = logging.getLogger(__name__)
 
 
-class DeepSeekVL2ChatModel(PytorchChatModel):
+@register_transformer
+@register_non_default_model("deepseek-vl2")
+class DeepSeekVL2ChatModel(PytorchMultiModalModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._tokenizer = None
-        self._model = None
-        self._vl_chat_processor = None
         self._type = None
 
     @classmethod
@@ -50,25 +46,26 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
             return True
         return False
 
-    def load(self):
-        from transformers import AutoModelForCausalLM
-
-        from ....thirdparty.deepseek_vl2.models import (
-            DeepseekVLV2ForCausalLM,
-            DeepseekVLV2Processor,
-        )
-
+    def decide_device(self):
         self._device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(self._device)
         self._type = torch.bfloat16
-        kwargs = self.apply_bnb_quantization()
+
+    def load_processor(self):
+        from .....thirdparty.deepseek_vl2.models import DeepseekVLV2Processor
 
         # specify the path to the model
-        self._vl_chat_processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(  # type: ignore
+        self._processor: DeepseekVLV2Processor = DeepseekVLV2Processor.from_pretrained(  # type: ignore
             self.model_path
         )
-        self._tokenizer = self._vl_chat_processor.tokenizer
+        self._tokenizer = self._processor.tokenizer
 
+    def load_multimodal_model(self):
+        from transformers import AutoModelForCausalLM
+
+        from .....thirdparty.deepseek_vl2.models import DeepseekVLV2ForCausalLM
+
+        kwargs = self.apply_bnb_quantization()
         vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(  # type: ignore
             self.model_path,
             trust_remote_code=True,
@@ -138,29 +135,24 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
                 elif c_type == "text":
                     new_content.append(c["text"])
             if images:
-                new_content.insert(0, "<image_placeholder>")
                 images = _download(images)
             return "".join(new_content), images
         return content, []
 
-    @cache_clean
-    def chat(
+    def get_stop_strs(self) -> List[str]:
+        conversation = self._processor.new_chat_template()
+        stop_str = conversation.sep2
+        return [stop_str]
+
+    def build_generate_kwargs(self, generate_config: Dict):
+        max_new_tokens = generate_config.get("max_tokens", 512)
+        return {"max_new_tokens": max_new_tokens}
+
+    def build_inputs_from_messages(
         self,
         messages: List[Dict],
-        generate_config: Optional[PytorchGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if not generate_config:
-            generate_config = {}
-
-        stream = generate_config.get("stream", False)
-        stream_options = generate_config.pop("stream_options", None)
-        include_usage = (
-            stream_options["include_usage"]
-            if isinstance(stream_options, dict)
-            else False
-        )
-
-        prompt = ""
+        generate_config: Dict,
+    ):
         deepseek_messages = []
         for i, message in enumerate(messages):
             role = message["role"]
@@ -183,8 +175,6 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
                         msg["images"] = images
                     deepseek_messages.append(msg)
                     deepseek_messages.append({"role": "<|Assistant|>", "content": ""})
-                if i == len(messages) - 1:
-                    prompt = "<image>\n<|ref|>" + content + "<|/ref|>"
             elif role == "assistant":
                 deepseek_messages.append({"role": "<|Assistant|>", "content": content})
             else:
@@ -192,11 +182,11 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
                     f"Unexpected message in messages: role: {role}, message: {message}"
                 )
 
-        from ....thirdparty.deepseek_vl2.utils.io import load_pil_images
+        from .....thirdparty.deepseek_vl2.utils.io import load_pil_images
 
         # load images and prepare for inputs
         pil_images = load_pil_images(deepseek_messages)
-        prepare_inputs = self._vl_chat_processor(
+        prepare_inputs = self._processor(
             conversations=deepseek_messages,
             images=pil_images,
             force_batchify=True,
@@ -205,88 +195,37 @@ class DeepSeekVL2ChatModel(PytorchChatModel):
 
         # run image encoder to get the image embeddings
         inputs_embeds = self._model.prepare_inputs_embeds(**prepare_inputs)
-
-        max_new_tokens = generate_config.get("max_tokens", 512)
-        conversation = self._vl_chat_processor.new_chat_template()
-        stop_str = conversation.sep2
-
-        streamer = self._model.language.generate(
+        return dict(
+            input_ids=prepare_inputs.input_ids,
             inputs_embeds=inputs_embeds,
             attention_mask=prepare_inputs.attention_mask,
             pad_token_id=self._tokenizer.eos_token_id,
             bos_token_id=self._tokenizer.bos_token_id,
             eos_token_id=self._tokenizer.eos_token_id,
-            max_new_tokens=max_new_tokens,
+        )
+
+    def build_streaming_iter(
+        self,
+        messages: List[Dict],
+        generate_config: Dict,
+    ) -> Tuple[Iterator, int]:
+        _inputs = self.build_inputs_from_messages(messages, generate_config)
+        configs = self.build_generate_kwargs(generate_config)
+        streamer = self._model.language.generate(
+            **_inputs,
+            **configs,
             do_sample=False,
             use_cache=True,
         )
+        return streamer, len(_inputs["input_ids"][0])
 
-        if stream:
-            it = self._generate_stream(streamer, stop_str, include_usage, prompt)
-            return self._to_chat_completion_chunks(it)
-        else:
-            return self._generate(streamer, stop_str)
-
-    def _generate(self, streamer, stop_str) -> ChatCompletion:
-        generated_text = ""
-
-        for new_text in streamer:
-            if isinstance(new_text, torch.Tensor):
-                new_text = self._tokenizer.decode(
-                    new_text.cpu().tolist(), skip_special_tokens=True
-                )
-
-            if new_text.endswith(stop_str):
-                new_text = new_text[: -len(stop_str)]
-
-            generated_text += new_text
-
-        return generate_chat_completion(self.model_uid, generated_text)
-
-    def _generate_stream(
-        self, streamer, stop_str, include_usage, prompt
-    ) -> Iterator[CompletionChunk]:
-        completion_id = str(uuid.uuid1())
-        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
-        input_ids = self._tokenizer(prompt).input_ids
-        prompt_tokens = len(input_ids)
-        for i, new_text in enumerate(streamer):
-            if new_text.endswith(stop_str):
-                new_text = new_text[: -len(stop_str)]
-            completion_tokens = i
-            total_tokens = prompt_tokens + completion_tokens
-            yield generate_completion_chunk(
-                chunk_text=new_text,
-                finish_reason=None,
-                chunk_id=completion_id,
-                model_uid=self.model_uid,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                has_choice=True,
-                has_content=True,
+    def check_conditions(self, new_text: str) -> Tuple[str, bool]:
+        stop_str = self.get_stop_strs()[0]
+        if isinstance(new_text, torch.Tensor):
+            new_text = self._tokenizer.decode(
+                new_text.cpu().tolist(), skip_special_tokens=True
             )
-        yield generate_completion_chunk(
-            chunk_text=None,
-            finish_reason="stop",
-            chunk_id=completion_id,
-            model_uid=self.model_uid,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
-            has_choice=True,
-            has_content=False,
-        )
 
-        if include_usage:
-            yield generate_completion_chunk(
-                chunk_text=None,
-                finish_reason=None,
-                chunk_id=completion_id,
-                model_uid=self.model_uid,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                has_choice=False,
-                has_content=False,
-            )
+        if new_text.endswith(stop_str):
+            new_text = new_text[: -len(stop_str)]
+        return new_text, False

@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,42 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import torch
 from PIL import Image
 
-from ....core.scheduler import InferenceRequest
-from ....types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    CompletionChunk,
-    PytorchModelConfig,
-)
-from ...utils import select_device
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import (
-    _decode_image,
-    generate_chat_completion,
-    generate_completion_chunk,
-    parse_messages,
-)
-from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import cache_clean
+from .....core.model import register_batching_multimodal_models
+from .....core.scheduler import InferenceRequest
+from .....model.utils import select_device
+from .....types import PytorchModelConfig
+from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...utils import _decode_image, parse_messages
+from ..core import register_non_default_model
+from .core import PytorchMultiModalModel
 
 logger = logging.getLogger(__name__)
 
 
-class MiniCPMV26Model(PytorchChatModel):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._device = None
-        self._tokenizer = None
-        self._model = None
-        self._processor = None
-
+@register_batching_multimodal_models("MiniCPM-V-2.6")
+@register_transformer
+@register_non_default_model("MiniCPM-V-2.6")
+class Glm4VModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
@@ -66,15 +52,7 @@ class MiniCPMV26Model(PytorchChatModel):
         pytorch_model_config.setdefault("max_pixels", 1280 * 28 * 28)
         return pytorch_model_config
 
-    def _get_model_class(self):
-        from transformers import AutoModel
-
-        return AutoModel
-
-    def load(self):
-        from transformers import AutoModel, AutoProcessor, AutoTokenizer
-        from transformers.generation import GenerationConfig
-
+    def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
         self._device = (
@@ -83,15 +61,25 @@ class MiniCPMV26Model(PytorchChatModel):
             else self._device
         )
 
-        if "int4" in self.model_path and device == "mps":
-            logger.error(
-                "Error: running int4 model with bitsandbytes on Mac is not supported right now."
-            )
-            exit()
+    def load_processor(self):
+        from transformers import AutoProcessor, AutoTokenizer
 
-        if self._check_tensorizer_integrity():
-            self._model, self._tokenizer = self._load_tensorizer()
-            return
+        min_pixels = self._pytorch_model_config.get("min_pixels")
+        max_pixels = self._pytorch_model_config.get("max_pixels")
+        self._processor = AutoProcessor.from_pretrained(
+            self.model_path,
+            trust_remote_code=True,
+            min_pixels=min_pixels,
+            max_pixels=max_pixels,
+        )
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, trust_remote_code=True
+        )
+
+    def load_multimodal_model(self):
+        from transformers import AutoModel
+        from transformers.generation import GenerationConfig
 
         if "int4" in self.model_path:
             model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
@@ -104,27 +92,13 @@ class MiniCPMV26Model(PytorchChatModel):
                 device_map=self._device,
                 **kwargs,
             )
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
-        )
         self._model = model.eval()
-        self._tokenizer = tokenizer
-
         # Specify hyperparameters for generation
         self._model.generation_config = GenerationConfig.from_pretrained(
             self.model_path,
             trust_remote_code=True,
         )
-        min_pixels = self._pytorch_model_config.get("min_pixels")
-        max_pixels = self._pytorch_model_config.get("max_pixels")
-        self._processor = AutoProcessor.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            min_pixels=min_pixels,
-            max_pixels=max_pixels,
-        )
         self._device = self._model.device
-        self._save_tensorizer()
 
     def _message_content_to_chat(self, content):
         MAX_NUM_FRAMES = 64
@@ -220,57 +194,36 @@ class MiniCPMV26Model(PytorchChatModel):
         msgs.append({"role": "user", "content": images_chat + [content]})
         return msgs, video_existed
 
-    @cache_clean
-    def chat(
+    def build_inputs_from_messages(
         self,
         messages: List[Dict],
-        generate_config: Optional[PytorchGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        stream = generate_config.get("stream", False) if generate_config else False
+        generate_config: Dict,
+    ):
         msgs, video_existed = self._convert_to_specific_style(messages)
-
         # Set decode params for video
         params = {}
         if video_existed:
             params = {"use_image_id": False, "max_slice_nums": 1}
+        return dict(msgs=msgs, image=None, **params)
 
-        chat = self._model.chat(
-            image=None,
-            msgs=msgs,
-            tokenizer=self._tokenizer,
-            sampling=True,
-            **generate_config,
-            **params,
-        )
-        if stream:
-            it = self.chat_stream(chat)
-            return self._to_chat_completion_chunks(it)
-        else:
-            return generate_chat_completion(self.model_uid, chat)
+    def build_generate_kwargs(
+        self,
+        generate_config: Dict,
+    ) -> Dict[str, Any]:
+        return dict(**generate_config)
 
-    def chat_stream(self, chat) -> Iterator[CompletionChunk]:
-        completion_id = str(uuid.uuid1())
-        for new_text in chat:
-            yield generate_completion_chunk(
-                chunk_text=new_text,
-                finish_reason=None,
-                chunk_id=completion_id,
-                model_uid=self.model_uid,
-                prompt_tokens=-1,
-                completion_tokens=-1,
-                total_tokens=-1,
-            )
-        yield generate_completion_chunk(
-            chunk_text=None,
-            finish_reason="stop",
-            chunk_id=completion_id,
-            model_uid=self.model_uid,
-            prompt_tokens=-1,
-            completion_tokens=-1,
-            total_tokens=-1,
-            has_choice=True,
-            has_content=False,
+    def build_streaming_iter(
+        self,
+        messages: List[Dict],
+        generate_config: Dict,
+    ) -> Tuple[Iterator, int]:
+        inputs = self.build_inputs_from_messages(messages, generate_config)
+        config = self.build_generate_kwargs(generate_config)
+        chat_iter = self._model.chat(
+            **inputs, **config, tokenizer=self._tokenizer, sampling=True
         )
+
+        return chat_iter, -1
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """
@@ -376,7 +329,7 @@ class MiniCPMV26Model(PytorchChatModel):
         because the specific inference process is performed by `self._model.llm`,
         not `self._model` itself
         """
-        from .utils import batch_inference_one_step
+        from ..utils import batch_inference_one_step
 
         self.prepare_batch_inference(req_list)
         batch_inference_one_step(

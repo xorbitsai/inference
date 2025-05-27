@@ -2859,47 +2859,6 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "deepseek-vl-chat",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "DeepSeek-VL possesses general multimodal understanding capabilities, capable of processing logical diagrams, web pages, formula recognition, scientific literature, natural images, and embodied intelligence in complex scenarios.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "1_3",
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-vl-1.3b-chat",
-        "model_hub": "modelscope"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-vl-7b-chat",
-        "model_hub": "modelscope"
-      }
-    ],
-    "chat_template": "",
-    "stop_token_ids": [
-      100001
-    ],
-    "stop": [
-      "<｜end▁of▁sentence｜>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 4096,
     "model_name": "deepseek",
     "model_lang": [
       "en",
@@ -3109,53 +3068,6 @@
         "model_id": "skywork/Skywork-13B-Math",
         "model_revision": "master"
       }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 4096,
-    "model_name": "qwen-vl-chat",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "Qwen-VL-Chat supports more flexible interaction, such as multiple image inputs, multi-round question answering, and creative capabilities.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "Qwen/Qwen-VL-Chat",
-        "model_revision": "master"
-      },
-      {
-        "model_format": "gptq",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "Int4"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "Qwen/Qwen-VL-Chat-{quantization}",
-        "model_revision": "master"
-      }
-    ],
-    "chat_template": "",
-    "stop_token_ids": [
-      151643,
-      151644,
-      151645
-    ],
-    "stop": [
-      "<|endoftext|>",
-      "<|im_start|>",
-      "<|im_end|>"
     ]
   },
   {
@@ -3446,49 +3358,6 @@
   },
   {
     "version": 1,
-    "context_length": 2048,
-    "model_name": "OmniLMM",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "OmniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 3,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "OpenBMB/MiniCPM-V",
-        "model_hub": "modelscope",
-        "model_revision": "master"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 12,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "OpenBMB/OmniLMM-12B",
-        "model_hub": "modelscope",
-        "model_revision": "master"
-      }
-    ],
-    "chat_template": "",
-    "stop_token_ids": [
-      2
-    ],
-    "stop": [
-      "</s>"
-    ]
-  },
-  {
-    "version": 1,
     "context_length": 4096,
     "model_name": "minicpm-2b-sft-bf16",
     "model_lang": [
@@ -3650,49 +3519,6 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "MiniCPM-Llama3-V-2_5",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 8,
-        "quantizations": [
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "OpenBMB/MiniCPM-Llama3-V-2_5",
-        "model_revision": "master"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 8,
-        "quantizations": [
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "OpenBMB/MiniCPM-Llama3-V-2_5-{quantization}",
-        "model_revision": "master"
-      }
-    ],
-    "chat_template": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}",
-    "stop_token_ids": [
-      128001
-    ],
-    "stop": [
-      "<|end_of_text|>"
     ]
   },
   {
@@ -3964,86 +3790,6 @@
     ],
     "stop": [
       "<|im_end|>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "cogvlm2",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 20,
-        "quantizations": [
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B",
-        "model_revision": "master"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 20,
-        "quantizations": [
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}",
-        "model_revision": "master"
-      }
-    ],
-    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% else %}{{ '<|end_of_text|>' }}{% endif %}",
-    "stop_token_ids": [
-      128001,
-      128009
-    ],
-    "stop": [
-      "<|end_of_text|>",
-      "<|eot_id|>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "cogvlm2-video-llama3-chat",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "CogVLM2-Video achieves state-of-the-art performance on multiple video question answering tasks.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 12,
-        "quantizations": [
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/cogvlm2-video-llama3-chat",
-        "model_revision": "master"
-      }
-    ],
-    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = '<|begin_of_text|>' + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% else %}{{ '<|end_of_text|>' }}{% endif %}",
-    "stop_token_ids": [
-      128001,
-      128009
-    ],
-    "stop": [
-      "<|end_of_text|>",
-      "<|eot_id|>"
     ]
   },
   {
@@ -4598,41 +4344,6 @@
         "assistant"
       ]
     }
-  },
-  {
-    "version": 1,
-    "context_length": 128000,
-    "model_name": "deepseek-v2",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "DeepSeek-V2, a strong Mixture-of-Experts (MoE) language model characterized by economical training and efficient inference. ",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 16,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "deepseek-ai/DeepSeek-V2-Lite",
-        "model_hub": "modelscope",
-        "model_revision": "master"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 236,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "deepseek-ai/DeepSeek-V2",
-        "model_hub": "modelscope",
-        "model_revision": "master"
-      }
-    ]
   },
   {
     "version": 1,
@@ -7008,133 +6719,6 @@
       }
     ],
     "chat_template": "{% for item in messages %}{% if item['role'] == 'system' %}<|system|>\n{{ item['content'] }}{% elif item['role'] == 'user' %}<|user|>\n{{ item['content'] }}{% elif item['role'] == 'assistant' %}<|assistant|>\n{{ item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>\n{% endif %}",
-    "stop_token_ids": [
-      59246,
-      59253,
-      59255
-    ],
-    "stop": [
-      "<|endoftext|>",
-      "<|user|>",
-      "<|observation|>"
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "glm-edge-v",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision"
-    ],
-    "model_description": "The GLM-Edge series is our attempt to face the end-side real-life scenarios, which consists of two sizes of large-language dialogue models and multimodal comprehension models (GLM-Edge-1.5B-Chat, GLM-Edge-4B-Chat, GLM-Edge-V-2B, GLM-Edge-V-5B). Among them, the 1.5B / 2B model is mainly for platforms such as mobile phones and cars, and the 4B / 5B model is mainly for platforms such as PCs.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "2",
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "ZhipuAI/glm-edge-v-2b",
-        "model_hub": "modelscope"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "5",
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "ZhipuAI/glm-edge-v-5b",
-        "model_hub": "modelscope"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "2",
-        "quantizations": [
-          "Q4_0",
-          "Q4_1",
-          "Q4_K",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_1",
-          "Q5_K",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_file_name_template": "ggml-model-{quantization}.gguf",
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-edge-v-2b-gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "2",
-        "quantizations": [
-          "F16"
-        ],
-        "model_file_name_template": "glm-edge-v-2B-{quantization}.gguf",
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-edge-v-2b-gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "2",
-        "quantizations": [
-          "f16"
-        ],
-        "model_file_name_template": "mmproj-model-{quantization}.gguf",
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-edge-v-2b-gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "5",
-        "quantizations": [
-          "Q4_0",
-          "Q4_1",
-          "Q4_K",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_1",
-          "Q5_K",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_file_name_template": "ggml-model-{quantization}.gguf",
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-edge-v-5b-gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "5",
-        "quantizations": [
-          "F16"
-        ],
-        "model_file_name_template": "glm-edge-v-5B-{quantization}.gguf",
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-edge-v-5b-gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "5",
-        "quantizations": [
-          "f16"
-        ],
-        "model_file_name_template": "mmproj-model-{quantization}.gguf",
-        "model_hub": "modelscope",
-        "model_id": "ZhipuAI/glm-edge-v-5b-gguf"
-      }
-    ],
-    "chat_template": "{% for item in messages %}{% if item['role'] != 'system' %}<|{{ item['role'] }}|>\n{% for content in item['content'] %}{% if content['type'] == 'image' %}{% for _ in range(578) %}<|begin_of_image|>{% endfor %}{% elif content['type'] == 'text' %}{{ content['text'] }}{% endif %}{% endfor %}\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|assistant|>\n{% endif %}",
     "stop_token_ids": [
       59246,
       59253,
