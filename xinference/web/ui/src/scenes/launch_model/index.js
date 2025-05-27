@@ -65,7 +65,10 @@ const LaunchModel = () => {
       <ErrorMessageSnackBar />
       <SuccessMessageSnackBar />
       <TabContext value={value}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          className="step-1"
+        >
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
             <Tab label={t('model.languageModels')} value="/launch_model/llm" />
             <Tab
