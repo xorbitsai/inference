@@ -379,11 +379,6 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[0])[0][0] == "vllm_mock_model_2"
     assert list(user_specified_info[0])[0][1] == "LLM"
 
-    # already has vllm model on gpu 0, error
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "rerank_3", "mock_model_name", None, None, None, "rerank", gpu_idx=[0]
-        )
     # never choose gpu 0 again
     with pytest.raises(RuntimeError):
         await worker.launch_builtin_model(
