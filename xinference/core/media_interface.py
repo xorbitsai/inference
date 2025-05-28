@@ -463,7 +463,7 @@ class MediaInterface:
 
     def image2video_interface(self) -> "gr.Blocks":
         def image_generate_video(
-            image: "PIL.Image",
+            image: "PIL.Image.Image",
             prompt: str,
             negative_prompt: str,
             num_frames: int,

@@ -303,7 +303,16 @@
     "model_ability": [
       "text2image",
       "image2image"
-    ]
+    ],
+    "default_model_config": {
+      "variant": "fp16"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.30.0",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "model_name": "stable-diffusion-inpainting",
