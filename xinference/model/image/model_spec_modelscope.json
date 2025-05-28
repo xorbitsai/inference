@@ -308,6 +308,26 @@
     ]
   },
   {
+    "model_name": "kolors",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "JunHowie/Kolors-diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "default_model_config": {
+      "variant": "fp16"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.30.0",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
     "model_name": "GOT-OCR2_0",
     "model_family": "ocr",
     "model_id": "stepfun-ai/GOT-OCR2_0",
