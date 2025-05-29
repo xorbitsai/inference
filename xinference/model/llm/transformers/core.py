@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import torch
 
@@ -45,7 +45,12 @@ from ..utils import (
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
 )
-from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
+from .utils import (
+    _get_pad_param,
+    get_context_length,
+    get_max_src_len,
+    pad_prefill_tokens,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -527,6 +532,36 @@ class PytorchModel(LLM):
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         return self._sanitize_generate_config(req.generate_config)
 
+    def merge_kv_cache(self, past_cache, new_cache):
+        from torch.nn.functional import pad
+        from transformers import DynamicCache
+
+        _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
+        past_seq_len = past_cache[0][0].shape[seq_len_idx]
+        new_seq_len = new_cache[0][0].shape[seq_len_idx]
+        if past_seq_len != new_seq_len:
+            padding_target = new_cache if past_seq_len > new_seq_len else past_cache
+            padding_len = abs(past_seq_len - new_seq_len)
+            pad_param = _get_pad_param(seq_len_idx, padding_len)
+            for idx in range(len(padding_target)):
+                k = padding_target.key_cache[idx]
+                v = padding_target.value_cache[idx]
+                _k = pad(k, pad_param)
+                _v = pad(v, pad_param)
+                padding_target.key_cache[idx] = _k
+                padding_target.value_cache[idx] = _v
+
+        ret_kv = DynamicCache()
+        for idx in range(len(past_cache)):
+            k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
+            v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
+            ret_kv.update(
+                torch.cat((k1, k2), 0).contiguous(),
+                torch.cat((v1, v2), 0).contiguous(),
+                idx,
+            )
+        return ret_kv
+
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         # check some parameters
         for r in req_list:
@@ -617,6 +652,16 @@ class PytorchModel(LLM):
             self, req_list, self.model_uid, self._model, self._tokenizer
         )
         self.handle_batch_inference_results(req_list)
+
+    def build_reduced_kv_cache(self, cache, skipped_indexes: Set[int]):
+        batch_size = cache.key_cache[0].shape[0]
+        batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
+        for idx in range(len(cache)):
+            cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
+            cache.value_cache[idx] = cache.value_cache[idx][
+                batch_slices, ::
+            ].contiguous()
+        return cache
 
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
