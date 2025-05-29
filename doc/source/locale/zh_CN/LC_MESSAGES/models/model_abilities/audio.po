@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:5
 msgid "Audio"
-msgstr ""
+msgstr "音频"
 
 #: ../../source/models/model_abilities/audio.rst:7
 msgid "Learn how to turn audio into text or text into audio with Xinference."
@@ -358,7 +358,7 @@ msgstr "基本使用，加载模型 ``CosyVoice-300M-SFT``。"
 msgid ""
 "Please note that the latest CosyVoice 2.0 requires `use_flow_cache=True` "
 "for stream generation."
-msgstr ""
+msgstr "请注意，最新版本的 CosyVoice 2.0 在进行流式生成时需要设置 `use_flow_cache=True`。"
 
 #: ../../source/models/model_abilities/audio.rst:422
 msgid ""
