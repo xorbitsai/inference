@@ -401,7 +401,7 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
         "Fights with fervor for justice, but struggles with impulsiveness.",
     )
 
-CosyVoice 2.0 usage, launch model ``CosyVoice2-0.5B``.
+CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
 
 .. note::
 
@@ -409,6 +409,7 @@ CosyVoice 2.0 usage, launch model ``CosyVoice2-0.5B``.
 
 .. code-block::
 
+    # Launch model
     from xinference.client import Client
 
     model_uid = client.launch_model(
@@ -417,6 +418,29 @@ CosyVoice 2.0 usage, launch model ``CosyVoice2-0.5B``.
         download_hub="modelscope",
         use_flow_cache=True,
     )
+
+    endpoint = "http://127.0.0.1:9997"
+    input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
+
+    # Stream request by openai client
+    import openai
+    import tempfile
+
+    openai_client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+    response = openai_client.audio.speech.with_streaming_response.create(
+        model=model_uid, input=input_string, voice="英文女"
+    )
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        response.stream_to_file(f.name)
+        assert os.stat(f.name).st_size > 0
+
+    # Stream request by xinference client
+    response = model.speech(input_string, stream=True)
+    assert inspect.isgenerator(response)
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        for chunk in response:
+            f.write(chunk)
 
 
 More instructions and examples, could be found at https://fun-audio-llm.github.io/ .

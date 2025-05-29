@@ -21,6 +21,27 @@ the LLaMA series models and their variants.
     ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` is deprecated.
     Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
 
+
+Auto NGL
+-------------
+
+This feature automatically detects the number of GPU layers (NGL) for the llama.cpp backend. Please be aware that this
+is not an accurate calculation. Therefore, the ``-ngl`` result might not be the most optimized, and there is still a
+chance of encountering an out-of-memory error.
+
+Currently, there is no official implementation for auto ngl. Please refer to the following issues for more information:
+
+- https://github.com/ggml-org/llama.cpp/issues/13860
+- https://github.com/ggml-org/llama.cpp/pull/6502
+
+Our implementation is based on the Ollama auto ngl, but there are some differences:
+
+- We utilize device information detected by `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_.
+- We have removed support for less popular architectures, these architectures will use the default calculation.
+- We fall back to offloading all the layers to the GPU if the auto ngl fails.
+- We do not support multimodal projectors embedded into the model GGUF, as this is a very experimental feature.
+
+
 Common Issues
 -------------
 
