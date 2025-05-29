@@ -19,7 +19,7 @@ import os
 import threading
 import time
 import uuid
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import gradio as gr
 import PIL.Image
@@ -653,13 +653,14 @@ class MediaInterface:
                 with open(prompt_speech_file, "rb") as f:
                     prompt_speech_bytes = f.read()
 
+            kw: Dict[str, Any] = {}
+            if prompt_speech_bytes:
+                kw["prompt_speech"] = prompt_speech_bytes
+            if prompt_text:
+                kw["prompt_text"] = prompt_text
+
             response = model.speech(
-                input=input_text,
-                voice=voice,
-                speed=speed,
-                response_format="mp3",
-                prompt_speech=prompt_speech_bytes,
-                prompt_text=prompt_text,
+                input=input_text, voice=voice, speed=speed, response_format="mp3", **kw
             )
 
             # Write to a temp .mp3 file and return its path
