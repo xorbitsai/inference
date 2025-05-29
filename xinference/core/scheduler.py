@@ -272,15 +272,6 @@ class InferenceRequest:
         )
 
 
-def _get_valid_batch_kv_cache(cache, skipped_indexes: Set[int]):
-    batch_size = cache.key_cache[0].shape[0]
-    batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
-    for idx in range(len(cache)):
-        cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
-        cache.value_cache[idx] = cache.value_cache[idx][batch_slices, ::].contiguous()
-    return cache
-
-
 class SchedulerActor(xo.StatelessActor):
     @classmethod
     def gen_uid(cls, model_uid: str, replica_id: str):
@@ -409,7 +400,7 @@ class SchedulerActor(xo.StatelessActor):
         # Some requests have been completed. Batch size needs to be reduced for kv cache.
         if stopped_batch_indexes and len(self._running_queue) > 0:
             kv_cache = self._running_queue[0].kv_cache
-            reduced_kv_cache = _get_valid_batch_kv_cache(
+            reduced_kv_cache = self._model.build_reduced_kv_cache(
                 kv_cache, stopped_batch_indexes
             )
             for r in self._running_queue:
