@@ -60,7 +60,7 @@ Currently, supported models include:
 - ``codestral-v0.1``
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-r1``, ``deepseek-r1-distill-llama``
+- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-v3-0324``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-prover-v2``, ``deepseek-r1-distill-llama``
 - ``yi-coder``, ``yi-coder-chat``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
 - ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
@@ -74,11 +74,14 @@ Currently, supported models include:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
+- ``XiYanSQL-QwenCoder-2504``
 - ``QwQ-32B-Preview``, ``QwQ-32B``
 - ``marco-o1``
 - ``fin-r1``
 - ``seallms-v3``
-- ``skywork-or1-preview``
+- ``skywork-or1-preview``, ``skywork-or1``
+- ``HuatuoGPT-o1-Qwen2.5``, ``HuatuoGPT-o1-LLaMA-3.1``
+- ``DianJin-R1``
 - ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
