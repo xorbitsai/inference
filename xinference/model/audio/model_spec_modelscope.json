@@ -119,7 +119,14 @@
     "model_id": "AI-ModelScope/ChatTTS",
     "model_revision": "master",
     "model_ability": ["text2audio"],
-    "multilingual": true
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "ChatTTS>=0.2.1",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "model_name": "CosyVoice-300M",

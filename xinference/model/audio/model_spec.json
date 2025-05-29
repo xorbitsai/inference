@@ -269,7 +269,14 @@
     "model_id": "2Noise/ChatTTS",
     "model_revision": "1a3c04a8b0651689bd9242fbb55b1f4b5a9aef84",
     "model_ability": ["text2audio"],
-    "multilingual": true
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "ChatTTS>=0.2.1",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "model_name": "CosyVoice-300M",
