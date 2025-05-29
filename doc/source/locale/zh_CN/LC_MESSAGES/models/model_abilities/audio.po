@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:5
 msgid "Audio"
-msgstr ""
+msgstr "音频"
 
 #: ../../source/models/model_abilities/audio.rst:7
 msgid "Learn how to turn audio into text or text into audio with Xinference."
