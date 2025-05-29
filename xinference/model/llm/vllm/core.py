@@ -200,6 +200,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v3")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
