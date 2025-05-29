@@ -379,11 +379,6 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[0])[0][0] == "vllm_mock_model_2"
     assert list(user_specified_info[0])[0][1] == "LLM"
 
-    # already has vllm model on gpu 0, error
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "rerank_3", "mock_model_name", None, None, None, "rerank", gpu_idx=[0]
-        )
     # never choose gpu 0 again
     with pytest.raises(RuntimeError):
         await worker.launch_builtin_model(
@@ -394,9 +389,9 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     await worker.launch_builtin_model(
         "embedding_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    # should be on gpu 1
+    # should be on gpu 0
     await worker.launch_builtin_model(
-        "rerank_4", "mock_model_name", None, None, None, "rerank", gpu_idx=[1]
+        "rerank_4", "mock_model_name", None, None, None, "rerank", gpu_idx=[0]
     )
     # should be on gpu 2
     await worker.launch_builtin_model(
@@ -406,18 +401,18 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     await worker.launch_builtin_model(
         "rerank_6", "mock_model_name", None, None, None, "rerank", n_gpu=1
     )
-    # should be on gpu 2, due to there are the fewest models on it
+    # should be on gpu 1, due to there are the fewest models on it
     await worker.launch_builtin_model(
         "rerank_7", "mock_model_name", None, None, None, "rerank", n_gpu=1
     )
     embedding_info = await worker.get_gpu_to_embedding_model_uids()
     user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
-    assert "rerank_7" in embedding_info[2]
+    assert "rerank_7" in embedding_info[1]
     assert len(embedding_info[0]) == 1
-    assert len(user_specified_info[0]) == 1
-    assert len(embedding_info[1]) == 1
-    assert len(user_specified_info[1]) == 1
-    assert len(embedding_info[2]) == 2
+    assert len(user_specified_info[0]) == 2
+    assert len(embedding_info[1]) == 2
+    assert len(user_specified_info[1]) == 0
+    assert len(embedding_info[2]) == 1
     assert len(user_specified_info[2]) == 0
     assert len(embedding_info[3]) == 1
     assert len(user_specified_info[3]) == 0
