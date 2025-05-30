@@ -111,6 +111,11 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
 
+   * - :ref:`deepseek-r1-0528-qwen3 <models_llm_deepseek-r1-0528-qwen3>`
+     - chat, reasoning
+     - 131072
+     - The DeepSeek R1 model has undergone a minor version upgrade, with the current version being DeepSeek-R1-0528. In the latest update, DeepSeek R1 has significantly improved its depth of reasoning and inference capabilities by leveraging increased computational resources and introducing algorithmic optimization mechanisms during post-training. The model has demonstrated outstanding performance across various benchmark evaluations, including mathematics, programming, and general logic. Its overall performance is now approaching that of leading models, such as O3 and Gemini 2.5 Pro
+
    * - :ref:`deepseek-r1-distill-llama <models_llm_deepseek-r1-distill-llama>`
      - chat, reasoning
      - 131072
@@ -633,6 +638,8 @@ The following is a list of built-in LLM in Xinference:
    deepseek-r1
   
    deepseek-r1-0528
+  
+   deepseek-r1-0528-qwen3
   
    deepseek-r1-distill-llama
   
