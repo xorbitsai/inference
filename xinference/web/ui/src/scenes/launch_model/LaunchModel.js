@@ -244,6 +244,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
           margin: '30px 2rem',
           alignItems: 'center',
         }}
+        className="step-2"
       >
         {featureModels.length > 0 && (
           <FormControl sx={{ minWidth: 120 }} size="small">
