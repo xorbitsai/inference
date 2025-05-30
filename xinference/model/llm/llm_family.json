@@ -6769,7 +6769,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "deepseek-ai/DeepSeek-R1-0528"
+        "model_id": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B"
       },
       {
         "model_format": "gptq",
