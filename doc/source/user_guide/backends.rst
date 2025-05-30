@@ -25,6 +25,9 @@ the LLaMA series models and their variants.
 Auto NGL
 -------------
 
+.. versionadded:: v1.6.1
+    Auto GPU layers estimation is enabled since v1.6.1 when ``n-gpu-layers`` is not specified (default is -1).
+
 This feature automatically detects the number of GPU layers (NGL) for the llama.cpp backend. Please be aware that this
 is not an accurate calculation. Therefore, the ``-ngl`` result might not be the most optimized, and there is still a
 chance of encountering an out-of-memory error.
