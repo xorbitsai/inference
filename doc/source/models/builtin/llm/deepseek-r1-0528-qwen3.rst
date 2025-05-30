@@ -35,7 +35,7 @@ Model Spec 2 (gptq, 8 Billion)
 
 - **Model Format:** gptq
 - **Model Size (in billions):** 8
-- **Quantizations:** Int4-W8A16, Int8-W8A16
+- **Quantizations:** Int4-W4A16, Int8-W8A16
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** QuantTrio/DeepSeek-R1-0528-Qwen3-8B-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-R1-0528-Qwen3-8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/tclf90/DeepSeek-R1-0528-Qwen3-8B-GPTQ-Int4-Int8Mix>`__
