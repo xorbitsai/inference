@@ -81,7 +81,7 @@ export const featureModels = [
       'qwen3',
       'deepseek-v3-0324',
       'deepseek-r1-0528',
-      'deepseek-r1-distill-qwen',
+      'deepseek-r1-0528-qwen3',
       'deepseek-r1-distill-llama',
       'qwen2.5-instruct',
       'qwen2.5-vl-instruct',

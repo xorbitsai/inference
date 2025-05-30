@@ -110,6 +110,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-v3-0324",
     "deepseek-r1",
     "deepseek-r1-0528",
+    "deepseek-r1-0528-qwen3",
     "deepseek-prover-v2",
     "DianJin-R1",
     "qwen3",
