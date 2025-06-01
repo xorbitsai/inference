@@ -69,7 +69,7 @@
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
@@ -93,7 +93,7 @@
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
@@ -121,7 +121,7 @@
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
@@ -149,7 +149,7 @@
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
