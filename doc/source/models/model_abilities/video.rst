@@ -33,7 +33,7 @@ The Video API provides the ability to interact with videos:
      - /v1/video/generations/image
 
    * - FirstLastFrame-to-Video API
-     -/v1/video/generations/flf
+     - /v1/video/generations/flf
 
 Supported models
 -------------------
