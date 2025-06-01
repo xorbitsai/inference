@@ -577,6 +577,126 @@ class MediaInterface:
 
         return image2video_ui
 
+    def flf2video_interface(self) -> "gr.Blocks":
+        def generate_video_from_flf(
+            first_frame: "PIL.Image.Image",
+            last_frame: "PIL.Image.Image",
+            prompt: str,
+            negative_prompt: str,
+            num_frames: int,
+            fps: int,
+            num_inference_steps: int,
+            guidance_scale: float,
+            width: int,
+            height: int,
+            progress=gr.Progress(),
+        ) -> List[Tuple[str, str]]:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert hasattr(model, "flf_to_video")
+
+            request_id = str(uuid.uuid4())
+            response = None
+            exc = None
+
+            buffer_first = io.BytesIO()
+            buffer_last = io.BytesIO()
+            first_frame.save(buffer_first, format="PNG")
+            last_frame.save(buffer_last, format="PNG")
+
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.flf_to_video(
+                        first_frame=buffer_first.getvalue(),
+                        last_frame=buffer_last.getvalue(),
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        n=1,
+                        num_frames=num_frames,
+                        fps=fps,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        width=width,
+                        height=height,
+                        response_format="b64_json",
+                        request_id=request_id,
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except Exception:
+                    cur_progress = 0.0
+                progress(cur_progress, desc="Generating video from first/last frames")
+                time.sleep(1)
+
+            if exc:
+                raise exc
+
+            videos = []
+            for video_dict in response["data"]:  # type: ignore
+                video_data = base64.b64decode(video_dict["b64_json"])
+                video_path = f"/tmp/{uuid.uuid4()}.mp4"
+                with open(video_path, "wb") as f:
+                    f.write(video_data)
+                videos.append((video_path, "Generated Video"))
+
+            return videos
+
+        # Gradio UI
+        with gr.Blocks() as flf2video_ui:
+            with gr.Row():
+                first_frame = gr.Image(label="First Frame", type="pil")
+                last_frame = gr.Image(label="Last Frame", type="pil")
+
+            prompt = gr.Textbox(label="Prompt", placeholder="Enter video prompt")
+            negative_prompt = gr.Textbox(
+                label="Negative Prompt", placeholder="Enter negative prompt"
+            )
+
+            with gr.Row():
+                with gr.Column():
+                    width = gr.Number(label="Width", value=512)
+                    num_frames = gr.Number(label="Frames", value=16)
+                    steps = gr.Number(label="Inference Steps", value=25)
+                with gr.Column():
+                    height = gr.Number(label="Height", value=512)
+                    fps = gr.Number(label="FPS", value=8)
+                    guidance_scale = gr.Slider(
+                        label="Guidance Scale", minimum=1, maximum=20, value=7.5
+                    )
+
+            generate = gr.Button("Generate")
+            gallery = gr.Gallery(label="Generated Videos", columns=2)
+
+            generate.click(
+                fn=generate_video_from_flf,
+                inputs=[
+                    first_frame,
+                    last_frame,
+                    prompt,
+                    negative_prompt,
+                    num_frames,
+                    fps,
+                    steps,
+                    guidance_scale,
+                    width,
+                    height,
+                ],
+                outputs=gallery,
+            )
+
+        return flf2video_ui
+
     def audio2text_interface(self) -> "gr.Blocks":
         def transcribe_audio(
             audio_path: str,
@@ -750,6 +870,9 @@ class MediaInterface:
             if "image2video" in self.model_ability:
                 with gr.Tab("Image to Video"):
                     self.image2video_interface()
+            if "firstlastframe2video" in self.model_ability:
+                with gr.Tab("FirstLastFrame to Video"):
+                    self.flf2video_interface()
             if "audio2text" in self.model_ability:
                 with gr.Tab("Audio to Text"):
                     self.audio2text_interface()

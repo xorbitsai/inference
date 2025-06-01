@@ -121,7 +121,10 @@ class DiffusersVideoModel:
                     self._model_path, **kwargs
                 )
             else:
-                assert "image2video" in self.model_spec.model_ability
+                assert (
+                    "image2video" in self.model_spec.model_ability
+                    or "firstlastframe2video" in self.model_spec.model_ability
+                )
 
                 image_encoder = CLIPVisionModel.from_pretrained(
                     self._model_path,
@@ -252,7 +255,7 @@ class DiffusersVideoModel:
 
     def image_to_video(
         self,
-        image: PIL.Image,
+        image: PIL.Image.Image,
         prompt: str,
         n: int = 1,
         num_inference_steps: Optional[int] = None,
@@ -284,7 +287,49 @@ class DiffusersVideoModel:
         )
         return self._output_to_video(output, fps, response_format)
 
-    def _process_image(self, image: PIL.Image, max_area: int) -> PIL.Image:
+    def firstlastframe_to_video(
+        self,
+        first_frame: PIL.Image.Image,
+        last_frame: PIL.Image.Image,
+        prompt: str,
+        n: int = 1,
+        num_inference_steps: Optional[int] = None,
+        response_format: str = "b64_json",
+        **kwargs,
+    ):
+        assert self._model is not None
+        assert callable(self._model)
+        generate_kwargs = self._model_spec.default_generate_config.copy()
+        generate_kwargs.update(kwargs)
+        generate_kwargs["num_videos_per_prompt"] = n
+        if num_inference_steps:
+            generate_kwargs["num_inference_steps"] = num_inference_steps
+        fps = generate_kwargs.pop("fps", 10)
+
+        # process first and last frame
+        max_area = generate_kwargs.pop("max_area")
+        if isinstance(max_area, str):
+            max_area = [int(v) for v in max_area.split("*")]
+        max_area = reduce(operator.mul, max_area, 1)
+        first_frame = self._process_image(first_frame, max_area)
+        width, height = first_frame.size
+        if last_frame.size != first_frame.size:
+            last_frame = self._center_crop_resize(last_frame, height, width)
+
+        generate_kwargs.pop("width", None)
+        generate_kwargs.pop("height", None)
+        self._process_progressor(generate_kwargs)
+        output = self._model(
+            image=first_frame,
+            last_image=last_frame,
+            prompt=prompt,
+            height=height,
+            width=width,
+            **generate_kwargs,
+        )
+        return self._output_to_video(output, fps, response_format)
+
+    def _process_image(self, image: PIL.Image.Image, max_area: int) -> PIL.Image.Image:
         assert self._model is not None
         aspect_ratio = image.height / image.width
         mod_value = (
@@ -294,6 +339,23 @@ class DiffusersVideoModel:
         height = round(np.sqrt(max_area * aspect_ratio)) // mod_value * mod_value
         width = round(np.sqrt(max_area / aspect_ratio)) // mod_value * mod_value
         return image.resize((width, height))
+
+    @classmethod
+    def _center_crop_resize(
+        cls, image: PIL.Image.Image, height: int, width: int
+    ) -> PIL.Image.Image:
+        import torchvision.transforms.functional as TF
+
+        # Calculate resize ratio to match first frame dimensions
+        resize_ratio = max(width / image.width, height / image.height)
+
+        # Resize the image
+        width = round(image.width * resize_ratio)
+        height = round(image.height * resize_ratio)
+        size = [width, height]
+        image = TF.center_crop(image, size)
+
+        return image
 
     def _output_to_video(self, output: Any, fps: int, response_format: str):
         import gc

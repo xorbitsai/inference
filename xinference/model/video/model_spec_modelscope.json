@@ -152,5 +152,33 @@
         "numpy==1.26.4"
       ]
     }
+  },
+  {
+    "model_name": "Wan2.1-flf2v-14B-720p",
+    "model_family": "Wan",
+    "model_hub": "modelscope",
+    "model_id": "Wan-AI/Wan2.1-FLF2V-14B-720P-diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "firstlastframe2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "max_area": [
+        720,
+        1280
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    }
   }
 ]
