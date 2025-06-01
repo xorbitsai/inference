@@ -16,6 +16,7 @@ The Video API provides the ability to interact with videos:
 
 * The text-to-video endpoint create videos from scratch based on a text prompt.
 * The image-to-video endpoint create videos from scratch based on an input image.
+* The firstlastframe-to-video endpoint creates videos based on the transition between a first and a last frame.
 
 
 .. list-table::
@@ -30,6 +31,9 @@ The Video API provides the ability to interact with videos:
 
    * - Image-to-Video API
      - /v1/video/generations/image
+
+   * - FirstLastFrame-to-Video API
+     -/v1/video/generations/flf
 
 Supported models
 -------------------
@@ -46,6 +50,10 @@ The image-to-video API is supported with the following models in Xinference:
 
 * :ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`
 * :ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`
+
+The firstlastframe-to-video API is supported with the following models in Xinference:
+
+* :ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`
 
 Quickstart
 ===================
@@ -105,6 +113,34 @@ You can try image-to-video API out either via cURL, or Xinference's python clien
     with open("xxx.jpg", "rb") as f:
         prompt = ""
         model.image_to_video(image=f.read(), prompt=prompt)
+
+FirstLastFrame-to-video
+--------------------------
+
+You can try firstlastframe-to-video API out either via cURL, or Xinference's python client:
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/video/generations/flf' \
+      -F model=<MODEL_UID> \
+      -F first_frame=@xxx.jpg \
+      -F last_frame=@xxx2.jpg \
+      -F prompt=<prompt>
+
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+
+    model = client.get_model("<MODEL_UID>")
+    with open("xxx.jpg", "rb") as f1, open("xxx2.jpg", "rb") as f2:
+        prompt = ""
+        model.flf_to_video(first_frame=f1.read(), last_frame=f2.read(), prompt=prompt)
 
 
 Memory optimization
