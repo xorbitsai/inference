@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-05-25 20:55+0800\n"
+"POT-Creation-Date: 2025-06-02 20:52+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -104,31 +104,31 @@ msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:44
 #: ../../source/models/model_abilities/image.rst:208
-#: ../../source/models/model_abilities/image.rst:237
+#: ../../source/models/model_abilities/image.rst:241
 msgid "sd3.5-medium"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:45
 #: ../../source/models/model_abilities/image.rst:210
-#: ../../source/models/model_abilities/image.rst:239
+#: ../../source/models/model_abilities/image.rst:243
 msgid "sd3.5-large"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:46
 #: ../../source/models/model_abilities/image.rst:212
-#: ../../source/models/model_abilities/image.rst:241
+#: ../../source/models/model_abilities/image.rst:245
 msgid "sd3.5-large-turbo"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:47
 #: ../../source/models/model_abilities/image.rst:204
-#: ../../source/models/model_abilities/image.rst:235
+#: ../../source/models/model_abilities/image.rst:239
 msgid "FLUX.1-schnell"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:48
 #: ../../source/models/model_abilities/image.rst:202
-#: ../../source/models/model_abilities/image.rst:233
+#: ../../source/models/model_abilities/image.rst:237
 msgid "FLUX.1-dev"
 msgstr ""
 
@@ -173,8 +173,9 @@ msgid ""
 "reference/images/createVariation>`_. We can try image-to-image API out "
 "either via cURL, OpenAI Client, or Xinference's python client:"
 msgstr ""
-"图生图 API 模拟了 OpenAI 的 `图像变体创建 API <https://platform.openai.com/docs/api-reference/images/createVariation>`_。"
-"我们可以通过 cURL、OpenAI 客户端，或 Xinference 的 Python 客户端来尝试使用图生图 API："
+"图生图 API 模拟了 OpenAI 的 `图像变体创建 API <https://platform.openai."
+"com/docs/api-reference/images/createVariation>`_。我们可以通过 cURL、"
+"OpenAI 客户端，或 Xinference 的 Python 客户端来尝试使用图生图 API："
 
 #: ../../source/models/model_abilities/image.rst:169
 msgid "Memory optimization for Large Image Models e.g. SD3-Medium, FLUX.1"
@@ -253,7 +254,7 @@ msgid "Below list default options that used from v0.16.1."
 msgstr "如下列出了从 v0.16.1 开始默认使用的参数。"
 
 #: ../../source/models/model_abilities/image.rst:200
-#: ../../source/models/model_abilities/image.rst:231
+#: ../../source/models/model_abilities/image.rst:235
 msgid "Model"
 msgstr "模型"
 
@@ -313,11 +314,23 @@ msgstr ""
 "设置 key ``quantize_text_encoder`` 和值 ``False``，或对于命令行，指定 ``"
 "--quantize_text_encoder False`` 来关闭 text encoder 的量化。"
 
-#: ../../source/models/model_abilities/image.rst:223
+#: ../../source/models/model_abilities/image.rst:222
+msgid ""
+"For :ref:`CogView4 <models_builtin_cogview4>`, we found that quantization"
+" has a significant impact on the model. Therefore, when GPU memory is "
+"limited， we recommend enabling the CPU offload option in the Web UI, and"
+" specifying ``--cpu_offload True`` when loading the model via the command"
+" line."
+msgstr ""
+"对于 :ref:`CogView4 <models_builtin_cogview4>`，我们发现量化对模型的影响较大。"
+"因此，当显存有限时，我们推荐在 Web UI 中启用 CPU offload 选项，在命令行加载模型时指定 "
+"``--cpu_offload True``。"
+
+#: ../../source/models/model_abilities/image.rst:227
 msgid "GGUF file format"
 msgstr "GGUF 文件格式"
 
-#: ../../source/models/model_abilities/image.rst:225
+#: ../../source/models/model_abilities/image.rst:229
 msgid ""
 "GGUF file format for transformer provides various quantization options. "
 "To use gguf file, you can specify additional option ``gguf_quantization``"
@@ -329,27 +342,27 @@ msgstr ""
 "``--gguf_quantization`` ，以为 Xinference 内建支持 GGUF 量化的模型开启。"
 "如下是内置支持的模型。"
 
-#: ../../source/models/model_abilities/image.rst:231
+#: ../../source/models/model_abilities/image.rst:235
 msgid "supported gguf quantization"
 msgstr "支持 GGUF 量化格式"
 
-#: ../../source/models/model_abilities/image.rst:233
-#: ../../source/models/model_abilities/image.rst:235
+#: ../../source/models/model_abilities/image.rst:237
+#: ../../source/models/model_abilities/image.rst:239
 msgid "F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:237
+#: ../../source/models/model_abilities/image.rst:241
 msgid ""
 "F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, "
 "Q5_K_S, Q6_K, Q8_0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:239
-#: ../../source/models/model_abilities/image.rst:241
+#: ../../source/models/model_abilities/image.rst:243
+#: ../../source/models/model_abilities/image.rst:245
 msgid "F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:246
+#: ../../source/models/model_abilities/image.rst:250
 msgid ""
 "We stronly recommend to enable additional option ``cpu_offload`` with "
 "value ``True`` for WebUI, or specify ``--cpu_offload True`` for command "
@@ -358,17 +371,17 @@ msgstr ""
 "我们强烈推荐在 WebUI 上开启额外选项 ``cpu_offload`` 并指定为 ``True``，或"
 "对命令行，指定 ``--cpu_offload True``。"
 
-#: ../../source/models/model_abilities/image.rst:249
+#: ../../source/models/model_abilities/image.rst:253
 msgid "Example:"
 msgstr "例如："
 
-#: ../../source/models/model_abilities/image.rst:255
+#: ../../source/models/model_abilities/image.rst:259
 msgid ""
 "With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run "
 "Flux.1-dev."
 msgstr "使用 ``Q2_K`` 量化，你只需要大约 5GB 的显存来运行 Flux.1-dev。"
 
-#: ../../source/models/model_abilities/image.rst:257
+#: ../../source/models/model_abilities/image.rst:261
 msgid ""
 "For those models gguf options are not supported internally, or you want "
 "to download gguf files on you own, you can specify additional option "
@@ -379,15 +392,15 @@ msgstr ""
 "Web UI 指定额外选项 ``gguf_model_path`` 或者用命令行指定 ``--gguf_model_"
 "path /path/to/model_quant.gguf`` 。"
 
-#: ../../source/models/model_abilities/image.rst:263
+#: ../../source/models/model_abilities/image.rst:267
 msgid "OCR"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:265
+#: ../../source/models/model_abilities/image.rst:269
 msgid "The OCR API accepts image bytes and returns the OCR text."
 msgstr "OCR API 接受图像字节并返回 OCR 文本。"
 
-#: ../../source/models/model_abilities/image.rst:267
+#: ../../source/models/model_abilities/image.rst:271
 msgid "We can try OCR API out either via cURL, or Xinference's python client:"
 msgstr "可以通过 cURL 或 Xinference 的 Python 客户端来尝试 OCR API。"
 

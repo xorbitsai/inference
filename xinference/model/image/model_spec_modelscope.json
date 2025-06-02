@@ -328,6 +328,25 @@
     }
   },
   {
+    "model_name": "cogview4",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "ZhipuAI/CogView4-6B",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
     "model_name": "GOT-OCR2_0",
     "model_family": "ocr",
     "model_id": "stepfun-ai/GOT-OCR2_0",
