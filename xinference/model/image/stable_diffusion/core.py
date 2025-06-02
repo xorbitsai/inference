@@ -312,6 +312,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 from transformers import TorchAoConfig
 
             return TorchAoConfig(quantization)
+        else:
+            raise ValueError(f"Unknown quantization method for image model: {method}")
 
     def _quantize_text_encoder(self, quantize_text_encoder: Optional[str]):
         if self._gguf_model_path:

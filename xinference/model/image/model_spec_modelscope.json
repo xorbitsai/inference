@@ -128,7 +128,7 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
-      "transformer_nf4": true
+      "transformer_quantization": "nf4"
     },
     "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-gguf",
     "gguf_quantizations": [
@@ -156,7 +156,7 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
-      "transformer_nf4": true
+      "transformer_quantization": "nf4"
     },
     "default_generate_config": {
       "guidance_scale": 1.0,
