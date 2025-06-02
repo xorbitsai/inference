@@ -220,7 +220,7 @@ Below list default options that used from v0.16.1.
     for text encoder.
 
 For :ref:`CogView4 <models_builtin_cogview4>`, we found that quantization has a significant impact on the model.
-Therefore, when GPU memory is limited， we recommend enabling the CPU offload option in the Web UI,
+Therefore, when GPU memory is limited, we recommend enabling the CPU offload option in the Web UI,
 and specifying ``--cpu_offload True`` when loading the model via the command line.
 
 GGUF file format
