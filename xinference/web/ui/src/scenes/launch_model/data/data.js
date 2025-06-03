@@ -111,6 +111,7 @@ export const featureModels = [
       'FLUX.1-schnell',
       'sd3.5-large',
       'HunyuanDiT-v1.2',
+      'cogview4',
       'sd3.5-medium',
     ],
   },

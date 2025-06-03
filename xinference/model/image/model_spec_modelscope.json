@@ -128,7 +128,7 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
-      "transformer_nf4": true
+      "transformer_quantization": "nf4"
     },
     "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-gguf",
     "gguf_quantizations": [
@@ -156,7 +156,7 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
-      "transformer_nf4": true
+      "transformer_quantization": "nf4"
     },
     "default_generate_config": {
       "guidance_scale": 1.0,
@@ -323,6 +323,25 @@
     "virtualenv": {
       "packages": [
         "diffusers>=0.30.0",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "model_name": "cogview4",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "ZhipuAI/CogView4-6B",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
         "#system_numpy#"
       ]
     }
