@@ -161,6 +161,10 @@ const MenuSide = () => {
           const target = document.querySelector('.step-3')
           if (target) {
             target.click()
+
+            setTimeout(() => {
+              window.dispatchEvent(new Event('resize'))
+            }, 500)
           }
         }
       } else {
