@@ -17,8 +17,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from gguf import GGUFReader, GGUFValueType  # noqa: E402
-
+try:
+    from gguf import GGUFReader, GGUFValueType  # noqa: E402
+except ImportError:
+    GGUFReader = GGUFValueType = None
 logger = logging.getLogger(__name__)
 
 
