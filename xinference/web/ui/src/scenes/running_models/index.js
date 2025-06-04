@@ -7,7 +7,7 @@ import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
@@ -73,6 +73,7 @@ const RunningModels = () => {
   const navigate = useNavigate()
   const endPoint = useContext(ApiContext).endPoint
   const { t } = useTranslation()
+  const location = useLocation()
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue)
@@ -115,42 +116,54 @@ const RunningModels = () => {
       fetchWrapper
         .get('/v1/models')
         .then((response) => {
-          const newLlmData = []
-          const newEmbeddingModelData = []
-          const newImageModelData = []
-          const newAudioModelData = []
-          const newVideoModelData = []
-          const newRerankModelData = []
-          const newFlexibleModelData = []
+          const modelMap = {
+            LLM: [],
+            embedding: [],
+            image: [],
+            audio: [],
+            video: [],
+            rerank: [],
+            flexible: [],
+          }
+
           response.data.forEach((model) => {
-            let newValue = {
+            const newValue = {
               ...model,
               id: model.id,
               url: model.id,
             }
-            if (newValue.model_type === 'LLM') {
-              newLlmData.push(newValue)
-            } else if (newValue.model_type === 'embedding') {
-              newEmbeddingModelData.push(newValue)
-            } else if (newValue.model_type === 'audio') {
-              newAudioModelData.push(newValue)
-            } else if (newValue.model_type === 'video') {
-              newVideoModelData.push(newValue)
-            } else if (newValue.model_type === 'image') {
-              newImageModelData.push(newValue)
-            } else if (newValue.model_type === 'rerank') {
-              newRerankModelData.push(newValue)
-            } else if (newValue.model_type === 'flexible') {
-              newFlexibleModelData.push(newValue)
+            if (modelMap[newValue.model_type]) {
+              modelMap[newValue.model_type].push(newValue)
             }
           })
-          setLlmData(newLlmData)
-          setEmbeddingModelData(newEmbeddingModelData)
-          setAudioModelData(newAudioModelData)
-          setVideoModelData(newVideoModelData)
-          setImageModelData(newImageModelData)
-          setRerankModelData(newRerankModelData)
-          setFlexibleModelData(newFlexibleModelData)
+
+          setLlmData(modelMap.LLM)
+          setEmbeddingModelData(modelMap.embedding)
+          setImageModelData(modelMap.image)
+          setAudioModelData(modelMap.audio)
+          setVideoModelData(modelMap.video)
+          setRerankModelData(modelMap.rerank)
+          setFlexibleModelData(modelMap.flexible)
+
+          if (location.pathname.endsWith('/LLM')) {
+            const modelOrder = [
+              'LLM',
+              'embedding',
+              'image',
+              'audio',
+              'video',
+              'rerank',
+              'flexible',
+            ]
+            for (const type of modelOrder) {
+              if (modelMap[type] && modelMap[type].length > 0) {
+                navigate(`/running_models/${type}`)
+                setTabValue(`/running_models/${type}`)
+                break
+              }
+            }
+          }
+
           setIsUpdatingModel(false)
         })
         .catch((error) => {
