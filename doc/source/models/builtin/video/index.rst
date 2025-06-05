@@ -21,6 +21,8 @@ The following is a list of built-in video models in Xinference:
   
    wan2.1-14b
   
+   wan2.1-flf2v-14b-720p
+  
    wan2.1-i2v-14b-480p
   
    wan2.1-i2v-14b-720p

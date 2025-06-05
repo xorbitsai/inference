@@ -1289,6 +1289,37 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating video from image."
         )
 
+    @request_limit
+    @log_async(logger=logger)
+    async def flf_to_video(
+        self,
+        first_frame: "PIL.Image.Image",
+        last_frame: "PIL.Image.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "firstlastframe_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.firstlastframe_to_video,
+                    first_frame,
+                    last_frame,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from first-last-frame."
+        )
+
     async def record_metrics(self, name, op, kwargs):
         worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)
