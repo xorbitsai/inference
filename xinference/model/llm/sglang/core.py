@@ -122,6 +122,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "gemma-3-it",
     "MiniCPM-V",
     "llama-3.2-vision-instruct",
+    "olmocr-0225-preview",
 ]
 
 
