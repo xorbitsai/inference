@@ -15,12 +15,20 @@ const TranslateButton = ({ sx }) => {
   const { i18n } = useTranslation()
   const languages = [
     {
+      language: 'English',
+      code: 'en',
+    },
+    {
       language: '中文',
       code: 'zh',
     },
     {
-      language: 'English',
-      code: 'en',
+      language: '日本語',
+      code: 'ja',
+    },
+    {
+      language: '한국어',
+      code: 'ko',
     },
   ]
 
