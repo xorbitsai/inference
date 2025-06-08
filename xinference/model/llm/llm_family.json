@@ -10461,7 +10461,7 @@
       "packages": [
         "transformers>=4.51.0",
         "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   }
