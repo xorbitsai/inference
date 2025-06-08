@@ -106,12 +106,30 @@
     "multilingual": false,
     "default_model_config": {
       "vad_model": "fsmn-vad",
-      "punc_model": "ct-punc"
+      "punc_model": "ct-punc",
+      "spk_model":"cam++"
     },
     "default_transcription_config": {
       "batch_size_s": 300
     }
   },
+  {
+    "model_name": "seaco-paraformer-zh",
+    "model_family": "funasr",
+    "model_hub": "modelscope",
+    "model_id": "iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+    "model_revision": "master",
+    "model_ability": ["audio2text"],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "hotword": "",
+      "batch_size_s": 300
+    }
+  },  
   {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
