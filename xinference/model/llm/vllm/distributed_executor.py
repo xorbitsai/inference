@@ -123,14 +123,26 @@ class XinferenceDistributedExecutor(DistributedExecutorBase):
         self._is_shutdown = False
         super().__init__(vllm_config, *args, **kwargs)
 
+    def _create_workers(self, refs: xo.ActorRefType[WorkerActor]) -> None:
+        self.driver_worker: Optional[WorkerActor] = None
+        # The remaining workers are Xoscar actors
+        self.workers: List[WorkerWrapper] = []
+
+        self.workers = [WorkerWrapper(self._loop, ref) for ref in refs[1:]]
+
+        # driver worker only for vllm v0
+        self.driver_worker = WorkerActor(self.vllm_config, rpc_rank=0)
+
+        def driver_execute_method(*args, **kwargs):
+            func = partial(self.driver_worker.execute_method, *args, **kwargs)
+            return self._loop.run_in_executor(None, func)
+
+        self.driver_exec_method = driver_execute_method
+
     def _init_executor(self) -> None:
         # Create the parallel GPU workers.
         world_size = self.parallel_config.world_size
         tensor_parallel_size = self.parallel_config.tensor_parallel_size
-
-        self.driver_worker: Optional[WorkerActor] = None
-        # The remaining workers are Xoscar actors
-        self.workers: List[WorkerWrapper] = []
 
         assert (
             self._pool_addresses and len(self._pool_addresses) == world_size
@@ -146,22 +158,10 @@ class XinferenceDistributedExecutor(DistributedExecutorBase):
                 uid=WorkerActor.gen_uid(rank),
             )
             futures.append(asyncio.run_coroutine_threadsafe(coro, self._loop))
-        refs = [fut.result() for fut in futures]
+        refs: List[xo.ActorRefType[WorkerActor]] = [fut.result() for fut in futures]
 
-        if not envs.VLLM_USE_V1:
-            self.workers = [WorkerWrapper(self._loop, ref) for ref in refs[1:]]
-
-            # driver worker only for vllm v0
-            self.driver_worker = WorkerActor(self.vllm_config, rpc_rank=0)
-
-            def driver_execute_method(*args, **kwargs):
-                func = partial(self.driver_worker.execute_method, *args, **kwargs)
-                return self._loop.run_in_executor(None, func)
-
-            self.driver_exec_method = driver_execute_method
-        else:
-            # vllm v1
-            self.workers = [WorkerWrapper(self._loop, ref) for ref in refs]
+        # create workers
+        self._create_workers(refs)
 
         # Set environment variables for the driver and workers.
         all_args_to_update_environment_variables: List[Dict[str, str]] = [
@@ -250,15 +250,10 @@ class XinferenceDistributedExecutor(DistributedExecutorBase):
         if async_run_tensor_parallel_workers_only:
             return worker_outputs
 
-        if not envs.VLLM_USE_V1:
-            driver_worker_outputs = [
-                self.driver_worker.execute_method(method, *args, **kwargs)  # type: ignore
-            ]
-            return driver_worker_outputs + [
-                output.result() for output in worker_outputs
-            ]
-        else:
-            return [output.result() for output in worker_outputs]
+        driver_worker_outputs = [
+            self.driver_worker.execute_method(method, *args, **kwargs)  # type: ignore
+        ]
+        return driver_worker_outputs + [output.result() for output in worker_outputs]
 
     def _wait_for_tasks_completion(self, parallel_worker_tasks: Any) -> None:
         """Wait for futures returned from _run_workers() with
@@ -286,17 +281,6 @@ class XinferenceDistributedExecutor(DistributedExecutorBase):
 
     def __del__(self):
         return self.shutdown()
-
-    def execute_model(
-        self,
-        execute_model_req: "ExecuteModelRequest",
-    ) -> List["SamplerOutput"]:
-        if not envs.VLLM_USE_V1:
-            # vllm v0
-            return super().execute_model(execute_model_req)
-
-        outputs = self._run_workers("execute_model", execute_model_req)
-        return outputs[0]
 
     def _driver_execute_model(
         self, execute_model_req: Optional["ExecuteModelRequest"]
@@ -375,3 +359,38 @@ if ExecutorV1:
             XinferenceDistributedExecutor.__init__(
                 self, vllm_config, pool_addresses, n_worker, loop, *args, **kwargs
             )
+
+        def _create_workers(self, refs: xo.ActorRefType[WorkerActor]) -> None:
+            self.workers = [WorkerWrapper(self._loop, ref) for ref in refs]
+
+        def execute_model(
+            self,
+            execute_model_req: "ExecuteModelRequest",
+        ) -> List["SamplerOutput"]:
+            outputs = self._run_workers("execute_model", execute_model_req)
+            return outputs[0]
+
+        def _run_workers(
+            self,
+            method: Union[str, Callable],
+            *args,
+            async_run_tensor_parallel_workers_only: bool = False,
+            max_concurrent_workers: Optional[int] = None,
+            **kwargs,
+        ) -> Any:
+            if max_concurrent_workers:
+                raise NotImplementedError(
+                    "max_concurrent_workers is not supported yet."
+                )
+
+            workers = self.workers
+            if async_run_tensor_parallel_workers_only:
+                workers = self.non_driver_workers
+            worker_outputs = [
+                worker.execute_method(method, *args, **kwargs) for worker in workers
+            ]
+
+            if async_run_tensor_parallel_workers_only:
+                return worker_outputs
+
+            return [output.result() for output in worker_outputs]
