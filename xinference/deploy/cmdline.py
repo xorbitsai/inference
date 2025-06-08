@@ -1315,8 +1315,12 @@ def model_chat(
                     if "content" not in delta:
                         continue
                     else:
-                        response_content += delta["content"]
-                        print(delta["content"], end="", flush=True, file=sys.stdout)
+                        # The first chunk of stream output may have no content (None). Related PRs:
+                        # https://github.com/ggml-org/llama.cpp/pull/13634
+                        # https://github.com/ggml-org/llama.cpp/pull/12379
+                        content = delta["content"] or ""
+                        response_content += content
+                        print(content, end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
                 messages.append(dict(role="assistant", content=response_content))
 
