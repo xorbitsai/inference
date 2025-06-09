@@ -103,6 +103,10 @@ class FunASRModel:
 
             if response_format == "json":
                 return {"text": text}
+            elif response_format == "verbose_json":
+                verbose=result[0]
+                verbose["text"]=text
+                return verbose
             else:
                 raise ValueError(f"Unsupported response format: {response_format}")
 
