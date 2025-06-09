@@ -1,29 +1,48 @@
 import logging
 from typing import List, Optional, Union
 
-from fastembed import LateInteractionTextEmbedding, SparseTextEmbedding, TextEmbedding
+try:
+    from fastembed import (
+        LateInteractionTextEmbedding,
+        SparseTextEmbedding,
+        TextEmbedding,
+    )
+except ImportError:
+    LateInteractionTextEmbedding, SparseTextEmbedding, TextEmbedding = None, None, None
+
+import numpy as np
+import torch
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import EmbeddingModel, EmbeddingModelSpec
 
 logger = logging.getLogger(__name__)
 
-import numpy as np
-import torch
-
 # fastembed provide model name with namespace, we only need the model name
-FAST_EMBEDDER_DENSE_MODEL_LIST = [
-    model_info["model"].split("/")[-1]
-    for model_info in TextEmbedding.list_supported_models()
-]
-FAST_EMBEDDER_SPARSE_MODEL_LIST = [
-    model_info["model"].split("/")[-1]
-    for model_info in SparseTextEmbedding.list_supported_models()
-]
-FAST_EMBEDDER_LATE_INTERACTION_MODEL_LIST = [
-    model_info["model"].split("/")[-1]
-    for model_info in LateInteractionTextEmbedding.list_supported_models()
-]
+FAST_EMBEDDER_DENSE_MODEL_LIST = (
+    [
+        model_info["model"].split("/")[-1]
+        for model_info in TextEmbedding.list_supported_models()
+    ]
+    if TextEmbedding
+    else []
+)
+FAST_EMBEDDER_SPARSE_MODEL_LIST = (
+    [
+        model_info["model"].split("/")[-1]
+        for model_info in SparseTextEmbedding.list_supported_models()
+    ]
+    if SparseTextEmbedding
+    else []
+)
+FAST_EMBEDDER_LATE_INTERACTION_MODEL_LIST = (
+    [
+        model_info["model"].split("/")[-1]
+        for model_info in LateInteractionTextEmbedding.list_supported_models()
+    ]
+    if LateInteractionTextEmbedding
+    else []
+)
 
 FAST_EMBEDDER_MODEL_LIST = (
     FAST_EMBEDDER_DENSE_MODEL_LIST

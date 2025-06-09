@@ -136,7 +136,7 @@ def _install():
 
     from .fast_embed.core import FastEmbeddingModel
     from .flag.core import FlagEmbeddingModel
-    from .sentence_transformer.core import SentenceTransformerEmbeddingModel
+    from .sentence_transformers.core import SentenceTransformerEmbeddingModel
 
     FAST_EMBEDDER_CLASSES.extend([FastEmbeddingModel])
     FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
@@ -144,7 +144,7 @@ def _install():
 
     SUPPORTED_ENGINES["fast_embed"] = FAST_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
-    SUPPORTED_ENGINES["sentence_transformer"] = SENTENCE_TRANSFORMER_CLASSES
+    SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
 
     # Init embedding engine
     for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:

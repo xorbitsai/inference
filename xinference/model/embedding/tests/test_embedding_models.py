@@ -57,7 +57,7 @@ def test_engine_supported():
     assert model_name in MODEL_WITH_EMBED_ENGINES
     assert "flag" in MODEL_WITH_EMBED_ENGINES[model_name]
     assert "fast_embed" in MODEL_WITH_EMBED_ENGINES[model_name]
-    assert "sentence_transformer" in MODEL_WITH_EMBED_ENGINES[model_name]
+    assert "sentence_transformers" in MODEL_WITH_EMBED_ENGINES[model_name]
 
 
 # todo 参考sentence_transformer的返回格式进行返回
@@ -133,7 +133,7 @@ def test_embedding_model_with_sentence_transformer():
             "cuda",
             "mock",
             "bge-small-en-v1.5",
-            "sentence_transformer",
+            "sentence_transformers",
             model_path,
         )
         model.load()
@@ -252,7 +252,7 @@ def test_model_from_modelscope():
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model, _ = create_embedding_model_instance(
-        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformer", model_path
+        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
     )
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
@@ -285,7 +285,7 @@ def test_meta_file():
             "cuda",
             "mock",
             "bge-small-en-v1.5",
-            "sentence_transformer",
+            "sentence_transformers",
             cache_dir,
         )
         input_text = "I can do this all day."
@@ -427,7 +427,7 @@ def test_convert_ids_to_tokens():
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model, _ = create_embedding_model_instance(
-        "mock", "cuda", "mock", "bge-small-zh-v1.5", "sentence_transformer", model_path
+        "mock", "cuda", "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
     )
     model.load()
 
