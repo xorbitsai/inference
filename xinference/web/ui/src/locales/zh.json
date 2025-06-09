@@ -4,7 +4,8 @@
     "runningModels": "运行模型",
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
-    "contactUs": "联系我们"
+    "contactUs": "联系我们",
+    "documentation": "文档"
   },
 
   "model": {
@@ -20,13 +21,23 @@
 
   "launchModel": {
     "modelAbility": "模型能力",
-    "generate": "生成",
-    "chat": "聊天",
-    "vision": "视觉聊天",
-    "reasoning": "推理",
-    "text-to-audio": "text-to-audio",
-    "audio-to-text": "audio-to-text",
-    "audio-to-audio": "audio-to-audio",
+    "generate": "文本生成",
+    "chat": "对话",
+    "vision": "图像识别",
+    "reasoning": "推理能力",
+    "tools": "工具使用能力",
+    "audio": "音频处理",
+    "omni": "全模态",
+    "hybrid": "混合能力",
+    "text2image": "文生图",
+    "image2image": "图生图",
+    "inpainting": "图像修复",
+    "ocr": "光学字符识别",
+    "audio2text": "语音转文本",
+    "text2audio": "文本转语音",
+    "text2video": "文生视频",
+    "image2video": "图生视频",
+    "firstlastframe2video": "首尾帧生视频",
     "status": "状态",
     "cached": "已缓存",
     "manageCachedModels": "管理缓存模型",
@@ -52,6 +63,7 @@
     "modelFormat": "模型格式",
     "modelSize": "模型大小",
     "quantization": "量化",
+    "multimodelProjector": "多模态投影器",
     "nGPU": "GPU 数量 (每个副本)",
     "nGPUPerWorker": "每个 Worker 上的 GPU 数量",
     "nGpuLayers": "GPU 层数",
@@ -68,6 +80,7 @@
     "modelPath.optional": "(可选) 模型路径，对于 PyTorch，提供模型目录；对于 GGML/GGUF，提供模型文件路径。",
     "GGUFQuantization.optional": "(可选) GGUF量化格式，对Transformer部分进行量化。",
     "GGUFModelPath.optional": "(可选) GGUF模型路径，应为以 .gguf 结尾的文件。",
+    "enableThinking": "开启思考模式",
     "parsingReasoningContent": "解析推理内容",
     "CPUOffload": "CPU卸载",
     "CPUOffload.tip": "将模型卸载到CPU。当资源有限或使用GGUF选项时，建议启用此功能。",
@@ -204,6 +217,7 @@
   },
 
   "components": {
-    "copySuccess": "已复制到剪贴板！"
+    "copySuccess": "已复制到剪贴板！",
+    "suggestsCommonParameters": "提示常用参数，也允许输入其他参数"
   }
 }

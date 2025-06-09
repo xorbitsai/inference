@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 14 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
-- **Quantizations:** none, 4-bit, 8-bit
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** OrionStarAI/Orion-14B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OrionStarAI/Orion-14B-Chat>`__, `ModelScope <https://modelscope.cn/models/OrionStarAI/Orion-14B-Chat>`__
 

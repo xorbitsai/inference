@@ -101,12 +101,21 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "deepseek-v2-chat-0628",
     "qwen2.5-instruct",
     "qwen2.5-coder-instruct",
+    "XiYanSQL-QwenCoder-2504",
     "QwQ-32B-Preview",
     "QwQ-32B",
     "deepseek-r1-distill-qwen",
     "deepseek-r1-distill-llama",
     "deepseek-v3",
+    "deepseek-v3-0324",
     "deepseek-r1",
+    "deepseek-r1-0528",
+    "deepseek-r1-0528-qwen3",
+    "deepseek-prover-v2",
+    "DianJin-R1",
+    "qwen3",
+    "HuatuoGPT-o1-Qwen2.5",
+    "HuatuoGPT-o1-LLaMA-3.1",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "qwen2.5-vl-instruct",
@@ -154,7 +163,10 @@ class SGLANGModel(LLM):
 
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -556,6 +568,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if self.model_family.stop:
             if (not generate_config.get("stop")) and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
+        generate_config.pop("chat_template_kwargs", None)
         return generate_config
 
     async def async_chat(
@@ -565,7 +578,15 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
-        full_prompt = self.get_full_context(messages, self.model_family.chat_template)
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, **full_context_kwargs
+        )
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
@@ -632,7 +653,13 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
 
-        prompt = self.get_full_context(messages, chat_template)
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
+        prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
             raise ValueError("Not support video input now.")

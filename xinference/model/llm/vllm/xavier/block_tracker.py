@@ -25,10 +25,10 @@ class VLLMBlockTracker(xo.StatelessActor):
     def __init__(self):
         super().__init__()
         # engine -> hash -> (rank, block_id)
-        self._hash_to_rank_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}
+        self._hash_to_rank_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}  # type: ignore
         # engine -> rank -> (hash, block_id)
-        self._rank_to_hash_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}
-        self._unavailable_ranks: Set[int] = set()
+        self._rank_to_hash_and_block_id: Dict[int, Dict[int, Set[Tuple[int, int]]]] = {}  # type: ignore
+        self._unavailable_ranks: Set[int] = set()  # type: ignore
 
     def register_blocks(
         self, virtual_engine: int, block_infos: List[Tuple[int, int]], rank: int

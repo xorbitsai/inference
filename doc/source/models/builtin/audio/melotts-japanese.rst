@@ -6,7 +6,7 @@ MeloTTS-Japanese
 
 - **Model Name:** MeloTTS-Japanese
 - **Model Family:** MeloTTS
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** False
 
 Specifications

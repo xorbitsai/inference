@@ -45,7 +45,7 @@ jobs:
           sortPaths: "xinference"
           configuration: "--check-only --diff --sp setup.cfg"
       - name: mypy
-        run: pip install mypy && mypy --install-types --non-interactive xinference
+        run: pip install 'mypy<1.16.0' && mypy --install-types --non-interactive xinference
       - name: codespell
         run: pip install codespell && codespell --ignore-words-list thirdparty xinference
       - name: Set up Node.js
@@ -125,7 +125,7 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install xllamacpp
+          pip install "xllamacpp>=0.1.18" gguf
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
@@ -136,7 +136,6 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install tomli 
           else
-            pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
             pip install "transformers<4.49"
             pip install attrdict
             pip install "timm>=0.9.16"
@@ -168,6 +167,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U gguf
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "python-jose[cryptography]"

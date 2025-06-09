@@ -35,8 +35,8 @@ Model Spec 2 (gptq, 4 Billion)
 
 - **Model Format:** gptq
 - **Model Size (in billions):** 4
-- **Quantizations:** none
-- **Engines**: Transformers
+- **Quantizations:** Int4
+- **Engines**: vLLM, Transformers
 - **Model ID:** openbmb/MiniCPM3-4B-GPTQ-Int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM3-4B-GPTQ-Int4>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM3-4B-GPTQ-Int4>`__
 

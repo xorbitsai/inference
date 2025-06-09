@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 13 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
-- **Quantizations:** 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** skywork/Skywork-13B-Math
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/skywork/Skywork-13B-Math>`__, `ModelScope <https://modelscope.cn/models/skywork/Skywork-13B-Math>`__

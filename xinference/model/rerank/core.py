@@ -265,7 +265,13 @@ class RerankModel:
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
-        sentence_combinations = [[query, doc] for doc in documents]
+
+        from .utils import preprocess_sentence
+
+        pre_query = preprocess_sentence(
+            query, kwargs.get("instruction", None), self._model_spec.model_name
+        )
+        sentence_combinations = [[pre_query, doc] for doc in documents]
         # reset n tokens
         self._model.model.n_tokens = 0
         if self._model_spec.type == "normal":

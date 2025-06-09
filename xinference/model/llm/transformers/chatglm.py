@@ -22,17 +22,19 @@ import torch
 
 from ....core.scheduler import InferenceRequest
 from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import (
     GLM4_TOOL_CALL_FAMILY,
     generate_chat_completion,
     generate_completion_chunk,
 )
-from .core import PytorchChatModel, PytorchModelConfig
+from .core import PytorchChatModel, PytorchModelConfig, register_non_default_model
 
 logger = logging.getLogger(__name__)
 
 
+@register_transformer
+@register_non_default_model("glm4-chat", "glm4-chat-1m")
 class ChatglmPytorchChatModel(PytorchChatModel):
     def __init__(
         self,
@@ -462,6 +464,12 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     tools = list(tools) if tools is not None else None
                     tool_choice = r.generate_config.get("tool_choice", "none")
 
+                    full_context_kwargs = (
+                        self._get_chat_template_kwargs_from_generate_config(
+                            r.generate_config, self.reasoning_parser
+                        )
+                        or {}
+                    )
                     r.prompt = self._process_messages(
                         r.prompt, tools=tools, tool_choice=tool_choice
                     )
@@ -469,6 +477,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                         r.prompt,
                         self.model_family.chat_template,  # type: ignore
                         tokenizer=self._tokenizer,
+                        **full_context_kwargs,
                     )
                     if tools:
                         r.tools = tools
@@ -501,7 +510,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
         if "<bos_stream>" in req.completion:
             bos_pos = req.completion.index("<bos_stream>")
-            results.append(
+            results.extend(
                 self._get_first_chat_completion_chunk(req.completion[bos_pos + 1])
             )
 

@@ -21,6 +21,8 @@ export const llmAllDataKey = [
   'cpu_offload',
   'peft_model_config',
   'quantization_config',
+  'enable_thinking',
+  'multimodal_projectors',
 ]
 
 export const additionalParameterTipList = {
@@ -76,15 +78,15 @@ export const featureModels = [
   {
     type: 'llm',
     feature_models: [
-      'deepseek-v3',
-      'deepseek-r1',
-      'deepseek-r1-distill-qwen',
+      'qwen3',
+      'deepseek-v3-0324',
+      'deepseek-r1-0528',
+      'deepseek-r1-0528-qwen3',
       'deepseek-r1-distill-llama',
       'qwen2.5-instruct',
       'qwen2.5-vl-instruct',
       'glm4-0414',
       'QwQ-32B',
-      'llama-3.1-instruct',
       'gemma-3-it',
     ],
   },
@@ -109,6 +111,7 @@ export const featureModels = [
       'FLUX.1-schnell',
       'sd3.5-large',
       'HunyuanDiT-v1.2',
+      'cogview4',
       'sd3.5-medium',
     ],
   },

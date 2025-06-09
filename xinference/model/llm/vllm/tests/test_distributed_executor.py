@@ -14,7 +14,6 @@
 
 import asyncio
 import logging
-import os
 import sys
 from functools import partial
 from typing import Type
@@ -32,16 +31,9 @@ vllm = lazy_import("vllm")
 @pytest.fixture
 async def actor_pool_context():
     logging.basicConfig(level=logging.DEBUG)
-    start_method = (
-        os.environ.get("POOL_START_METHOD", "forkserver")
-        if sys.platform != "win32"
-        else None
-    )
-    pool = await xo.create_actor_pool(
-        "127.0.0.1", n_process=0, subprocess_start_method=start_method
-    )
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
     async with pool:
-        yield start_method, pool
+        yield pool
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Run for linux only")
@@ -66,14 +58,10 @@ async def test_distributed_executor(actor_pool_context):
                 loop=loop,
             )
 
-    start_method, pool = actor_pool_context
+    pool = actor_pool_context
 
-    worker_addr1 = await pool.append_sub_pool(
-        env={"CUDA_VISIBLE_DEVICES": "0,1"}, start_method=start_method
-    )
-    worker_addr2 = await pool.append_sub_pool(
-        env={"CUDA_VISIBLE_DEVICES": "0,1"}, start_method=start_method
-    )
+    worker_addr1 = await pool.append_sub_pool(env={"CUDA_VISIBLE_DEVICES": "0,1"})
+    worker_addr2 = await pool.append_sub_pool(env={"CUDA_VISIBLE_DEVICES": "0,1"})
     loop = asyncio.get_running_loop()
 
     llm_family = next(

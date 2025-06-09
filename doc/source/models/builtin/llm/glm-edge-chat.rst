@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 1_5 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** THUDM/glm-edge-1.5b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-1.5b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat>`__
@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 4 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** THUDM/glm-edge-4b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-4b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat>`__

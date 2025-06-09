@@ -6,7 +6,7 @@ whisper-medium
 
 - **Model Name:** whisper-medium
 - **Model Family:** whisper
-- **Abilities:** audio-to-text
+- **Abilities:** ['audio2text']
 - **Multilingual:** True
 
 Specifications

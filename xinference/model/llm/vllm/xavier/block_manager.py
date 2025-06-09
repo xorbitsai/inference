@@ -30,7 +30,7 @@ class XavierBlockManager(SelfAttnBlockSpaceManager):
         # Monkey patch
         CpuGpuBlockAllocator.create = XavierCpuGpuBlockAllocator.create
         super().__init__(*args, **kwargs)
-        self._xavier_config: Optional[Dict[str, Any]] = None
+        self._xavier_config: Optional[Dict[str, Any]] = None  # type: ignore
         logger.debug("Init xavier block manager done.")
 
     @property

@@ -16,10 +16,12 @@ from typing import List, Optional
 
 from ....core.scheduler import InferenceRequest
 from ....types import LoRA
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from .core import PytorchModel, PytorchModelConfig
+from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from .core import PytorchModel, PytorchModelConfig, register_non_default_model
 
 
+@register_transformer
+@register_non_default_model("opt")
 class OptPytorchModel(PytorchModel):
     def __init__(
         self,

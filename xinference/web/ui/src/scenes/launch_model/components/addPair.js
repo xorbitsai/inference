@@ -9,6 +9,7 @@ import {
   TextField,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const AddPair = ({
   customData,
@@ -22,6 +23,8 @@ const AddPair = ({
   const [arrId, setArrId] = useState(0)
   const [defaultIndex, setDefaultIndex] = useState(-1)
   const [isNotUniqueKey, setIsNotUniqueKey] = useState(false)
+
+  const { t } = useTranslation()
 
   useEffect(() => {
     onGetArr(arr)
@@ -115,6 +118,7 @@ const AddPair = ({
                       style={{ width: '44%' }}
                       disablePortal
                       options={tipOptions}
+                      groupBy={() => t('components.suggestsCommonParameters')}
                       value={item[customData.key]}
                       inputValue={item[customData.key]}
                       onInputChange={(_, newValue) => {

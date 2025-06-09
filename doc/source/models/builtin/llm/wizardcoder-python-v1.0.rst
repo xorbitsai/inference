@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 13 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** WizardLMTeam/WizardCoder-Python-13B-V1.0
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/WizardLMTeam/WizardCoder-Python-13B-V1.0>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/WizardCoder-Python-13B-V1.0>`__
@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 34 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** WizardLMTeam/WizardCoder-Python-34B-V1.0
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/WizardLMTeam/WizardCoder-Python-34B-V1.0>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/WizardCoder-Python-34B-V1.0>`__

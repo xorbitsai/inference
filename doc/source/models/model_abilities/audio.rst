@@ -1,8 +1,8 @@
 .. _audio:
 
-=====================
-Audio (Experimental)
-=====================
+=====
+Audio
+=====
 
 Learn how to turn audio into text or text into audio with Xinference.
 
@@ -44,27 +44,48 @@ The audio API is supported with the following models in Xinference:
 Audio to text
 ~~~~~~~~~~~~~
 
-* whisper-tiny
-* whisper-tiny.en
-* whisper-base
-* whisper-base.en
-* whisper-medium
-* whisper-medium.en
-* whisper-large-v3
-* whisper-large-v3-turbo
-* Belle-distilwhisper-large-v2-zh
-* Belle-whisper-large-v2-zh
-* Belle-whisper-large-v3-zh
-* SenseVoiceSmall
+* :ref:`whisper-tiny <models_builtin_whisper-tiny>`
+* :ref:`whisper-tiny.en <models_builtin_whisper-tiny.en>`
+* :ref:`whisper-base <models_builtin_whisper-base>`
+* :ref:`whisper-base.en <models_builtin_whisper-base.en>`
+* :ref:`whisper-medium <models_builtin_whisper-medium>`
+* :ref:`whisper-medium.en <models_builtin_whisper-medium.en>`
+* :ref:`whisper-large-v3 <models_builtin_whisper-large-v3>`
+* :ref:`whisper-large-v3-turbo <models_builtin_whisper-large-v3-turbo>`
+* :ref:`Belle-distilwhisper-large-v2-zh <models_builtin_belle-distilwhisper-large-v2-zh>`
+* :ref:`Belle-whisper-large-v2-zh <models_builtin_belle-whisper-large-v2-zh>`
+* :ref:`Belle-whisper-large-v3-zh <models_builtin_belle-whisper-large-v3-zh>`
+* :ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`
+* :ref:`Paraformer-zh <models_builtin_paraformer-zh>`
+
+For Mac M-series chips only:
+
+* :ref:`whisper-tiny-mlx <models_builtin_whisper-tiny-mlx>`
+* :ref:`whisper-tiny.en-mlx <models_builtin_whisper-tiny.en-mlx>`
+* :ref:`whisper-base-mlx <models_builtin_whisper-base-mlx>`
+* :ref:`whisper-base.en-mlx <models_builtin_whisper-base.en-mlx>`
+* :ref:`whisper-medium-mlx <models_builtin_whisper-medium-mlx>`
+* :ref:`whisper-medium.en-mlx <models_builtin_whisper-medium.en-mlx>`
+* :ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`
+* :ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-mlx>`
 
 
 Text to audio
 ~~~~~~~~~~~~~
 
-* ChatTTS
-* CosyVoice
-* FishSpeech-1.5
-* F5-TTS
+* :ref:`ChatTTS <models_builtin_chattts>`
+* :ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`
+* :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
+* :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`
+* :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
+* :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
+* :ref:`F5-TTS <models_builtin_f5-tts>`
+* :ref:`MegaTTS3 <models_builtin_megatts3>`
+* MeloTTS series
+
+For Mac M-series chips only:
+
+* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
 
 Quickstart
 ===================
@@ -379,6 +400,48 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
         instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
         "Fights with fervor for justice, but struggles with impulsiveness.",
     )
+
+CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
+
+.. note::
+
+    Please note that the latest CosyVoice 2.0 requires `use_flow_cache=True` for stream generation.
+
+.. code-block::
+
+    # Launch model
+    from xinference.client import Client
+
+    model_uid = client.launch_model(
+        model_name=model_name,
+        model_type="audio",
+        download_hub="modelscope",
+        use_flow_cache=True,
+    )
+
+    endpoint = "http://127.0.0.1:9997"
+    input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
+
+    # Stream request by openai client
+    import openai
+    import tempfile
+
+    openai_client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+    response = openai_client.audio.speech.with_streaming_response.create(
+        model=model_uid, input=input_string, voice="英文女"
+    )
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        response.stream_to_file(f.name)
+        assert os.stat(f.name).st_size > 0
+
+    # Stream request by xinference client
+    response = model.speech(input_string, stream=True)
+    assert inspect.isgenerator(response)
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        for chunk in response:
+            f.write(chunk)
+
 
 More instructions and examples, could be found at https://fun-audio-llm.github.io/ .
 

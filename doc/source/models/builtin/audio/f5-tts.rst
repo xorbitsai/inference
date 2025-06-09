@@ -6,7 +6,7 @@ F5-TTS
 
 - **Model Name:** F5-TTS
 - **Model Family:** F5-TTS
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** True
 
 Specifications

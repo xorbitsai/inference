@@ -304,10 +304,3 @@ def setup_with_auth():
             os.remove(auth_file)
         except:
             pass
-
-
-@pytest.fixture
-def set_use_xllamacpp():
-    os.environ["USE_XLLAMACPP"] = "1"
-    yield
-    del os.environ["USE_XLLAMACPP"]

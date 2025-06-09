@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 6 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 6
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** 01-ai/Yi-1.5-6B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-1.5-6B-Chat>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-1.5-6B-Chat>`__
 
@@ -35,8 +35,8 @@ Model Spec 2 (pytorch, 9 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** 01-ai/Yi-1.5-9B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-1.5-9B-Chat>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-1.5-9B-Chat>`__
 
@@ -51,8 +51,8 @@ Model Spec 3 (pytorch, 34 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** 01-ai/Yi-1.5-34B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-1.5-34B-Chat>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-1.5-34B-Chat>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (ggufv2, 6 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 6
 - **Quantizations:** Q3_K_L, Q4_K_M, Q5_K_M, Q6_K, Q8_0, f32
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** lmstudio-community/Yi-1.5-6B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Yi-1.5-6B-Chat-GGUF>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (ggufv2, 9 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 9
 - **Quantizations:** Q3_K_L, Q4_K_M, Q5_K_M, Q6_K, Q8_0, f32
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** lmstudio-community/Yi-1.5-9B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Yi-1.5-9B-Chat-GGUF>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (ggufv2, 34 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 34
 - **Quantizations:** Q2_K, Q3_K_L, Q4_K_M, Q5_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** lmstudio-community/Yi-1.5-34B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Yi-1.5-34B-Chat-GGUF>`__
 
@@ -211,7 +211,7 @@ Model Spec 13 (mlx, 6 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 6
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Yi-1.5-6B-Chat-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Yi-1.5-6B-Chat-4bit>`__
@@ -227,7 +227,7 @@ Model Spec 14 (mlx, 6 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 6
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Yi-1.5-6B-Chat-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Yi-1.5-6B-Chat-8bit>`__
@@ -243,7 +243,7 @@ Model Spec 15 (mlx, 9 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Yi-1.5-9B-Chat-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Yi-1.5-9B-Chat-4bit>`__
@@ -259,7 +259,7 @@ Model Spec 16 (mlx, 9 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Yi-1.5-9B-Chat-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Yi-1.5-9B-Chat-8bit>`__
@@ -275,7 +275,7 @@ Model Spec 17 (mlx, 34 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 34
-- **Quantizations:** 4-bit
+- **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Yi-1.5-34B-Chat-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Yi-1.5-34B-Chat-4bit>`__
@@ -291,7 +291,7 @@ Model Spec 18 (mlx, 34 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 34
-- **Quantizations:** 8-bit
+- **Quantizations:** 8bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Yi-1.5-34B-Chat-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Yi-1.5-34B-Chat-8bit>`__

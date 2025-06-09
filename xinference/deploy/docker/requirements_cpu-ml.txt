@@ -9,7 +9,7 @@ bitsandbytes
 tiktoken>=0.6.0
 gguf
 gptqmodel
-autoawq<0.2.6
+autoawq!=0.2.6
 optimum
 peft
 timm

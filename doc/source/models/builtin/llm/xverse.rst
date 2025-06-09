@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** xverse/XVERSE-7B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/xverse/XVERSE-7B>`__, `ModelScope <https://modelscope.cn/models/xverse/XVERSE-7B>`__
@@ -35,7 +35,7 @@ Model Spec 2 (pytorch, 13 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** xverse/XVERSE-13B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/xverse/XVERSE-13B>`__, `ModelScope <https://modelscope.cn/models/xverse/XVERSE-13B>`__
@@ -51,7 +51,7 @@ Model Spec 3 (pytorch, 65 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 65
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** xverse/XVERSE-65B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/xverse/XVERSE-65B>`__, `ModelScope <https://modelscope.cn/models/xverse/XVERSE-65B>`__

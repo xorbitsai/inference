@@ -71,17 +71,23 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
-XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
-    "qwen-vl-chat",
-    "cogvlm2",
-    "glm-4v",
-    "MiniCPM-V-2.6",
-]
+# !!!!! DO NOT add model_name to this list, using `register_batching_multimodal_models` below instead.
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
+
+
+def register_batching_multimodal_models(*model_names: str):
+    def decorator(cls):
+        for name in model_names:
+            if name not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS:
+                XINFERENCE_BATCHING_ALLOWED_VISION_MODELS.append(name)
+        return cls
+
+    return decorator
 
 
 def request_limit(fn):
@@ -632,6 +638,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return await _gen.__anext__()  # noqa: F821
                 except StopAsyncIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             def _wrapper(_gen):
                 # Avoid issue: https://github.com/python/cpython/issues/112182
@@ -639,6 +647,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return next(_gen)
                 except StopIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             while True:
                 try:
@@ -699,6 +709,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -715,6 +727,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = await stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -969,6 +983,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 response_format,
                 temperature,
                 timestamp_granularities,
+                **kwargs,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
@@ -1229,17 +1244,80 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
-        if hasattr(self._model, "text_to_video"):
-            return await self._call_wrapper_json(
-                self._model.text_to_video,
-                prompt,
-                n,
-                *args,
-                **kwargs,
-            )
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "text_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.text_to_video,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def image_to_video(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "image_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.image_to_video,
+                    image,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from image."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def flf_to_video(
+        self,
+        first_frame: "PIL.Image.Image",
+        last_frame: "PIL.Image.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "firstlastframe_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.firstlastframe_to_video,
+                    first_frame,
+                    last_frame,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from first-last-frame."
         )
 
     async def record_metrics(self, name, op, kwargs):

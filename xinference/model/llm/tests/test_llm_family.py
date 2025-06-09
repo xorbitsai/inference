@@ -136,7 +136,7 @@ def test_serialize_llm_family_v1():
         stop=["hello", "world"],
     )
 
-    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggufv2", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.bin", "model_file_name_split_template": "TestModel.{quantization}.bin.{part}", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "chat_template": "xyz", "stop_token_ids": [1, 2, 3], "stop": ["hello", "world"], "reasoning_start_tag":null, "reasoning_end_tag":null, "virtualenv":null}"""
+    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggufv2", "model_hub": "huggingface", "model_size_in_billions": 2, "activated_size_in_billions": null, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.bin", "model_file_name_split_template": "TestModel.{quantization}.bin.{part}", "model_uri": null, "multimodal_projectors": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "activated_size_in_billions": null, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "chat_template": "xyz", "stop_token_ids": [1, 2, 3], "stop": ["hello", "world"], "reasoning_start_tag":null, "reasoning_end_tag":null, "virtualenv":null}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
     llm_family_context_length = LLMFamilyV1(
@@ -771,8 +771,8 @@ def test_parse_chat_template():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
-        model_family="qwen-vl-chat",
-        chat_template="qwen-vl-chat",
+        model_family="qwen2-vl-instruct",
+        chat_template="qwen2-vl-instruct",
     )
     model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf-8"))
     assert "vision" in model_spec.model_ability
@@ -981,7 +981,7 @@ def test_quert_engine_SGLang():
 
 
 def test_query_engine_general():
-    from ..llama_cpp.core import LlamaCppChatModel
+    from ..llama_cpp.core import XllamaCppModel
     from ..llm_family import (
         LLM_ENGINES,
         check_engine_by_spec_parameters,
@@ -1025,7 +1025,7 @@ def test_query_engine_general():
             model_size_in_billions="1_8",
             quantization="q2_k",
         )
-        is LlamaCppChatModel
+        is XllamaCppModel
     )
     with pytest.raises(ValueError) as exif:
         check_engine_by_spec_parameters(

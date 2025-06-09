@@ -73,7 +73,7 @@ def generate_engine_config_by_model_family(model_family):
         model_size_in_billions = spec.model_size_in_billions
         quantizations = spec.quantizations
         for quantization in quantizations:
-            # traverse all supported engines to match the name, format, size in billions and quatization of model
+            # traverse all supported engines to match the name, format, size in billions and quantization of model
             for engine in SUPPORTED_ENGINES:
                 if not check_format_with_engine(
                     model_format, engine
@@ -107,6 +107,10 @@ def generate_engine_config_by_model_family(model_family):
                                     "llm_class": cls,
                                 }
                             )
+                            if hasattr(spec, "multimodal_projectors"):
+                                engine_params[-1][
+                                    "multimodal_projectors"
+                                ] = spec.multimodal_projectors
                         engines[engine] = engine_params
                         break
     LLM_ENGINES[model_name] = engines
@@ -128,46 +132,47 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
 
 
+def load_model_family_from_json(json_filename, target_families):
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), json_filename)
+    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+        model_spec = LLMFamilyV1.parse_obj(json_obj)
+        target_families.append(model_spec)
+
+        # register chat_template
+        if (
+            "chat" in model_spec.model_ability
+            and isinstance(model_spec.chat_template, str)
+            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
+        ):
+            # note that the key is the model name,
+            # since there are multiple representations of the same prompt style name in json.
+            if model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE:
+                BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                    "chat_template": model_spec.chat_template,
+                    "stop_token_ids": model_spec.stop_token_ids,
+                    "stop": model_spec.stop,
+                }
+
+        # register model family
+        if "chat" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
+        else:
+            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
+        if "tools" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+
+
 def _install():
-    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel, XllamaCppModel
+    from .llama_cpp.core import XllamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
-    from .transformers.chatglm import ChatglmPytorchChatModel
-    from .transformers.cogagent import CogAgentChatModel
-    from .transformers.cogvlm2 import CogVLM2Model
-    from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchModel
-    from .transformers.deepseek_v2 import (
-        DeepSeekV2PytorchChatModel,
-        DeepSeekV2PytorchModel,
-    )
-    from .transformers.deepseek_vl import DeepSeekVLChatModel
-    from .transformers.deepseek_vl2 import DeepSeekVL2ChatModel
-    from .transformers.gemma3 import Gemma3ChatModel, Gemma3TextChatModel
-    from .transformers.glm4v import Glm4VModel
-    from .transformers.glm_edge_v import GlmEdgeVModel
-    from .transformers.minicpmv25 import MiniCPMV25Model
-    from .transformers.minicpmv26 import MiniCPMV26Model
-    from .transformers.opt import OptPytorchModel
-    from .transformers.ovis2 import Ovis2ChatModel
-    from .transformers.qwen2_audio import Qwen2AudioChatModel
-    from .transformers.qwen_vl import QwenVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
-
-    try:
-        from .transformers.omnilmm import OmniLMMModel
-    except ImportError as e:
-        # For quite old transformers version,
-        # import will generate error
-        OmniLMMModel = None
-        warnings.warn(f"Cannot import OmniLLMModel due to reason: {e}")
 
     # register llm classes.
     LLAMA_CLASSES.extend(
         [
-            LlamaCppChatModel,
-            LlamaCppModel,
             XllamaCppModel,
         ]
     )
@@ -175,32 +180,7 @@ def _install():
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
-    TRANSFORMERS_CLASSES.extend(
-        [
-            ChatglmPytorchChatModel,
-            PytorchChatModel,
-            QwenVLChatModel,
-            Qwen2AudioChatModel,
-            DeepSeekVLChatModel,
-            DeepSeekVL2ChatModel,
-            PytorchModel,
-            CogVLM2Model,
-            CogVLM2VideoModel,
-            MiniCPMV25Model,
-            MiniCPMV26Model,
-            Glm4VModel,
-            DeepSeekV2PytorchModel,
-            DeepSeekV2PytorchChatModel,
-            OptPytorchModel,
-            GlmEdgeVModel,
-            CogAgentChatModel,
-            Gemma3TextChatModel,
-            Gemma3ChatModel,
-            Ovis2ChatModel,
-        ]
-    )
-    if OmniLMMModel:  # type: ignore
-        TRANSFORMERS_CLASSES.append(OmniLMMModel)
+    TRANSFORMERS_CLASSES.extend([PytorchChatModel, PytorchModel])
 
     # support 4 engines for now
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
@@ -210,115 +190,14 @@ def _install():
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
 
-    json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
+    load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+    load_model_family_from_json(
+        "llm_family_modelscope.json", BUILTIN_MODELSCOPE_LLM_FAMILIES
     )
-    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
-        model_spec = LLMFamilyV1.parse_obj(json_obj)
-        BUILTIN_LLM_FAMILIES.append(model_spec)
-
-        # register chat_template
-        if "chat" in model_spec.model_ability and isinstance(
-            model_spec.chat_template, str
-        ):
-            # note that the key is the model name,
-            # since there are multiple representations of the same prompt style name in json.
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
-                "chat_template": model_spec.chat_template,
-                "stop_token_ids": model_spec.stop_token_ids,
-                "stop": model_spec.stop,
-            }
-        # register model family
-        if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
-        else:
-            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tools" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
-
-    modelscope_json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
+    load_model_family_from_json(
+        "llm_family_openmind_hub.json", BUILTIN_OPENMIND_HUB_LLM_FAMILIES
     )
-    for json_obj in json.load(codecs.open(modelscope_json_path, "r", encoding="utf-8")):
-        model_spec = LLMFamilyV1.parse_obj(json_obj)
-        BUILTIN_MODELSCOPE_LLM_FAMILIES.append(model_spec)
-
-        # register prompt style, in case that we have something missed
-        # if duplicated with huggingface json, keep it as the huggingface style
-        if (
-            "chat" in model_spec.model_ability
-            and isinstance(model_spec.chat_template, str)
-            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
-        ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
-                "chat_template": model_spec.chat_template,
-                "stop_token_ids": model_spec.stop_token_ids,
-                "stop": model_spec.stop,
-            }
-        # register model family
-        if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
-        else:
-            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tools" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
-
-    openmind_hub_json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "llm_family_openmind_hub.json"
-    )
-    for json_obj in json.load(
-        codecs.open(openmind_hub_json_path, "r", encoding="utf-8")
-    ):
-        model_spec = LLMFamilyV1.parse_obj(json_obj)
-        BUILTIN_OPENMIND_HUB_LLM_FAMILIES.append(model_spec)
-
-        # register prompt style, in case that we have something missed
-        # if duplicated with huggingface json, keep it as the huggingface style
-
-        if (
-            "chat" in model_spec.model_ability
-            and isinstance(model_spec.chat_template, str)
-            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
-        ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
-                "chat_template": model_spec.chat_template,
-                "stop_token_ids": model_spec.stop_token_ids,
-                "stop": model_spec.stop,
-            }
-        # register model family
-        if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
-        else:
-            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tools" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
-
-    csghub_json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "llm_family_csghub.json"
-    )
-    for json_obj in json.load(codecs.open(csghub_json_path, "r", encoding="utf-8")):
-        model_spec = LLMFamilyV1.parse_obj(json_obj)
-        BUILTIN_CSGHUB_LLM_FAMILIES.append(model_spec)
-
-        # register prompt style, in case that we have something missed
-        # if duplicated with huggingface json, keep it as the huggingface style
-        if (
-            "chat" in model_spec.model_ability
-            and isinstance(model_spec.chat_template, str)
-            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
-        ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
-                "chat_template": model_spec.chat_template,
-                "stop_token_ids": model_spec.stop_token_ids,
-                "stop": model_spec.stop,
-            }
-        # register model family
-        if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
-        else:
-            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tools" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+    load_model_family_from_json("llm_family_csghub.json", BUILTIN_CSGHUB_LLM_FAMILIES)
 
     for llm_specs in [
         BUILTIN_LLM_FAMILIES,

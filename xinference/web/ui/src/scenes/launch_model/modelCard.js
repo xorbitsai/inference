@@ -101,6 +101,7 @@ const ModelCard = ({
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [multimodalProjector, setMultimodalProjector] = useState('')
   const [nWorker, setNWorker] = useState(1)
   const [nGPU, setNGPU] = useState('auto')
   const [nGpu, setNGpu] = useState(gpuAvailable === 0 ? 'CPU' : 'GPU')
@@ -111,6 +112,7 @@ const ModelCard = ({
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
   const [modelPath, setModelPath] = useState('')
+  const [enableThinking, setEnableThinking] = useState(true)
   const [reasoningContent, setReasoningContent] = useState(false)
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
@@ -121,6 +123,9 @@ const ModelCard = ({
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
+  const [multimodalProjectorOptions, setMultimodalProjectorOptions] = useState(
+    []
+  )
   const [customDeleted, setCustomDeleted] = useState(false)
   const [customParametersArr, setCustomParametersArr] = useState([])
   const [quantizationParametersArr, setQuantizationParametersArr] = useState([])
@@ -231,12 +236,30 @@ const ModelCard = ({
             .flatMap((item) => item.quantizations)
         ),
       ]
+      const multimodal_projectors = [
+        ...new Set(
+          enginesObj[modelEngine]
+            .filter(
+              (item) =>
+                item.model_format === modelFormat &&
+                item.model_size_in_billions === convertModelSize(modelSize)
+            )
+            .flatMap((item) => item.multimodal_projectors || [])
+        ),
+      ]
       setQuantizationOptions(quants)
+      setMultimodalProjectorOptions(multimodal_projectors || [])
       if (!quants.includes(quantization)) {
         setQuantization('')
       }
       if (quants.length === 1) {
         setQuantization(quants[0])
+      }
+      if (!multimodal_projectors.includes(multimodalProjector)) {
+        setMultimodalProjector('')
+      }
+      if (multimodal_projectors.length > 0 && !multimodalProjector) {
+        setMultimodalProjector(multimodal_projectors[0])
       }
     }
   }, [modelEngine, modelFormat, modelSize])
@@ -255,11 +278,11 @@ const ModelCard = ({
   }, [customParametersArr])
 
   const getNGPURange = () => {
-    if (gpuAvailable === 0) {
-      // remain 'auto' for distributed situation
-      return ['auto', 'CPU']
+    if (gpuAvailable > 0) {
+      return ['auto', 'CPU'].concat(range(1, gpuAvailable))
     }
-    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+
+    return ['auto', 'CPU']
   }
 
   const getNewNGPURange = () => {
@@ -351,13 +374,21 @@ const ModelCard = ({
       model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
+    if (multimodalProjector)
+      modelDataWithID_LLM.multimodal_projector = multimodalProjector
     if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
-    if (modelData.model_ability?.includes('reasoning'))
+    if (modelData.model_ability?.includes('hybrid'))
+      modelDataWithID_LLM.enable_thinking = enableThinking
+    if (
+      modelData.model_ability?.includes('reasoning') &&
+      (!modelData.model_ability?.includes('hybrid') || enableThinking)
+    )
       modelDataWithID_LLM.reasoning_content = reasoningContent
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
-    if (modelType === 'image') modelDataWithID_other.cpu_offload = cpuOffload
+    if (['image', 'video'].includes(modelType))
+      modelDataWithID_other.cpu_offload = cpuOffload
 
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
@@ -640,6 +671,7 @@ const ModelCard = ({
       model_format,
       model_size_in_billions,
       quantization,
+      multimodal_projector,
       n_worker,
       n_gpu,
       n_gpu_layers,
@@ -650,6 +682,7 @@ const ModelCard = ({
       gpu_idx,
       download_hub,
       model_path,
+      enable_thinking,
       reasoning_content,
       peft_model_config,
       quantization_config,
@@ -663,6 +696,7 @@ const ModelCard = ({
     setModelFormat(model_format || '')
     setModelSize(String(model_size_in_billions) || '')
     setQuantization(quantization || '')
+    setMultimodalProjector(multimodal_projector || '')
     setNWorker(Number(n_worker) || 1)
     setNGPU(n_gpu || 'auto')
     if (n_gpu_layers >= 0) {
@@ -677,6 +711,7 @@ const ModelCard = ({
     setGPUIdx(gpu_idx?.join(',') || '')
     setDownloadHub(download_hub || '')
     setModelPath(model_path || '')
+    setEnableThinking(enable_thinking !== false)
     setReasoningContent(reasoning_content || false)
 
     let loraData = []
@@ -833,6 +868,7 @@ const ModelCard = ({
       setModelFormat('')
       setModelSize('')
       setQuantization('')
+      setMultimodalProjector('')
       setNWorker(1)
       setNGPU('auto')
       setReplica(1)
@@ -842,6 +878,7 @@ const ModelCard = ({
       setGPUIdx('')
       setDownloadHub('')
       setModelPath('')
+      setEnableThinking(true)
       setReasoningContent(false)
       setLoraArr([])
       setCustomArr([])
@@ -1541,6 +1578,56 @@ const ModelCard = ({
                     </Select>
                   </FormControl>
                 </Grid>
+                {multimodalProjectorOptions.length > 0 && (
+                  <Grid item xs={12}>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat || !modelSize}
+                    >
+                      <InputLabel id="multimodelProjector-label">
+                        {t('launchModel.multimodelProjector')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="multimodelProjector-label"
+                        value={multimodalProjector}
+                        onChange={(e) => setMultimodalProjector(e.target.value)}
+                        label={t('launchModel.multimodelProjector')}
+                      >
+                        {multimodalProjectorOptions.map((projector) => {
+                          const specs = modelData.model_specs
+                            .filter((spec) => spec.model_format === modelFormat)
+                            .filter(
+                              (spec) =>
+                                spec.model_size_in_billions ===
+                                convertModelSize(modelSize)
+                            )
+
+                          const spec = specs.find((s) => {
+                            return s.multimodal_projectors.includes(projector)
+                          })
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.multimodal_projectors.indexOf(projector)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedProjector = cached
+                            ? projector + ' ' + t('launchModel.cached')
+                            : projector
+
+                          return (
+                            <MenuItem key={projector} value={projector}>
+                              {displayedProjector}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
                 <Grid item xs={12}>
                   <FormControl
                     variant="outlined"
@@ -1614,22 +1701,39 @@ const ModelCard = ({
                     />
                   </FormControl>
                 </Grid>
-                {modelData.model_ability?.includes('reasoning') && (
+                {modelData.model_ability?.includes('hybrid') && (
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <div>
                         <FormControlLabel
-                          label={t('launchModel.parsingReasoningContent')}
+                          label={t('launchModel.enableThinking')}
                           labelPlacement="start"
-                          control={<Switch checked={reasoningContent} />}
+                          control={<Switch checked={enableThinking} />}
                           onChange={(e) => {
-                            setReasoningContent(e.target.checked)
+                            setEnableThinking(e.target.checked)
                           }}
                         />
                       </div>
                     </FormControl>
                   </Grid>
                 )}
+                {modelData.model_ability?.includes('reasoning') &&
+                  enableThinking && (
+                    <Grid item xs={12}>
+                      <FormControl variant="outlined" margin="normal" fullWidth>
+                        <div>
+                          <FormControlLabel
+                            label={t('launchModel.parsingReasoningContent')}
+                            labelPlacement="start"
+                            control={<Switch checked={reasoningContent} />}
+                            onChange={(e) => {
+                              setReasoningContent(e.target.checked)
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                    </Grid>
+                  )}
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
@@ -2008,7 +2112,7 @@ const ModelCard = ({
                     />
                   </FormControl>
                 )}
-                {modelType === 'image' && (
+                {['image', 'video'].includes(modelType) && (
                   <>
                     <div
                       style={{

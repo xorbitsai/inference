@@ -3,6 +3,12 @@
 
 # Xorbits Inference: モデルサービングを簡単に 🤖
 
+<p align="center">
+  <a href="https://xinference.io/ja">Xinference Enterprise（企業版）</a> ·
+  <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">セルフホスティング</a> ·
+  <a href="https://inference.readthedocs.io/">ドキュメント</a>
+</p>
+
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)

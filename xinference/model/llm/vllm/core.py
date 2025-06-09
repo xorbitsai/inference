@@ -170,6 +170,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
     VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("XiYanSQL-QwenCoder-2504")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B-Preview")
     VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B")
     VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
@@ -177,6 +178,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
     VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
     VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
+    VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
+    VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -195,7 +199,11 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v3")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v3-0324")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-prover-v2")
+    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528-qwen3")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
@@ -207,6 +215,7 @@ if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-llama")
+    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
@@ -347,8 +356,10 @@ class VLLMModel(LLM):
         self._device_count = self._get_cuda_count()
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
-
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV1)
@@ -811,10 +822,6 @@ class VLLMModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
-        if self.reasoning_parser:
-            # For reasoning model, the </think> we be split into multiple words,
-            # if `stop` param is passed, so we pop it from config.
-            sanitized_generate_config.pop("stop")
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -1029,13 +1036,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if not generate_config.get("stop") and self.model_family.stop:
-            generate_config["stop"] = self.model_family.stop.copy()
-        if (
-            not generate_config.get("stop_token_ids")
-            and self.model_family.stop_token_ids
-        ):
-            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
+        if "reasoning" in getattr(self.model_family, "model_ability", []):
+            generate_config.pop("stop", None)
+            generate_config.pop("stop_token_ids", None)
+        else:
+            if not generate_config.get("stop") and self.model_family.stop:
+                generate_config["stop"] = self.model_family.stop.copy()
+            if (
+                not generate_config.get("stop_token_ids")
+                and self.model_family.stop_token_ids
+            ):
+                generate_config[
+                    "stop_token_ids"
+                ] = self.model_family.stop_token_ids.copy()
         return generate_config
 
     @staticmethod
@@ -1047,11 +1060,15 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         chunks: AsyncGenerator[CompletionChunk, None],
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
+        previous_texts = [""]
+        if self.reasoning_parser:
+            chunks = self.reasoning_parser.prepare_reasoning_content(chunks)
         async for chunk in chunks:
             if i == 0:
-                yield self._get_first_chat_completion_chunk(
+                for first_chunk in self._get_first_chat_completion_chunk(
                     chunk, self.reasoning_parser
-                )
+                ):
+                    yield first_chunk
             # usage
             choices = chunk.get("choices")
             if not choices:
@@ -1065,7 +1082,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                         reasoning_parser=self.reasoning_parser,
                     )
                 else:
-                    yield self._to_chat_completion_chunk(chunk, self.reasoning_parser)
+                    yield self._to_chat_completion_chunk(
+                        chunk, self.reasoning_parser, previous_texts
+                    )
             i += 1
 
     @vllm_check
@@ -1077,7 +1096,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = {}
+        full_context_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -1195,7 +1219,12 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         if "internvl2" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
 
-            full_context_kwargs = {}
+            full_context_kwargs = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    generate_config, self.reasoning_parser
+                )
+                or {}
+            )
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

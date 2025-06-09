@@ -27,13 +27,12 @@ ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
 ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
-    # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
-    pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cu124 && \
     pip install flash-attn --no-build-isolation && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-models.txt && \
-#    pip install -i "$PIP_INDEX" --no-deps sglang && \
+    pip install -i "$PIP_INDEX" transformers>=4.51.3 && \
+    pip install -i "$PIP_INDEX" --no-deps sglang && \
     pip uninstall flashinfer -y && \
     pip install flashinfer-python -i https://flashinfer.ai/whl/cu124/torch2.6 && \
     cd /opt/inference && \
@@ -41,7 +40,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
+    pip install "xllamacpp>=0.1.18" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
     # clean packages
     pip cache purge
 

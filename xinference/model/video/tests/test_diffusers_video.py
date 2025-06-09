@@ -17,7 +17,7 @@ import pytest
 
 from .. import BUILTIN_VIDEO_MODELS
 from ..core import cache
-from ..diffusers import DiffUsersVideoModel
+from ..diffusers import DiffusersVideoModel
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def test_model():
     test_model_spec = next(iter(BUILTIN_VIDEO_MODELS.values()))
     model_path = cache(test_model_spec)
-    model = DiffUsersVideoModel("mock", model_path, test_model_spec)
+    model = DiffusersVideoModel("mock", model_path, test_model_spec)
     # input is a string
     input_text = "an apple"
     model.load()

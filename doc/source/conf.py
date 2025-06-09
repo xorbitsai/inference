@@ -107,6 +107,10 @@ if version_match != 'zh-cn':
         "icon": "fa-brands fa-twitter",
         "type": "fontawesome",
     }])
+    html_theme_options["external_links"] = [
+        {"name": "Official Site", "url": "https://xinference.io"},
+    ]
+    html_theme_options["header_links_before_dropdown"] = 6
 else:
     html_theme_options['icon_links'].extend([{
         "name": "WeChat",

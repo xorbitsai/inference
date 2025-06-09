@@ -65,7 +65,7 @@
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
@@ -88,7 +88,88 @@
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
-        "numpy==1.26.4"
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "model_name": "Wan2.1-i2v-14B-480p",
+    "model_family": "Wan",
+    "model_id": "Wan-AI/Wan2.1-I2V-14B-480P-Diffusers",
+    "model_revision": "b184e23a8a16b20f108f727c902e769e873ffc73",
+    "model_ability": [
+      "image2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "max_area": [
+        480,
+        832
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "model_name": "Wan2.1-i2v-14B-720p",
+    "model_family": "Wan",
+    "model_id": "Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
+    "model_revision": "eb849f76dfa246545b65774a9e25943ee69b3fa3",
+    "model_ability": [
+      "image2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "max_area": [
+        720,
+        1280
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "model_name": "Wan2.1-flf2v-14B-720p",
+    "model_family": "Wan",
+    "model_id": "Wan-AI/Wan2.1-FLF2V-14B-720P-diffusers",
+    "model_revision": "17c30769b1e0b5dcaa1799b117bf20a9c31f59d7",
+    "model_ability": [
+      "firstlastframe2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "max_area": [
+        720,
+        1280
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
       ]
     }
   }

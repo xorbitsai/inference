@@ -123,7 +123,7 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
-      "transformer_nf4": true
+      "transformer_quantization": "nf4"
     },
     "gguf_model_id": "city96/stable-diffusion-3.5-large-gguf",
     "gguf_quantizations": [
@@ -150,7 +150,7 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16",
-      "transformer_nf4": true
+      "transformer_quantization": "nf4"
     },
     "default_generate_config": {
       "guidance_scale": 1.0,
@@ -303,7 +303,34 @@
     "model_ability": [
       "text2image",
       "image2image"
-    ]
+    ],
+    "default_model_config": {
+      "variant": "fp16"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.30.0",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "model_name": "cogview4",
+    "model_family": "stable_diffusion",
+    "model_id": "THUDM/CogView4-6B",
+    "model_revision": "63a52b7f6dace7033380cd6da14d0915eab3e6b5",
+    "model_ability": [
+      "text2image"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "model_name": "stable-diffusion-inpainting",
