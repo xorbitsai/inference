@@ -14,6 +14,7 @@
 import importlib.util
 import json
 import logging
+import multiprocessing
 import sys
 import threading
 import time
@@ -187,6 +188,9 @@ class SGLANGModel(LLM):
                 break
         if sgl_port is None:
             raise ValueError("Failed to find a port for sglang")
+
+        # fork may cause sglang stuck, force set to spawn
+        multiprocessing.set_start_method("spawn")
 
         if self._n_worker > 1:
             # distributed inference
