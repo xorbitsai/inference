@@ -1,5 +1,21 @@
+# Copyright 2022-2025 XProbe Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type
+
+from ..utils import is_valid_model_name
 
 if TYPE_CHECKING:
     from .core import EmbeddingModel, EmbeddingModelSpec
@@ -53,15 +69,12 @@ def match_embedding(
 
 from threading import Lock
 
-MODEL_WITH_EMBED_ENGINES: Dict[
-    str, Dict[str, List[Dict[str, Type["EmbeddingModel"]]]]
-] = {}
+# { embedding model name -> { engine name -> engine params } }
+EMBEDDING_ENGINES: Dict[str, Dict[str, List[Dict[str, Type["EmbeddingModel"]]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type["EmbeddingModel"]]] = {}
 UD_EMBEDDING_FAMILIES_LOCK = Lock()
 # user defined embedding models
 UD_EMBEDDING_SPECS: Dict[str, "EmbeddingModelSpec"] = {}
-
-from ..utils import is_valid_model_name
 
 
 def register_embedding(custom_embedding_spec: "EmbeddingModelSpec", persist: bool):
@@ -86,7 +99,7 @@ def register_embedding(custom_embedding_spec: "EmbeddingModelSpec", persist: boo
             )
 
     UD_EMBEDDING_SPECS[custom_embedding_spec.model_name] = custom_embedding_spec
-    generate_engine_config_by_model_name(custom_embedding_spec.model_name)
+    generate_engine_config_by_model_name(custom_embedding_spec)
 
 
 # TODO: add persist feature
@@ -95,8 +108,8 @@ def unregister_embedding(custom_embedding_spec: "EmbeddingModelSpec"):
         model_name = custom_embedding_spec.model_name
         if model_name in UD_EMBEDDING_SPECS:
             del UD_EMBEDDING_SPECS[model_name]
-        if model_name in MODEL_WITH_EMBED_ENGINES:
-            del MODEL_WITH_EMBED_ENGINES[model_name]
+        if model_name in EMBEDDING_ENGINES:
+            del EMBEDDING_ENGINES[model_name]
 
 
 def check_engine_by_model_name_and_engine(
@@ -104,17 +117,17 @@ def check_engine_by_model_name_and_engine(
     model_engine: str,
 ) -> Type["EmbeddingModel"]:
     def get_model_engine_from_spell(engine_str: str) -> str:
-        for engine in MODEL_WITH_EMBED_ENGINES[model_name].keys():
+        for engine in EMBEDDING_ENGINES[model_name].keys():
             if engine.lower() == engine_str.lower():
                 return engine
         return engine_str
 
-    if model_name not in MODEL_WITH_EMBED_ENGINES:
+    if model_name not in EMBEDDING_ENGINES:
         raise ValueError(f"Model {model_name} not found.")
     model_engine = get_model_engine_from_spell(model_engine)
-    if model_engine not in MODEL_WITH_EMBED_ENGINES[model_name]:
+    if model_engine not in EMBEDDING_ENGINES[model_name]:
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
-    match_params = MODEL_WITH_EMBED_ENGINES[model_name][model_engine]
+    match_params = EMBEDDING_ENGINES[model_name][model_engine]
     for param in match_params:
         if model_name == param["model_name"]:
             return param["embedding_class"]

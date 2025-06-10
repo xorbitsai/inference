@@ -49,15 +49,15 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
     model_revision="v0.0.2",
     model_hub="modelscope",
 )
-from ..embed_family import MODEL_WITH_EMBED_ENGINES
+from ..embed_family import EMBEDDING_ENGINES
 
 
 def test_engine_supported():
     model_name = "bge-small-en-v1.5"
-    assert model_name in MODEL_WITH_EMBED_ENGINES
-    assert "flag" in MODEL_WITH_EMBED_ENGINES[model_name]
-    assert "fast_embed" in MODEL_WITH_EMBED_ENGINES[model_name]
-    assert "sentence_transformers" in MODEL_WITH_EMBED_ENGINES[model_name]
+    assert model_name in EMBEDDING_ENGINES
+    assert "flag" in EMBEDDING_ENGINES[model_name]
+    assert "fast_embed" in EMBEDDING_ENGINES[model_name]
+    assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
 
 
 # todo 参考sentence_transformer的返回格式进行返回
@@ -163,54 +163,6 @@ def test_embedding_model_with_sentence_transformer():
             shutil.rmtree(model_path, ignore_errors=True)
 
 
-def test_embedding_model_with_fast_embed():
-    # this variable should be removed or commented in CI
-    TEST_MODEL_SPEC = EmbeddingModelSpec(
-        model_name="bge-small-en-v1.5",
-        dimensions=384,
-        max_tokens=512,
-        language=["en"],
-        model_id="BAAI/bge-small-en-v1.5",
-        model_hub="modelscope",
-    )
-
-    model_path = None
-
-    try:
-        model_path = cache(TEST_MODEL_SPEC)
-        from ..core import create_embedding_model_instance
-
-        # need test cuda
-        model, _ = create_embedding_model_instance(
-            "mook", "cpu", "mock", "bge-small-en-v1.5", "fast_embed", model_path
-        )
-        model.load()
-
-        # input is a string
-        input_text = "what is the capital of China?"
-
-        # test sparse and dense
-        r = model.create_embedding(input_text)
-        assert len(r["data"]) == 1
-        assert len(r["data"][0]["embedding"]) == 384
-
-        # input is a lit
-        input_texts = [
-            "what is the capital of China?",
-            "how to implement quick sort in python?",
-            "Beijing",
-            "sorting algorithms",
-        ]
-        # test sparse and dense
-        r = model.create_embedding(input_texts)
-        assert len(r["data"]) == 4
-        for d in r["data"]:
-            assert len(d["embedding"]) == 384
-    finally:
-        if model_path is not None:
-            shutil.rmtree(model_path, ignore_errors=True)
-
-
 # def test_model():
 #     model_path = None
 #     try:
@@ -223,7 +175,7 @@ def test_embedding_model_with_fast_embed():
 #         assert len(r["data"]) == 1
 #         for d in r["data"]:
 #             assert len(d["embedding"]) == 384
-
+#
 #         # input is a lit
 #         input_texts = [
 #             "what is the capital of China?",
@@ -241,7 +193,7 @@ def test_embedding_model_with_fast_embed():
 #             input_ids = model._model.tokenize([inp])["input_ids"]
 #             n_token += input_ids.shape[-1]
 #         assert r["usage"]["total_tokens"] == n_token
-
+#
 #     finally:
 #         if model_path is not None:
 #             shutil.rmtree(model_path, ignore_errors=True)

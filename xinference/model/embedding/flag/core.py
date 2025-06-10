@@ -1,3 +1,17 @@
+# Copyright 2022-2025 XProbe Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 from typing import List, Optional, Union, no_type_check
 
@@ -17,6 +31,8 @@ try:
     FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list()
 except ImportError:
     FLAG_EMBEDDER_MODEL_LIST = []
+
+from ....device_utils import get_available_device
 
 
 class FlagEmbeddingModel(EmbeddingModel):
@@ -138,8 +154,7 @@ class FlagEmbeddingModel(EmbeddingModel):
                 input_was_string = True
 
             if device is None:
-                # Same as SentenceTransformer.py
-                device = EmbeddingModel.get_device_name()
+                device = get_available_device()
                 logger.info(f"Use pytorch device_name: {device}")
 
             all_embeddings = []
@@ -268,7 +283,7 @@ class FlagEmbeddingModel(EmbeddingModel):
             return self._model.tokenizer.decode(batch_token_ids)
 
     @classmethod
-    def match(cls, model_name):
-        if model_name in FLAG_EMBEDDER_MODEL_LIST:
+    def match(cls, model_spec: EmbeddingModelSpec):
+        if model_spec.model_name in FLAG_EMBEDDER_MODEL_LIST:
             return True
         return False

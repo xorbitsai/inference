@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
@@ -34,9 +34,9 @@ from .custom import (
 )
 from .embed_family import (
     BUILTIN_EMBEDDING_MODELS,
+    EMBEDDING_ENGINES,
     FAST_EMBEDDER_CLASSES,
     FLAG_EMBEDDER_CLASSES,
-    MODEL_WITH_EMBED_ENGINES,
     MODELSCOPE_EMBEDDING_MODELS,
     SENTENCE_TRANSFORMER_CLASSES,
     SUPPORTED_ENGINES,
@@ -61,32 +61,25 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
-# 与LLM中的不同，这里只根据特定的模型名字以及描述生成engine。
-def generate_engine_config_by_model_name(model_name):
-    engines = MODEL_WITH_EMBED_ENGINES.get(model_name, {})  # structure for engine query
+def generate_engine_config_by_model_name(model_spec: "EmbeddingModelSpec"):
+    model_name = model_spec.model_name
+    engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
+        model_name, {}
+    )  # structure for engine query
     for engine in SUPPORTED_ENGINES:
         CLASSES = SUPPORTED_ENGINES[engine]
         for cls in CLASSES:
-            # 每个engine内部都需要实现match方法
-            if cls.match(model_name):
-                engine_params = engines.get(engine, [])
-                already_exists = False
-                # if the name, format and size in billions of model already exists in the structure, add the new quantization
-                for param in engine_params:
-                    if model_name == param["model_name"]:
-                        already_exists = True
-                        break
-                # successfully match the params for the first time, add to the structure
-                if not already_exists:
-                    engine_params.append(
-                        {
-                            "model_name": model_name,
-                            "embedding_class": cls,
-                        }
-                    )
-                engines[engine] = engine_params
+            # Every engine needs to implement match method
+            if cls.match(model_spec):
+                # we only match the first class for an engine
+                engines[engine] = [
+                    {
+                        "model_name": model_name,
+                        "embedding_class": cls,
+                    }
+                ]
                 break
-    MODEL_WITH_EMBED_ENGINES[model_name] = engines
+    EMBEDDING_ENGINES[model_name] = engines
 
 
 # will be called in xinference/model/__init__.py
@@ -148,8 +141,8 @@ def _install():
 
     # Init embedding engine
     for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
-        for model_name in model_infos:
-            generate_engine_config_by_model_name(model_name)
+        for model_spec in model_infos.values():
+            generate_engine_config_by_model_name(model_spec)
 
     del _model_spec_json
     del _model_spec_modelscope_json

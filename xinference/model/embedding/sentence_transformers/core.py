@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -421,6 +421,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         return batch_decoded_texts
 
     @classmethod
-    def match(cls, model_name):
+    def match(cls, model_spec: EmbeddingModelSpec):
         # As default embedding engine, sentence-transformer support all models
         return True
