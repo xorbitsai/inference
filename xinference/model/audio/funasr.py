@@ -44,6 +44,44 @@ class FunASRModel:
     def model_ability(self):
         return self._model_spec.model_ability
 
+    def convert_to_openai_format(self, input_data):
+        if "timestamp" not in input_data:
+            return {"task": "transcribe", "text": input_data["text"]}
+        start_time = input_data["timestamp"][0][0] / 1000
+        end_time = input_data["timestamp"][-1][1] / 1000
+        duration = end_time - start_time
+        word_timestamps = []
+        for ts in input_data["timestamp"]:
+            word_timestamps.append({"start": ts[0] / 1000, "end": ts[1] / 1000})
+        if "sentence_info" not in input_data:
+            return {
+                "task": "transcribe",
+                "text": input_data["text"],
+                "words": word_timestamps,
+                "duration": duration,
+            }
+        output = {
+            "task": "transcribe",
+            "duration": duration,
+            "text": input_data["text"],
+            "words": word_timestamps,
+            "segments": [],
+        }
+        for sentence in input_data["sentence_info"]:
+            seg_start = sentence["start"] / 1000
+            seg_end = sentence["end"] / 1000
+            output["segments"].append(
+                {
+                    "id": len(output["segments"]),
+                    "start": seg_start,
+                    "end": seg_end,
+                    "text": sentence["text"],
+                    "speaker": sentence["spk"],
+                }
+            )
+
+        return output
+
     def load(self):
         try:
             from funasr import AutoModel
@@ -103,6 +141,10 @@ class FunASRModel:
 
             if response_format == "json":
                 return {"text": text}
+            elif response_format == "verbose_json":
+                verbose = result[0]
+                verbose["text"] = text
+                return self.convert_to_openai_format(verbose)
             else:
                 raise ValueError(f"Unsupported response format: {response_format}")
 
