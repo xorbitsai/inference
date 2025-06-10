@@ -50,3 +50,44 @@ def test_restful_api_for_funasr(setup):
         assert "列表" in completion.text
         assert "香港" in completion.text
         assert "航空" in completion.text
+
+
+def test_verbose_for_funasr(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="paraformer-zh-spk",
+        model_name="paraformer-zh-spk",
+        model_type="audio",
+    )
+    model = client.get_model(model_uid)
+    audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")
+    with open(audio_path, "rb") as f:
+        audio = f.read()
+
+    response = model.transcriptions(audio, response_format="verbose_json")
+    assert response["text"]
+    assert len(response["segments"]) == 1
+
+    assert response["text"]
+    assert len(response["words"]) == 22
+
+    zh_cn_audio_path = os.path.join(
+        os.path.dirname(__file__), "common_voice_zh-CN_38026095.mp3"
+    )
+
+    # Test openai API
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    with open(zh_cn_audio_path, "rb") as f:
+        completion = client.audio.transcriptions.create(
+            model=model_uid,
+            file=f,
+            response_format="verbose_json",
+        )
+        assert len(completion.segments) == 1
+        assert len(completion.words) > 0
