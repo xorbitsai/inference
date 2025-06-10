@@ -71,7 +71,6 @@ class ChatTTSModel:
         import ChatTTS
         import numpy as np
         import torch
-        import torchaudio
         import xxhash
 
         from .utils import audio_stream_generator, audio_to_bytes
