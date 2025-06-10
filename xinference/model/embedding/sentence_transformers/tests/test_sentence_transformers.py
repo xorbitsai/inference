@@ -26,15 +26,19 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 )
 
 
-def test_embedding_model_with_fast_embed():
+def test_embedding_model_with_sentence_transformer():
     model_path = None
 
     try:
         model_path = cache(TEST_MODEL_SPEC)
 
-        # need test cuda
         model, _ = create_embedding_model_instance(
-            "mook", None, "mock", "bge-small-en-v1.5", "fast_embed", model_path
+            "mook",
+            None,
+            "mock",
+            "bge-small-en-v1.5",
+            "sentence_transformers",
+            model_path,
         )
         model.load()
 

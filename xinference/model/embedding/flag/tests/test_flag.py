@@ -26,15 +26,14 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 )
 
 
-def test_embedding_model_with_fast_embed():
+# todo 参考sentence_transformer的返回格式进行返回
+def test_embedding_model_with_flag():
     model_path = None
-
     try:
         model_path = cache(TEST_MODEL_SPEC)
 
-        # need test cuda
         model, _ = create_embedding_model_instance(
-            "mook", None, "mock", "bge-small-en-v1.5", "fast_embed", model_path
+            "mook", "cuda", "mock", "bge-small-en-v1.5", "flag", model_path
         )
         model.load()
 
@@ -42,8 +41,10 @@ def test_embedding_model_with_fast_embed():
         input_text = "what is the capital of China?"
 
         # test sparse and dense
-        r = model.create_embedding(input_text)
+        r = model.create_embedding(input_text, **{"return_sparse": True})
         assert len(r["data"]) == 1
+
+        r = model.create_embedding(input_text)
         assert len(r["data"][0]["embedding"]) == 384
 
         # input is a lit
@@ -54,8 +55,10 @@ def test_embedding_model_with_fast_embed():
             "sorting algorithms",
         ]
         # test sparse and dense
-        r = model.create_embedding(input_texts)
+        r = model.create_embedding(input_texts, **{"return_sparse": True})
         assert len(r["data"]) == 4
+
+        r = model.create_embedding(input_texts)
         for d in r["data"]:
             assert len(d["embedding"]) == 384
     finally:
