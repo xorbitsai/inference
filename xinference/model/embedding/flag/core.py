@@ -97,7 +97,7 @@ class FlagEmbeddingModel(EmbeddingModel):
     ):
         from FlagEmbedding import BGEM3FlagModel
 
-        # flag embed没有这个参数
+        # flag embed dose not have this param
         # kwargs.setdefault("normalize_embeddings", True)
 
         @no_type_check
