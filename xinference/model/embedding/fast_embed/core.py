@@ -122,7 +122,7 @@ class FastEmbeddingModel(EmbeddingModel):
 
         load_type = self._load_type
         if self._model_name in FAST_EMBEDDER_DENSE_MODEL_LIST and load_type == "dense":
-            # fast embed中加载模型需要使用_model_spec.model_id，也就是需要 模型厂商名/模型名 的格式
+            # The loading model in fast embed requires the use of _model_spec.model_id, which means the format that requires the 'model manufacturer name/model name'
             self._model = TextEmbedding(
                 model_name=self._model_spec.model_id,
                 cache_dir=self._model_path,
@@ -140,7 +140,7 @@ class FastEmbeddingModel(EmbeddingModel):
                 cuda=self._device == "cuda",
                 **load_model_kwargs,
             )
-            # TODO: 暂时不支持late_interaction的方式
+            # TODO: The method of late_interaction is not supported for the time being
         elif (
             self._model_name in FAST_EMBEDDER_LATE_INTERACTION_MODEL_LIST
             and load_type == "late_interaction"
@@ -198,7 +198,7 @@ class FastEmbeddingModel(EmbeddingModel):
                     logger.getEffectiveLevel() == logging.INFO
                     or logger.getEffectiveLevel() == logging.DEBUG
                 )
-            # 这一部分东西能不能不要？用来做什么的？可以让用户自己扩展支持么
+            # Can we drop this function? What's this part to do? Can users expand themself support? 
             if convert_to_tensor:
                 convert_to_numpy = False
 
@@ -206,13 +206,13 @@ class FastEmbeddingModel(EmbeddingModel):
                 convert_to_tensor = False
                 convert_to_numpy = False
 
-            # 如果输入是单个句子，则将其转换为列表
+            # If the input is a single sentence, convert it to a list
             if isinstance(sentences, str) or not hasattr(
                 sentences, "__len__"
             ):  # Cast an individual sentence to a list with length 1
                 sentences = [str(sentences)]
 
-            # 按照句子长度排序
+            # Sort sentences by length
             length_sorted_idx = np.argsort(
                 [-self._text_length(sen) for sen in sentences]
             )
@@ -231,7 +231,7 @@ class FastEmbeddingModel(EmbeddingModel):
                 sentences_batch = sentences_sorted[
                     start_index : start_index + batch_size
                 ]
-                # fast embed 没这个东西
+                # fast embed dose not support this feature
                 # features = model.tokenize(sentences_batch)
                 # features = batch_to_device(features, device)
                 # when batching, the attention mask 1 means there is a token
@@ -241,7 +241,7 @@ class FastEmbeddingModel(EmbeddingModel):
                 with torch.no_grad():
                     # out_features = model.embed(sentences_batch, **kwargs)
 
-                    # 每一个model都有对应的不同的output_value
+                    # Each model has its corresponding different output_value
                     if isinstance(model, TextEmbedding):
                         out_features = model.embed(sentences_batch, **kwargs)
                     elif isinstance(model, SparseTextEmbedding):
@@ -259,7 +259,7 @@ class FastEmbeddingModel(EmbeddingModel):
                 else:
                     embeddings = torch.Tensor()
             elif convert_to_numpy:
-                # 还需要判断在device=gpu的情况的起
+                # Need to handle the case when device=gpu
                 embeddings = np.asarray(embeddings)
             return embeddings
 
@@ -269,7 +269,7 @@ class FastEmbeddingModel(EmbeddingModel):
             embedding_list.append(
                 EmbeddingData(index=index, object="embedding", embedding=data.tolist())
             )
-        # fast embed不支持tokenize，这个方法有必要使用么？不如直接为空吧
+        # fast embed doesn't support tokenize, is this method necessary? Maybe we should just leave it empty
         usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
         result = Embedding(
             object=("list" if kwargs.get("return_sparse") else "dict"),  # type: ignore
@@ -298,7 +298,7 @@ class FastEmbeddingModel(EmbeddingModel):
         else:
             return self._model.tokenizer.decode(batch_token_ids)
 
-    # 只要fastembed支持的model，都返回True。使用哪个具体的加载类由用户决定。
+    # Return True for any model supported by fastembed. The specific loading class is determined by the user.
     @classmethod
     def match(cls, model_spec: EmbeddingModelSpec):
         if model_spec.model_name in FAST_EMBEDDER_MODEL_LIST:
