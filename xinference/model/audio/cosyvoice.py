@@ -13,7 +13,6 @@
 # limitations under the License.
 import io
 import logging
-from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
 from ..utils import set_all_random_seed
@@ -132,36 +131,25 @@ class CosyVoiceModel:
                 output = self._model.inference_sft(input, voice, stream=stream)
 
         import torch
-        import torchaudio
 
-        def _generator_stream():
-            with BytesIO() as out:
-                writer = torchaudio.io.StreamWriter(out, format=response_format)
-                writer.add_audio_stream(
-                    sample_rate=self._model.sample_rate, num_channels=1
-                )
-                i = 0
-                last_pos = 0
-                with writer.open():
-                    for chunk in output:
-                        chunk = chunk["tts_speech"]
-                        trans_chunk = torch.transpose(chunk, 0, 1)
-                        writer.write_audio_chunk(i, trans_chunk)
-                        new_last_pos = out.tell()
-                        if new_last_pos != last_pos:
-                            out.seek(last_pos)
-                            encoded_bytes = out.read()
-                            yield encoded_bytes
-                            last_pos = new_last_pos
+        from .utils import audio_stream_generator, audio_to_bytes
 
-        def _generator_block():
-            chunks = [o["tts_speech"] for o in output]
-            t = torch.cat(chunks, dim=1)
-            with BytesIO() as out:
-                torchaudio.save(out, t, self._model.sample_rate, format=response_format)
-                return out.getvalue()
-
-        return _generator_stream() if stream else _generator_block()
+        return (
+            audio_stream_generator(
+                response_format=response_format,
+                sample_rate=self._model.sample_rate,
+                output_generator=output,
+                output_chunk_transformer=lambda c: torch.transpose(
+                    c["tts_speech"], 0, 1
+                ),
+            )
+            if stream
+            else audio_to_bytes(
+                response_format=response_format,
+                sample_rate=self._model.sample_rate,
+                tensor=torch.cat([o["tts_speech"] for o in output], dim=1),
+            )
+        )
 
     def speech(
         self,
