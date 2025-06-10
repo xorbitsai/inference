@@ -20,7 +20,7 @@ import tempfile
 import pytest
 
 from ...utils import valid_model_revision
-from ..core import EmbeddingModelSpec, cache
+from ..core import EmbeddingModelSpec, cache, create_embedding_model_instance
 
 TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_name="gte-small",
@@ -56,7 +56,6 @@ def test_engine_supported():
     model_name = "bge-small-en-v1.5"
     assert model_name in EMBEDDING_ENGINES
     assert "flag" in EMBEDDING_ENGINES[model_name]
-    assert "fast_embed" in EMBEDDING_ENGINES[model_name]
     assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
 
 
@@ -91,11 +90,10 @@ def test_meta_file():
         assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
 
         # test functionality of the new version model
-        from ..core import create_embedding_model_instance
 
         model, _ = create_embedding_model_instance(
             "mock",
-            "cuda",
+            None,
             "mock",
             "bge-small-en-v1.5",
             "sentence_transformers",
@@ -240,7 +238,7 @@ def test_convert_ids_to_tokens():
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
     model, _ = create_embedding_model_instance(
-        "mock", "cuda", "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
     )
     model.load()
 

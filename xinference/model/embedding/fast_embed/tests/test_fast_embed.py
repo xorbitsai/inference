@@ -14,7 +14,11 @@
 
 import shutil
 
+import pytest
+
+from ... import EMBEDDING_ENGINES
 from ...core import EmbeddingModelSpec, cache, create_embedding_model_instance
+from ..core import TextEmbedding
 
 TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_name="bge-small-en-v1.5",
@@ -26,6 +30,14 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 )
 
 
+@pytest.mark.skipif(TextEmbedding is None, reason="fastembed not installed")
+def test_engine_supported():
+    model_name = "bge-small-en-v1.5"
+    assert model_name in EMBEDDING_ENGINES
+    assert "fast_embed" in EMBEDDING_ENGINES[model_name]
+
+
+@pytest.mark.skipif(TextEmbedding is None, reason="fastembed not installed")
 def test_embedding_model_with_fast_embed():
     model_path = None
 
