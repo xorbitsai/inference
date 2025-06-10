@@ -26,7 +26,7 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 )
 
 
-# todo 参考sentence_transformer的返回格式进行返回
+# todo Refer to the return format of sentence_transformer
 def test_embedding_model_with_flag():
     model_path = None
     try:
