@@ -256,7 +256,9 @@ def create_embedding_model_instance(
         model_path = cache(model_spec)
 
     if model_engine is None:
-        raise ValueError("model_engine is required for Embedding model")
+        # unlike LLM and for compatibility
+        # we use sentence_transformers as the default engine for all models
+        model_engine = "sentence_transformers"
 
     from .embed_family import check_engine_by_model_name_and_engine
 
