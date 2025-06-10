@@ -200,7 +200,7 @@ class FlagEmbeddingModel(EmbeddingModel):
                             embeddings.append(row)
                     # for sparse embedding
                     else:
-                        # TODO: 这里需要看看能不能同时返回dense_vecs和lexical_weights
+                        # TODO: Here need ckeck if we can return density_vecs and lexical_weights at the same time
                         if kwargs.get("return_sparse"):
                             embeddings = out_features["lexical_weights"]
                         else:
