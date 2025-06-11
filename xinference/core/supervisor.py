@@ -45,6 +45,7 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..model.utils import get_engine_params_by_name
 from ..types import PeftModelConfig
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
@@ -780,29 +781,19 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def query_engines_by_model_name(self, model_name: str):
-        from copy import deepcopy
-
-        from ..model.llm.llm_family import LLM_ENGINES
-
+    async def query_engines_by_model_name(
+        self, model_name: str, model_type: Optional[str] = None
+    ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
-            res = await worker.query_engines_by_model_name(model_name)
+            res = await worker.query_engines_by_model_name(
+                model_name, model_type=model_type
+            )
             if res is not None:
                 return res
 
-        if model_name not in LLM_ENGINES:
-            raise ValueError(f"Model {model_name} not found")
-
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine in engine_params:
-            params = engine_params[engine]
-            for param in params:
-                del param["llm_class"]
-
-        return engine_params
+        return get_engine_params_by_name(model_type, model_name)
 
     @log_async(logger=logger)
     async def register_model(

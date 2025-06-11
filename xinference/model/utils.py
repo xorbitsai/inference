@@ -18,9 +18,10 @@ import logging
 import os
 import random
 import threading
+from copy import deepcopy
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import huggingface_hub
 import numpy as np
@@ -460,3 +461,39 @@ class CancellableDownloader:
         self.unpatch_tqdm()
         self._done_event.set()
         self.reset()
+
+
+def get_engine_params_by_name(
+    model_type: Optional[str], model_name: str
+) -> Optional[Dict[str, List[dict]]]:
+    if model_type == "LLM":
+        from .llm.llm_family import LLM_ENGINES
+
+        if model_name not in LLM_ENGINES:
+            return None
+
+        # filter llm_class
+        engine_params = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in engine_params.items():
+            for param in params:
+                del param["llm_class"]
+
+        return engine_params
+    elif model_type == "embedding":
+        from .embedding.embed_family import EMBEDDING_ENGINES
+
+        if model_name not in EMBEDDING_ENGINES:
+            return None
+
+        # filter embedding_class
+        engine_params = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in engine_params.items():
+            for param in params:
+                del param["embedding_class"]
+
+        return engine_params
+    else:
+        raise ValueError(
+            f"Cannot support model_engine for {model_type}, "
+            f"only available for LLM, embedding"
+        )

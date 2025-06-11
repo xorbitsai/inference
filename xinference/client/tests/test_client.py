@@ -165,6 +165,15 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
 
+def test_query_engines_by_name(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    assert len(client.query_engine_by_model_name("qwen3")) > 0
+    assert len(client.query_engine_by_model_name("qwen3", model_type=None)) > 0
+    assert len(client.query_engine_by_model_name("bge-m3", model_type="embedding")) > 0
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_list_cached_models(setup):
     endpoint, _ = setup
