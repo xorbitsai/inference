@@ -13,14 +13,28 @@
 # limitations under the License.
 
 import io
+import logging
+import types
+import wave
+from collections.abc import Callable
 
 import numpy as np
+import torch
 
 from .core import AudioModelFamilyV1
+
+logger = logging.getLogger(__name__)
 
 
 def get_model_version(audio_model: AudioModelFamilyV1) -> str:
     return audio_model.model_name
+
+
+def _extract_pcm_from_wav_bytes(wav_bytes):
+    with io.BytesIO(wav_bytes) as wav_io:
+        with wave.open(wav_io, "rb") as wav_file:
+            num_frames = wav_file.getnframes()
+            return wav_file.readframes(num_frames)
 
 
 def ensure_sample_rate(
@@ -48,3 +62,64 @@ def ensure_sample_rate(
             audio, sr = sf.read(buffer, dtype="float32")
 
     return audio
+
+
+def audio_stream_generator(
+    response_format: str,
+    sample_rate: int,
+    output_generator: types.GeneratorType,
+    output_chunk_transformer: Callable,
+):
+    import torch
+    import torchaudio
+
+    response_pcm = response_format.lower() == "pcm"
+    with io.BytesIO() as out:
+        if response_pcm:
+            logger.info(
+                f"PCM stream output, num_channels: 1, sample_rate: {sample_rate}"
+            )
+            writer = torchaudio.io.StreamWriter(out, format="wav")
+            writer.add_audio_stream(
+                sample_rate=sample_rate, num_channels=1, format="s16"
+            )
+        else:
+            writer = torchaudio.io.StreamWriter(out, format=response_format)
+            writer.add_audio_stream(sample_rate=sample_rate, num_channels=1)
+        strip_header = True
+        last_pos = 0
+        with writer.open():
+            for chunk in output_generator:
+                trans_chunk = output_chunk_transformer(chunk)
+                if response_pcm:
+                    trans_chunk = trans_chunk.to(torch.float32)
+                    trans_chunk = (
+                        (trans_chunk * 32767).clamp(-32768, 32767).to(torch.int16)
+                    )
+                writer.write_audio_chunk(0, trans_chunk)
+                new_last_pos = out.tell()
+                if new_last_pos != last_pos:
+                    out.seek(last_pos)
+                    encoded_bytes = out.read()
+                    if response_pcm and strip_header:
+                        # http://soundfile.sapp.org/doc/WaveFormat
+                        yield _extract_pcm_from_wav_bytes(encoded_bytes)
+                        strip_header = False
+                    else:
+                        yield encoded_bytes
+                    last_pos = new_last_pos
+
+
+def audio_to_bytes(response_format: str, sample_rate: int, tensor: "torch.Tensor"):
+    import torchaudio
+
+    response_pcm = response_format.lower() == "pcm"
+    with io.BytesIO() as out:
+        if response_pcm:
+            logger.info(f"PCM output, num_channels: 1, sample_rate: {sample_rate}")
+            torchaudio.save(out, tensor, sample_rate, format="wav", encoding="PCM_S")
+            # http://soundfile.sapp.org/doc/WaveFormat
+            return _extract_pcm_from_wav_bytes(out.getvalue())
+        else:
+            torchaudio.save(out, tensor, sample_rate, format=response_format)
+            return out.getvalue()

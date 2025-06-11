@@ -60,10 +60,10 @@ def test_cosyvoice_sft(setup, model_name):
         model = client.get_model(model_uid)
 
     # inference_sft
-    response = model.speech(input_string, stream=True)
+    response = model.speech(input_string, stream=True, response_format="pcm")
     assert inspect.isgenerator(response)
     i = 0
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+    with tempfile.NamedTemporaryFile(suffix=".pcm", delete=True) as f:
         for chunk in response:
             f.write(chunk)
             i += 1
