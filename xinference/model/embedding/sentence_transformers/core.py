@@ -97,6 +97,28 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
             )
+        elif "qwen3" in self._model_spec.model_name.lower():
+            # qwen3 embedding
+            flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+            model_kwargs = {"device_map": "auto"}
+            tokenizer_kwargs = {}
+            if flash_attn_installed:
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+                model_kwargs["torch_dtype"] = "bfloat16"
+                tokenizer_kwargs["padding_side"] = "left"
+            if torch_dtype:
+                model_kwargs["torch_dtype"] = torch_dtype
+            logger.debug(
+                "Loading qwen3 embedding with model kwargs: %s, tokenizer kwargs: %s",
+                model_kwargs,
+                tokenizer_kwargs,
+            )
+            self._model = XSentenceTransformer(
+                self._model_path,
+                device=self._device,
+                model_kwargs=model_kwargs,
+                tokenizer_kwargs=tokenizer_kwargs,
+            )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
             self._model = SentenceTransformer(
