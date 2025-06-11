@@ -99,6 +99,7 @@ class FlagEmbeddingModel(EmbeddingModel):
 
         # flag embed dose not have this param
         # kwargs.setdefault("normalize_embeddings", True)
+        model_uid = kwargs.pop("model_uid", None)
 
         @no_type_check
         def encode(
@@ -256,7 +257,8 @@ class FlagEmbeddingModel(EmbeddingModel):
         usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
         result = Embedding(
             object=("list" if kwargs.get("return_sparse") else "dict"),  # type: ignore
-            model=self._model_uid,
+            model=model_uid,
+            model_replica=self._model_uid,
             data=embedding_list,
             usage=usage,
         )

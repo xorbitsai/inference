@@ -124,6 +124,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         **kwargs,
     ):
         sentences = self._fix_langchain_openai_inputs(sentences)
+        model_uid = kwargs.pop("model_uid", None)
 
         from sentence_transformers import SentenceTransformer
 
@@ -369,8 +370,9 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
         )
         result = Embedding(
-            object=("list"),  # type: ignore
-            model=self._model_uid,
+            object="list",
+            model=model_uid,
+            model_replica=self._model_uid,
             data=embedding_list,
             usage=usage,
         )

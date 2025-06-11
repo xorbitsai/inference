@@ -162,6 +162,7 @@ class FastEmbeddingModel(EmbeddingModel):
         # TODO: embed text
 
         sentences = self._fix_langchain_openai_inputs(sentences)
+        model_uid = kwargs.pop("model_uid", None)
 
         def encode(
             model: Union[
@@ -198,7 +199,7 @@ class FastEmbeddingModel(EmbeddingModel):
                     logger.getEffectiveLevel() == logging.INFO
                     or logger.getEffectiveLevel() == logging.DEBUG
                 )
-            # Can we drop this function? What's this part to do? Can users expand themself support? 
+            # Can we drop this function? What's this part to do? Can users expand themself support?
             if convert_to_tensor:
                 convert_to_numpy = False
 
@@ -273,7 +274,8 @@ class FastEmbeddingModel(EmbeddingModel):
         usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
         result = Embedding(
             object=("list" if kwargs.get("return_sparse") else "dict"),  # type: ignore
-            model=self._model_uid,
+            model=model_uid,
+            model_replica=self._model_uid,
             data=embedding_list,
             usage=usage,
         )

@@ -268,9 +268,7 @@ def create_embedding_model_instance(
     )
     devices = devices or ["cpu"]
     # model class should be one of flag, fastembed, sentence_transformers
-    # 这种写法会不会有问题？
-    device = devices[0] if isinstance(devices, list) else devices
-    model = embedding_cls(model_uid, model_path, model_spec, device, **kwargs)
+    model = embedding_cls(model_uid, model_path, model_spec, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
