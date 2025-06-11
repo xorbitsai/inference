@@ -264,6 +264,10 @@ class FlagEmbeddingModel(EmbeddingModel):
             usage=usage,
         )
 
+        # clean cache if possible
+        # TODO: support token statistics
+        self._clean_cache_if_needed(all_token_nums=0)
+
         return result
 
     def convert_ids_to_tokens(

@@ -12,17 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gc
 import importlib.util
 import logging
-import os
 from collections import defaultdict
 from typing import List, Optional, Union, no_type_check
 
 import numpy as np
 import torch
 
-from ....device_utils import empty_cache
 from ....types import Dict, Embedding, EmbeddingData, EmbeddingUsage
 from ..core import EmbeddingModel, EmbeddingModelSpec
 
@@ -31,15 +28,6 @@ logger = logging.getLogger(__name__)
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
-EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
-EMBEDDING_EMPTY_CACHE_COUNT = int(
-    os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_COUNT", "10")
-)
-EMBEDDING_EMPTY_CACHE_TOKENS = int(
-    os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_TOKENS", "8192")
-)
-assert EMBEDDING_EMPTY_CACHE_COUNT > 0
-assert EMBEDDING_EMPTY_CACHE_TOKENS > 0
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
@@ -383,18 +371,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         )
 
         # clean cache if possible
-        self._counter += 1
-        if (
-            self._counter % EMBEDDING_EMPTY_CACHE_COUNT == 0
-            or all_token_nums >= EMBEDDING_EMPTY_CACHE_TOKENS
-        ):
-            logger.debug(
-                "Empty embedding cache, calling count %s, all_token_nums %s",
-                self._counter,
-                all_token_nums,
-            )
-            gc.collect()
-            empty_cache()
+        self._clean_cache_if_needed(all_token_nums)
 
         return result
 

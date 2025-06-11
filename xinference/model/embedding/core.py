@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import logging
 import os
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from ..._compat import ROOT_KEY, ErrorWrapper, ValidationError
+from ...device_utils import empty_cache
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import get_cache_dir, is_model_cached
 from .embed_family import match_embedding
@@ -249,6 +251,21 @@ class EmbeddingModel(abc.ABC):
         """
         Convert token ids to tokens
         """
+
+    def _clean_cache_if_needed(self, all_token_nums: int):
+        # clean cache if possible
+        self._counter += 1
+        if (
+            self._counter % EMBEDDING_EMPTY_CACHE_COUNT == 0
+            or all_token_nums >= EMBEDDING_EMPTY_CACHE_TOKENS
+        ):
+            logger.debug(
+                "Empty embedding cache, calling count %s, all_token_nums %s",
+                self._counter,
+                all_token_nums,
+            )
+            gc.collect()
+            empty_cache()
 
 
 def create_embedding_model_instance(
