@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import gc
+import importlib.util
 import logging
 import os
 from collections import defaultdict
@@ -427,6 +428,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         return batch_decoded_texts
 
     @classmethod
-    def match(cls, model_spec: EmbeddingModelSpec):
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("sentence_transformers") is not None
+
+    @classmethod
+    def match_json(cls, model_spec: EmbeddingModelSpec) -> bool:
         # As default embedding engine, sentence-transformer support all models
         return True

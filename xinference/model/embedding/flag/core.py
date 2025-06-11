@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
 import logging
 from typing import List, Optional, Union, no_type_check
 
@@ -295,7 +296,11 @@ class FlagEmbeddingModel(EmbeddingModel):
         return batch_decoded_texts
 
     @classmethod
-    def match(cls, model_spec: EmbeddingModelSpec):
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("FlagEmbedding") is not None
+
+    @classmethod
+    def match_json(cls, model_spec: EmbeddingModelSpec) -> bool:
         if model_spec.model_name in FLAG_EMBEDDER_MODEL_LIST:
             return True
         return False

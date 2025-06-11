@@ -148,10 +148,22 @@ class EmbeddingModel(abc.ABC):
 
     @classmethod
     @abstractmethod
+    def check_lib(cls) -> bool:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def match_json(cls, model_spec: EmbeddingModelSpec) -> bool:
+        pass
+
+    @classmethod
     def match(cls, model_spec: EmbeddingModelSpec):
         """
         Return if the model_spec can be matched.
         """
+        if not cls.check_lib():
+            return False
+        return cls.match_json(model_spec)
 
     @abstractmethod
     def load(self):
