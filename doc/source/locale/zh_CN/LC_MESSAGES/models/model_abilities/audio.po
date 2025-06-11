@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-06-10 15:43+0200\n"
+"POT-Creation-Date: 2025-06-11 09:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -334,8 +334,12 @@ msgid "CosyVoice Usage"
 msgstr "CosyVoice 模型使用"
 
 #: ../../source/models/model_abilities/audio.rst:296
-msgid "CosyVoice has three different models:"
-msgstr "CosyVoice 有 3 个不同的模型："
+msgid ""
+"CosyVoice has two versions: CosyVoice 1.0 and CosyVoice 2.0. CosyVoice "
+"1.0 has three different models:"
+msgstr ""
+"CosyVoice 有两个版本：CosyVoice 1.0 和 CosyVoice 2.0。CosyVoice 1.0 有 3 "
+"个不同模型："
 
 #: ../../source/models/model_abilities/audio.rst:298
 msgid ""
@@ -505,55 +509,4 @@ msgstr ""
 "当推理时，需要使用 'z' 开头的 voice，例如：``zf_xiaoyi``。目前支持的 "
 "voices 可以参考 https://huggingface.co/hexgrad/Kokoro-82M/tree/main/"
 "voices。使用方法如下："
-
-#~ msgid "Audio (Experimental)"
-#~ msgstr "音频（实验性质）"
-
-#~ msgid "whisper-tiny"
-#~ msgstr ""
-
-#~ msgid "whisper-tiny.en"
-#~ msgstr ""
-
-#~ msgid "whisper-base"
-#~ msgstr ""
-
-#~ msgid "whisper-base.en"
-#~ msgstr ""
-
-#~ msgid "whisper-medium"
-#~ msgstr ""
-
-#~ msgid "whisper-medium.en"
-#~ msgstr ""
-
-#~ msgid "whisper-large-v3"
-#~ msgstr ""
-
-#~ msgid "whisper-large-v3-turbo"
-#~ msgstr ""
-
-#~ msgid "Belle-distilwhisper-large-v2-zh"
-#~ msgstr ""
-
-#~ msgid "Belle-whisper-large-v2-zh"
-#~ msgstr ""
-
-#~ msgid "Belle-whisper-large-v3-zh"
-#~ msgstr ""
-
-#~ msgid "SenseVoiceSmall"
-#~ msgstr ""
-
-#~ msgid "ChatTTS"
-#~ msgstr ""
-
-#~ msgid "CosyVoice"
-#~ msgstr ""
-
-#~ msgid "FishSpeech-1.5"
-#~ msgstr ""
-
-#~ msgid "F5-TTS"
-#~ msgstr ""
 

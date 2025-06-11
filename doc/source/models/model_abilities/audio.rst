@@ -293,7 +293,7 @@ Use the fixed tone color of ``seed_2155`` to generate speech.
 CosyVoice Usage
 ~~~~~~~~~~~~~~~
 
-CosyVoice has three different models:
+CosyVoice has two versions: CosyVoice 1.0 and CosyVoice 2.0. CosyVoice 1.0 has three different models:
 
 - **CosyVoice-300M-SFT**: Choose this model if you just want to convert text to audio. There are pretrained voices available: ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
 - **CosyVoice-300M**: Choose this model if you want to clone voice or convert text to audio in different languages. The ``prompt_speech`` is always required and should be a WAV file. For optimal performance, use a sample rate of 16,000 Hz.
