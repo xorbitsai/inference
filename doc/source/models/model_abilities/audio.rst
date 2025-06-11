@@ -293,6 +293,12 @@ Use the fixed tone color of ``seed_2155`` to generate speech.
 CosyVoice Usage
 ~~~~~~~~~~~~~~~
 
+CosyVoice has two versions: CosyVoice 1.0 and CosyVoice 2.0. CosyVoice 1.0 has three different models:
+
+- **CosyVoice-300M-SFT**: Choose this model if you just want to convert text to audio. There are pretrained voices available: ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+- **CosyVoice-300M**: Choose this model if you want to clone voice or convert text to audio in different languages. The ``prompt_speech`` is always required and should be a WAV file. For optimal performance, use a sample rate of 16,000 Hz.
+- **CosyVoice-300M-Instruct**: Choose this model If you need precise control over the tone and pitch.
+
 Basic usage, launch model ``CosyVoice-300M-SFT``.
 
 .. tabs::
@@ -352,9 +358,16 @@ Clone voice, launch model ``CosyVoice-300M``.
 
     model = client.get_model("<MODEL_UID>")
 
-    zero_shot_prompt_text = ""
-    # The zero shot prompt file is the voice file
-    # the words said in the file should be identical to zero_shot_prompt_text
+    zero_shot_prompt_text = ("<the words in the text exactly match "
+                             "the audio file of the zero-shot prompt>")
+    # The words said in the audio file should be identical
+    # to zero_shot_prompt_text.
+    #
+    # The audio input file must be in WAV format.
+    # For optimal performance, use a 16,000 Hz sample rate.
+    #
+    # Files with different sample rates will be resampled to 16,000 Hz,
+    # which may increase processing time.
     with open(zero_shot_prompt_file, "rb") as f:
         zero_shot_prompt = f.read()
 
@@ -375,7 +388,11 @@ Cross lingual usage, launch model ``CosyVoice-300M``.
 
     model = client.get_model("<MODEL_UID>")
 
-    # the file that reads in some language
+    # The audio input file must be in WAV format.
+    # For optimal performance, use a 16,000 Hz sample rate.
+    #
+    # Files with different sample rates will be resampled to 16,000 Hz,
+    # which may increase processing time.
     with open(cross_lingual_prompt_file, "rb") as f:
         cross_lingual_prompt = f.read()
 
@@ -400,6 +417,8 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
         instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
         "Fights with fervor for justice, but struggles with impulsiveness.",
     )
+
+CosyVoice 2.0 only has one model, it provides all the capabilities of the three CosyVoice models. The usage is the same as CosyVoice, with the only difference being that CosyVoice 2.0 requires ``use_flow_cache=True`` when launching the model for stream generation.
 
 CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
 
