@@ -20,7 +20,6 @@ from ..utils import is_valid_model_name
 if TYPE_CHECKING:
     from .core import EmbeddingModel, EmbeddingModelSpec
 
-FAST_EMBEDDER_CLASSES: List[Type["EmbeddingModel"]] = []
 FLAG_EMBEDDER_CLASSES: List[Type["EmbeddingModel"]] = []
 SENTENCE_TRANSFORMER_CLASSES: List[Type["EmbeddingModel"]] = []
 

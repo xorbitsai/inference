@@ -274,20 +274,25 @@ class FlagEmbeddingModel(EmbeddingModel):
         if isinstance(batch_token_ids, (int, str)):
             return self._model.tokenizer.decode([int(str(batch_token_ids))])[0]
 
+        batch_decoded_texts: List[str] = []
+
         # check if it's a nested list
         if (
             isinstance(batch_token_ids, list)
             and batch_token_ids
             and isinstance(batch_token_ids[0], list)
         ):
-            batch_token_ids = [  # type: ignore
-                [int(token_id) for token_id in token_ids]  # type: ignore
-                for token_ids in batch_token_ids
-            ]
-            return self._model.tokenizer.batch_decode(batch_token_ids)
+            for token_ids in batch_token_ids:
+                token_ids = [int(token_id) for token_id in token_ids]  # type: ignore
+                batch_decoded_texts.append(
+                    self._model.tokenizer.convert_ids_to_tokens(token_ids)
+                )
         else:
             batch_token_ids = [int(token_id) for token_id in batch_token_ids]  # type: ignore
-            return self._model.tokenizer.decode(batch_token_ids)
+            batch_decoded_texts = self._model.tokenizer.convert_ids_to_tokens(
+                batch_token_ids
+            )
+        return batch_decoded_texts
 
     @classmethod
     def match(cls, model_spec: EmbeddingModelSpec):

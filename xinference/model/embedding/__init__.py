@@ -35,7 +35,6 @@ from .custom import (
 from .embed_family import (
     BUILTIN_EMBEDDING_MODELS,
     EMBEDDING_ENGINES,
-    FAST_EMBEDDER_CLASSES,
     FLAG_EMBEDDER_CLASSES,
     MODELSCOPE_EMBEDDING_MODELS,
     SENTENCE_TRANSFORMER_CLASSES,
@@ -127,15 +126,12 @@ def _install():
             generate_embedding_description(ud_embedding)
         )
 
-    from .fast_embed.core import FastEmbeddingModel
     from .flag.core import FlagEmbeddingModel
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
 
-    FAST_EMBEDDER_CLASSES.extend([FastEmbeddingModel])
     FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
     SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
 
-    SUPPORTED_ENGINES["fast_embed"] = FAST_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
 
