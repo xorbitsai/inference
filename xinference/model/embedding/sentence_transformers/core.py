@@ -22,10 +22,9 @@ from typing import List, Optional, Union, no_type_check
 import numpy as np
 import torch
 
-from xinference.model.embedding.core import EmbeddingModel, EmbeddingModelSpec
-
 from ....device_utils import empty_cache
 from ....types import Dict, Embedding, EmbeddingData, EmbeddingUsage
+from ..core import EmbeddingModel, EmbeddingModelSpec
 
 logger = logging.getLogger(__name__)
 

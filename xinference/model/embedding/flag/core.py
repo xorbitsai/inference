@@ -16,11 +16,6 @@ import importlib.util
 import logging
 from typing import List, Optional, Union, no_type_check
 
-from ....types import Embedding, EmbeddingData, EmbeddingUsage
-from ..core import EmbeddingModel, EmbeddingModelSpec
-
-logger = logging.getLogger(__name__)
-
 import numpy as np
 import torch
 
@@ -29,11 +24,16 @@ try:
         support_native_bge_model_list,
     )
 
-    FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list()
+    flag_installed = True
 except ImportError:
-    FLAG_EMBEDDER_MODEL_LIST = []
+    flag_installed = False
 
 from ....device_utils import get_available_device
+from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ..core import EmbeddingModel, EmbeddingModelSpec
+
+FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
+logger = logging.getLogger(__name__)
 
 
 class FlagEmbeddingModel(EmbeddingModel):
