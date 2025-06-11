@@ -387,8 +387,20 @@ class RESTfulAPI(CancelMixin):
         self._router.add_api_route(
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
         )
+        # just for compatibility, LLM only
         self._router.add_api_route(
             "/v1/engines/{model_name}",
+            self.query_engines_by_model_name,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        # engines for all model types
+        self._router.add_api_route(
+            "/v1/engines/{model_type}/{model_name}",
             self.query_engines_by_model_name,
             methods=["GET"],
             dependencies=(
@@ -2296,11 +2308,14 @@ class RESTfulAPI(CancelMixin):
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def query_engines_by_model_name(self, model_name: str) -> JSONResponse:
+    async def query_engines_by_model_name(
+        self, request: Request, model_name: str, model_type: Optional[str] = None
+    ) -> JSONResponse:
         try:
+            model_type = model_type or request.path_params.get("model_type", "LLM")
             content = await (
                 await self._get_supervisor_ref()
-            ).query_engines_by_model_name(model_name)
+            ).query_engines_by_model_name(model_name, model_type=model_type)
             return JSONResponse(content=content)
         except ValueError as re:
             logger.error(re, exc_info=True)

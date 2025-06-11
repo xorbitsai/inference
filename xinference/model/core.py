@@ -97,6 +97,7 @@ def create_model_instance(
             devices,
             model_uid,
             model_name,
+            model_engine,
             download_hub,
             model_path,
             **kwargs,

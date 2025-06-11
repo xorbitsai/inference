@@ -53,7 +53,7 @@ from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import ModelDescription, VirtualEnvSettings, create_model_instance
-from ..model.utils import CancellableDownloader
+from ..model.utils import CancellableDownloader, get_engine_params_by_name
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
@@ -747,22 +747,10 @@ class WorkerActor(xo.StatelessActor):
         return None
 
     @log_async(logger=logger)
-    async def query_engines_by_model_name(self, model_name: str):
-        from copy import deepcopy
-
-        from ..model.llm.llm_family import LLM_ENGINES
-
-        if model_name not in LLM_ENGINES:
-            return None
-
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine in engine_params:
-            params = engine_params[engine]
-            for param in params:
-                del param["llm_class"]
-
-        return engine_params
+    async def query_engines_by_model_name(
+        self, model_name: str, model_type: Optional[str] = None
+    ):
+        return get_engine_params_by_name(model_type, model_name)
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM

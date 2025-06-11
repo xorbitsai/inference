@@ -20,7 +20,7 @@ import tempfile
 import pytest
 
 from ...utils import valid_model_revision
-from ..core import EmbeddingModel, EmbeddingModelSpec, cache
+from ..core import EmbeddingModelSpec, cache, create_embedding_model_instance
 
 TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_name="gte-small",
@@ -49,47 +49,23 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
     model_revision="v0.0.2",
     model_hub="modelscope",
 )
+from ..embed_family import EMBEDDING_ENGINES
 
 
-def test_model():
-    model_path = None
-    try:
-        model_path = cache(TEST_MODEL_SPEC)
-        model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC)
-        # input is a string
-        input_text = "what is the capital of China?"
-        model.load()
-        r = model.create_embedding(input_text)
-        assert len(r["data"]) == 1
-        for d in r["data"]:
-            assert len(d["embedding"]) == 384
-
-        # input is a lit
-        input_texts = [
-            "what is the capital of China?",
-            "how to implement quick sort in python?",
-            "Beijing",
-            "sorting algorithms",
-        ]
-        model.load()
-        r = model.create_embedding(input_texts)
-        assert len(r["data"]) == 4
-        for d in r["data"]:
-            assert len(d["embedding"]) == 384
-        n_token = 0
-        for inp in input_texts:
-            input_ids = model._model.tokenize([inp])["input_ids"]
-            n_token += input_ids.shape[-1]
-        assert r["usage"]["total_tokens"] == n_token
-
-    finally:
-        if model_path is not None:
-            shutil.rmtree(model_path, ignore_errors=True)
+def test_engine_supported():
+    model_name = "bge-small-en-v1.5"
+    assert model_name in EMBEDDING_ENGINES
+    assert "flag" in EMBEDDING_ENGINES[model_name]
+    assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
 
 
 def test_model_from_modelscope():
+    from ..core import create_embedding_model_instance
+
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model, _ = create_embedding_model_instance(
+        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+    )
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
     model.load()
@@ -114,7 +90,15 @@ def test_meta_file():
         assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
 
         # test functionality of the new version model
-        model = EmbeddingModel("mock", cache_dir, TEST_MODEL_SPEC2)
+
+        model, _ = create_embedding_model_instance(
+            "mock",
+            None,
+            "mock",
+            "bge-small-en-v1.5",
+            "sentence_transformers",
+            cache_dir,
+        )
         input_text = "I can do this all day."
         model.load()
         r = model.create_embedding(input_text)
@@ -250,17 +234,18 @@ def test_register_fault_embedding():
 
 
 def test_convert_ids_to_tokens():
-    from ..core import EmbeddingModel
+    from ..core import create_embedding_model_instance
 
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model, _ = create_embedding_model_instance(
+        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+    )
     model.load()
 
-    # test for ids to tokens
     ids = [[8074, 8059, 8064, 8056], [144, 147, 160, 160, 158]]
     tokens = model.convert_ids_to_tokens(ids)
 
     assert isinstance(tokens, list)
-    assert tokens == [["ｘ", "ｉ", "ｎ", "ｆ"], ["b", "e", "r", "r", "p"]]
+    assert tokens == ["ｘ ｉ ｎ ｆ", "b e r r p"]
 
     shutil.rmtree(model_path, ignore_errors=True)

@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
@@ -32,9 +32,14 @@ from .custom import (
     register_embedding,
     unregister_embedding,
 )
-
-BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
-MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
+from .embed_family import (
+    BUILTIN_EMBEDDING_MODELS,
+    EMBEDDING_ENGINES,
+    FLAG_EMBEDDER_CLASSES,
+    MODELSCOPE_EMBEDDING_MODELS,
+    SENTENCE_TRANSFORMER_CLASSES,
+    SUPPORTED_ENGINES,
+)
 
 
 def register_custom_model():
@@ -55,12 +60,56 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
-def _install():
-    load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
-    load_model_family_from_json(
-        "model_spec_modelscope.json", MODELSCOPE_EMBEDDING_MODELS
-    )
+def generate_engine_config_by_model_name(model_spec: "EmbeddingModelSpec"):
+    model_name = model_spec.model_name
+    engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
+        model_name, {}
+    )  # structure for engine query
+    for engine in SUPPORTED_ENGINES:
+        CLASSES = SUPPORTED_ENGINES[engine]
+        for cls in CLASSES:
+            # Every engine needs to implement match method
+            if cls.match(model_spec):
+                # we only match the first class for an engine
+                engines[engine] = [
+                    {
+                        "model_name": model_name,
+                        "embedding_class": cls,
+                    }
+                ]
+                break
+    EMBEDDING_ENGINES[model_name] = engines
 
+
+# will be called in xinference/model/__init__.py
+def _install():
+    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+    _model_spec_modelscope_json = os.path.join(
+        os.path.dirname(__file__), "model_spec_modelscope.json"
+    )
+    ################### HuggingFace Model List Info Init ###################
+    BUILTIN_EMBEDDING_MODELS.update(
+        dict(
+            (spec["model_name"], EmbeddingModelSpec(**spec))
+            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+        )
+    )
+    for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+    ################### ModelScope Model List Info Init ###################
+    MODELSCOPE_EMBEDDING_MODELS.update(
+        dict(
+            (spec["model_name"], EmbeddingModelSpec(**spec))
+            for spec in json.load(
+                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+            )
+        )
+    )
+    for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
+        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+    # TODO: consider support more download hub in future...
     # register model description after recording model revision
     for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
         for model_name, model_spec in model_spec_info.items():
@@ -77,16 +126,19 @@ def _install():
             generate_embedding_description(ud_embedding)
         )
 
+    from .flag.core import FlagEmbeddingModel
+    from .sentence_transformers.core import SentenceTransformerEmbeddingModel
 
-def load_model_family_from_json(json_filename, target_families):
-    json_path = os.path.join(os.path.dirname(__file__), json_filename)
-    target_families.update(
-        dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
-            for spec in json.load(codecs.open(json_path, "r", encoding="utf-8"))
-        )
-    )
-    for model_name, model_spec in target_families.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
+    SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
 
-    del json_path
+    SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
+    SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
+
+    # Init embedding engine
+    for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
+        for model_spec in model_infos.values():
+            generate_engine_config_by_model_name(model_spec)
+
+    del _model_spec_json
+    del _model_spec_modelscope_json
