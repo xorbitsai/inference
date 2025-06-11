@@ -280,8 +280,13 @@ class FlagEmbeddingModel(EmbeddingModel):
             and batch_token_ids
             and isinstance(batch_token_ids[0], list)
         ):
+            batch_token_ids = [  # type: ignore
+                [int(token_id) for token_id in token_ids]  # type: ignore
+                for token_ids in batch_token_ids
+            ]
             return self._model.tokenizer.batch_decode(batch_token_ids)
         else:
+            batch_token_ids = [int(token_id) for token_id in batch_token_ids]  # type: ignore
             return self._model.tokenizer.decode(batch_token_ids)
 
     @classmethod

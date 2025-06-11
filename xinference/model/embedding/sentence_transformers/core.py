@@ -129,6 +129,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
+        if kwargs.get("return_sparse", False):
+            raise ValueError(
+                "`return_sparse` is not supported for `sentence_transformers` backend, "
+                "please use `flag` instead"
+            )
 
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
@@ -405,20 +410,19 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 [int(str(batch_token_ids))]
             )[0]
 
-        batch_decoded_texts = []
         # check if it's a nested list
         if (
             isinstance(batch_token_ids, list)
             and batch_token_ids
             and isinstance(batch_token_ids[0], list)
         ):
-            batch_token_ids = [
-                [int(token_id) for token_id in token_ids]
+            batch_token_ids = [  # type: ignore
+                [int(token_id) for token_id in token_ids]  # type: ignore
                 for token_ids in batch_token_ids
             ]
             batch_decoded_texts = self._model.tokenizer.batch_decode(batch_token_ids)
         else:
-            batch_token_ids = [int(token_id) for token_id in batch_token_ids]
+            batch_token_ids = [int(token_id) for token_id in batch_token_ids]  # type: ignore
             batch_decoded_texts = self._model.tokenizer.decode(batch_token_ids)
         return batch_decoded_texts
 

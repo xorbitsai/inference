@@ -27,7 +27,7 @@ def test_sparse_embedding(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="bge-m3", model_type="embedding", hybrid_mode=True
+        model_name="bge-m3", model_type="embedding", model_engine="flag"
     )
     assert len(client.list_models()) == 1
 
