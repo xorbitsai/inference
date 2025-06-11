@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+from threading import Lock
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type
 
 from ..utils import is_valid_model_name
@@ -65,8 +66,6 @@ def match_embedding(
             f"ModelScope: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
         )
 
-
-from threading import Lock
 
 # { embedding model name -> { engine name -> engine params } }
 EMBEDDING_ENGINES: Dict[str, Dict[str, List[Dict[str, Type["EmbeddingModel"]]]]] = {}
