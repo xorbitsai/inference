@@ -14,7 +14,10 @@
 
 import shutil
 
+import pytest
+
 from ...core import EmbeddingModelSpec, cache, create_embedding_model_instance
+from ..core import VLLMEmbeddingModel
 
 TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_name="bge-small-en-v1.5",
@@ -26,6 +29,7 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 )
 
 
+@pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
 def test_embedding_model_with_vllm():
     model_path = None
 
