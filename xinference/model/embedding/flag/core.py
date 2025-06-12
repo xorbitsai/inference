@@ -90,6 +90,7 @@ class FlagEmbeddingModel(EmbeddingModel):
             return_sparse=self._return_sparse,
             **model_kwargs,
         )
+        self._tokenizer = self._model.tokenizer
 
     def create_embedding(
         self,
@@ -269,35 +270,6 @@ class FlagEmbeddingModel(EmbeddingModel):
         self._clean_cache_if_needed(all_token_nums=0)
 
         return result
-
-    def convert_ids_to_tokens(
-        self,
-        batch_token_ids: Union[List[Union[int, str]], List[List[Union[int, str]]]],
-        **kwargs,
-    ):
-        assert self._model is not None
-        if isinstance(batch_token_ids, (int, str)):
-            return self._model.tokenizer.decode([int(str(batch_token_ids))])[0]
-
-        batch_decoded_texts: List[str] = []
-
-        # check if it's a nested list
-        if (
-            isinstance(batch_token_ids, list)
-            and batch_token_ids
-            and isinstance(batch_token_ids[0], list)
-        ):
-            for token_ids in batch_token_ids:
-                token_ids = [int(token_id) for token_id in token_ids]  # type: ignore
-                batch_decoded_texts.append(
-                    self._model.tokenizer.convert_ids_to_tokens(token_ids)
-                )
-        else:
-            batch_token_ids = [int(token_id) for token_id in batch_token_ids]  # type: ignore
-            batch_decoded_texts = self._model.tokenizer.convert_ids_to_tokens(
-                batch_token_ids
-            )
-        return batch_decoded_texts
 
     @classmethod
     def check_lib(cls) -> bool:

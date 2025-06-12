@@ -93,6 +93,9 @@ export const featureModels = [
   {
     type: 'embedding',
     feature_models: [
+      'Qwen3-Embedding-0.6B',
+      'Qwen3-Embedding-4B',
+      'Qwen3-Embedding-8B',
       'bge-large-zh-v1.5',
       'bge-large-en-v1.5',
       'bge-m3',

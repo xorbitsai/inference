@@ -39,6 +39,7 @@ from .embed_family import (
     MODELSCOPE_EMBEDDING_MODELS,
     SENTENCE_TRANSFORMER_CLASSES,
     SUPPORTED_ENGINES,
+    VLLM_CLASSES,
 )
 
 
@@ -128,12 +129,15 @@ def _install():
 
     from .flag.core import FlagEmbeddingModel
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
+    from .vllm.core import VLLMEmbeddingModel
 
     FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
     SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
+    VLLM_CLASSES.extend([VLLMEmbeddingModel])
 
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
+    SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
 
     # Init embedding engine
     for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:

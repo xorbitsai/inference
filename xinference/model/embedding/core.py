@@ -143,6 +143,7 @@ class EmbeddingModel(abc.ABC):
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._tokenizer = None
         self._counter = 0
         self._model_spec = model_spec
         self._model_name = self._model_spec.model_name
@@ -242,7 +243,6 @@ class EmbeddingModel(abc.ABC):
            The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
         """
 
-    @abstractmethod
     def convert_ids_to_tokens(
         self,
         batch_token_ids: Union[List[Union[int, str]], List[List[Union[int, str]]]],
@@ -251,6 +251,27 @@ class EmbeddingModel(abc.ABC):
         """
         Convert token ids to tokens
         """
+        assert self._model is not None
+        if isinstance(batch_token_ids, (int, str)):
+            return self._tokenizer.decode([int(str(batch_token_ids))])[0]
+
+        batch_decoded_texts: List[str] = []
+
+        # check if it's a nested list
+        if (
+            isinstance(batch_token_ids, list)
+            and batch_token_ids
+            and isinstance(batch_token_ids[0], list)
+        ):
+            for token_ids in batch_token_ids:
+                token_ids = [int(token_id) for token_id in token_ids]  # type: ignore
+                batch_decoded_texts.append(
+                    self._tokenizer.convert_ids_to_tokens(token_ids)
+                )
+        else:
+            batch_token_ids = [int(token_id) for token_id in batch_token_ids]  # type: ignore
+            batch_decoded_texts = self._tokenizer.convert_ids_to_tokens(batch_token_ids)
+        return batch_decoded_texts
 
     def _clean_cache_if_needed(self, all_token_nums: int):
         # clean cache if possible
