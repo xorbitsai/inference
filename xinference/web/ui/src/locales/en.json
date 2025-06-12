@@ -60,6 +60,7 @@
     "commandLineParsing": "Command Line Argument Parsing",
     "copyToCommandLine": "Copy as Command Line Command",
     "modelEngine": "Model Engine",
+    "modelEngine.optional": "(Optional) Model Engine",
     "modelFormat": "Model Format",
     "modelSize": "Model Size",
     "quantization": "Quantization",

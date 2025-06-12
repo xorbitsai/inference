@@ -1986,14 +1986,14 @@ const ModelCard = ({
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <FormControl variant="outlined" margin="normal" fullWidth>
                   <InputLabel id="modelEngine-label">
-                    {t('launchModel.modelEngine')}
+                    {t('launchModel.modelEngine.optional')}
                   </InputLabel>
                   <Select
                     className="textHighlight"
                     labelId="modelEngine-label"
                     value={modelEngine}
                     onChange={(e) => setModelEngine(e.target.value)}
-                    label={t('launchModel.modelEngine')}
+                    label={t('launchModel.modelEngine.optional')}
                   >
                     {engineOptions.map((engine) => {
                       return (

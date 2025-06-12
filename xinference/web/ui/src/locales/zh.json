@@ -60,6 +60,7 @@
     "commandLineParsing": "解析命令行参数",
     "copyToCommandLine": "复制为命令行指令",
     "modelEngine": "模型引擎",
+    "modelEngine.optional": "(可选) 模型引擎",
     "modelFormat": "模型格式",
     "modelSize": "模型大小",
     "quantization": "量化",
