@@ -709,6 +709,12 @@ class ChatModelMixin:
         finish_reason = "tool_calls" if tool_calls else "stop"
 
         content = ". ".join(failed_contents) if failed_contents else None
+
+        # fix: qwen tool_call content field return null
+        family = model_family.model_family or model_family.model_name
+        if tool_calls and family in QWEN_TOOL_CALL_FAMILY and content is None:
+            content = ""
+
         d = {
             "role": "assistant",
             "content": content,
@@ -778,6 +784,11 @@ class ChatModelMixin:
             else:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
+
+        # fix: qwen tool_call content field return null
+        family = model_family.model_family or model_family.model_name
+        if tool_calls and family in QWEN_TOOL_CALL_FAMILY and content is None:
+            content = ""
 
         m = {
             "role": "assistant",
