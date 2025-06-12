@@ -182,12 +182,16 @@ const ModelCard = ({
     }
     const data = handleGetHistory()
     if (keyArr.length && data.model_name) {
-      handleLlmHistory(data)
+      if (modelType === 'LLM') {
+        handleLlmHistory(data)
+      } else {
+        handleOtherHistory(data)
+      }
     }
   }, [enginesObj])
 
   useEffect(() => {
-    if (modelEngine) {
+    if (modelEngine && modelType === 'LLM') {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
@@ -293,9 +297,13 @@ const ModelCard = ({
     }
   }
 
-  const getModelEngine = (model_name) => {
+  const getModelEngine = (model_name, model_type) => {
     fetchWrapper
-      .get(`/v1/engines/${model_name}`)
+      .get(
+        model_type === 'LLM'
+          ? `/v1/engines/${model_name}`
+          : `/v1/engines/${model_type}/${model_name}`
+      )
       .then((data) => {
         setEnginesObj(data)
         setEngineOptions(Object.keys(data))
@@ -389,6 +397,8 @@ const ModelCard = ({
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
     if (['image', 'video'].includes(modelType))
       modelDataWithID_other.cpu_offload = cpuOffload
+    if (['embedding'].includes(modelType) && modelEngine)
+      modelDataWithID_other.model_engine = modelEngine
 
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
@@ -771,6 +781,7 @@ const ModelCard = ({
 
   const handleOtherHistory = (data) => {
     const {
+      model_engine,
       model_uid,
       replica,
       n_gpu,
@@ -784,6 +795,12 @@ const ModelCard = ({
       model_type,
       peft_model_config,
     } = data
+
+    if (!engineOptions.includes(model_engine)) {
+      setModelEngine('')
+    } else {
+      setModelEngine(model_engine || '')
+    }
     setModelUID(model_uid || '')
     setReplica(replica || 1)
     setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
@@ -886,6 +903,7 @@ const ModelCard = ({
       setIsOther(false)
       setIsPeftModelConfig(false)
     } else {
+      setModelEngine('')
       setModelUID('')
       setReplica(1)
       setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
@@ -1002,8 +1020,8 @@ const ModelCard = ({
             const data = handleGetHistory()
             if (data?.model_name) setIsHistory(true)
             setSelected(true)
-            if (modelType === 'LLM') {
-              getModelEngine(modelData.model_name)
+            if (['LLM', 'embedding'].includes(modelType)) {
+              getModelEngine(modelData.model_name, modelType)
             } else if (data?.model_name) {
               handleOtherHistory(data)
             }
@@ -1966,6 +1984,26 @@ const ModelCard = ({
               mx="auto"
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
+                <FormControl variant="outlined" margin="normal" fullWidth>
+                  <InputLabel id="modelEngine-label">
+                    {t('launchModel.modelEngine.optional')}
+                  </InputLabel>
+                  <Select
+                    className="textHighlight"
+                    labelId="modelEngine-label"
+                    value={modelEngine}
+                    onChange={(e) => setModelEngine(e.target.value)}
+                    label={t('launchModel.modelEngine.optional')}
+                  >
+                    {engineOptions.map((engine) => {
+                      return (
+                        <MenuItem key={engine} value={engine}>
+                          {engine}
+                        </MenuItem>
+                      )
+                    })}
+                  </Select>
+                </FormControl>
                 <TextField
                   className="textHighlight"
                   variant="outlined"
@@ -1987,15 +2025,15 @@ const ModelCard = ({
                   onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                 />
                 <FormControl variant="outlined" margin="normal" fullWidth>
-                  <InputLabel id="n-gpu-label">
+                  <InputLabel id="device-label">
                     {t('launchModel.device')}
                   </InputLabel>
                   <Select
                     className="textHighlight"
-                    labelId="n-gpu-label"
+                    labelId="device-label"
                     value={nGpu}
                     onChange={(e) => setNGpu(e.target.value)}
-                    label={t('launchModel.nGPU')}
+                    label={t('launchModel.device')}
                   >
                     {getNewNGPURange().map((v) => {
                       return (
