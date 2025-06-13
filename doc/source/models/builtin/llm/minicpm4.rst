@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 8 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 8
 - **Quantizations:** 4bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/MiniCPM4-8B-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/MiniCPM4-8B-4bit>`__, `ModelScope <https://modelscope.cn/models/mlx-community/MiniCPM4-8B-4bit>`__
 
