@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .core import RerankModelSpec
+if TYPE_CHECKING:
+    from .core import RerankModelSpec
 
 
-def get_model_version(rerank_model: RerankModelSpec) -> str:
+def get_model_version(rerank_model: "RerankModelSpec") -> str:
     return rerank_model.model_name
 
 

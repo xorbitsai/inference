@@ -31,6 +31,7 @@ from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import is_model_cached
+from .utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +202,10 @@ class RerankModel:
             )
             self._use_fp16 = True
 
-        if self._model_spec.type == "normal":
+        if (
+            self._model_spec.type == "normal"
+            and "qwen3" not in self._model_spec.model_name.lower()
+        ):
             try:
                 import sentence_transformers
                 from sentence_transformers.cross_encoder import CrossEncoder
@@ -229,6 +233,65 @@ class RerankModel:
             )
             if self._use_fp16:
                 self._model.model.half()
+        elif "qwen3" in self._model_spec.model_name.lower():
+            # qwen3-reranker
+            # now we use transformers
+            # TODO: support engines for rerank models
+            try:
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+            except ImportError:
+                error_message = "Failed to import module 'transformers'"
+                installation_guide = [
+                    "Please make sure 'transformers' is installed. ",
+                    "You can install it by `pip install transformers`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            tokenizer = AutoTokenizer.from_pretrained(
+                self._model_path, padding_side="left"
+            )
+            model = self._model = AutoModelForCausalLM.from_pretrained(
+                self._model_path
+            ).eval()
+            max_length = getattr(self._model_spec, "max_tokens")
+
+            prefix = '<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
+            suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            prefix_tokens = tokenizer.encode(prefix, add_special_tokens=False)
+            suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
+
+            def process_inputs(pairs):
+                inputs = tokenizer(
+                    pairs,
+                    padding=False,
+                    truncation="longest_first",
+                    return_attention_mask=False,
+                    max_length=max_length - len(prefix_tokens) - len(suffix_tokens),
+                )
+                for i, ele in enumerate(inputs["input_ids"]):
+                    inputs["input_ids"][i] = prefix_tokens + ele + suffix_tokens
+                inputs = tokenizer.pad(
+                    inputs, padding=True, return_tensors="pt", max_length=max_length
+                )
+                for key in inputs:
+                    inputs[key] = inputs[key].to(model.device)
+                return inputs
+
+            token_false_id = tokenizer.convert_tokens_to_ids("no")
+            token_true_id = tokenizer.convert_tokens_to_ids("yes")
+
+            def compute_logits(inputs, **kwargs):
+                batch_scores = model(**inputs).logits[:, -1, :]
+                true_vector = batch_scores[:, token_true_id]
+                false_vector = batch_scores[:, token_false_id]
+                batch_scores = torch.stack([false_vector, true_vector], dim=1)
+                batch_scores = torch.nn.functional.log_softmax(batch_scores, dim=1)
+                scores = batch_scores[:, 1].exp().tolist()
+                return scores
+
+            self.process_inputs = process_inputs
+            self.compute_logits = compute_logits
         else:
             try:
                 if self._model_spec.type == "LLM-based":
@@ -266,15 +329,17 @@ class RerankModel:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
 
-        from .utils import preprocess_sentence
-
         pre_query = preprocess_sentence(
             query, kwargs.get("instruction", None), self._model_spec.model_name
         )
         sentence_combinations = [[pre_query, doc] for doc in documents]
         # reset n tokens
         self._model.model.n_tokens = 0
-        if self._model_spec.type == "normal":
+        if (
+            self._model_spec.type == "normal"
+            and "qwen3" not in self._model_spec.model_name.lower()
+        ):
+            logger.debug("Passing processed sentences: %s", sentence_combinations)
             similarity_scores = self._model.predict(
                 sentence_combinations,
                 convert_to_numpy=False,
@@ -283,6 +348,23 @@ class RerankModel:
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
+        elif "qwen3" in self._model_spec.model_name.lower():
+
+            def format_instruction(instruction, query, doc):
+                if instruction is None:
+                    instruction = "Given a web search query, retrieve relevant passages that answer the query"
+                output = "<Instruct>: {instruction}\n<Query>: {query}\n<Document>: {doc}".format(
+                    instruction=instruction, query=query, doc=doc
+                )
+                return output
+
+            pairs = [
+                format_instruction(kwargs.get("instruction", None), query, doc)
+                for doc in documents
+            ]
+            # Tokenize the input texts
+            inputs = self.process_inputs(pairs)
+            similarity_scores = self.compute_logits(inputs)
         else:
             # Related issue: https://github.com/xorbitsai/inference/issues/1775
             similarity_scores = self._model.compute_score(
