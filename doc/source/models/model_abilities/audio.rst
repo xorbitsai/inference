@@ -545,7 +545,7 @@ Paraformer Usage
 
 3. **Hotword Usage**
 
-   Only the following models support `timestamp` and `speaker`:
+   Only the following models support `hotword`:
    
    - `paraformer-zh-hotword`
    - `seaco-paraformer-zh`
