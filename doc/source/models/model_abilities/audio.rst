@@ -497,55 +497,70 @@ This arguments is aligned to voice cloning of CosyVoice.
 
 
 Paraformer Usage
-~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
-+-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
-| model                  | vad | punc | timestamp  | speaker | hotword | website                                                                                                                      |
-+=========================+=====+======+============+=========+=========+==============================================================================================================================+
-| paraformer-zh          | yes | yes  | no         | no      | no      | https://www.modelscope.cn/models/iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch                     |
-+-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
-| paraformer-zh-hotword  | yes | yes  | no         | no      | yes     | https://www.modelscope.cn/models/iic/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404                 |
-+-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
-| paraformer-zh-spk      | yes | yes  | yes        | yes     | no      | https://www.modelscope.cn/models/iic/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn                                     |
-+-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
-| paraformer-zh-long     | yes | yes  | yes        | yes     | no      | https://www.modelscope.cn/models/iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch           |
-+-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
-| seaco-paraformer-zh(recommend)    | yes | yes  | yes        | yes     | yes     | https://www.modelscope.cn/models/iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch              |
-+-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
++-------------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
+| model                         | vad | punc | timestamp  | speaker | hotword | website                                                                                                                      |
++===============================+=====+======+============+=========+=========+==============================================================================================================================+
+| paraformer-zh                 | yes | yes  | no         | no      | no      | https://www.modelscope.cn/models/iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch                     |
++-------------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
+| paraformer-zh-hotword        | yes | yes  | no         | no      | yes     | https://www.modelscope.cn/models/iic/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404                 |
++-------------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
+| paraformer-zh-spk            | yes | yes  | yes        | yes     | no      | https://www.modelscope.cn/models/iic/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn                                     |
++-------------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
+| paraformer-zh-long           | yes | yes  | yes        | yes     | no      | https://www.modelscope.cn/models/iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch           |
++-------------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
+| seaco-paraformer-zh (recommend) | yes | yes  | yes        | yes     | yes     | https://www.modelscope.cn/models/iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch              |
++-------------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
 
-1. vad&punc usage
+1. **VAD & Punctuation Usage**
 
-   All paraformer models support vad,punc.
-2. timestamp&speaker usage
-   Only paraformer-zh-spk and paraformer-zh-long and seaco-paraformer-zh support timestamp and speaker.
+   All Paraformer models support VAD and punctuation.
 
-   And only paraformer-zh-spk enable speaker by default.
+2. **Timestamp & Speaker Usage**
 
-   If you need speaker info when using paraformer-zh-long or seaco-paraformer-zh,
+   Only the following models support `timestamp` and `speaker`:
+   
+   - `paraformer-zh-spk`
+   - `paraformer-zh-long`
+   - `seaco-paraformer-zh`
 
-   when launching model with Web UI, you can add an additional parameter with key ``spk_model`` and value ``cam++``.
+   Among them, only `paraformer-zh-spk` enables **speaker info by default**.
 
-   When launching with command line, you can add an option ``--spk_model cam++``.
+   If you need speaker info when using `paraformer-zh-long` or `seaco-paraformer-zh`:
 
-.. code-block::
+   - In Web UI: add an extra parameter with key ``spk_model`` and value ``cam++``
+   - In command line: add the option ``--spk_model cam++``
 
-   from xinference.client import Client
-   client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
-   model = client.get_model("seaco-paraformer-zh")
-   with open("asr_example.wav", "rb") as audio_file:
-        audio = audio_file.read()
-            model.transcriptions(audio, response_format="verbose_json")
+   Example:
 
-3. hotword usage
+   .. code-block:: python
 
-.. code-block::
+      from xinference.client import Client
+      client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+      model = client.get_model("seaco-paraformer-zh")
+      with open("asr_example.wav", "rb") as audio_file:
+          audio = audio_file.read()
+          model.transcriptions(audio, response_format="verbose_json")
 
-   from xinference.client import Client
-   client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
-   model = client.get_model("seaco-paraformer-zh")
-   with open("asr_example.wav", "rb") as audio_file:
-        audio = audio_file.read()
-            model.transcriptions(audio,hotword="小艾 魔搭")
+3. **Hotword Usage**
+
+   Only the following models support `timestamp` and `speaker`:
+   
+   - `paraformer-zh-hotword`
+   - `seaco-paraformer-zh`
+
+   Example:
+
+   .. code-block:: python
+
+      from xinference.client import Client
+      client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+      model = client.get_model("seaco-paraformer-zh")
+      with open("asr_example.wav", "rb") as audio_file:
+          audio = audio_file.read()
+          model.transcriptions(audio, hotword="小艾 魔搭")
+
 
 
 SenseVoiceSmall Offline Usage
