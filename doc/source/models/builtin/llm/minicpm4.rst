@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 0_5 Billion)
 - **Model Size (in billions):** 0_5
 - **Quantizations:** none
 - **Engines**: Transformers
-- **Model ID:** openbmb/MiniCPM4-0.5B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM4-0.5B>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM4-0.5B>`__
+- **Model ID:** JunHowie/MiniCPM4-0.5B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/MiniCPM4-0.5B>`__, `ModelScope <https://modelscope.cn/models/JunHowie/MiniCPM4-0.5B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -37,8 +37,8 @@ Model Spec 2 (pytorch, 8 Billion)
 - **Model Size (in billions):** 8
 - **Quantizations:** none
 - **Engines**: Transformers
-- **Model ID:** openbmb/MiniCPM4-8B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM4-8B>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM4-8B>`__
+- **Model ID:** JunHowie/MiniCPM4-8B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/MiniCPM4-8B>`__, `ModelScope <https://modelscope.cn/models/JunHowie/MiniCPM4-8B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
