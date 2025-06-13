@@ -512,12 +512,17 @@ Paraformer Usage
 | seaco-paraformer-zh(recommend)    | yes | yes  | yes        | yes     | yes     | https://www.modelscope.cn/models/iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch              |
 +-------------------------+-----+------+------------+---------+---------+------------------------------------------------------------------------------------------------------------------------------+
 1. vad&punc usage
+
    All paraformer models support vad,punc.
 2. timestamp&speaker usage
    Only paraformer-zh-spk and paraformer-zh-long and seaco-paraformer-zh support timestamp and speaker.
+
    And only paraformer-zh-spk enable speaker by default.
+
    If you need speaker info when using paraformer-zh-long or seaco-paraformer-zh,
+
    when launching model with Web UI, you can add an additional parameter with key ``spk_model`` and value ``cam++``.
+
    When launching with command line, you can add an option ``--spk_model cam++``.
 
 .. code-block::
@@ -527,7 +532,9 @@ Paraformer Usage
    with open("asr_example.wav", "rb") as audio_file:
         audio = audio_file.read()
             model.transcriptions(audio, response_format="verbose_json")
+
 3. hotword usage
+
 .. code-block::
    from xinference.client import Client
    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
