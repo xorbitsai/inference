@@ -1984,26 +1984,28 @@ const ModelCard = ({
               mx="auto"
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
-                <FormControl variant="outlined" margin="normal" fullWidth>
-                  <InputLabel id="modelEngine-label">
-                    {t('launchModel.modelEngine.optional')}
-                  </InputLabel>
-                  <Select
-                    className="textHighlight"
-                    labelId="modelEngine-label"
-                    value={modelEngine}
-                    onChange={(e) => setModelEngine(e.target.value)}
-                    label={t('launchModel.modelEngine.optional')}
-                  >
-                    {engineOptions.map((engine) => {
-                      return (
-                        <MenuItem key={engine} value={engine}>
-                          {engine}
-                        </MenuItem>
-                      )
-                    })}
-                  </Select>
-                </FormControl>
+                {['embedding'].includes(modelType) && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="modelEngine-label">
+                      {t('launchModel.modelEngine.optional')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="modelEngine-label"
+                      value={modelEngine}
+                      onChange={(e) => setModelEngine(e.target.value)}
+                      label={t('launchModel.modelEngine.optional')}
+                    >
+                      {engineOptions.map((engine) => {
+                        return (
+                          <MenuItem key={engine} value={engine}>
+                            {engine}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                )}
                 <TextField
                   className="textHighlight"
                   variant="outlined"
