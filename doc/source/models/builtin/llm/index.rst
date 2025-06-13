@@ -316,6 +316,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - MiniCPM3-4B is the 3rd generation of MiniCPM series. The overall performance of MiniCPM3-4B surpasses Phi-3.5-mini-Instruct and GPT-3.5-Turbo-0125, being comparable with many recent 7B~9B models.
 
+   * - :ref:`minicpm4 <models_llm_minicpm4>`
+     - chat
+     - 32768
+     - MiniCPM4 series are highly efficient large language models (LLMs) designed explicitly for end-side devices, which achieves this efficiency through systematic innovation in four key dimensions: model architecture, training data, training algorithms, and inference systems.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -720,6 +725,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm-v-2.6
   
    minicpm3-4b
+  
+   minicpm4
   
    mistral-instruct-v0.1
   
