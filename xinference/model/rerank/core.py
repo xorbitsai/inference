@@ -14,6 +14,7 @@
 
 import gc
 import importlib
+import importlib.util
 import logging
 import os
 import threading
@@ -251,12 +252,21 @@ class RerankModel:
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
+            flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+            model_kwargs = {"device_map": "auto"}
+            if flash_attn_installed:
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+                model_kwargs["torch_dtype"] = torch.float16
             model = self._model = AutoModelForCausalLM.from_pretrained(
-                self._model_path
+                self._model_path, **model_kwargs
             ).eval()
             max_length = getattr(self._model_spec, "max_tokens")
 
-            prefix = '<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
+            prefix = (
+                "<|im_start|>system\nJudge whether the Document meets the requirements based on the Query "
+                'and the Instruct provided. Note that the answer can only be "yes" or "no".'
+                "<|im_end|>\n<|im_start|>user\n"
+            )
             suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
             prefix_tokens = tokenizer.encode(prefix, add_special_tokens=False)
             suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
