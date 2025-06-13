@@ -240,6 +240,30 @@
     "model_revision": "e26182b2122f4435e8b3ebecbf363990f409b45b"
   },
   {
+    "model_name": "Qwen3-Embedding-0.6B",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "Qwen/Qwen3-Embedding-0.6B",
+    "model_revision": "744169034862c8eec56628663995004342e4e449"
+  },
+  {
+    "model_name": "Qwen3-Embedding-4B",
+    "dimensions": 2560,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "Qwen/Qwen3-Embedding-4B",
+    "model_revision": "408b81b7fab742073065d5b3661fa74c1b3ee0a1"
+  },
+  {
+    "model_name": "Qwen3-Embedding-8B",
+    "dimensions": 4096,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "Qwen/Qwen3-Embedding-8B",
+    "model_revision": "a3d38e32b9c835d5b3d0d0a3ef3c133bbea92539"
+  },
+  {
     "model_name": "jina-embeddings-v3",
     "dimensions": 1024,
     "max_tokens": 8192,

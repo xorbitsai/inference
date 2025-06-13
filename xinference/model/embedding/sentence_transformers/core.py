@@ -32,16 +32,6 @@ SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel):
-    def __init__(
-        self,
-        model_uid: str,
-        model_path: str,
-        model_spec: EmbeddingModelSpec,
-        device: Optional[str] = None,
-        **kwargs,
-    ):
-        super().__init__(model_uid, model_path, model_spec, device, **kwargs)
-
     def load(self):
         # TODO: load model
         try:
@@ -97,6 +87,28 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
             )
+        elif "qwen3" in self._model_spec.model_name.lower():
+            # qwen3 embedding
+            flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+            model_kwargs = {"device_map": "auto"}
+            tokenizer_kwargs = {}
+            if flash_attn_installed:
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+                model_kwargs["torch_dtype"] = "bfloat16"
+                tokenizer_kwargs["padding_side"] = "left"
+            if torch_dtype:
+                model_kwargs["torch_dtype"] = torch_dtype
+            logger.debug(
+                "Loading qwen3 embedding with model kwargs: %s, tokenizer kwargs: %s",
+                model_kwargs,
+                tokenizer_kwargs,
+            )
+            self._model = XSentenceTransformer(
+                self._model_path,
+                device=self._device,
+                model_kwargs=model_kwargs,
+                tokenizer_kwargs=tokenizer_kwargs,
+            )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
             self._model = SentenceTransformer(
@@ -105,6 +117,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 model_kwargs=model_kwargs,
                 trust_remote_code=True,
             )
+
+        self._tokenizer = self._model.tokenizer
 
     def create_embedding(
         self,
@@ -374,34 +388,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         self._clean_cache_if_needed(all_token_nums)
 
         return result
-
-    def convert_ids_to_tokens(
-        self,
-        batch_token_ids: Union[List[Union[int, str]], List[List[Union[int, str]]]],
-        **kwargs,
-    ) -> Union[List[str]]:
-        assert self._model is not None
-
-        if isinstance(batch_token_ids, (int, str)):
-            return self._model.tokenizer.convert_ids_to_tokens(
-                [int(str(batch_token_ids))]
-            )[0]
-
-        # check if it's a nested list
-        if (
-            isinstance(batch_token_ids, list)
-            and batch_token_ids
-            and isinstance(batch_token_ids[0], list)
-        ):
-            batch_token_ids = [  # type: ignore
-                [int(token_id) for token_id in token_ids]  # type: ignore
-                for token_ids in batch_token_ids
-            ]
-            batch_decoded_texts = self._model.tokenizer.batch_decode(batch_token_ids)
-        else:
-            batch_token_ids = [int(token_id) for token_id in batch_token_ids]  # type: ignore
-            batch_decoded_texts = self._model.tokenizer.decode(batch_token_ids)
-        return batch_decoded_texts
 
     @classmethod
     def check_lib(cls) -> bool:

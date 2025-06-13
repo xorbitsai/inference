@@ -242,6 +242,30 @@
     "model_hub": "modelscope"
   },
   {
+    "model_name": "Qwen3-Embedding-0.6B",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "Qwen/Qwen3-Embedding-0.6B",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "Qwen3-Embedding-4B",
+    "dimensions": 2560,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "Qwen/Qwen3-Embedding-4B",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "Qwen3-Embedding-8B",
+    "dimensions": 4096,
+    "max_tokens": 32768,
+    "language": ["zh", "en"],
+    "model_id": "Qwen/Qwen3-Embedding-8B",
+    "model_hub": "modelscope"
+  },
+  {
     "model_name": "jina-embeddings-v3",
     "dimensions": 1024,
     "max_tokens": 8192,
