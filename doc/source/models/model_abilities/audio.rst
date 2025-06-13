@@ -520,7 +520,7 @@ Paraformer Usage
    when launching model with Web UI, you can add an additional parameter with key ``spk_model`` and value ``cam++``.
    When launching with command line, you can add an option ``--spk_model cam++``.
 
-   .. code-block::
+.. code-block::
    from xinference.client import Client
    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
    model = client.get_model("seaco-paraformer-zh")
@@ -528,7 +528,7 @@ Paraformer Usage
         audio = audio_file.read()
             model.transcriptions(audio, response_format="verbose_json")
 3. hotword usage
-   .. code-block::
+.. code-block::
    from xinference.client import Client
    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
    model = client.get_model("seaco-paraformer-zh")
