@@ -495,18 +495,6 @@ This arguments is aligned to voice cloning of CosyVoice.
     )
 
 
-SenseVoiceSmall Offline Usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be downloaded thus network required.
-
-For offline environment, you can download the vad model in advance.
-
-Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>`_.
-Assume downloaded to ``/path/to/fsmn-vad``.
-
-Then when launching SenseVoiceSmall with Web UI, you can add an additional parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is the downloaded path.
-When launching with command line, you can add an option ``--vad_model /path/to/fsmn-vad``.
 
 Paraformer Usage
 ~~~~~~~~~~~~
@@ -534,7 +522,7 @@ Paraformer Usage
 
    .. code-block::
    from xinference.client import Client
-   client = Client("http://yourip:9997")
+   client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
    model = client.get_model("seaco-paraformer-zh")
    with open("asr_example.wav", "rb") as audio_file:
         audio = audio_file.read()
@@ -542,11 +530,25 @@ Paraformer Usage
 3. hotword usage
    .. code-block::
    from xinference.client import Client
-   client = Client("http://yourip:9997")
+   client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
    model = client.get_model("seaco-paraformer-zh")
    with open("asr_example.wav", "rb") as audio_file:
         audio = audio_file.read()
             model.transcriptions(audio,hotword="小艾 魔搭")
+
+
+SenseVoiceSmall Offline Usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be downloaded thus network required.
+
+For offline environment, you can download the vad model in advance.
+
+Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or `modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-pytorch/files>`_.
+Assume downloaded to ``/path/to/fsmn-vad``.
+
+Then when launching SenseVoiceSmall with Web UI, you can add an additional parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is the downloaded path.
+When launching with command line, you can add an option ``--vad_model /path/to/fsmn-vad``.
 
 
 Kokoro Usage
