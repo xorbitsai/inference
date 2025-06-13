@@ -46,14 +46,14 @@ potential of cutting-edge AI models.
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### New Models
+- Built-in support for [Qwen3-Embedding](https://github.com/QwenLM/Qwen3-Embedding): [#3627](https://github.com/xorbitsai/inference/pull/3627)
+- Built-in support for [Minicpm4](https://github.com/OpenBMB/MiniCPM): [#3609](https://github.com/xorbitsai/inference/pull/3609)
+- Built-in support for [CogView4](https://github.com/THUDM/CogView4): [#3557](https://github.com/xorbitsai/inference/pull/3557)
 - Built-in support for [Deepseek-R1-0528](https://huggingface.co/deepseek-ai/DeepSeek-R1-0528): [#3539](https://github.com/xorbitsai/inference/pull/3539)
 - Built-in support for [Qwen3](https://qwenlm.github.io/blog/qwen3/): [#3347](https://github.com/xorbitsai/inference/pull/3347)
 - Built-in support for [Qwen2.5-Omni](https://github.com/QwenLM/Qwen2.5-Omni): [#3279](https://github.com/xorbitsai/inference/pull/3279)
 - Built-in support for [Skywork-OR1](https://github.com/SkyworkAI/Skywork-OR1): [#3274](https://github.com/xorbitsai/inference/pull/3274)
 - Built-in support for [GLM-4-0414](https://github.com/THUDM/GLM-4): [#3251](https://github.com/xorbitsai/inference/pull/3251)
-- Built-in support for [SeaLLMs-v3](https://github.com/DAMO-NLP-SG/DAMO-SeaLLMs): [#3248](https://github.com/xorbitsai/inference/pull/3248)
-- Built-in support for [paraformer-zh](https://huggingface.co/funasr/paraformer-zh): [#3236](https://github.com/xorbitsai/inference/pull/3236)
-- Built-in support for [InternVL3](https://internvl.github.io/blog/2025-04-11-InternVL-3.0/): [#3235](https://github.com/xorbitsai/inference/pull/3235)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
