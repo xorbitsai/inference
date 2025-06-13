@@ -784,9 +784,10 @@ class MediaInterface:
             )
 
             # Write to a temp .mp3 file and return its path
-            audio_path = f"/tmp/{uuid.uuid4()}.mp3"
-            with open(audio_path, "wb") as f:
-                f.write(response)
+            # Get the current TEMP file and its path according to os
+            temp_dir = os.environ.get('TEMP')
+            audio_path = os.path.join(temp_dir, f"{uuid.uuid4()}.mp3")
+
 
             return audio_path
 
