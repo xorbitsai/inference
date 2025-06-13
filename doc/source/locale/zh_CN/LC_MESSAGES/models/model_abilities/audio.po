@@ -429,6 +429,60 @@ msgstr ""
 "reference_audio` 以及 `prompt_text` 而不是 `reference_text` 来为 "
 "FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
 
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_CN\n"
+
+#: ../../source/models/model_abilities/audio.rst:499
+msgid "Paraformer Usage"
+msgstr "Paraformer 使用说明"
+
+#: ../../source/models/model_abilities/audio.rst:516
+msgid "VAD & Punctuation Usage"
+msgstr "VAD 与标点符号的使用"
+
+#: ../../source/models/model_abilities/audio.rst:518
+msgid "All Paraformer models support VAD and punctuation."
+msgstr "所有 Paraformer 模型均支持 VAD 和标点功能。"
+
+#: ../../source/models/model_abilities/audio.rst:520
+msgid "Timestamp & Speaker Usage"
+msgstr "时间戳和说话人识别使用说明"
+
+#: ../../source/models/model_abilities/audio.rst:522
+msgid "Only the following models support `timestamp` and `speaker`:"
+msgstr "仅以下模型支持 `timestamp` 和 `speaker`："
+
+#: ../../source/models/model_abilities/audio.rst:528
+msgid "Among them, only `paraformer-zh-spk` enables **speaker info by default**."
+msgstr "其中，仅 `paraformer-zh-spk` 默认启用说话人识别功能。"
+
+#: ../../source/models/model_abilities/audio.rst:530
+msgid "If you need speaker info when using `paraformer-zh-long` or `seaco-paraformer-zh`:"
+msgstr "如果你使用的是 `paraformer-zh-long` 或 `seaco-paraformer-zh`，且需要启用说话人识别功能："
+
+#: ../../source/models/model_abilities/audio.rst:532
+msgid "In Web UI: add an extra parameter with key ``spk_model`` and value ``cam++``"
+msgstr "在 Web UI 中：添加名为 ``spk_model``、值为 ``cam++`` 的参数"
+
+#: ../../source/models/model_abilities/audio.rst:533
+msgid "In command line: add the option ``--spk_model cam++``"
+msgstr "在命令行中：添加参数 ``--spk_model cam++``"
+
+#: ../../source/models/model_abilities/audio.rst:535
+msgid "Example:"
+msgstr "示例："
+
+#: ../../source/models/model_abilities/audio.rst:546
+msgid "Hotword Usage"
+msgstr "热词功能使用说明"
+
+#: ../../source/models/model_abilities/audio.rst:548
+msgid "Only the following models support `hotword`:"
+msgstr "仅以下模型支持 `hotword`（热词功能）："
+
+
 #: ../../source/models/model_abilities/audio.rst:499
 msgid "SenseVoiceSmall Offline Usage"
 msgstr "SenseVoiceSmall 离线使用"
