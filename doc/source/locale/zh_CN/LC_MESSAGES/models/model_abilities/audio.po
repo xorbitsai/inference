@@ -429,11 +429,6 @@ msgstr ""
 "reference_audio` 以及 `prompt_text` 而不是 `reference_text` 来为 "
 "FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
 
-msgid ""
-msgstr ""
-"Content-Type: text/plain; charset=UTF-8\n"
-"Language: zh_CN\n"
-
 #: ../../source/models/model_abilities/audio.rst:499
 msgid "Paraformer Usage"
 msgstr "Paraformer 使用说明"
