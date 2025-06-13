@@ -526,6 +526,7 @@ Paraformer Usage
    When launching with command line, you can add an option ``--spk_model cam++``.
 
 .. code-block::
+
    from xinference.client import Client
    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
    model = client.get_model("seaco-paraformer-zh")
@@ -536,6 +537,7 @@ Paraformer Usage
 3. hotword usage
 
 .. code-block::
+
    from xinference.client import Client
    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
    model = client.get_model("seaco-paraformer-zh")
