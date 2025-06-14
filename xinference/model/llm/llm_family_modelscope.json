@@ -4295,7 +4295,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "OpenBMB/MiniCPM4-0.5B",
+        "model_id": "JunHowie/MiniCPM4-0.5B",
         "model_hub": "modelscope"
       },
       {
@@ -4304,7 +4304,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "OpenBMB/MiniCPM4-8B",
+        "model_id": "JunHowie/MiniCPM4-8B",
         "model_hub": "modelscope"
       },
       {

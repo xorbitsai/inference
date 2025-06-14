@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 FLAG_EMBEDDER_CLASSES: List[Type["EmbeddingModel"]] = []
 SENTENCE_TRANSFORMER_CLASSES: List[Type["EmbeddingModel"]] = []
+VLLM_CLASSES: List[Type["EmbeddingModel"]] = []
 
 BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
 MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}

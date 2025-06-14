@@ -6160,7 +6160,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "openbmb/MiniCPM4-0.5B"
+        "model_id": "JunHowie/MiniCPM4-0.5B"
       },
       {
         "model_format": "pytorch",
@@ -6168,7 +6168,7 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "openbmb/MiniCPM4-8B"
+        "model_id": "JunHowie/MiniCPM4-8B"
       },
       {
         "model_format": "mlx",

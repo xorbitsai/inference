@@ -690,6 +690,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
         timestamp_granularities: Optional[List[str]] = None,
+        **kwargs,
     ):
         """
         Transcribes audio into the input language.
@@ -731,6 +732,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "temperature": temperature,
             "timestamp_granularities[]": timestamp_granularities,
+            "kwargs": json.dumps(kwargs),
         }
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
