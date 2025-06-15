@@ -495,6 +495,74 @@ This arguments is aligned to voice cloning of CosyVoice.
     )
 
 
+
+Paraformer Usage
+~~~~~~~~~~~~~~~~
+
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| model                                                 | vad | punc | timestamp  | speaker | hotword |
++=======================================================+=====+======+============+=========+=========+
+| :ref:`models_builtin_paraformer-zh`                   | yes | yes  | no         | no      | no      |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_paraformer-zh-hotword`           | yes | yes  | no         | no      | yes     |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_paraformer-zh-spk`               | yes | yes  | yes        | yes     | no      |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_paraformer-zh-long`              | yes | yes  | yes        | yes     | no      |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_seaco-paraformer-zh` (recommend) | yes | yes  | yes        | yes     | yes     |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+
+1. **VAD & Punctuation Usage**
+
+   All Paraformer models support VAD and punctuation.
+
+2. **Timestamp & Speaker Usage**
+
+   Only the following models support `timestamp` and `speaker`:
+   
+   - `paraformer-zh-spk`
+   - `paraformer-zh-long`
+   - `seaco-paraformer-zh`
+
+   Among them, only `paraformer-zh-spk` enables **speaker info by default**.
+
+   If you need speaker info when using `paraformer-zh-long` or `seaco-paraformer-zh`:
+
+   - In Web UI: add an extra parameter with key ``spk_model`` and value ``cam++``
+   - In command line: add the option ``--spk_model cam++``
+
+   Example:
+
+   .. code-block:: python
+
+      from xinference.client import Client
+      client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+      model = client.get_model("seaco-paraformer-zh")
+      with open("asr_example.wav", "rb") as audio_file:
+          audio = audio_file.read()
+          model.transcriptions(audio, response_format="verbose_json")
+
+3. **Hotword Usage**
+
+   Only the following models support `hotword`:
+   
+   - `paraformer-zh-hotword`
+   - `seaco-paraformer-zh`
+
+   Example:
+
+   .. code-block:: python
+
+      from xinference.client import Client
+      client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+      model = client.get_model("seaco-paraformer-zh")
+      with open("asr_example.wav", "rb") as audio_file:
+          audio = audio_file.read()
+          model.transcriptions(audio, hotword="小艾 魔搭")
+
+
+
 SenseVoiceSmall Offline Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
