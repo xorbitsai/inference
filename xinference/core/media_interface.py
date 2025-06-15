@@ -16,6 +16,7 @@ import base64
 import io
 import logging
 import os
+import tempfile
 import threading
 import time
 import uuid
@@ -784,7 +785,8 @@ class MediaInterface:
             )
 
             # Write to a temp .mp3 file and return its path
-            audio_path = f"/tmp/{uuid.uuid4()}.mp3"
+            temp_dir = tempfile.gettempdir()
+            audio_path = os.path.join(temp_dir, f"{uuid.uuid4()}.mp3")
             with open(audio_path, "wb") as f:
                 f.write(response)
 
