@@ -21,6 +21,7 @@ import {
 } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import Joyride, { STATUS } from 'react-joyride'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
@@ -36,6 +37,10 @@ const MenuSide = () => {
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
+  const [run, setRun] = useState(false)
+  const [stepIndex, setStepIndex] = useState(0)
+  const [spotlightClicks, setSpotlightClicks] = useState(false)
+
   const { i18n, t } = useTranslation()
 
   const navItems = [
@@ -71,11 +76,51 @@ const MenuSide = () => {
     },
   ]
 
+  const clickableSteps = [4, 5]
+
+  const steps = [
+    {
+      target: '.step-0',
+      content: t('components.step-0'),
+      disableBeacon: true,
+    },
+    {
+      target: '.step-1',
+      content: t('components.step-1'),
+      disableBeacon: true,
+    },
+    {
+      target: '.step-2',
+      content: t('components.step-2'),
+      disableBeacon: true,
+    },
+    {
+      target: '.step-3',
+      content: t('components.step-3'),
+      disableBeacon: true,
+    },
+    {
+      target: '.step-4',
+      content: t('components.step-4'),
+      disableBeacon: true,
+    },
+    {
+      target: '.step-5',
+      content: t('components.step-5'),
+      disableBeacon: true,
+    },
+  ]
+
   useEffect(() => {
     setActive(pathname.substring(1))
   }, [pathname])
 
   useEffect(() => {
+    if (!localStorage.getItem('hasSeenGuide')) {
+      setRun(true)
+      localStorage.setItem('hasSeenGuide', 'true')
+    }
+
     const screenWidth = window.innerWidth
     const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320)
     setDrawerWidth(`${maxDrawerWidth}px`)
@@ -96,6 +141,44 @@ const MenuSide = () => {
     }
   }, [])
 
+  const handleJoyrideCallback = (data) => {
+    const { index, type, status, action } = data
+
+    if (type === 'step:before') {
+      setStepIndex(index)
+      setSpotlightClicks(clickableSteps.includes(index))
+    }
+
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      setRun(false)
+      setStepIndex(0)
+    }
+
+    if (type === 'step:after') {
+      if (action !== 'prev') {
+        setStepIndex(index + 1)
+        if (index === 3) {
+          const target = document.querySelector('.step-3')
+          if (target) {
+            target.click()
+
+            setTimeout(() => {
+              window.dispatchEvent(new Event('resize'))
+            }, 500)
+          }
+        }
+      } else {
+        setStepIndex(index - 1)
+        if (index === 4) {
+          const target = document.querySelector('.step-goBack')
+          if (target) {
+            target.click()
+          }
+        }
+      }
+    }
+  }
+
   return (
     <Drawer
       variant="permanent"
@@ -110,6 +193,35 @@ const MenuSide = () => {
       }}
       style={{ zIndex: 1 }}
     >
+      <Joyride
+        steps={steps}
+        run={run}
+        stepIndex={stepIndex}
+        spotlightClicks={spotlightClicks}
+        callback={handleJoyrideCallback}
+        continuous
+        showStepsProgress
+        showSkipButton
+        showProgress
+        scrollToFirstStep
+        disableScrolling
+        hideCloseButton
+        disableScrollParentFix
+        locale={{
+          back: t('components.back'),
+          close: t('components.close'),
+          next: t('components.next'),
+          last: t('components.last'),
+          skip: t('components.skip'),
+          nextLabelWithProgress: t('components.next'),
+        }}
+        styles={{
+          options: {
+            zIndex: 1300,
+            primaryColor: '#1976D2',
+          },
+        }}
+      />
       {/* Title */}
       <Box
         display="flex"
@@ -145,7 +257,7 @@ const MenuSide = () => {
       <Box sx={{ flexGrow: 1 }}>
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
-          <List>
+          <List className="step-0">
             {navItems.map(({ text, label, icon }) => {
               if (!icon) {
                 return (

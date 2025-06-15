@@ -134,3 +134,5 @@ export const featureModels = [
     feature_models: [],
   },
 ]
+
+export const GUIDE_MODEL_NAME = 'deepseek-r1-0528-qwen3'
