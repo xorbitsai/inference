@@ -90,9 +90,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         elif "qwen3" in self._model_spec.model_name.lower():
             # qwen3 embedding
             flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
+            flash_attn_enabled = self._kwargs.get("enable_flash_attn", True)
             model_kwargs = {"device_map": "auto"}
             tokenizer_kwargs = {}
-            if flash_attn_installed:
+            if flash_attn_installed and flash_attn_enabled:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = "bfloat16"
                 tokenizer_kwargs["padding_side"] = "left"
