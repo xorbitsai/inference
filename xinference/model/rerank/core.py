@@ -257,6 +257,7 @@ class RerankModel:
             if flash_attn_installed and enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = torch.float16
+            model_kwargs.update(self._model_config)
             logger.debug("Loading qwen3 rerank with kwargs %s", model_kwargs)
             model = self._model = AutoModelForCausalLM.from_pretrained(
                 self._model_path, **model_kwargs
