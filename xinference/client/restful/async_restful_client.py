@@ -45,6 +45,14 @@ def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
         return str(model_size)
 
 
+def _filter_params(params: Dict[Any, Any]) -> Dict[Any, Any]:
+    filtered = {}
+    for key, value in params.items():
+        if value is not None:
+            filtered[key] = value
+    return filtered
+
+
 async def _get_error_string(response: aiohttp.ClientResponse) -> str:
     result = None
     try:
@@ -73,18 +81,14 @@ async def _release_response(response: aiohttp.ClientResponse):
 def handle_system_prompts(
     chat_history: List["ChatCompletionMessage"], system_prompt: Optional[str]
 ) -> List["ChatCompletionMessage"]:
-    history_system_prompts = [
-        ch["content"] for ch in chat_history if ch["role"] == "system"
-    ]
+    history_system_prompts = [ch["content"] for ch in chat_history if ch["role"] == "system"]
     if system_prompt is not None:
         history_system_prompts.append(system_prompt)
 
     # remove all the system prompt in the chat_history
     chat_history = list(filter(lambda x: x["role"] != "system", chat_history))
     # insert all system prompts at the beginning
-    chat_history.insert(
-        0, {"role": "system", "content": ". ".join(history_system_prompts)}
-    )
+    chat_history.insert(0, {"role": "system", "content": ". ".join(history_system_prompts)})
     return chat_history
 
 
@@ -98,9 +102,7 @@ class AsyncRESTfulModelHandle:
         self._model_uid = model_uid
         self._base_url = base_url
         self.auth_headers = auth_headers
-        self.session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(force_close=True)
-        )
+        self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(force_close=True))
 
     def __del__(self):
         if self.session:
@@ -112,9 +114,7 @@ class AsyncRESTfulModelHandle:
 
 
 class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
-    async def create_embedding(
-        self, input: Union[str, List[str]], **kwargs
-    ) -> "Embedding":
+    async def create_embedding(self, input: Union[str, List[str]], **kwargs) -> "Embedding":
         """
         Create an Embedding from user input via RESTful APIs.
 
@@ -141,21 +141,15 @@ class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
             "input": input,
         }
         request_body.update(kwargs)
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to create the embeddings, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to create the embeddings, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
         return response_data
 
-    async def convert_ids_to_tokens(
-        self, input: Union[List, List[List]], **kwargs
-    ) -> List[str]:
+    async def convert_ids_to_tokens(self, input: Union[List, List[List]], **kwargs) -> List[str]:
         """
         Convert token IDs to human readable tokens via RESTful APIs.
 
@@ -182,13 +176,9 @@ class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
             "input": input,
         }
         request_body.update(kwargs)
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to decode token ids, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to decode token ids, detail: {await _get_error_string(response)}")
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -244,13 +234,9 @@ class AsyncRESTfulRerankModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         request_body.update(kwargs)
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to rerank documents, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to rerank documents, detail: {await _get_error_string(response)}")
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -292,13 +278,9 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to create the images, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to create the images, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -355,15 +337,14 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
         response = await self.session.post(url, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to variants the images, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to variants the images, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -428,18 +409,15 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
-        files.append(
-            ("mask_image", ("mask_image", mask_image, "application/octet-stream"))
-        )
+        files.append(("mask_image", ("mask_image", mask_image, "application/octet-stream")))
         response = await self.session.post(url, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to inpaint the images, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to inpaint the images, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -451,15 +429,14 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "model": self._model_uid,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
         response = await self.session.post(url, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to ocr the images, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to ocr the images, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -494,13 +471,9 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "n": n,
             "kwargs": json.dumps(kwargs),
         }
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to create the video, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to create the video, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -540,15 +513,14 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "n": n,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
         response = await self.session.post(url, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to create the video from image, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to create the video from image, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -591,18 +563,15 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "n": n,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(
-            ("first_frame", ("image", first_frame, "application/octet-stream"))
-        )
+        files.append(("first_frame", ("image", first_frame, "application/octet-stream")))
         files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
         response = await self.session.post(url, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to create the video from image, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to create the video from image, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -649,13 +618,9 @@ class AsyncRESTfulGenerateModelHandle(AsyncRESTfulModelHandle):
 
         stream = bool(generate_config and generate_config.get("stream"))
 
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to generate completion, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to generate completion, detail: {await _get_error_string(response)}")
 
         if stream:
             return async_streaming_response_iterator(response.content)
@@ -710,14 +675,10 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
-        response = await self.session.post(
-            url, json=request_body, headers=self.auth_headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self.auth_headers)
 
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to generate chat completion, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to generate chat completion, detail: {await _get_error_string(response)}")
 
         if stream:
             return async_streaming_response_iterator(response.content)
@@ -780,15 +741,12 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             "timestamp_granularities[]": timestamp_granularities,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = await self.session.post(
-            url, data=params, files=files, headers=self.auth_headers
-        )
+        response = await self.session.post(url, data=params, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to transcribe the audio, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to transcribe the audio, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -844,15 +802,12 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             "temperature": temperature,
             "timestamp_granularities[]": timestamp_granularities,
         }
+        params = _filter_params(params)
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = await self.session.post(
-            url, data=params, files=files, headers=self.auth_headers
-        )
+        response = await self.session.post(url, data=params, files=files, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to translate the audio, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to translate the audio, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -905,6 +860,7 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             "stream": stream,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         if prompt_speech:
             files.append(
@@ -921,17 +877,11 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
                 )
             )
         if files:
-            response = await self.session.post(
-                url, data=params, files=files, headers=self.auth_headers
-            )
+            response = await self.session.post(url, data=params, files=files, headers=self.auth_headers)
         else:
-            response = await self.session.post(
-                url, json=params, headers=self.auth_headers
-            )
+            response = await self.session.post(url, json=params, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to speech the text, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to speech the text, detail: {await _get_error_string(response)}")
 
         if stream:
             await _release_response(response)
@@ -968,9 +918,7 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
 
         response = await self.session.post(url, json=params, headers=self.auth_headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to predict, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to predict, detail: {await _get_error_string(response)}")
         await _release_response(response)
         return response.content
 
@@ -980,9 +928,7 @@ class AsyncClient:
         self.base_url = base_url
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
-        self.session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(force_close=True)
-        )
+        self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(force_close=True))
         self._check_cluster_authenticated()
         if api_key is not None and self._cluster_authed:
             self._headers["Authorization"] = f"Bearer {api_key}"
@@ -1001,11 +947,7 @@ class AsyncClient:
         self._headers["Authorization"] = f"Bearer {token}"
 
     def _get_token(self) -> Optional[str]:
-        return (
-            str(self._headers["Authorization"]).replace("Bearer ", "")
-            if "Authorization" in self._headers
-            else None
-        )
+        return str(self._headers["Authorization"]).replace("Bearer ", "") if "Authorization" in self._headers else None
 
     def _check_cluster_authenticated(self):
         import requests
@@ -1019,9 +961,7 @@ class AsyncClient:
         else:
             if response.status_code != 200:
                 response_data = response.json()
-                raise RuntimeError(
-                    f"Failed to get cluster information, detail: {response_data['detail']}"
-                )
+                raise RuntimeError(f"Failed to get cluster information, detail: {response_data['detail']}")
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
@@ -1031,9 +971,7 @@ class AsyncClient:
         if response.status != 200:
             response_data = await response.json()
             await _release_response(response)
-            raise RuntimeError(
-                f"Failed to get cluster information, detail: {response_data['detail']}"
-            )
+            raise RuntimeError(f"Failed to get cluster information, detail: {response_data['detail']}")
 
         try:
             response_data = await response.json()
@@ -1053,9 +991,7 @@ class AsyncClient:
         if response.status != 200:
             response_data = await response.json()
             await _release_response(response)
-            raise RuntimeError(
-                f"Failed to get cluster information, detail: {response_data['detail']}"
-            )
+            raise RuntimeError(f"Failed to get cluster information, detail: {response_data['detail']}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1078,9 +1014,7 @@ class AsyncClient:
 
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to list model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to list model, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1187,13 +1121,9 @@ class AsyncClient:
         if wait_ready:
             response = await self.session.post(url, json=payload, headers=self._headers)
         else:
-            response = await self.session.post(
-                url, json=payload, headers=self._headers, params={"wait_ready": False}
-            )
+            response = await self.session.post(url, json=payload, headers=self._headers, params={"wait_ready": False})
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to launch model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to launch model, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1219,9 +1149,7 @@ class AsyncClient:
 
         response = await self.session.delete(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to terminate model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to terminate model, detail: {await _get_error_string(response)}")
         await _release_response(response)
 
     async def get_launch_model_progress(self, model_uid: str) -> dict:
@@ -1247,9 +1175,7 @@ class AsyncClient:
 
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Fail to get model launching progress, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Fail to get model launching progress, detail: {await _get_error_string(response)}")
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -1272,9 +1198,7 @@ class AsyncClient:
 
         response = await self.session.post(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Fail to cancel launching model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Fail to cancel launching model, detail: {await _get_error_string(response)}")
         await _release_response(response)
 
     async def get_instance_info(self, model_name: str, model_uid: str):
@@ -1326,46 +1250,28 @@ class AsyncClient:
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to get the model description, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to get the model description, detail: {await _get_error_string(response)}")
         desc = await response.json()
         await _release_response(response)
         if desc["model_type"] == "LLM":
             if "chat" in desc["model_ability"]:
-                return AsyncRESTfulChatModelHandle(
-                    model_uid, self.base_url, auth_headers=self._headers
-                )
+                return AsyncRESTfulChatModelHandle(model_uid, self.base_url, auth_headers=self._headers)
             elif "generate" in desc["model_ability"]:
-                return AsyncRESTfulGenerateModelHandle(
-                    model_uid, self.base_url, auth_headers=self._headers
-                )
+                return AsyncRESTfulGenerateModelHandle(model_uid, self.base_url, auth_headers=self._headers)
             else:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
-            return AsyncRESTfulEmbeddingModelHandle(
-                model_uid, self.base_url, auth_headers=self._headers
-            )
+            return AsyncRESTfulEmbeddingModelHandle(model_uid, self.base_url, auth_headers=self._headers)
         elif desc["model_type"] == "image":
-            return AsyncRESTfulImageModelHandle(
-                model_uid, self.base_url, auth_headers=self._headers
-            )
+            return AsyncRESTfulImageModelHandle(model_uid, self.base_url, auth_headers=self._headers)
         elif desc["model_type"] == "rerank":
-            return AsyncRESTfulRerankModelHandle(
-                model_uid, self.base_url, auth_headers=self._headers
-            )
+            return AsyncRESTfulRerankModelHandle(model_uid, self.base_url, auth_headers=self._headers)
         elif desc["model_type"] == "audio":
-            return AsyncRESTfulAudioModelHandle(
-                model_uid, self.base_url, auth_headers=self._headers
-            )
+            return AsyncRESTfulAudioModelHandle(model_uid, self.base_url, auth_headers=self._headers)
         elif desc["model_type"] == "video":
-            return AsyncRESTfulVideoModelHandle(
-                model_uid, self.base_url, auth_headers=self._headers
-            )
+            return AsyncRESTfulVideoModelHandle(model_uid, self.base_url, auth_headers=self._headers)
         elif desc["model_type"] == "flexible":
-            return AsyncRESTfulFlexibleModelHandle(
-                model_uid, self.base_url, auth_headers=self._headers
-            )
+            return AsyncRESTfulFlexibleModelHandle(model_uid, self.base_url, auth_headers=self._headers)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
@@ -1414,9 +1320,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to get the model description, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to get the model description, detail: {await _get_error_string(response)}")
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -1449,13 +1353,9 @@ class AsyncClient:
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         request_body = {"model": model, "worker_ip": worker_ip, "persist": persist}
-        response = await self.session.post(
-            url, json=request_body, headers=self._headers
-        )
+        response = await self.session.post(url, json=request_body, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to register model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to register model, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1480,9 +1380,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
         response = await self.session.delete(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to register model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to register model, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1511,9 +1409,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to list model registration, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to list model registration, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1547,19 +1443,16 @@ class AsyncClient:
             "model_name": model_name,
             "worker_ip": worker_ip,
         }
+        params = _filter_params(params)
         response = await self.session.get(url, headers=self._headers, params=params)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to list cached model, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to list cached model, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
         return response_data.get("list")
 
-    async def list_deletable_models(
-        self, model_version: str, worker_ip: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def list_deletable_models(self, model_version: str, worker_ip: Optional[str] = None) -> Dict[str, Any]:
         """
         Get the cached models with the model path cached on the server.
         Parameters
@@ -1578,19 +1471,16 @@ class AsyncClient:
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
+        params = _filter_params(params)
         response = await self.session.get(url, headers=self._headers, params=params)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to get paths by model name, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to get paths by model name, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
         return response_data
 
-    async def confirm_and_remove_model(
-        self, model_version: str, worker_ip: Optional[str] = None
-    ) -> bool:
+    async def confirm_and_remove_model(self, model_version: str, worker_ip: Optional[str] = None) -> bool:
         """
         Remove the cached models with the model name cached on the server.
         Parameters
@@ -1609,19 +1499,16 @@ class AsyncClient:
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
+        params = _filter_params(params)
         response = await self.session.delete(url, headers=self._headers, params=params)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to remove cached models, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to remove cached models, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
         return response_data.get("result", False)
 
-    async def get_model_registration(
-        self, model_type: str, model_name: str
-    ) -> Dict[str, Any]:
+    async def get_model_registration(self, model_type: str, model_name: str) -> Dict[str, Any]:
         """
         Get the model with the model type and model name registered on the server.
 
@@ -1640,17 +1527,13 @@ class AsyncClient:
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to list model registration, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to list model registration, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
         return response_data
 
-    async def query_engine_by_model_name(
-        self, model_name: str, model_type: Optional[str] = "LLM"
-    ):
+    async def query_engine_by_model_name(self, model_name: str, model_type: Optional[str] = "LLM"):
         """
         Get the engine parameters with the model name registered on the server.
 
@@ -1679,9 +1562,7 @@ class AsyncClient:
         await _release_response(response)
         return response_data
 
-    async def abort_request(
-        self, model_uid: str, request_id: str, block_duration: int = 30
-    ):
+    async def abort_request(self, model_uid: str, request_id: str, block_duration: int = 30):
         """
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
@@ -1702,13 +1583,9 @@ class AsyncClient:
             Return empty dict.
         """
         url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
-        response = await self.session.post(
-            url, headers=self._headers, json={"block_duration": block_duration}
-        )
+        response = await self.session.post(url, headers=self._headers, json={"block_duration": block_duration})
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to abort request, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to abort request, detail: {await _get_error_string(response)}")
 
         response_data = await response.json()
         await _release_response(response)
@@ -1718,9 +1595,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/workers"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to get workers info, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to get workers info, detail: {await _get_error_string(response)}")
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -1729,9 +1604,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/supervisor"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to get supervisor info, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to get supervisor info, detail: {await _get_error_string(response)}")
         response_json = await response.json()
         await _release_response(response)
         return response_json
@@ -1740,9 +1613,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/requests/{request_id}/progress"
         response = await self.session.get(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to get progress, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to get progress, detail: {await _get_error_string(response)}")
         response_json = await response.json()
         await _release_response(response)
         return response_json
@@ -1751,9 +1622,7 @@ class AsyncClient:
         url = f"{self.base_url}/v1/clusters"
         response = await self.session.delete(url, headers=self._headers)
         if response.status != 200:
-            raise RuntimeError(
-                f"Failed to abort cluster, detail: {await _get_error_string(response)}"
-            )
+            raise RuntimeError(f"Failed to abort cluster, detail: {await _get_error_string(response)}")
         response_json = await response.json()
         await _release_response(response)
         return response_json
