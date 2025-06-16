@@ -29,10 +29,14 @@ async def test_async_client_auth(setup_with_auth):
     assert len(await client.list_models()) == 0
 
     with pytest.raises(RuntimeError):
-        await client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
+        await client.launch_model(
+            model_name="bge-small-en-v1.5", model_type="embedding"
+        )
 
     await client.login("user3", "pass3")
-    model_uid = await client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
+    model_uid = await client.launch_model(
+        model_name="bge-small-en-v1.5", model_type="embedding"
+    )
     model = await client.get_model(model_uid=model_uid)
     assert isinstance(model, AsyncRESTfulEmbeddingModelHandle)
 
@@ -56,10 +60,14 @@ async def test_async_client_auth(setup_with_auth):
     assert len(await client.list_models()) == 0
 
     with pytest.raises(RuntimeError):
-        await client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
+        await client.launch_model(
+            model_name="bge-small-en-v1.5", model_type="embedding"
+        )
 
     client = AsyncRESTfulClient(endpoint, api_key="sk-ZOTLIY4gt9w11")
-    model_uid = await client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
+    model_uid = await client.launch_model(
+        model_name="bge-small-en-v1.5", model_type="embedding"
+    )
     model = await client.get_model(model_uid=model_uid)
     assert isinstance(model, AsyncRESTfulEmbeddingModelHandle)
 

@@ -55,7 +55,9 @@ async def test_async_RESTful_client(setup):
     completion = await model.generate("Once upon a time, there was a very old computer")
     assert "text" in completion["choices"][0]
 
-    completion = await model.generate("Once upon a time, there was a very old computer", {"max_tokens": 64})
+    completion = await model.generate(
+        "Once upon a time, there was a very old computer", {"max_tokens": 64}
+    )
     assert "text" in completion["choices"][0]
 
     streaming_response = await model.generate(
@@ -82,7 +84,9 @@ async def test_async_RESTful_client(setup):
             assert "finish_reason" in chunk["choices"][0]
             finish_reason = chunk["choices"][0]["finish_reason"]
             if finish_reason is None:
-                assert ("content" in chunk["choices"][0]["delta"]) or ("role" in chunk["choices"][0]["delta"])
+                assert ("content" in chunk["choices"][0]["delta"]) or (
+                    "role" in chunk["choices"][0]["delta"]
+                )
             else:
                 assert chunk["choices"][0]["delta"] == {"content": ""}
 
@@ -107,7 +111,9 @@ async def test_async_RESTful_client(setup):
     model = await client.get_model(model_uid=model_uid)
 
     async def _check(stream=False):
-        completion = await model.generate("AI is going to", generate_config={"stream": stream, "max_tokens": 5})
+        completion = await model.generate(
+            "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
+        )
         if stream:
             count = 0
             has_text = False
@@ -151,7 +157,10 @@ async def test_async_query_engines_by_name(setup):
 
     assert len(await client.query_engine_by_model_name("qwen3")) > 0
     assert len(await client.query_engine_by_model_name("qwen3", model_type=None)) > 0
-    assert len(await client.query_engine_by_model_name("bge-m3", model_type="embedding")) > 0
+    assert (
+        len(await client.query_engine_by_model_name("bge-m3", model_type="embedding"))
+        > 0
+    )
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -221,7 +230,9 @@ async def test_async_RESTful_client_custom_model(setup):
 }"""
     await client.register_model(model_type="LLM", model=model, persist=False)
 
-    data = await client.get_model_registration(model_type="LLM", model_name="custom_model")
+    data = await client.get_model_registration(
+        model_type="LLM", model_name="custom_model"
+    )
     assert "custom_model" in data["model_name"]
 
     new_model_regs = await client.list_model_registrations(model_type="LLM")
@@ -268,7 +279,9 @@ async def test_async_RESTful_client_custom_model(setup):
   ],
   "chat_template": "qwen-chat"
 }"""
-    await client.register_model(model_type="LLM", model=model_with_prompt, persist=False)
+    await client.register_model(
+        model_type="LLM", model=model_with_prompt, persist=False
+    )
     await client.unregister_model(model_type="LLM", model_name="custom_model")
 
     model_with_vision = """{
@@ -298,7 +311,9 @@ async def test_async_RESTful_client_custom_model(setup):
       "chat_template": "xyz123"
     }"""
     with pytest.raises(RuntimeError):
-        await client.register_model(model_type="LLM", model=model_with_vision, persist=False)
+        await client.register_model(
+            model_type="LLM", model=model_with_vision, persist=False
+        )
 
     model_with_tool_call = """{
           "version": 1,
@@ -327,7 +342,9 @@ async def test_async_RESTful_client_custom_model(setup):
           "chat_template": "xyz123"
         }"""
     with pytest.raises(RuntimeError):
-        await client.register_model(model_type="LLM", model=model_with_tool_call, persist=False)
+        await client.register_model(
+            model_type="LLM", model=model_with_tool_call, persist=False
+        )
 
 
 @pytest.mark.asyncio
@@ -339,10 +356,14 @@ async def test_async_client_from_modelscope(setup):
         client = AsyncRESTfulClient(endpoint)
         assert len(await client.list_models()) == 0
 
-        model_uid = await client.launch_model(model_name="tiny-llama", model_engine="llama.cpp")
+        model_uid = await client.launch_model(
+            model_name="tiny-llama", model_engine="llama.cpp"
+        )
         assert len(await client.list_models()) == 1
         model = await client.get_model(model_uid=model_uid)
-        completion = await model.generate("write a poem.", generate_config={"max_tokens": 5})
+        completion = await model.generate(
+            "write a poem.", generate_config={"max_tokens": 5}
+        )
         assert "text" in completion["choices"][0]
         assert len(completion["choices"][0]["text"]) > 0
     finally:
@@ -368,7 +389,9 @@ async def test_async_client_custom_embedding_model(setup):
 }"""
     await client.register_model(model_type="embedding", model=model, persist=False)
 
-    data = await client.get_model_registration(model_type="embedding", model_name="custom-bge-small-en")
+    data = await client.get_model_registration(
+        model_type="embedding", model_name="custom-bge-small-en"
+    )
     assert "custom-bge-small-en" in data["model_name"]
 
     new_model_regs = await client.list_model_registrations(model_type="embedding")
@@ -381,7 +404,9 @@ async def test_async_client_custom_embedding_model(setup):
     assert not custom_model_reg["is_builtin"]
 
     # unregister
-    await client.unregister_model(model_type="embedding", model_name="custom-bge-small-en")
+    await client.unregister_model(
+        model_type="embedding", model_name="custom-bge-small-en"
+    )
     new_model_regs = await client.list_model_registrations(model_type="embedding")
     assert len(new_model_regs) == len(model_regs)
     custom_model_reg = None
@@ -418,7 +443,9 @@ async def test_async_auto_recover(set_auto_recover_limit, setup_cluster):
 
     for _ in range(60):
         try:
-            completion = await model.generate("Once upon a time, there was a very old computer", {"max_tokens": 64})
+            completion = await model.generate(
+                "Once upon a time, there was a very old computer", {"max_tokens": 64}
+            )
             assert "text" in completion["choices"][0]
             break
         except Exception:
