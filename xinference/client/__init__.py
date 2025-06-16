@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .restful.async_restful_client import AsyncClient
 from .restful.restful_client import Client
 
 # For compatibility
 RESTfulClient = Client
+AsyncRESTClient = AsyncClient
