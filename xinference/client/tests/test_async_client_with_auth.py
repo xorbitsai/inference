@@ -106,3 +106,4 @@ async def test_async_client_auth(setup_with_auth):
     await client.terminate_model(model_uid)
     assert len(await client.list_models()) == 0
     assert len((await client_ai.models.list()).data) == 0
+    await client.close()

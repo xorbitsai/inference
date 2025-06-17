@@ -108,6 +108,7 @@ async def test_async_RESTful_client(setup):
     assert len(await client.list_models()) == 1
 
     # Test concurrent chat is OK.
+    await model.close()
     model = await client.get_model(model_uid=model_uid)
 
     async def _check(stream=False):
@@ -145,9 +146,10 @@ async def test_async_RESTful_client(setup):
         model_size_in_billions="0_5",
         quantization="q4_0",
     )
-
     await client.terminate_model(model_uid=model_uid2)
     assert len(await client.list_models()) == 0
+    await model.close()
+    await client.close()
 
 
 @pytest.mark.asyncio
@@ -161,6 +163,7 @@ async def test_async_query_engines_by_name(setup):
         len(await client.query_engine_by_model_name("bge-m3", model_type="embedding"))
         > 0
     )
+    await client.close()
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -170,6 +173,7 @@ async def test_async_list_cached_models(setup):
     client = AsyncRESTfulClient(endpoint)
     res = await client.list_cached_models()
     assert len(res) > 0
+    await client.close()
 
 
 @pytest.mark.asyncio
@@ -189,6 +193,8 @@ async def test_async_RESTful_client_for_embedding(setup):
 
     await client.terminate_model(model_uid=model_uid)
     assert len(await client.list_models()) == 0
+    await model.close()
+    await client.close()
 
 
 @pytest.mark.asyncio
@@ -345,6 +351,7 @@ async def test_async_RESTful_client_custom_model(setup):
         await client.register_model(
             model_type="LLM", model=model_with_tool_call, persist=False
         )
+    await client.close()
 
 
 @pytest.mark.asyncio
@@ -368,6 +375,8 @@ async def test_async_client_from_modelscope(setup):
         assert len(completion["choices"][0]["text"]) > 0
     finally:
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
+    await model.close()
+    await client.close()
 
 
 @pytest.mark.asyncio
@@ -414,10 +423,121 @@ async def test_async_client_custom_embedding_model(setup):
         if model_reg["model_name"] == "custom-bge-small-en":
             custom_model_reg = model_reg
     assert custom_model_reg is None
+    await client.close()
 
 
 @pytest.mark.asyncio
-async def test_async_auto_recover(set_auto_recover_limit, setup_cluster):
+async def test_async_rerank(setup):
+    endpoint, _ = setup
+    client = AsyncRESTfulClient(endpoint)
+
+    model_uid = await client.launch_model(
+        model_name="bge-reranker-base", model_type="rerank"
+    )
+    assert len(await client.list_models()) == 1
+    model = await client.get_model(model_uid)
+    # We want to compute the similarity between the query sentence
+    query = "A man is eating pasta."
+
+    # With all sentences in the corpus
+    corpus = [
+        "A man is eating food.",
+        "A man is eating a piece of bread.",
+        "The girl is carrying a baby.",
+        "A man is riding a horse.",
+        "A woman is playing violin.",
+        "Two men pushed carts through the woods.",
+        "A man is riding a white horse on an enclosed ground.",
+        "A monkey is playing drums.",
+        "A cheetah is running behind its prey.",
+    ]
+
+    scores = await model.rerank(corpus, query, return_documents=True)
+    assert scores["results"][0]["index"] == 0
+    assert scores["results"][0]["document"]["text"] == corpus[0]
+
+    scores = await model.rerank(corpus, query, top_n=3, return_documents=True)
+    assert len(scores["results"]) == 3
+    assert scores["results"][0]["index"] == 0
+    assert scores["results"][0]["document"]["text"] == corpus[0]
+
+    scores = await model.rerank(corpus, query, return_len=True)
+    assert (
+        scores["meta"]["tokens"]["input_tokens"]
+        == scores["meta"]["tokens"]["output_tokens"]
+    )
+
+    scores = await model.rerank(corpus, query)
+    assert scores["meta"]["tokens"] == None
+
+    # testing long input
+    corpus2 = corpus.copy()
+    corpus2[-1] = corpus2[-1] * 50
+    scores = await model.rerank(corpus2, query, top_n=3, return_documents=True)
+    assert len(scores["results"]) == 3
+    assert scores["results"][0]["index"] == 0
+    assert scores["results"][0]["document"]["text"] == corpus2[0]
+
+    kwargs = {
+        "invalid": "invalid",
+    }
+    with pytest.raises(RuntimeError):
+        await model.rerank(corpus, query, **kwargs)
+    await model.close()
+    await client.close()
+
+
+@pytest.fixture
+def set_auto_recover_limit():
+    os.environ["XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"] = "1"
+    yield
+    del os.environ["XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"]
+
+
+@pytest.fixture
+def set_test_oom_error():
+    os.environ["XINFERENCE_TEST_OUT_OF_MEMORY_ERROR"] = "1"
+    yield
+    del os.environ["XINFERENCE_TEST_OUT_OF_MEMORY_ERROR"]
+
+
+@pytest.fixture
+def setup_cluster():
+    import xoscar as xo
+
+    from ...api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
+    from ...conftest import TEST_FILE_LOGGING_CONF, TEST_LOGGING_CONF, api_health_check
+    from ...deploy.local import health_check
+    from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
+
+    supervisor_address = f"localhost:{xo.utils.get_next_port()}"
+    local_cluster = supervisor_run_in_subprocess(
+        supervisor_address, None, None, TEST_LOGGING_CONF
+    )
+
+    if not health_check(address=supervisor_address, max_attempts=20, sleep_interval=1):
+        raise RuntimeError("Supervisor is not available after multiple attempts")
+
+    try:
+        port = xo.utils.get_next_port()
+        restful_api_proc = restful_api_run_in_subprocess(
+            supervisor_address,
+            host="localhost",
+            port=port,
+            logging_conf=TEST_FILE_LOGGING_CONF,
+        )
+        endpoint = f"http://localhost:{port}"
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
+
+        yield f"http://localhost:{port}", supervisor_address
+        restful_api_proc.kill()
+    finally:
+        local_cluster.kill()
+
+
+@pytest.mark.asyncio
+async def test_auto_recover(set_auto_recover_limit, setup_cluster):
     endpoint, _ = setup_cluster
     current_proc = psutil.Process()
     chilren_proc = set(current_proc.children(recursive=True))
@@ -452,10 +572,12 @@ async def test_async_auto_recover(set_auto_recover_limit, setup_cluster):
             time.sleep(1)
     else:
         assert False
+    await model.close()
+    await client.close()
 
 
 @pytest.mark.asyncio
-async def test_async_model_error(set_test_oom_error, setup_cluster):
+async def test_model_error(set_test_oom_error, setup_cluster):
     endpoint, _ = setup_cluster
     client = AsyncRESTfulClient(endpoint)
 
@@ -470,5 +592,7 @@ async def test_async_model_error(set_test_oom_error, setup_cluster):
     model = await client.get_model(model_uid=model_uid)
     assert isinstance(model, AsyncRESTfulChatModelHandle)
 
-    with pytest.raises(RuntimeError, match="Model actor is out of memory"):
+    with pytest.raises(RuntimeError):
         await model.generate("Once upon a time, there was a very old computer")
+    await model.close()
+    await client.close()

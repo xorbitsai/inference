@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio
 import json
 import typing
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
@@ -110,13 +109,11 @@ class AsyncRESTfulModelHandle:
             connector=aiohttp.TCPConnector(force_close=True)
         )
 
-    def __del__(self):
+    async def close(self):
+        """Close the AsyncRESTfulModelHandle session."""
         if self.session:
-            loop = asyncio.new_event_loop()
-            try:
-                loop.run_until_complete(self.session.close())
-            finally:
-                loop.close()
+            await self.session.close()
+            self.session = None
 
 
 class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
@@ -1003,13 +1000,11 @@ class AsyncClient:
         if api_key is not None and self._cluster_authed:
             self._headers["Authorization"] = f"Bearer {api_key}"
 
-    def __del__(self):
-        if hasattr(self, "session") and self.session:
-            loop = asyncio.new_event_loop()
-            try:
-                loop.run_until_complete(self.session.close())
-            finally:
-                loop.close()
+    async def close(self):
+        """Close the AsyncClient session."""
+        if self.session:
+            await self.session.close()
+            self.session = None
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
