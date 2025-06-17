@@ -1,5 +1,7 @@
 from typing import List, Optional, Union, no_type_check
 
+from ..types import ChatCompletionMessage
+
 
 def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
     """convert float to int or string

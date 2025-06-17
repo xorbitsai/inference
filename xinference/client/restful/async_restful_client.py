@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Unio
 import aiohttp
 
 from ..common import async_streaming_response_iterator
-from .utils import convert_float_to_int_or_str
+from ..utils import convert_float_to_int_or_str
 
 if TYPE_CHECKING:
     from ...types import (

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 import requests
 
 from ..common import streaming_response_iterator
-from .utils import convert_float_to_int_or_str
+from ..utils import convert_float_to_int_or_str
 
 if TYPE_CHECKING:
     from ...types import (
