@@ -108,6 +108,7 @@ const RegisterModel = () => {
               model_name: 'custom-rerank',
               model_uri: '/path/to/rerank-model',
               language: ['en'],
+              max_tokens: 512,
             }}
           />
         </TabPanel>
@@ -130,6 +131,7 @@ const RegisterModel = () => {
               model_uri: '/path/to/audio-model',
               multilingual: false,
               model_family: 'whisper',
+              model_ability: ['text2audio'],
             }}
           />
         </TabPanel>
