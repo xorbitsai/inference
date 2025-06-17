@@ -613,6 +613,8 @@ class VLLMModel(LLM):
             )
 
     def stop(self):
+        from vllm import envs
+
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
@@ -620,9 +622,17 @@ class VLLMModel(LLM):
         if self._check_health_task:
             self._check_health_task.cancel()
         if self._engine:
-            if model_executor := getattr(self._engine.engine, "model_executor", None):
-                model_executor.shutdown()
-            self._engine = None
+            if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+                # v0
+                if model_executor := getattr(
+                    self._engine.engine, "model_executor", None
+                ):
+                    model_executor.shutdown()
+                self._engine = None
+            else:
+                # v1
+                self._engine.shutdown()
+                self._engine = None
 
     async def init_xavier(self):
         await self._engine.init_xavier()
