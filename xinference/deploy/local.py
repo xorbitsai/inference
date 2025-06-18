@@ -144,9 +144,6 @@ def main(
         supervisor_address, metrics_exporter_host, metrics_exporter_port, logging_conf
     )
 
-    import time
-    time.sleep(3)
-
     if not health_check(
         address=supervisor_address,
         max_attempts=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
