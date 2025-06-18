@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import json
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
@@ -83,6 +84,15 @@ class AsyncRESTfulModelHandle:
         if self.session:
             await self.session.close()
             self.session = None
+
+    def __del__(self):
+        if self.session:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.close())
 
 
 class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
@@ -974,6 +984,15 @@ class AsyncClient:
         if self.session:
             await self.session.close()
             self.session = None
+
+    def __del__(self):
+        if self.session:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.close())
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
