@@ -67,7 +67,7 @@
     "model_name": "Qwen3-Reranker-0.6B",
     "type": "normal",
     "language": ["en", "zh"],
-    "max_tokens": 40960,
+    "max_tokens": 32768,
     "model_id": "Qwen/Qwen3-Reranker-0.6B",
     "model_revision": "6e9e69830b95c52b5fd889b7690dda3329508de3"
   },
@@ -75,7 +75,7 @@
     "model_name": "Qwen3-Reranker-4B",
     "type": "normal",
     "language": ["en", "zh"],
-    "max_tokens": 40960,
+    "max_tokens": 32768,
     "model_id": "Qwen/Qwen3-Reranker-4B",
     "model_revision": "f16fc5d5d2b9b1d0db8280929242745d79794ef5"
   },
@@ -83,7 +83,7 @@
     "model_name": "Qwen3-Reranker-8B",
     "type": "normal",
     "language": ["en", "zh"],
-    "max_tokens": 40960,
+    "max_tokens": 32768,
     "model_id": "Qwen/Qwen3-Reranker-8B",
     "model_revision": "5fa94080caafeaa45a15d11f969d7978e087a3db"
   }

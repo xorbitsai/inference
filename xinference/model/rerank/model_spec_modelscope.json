@@ -62,7 +62,7 @@
     "model_name": "Qwen3-Reranker-0.6B",
     "type": "normal",
     "language": ["en", "zh"],
-    "max_tokens": 40960,
+    "max_tokens": 32768,
     "model_id": "Qwen/Qwen3-Reranker-0.6B",
     "model_hub": "modelscope"
   },
@@ -70,7 +70,7 @@
     "model_name": "Qwen3-Reranker-4B",
     "type": "normal",
     "language": ["en", "zh"],
-    "max_tokens": 40960,
+    "max_tokens": 32768,
     "model_id": "Qwen/Qwen3-Reranker-4B",
     "model_hub": "modelscope"
   },
@@ -78,7 +78,7 @@
     "model_name": "Qwen3-Reranker-8B",
     "type": "normal",
     "language": ["en", "zh"],
-    "max_tokens": 40960,
+    "max_tokens": 32768,
     "model_id": "Qwen/Qwen3-Reranker-8B",
     "model_hub": "modelscope"
   }
