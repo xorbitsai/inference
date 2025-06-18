@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import json
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
-import requests
+import aiohttp
 
-from ..common import convert_float_to_int_or_str, streaming_response_iterator
+from ..common import async_streaming_response_iterator, convert_float_to_int_or_str
 
 if TYPE_CHECKING:
     from ...types import (
@@ -31,20 +32,39 @@ if TYPE_CHECKING:
     )
 
 
-def _get_error_string(response: requests.Response) -> str:
+def _filter_params(params: Dict[Any, Any]) -> Dict[Any, Any]:
+    filtered = {}
+    for key, value in params.items():
+        if value is not None:
+            filtered[key] = value
+    return filtered
+
+
+async def _get_error_string(response: aiohttp.ClientResponse) -> str:
+    result = None
     try:
         if response.content:
-            return response.json()["detail"]
+            json_data = await response.json()
+            result = json_data["detail"]
     except Exception:
         pass
     try:
         response.raise_for_status()
-    except requests.HTTPError as e:
-        return str(e)
-    return "Unknown error"
+    except aiohttp.ClientError as e:
+        result = str(e)
+    if result is None:
+        result = "Unknown error"
+    await _release_response(response)
+    return result
 
 
-class RESTfulModelHandle:
+async def _release_response(response: aiohttp.ClientResponse):
+    """Release the aiohttp response."""
+    response.release()
+    await response.wait_for_close()
+
+
+class AsyncRESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
     programmatically.
@@ -54,23 +74,30 @@ class RESTfulModelHandle:
         self._model_uid = model_uid
         self._base_url = base_url
         self.auth_headers = auth_headers
-        self.session = requests.Session()
+        self.session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(force_close=True)
+        )
 
-    def close(self):
-        """
-        Close the session.
-        """
+    async def close(self):
+        """Close the AsyncRESTfulModelHandle session."""
         if self.session:
-            self.session.close()
+            await self.session.close()
             self.session = None
 
     def __del__(self):
         if self.session:
-            self.close()
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.close())
 
 
-class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
-    def create_embedding(self, input: Union[str, List[str]], **kwargs) -> "Embedding":
+class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
+    async def create_embedding(
+        self, input: Union[str, List[str]], **kwargs
+    ) -> "Embedding":
         """
         Create an Embedding from user input via RESTful APIs.
 
@@ -97,16 +124,19 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
             "input": input,
         }
         request_body.update(kwargs)
-        response = self.session.post(url, json=request_body, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
+        )
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to create the embeddings, detail: {_get_error_string(response)}"
+                f"Failed to create the embeddings, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def convert_ids_to_tokens(
+    async def convert_ids_to_tokens(
         self, input: Union[List, List[List]], **kwargs
     ) -> List[str]:
         """
@@ -135,17 +165,20 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
             "input": input,
         }
         request_body.update(kwargs)
-        response = self.session.post(url, json=request_body, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
+        )
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to decode token ids, detail: {_get_error_string(response)}"
+                f"Failed to decode token ids, detail: {await _get_error_string(response)}"
             )
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
 
-class RESTfulRerankModelHandle(RESTfulModelHandle):
-    def rerank(
+class AsyncRESTfulRerankModelHandle(AsyncRESTfulModelHandle):
+    async def rerank(
         self,
         documents: List[str],
         query: str,
@@ -194,17 +227,20 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         request_body.update(kwargs)
-        response = self.session.post(url, json=request_body, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
+        )
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to rerank documents, detail: {response.json()['detail']}"
+                f"Failed to rerank documents, detail: {await _get_error_string(response)}"
             )
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
 
-class RESTfulImageModelHandle(RESTfulModelHandle):
-    def text_to_image(
+class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
+    async def text_to_image(
         self,
         prompt: str,
         n: int = 1,
@@ -239,16 +275,19 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
-        response = self.session.post(url, json=request_body, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
+        )
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to create the images, detail: {_get_error_string(response)}"
+                f"Failed to create the images, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def image_to_image(
+    async def image_to_image(
         self,
         image: Union[str, bytes],
         prompt: str,
@@ -299,20 +338,22 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
-        response = self.session.post(url, files=files, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, files=files, headers=self.auth_headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to variants the images, detail: {_get_error_string(response)}"
+                f"Failed to variants the images, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def inpainting(
+    async def inpainting(
         self,
         image: Union[str, bytes],
         mask_image: Union[str, bytes],
@@ -371,6 +412,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
@@ -378,37 +420,40 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         files.append(
             ("mask_image", ("mask_image", mask_image, "application/octet-stream"))
         )
-        response = self.session.post(url, files=files, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, files=files, headers=self.auth_headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to inpaint the images, detail: {_get_error_string(response)}"
+                f"Failed to inpaint the images, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def ocr(self, image: Union[str, bytes], **kwargs):
+    async def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
         params = {
             "model": self._model_uid,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
-        response = self.session.post(url, files=files, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, files=files, headers=self.auth_headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to ocr the images, detail: {_get_error_string(response)}"
+                f"Failed to ocr the images, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
 
-class RESTfulVideoModelHandle(RESTfulModelHandle):
-    def text_to_video(
+class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
+    async def text_to_video(
         self,
         prompt: str,
         n: int = 1,
@@ -435,16 +480,19 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
             "n": n,
             "kwargs": json.dumps(kwargs),
         }
-        response = self.session.post(url, json=request_body, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
+        )
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to create the video, detail: {_get_error_string(response)}"
+                f"Failed to create the video, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def image_to_video(
+    async def image_to_video(
         self,
         image: Union[str, bytes],
         prompt: str,
@@ -478,20 +526,22 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
             "n": n,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
-        response = self.session.post(url, files=files, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, files=files, headers=self.auth_headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to create the video from image, detail: {_get_error_string(response)}"
+                f"Failed to create the video from image, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def flf_to_video(
+    async def flf_to_video(
         self,
         first_frame: Union[str, bytes],
         last_frame: Union[str, bytes],
@@ -528,6 +578,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
             "n": n,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
@@ -535,22 +586,23 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
             ("first_frame", ("image", first_frame, "application/octet-stream"))
         )
         files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
-        response = self.session.post(url, files=files, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, files=files, headers=self.auth_headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to create the video from image, detail: {_get_error_string(response)}"
+                f"Failed to create the video from image, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
 
-class RESTfulGenerateModelHandle(RESTfulModelHandle):
-    def generate(
+class AsyncRESTfulGenerateModelHandle(AsyncRESTfulModelHandle):
+    async def generate(
         self,
         prompt: str,
         generate_config: Optional["PytorchGenerateConfig"] = None,
-    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+    ) -> Union["Completion", AsyncIterator["CompletionChunk"]]:
         """
         Creates a completion for the provided prompt and parameters via RESTful APIs.
 
@@ -564,9 +616,9 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 
         Returns
         -------
-        Union["Completion", Iterator["CompletionChunk"]]
+        Union["Completion", AsyncIterator["CompletionChunk"]]
             Stream is a parameter in generate_config.
-            When stream is set to True, the function will return Iterator["CompletionChunk"].
+            When stream is set to True, the function will return AsyncIterator["CompletionChunk"].
             When stream is set to False, the function will return "Completion".
 
         Raises
@@ -585,28 +637,28 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 
         stream = bool(generate_config and generate_config.get("stream"))
 
-        response = self.session.post(
-            url, json=request_body, stream=stream, headers=self.auth_headers
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
         )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to generate completion, detail: {_get_error_string(response)}"
+                f"Failed to generate completion, detail: {await _get_error_string(response)}"
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
-
-        response_data = response.json()
+            return async_streaming_response_iterator(response.content)
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
 
-class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
-    def chat(
+class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
+    async def chat(
         self,
         messages: List[Dict],
         tools: Optional[List[Dict]] = None,
         generate_config: Optional["PytorchGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+    ) -> Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]:
         """
         Given a list of messages comprising a conversation, the model will return a response via RESTful APIs.
 
@@ -622,9 +674,9 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
         Returns
         -------
-        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
+        Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]
             Stream is a parameter in generate_config.
-            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
+            When stream is set to True, the function will return AsyncIterator["ChatCompletionChunk"].
             When stream is set to False, the function will return "ChatCompletion".
 
         Raises
@@ -646,24 +698,25 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
-        response = self.session.post(
-            url, json=request_body, stream=stream, headers=self.auth_headers
+        response = await self.session.post(
+            url, json=request_body, headers=self.auth_headers
         )
 
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
+                f"Failed to generate chat completion, detail: {await _get_error_string(response)}"
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return async_streaming_response_iterator(response.content)
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
 
-class RESTfulAudioModelHandle(RESTfulModelHandle):
-    def transcriptions(
+class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
+    async def transcriptions(
         self,
         audio: bytes,
         language: Optional[str] = None,
@@ -715,20 +768,22 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "timestamp_granularities[]": timestamp_granularities,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = self.session.post(
+        response = await self.session.post(
             url, data=params, files=files, headers=self.auth_headers
         )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to transcribe the audio, detail: {_get_error_string(response)}"
+                f"Failed to transcribe the audio, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def translations(
+    async def translations(
         self,
         audio: bytes,
         language: Optional[str] = None,
@@ -778,20 +833,22 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "temperature": temperature,
             "timestamp_granularities[]": timestamp_granularities,
         }
+        params = _filter_params(params)
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = self.session.post(
+        response = await self.session.post(
             url, data=params, files=files, headers=self.auth_headers
         )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to translate the audio, detail: {_get_error_string(response)}"
+                f"Failed to translate the audio, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def speech(
+    async def speech(
         self,
         input: str,
         voice: str = "",
@@ -838,6 +895,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "stream": stream,
             "kwargs": json.dumps(kwargs),
         }
+        params = _filter_params(params)
         files: List[Any] = []
         if prompt_speech:
             files.append(
@@ -854,26 +912,27 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
                 )
             )
         if files:
-            response = self.session.post(
-                url, data=params, files=files, headers=self.auth_headers, stream=stream
+            response = await self.session.post(
+                url, data=params, files=files, headers=self.auth_headers
             )
         else:
-            response = self.session.post(
-                url, json=params, headers=self.auth_headers, stream=stream
+            response = await self.session.post(
+                url, json=params, headers=self.auth_headers
             )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to speech the text, detail: {_get_error_string(response)}"
+                f"Failed to speech the text, detail: {await _get_error_string(response)}"
             )
 
         if stream:
-            return response.iter_content(chunk_size=1024)
-
+            await _release_response(response)
+            return response.content.iter_chunked(1024)
+        await _release_response(response)
         return response.content
 
 
-class RESTfulFlexibleModelHandle(RESTfulModelHandle):
-    def infer(
+class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
+    async def infer(
         self,
         **kwargs,
     ):
@@ -893,41 +952,46 @@ class RESTfulFlexibleModelHandle(RESTfulModelHandle):
             The inference result.
         """
         url = f"{self._base_url}/v1/flexible/infers"
-        params = {
+        params: Dict = {
             "model": self._model_uid,
         }
         params.update(kwargs)
 
-        response = self.session.post(url, json=params, headers=self.auth_headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, json=params, headers=self.auth_headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to predict, detail: {_get_error_string(response)}"
+                f"Failed to predict, detail: {await _get_error_string(response)}"
             )
-
+        await _release_response(response)
         return response.content
 
 
-class Client:
+class AsyncClient:
     def __init__(self, base_url, api_key: Optional[str] = None):
         self.base_url = base_url
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
-        self.session = requests.Session()
+        self.session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(force_close=True)
+        )
         self._check_cluster_authenticated()
         if api_key is not None and self._cluster_authed:
             self._headers["Authorization"] = f"Bearer {api_key}"
 
-    def close(self):
-        """
-        Close the session.
-        """
+    async def close(self):
+        """Close the AsyncClient session."""
         if self.session:
-            self.session.close()
+            await self.session.close()
             self.session = None
 
     def __del__(self):
         if self.session:
-            self.close()
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.close())
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
@@ -942,49 +1006,62 @@ class Client:
         )
 
     def _check_cluster_authenticated(self):
+        import requests
+
+        session = requests.Session()
         url = f"{self.base_url}/v1/cluster/auth"
-        response = self.session.get(url)
+        response = session.get(url)
         # compatible with old version of xinference
         if response.status_code == 404:
             self._cluster_authed = False
         else:
             if response.status_code != 200:
+                response_data = response.json()
                 raise RuntimeError(
-                    f"Failed to get cluster information, detail: {response.json()['detail']}"
+                    f"Failed to get cluster information, detail: {response_data['detail']}"
                 )
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
-    def vllm_models(self) -> Dict[str, Any]:
+    async def vllm_models(self) -> Dict[str, Any]:
         url = f"{self.base_url}/v1/models/vllm-supported"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            response_data = await response.json()
+            await _release_response(response)
             raise RuntimeError(
-                f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
+                f"Failed to get cluster information, detail: {response_data['detail']}"
             )
 
         try:
-            return response.json()
+            response_data = await response.json()
+            await _release_response(response)
+            return response_data
         except Exception as e:
             raise RuntimeError(f"Error parsing JSON response: {e}")
 
-    def login(self, username: str, password: str):
+    async def login(self, username: str, password: str):
         if not self._cluster_authed:
             return
         url = f"{self.base_url}/token"
 
         payload = {"username": username, "password": password}
 
-        response = self.session.post(url, json=payload)
-        if response.status_code != 200:
-            raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
+        response = await self.session.post(url, json=payload)
+        if response.status != 200:
+            response_data = await response.json()
+            await _release_response(response)
+            raise RuntimeError(
+                f"Failed to get cluster information, detail: {response_data['detail']}"
+            )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         # Only bearer token for now
         access_token = response_data["access_token"]
         self._headers["Authorization"] = f"Bearer {access_token}"
 
-    def list_models(self) -> Dict[str, Dict[str, Any]]:
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
         """
         Retrieve the model specifications from the Server.
 
@@ -997,17 +1074,18 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to list model, detail: {_get_error_string(response)}"
+                f"Failed to list model, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         model_list = response_data["data"]
         return {item["id"]: item for item in model_list}
 
-    def launch_model(
+    async def launch_model(
         self,
         model_name: str,
         model_type: str = "LLM",
@@ -1105,20 +1183,21 @@ class Client:
             payload[str(key)] = value
 
         if wait_ready:
-            response = self.session.post(url, json=payload, headers=self._headers)
+            response = await self.session.post(url, json=payload, headers=self._headers)
         else:
-            response = self.session.post(
+            response = await self.session.post(
                 url, json=payload, headers=self._headers, params={"wait_ready": False}
             )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {_get_error_string(response)}"
+                f"Failed to launch model, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data["model_uid"]
 
-    def terminate_model(self, model_uid: str):
+    async def terminate_model(self, model_uid: str):
         """
         Terminate the specific model running on the server.
 
@@ -1136,13 +1215,14 @@ class Client:
 
         url = f"{self.base_url}/v1/models/{model_uid}"
 
-        response = self.session.delete(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.delete(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to terminate model, detail: {_get_error_string(response)}"
+                f"Failed to terminate model, detail: {await _get_error_string(response)}"
             )
+        await _release_response(response)
 
-    def get_launch_model_progress(self, model_uid: str) -> dict:
+    async def get_launch_model_progress(self, model_uid: str) -> dict:
         """
         Get progress of the specific model.
 
@@ -1163,14 +1243,16 @@ class Client:
         """
         url = f"{self.base_url}/v1/models/{model_uid}/progress"
 
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Fail to get model launching progress, detail: {_get_error_string(response)}"
+                f"Fail to get model launching progress, detail: {await _get_error_string(response)}"
             )
-        return response.json()
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
 
-    def cancel_launch_model(self, model_uid: str):
+    async def cancel_launch_model(self, model_uid: str):
         """
         Cancel launching model.
 
@@ -1186,33 +1268,36 @@ class Client:
         """
         url = f"{self.base_url}/v1/models/{model_uid}/cancel"
 
-        response = self.session.post(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.post(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Fail to cancel launching model, detail: {_get_error_string(response)}"
+                f"Fail to cancel launching model, detail: {await _get_error_string(response)}"
             )
+        await _release_response(response)
 
-    def get_instance_info(self, model_name: str, model_uid: str):
+    async def get_instance_info(self, model_name: str, model_uid: str):
         url = f"{self.base_url}/v1/models/instances"
-        response = self.session.get(
+        response = await self.session.get(
             url,
             headers=self._headers,
             params={"model_name": model_name, "model_uid": model_uid},
         )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError("Failed to get instance info")
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def _get_supervisor_internal_address(self):
+    async def _get_supervisor_internal_address(self):
         url = f"{self.base_url}/v1/address"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError("Failed to get supervisor internal address")
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def get_model(self, model_uid: str) -> RESTfulModelHandle:
+    async def get_model(self, model_uid: str) -> AsyncRESTfulModelHandle:
         """
         Launch the model based on the parameters on the server via RESTful APIs.
 
@@ -1237,52 +1322,52 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models/{model_uid}"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to get the model description, detail: {_get_error_string(response)}"
+                f"Failed to get the model description, detail: {await _get_error_string(response)}"
             )
-        desc = response.json()
-
+        desc = await response.json()
+        await _release_response(response)
         if desc["model_type"] == "LLM":
             if "chat" in desc["model_ability"]:
-                return RESTfulChatModelHandle(
+                return AsyncRESTfulChatModelHandle(
                     model_uid, self.base_url, auth_headers=self._headers
                 )
             elif "generate" in desc["model_ability"]:
-                return RESTfulGenerateModelHandle(
+                return AsyncRESTfulGenerateModelHandle(
                     model_uid, self.base_url, auth_headers=self._headers
                 )
             else:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
-            return RESTfulEmbeddingModelHandle(
+            return AsyncRESTfulEmbeddingModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "image":
-            return RESTfulImageModelHandle(
+            return AsyncRESTfulImageModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "rerank":
-            return RESTfulRerankModelHandle(
+            return AsyncRESTfulRerankModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "audio":
-            return RESTfulAudioModelHandle(
+            return AsyncRESTfulAudioModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "video":
-            return RESTfulVideoModelHandle(
+            return AsyncRESTfulVideoModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":
-            return RESTfulFlexibleModelHandle(
+            return AsyncRESTfulFlexibleModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
-    def describe_model(self, model_uid: str):
+    async def describe_model(self, model_uid: str):
         """
         Get model information via RESTful APIs.
 
@@ -1325,14 +1410,16 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models/{model_uid}"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to get the model description, detail: {_get_error_string(response)}"
+                f"Failed to get the model description, detail: {await _get_error_string(response)}"
             )
-        return response.json()
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
 
-    def register_model(
+    async def register_model(
         self,
         model_type: str,
         model: str,
@@ -1360,16 +1447,19 @@ class Client:
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         request_body = {"model": model, "worker_ip": worker_ip, "persist": persist}
-        response = self.session.post(url, json=request_body, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.post(
+            url, json=request_body, headers=self._headers
+        )
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to register model, detail: {_get_error_string(response)}"
+                f"Failed to register model, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def unregister_model(self, model_type: str, model_name: str):
+    async def unregister_model(self, model_type: str, model_name: str):
         """
         Unregister a custom model.
 
@@ -1386,16 +1476,17 @@ class Client:
             Report failure to unregister the custom model. Provide details of failure through error message.
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
-        response = self.session.delete(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.delete(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to register model, detail: {_get_error_string(response)}"
+                f"Failed to register model, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+    async def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
         """
         List models registered on the server.
 
@@ -1416,16 +1507,17 @@ class Client:
 
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to list model registration, detail: {_get_error_string(response)}"
+                f"Failed to list model registration, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def list_cached_models(
+    async def list_cached_models(
         self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
         """
@@ -1453,17 +1545,18 @@ class Client:
             "model_name": model_name,
             "worker_ip": worker_ip,
         }
-        response = self.session.get(url, headers=self._headers, params=params)
-        if response.status_code != 200:
+        params = _filter_params(params)
+        response = await self.session.get(url, headers=self._headers, params=params)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to list cached model, detail: {_get_error_string(response)}"
+                f"Failed to list cached model, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
-        response_data = response_data.get("list")
-        return response_data
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data.get("list")
 
-    def list_deletable_models(
+    async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -1484,16 +1577,18 @@ class Client:
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
-        response = self.session.get(url, headers=self._headers, params=params)
-        if response.status_code != 200:
+        params = _filter_params(params)
+        response = await self.session.get(url, headers=self._headers, params=params)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
+                f"Failed to get paths by model name, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def confirm_and_remove_model(
+    async def confirm_and_remove_model(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> bool:
         """
@@ -1514,16 +1609,18 @@ class Client:
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
-        response = self.session.delete(url, headers=self._headers, params=params)
-        if response.status_code != 200:
+        params = _filter_params(params)
+        response = await self.session.delete(url, headers=self._headers, params=params)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to remove cached models, detail: {_get_error_string(response)}"
+                f"Failed to remove cached models, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data.get("result", False)
 
-    def get_model_registration(
+    async def get_model_registration(
         self, model_type: str, model_name: str
     ) -> Dict[str, Any]:
         """
@@ -1542,16 +1639,17 @@ class Client:
             The collection of registered models on the server.
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to list model registration, detail: {_get_error_string(response)}"
+                f"Failed to list model registration, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def query_engine_by_model_name(
+    async def query_engine_by_model_name(
         self, model_name: str, model_type: Optional[str] = "LLM"
     ):
         """
@@ -1572,16 +1670,19 @@ class Client:
             url = f"{self.base_url}/v1/engines/{model_name}"
         else:
             url = f"{self.base_url}/v1/engines/{model_type}/{model_name}"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to query engine parameters by model name, detail: {_get_error_string(response)}"
+                f"Failed to query engine parameters by model name, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def abort_request(self, model_uid: str, request_id: str, block_duration: int = 30):
+    async def abort_request(
+        self, model_uid: str, request_id: str, block_duration: int = 30
+    ):
         """
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
@@ -1602,53 +1703,58 @@ class Client:
             Return empty dict.
         """
         url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
-        response = self.session.post(
+        response = await self.session.post(
             url, headers=self._headers, json={"block_duration": block_duration}
         )
-        if response.status_code != 200:
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to abort request, detail: {_get_error_string(response)}"
+                f"Failed to abort request, detail: {await _get_error_string(response)}"
             )
 
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def get_workers_info(self):
+    async def get_workers_info(self):
         url = f"{self.base_url}/v1/workers"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to get workers info, detail: {_get_error_string(response)}"
+                f"Failed to get workers info, detail: {await _get_error_string(response)}"
             )
-        response_data = response.json()
+        response_data = await response.json()
+        await _release_response(response)
         return response_data
 
-    def get_supervisor_info(self):
+    async def get_supervisor_info(self):
         url = f"{self.base_url}/v1/supervisor"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to get supervisor info, detail: {_get_error_string(response)}"
+                f"Failed to get supervisor info, detail: {await _get_error_string(response)}"
             )
-        response_json = response.json()
+        response_json = await response.json()
+        await _release_response(response)
         return response_json
 
-    def get_progress(self, request_id: str):
+    async def get_progress(self, request_id: str):
         url = f"{self.base_url}/v1/requests/{request_id}/progress"
-        response = self.session.get(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to get progress, detail: {_get_error_string(response)}"
+                f"Failed to get progress, detail: {await _get_error_string(response)}"
             )
-        response_json = response.json()
+        response_json = await response.json()
+        await _release_response(response)
         return response_json
 
-    def abort_cluster(self):
+    async def abort_cluster(self):
         url = f"{self.base_url}/v1/clusters"
-        response = self.session.delete(url, headers=self._headers)
-        if response.status_code != 200:
+        response = await self.session.delete(url, headers=self._headers)
+        if response.status != 200:
             raise RuntimeError(
-                f"Failed to abort cluster, detail: {_get_error_string(response)}"
+                f"Failed to abort cluster, detail: {await _get_error_string(response)}"
             )
-        response_json = response.json()
+        response_json = await response.json()
+        await _release_response(response)
         return response_json
