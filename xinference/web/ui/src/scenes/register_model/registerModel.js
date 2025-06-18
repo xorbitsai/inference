@@ -43,7 +43,16 @@ import AddModelSpecs from './components/addModelSpecs'
 import AddStop from './components/addStop'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
-const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision', 'Tools']
+const model_ability_options = [
+  {
+    type: 'LLM',
+    options: ['Generate', 'Chat', 'Vision', 'Tools'],
+  },
+  {
+    type: 'audio',
+    options: ['text2audio', 'audio2text'],
+  },
+]
 const messages = [
   {
     role: 'assistant',
@@ -52,6 +61,27 @@ const messages = [
   {
     role: 'user',
     content: 'This is the message content sent by the user currently',
+  },
+]
+const model_family_options = [
+  {
+    type: 'image',
+    options: ['stable_diffusion'],
+  },
+  {
+    type: 'audio',
+    options: [
+      'whisper',
+      'ChatTTS',
+      'CosyVoice',
+      'F5-TTS',
+      'F5-TTS-MLX',
+      'FishAudio',
+      'Kokoro',
+      'MegaTTS',
+      'MeloTTS',
+      'funasr',
+    ],
   },
 ]
 
@@ -1011,25 +1041,60 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 {t('registerModel.modelAbilities')}
               </label>
               <Box className="checkboxWrapper">
-                {SUPPORTED_FEATURES.map((ability) => (
-                  <Box key={ability} sx={{ marginRight: '10px' }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={formData.model_ability.includes(
-                            ability.toLowerCase()
-                          )}
-                          onChange={() => toggleAbility(ability.toLowerCase())}
-                          name={ability}
-                        />
-                      }
-                      label={ability}
-                      style={{
-                        paddingLeft: 10,
-                      }}
-                    />
-                  </Box>
-                ))}
+                {modelType === 'LLM' ? (
+                  <>
+                    {model_ability_options
+                      .find((item) => item.type === modelType)
+                      .options.map((ability) => (
+                        <Box key={ability} sx={{ marginRight: '10px' }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formData.model_ability.includes(
+                                  ability.toLowerCase()
+                                )}
+                                onChange={() =>
+                                  toggleAbility(ability.toLowerCase())
+                                }
+                                name={ability}
+                              />
+                            }
+                            label={ability}
+                            style={{
+                              paddingLeft: 10,
+                            }}
+                          />
+                        </Box>
+                      ))}
+                  </>
+                ) : (
+                  <RadioGroup
+                    value={formData.model_ability}
+                    style={{ display: 'flex' }}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        model_ability: [e.target.value],
+                      })
+                    }}
+                  >
+                    <Box
+                      className="checkboxWrapper"
+                      sx={{ paddingLeft: '10px' }}
+                    >
+                      {model_ability_options
+                        .find((item) => item.type === modelType)
+                        .options.map((subItem) => (
+                          <FormControlLabel
+                            key={subItem}
+                            value={subItem}
+                            control={<Radio />}
+                            label={subItem}
+                          />
+                        ))}
+                    </Box>
+                  </RadioGroup>
+                )}
               </Box>
               <Box padding="15px"></Box>
             </>
@@ -1084,17 +1149,30 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     >
                       {t('registerModel.modelFamily')}
                     </label>
-                    <RadioGroup value={formData.model_family}>
+                    <RadioGroup
+                      value={formData.model_family}
+                      style={{ display: 'flex' }}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          model_family: e.target.value,
+                        })
+                      }}
+                    >
                       <Box
                         className="checkboxWrapper"
-                        style={{ paddingLeft: '10px' }}
+                        sx={{ paddingLeft: '10px' }}
                       >
-                        <FormControlLabel
-                          value={formData.model_family}
-                          checked
-                          control={<Radio />}
-                          label={formData.model_family}
-                        />
+                        {model_family_options
+                          .find((item) => item.type === modelType)
+                          .options.map((subItem) => (
+                            <FormControlLabel
+                              key={subItem}
+                              value={subItem}
+                              control={<Radio />}
+                              label={subItem}
+                            />
+                          ))}
                       </Box>
                     </RadioGroup>
                   </FormControl>
