@@ -67,7 +67,12 @@ async def _start_local_cluster(
             metrics_exporter_port=metrics_exporter_port,
         )
         if conn:
-            conn.send(READY)
+            try:
+                conn.send(READY)
+            except BrokenPipeError:
+                # connection may be gc collected,
+                # just ignore this error
+                pass
         await pool.join()
     except asyncio.CancelledError:
         if pool is not None:
@@ -101,7 +106,12 @@ def run(
     except:
         tb = traceback.format_exc()
         if conn:
-            conn.send(f"error: {tb}")
+            try:
+                conn.send(f"error: {tb}")
+            except BrokenPipeError:
+                # connection may be gc collected,
+                # just ignore this error
+                pass
         # raise again in subprocess
         raise
 
