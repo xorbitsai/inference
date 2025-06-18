@@ -348,15 +348,20 @@ class SupervisorActor(xo.StatelessActor):
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
         )
 
+        to_filter_abilities = ["vision", "reasoning", "audio", "omni", "hybrid"]
+        ability_to_names: Dict[str, List[str]] = {
+            ability: [] for ability in to_filter_abilities
+        }
+        for family in BUILTIN_LLM_FAMILIES:
+            for ability in to_filter_abilities:
+                if ability in family.model_ability:
+                    ability_to_names[ability].append(family.model_name)
+
         return {
             "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
             "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
             "tools": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
-            "vision": [
-                family.model_name
-                for family in BUILTIN_LLM_FAMILIES
-                if "vision" in family.model_ability
-            ],
+            **ability_to_names,
         }
 
     async def get_devices_count(self) -> int:

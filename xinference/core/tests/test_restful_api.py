@@ -1387,3 +1387,23 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_qwen15"
     requests.delete(url)
+
+
+def test_builtin_families(setup):
+    endpoint, supervisor_addr = setup
+    url = f"{endpoint}/v1/models/families"
+
+    response = requests.get(url)
+    families = response.json()
+    test_abilities = [
+        "generate",
+        "chat",
+        "vision",
+        "reasoning",
+        "tools",
+        "audio",
+        "omni",
+        "hybrid",
+    ]
+    assert all(ability in families for ability in test_abilities)
+    assert "qwen3" in families["hybrid"]
