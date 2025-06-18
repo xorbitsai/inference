@@ -46,7 +46,16 @@ const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const model_ability_options = [
   {
     type: 'LLM',
-    options: ['Generate', 'Chat', 'Vision', 'Tools'],
+    options: [
+      'Generate',
+      'Chat',
+      'Vision',
+      'Tools',
+      'Reasoning',
+      'Audio',
+      'Omni',
+      'Hybrid',
+    ],
   },
   {
     type: 'audio',
@@ -488,21 +497,34 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       delete obj.chat_template
       delete obj.stop_token_ids
       delete obj.stop
+      const updatedAbilities =
+        ability === 'chat'
+          ? formData.model_ability.filter(
+              (item) =>
+                ![
+                  'chat',
+                  'vision',
+                  'tools',
+                  'reasoning',
+                  'audio',
+                  'omni',
+                  'hybrid',
+                ].includes(item)
+            )
+          : formData.model_ability.filter((item) => item !== ability)
+
       setFormData({
         ...obj,
-        model_ability: formData.model_ability.filter((item) => {
-          if (ability === 'chat') {
-            return item !== 'chat' && item !== 'vision' && item !== 'tools'
-          }
-          return item !== ability
-        }),
+        model_ability: updatedAbilities,
         model_family: '',
       })
     } else {
       let model_ability = []
       if (
         ability === 'chat' ||
-        (['vision', 'tools'].includes(ability) &&
+        (['vision', 'tools', 'reasoning', 'audio', 'omni', 'hybrid'].includes(
+          ability
+        ) &&
           !formData.model_ability.includes('chat'))
       ) {
         if (
@@ -743,45 +765,56 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleFamilyOptions = (model_ability) => {
-    if (model_ability.includes('vision')) {
+    const abilityMap = {
+      reasoning: { editable: false, source: family?.reasoning },
+      audio: { editable: false, source: family?.audio },
+      omni: { editable: false, source: family?.omni },
+      hybrid: { editable: false, source: family?.hybrid },
+      vision: { editable: false, source: family?.vision },
+      tools: { editable: false, source: family?.tools },
+      chat: { editable: true, source: family?.chat },
+      generate: { editable: true, source: family?.generate },
+    }
+
+    const nonEditableGroup = [
+      'reasoning',
+      'audio',
+      'omni',
+      'hybrid',
+      'vision',
+      'tools',
+    ]
+
+    const matchedAbilities = Object.keys(abilityMap).filter((key) =>
+      model_ability.includes(key)
+    )
+
+    const matchedNonEditable = matchedAbilities.filter((key) =>
+      nonEditableGroup.includes(key)
+    )
+
+    if (matchedNonEditable.length > 1) {
+      const collectedItems = new Set()
+      matchedNonEditable.forEach((key) => {
+        const source = abilityMap[key]?.source || []
+        source.forEach((item) => collectedItems.add(item))
+      })
       setIsEditableFamily(false)
       setFamilyOptions(
-        family?.vision?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
+        Array.from(collectedItems).map((item) => ({
+          id: item,
+          label: item,
+        }))
       )
-    } else if (model_ability.includes('tools')) {
-      setIsEditableFamily(false)
+      return
+    }
+
+    const matched = matchedAbilities[0]
+    if (matched) {
+      const { editable, source } = abilityMap[matched]
+      setIsEditableFamily(editable)
       setFamilyOptions(
-        family?.tools?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
-      )
-    } else if (model_ability.includes('chat')) {
-      setIsEditableFamily(true)
-      setFamilyOptions(
-        family?.chat?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
-      )
-    } else if (model_ability.includes('generate')) {
-      setIsEditableFamily(true)
-      setFamilyOptions(
-        family?.generate?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
+        (source || []).map((item) => ({ id: item, label: item }))
       )
     } else {
       setIsEditableFamily(true)
