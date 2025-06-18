@@ -100,12 +100,16 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         request_body.update(kwargs)
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to create the embeddings, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to create the embeddings, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
 
-    def convert_ids_to_tokens(self, input: Union[List, List[List]], **kwargs) -> List[str]:
+    def convert_ids_to_tokens(
+        self, input: Union[List, List[List]], **kwargs
+    ) -> List[str]:
         """
         Convert token IDs to human readable tokens via RESTful APIs.
 
@@ -134,7 +138,9 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         request_body.update(kwargs)
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to decode token ids, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to decode token ids, detail: {_get_error_string(response)}"
+            )
         response_data = response.json()
         return response_data
 
@@ -191,7 +197,9 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
         request_body.update(kwargs)
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to rerank documents, detail: {response.json()['detail']}")
+            raise RuntimeError(
+                f"Failed to rerank documents, detail: {response.json()['detail']}"
+            )
         response_data = response.json()
         return response_data
 
@@ -234,7 +242,9 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         }
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to create the images, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to create the images, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -296,7 +306,9 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         files.append(("image", ("image", image, "application/octet-stream")))
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to variants the images, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to variants the images, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -364,10 +376,14 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
-        files.append(("mask_image", ("mask_image", mask_image, "application/octet-stream")))
+        files.append(
+            ("mask_image", ("mask_image", mask_image, "application/octet-stream"))
+        )
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to inpaint the images, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to inpaint the images, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -384,7 +400,9 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         files.append(("image", ("image", image, "application/octet-stream")))
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to ocr the images, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to ocr the images, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -420,7 +438,9 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         }
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to create the video, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to create the video, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -465,7 +485,9 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files.append(("image", ("image", image, "application/octet-stream")))
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to create the video from image, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to create the video from image, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -510,11 +532,15 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("first_frame", ("image", first_frame, "application/octet-stream")))
+        files.append(
+            ("first_frame", ("image", first_frame, "application/octet-stream"))
+        )
         files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to create the video from image, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to create the video from image, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -560,9 +586,13 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 
         stream = bool(generate_config and generate_config.get("stream"))
 
-        response = self.session.post(url, json=request_body, stream=stream, headers=self.auth_headers)
+        response = self.session.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to generate completion, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to generate completion, detail: {_get_error_string(response)}"
+            )
 
         if stream:
             return streaming_response_iterator(response.iter_lines())
@@ -617,10 +647,14 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
-        response = self.session.post(url, json=request_body, stream=stream, headers=self.auth_headers)
+        response = self.session.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
 
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to generate chat completion, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
+            )
 
         if stream:
             return streaming_response_iterator(response.iter_lines())
@@ -684,9 +718,13 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         }
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = self.session.post(url, data=params, files=files, headers=self.auth_headers)
+        response = self.session.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to transcribe the audio, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to transcribe the audio, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -743,9 +781,13 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         }
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = self.session.post(url, data=params, files=files, headers=self.auth_headers)
+        response = self.session.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to translate the audio, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to translate the audio, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -813,11 +855,17 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
                 )
             )
         if files:
-            response = self.session.post(url, data=params, files=files, headers=self.auth_headers, stream=stream)
+            response = self.session.post(
+                url, data=params, files=files, headers=self.auth_headers, stream=stream
+            )
         else:
-            response = self.session.post(url, json=params, headers=self.auth_headers, stream=stream)
+            response = self.session.post(
+                url, json=params, headers=self.auth_headers, stream=stream
+            )
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to speech the text, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to speech the text, detail: {_get_error_string(response)}"
+            )
 
         if stream:
             return response.iter_content(chunk_size=1024)
@@ -853,7 +901,9 @@ class RESTfulFlexibleModelHandle(RESTfulModelHandle):
 
         response = self.session.post(url, json=params, headers=self.auth_headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to predict, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to predict, detail: {_get_error_string(response)}"
+            )
 
         return response.content
 
@@ -886,7 +936,11 @@ class Client:
         self._headers["Authorization"] = f"Bearer {token}"
 
     def _get_token(self) -> Optional[str]:
-        return str(self._headers["Authorization"]).replace("Bearer ", "") if "Authorization" in self._headers else None
+        return (
+            str(self._headers["Authorization"]).replace("Bearer ", "")
+            if "Authorization" in self._headers
+            else None
+        )
 
     def _check_cluster_authenticated(self):
         url = f"{self.base_url}/v1/cluster/auth"
@@ -896,7 +950,9 @@ class Client:
             self._cluster_authed = False
         else:
             if response.status_code != 200:
-                raise RuntimeError(f"Failed to get cluster information, detail: {response.json()['detail']}")
+                raise RuntimeError(
+                    f"Failed to get cluster information, detail: {response.json()['detail']}"
+                )
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
@@ -904,7 +960,9 @@ class Client:
         url = f"{self.base_url}/v1/models/vllm-supported"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to fetch VLLM models. detail: {response.json()['detail']}")
+            raise RuntimeError(
+                f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
+            )
 
         try:
             return response.json()
@@ -942,7 +1000,9 @@ class Client:
 
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to list model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to list model, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         model_list = response_data["data"]
@@ -1048,9 +1108,13 @@ class Client:
         if wait_ready:
             response = self.session.post(url, json=payload, headers=self._headers)
         else:
-            response = self.session.post(url, json=payload, headers=self._headers, params={"wait_ready": False})
+            response = self.session.post(
+                url, json=payload, headers=self._headers, params={"wait_ready": False}
+            )
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to launch model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to launch model, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data["model_uid"]
@@ -1075,7 +1139,9 @@ class Client:
 
         response = self.session.delete(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to terminate model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to terminate model, detail: {_get_error_string(response)}"
+            )
 
     def get_launch_model_progress(self, model_uid: str) -> dict:
         """
@@ -1100,7 +1166,9 @@ class Client:
 
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Fail to get model launching progress, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Fail to get model launching progress, detail: {_get_error_string(response)}"
+            )
         return response.json()
 
     def cancel_launch_model(self, model_uid: str):
@@ -1121,7 +1189,9 @@ class Client:
 
         response = self.session.post(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Fail to cancel launching model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Fail to cancel launching model, detail: {_get_error_string(response)}"
+            )
 
     def get_instance_info(self, model_name: str, model_uid: str):
         url = f"{self.base_url}/v1/models/instances"
@@ -1170,28 +1240,46 @@ class Client:
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get the model description, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to get the model description, detail: {_get_error_string(response)}"
+            )
         desc = response.json()
 
         if desc["model_type"] == "LLM":
             if "chat" in desc["model_ability"]:
-                return RESTfulChatModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+                return RESTfulChatModelHandle(
+                    model_uid, self.base_url, auth_headers=self._headers
+                )
             elif "generate" in desc["model_ability"]:
-                return RESTfulGenerateModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+                return RESTfulGenerateModelHandle(
+                    model_uid, self.base_url, auth_headers=self._headers
+                )
             else:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
-            return RESTfulEmbeddingModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+            return RESTfulEmbeddingModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "image":
-            return RESTfulImageModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+            return RESTfulImageModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "rerank":
-            return RESTfulRerankModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+            return RESTfulRerankModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "audio":
-            return RESTfulAudioModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+            return RESTfulAudioModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "video":
-            return RESTfulVideoModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+            return RESTfulVideoModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "flexible":
-            return RESTfulFlexibleModelHandle(model_uid, self.base_url, auth_headers=self._headers)
+            return RESTfulFlexibleModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
@@ -1240,7 +1328,9 @@ class Client:
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get the model description, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to get the model description, detail: {_get_error_string(response)}"
+            )
         return response.json()
 
     def register_model(
@@ -1273,7 +1363,9 @@ class Client:
         request_body = {"model": model, "worker_ip": worker_ip, "persist": persist}
         response = self.session.post(url, json=request_body, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to register model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to register model, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -1297,7 +1389,9 @@ class Client:
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
         response = self.session.delete(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to register model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to register model, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -1325,7 +1419,9 @@ class Client:
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to list model registration, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to list model registration, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -1360,13 +1456,17 @@ class Client:
         }
         response = self.session.get(url, headers=self._headers, params=params)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to list cached model, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to list cached model, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         response_data = response_data.get("list")
         return response_data
 
-    def list_deletable_models(self, model_version: str, worker_ip: Optional[str] = None) -> Dict[str, Any]:
+    def list_deletable_models(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get the cached models with the model path cached on the server.
         Parameters
@@ -1387,12 +1487,16 @@ class Client:
         }
         response = self.session.get(url, headers=self._headers, params=params)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get paths by model name, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
 
-    def confirm_and_remove_model(self, model_version: str, worker_ip: Optional[str] = None) -> bool:
+    def confirm_and_remove_model(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> bool:
         """
         Remove the cached models with the model name cached on the server.
         Parameters
@@ -1413,12 +1517,16 @@ class Client:
         }
         response = self.session.delete(url, headers=self._headers, params=params)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to remove cached models, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to remove cached models, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data.get("result", False)
 
-    def get_model_registration(self, model_type: str, model_name: str) -> Dict[str, Any]:
+    def get_model_registration(
+        self, model_type: str, model_name: str
+    ) -> Dict[str, Any]:
         """
         Get the model with the model type and model name registered on the server.
 
@@ -1437,12 +1545,16 @@ class Client:
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to list model registration, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to list model registration, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
 
-    def query_engine_by_model_name(self, model_name: str, model_type: Optional[str] = "LLM"):
+    def query_engine_by_model_name(
+        self, model_name: str, model_type: Optional[str] = "LLM"
+    ):
         """
         Get the engine parameters with the model name registered on the server.
 
@@ -1491,9 +1603,13 @@ class Client:
             Return empty dict.
         """
         url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
-        response = self.session.post(url, headers=self._headers, json={"block_duration": block_duration})
+        response = self.session.post(
+            url, headers=self._headers, json={"block_duration": block_duration}
+        )
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to abort request, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to abort request, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         return response_data
@@ -1502,7 +1618,9 @@ class Client:
         url = f"{self.base_url}/v1/workers"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get workers info, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to get workers info, detail: {_get_error_string(response)}"
+            )
         response_data = response.json()
         return response_data
 
@@ -1510,7 +1628,9 @@ class Client:
         url = f"{self.base_url}/v1/supervisor"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get supervisor info, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to get supervisor info, detail: {_get_error_string(response)}"
+            )
         response_json = response.json()
         return response_json
 
@@ -1518,7 +1638,9 @@ class Client:
         url = f"{self.base_url}/v1/requests/{request_id}/progress"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get progress, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to get progress, detail: {_get_error_string(response)}"
+            )
         response_json = response.json()
         return response_json
 
@@ -1526,6 +1648,8 @@ class Client:
         url = f"{self.base_url}/v1/clusters"
         response = self.session.delete(url, headers=self._headers)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to abort cluster, detail: {_get_error_string(response)}")
+            raise RuntimeError(
+                f"Failed to abort cluster, detail: {_get_error_string(response)}"
+            )
         response_json = response.json()
         return response_json
