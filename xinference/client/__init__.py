@@ -17,4 +17,4 @@ from .restful.restful_client import Client
 
 # For compatibility
 RESTfulClient = Client
-AsyncRESTClient = AsyncClient
+AsyncRESTfulClient = AsyncClient
