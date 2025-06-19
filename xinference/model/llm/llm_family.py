@@ -232,6 +232,12 @@ class CustomLLMFamilyV1(LLMFamilyV1):
                 "stop_token_ids"
             ]
             llm_spec.stop = BUILTIN_LLM_PROMPT_STYLE[llm_spec.chat_template]["stop"]
+            llm_spec.reasoning_start_tag = BUILTIN_LLM_PROMPT_STYLE[
+                llm_spec.chat_template
+            ].get("reasoning_start_tag")
+            llm_spec.reasoning_end_tag = BUILTIN_LLM_PROMPT_STYLE[
+                llm_spec.chat_template
+            ].get("reasoning_end_tag")
             llm_spec.chat_template = BUILTIN_LLM_PROMPT_STYLE[llm_spec.chat_template][
                 "chat_template"
             ]
