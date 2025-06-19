@@ -128,6 +128,9 @@ def run_in_subprocess(
         args=(address, metrics_exporter_host, metrics_exporter_port, logging_conf),
         kwargs={"conn": child_conn},
     )
+    # Since Xoscar 0.7, we do not uses multiprocessing to create subpool any more,
+    # we should be able to use daemon here
+    p.daemon = True
     p.start()
     if parent_conn.poll(timeout=XINFERENCE_HEALTH_CHECK_TIMEOUT):
         msg = parent_conn.recv()
