@@ -1347,19 +1347,31 @@ const ModelCard = ({
                 </p>
               )}
             </div>
-            {modelData.dimensions && (
+            {(modelData.dimensions || modelData.max_tokens) && (
               <div className="iconRow">
                 <div className="iconItem">
-                  <span className="boldIconText">{modelData.dimensions}</span>
-                  <small className="smallText">
-                    {t('launchModel.dimensions')}
-                  </small>
+                  {modelData.dimensions && (
+                    <>
+                      <span className="boldIconText">
+                        {modelData.dimensions}
+                      </span>
+                      <small className="smallText">
+                        {t('launchModel.dimensions')}
+                      </small>
+                    </>
+                  )}
                 </div>
                 <div className="iconItem">
-                  <span className="boldIconText">{modelData.max_tokens}</span>
-                  <small className="smallText">
-                    {t('launchModel.maxTokens')}
-                  </small>
+                  {modelData.max_tokens && (
+                    <>
+                      <span className="boldIconText">
+                        {modelData.max_tokens}
+                      </span>
+                      <small className="smallText">
+                        {t('launchModel.maxTokens')}
+                      </small>
+                    </>
+                  )}
                 </div>
               </div>
             )}
