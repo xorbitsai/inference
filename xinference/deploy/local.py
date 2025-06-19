@@ -17,6 +17,8 @@ import logging
 import multiprocessing
 import signal
 import sys
+import traceback
+from multiprocessing.connection import Connection
 from typing import Dict, Optional
 
 import xoscar as xo
@@ -25,6 +27,7 @@ from xoscar.utils import get_next_port
 from ..constants import (
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HEALTH_CHECK_TIMEOUT,
 )
 from ..core.supervisor import SupervisorActor
 from .utils import health_check
@@ -33,11 +36,15 @@ from .worker import start_worker_components
 logger = logging.getLogger(__name__)
 
 
+READY = "ok"
+
+
 async def _start_local_cluster(
     address: str,
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
+    conn: Optional[Connection] = None,
 ):
     from .utils import create_worker_actor_pool
 
@@ -59,6 +66,13 @@ async def _start_local_cluster(
             metrics_exporter_host=metrics_exporter_host,
             metrics_exporter_port=metrics_exporter_port,
         )
+        if conn:
+            try:
+                conn.send(READY)
+            except BrokenPipeError:
+                # connection may be gc collected,
+                # just ignore this error
+                pass
         await pool.join()
     except asyncio.CancelledError:
         if pool is not None:
@@ -70,22 +84,36 @@ def run(
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
+    conn: Optional[Connection] = None,
 ):
     def sigterm_handler(signum, frame):
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(
-        _start_local_cluster(
-            address=address,
-            metrics_exporter_host=metrics_exporter_host,
-            metrics_exporter_port=metrics_exporter_port,
-            logging_conf=logging_conf,
+    try:
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(
+            _start_local_cluster(
+                address=address,
+                metrics_exporter_host=metrics_exporter_host,
+                metrics_exporter_port=metrics_exporter_port,
+                logging_conf=logging_conf,
+                conn=conn,
+            )
         )
-    )
-    loop.run_until_complete(task)
+        loop.run_until_complete(task)
+    except:
+        tb = traceback.format_exc()
+        if conn:
+            try:
+                conn.send(f"error: {tb}")
+            except BrokenPipeError:
+                # connection may be gc collected,
+                # just ignore this error
+                pass
+        # raise again in subprocess
+        raise
 
 
 def run_in_subprocess(
@@ -94,11 +122,25 @@ def run_in_subprocess(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
 ) -> multiprocessing.Process:
+    parent_conn, child_conn = multiprocessing.Pipe()
     p = multiprocessing.Process(
         target=run,
         args=(address, metrics_exporter_host, metrics_exporter_port, logging_conf),
+        kwargs={"conn": child_conn},
     )
+    # Since Xoscar 0.7, we do not uses multiprocessing to create subpool any more,
+    # we should be able to use daemon here
+    p.daemon = True
     p.start()
+    if parent_conn.poll(timeout=XINFERENCE_HEALTH_CHECK_TIMEOUT):
+        msg = parent_conn.recv()
+        if msg != READY:
+            raise RuntimeError(f"Start service process failed during startup:\n{msg}")
+    else:
+        logger.info(
+            "No response from process after %s seconds", XINFERENCE_HEALTH_CHECK_TIMEOUT
+        )
+
     return p
 
 
