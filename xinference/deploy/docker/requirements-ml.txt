@@ -54,5 +54,5 @@ torchao>=0.7.0
 uvloop
 xgrammar>=0.1.10
 cuda-python
-sgl-kernel>=0.0.3.post3
+sgl-kernel>=0.0.3.post3,<=0.1.4
 IPython
