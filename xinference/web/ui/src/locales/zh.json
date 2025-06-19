@@ -151,6 +151,8 @@
     "noTestResults": "没有测试结果...",
     "stopTokenIds": "停止token ID",
     "stop": "停止",
+    "reasoningStartTag": "推理开始标签",
+    "reasoningEndTag": "推理结束标签",
     "launcher": "启动器",
     "launcherArguments": "启动器参数（可选）",
     "edit": "编辑",
