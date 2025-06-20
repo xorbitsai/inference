@@ -151,6 +151,8 @@
     "noTestResults": "テスト結果がありません...",
     "stopTokenIds": "停止トークンID",
     "stop": "停止",
+    "reasoningStartTag": "推論開始タグ",
+    "reasoningEndTag": "推論終了タグ",
     "launcher": "ランチャー",
     "launcherArguments": "ランチャー引数（オプション）",
     "edit": "編集",

@@ -46,7 +46,16 @@ const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const model_ability_options = [
   {
     type: 'LLM',
-    options: ['Generate', 'Chat', 'Vision', 'Tools'],
+    options: [
+      'Generate',
+      'Chat',
+      'Vision',
+      'Tools',
+      'Reasoning',
+      'Audio',
+      'Omni',
+      'Hybrid',
+    ],
   },
   {
     type: 'audio',
@@ -150,6 +159,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template,
           stop_token_ids,
           stop,
+          reasoning_start_tag = '',
+          reasoning_end_tag = '',
         } = data
         const specsDataArr = model_specs.map((item) => {
           const {
@@ -179,6 +190,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template,
           stop_token_ids,
           stop,
+          ...(model_ability.includes('reasoning') && {
+            reasoning_start_tag,
+            reasoning_end_tag,
+          }),
         }
         setFormData(llmData)
         setContrastObj(llmData)
@@ -484,89 +499,115 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const toggleAbility = (ability) => {
     const obj = JSON.parse(JSON.stringify(formData))
-    if (formData.model_ability.includes(ability)) {
-      delete obj.chat_template
-      delete obj.stop_token_ids
-      delete obj.stop
-      setFormData({
-        ...obj,
-        model_ability: formData.model_ability.filter((item) => {
-          if (ability === 'chat') {
-            return item !== 'chat' && item !== 'vision' && item !== 'tools'
-          }
-          return item !== ability
-        }),
-        model_family: '',
-      })
-    } else {
-      let model_ability = []
-      if (
-        ability === 'chat' ||
-        (['vision', 'tools'].includes(ability) &&
-          !formData.model_ability.includes('chat'))
-      ) {
-        if (
-          formData.model_family !== '' &&
-          family?.chat?.includes(formData.model_family)
-        ) {
-          const data = promptStyles.filter(
-            (item) => item.name === formData.model_family
-          )
-          obj.chat_template = data[0]?.chat_template || null
-          obj.stop_token_ids = data[0]?.stop_token_ids || []
-          obj.stop = data[0]?.stop || []
-        } else {
-          obj.chat_template = ''
-          obj.stop_token_ids = []
-          obj.stop = []
-        }
-        ability === 'chat'
-          ? (model_ability = [...formData.model_ability, ability])
-          : (model_ability = [...formData.model_ability, 'chat', ability])
-      } else {
-        if (ability === 'vision' && formData.model_ability.includes('tools')) {
-          model_ability = [
-            ...formData.model_ability.filter((item) => item !== 'tools'),
-            'chat',
-            ability,
-          ]
-        } else if (
-          ability === 'tools' &&
-          formData.model_ability.includes('vision')
-        ) {
-          model_ability = [
-            ...formData.model_ability.filter((item) => item !== 'vision'),
-            'chat',
-            ability,
-          ]
-        } else {
-          model_ability = [...formData.model_ability, ability]
-        }
-      }
-      delete obj.chat_template
-      delete obj.stop_token_ids
-      delete obj.stop
-      setFormData({
-        ...obj,
-        model_family: '',
-        model_ability: model_ability,
-      })
+    const fieldsToDelete = [
+      'chat_template',
+      'stop_token_ids',
+      'stop',
+      'reasoning_start_tag',
+      'reasoning_end_tag',
+    ]
+    fieldsToDelete.forEach((key) => delete obj[key])
+
+    const currentAbilities = formData.model_ability
+    const isRemoving = currentAbilities.includes(ability)
+    const chatRelatedAbilities = [
+      'chat',
+      'vision',
+      'tools',
+      'reasoning',
+      'audio',
+      'omni',
+      'hybrid',
+    ]
+    const isChatRelated = chatRelatedAbilities.includes(ability)
+    const mutuallyExclusive = { vision: 'tools', tools: 'vision' }
+
+    if (currentAbilities.includes('chat') && ability !== 'chat') {
+      obj.chat_template = ''
+      obj.stop_token_ids = []
+      obj.stop = []
     }
+
+    if (
+      currentAbilities.includes('reasoning') &&
+      ability !== 'reasoning' &&
+      ability !== 'chat'
+    ) {
+      obj.reasoning_start_tag = ''
+      obj.reasoning_end_tag = ''
+    }
+
+    if (isRemoving) {
+      const updatedAbilities =
+        ability === 'chat'
+          ? currentAbilities.filter(
+              (item) => !chatRelatedAbilities.includes(item)
+            )
+          : currentAbilities.filter((item) => item !== ability)
+
+      setFormData({
+        ...obj,
+        model_family: '',
+        model_ability: updatedAbilities,
+      })
+      return
+    }
+
+    let model_ability = [...currentAbilities]
+
+    if (ability === 'reasoning') {
+      obj.reasoning_start_tag = ''
+      obj.reasoning_end_tag = ''
+    }
+
+    if (
+      ability === 'chat' ||
+      (isChatRelated && !currentAbilities.includes('chat'))
+    ) {
+      obj.chat_template = ''
+      obj.stop_token_ids = []
+      obj.stop = []
+
+      if (ability !== 'chat' && !model_ability.includes('chat')) {
+        model_ability.push('chat')
+      }
+      model_ability.push(ability)
+    } else {
+      const conflict = mutuallyExclusive[ability]
+      if (conflict && model_ability.includes(conflict)) {
+        model_ability = model_ability.filter((item) => item !== conflict)
+      }
+      model_ability.push(ability)
+    }
+
+    setFormData({
+      ...obj,
+      model_family: '',
+      model_ability,
+    })
   }
 
   const handleFamily = (value) => {
     if (formData.model_ability.includes('chat')) {
       if (family?.chat?.includes(value)) {
-        const data = promptStyles.filter((item) => {
+        const data = promptStyles.find((item) => {
           return item.name === value
         })
-        setFormData({
+
+        const form_data = {
           ...formData,
           model_family: value,
-          chat_template: data[0]?.chat_template || null,
-          stop_token_ids: data[0]?.stop_token_ids || [],
-          stop: data[0]?.stop || [],
-        })
+          chat_template: data?.chat_template || null,
+          stop_token_ids: data?.stop_token_ids || [],
+          stop: data?.stop || [],
+        }
+
+        if (formData.model_ability.includes('reasoning')) {
+          form_data.reasoning_start_tag = data?.reasoning_start_tag || ''
+          form_data.reasoning_end_tag = data?.reasoning_end_tag || ''
+        }
+
+        setFormData(form_data)
       } else {
         setFormData({
           ...formData,
@@ -743,45 +784,63 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleFamilyOptions = (model_ability) => {
-    if (model_ability.includes('vision')) {
+    const abilityMap = {
+      reasoning: { editable: false, source: family?.reasoning },
+      audio: { editable: false, source: family?.audio },
+      omni: { editable: false, source: family?.omni },
+      hybrid: { editable: false, source: family?.hybrid },
+      vision: { editable: false, source: family?.vision },
+      tools: { editable: false, source: family?.tools },
+      chat: { editable: true, source: family?.chat },
+      generate: { editable: true, source: family?.generate },
+    }
+
+    const nonEditableGroup = [
+      'reasoning',
+      'audio',
+      'omni',
+      'hybrid',
+      'vision',
+      'tools',
+    ]
+
+    const matchedAbilities = Object.keys(abilityMap).filter((key) =>
+      model_ability.includes(key)
+    )
+
+    const matchedNonEditable = matchedAbilities.filter((key) =>
+      nonEditableGroup.includes(key)
+    )
+
+    if (matchedNonEditable.length > 1) {
+      const baseSource = abilityMap[matchedNonEditable[0]]?.source || []
+      let intersection = new Set(baseSource)
+
+      for (let i = 1; i < matchedNonEditable.length; i++) {
+        const currentSource = new Set(
+          abilityMap[matchedNonEditable[i]]?.source || []
+        )
+        intersection = new Set(
+          [...intersection].filter((item) => currentSource.has(item))
+        )
+      }
+
       setIsEditableFamily(false)
       setFamilyOptions(
-        family?.vision?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
+        Array.from(intersection).map((item) => ({
+          id: item,
+          label: item,
+        }))
       )
-    } else if (model_ability.includes('tools')) {
-      setIsEditableFamily(false)
+      return
+    }
+
+    const matched = matchedAbilities[0]
+    if (matched) {
+      const { editable, source } = abilityMap[matched]
+      setIsEditableFamily(editable)
       setFamilyOptions(
-        family?.tools?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
-      )
-    } else if (model_ability.includes('chat')) {
-      setIsEditableFamily(true)
-      setFamilyOptions(
-        family?.chat?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
-      )
-    } else if (model_ability.includes('generate')) {
-      setIsEditableFamily(true)
-      setFamilyOptions(
-        family?.generate?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
+        (source || []).map((item) => ({ id: item, label: item }))
       )
     } else {
       setIsEditableFamily(true)
@@ -1307,6 +1366,42 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 formData={formData.stop}
                 onGetData={getStop}
                 helperText={t('registerModel.stopControlStringForChatModels')}
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* reasoning_start_tag */}
+          {formData.model_ability?.includes('reasoning') && (
+            <>
+              <TextField
+                label={t('registerModel.reasoningStartTag')}
+                value={formData.reasoning_start_tag}
+                size="small"
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    reasoning_start_tag: event.target.value,
+                  })
+                }
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* reasoning_end_tag */}
+          {formData.model_ability?.includes('reasoning') && (
+            <>
+              <TextField
+                label={t('registerModel.reasoningEndTag')}
+                value={formData.reasoning_end_tag}
+                size="small"
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    reasoning_end_tag: event.target.value,
+                  })
+                }
               />
               <Box padding="15px"></Box>
             </>

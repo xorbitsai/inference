@@ -152,6 +152,13 @@ def load_model_family_from_json(json_filename, target_families):
                     "stop_token_ids": model_spec.stop_token_ids,
                     "stop": model_spec.stop,
                 }
+                if model_spec.reasoning_start_tag and model_spec.reasoning_end_tag:
+                    BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
+                        "reasoning_start_tag"
+                    ] = model_spec.reasoning_start_tag
+                    BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
+                        "reasoning_end_tag"
+                    ] = model_spec.reasoning_end_tag
 
         # register model family
         if "chat" in model_spec.model_ability:

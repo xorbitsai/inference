@@ -151,6 +151,8 @@
     "noTestResults": "No test results...",
     "stopTokenIds": "Stop Token Ids",
     "stop": "Stop",
+    "reasoningStartTag": "Reasoning Start Tag",
+    "reasoningEndTag": "Reasoning End Tag",
     "launcher": "Launcher",
     "launcherArguments": "Launcher Arguments (Optional)",
     "edit": "Edit",
