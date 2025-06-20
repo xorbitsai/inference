@@ -177,5 +177,5 @@ class FishSpeechModel:
             return audio_to_bytes(
                 response_format=response_format,
                 sample_rate=sample_rate,
-                tensor=torch.from_numpy(audio).unsqueeze(0),
+                tensor=torch.from_numpy(audio),
             )
