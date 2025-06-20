@@ -42,7 +42,11 @@ def get_user_defined_embeddings() -> List[EmbeddingModelSpec]:
 def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
     from ...constants import XINFERENCE_MODEL_DIR
     from ..utils import is_valid_model_name, is_valid_model_uri
-    from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
+    from . import (
+        BUILTIN_EMBEDDING_MODELS,
+        MODELSCOPE_EMBEDDING_MODELS,
+        generate_engine_config_by_model_name,
+    )
 
     if not is_valid_model_name(model_spec.model_name):
         raise ValueError(f"Invalid model name {model_spec.model_name}.")
@@ -63,6 +67,7 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
                 )
 
         UD_EMBEDDINGS.append(model_spec)
+        generate_engine_config_by_model_name(model_spec)
 
     if persist:
         persist_path = os.path.join(
