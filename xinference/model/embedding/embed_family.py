@@ -13,10 +13,7 @@
 # limitations under the License.
 
 import logging
-from threading import Lock
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type
-
-from ..utils import is_valid_model_name
 
 if TYPE_CHECKING:
     from .core import EmbeddingModel, EmbeddingModelSpec
@@ -71,44 +68,6 @@ def match_embedding(
 # { embedding model name -> { engine name -> engine params } }
 EMBEDDING_ENGINES: Dict[str, Dict[str, List[Dict[str, Type["EmbeddingModel"]]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type["EmbeddingModel"]]] = {}
-UD_EMBEDDING_FAMILIES_LOCK = Lock()
-# user defined embedding models
-UD_EMBEDDING_SPECS: Dict[str, "EmbeddingModelSpec"] = {}
-
-
-def register_embedding(custom_embedding_spec: "EmbeddingModelSpec", persist: bool):
-    from ..utils import is_valid_model_uri
-    from . import generate_engine_config_by_model_name
-
-    if not is_valid_model_name(custom_embedding_spec.model_name):
-        raise ValueError(f"Invalid model name {custom_embedding_spec.model_name}.")
-
-    model_uri = custom_embedding_spec.model_uri
-    if model_uri and not is_valid_model_uri(model_uri):
-        raise ValueError(f"Invalid model URI {model_uri}.")
-
-    with UD_EMBEDDING_FAMILIES_LOCK:
-        if (
-            custom_embedding_spec.model_name in BUILTIN_EMBEDDING_MODELS
-            or custom_embedding_spec.model_name in MODELSCOPE_EMBEDDING_MODELS
-            or custom_embedding_spec.model_name in UD_EMBEDDING_SPECS
-        ):
-            raise ValueError(
-                f"Model name conflicts with existing model {custom_embedding_spec.model_name}"
-            )
-
-    UD_EMBEDDING_SPECS[custom_embedding_spec.model_name] = custom_embedding_spec
-    generate_engine_config_by_model_name(custom_embedding_spec)
-
-
-# TODO: add persist feature
-def unregister_embedding(custom_embedding_spec: "EmbeddingModelSpec"):
-    with UD_EMBEDDING_FAMILIES_LOCK:
-        model_name = custom_embedding_spec.model_name
-        if model_name in UD_EMBEDDING_SPECS:
-            del UD_EMBEDDING_SPECS[model_name]
-        if model_name in EMBEDDING_ENGINES:
-            del EMBEDDING_ENGINES[model_name]
 
 
 def check_engine_by_model_name_and_engine(

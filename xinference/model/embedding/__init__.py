@@ -119,14 +119,6 @@ def _install():
                     generate_embedding_description(model_spec)
                 )
 
-    register_custom_model()
-
-    # register model description
-    for ud_embedding in get_user_defined_embeddings():
-        EMBEDDING_MODEL_DESCRIPTIONS.update(
-            generate_embedding_description(ud_embedding)
-        )
-
     from .flag.core import FlagEmbeddingModel
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
@@ -143,6 +135,14 @@ def _install():
     for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
         for model_spec in model_infos.values():
             generate_engine_config_by_model_name(model_spec)
+
+    register_custom_model()
+
+    # register model description
+    for ud_embedding in get_user_defined_embeddings():
+        EMBEDDING_MODEL_DESCRIPTIONS.update(
+            generate_embedding_description(ud_embedding)
+        )
 
     del _model_spec_json
     del _model_spec_modelscope_json
