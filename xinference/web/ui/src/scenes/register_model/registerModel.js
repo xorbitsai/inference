@@ -159,8 +159,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template,
           stop_token_ids,
           stop,
-          reasoning_start_tag,
-          reasoning_end_tag,
+          reasoning_start_tag = '',
+          reasoning_end_tag = '',
         } = data
         const specsDataArr = model_specs.map((item) => {
           const {
@@ -190,8 +190,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template,
           stop_token_ids,
           stop,
-          reasoning_start_tag,
-          reasoning_end_tag,
+          ...(model_ability.includes('reasoning') && {
+            reasoning_start_tag,
+            reasoning_end_tag,
+          }),
         }
         setFormData(llmData)
         setContrastObj(llmData)
