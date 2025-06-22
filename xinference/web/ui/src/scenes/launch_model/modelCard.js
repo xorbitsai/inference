@@ -71,7 +71,7 @@ import {
 } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
-const enginesWithNWorker = ['SGLang', 'vLLM']
+const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
 
 const ModelCard = ({
   url,
