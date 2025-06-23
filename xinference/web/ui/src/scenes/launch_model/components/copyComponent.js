@@ -58,6 +58,8 @@ function CopyComponent({ modelData, predefinedKeys }) {
           let newKey
           if (key === 'model_size_in_billions') {
             newKey = '--size-in-billions'
+          } else if (key === 'download_hub') {
+            newKey = `--download_hub`
           } else {
             newKey = `--${key.replace(/_/g, '-')}`
           }
