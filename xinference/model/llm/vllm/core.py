@@ -231,6 +231,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("olmocr-0225-preview")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
