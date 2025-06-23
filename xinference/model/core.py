@@ -170,3 +170,4 @@ class VirtualEnvSettings(BaseModel):
     extra_index_url: Optional[str] = None
     find_links: Optional[str] = None
     trusted_host: Optional[str] = None
+    no_build_isolation: Optional[bool] = None

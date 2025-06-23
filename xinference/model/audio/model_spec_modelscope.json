@@ -129,7 +129,7 @@
       "hotword": "",
       "batch_size_s": 300
     }
-  },  
+  },
   {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
@@ -183,6 +183,7 @@
     "multilingual": true,
     "virtualenv": {
       "packages": [
+        "librosa",
         "tiktoken",
         "lightning>=2.0.0",
         "hydra-core>=1.3.2",
@@ -194,7 +195,8 @@
         "HyperPyYAML",
         "onnxruntime>=1.16.0",
         "pyworld>=0.3.4",
-        "numpy==1.26.4",
+        "WeTextProcessing<1.0.4",
+        "#system_numpy#",
         "#system_torch#"
       ]
     }

@@ -275,6 +275,15 @@
     "dimensions": 1024,
     "max_tokens": 8192,
     "language": ["89 languages supported"],
-    "model_id": "jinaai/jina-clip-v2"
+    "model_id": "jinaai/jina-clip-v2",
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "transformers==4.51.3",
+        "xformers",
+        "flash_attn==2.7.4 ; sys_platform=='linux'"
+      ],
+      "no_build_isolation": true
+    }
   }
 ]
