@@ -829,25 +829,18 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
+        conf = dict(settings)
         packages = settings.packages
-        index_url = settings.index_url
-        extra_index_url = settings.extra_index_url
-        find_links = settings.find_links
-        trusted_host = settings.trusted_host
+        conf.pop("packages", None)
+        conf.pop("inherit_pip_config", None)
 
         logger.info(
-            "Installing packages %s in virtual env %s, with settings(index_url=%s)",
+            "Installing packages %s in virtual env %s, with settings(%s)",
             packages,
             virtual_env_manager.env_path,
-            index_url,
+            ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        virtual_env_manager.install_packages(
-            packages,
-            index_url=index_url,
-            extra_index_url=extra_index_url,
-            find_links=find_links,
-            trusted_host=trusted_host,
-        )
+        virtual_env_manager.install_packages(packages, **conf)
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
