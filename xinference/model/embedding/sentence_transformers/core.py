@@ -347,19 +347,27 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 img = Image.open(image_data)
                 return img
 
-            objs: list[dict[str, str]] = []
-            for item in sentences:
-                if isinstance(item, dict):
-                    if item.get("text") is not None:
-                        objs.append(item["text"])
-                    elif item.get("image") is not None:
-                        if re.match(r"^data:image/.+;base64,", item["image"]):
-                            image = base64_to_image(item["image"])
-                            objs.append(image)
+            objs: list[str] = []
+            if isinstance(sentences, str):
+                objs.append(sentences)
+            else:
+                for item in sentences:
+                    if isinstance(item, dict):
+                        if item.get("text") is not None:
+                            objs.append(item["text"])
+                        elif item.get("image") is not None:
+                            if re.match(r"^data:image/.+;base64,", item["image"]):
+                                image = base64_to_image(item["image"])
+                                objs.append(image)
+                            else:
+                                objs.append(item["image"])
                         else:
-                            objs.append(item["image"])
+                            raise ValueError("Please check the input data.")
+                    elif isinstance(item, str):
+                        objs.append(item)
                     else:
-                        logger.error("Please check the input data.")
+                        raise ValueError("Please check the input data.")
+
             all_embeddings, all_token_nums = encode(
                 self._model,
                 objs,
