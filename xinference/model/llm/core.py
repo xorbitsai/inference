@@ -106,8 +106,9 @@ class LLM(abc.ABC):
     @lru_cache
     def _get_cuda_count():
         from ...utils import cuda_count
+        from ...device_utils import get_available_device_env_name
 
-        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        cuda_visible_devices = os.getenv(get_available_device_env_name(), None)
         if cuda_visible_devices is None:
             return cuda_count()
 

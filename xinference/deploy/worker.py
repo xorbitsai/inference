@@ -21,7 +21,7 @@ import xoscar as xo
 from xoscar import MainActorPoolType
 
 from ..core.worker import WorkerActor
-from ..device_utils import gpu_count
+from ..device_utils import gpu_count, get_available_device_env_name
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ async def start_worker_components(
     metrics_exporter_port: Optional[int],
 ):
     gpu_device_indices = []
-    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", None)
+    cuda_visible_devices = os.environ.get(get_available_device_env_name(), None)
     if cuda_visible_devices is not None and cuda_visible_devices != "-1":
         gpu_device_indices.extend([int(i) for i in cuda_visible_devices.split(",")])
     else:
