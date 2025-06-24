@@ -18,15 +18,8 @@ from typing import Dict, Optional
 
 import mlx.core as mx
 import xoscar as xo
-import numpy as np
 
 logger = logging.getLogger(__name__)
-
-
-def _convert_to_numpy(arr: mx.array) -> np.ndarray:
-    # uncomment below code will cause hang
-    # return arr
-    return np.array(arr, copy=False)
 
 
 class ReceiverActor(xo.StatelessActor):
@@ -41,7 +34,7 @@ class ReceiverActor(xo.StatelessActor):
 
     async def send(self, data: mx.array):
         # no need to use async function,
-        # but make it more convinient to patch this function for test purpose
+        # but make it more convenient to patch this function for test purpose
         if not isinstance(data, mx.array):
             data = mx.array(data)
         self._recv_queue.put_nowait(data)
@@ -93,7 +86,7 @@ class DistributedModelMixin:
                 uid=ReceiverActor.gen_uid(self.model_uid, last_rank),
                 address=self.rank_to_addresses[last_rank],
             )
-            return await receiver_ref.send(_convert_to_numpy(result))
+            return await receiver_ref.send(result)
 
         asyncio.run_coroutine_threadsafe(send(), self.loop).result()
         logger.debug(
@@ -116,14 +109,16 @@ class DistributedModelMixin:
 
     def _broadcast_result(self, result: mx.array):
         logger.debug("broadcast result from driver")
-        coros = []
 
         async def broadcast(rank: int):
+            assert self.model_uid is not None
+            assert self.rank_to_addresses is not None
+
             receiver = await xo.actor_ref(
                 uid=ReceiverActor.gen_uid(self.model_uid, rank),
                 address=self.rank_to_addresses[rank],
             )
-            await receiver.send(_convert_to_numpy(result))
+            await receiver.send(result)
 
         async def broadcast_all():
             coros = []
@@ -135,6 +130,7 @@ class DistributedModelMixin:
 
     def _get_result(self) -> mx.array:
         logger.debug("Get result from broadcasted data on self receiver")
+        assert self.model_uid is not None
         coro = xo.actor_ref(
             uid=ReceiverActor.gen_uid(self.model_uid, self.rank), address=self.address
         )
