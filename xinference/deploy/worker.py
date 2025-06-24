@@ -34,8 +34,10 @@ async def start_worker_components(
     metrics_exporter_port: Optional[int],
 ):
     gpu_device_indices = []
-    cuda_visible_devices = os.environ.get(get_available_device_env_name(), None)
-    if cuda_visible_devices is not None and cuda_visible_devices != "-1":
+    env_name = get_available_device_env_name()
+    cuda_visible_devices = os.environ.get(env_name) if env_name else None
+
+    if cuda_visible_devices and cuda_visible_devices != "-1":
         gpu_device_indices.extend([int(i) for i in cuda_visible_devices.split(",")])
     else:
         gpu_device_indices = list(range(gpu_count()))

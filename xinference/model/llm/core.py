@@ -108,7 +108,11 @@ class LLM(abc.ABC):
         from ...device_utils import get_available_device_env_name
         from ...utils import cuda_count
 
-        cuda_visible_devices = os.getenv(get_available_device_env_name(), None)
+        env_name = get_available_device_env_name()
+        if env_name is None:
+            return cuda_count()
+
+        cuda_visible_devices = os.getenv(env_name, None)
         if cuda_visible_devices is None:
             return cuda_count()
 
