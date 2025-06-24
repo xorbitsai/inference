@@ -1994,10 +1994,9 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
 
         model_uid = payload.get("model")
+        args = payload.get("args")
 
-        exclude = {
-            "model",
-        }
+        exclude = {"model", "args"}
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
         try:
@@ -2012,7 +2011,7 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            result = await model.infer(**kwargs)
+            result = await model.infer(*args, **kwargs)
             return Response(result, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
