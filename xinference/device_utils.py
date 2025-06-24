@@ -17,7 +17,7 @@ from typing import Dict, Literal, Union
 
 import torch
 
-DeviceType = Literal["cuda", "mps", "xpu", "npu", "mlu","cpu"]
+DeviceType = Literal["cuda", "mps", "xpu", "npu", "mlu", "cpu"]
 DEVICE_TO_ENV_NAME = {
     "cuda": "CUDA_VISIBLE_DEVICES",
     "npu": "ASCEND_RT_VISIBLE_DEVICES",
@@ -38,14 +38,16 @@ def is_npu_available() -> bool:
     except ImportError:
         return False
 
+
 def is_mlu_available() -> bool:
     try:
         import torch
-        import torch_mlu
+        import torch_mlu  # noqa: F401
 
         return torch.mlu.is_available()
     except ImportError:
         return False
+
 
 def get_available_device() -> DeviceType:
     if torch.cuda.is_available():

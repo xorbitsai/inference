@@ -21,7 +21,7 @@ import xoscar as xo
 from xoscar import MainActorPoolType
 
 from ..core.worker import WorkerActor
-from ..device_utils import gpu_count, get_available_device_env_name
+from ..device_utils import get_available_device_env_name, gpu_count
 
 logger = logging.getLogger(__name__)
 
