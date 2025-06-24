@@ -33,19 +33,21 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-models.txt && \
     pip install -i "$PIP_INDEX" transformers>=4.51.3 && \
     pip install -i "$PIP_INDEX" --no-deps sglang && \
+    pip install torch==2.6.0 && \
     pip uninstall flashinfer -y && \
-    pip install flashinfer-python==0.4.6.post5 -i https://flashinfer.ai/whl/cu124/torch2.6 && \
+    pip install flashinfer-python==0.2.5+cu124torch2.6 -i https://flashinfer.ai/whl/cu124/torch2.6 && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    pip install "xllamacpp>=0.1.18" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
+    pip install xllamacpp==0.1.21 && \
     # clean packages
     pip cache purge
 
 # Install Miniforge3 (only for FFmpeg, do not replace system Python)
-RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" && \
+RUN apt-get install -y wget && \
+    wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" && \
     bash Miniforge3.sh -b -p /opt/conda && \
     rm Miniforge3.sh
 
