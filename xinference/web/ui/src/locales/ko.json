@@ -166,6 +166,7 @@
     "quantizationOptional": "양자화 (선택)",
     "delete": "삭제",
     "controlnet": "Controlnet",
+    "packages": "가상환경 패키지",
     "more": "더보기",
     "modelFormat": "모델 형식",
     "enterNumberGreaterThanZero": "0보다 큰 숫자를 입력하세요.",

@@ -166,6 +166,7 @@
     "quantizationOptional": "量子化（オプション）",
     "delete": "削除",
     "controlnet": "Controlnet",
+    "packages": "仮想環境パッケージ",
     "more": "詳細",
     "modelFormat": "モデルフォーマット",
     "enterNumberGreaterThanZero": "0より大きい数値を入力してください。",
