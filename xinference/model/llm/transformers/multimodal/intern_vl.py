@@ -83,7 +83,7 @@ class InternVLChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import AutoModel
 
-        kwargs: Dict[str, Any] = {
+        kwargs: Dict[str, Any] = {  # type: ignore
             "torch_dtype": torch.bfloat16,
             "low_cpu_mem_usage": True,
             "trust_remote_code": True,

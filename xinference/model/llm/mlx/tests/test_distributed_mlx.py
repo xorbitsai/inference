@@ -113,7 +113,7 @@ async def test_distributed_mlx_model(setup_pool):
             )
 
             super().__init__(
-                None,
+                None,  # type: ignore
                 addr,
                 model,
                 "qwen2.5-instruct",

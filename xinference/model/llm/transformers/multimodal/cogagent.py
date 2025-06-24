@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 class CogAgentChatModel(PytorchMultiModalModel):
     def __init__(self, *args, **kws):
         super().__init__(*args, **kws)
-        self._platform: Optional[Literal["Mac", "WIN", "Mobile"]] = "Mac"
-        self._format: Optional[
+        self._platform: Optional[Literal["Mac", "WIN", "Mobile"]] = "Mac"  # type: ignore
+        self._format: Optional[  # type: ignore
             Literal[
                 "(Answer in Action-Operation-Sensitive format.)",
                 "(Answer in Status-Plan-Action-Operation format.)",
