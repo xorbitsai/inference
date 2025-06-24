@@ -15,9 +15,9 @@
 import asyncio
 import io
 import json
-import os
 import platform
 import sys
+from typing import Dict, Optional
 from unittest.mock import patch
 
 import pytest
@@ -92,7 +92,8 @@ async def test_distributed_mlx_model(setup_pool):
     addresses = pool
 
     class MockModelActor(ModelActor):
-        def __init__(self, shard: int, addr: str, shard_0_addr: str = None):
+        def __init__(self, shard: int, addr: str, shard_0_addr: Optional[str] = None):
+            driver_info: Dict[str, Optional[str]]
             if shard == 0:
                 driver_info = {"address": addr}
             else:
@@ -103,7 +104,7 @@ async def test_distributed_mlx_model(setup_pool):
                 model_spec,
                 "4bit",
                 model_path,
-                {
+                {  # type: ignore
                     "address": addr,
                     "n_worker": 2,
                     "shard": shard,

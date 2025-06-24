@@ -14,7 +14,6 @@
 
 import asyncio
 import concurrent.futures
-import functools
 import importlib
 import importlib.util
 import logging
@@ -39,7 +38,6 @@ from typing import (
 
 import xoscar as xo
 
-from ....core.utils import log_async
 from ....fields import max_tokens_field
 from ....types import (
     ChatCompletion,
@@ -67,6 +65,7 @@ class MLXModelConfig(TypedDict, total=False):
     trust_remote_code: bool
     reasoning_content: bool
     # distributed
+    address: Optional[str]
     shard: Optional[int]
     n_worker: Optional[int]
 
@@ -94,6 +93,8 @@ class PromptCache:
 
 
 class MLXModel(LLM):
+    _rank_to_addresses: Optional[Dict[int, str]]
+
     def __init__(
         self,
         model_uid: str,
@@ -108,6 +109,7 @@ class MLXModel(LLM):
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
         # for distributed
+        assert model_config is not None
         self._address = model_config.pop("address", None)
         self._n_worker = model_config.pop("n_worker", 1)
         self._shard = model_config.pop("shard", 0)
@@ -140,7 +142,7 @@ class MLXModel(LLM):
         if len(self._rank_to_addresses) == self._n_worker:
             self._all_worker_started.set()
 
-    async def get_rank_addresses(self) -> Dict[int, str]:
+    async def get_rank_addresses(self) -> Optional[Dict[int, str]]:
         await self._all_worker_started.wait()
         return self._rank_to_addresses
 
@@ -216,7 +218,6 @@ class MLXModel(LLM):
     def _load_model_shard(self, **kwargs):
         try:
             import mlx.core as mx
-            import mlx.nn as nn
             from mlx_lm.utils import load_model, load_tokenizer
         except ImportError:
             error_message = "Failed to import module 'mlx_lm'"
@@ -561,9 +562,10 @@ class MLXModel(LLM):
     def _run_non_drivers(
         self, method: str, stream: bool, *args, **kwargs
     ) -> Optional[concurrent.futures.Future]:
+        assert self._n_worker is not None and self._shard is not None
         if self._n_worker == 1 or self._shard > 0:
             # only run for distributed driver
-            return
+            return None
 
         async def run_other_shard(shard: int):
             assert self._rank_to_addresses is not None
@@ -585,6 +587,7 @@ class MLXModel(LLM):
                 coros.append(run_other_shard(rank))
             await asyncio.gather(*coros)
 
+        assert self._loop is not None
         return asyncio.run_coroutine_threadsafe(run_non_driver_shards(), self._loop)
 
     def generate(
