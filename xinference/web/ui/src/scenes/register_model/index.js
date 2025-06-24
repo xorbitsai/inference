@@ -86,6 +86,9 @@ const RegisterModel = () => {
                 },
               ],
               model_family: 'your_custom_model',
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -98,6 +101,9 @@ const RegisterModel = () => {
               max_tokens: 512,
               model_uri: '/path/to/embedding-model',
               language: ['en'],
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -109,6 +115,9 @@ const RegisterModel = () => {
               model_uri: '/path/to/rerank-model',
               language: ['en'],
               max_tokens: 512,
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -120,6 +129,9 @@ const RegisterModel = () => {
               model_uri: '/path/to/image-model',
               model_family: 'stable_diffusion',
               controlnet: [],
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -132,6 +144,9 @@ const RegisterModel = () => {
               multilingual: false,
               model_family: 'whisper',
               model_ability: ['text2audio'],
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -144,6 +159,9 @@ const RegisterModel = () => {
               model_uri: '/path/to/model',
               launcher: 'xinference.model.flexible.launchers.transformers',
               launcher_args: '{}',
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>

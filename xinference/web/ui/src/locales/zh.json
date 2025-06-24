@@ -166,6 +166,7 @@
     "quantizationOptional": "量化（可选）",
     "delete": "删除",
     "controlnet": "控制网",
+    "packages": "虚拟环境安装包",
     "more": "更多",
     "modelFormat": "模型格式",
     "enterNumberGreaterThanZero": "请输入大于 0 的数字。",
