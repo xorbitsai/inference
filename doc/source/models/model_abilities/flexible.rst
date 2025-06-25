@@ -42,7 +42,7 @@ For the following examples, unless we have to, we will skip the UI steps and foc
 
 .. raw:: html
 
-    <img class="align-center" alt="actor" src="../../_static/hf-pipeline.png" style="background-color: transparent", width="77%">
+    <img class="align-center" alt="actor" src="../../_static/hf-pipeline.png" style="background-color: transparent", width="95%">
 
 The corresponding custom model JSON file is as follows:
 
@@ -132,7 +132,7 @@ Registering via Web UI:
 
 .. raw:: html
 
-    <img class="align-center" alt="actor" src="../../_static/modelscope-pipeline.png" style="background-color: transparent", width="77%">
+    <img class="align-center" alt="actor" src="../../_static/modelscope-pipeline.png" style="background-color: transparent", width="95%">
 
 Corresponding json file:
 
