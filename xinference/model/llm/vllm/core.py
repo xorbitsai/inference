@@ -252,6 +252,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Kimi-VL-A3B-Instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Kimi-VL-A3B-Thinking")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.9.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
