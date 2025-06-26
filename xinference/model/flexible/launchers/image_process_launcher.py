@@ -23,7 +23,7 @@ from ..core import FlexibleModel, FlexibleModelSpec
 
 
 class ImageRemoveBackgroundModel(FlexibleModel):
-    def infer(self, **kwargs):
+    def infer(self, *args, **kwargs):
         invert = kwargs.get("invert", False)
         b64_image: str = kwargs.get("image")  # type: ignore
         only_mask = kwargs.pop("only_mask", True)

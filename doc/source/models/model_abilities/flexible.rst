@@ -27,6 +27,9 @@ A wide range of traditional machine learning models can be used with Xinference.
 For each of the categories above, we will walk through a representative example to
 demonstrate how to perform inference step by step on the Xinference platform.
 
+Built-in Model Support Examples
+================================
+
 HuggingFace Pipeline Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -76,7 +79,7 @@ Refer to the section :ref:`register_custom_model` for instructions on registerin
 Next, load the model by selecting **Launch Model** / **Custom Model** / **Flexible Model** in the Web UI.
 The loading procedure is the same as for other model types.
 
-When using the command line, remember to specify the option `--model-type flexible`.
+When using the command line, remember to specify the option ``--model-type flexible``.
 
 After the model is successfully loaded, we can perform inference using the following method.
 
@@ -123,12 +126,12 @@ We take a zero-shot classification model from ModelScope as an example.
 The model is `iic/nlp_structbert_zero-shot-classification_chinese-base <https://modelscope.cn/models/iic/nlp_structbert_zero-shot-classification_chinese-base>`_.
 
 Here, we make use of Xinference's model virtual environment feature.
-This is because the model used in this example requires `transformers==4.50.3` to run properly.
+This is because the model used in this example requires ``transformers==4.50.3`` to run properly.
 To isolate the environment, we use a :ref:`virtual env <model_virtual_env>` when registering the model.
 
 When specifying custom packages during registration, the syntax is the same as for regular packages, with a few special cases.
 Since the virtual environment is still based on the site packages of the Python runtime where Xinference is running, we need to explicitly include `#system_numpy#`.
-Packages wrapped in `#system_xx#` ensure consistency with the base environment during virtual environment creation; otherwise, it may easily result in runtime errors.
+Packages wrapped in ``#system_xx#`` ensure consistency with the base environment during virtual environment creation; otherwise, it may easily result in runtime errors.
 
 Registering via Web UI:
 
@@ -293,3 +296,89 @@ Inference the model:
        'confidence': 0.66505,
        'box': {'x1': 0.28522, 'y1': 548.60931, 'x2': 81.25904, 'y2': 871.59076}}]]
 
+Writing a Custom Flexible Model
+==================================
+
+First, we implement a custom launcher with a simple model for sentiment scoring.
+In this example, we do not use any actual model weights, so the ``load`` function does not perform any model loading.
+
+.. code-block:: python
+
+    # my_flexible_model.py
+
+    from xinference.model.flexible import FlexibleModel
+
+
+    class RuleBasedSentimentModel(FlexibleModel):
+        def load(self):
+            self.pos_words = self.config.get("pos", ["good", "happy", "great"])
+            self.neg_words = self.config.get("neg", ["bad", "sad", "terrible"])
+
+        def infer(self, text: str):
+            score = 0
+            words = text.lower().split()
+            for w in words:
+                if w in self.pos_words:
+                    score += 1
+                elif w in self.neg_words:
+                    score -= 1
+            return {"score": score}
+
+
+    def launcher(model_uid: str, model_spec: FlexibleModel, **kwargs) -> FlexibleModel:
+        # get model path,
+        # in this example, we do not use it, so it's empty
+        model_path = model_spec.model_uri
+        return RuleBasedSentimentModel(model_uid=model_uid, model_path=model_path, config=kwargs)
+
+The model JSON definition is as follows:
+
+.. code-block:: json
+
+    {
+        "model_name": "my-flexible-model",
+        "model_id": null,
+        "model_revision": null,
+        "model_hub": "huggingface",
+        "model_description": "This is a model description.",
+        "model_uri": "/path/to/model",
+        "launcher": "my_flexible_model.launcher",
+        "launcher_args": "{\"pos\": [\"good\", \"happy\", \"great\", \"nice\"]}",
+        "virtualenv": {
+            "packages": [],
+            "inherit_pip_config": true,
+            "index_url": null,
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+        },
+        "is_builtin": false
+    }
+
+Here, we extend the model by passing in a custom-defined ``pos`` value.
+
+Finally, let's verify the result:
+
+.. tabs::
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://127.0.0.1:9997")
+
+    model = client.get_model("my-flexible-model")
+
+    model.infer("I feel nice and am happy today")
+
+  .. code-tab:: json output
+
+    {'score': 2}
+
+Conclusion
+==================
+
+The built-in Flexible Model launchers in Xinference can be found at
+`Github <https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_.
+Contributions are welcome to support more traditional machine learning models!
