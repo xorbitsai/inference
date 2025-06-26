@@ -19,7 +19,7 @@ Traditional machine learning models can still play a significant role within an 
 Xinference provides flexible extensibility for performing inference with traditional machine learning models.
 It includes built-in support for loading and running the following types of models:
 
-- Hugging Face Pipelines for tasks such as classification using models hosted on Hugging Face.
+- HuggingFace Pipelines for tasks such as classification using models hosted on HuggingFace.
 - ModelScope Pipelines for tasks such as classification using models from ModelScope.
 - YOLO for image detection and related computer vision tasks.
 
@@ -130,7 +130,7 @@ This is because the model used in this example requires ``transformers==4.50.3``
 To isolate the environment, we use a :ref:`virtual env <model_virtual_env>` when registering the model.
 
 When specifying custom packages during registration, the syntax is the same as for regular packages, with a few special cases.
-Since the virtual environment is still based on the site packages of the Python runtime where Xinference is running, we need to explicitly include `#system_numpy#`.
+Since the virtual environment is still based on the site packages of the Python runtime where Xinference is running, we need to explicitly include ``#system_numpy#``.
 Packages wrapped in ``#system_xx#`` ensure consistency with the base environment during virtual environment creation; otherwise, it may easily result in runtime errors.
 
 Registering via Web UI:
