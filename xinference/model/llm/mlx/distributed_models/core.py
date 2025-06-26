@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
@@ -24,6 +25,8 @@ if TYPE_CHECKING:
 else:
     mx = lazy_import("mlx.core")
 logger = logging.getLogger(__name__)
+
+DEBUG_DISTRIBUTED_MLX = bool(int(os.getenv("XINFERENCE_DEBUG_DISTRIBUTED_MLX", "0")))
 
 
 class ReceiverActor(xo.StatelessActor):
@@ -74,16 +77,18 @@ class DistributedModelMixin:
             address=self.address,
         )
         self._receiver_ref = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
-        logger.debug("Finish preparing distributed env for rank %s", self.rank)
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug("Finish preparing distributed env for rank %s", self.rank)
 
     def _send_stage_result(self, result: "mx.array"):
         assert self.rank > 0
         assert self.rank_to_addresses is not None
         assert self.model_uid is not None
         last_rank = self.rank - 1
-        logger.debug(
-            "Start to send %s partial result to rank %d", self.model_uid, last_rank
-        )
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug(
+                "Start to send %s partial result to rank %d", self.model_uid, last_rank
+            )
 
         async def send():
             receiver_ref = await xo.actor_ref(
@@ -93,26 +98,30 @@ class DistributedModelMixin:
             return await receiver_ref.send(result)
 
         asyncio.run_coroutine_threadsafe(send(), self.loop).result()
-        logger.debug(
-            "Finish send %s partial result to rank %d, shape %s",
-            self.model_uid,
-            last_rank,
-            result.shape,
-        )
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug(
+                "Finish send %s partial result to rank %d, shape %s",
+                self.model_uid,
+                last_rank,
+                result.shape,
+            )
 
     def _wait_prev_stage_result(self):
-        logger.debug("Wait for partial result from prev shard %d", self.rank + 1)
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug("Wait for partial result from prev shard %d", self.rank + 1)
         coro = self._receiver_ref.recv()
         result = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
-        logger.debug(
-            "Received partial result from prev shard %d, shape %s",
-            self.rank + 1,
-            result.shape,
-        )
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug(
+                "Received partial result from prev shard %d, shape %s",
+                self.rank + 1,
+                result.shape,
+            )
         return result
 
     def _broadcast_result(self, result: "mx.array"):
-        logger.debug("broadcast result from driver")
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug("broadcast result from driver")
 
         async def broadcast(rank: int):
             assert self.model_uid is not None
@@ -133,7 +142,8 @@ class DistributedModelMixin:
         return asyncio.run_coroutine_threadsafe(broadcast_all(), self.loop).result()
 
     def _get_result(self) -> "mx.array":
-        logger.debug("Get result from broadcasted data on self receiver")
+        if DEBUG_DISTRIBUTED_MLX:
+            logger.debug("Get result from broadcasted data on self receiver")
         assert self.model_uid is not None
         coro = xo.actor_ref(
             uid=ReceiverActor.gen_uid(self.model_uid, self.rank), address=self.address
