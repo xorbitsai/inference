@@ -14,11 +14,15 @@
 
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
-import mlx.core as mx
 import xoscar as xo
+from xoscar.utils import lazy_import
 
+if TYPE_CHECKING:
+    import mlx.core as mx
+else:
+    mx = lazy_import("mlx.core")
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +36,7 @@ class ReceiverActor(xo.StatelessActor):
     def gen_uid(cls, uid: str, rank: int):
         return f"Receiver-{uid}-{rank}"
 
-    async def send(self, data: mx.array):
+    async def send(self, data: "mx.array"):
         # no need to use async function,
         # but make it more convenient to patch this function for test purpose
         if not isinstance(data, mx.array):
@@ -72,7 +76,7 @@ class DistributedModelMixin:
         self._receiver_ref = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
         logger.debug("Finish preparing distributed env for rank %s", self.rank)
 
-    def _send_stage_result(self, result: mx.array):
+    def _send_stage_result(self, result: "mx.array"):
         assert self.rank > 0
         assert self.rank_to_addresses is not None
         assert self.model_uid is not None
@@ -107,7 +111,7 @@ class DistributedModelMixin:
         )
         return result
 
-    def _broadcast_result(self, result: mx.array):
+    def _broadcast_result(self, result: "mx.array"):
         logger.debug("broadcast result from driver")
 
         async def broadcast(rank: int):
@@ -128,7 +132,7 @@ class DistributedModelMixin:
 
         return asyncio.run_coroutine_threadsafe(broadcast_all(), self.loop).result()
 
-    def _get_result(self) -> mx.array:
+    def _get_result(self) -> "mx.array":
         logger.debug("Get result from broadcasted data on self receiver")
         assert self.model_uid is not None
         coro = xo.actor_ref(
