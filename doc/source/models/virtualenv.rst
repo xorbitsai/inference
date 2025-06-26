@@ -4,9 +4,7 @@
 Model Virtual Environments
 ==========================
 
-.. note::
-
-  New added in v1.5.0.
+.. versionadded:: v1.5.0
 
 Background
 ##########
