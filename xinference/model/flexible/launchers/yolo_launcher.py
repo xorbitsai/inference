@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import inspect
 import io
-import base64
 import json
 
 import PIL.Image
@@ -39,16 +39,15 @@ class UltralyticsModel(FlexibleModel):
         bound_args = sig.bind_partial(*args, **kwargs)  # 或 bind() 视场景选择
         bound_args.apply_defaults()
 
-        if 'source' in bound_args.arguments:
-            source = bound_args.arguments['source']
+        if "source" in bound_args.arguments:
+            source = bound_args.arguments["source"]
             decoded = base64.b64decode(source)
             img = PIL.Image.open(io.BytesIO(decoded))
 
-            bound_args.arguments['source'] = img
+            bound_args.arguments["source"] = img
 
         results = predict_func(*bound_args.args, **bound_args.kwargs)
         return [json.loads(r.to_json()) for r in results]
-
 
 
 def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> FlexibleModel:
