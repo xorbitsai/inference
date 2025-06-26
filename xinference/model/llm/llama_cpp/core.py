@@ -162,7 +162,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
             # This is the default value, could be overwritten by _llamacpp_model_config
-            params.n_parallel = max(8, os.cpu_count() or 1)
+            params.n_parallel = min(8, os.cpu_count() or 1)
             for k, v in self._llamacpp_model_config.items():
                 try:
                     if "." in k:
