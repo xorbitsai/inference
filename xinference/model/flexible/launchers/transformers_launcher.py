@@ -18,7 +18,7 @@ from ..core import FlexibleModel, FlexibleModelSpec
 
 
 class MockModel(FlexibleModel):
-    def infer(self, **kwargs):
+    def infer(self, *args, **kwargs):
         return kwargs
 
 
@@ -27,8 +27,8 @@ class AutoModel(FlexibleModel):
         config = self.config or {}
         self._pipeline = pipeline(model=self.model_path, device=self.device, **config)
 
-    def infer(self, **kwargs):
-        return self._pipeline(**kwargs)
+    def infer(self, *args, **kwargs):
+        return self._pipeline(*args, **kwargs)
 
 
 class TransformersTextClassificationModel(FlexibleModel):
@@ -37,8 +37,8 @@ class TransformersTextClassificationModel(FlexibleModel):
 
         self._pipeline = pipeline(model=self._model_path, device=self._device, **config)
 
-    def infer(self, **kwargs):
-        return self._pipeline(**kwargs)
+    def infer(self, *args, **kwargs):
+        return self._pipeline(*args, **kwargs)
 
 
 def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> FlexibleModel:

@@ -1223,12 +1223,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(
         self,
+        *args,
         **kwargs,
     ):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
                 self._model.infer,
+                *args,
                 **kwargs,
             )
         raise AttributeError(

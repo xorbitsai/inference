@@ -209,6 +209,14 @@ Explore the API
 
       Learn how to generate video with Xinference.
 
+.. grid:: 2
+
+    .. grid-item-card::  Flexible
+      :link: flexible
+      :link-type: ref
+
+      Learn how to inference traditional ML models with Xinference.
+
 
 Getting Involved
 ----------------

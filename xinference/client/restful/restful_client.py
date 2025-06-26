@@ -875,6 +875,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
 class RESTfulFlexibleModelHandle(RESTfulModelHandle):
     def infer(
         self,
+        *args,
         **kwargs,
     ):
         """
@@ -895,6 +896,7 @@ class RESTfulFlexibleModelHandle(RESTfulModelHandle):
         url = f"{self._base_url}/v1/flexible/infers"
         params = {
             "model": self._model_uid,
+            "args": args,
         }
         params.update(kwargs)
 
@@ -904,7 +906,7 @@ class RESTfulFlexibleModelHandle(RESTfulModelHandle):
                 f"Failed to predict, detail: {_get_error_string(response)}"
             )
 
-        return response.content
+        return response.json()
 
 
 class Client:

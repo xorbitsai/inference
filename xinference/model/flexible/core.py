@@ -189,7 +189,7 @@ class FlexibleModel:
         Load the model.
         """
 
-    def infer(self, **kwargs):
+    def infer(self, *args, **kwargs):
         """
         Call model to inference.
         """
