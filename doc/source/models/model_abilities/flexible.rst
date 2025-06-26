@@ -14,6 +14,8 @@ These flexibly extensible models are referred to as **Flexible Models** within X
 Introduction
 ==================
 
+Traditional machine learning models can still play a significant role within an LLM-centric ecosystem.
+
 Xinference provides flexible extensibility for performing inference with traditional machine learning models.
 It includes built-in support for loading and running the following types of models:
 
@@ -196,3 +198,98 @@ Inference the model:
   .. code-tab:: json output
 
     {"labels":["旅游","故事","游戏","家居","科技","军事"],"scores":[0.5115892291069031,0.1660086065530777,0.11971458047628403,0.08431519567966461,0.06298774480819702,0.05538458004593849]}%
+
+YOLO
+~~~~
+
+YOLO is a popular real-time object detection model, widely used in image detection and video analysis scenarios.
+
+First, download the YOLO weights.
+Here, we use the `yolov11s.pt <https://huggingface.co/Ultralytics/YOLO11>`_ file as an example.
+
+JSON file of model definition:
+
+.. code-block:: json
+
+    {
+        "model_name": "yolo11s",
+        "model_id": null,
+        "model_revision": null,
+        "model_hub": "huggingface",
+        "model_description": "YOLO is a popular real-time object detection model, widely used in image detection and video analysis scenarios.",
+        "model_uri": "/Users/xuyeqin/Downloads/models/yolo11s.pt",
+        "launcher": "xinference.model.flexible.launchers.yolo",
+        "launcher_args": "{}",
+        "virtualenv": {
+            "packages": [
+                "ultralytics",
+                "#system_numpy#"
+            ],
+            "inherit_pip_config": true,
+            "index_url": "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple",
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+        },
+        "is_builtin": false
+    }
+
+Inference the model:
+
+.. tabs::
+
+  .. code-tab:: python Xinference Python Client
+
+    import requests
+    from PIL import Image
+    import io
+    import base64
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("yolo11s")
+
+    url = "https://ultralytics.com/images/bus.jpg"
+
+    response = requests.get(url)
+    response.raise_for_status()
+
+    img = Image.open(io.BytesIO(response.content))
+
+    buffered = io.BytesIO()
+    img.save(buffered, format="JPEG")
+    img_bytes = buffered.getvalue()
+    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+
+    model.infer(source=img_base64)
+
+  .. code-tab:: json output
+
+    [[{'name': 'bus',
+       'class': 5,
+       'confidence': 0.93653,
+       'box': {'x1': 13.9521, 'y1': 227.0665, 'x2': 800.17688, 'y2': 739.13965}},
+      {'name': 'person',
+       'class': 0,
+       'confidence': 0.89741,
+       'box': {'x1': 669.89709,
+        'y1': 389.82065,
+        'x2': 809.58966,
+        'y2': 879.65491}},
+      {'name': 'person',
+       'class': 0,
+       'confidence': 0.88205,
+       'box': {'x1': 52.37262, 'y1': 397.83792, 'x2': 248.506, 'y2': 905.98212}},
+      {'name': 'person',
+       'class': 0,
+       'confidence': 0.8706,
+       'box': {'x1': 222.58685,
+        'y1': 405.93442,
+        'x2': 345.02032,
+        'y2': 859.52789}},
+      {'name': 'person',
+       'class': 0,
+       'confidence': 0.66505,
+       'box': {'x1': 0.28522, 'y1': 548.60931, 'x2': 81.25904, 'y2': 871.59076}}]]
+
