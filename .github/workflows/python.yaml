@@ -270,10 +270,7 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py && \
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_distributed_mlx.py && \
-            pytest --timeout=1500 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/distributed_models/test_distributed_model.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_distributed_model.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \

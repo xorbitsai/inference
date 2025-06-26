@@ -37,7 +37,7 @@ class ModelActor(xo.StatelessActor):
         import mlx.core as mx
         from mlx_lm.utils import load_model, load_tokenizer
 
-        from ..qwen2 import Model, ModelArgs
+        from ..distributed_models.qwen2 import Model, ModelArgs
 
         get_class = lambda *_, **__: (Model, ModelArgs)
 
