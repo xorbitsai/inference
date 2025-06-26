@@ -35,7 +35,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" --no-deps sglang && \
     pip install torch==2.6.0 && \
     pip uninstall flashinfer -y && \
-    pip install flashinfer-python==0.2.5+cu124torch2.6 -i https://flashinfer.ai/whl/cu124/torch2.6 && \
+    pip install "xllamacpp>=0.1.21" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
