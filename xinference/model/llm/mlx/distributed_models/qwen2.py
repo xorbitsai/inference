@@ -22,7 +22,6 @@ from mlx_lm.models.qwen2 import Model as _Model
 from mlx_lm.models.qwen2 import ModelArgs
 from mlx_lm.models.qwen2 import Qwen2Model as _Qwen2Model
 
-from .....core.utils import log_sync
 from .core import DistributedModelMixin
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ class Qwen2Model(_Qwen2Model, DistributedModelMixin):
         _Qwen2Model.__init__(self, *args, **kwargs)
         DistributedModelMixin.__init__(self)
 
-    @log_sync(logger)
     def __call__(
         self,
         x: mx.array,
