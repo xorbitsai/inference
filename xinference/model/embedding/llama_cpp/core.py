@@ -40,7 +40,7 @@ class _Error:
         self.msg = msg
 
 
-class LlamaCppEmbeddingModel(EmbeddingModel):
+class XllamaCppEmbeddingModel(EmbeddingModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._llm = None
@@ -230,6 +230,6 @@ class LlamaCppEmbeddingModel(EmbeddingModel):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
-        if model_family.model_format not in ["ggufv2"]:
+        if model_spec.model_format not in ["ggufv2"]:
             return False
         return True

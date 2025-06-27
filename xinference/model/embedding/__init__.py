@@ -135,14 +135,14 @@ def _install():
                 )
 
     from .flag.core import FlagEmbeddingModel
-    from .llama_cpp.core import LlamaCppEmbeddingModel
+    from .llama_cpp.core import XllamaCppEmbeddingModel
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
 
     SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
     FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
     VLLM_CLASSES.extend([VLLMEmbeddingModel])
-    LLAMA_CPP_CLASSES.extend([LlamaCppEmbeddingModel])
+    LLAMA_CPP_CLASSES.extend([XllamaCppEmbeddingModel])
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES

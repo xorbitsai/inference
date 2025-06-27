@@ -416,4 +416,4 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         quantization: str,
     ) -> bool:
         # As default embedding engine, sentence-transformer support all models
-        return True
+        return model_spec.model_format in ["transformers"]

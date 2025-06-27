@@ -94,7 +94,8 @@ class VLLMEmbeddingModel(EmbeddingModel):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
-        prefix = model_family.model_name.split("-", 1)[0]
-        if prefix in SUPPORTED_MODELS_PREFIXES:
-            return True
+        if model_spec.model_format in ["transformers"]:
+            prefix = model_family.model_name.split("-", 1)[0]
+            if prefix in SUPPORTED_MODELS_PREFIXES:
+                return True
         return False

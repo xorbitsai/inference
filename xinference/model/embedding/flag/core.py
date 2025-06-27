@@ -282,6 +282,9 @@ class FlagEmbeddingModel(EmbeddingModel):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
-        if model_family.model_name in FLAG_EMBEDDER_MODEL_LIST:
+        if (
+            model_spec.model_format in ["transformers"]
+            and model_family.model_name in FLAG_EMBEDDER_MODEL_LIST
+        ):
             return True
         return False
