@@ -240,10 +240,21 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
         )
-        self._model = AutoPipelineModel.from_pretrained(
-            self._model_path,
-            **self._kwargs,
-        )
+        try:
+            self._model = AutoPipelineModel.from_pretrained(
+                self._model_path,
+                **self._kwargs,
+            )
+        except ValueError:
+            if "kontext" in self._model_spec.model_name.lower():
+                # flux.1-kontext-dev
+                from diffusers import FluxKontextPipeline
+
+                self._model = FluxKontextPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            else:
+                raise
         self._load_to_device(self._model)
         self._apply_lora()
 
@@ -658,7 +669,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        if self._kwargs.get("controlnet"):
+        if self._kwargs.get("controlnet") or self._model_spec.model_ability == [  # type: ignore
+            "image2image"
+        ]:
             model = self._model
         else:
             ability = "image2image"

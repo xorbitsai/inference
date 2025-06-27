@@ -278,7 +278,7 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
-def cache(model_spec: CacheableModelSpec, model_description_type: type):
+def cache(model_spec: CacheableModelSpec, model_description_type: type, **kwargs):
     if (
         hasattr(model_spec, "model_uri")
         and getattr(model_spec, "model_uri", None) is not None
@@ -305,12 +305,13 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
             None,
             model_spec.model_id,
             revision=model_spec.model_revision,
+            **kwargs,
         )
         create_symlink(download_dir, cache_dir)
     else:
         from huggingface_hub import snapshot_download as hf_download
 
-        use_symlinks = {}
+        use_symlinks = kwargs.copy()
         if not IS_NEW_HUGGINGFACE_HUB:
             use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
         download_dir = retry_download(
