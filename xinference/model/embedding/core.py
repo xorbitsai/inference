@@ -12,23 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import abc
 import gc
 import logging
 import os
+from abc import abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
 
-from ..._compat import ROOT_KEY, ErrorWrapper, ValidationError
+from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
+from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import get_cache_dir, is_model_cached
+from ..utils import valid_model_revision
 from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 EMBEDDING_EMPTY_CACHE_COUNT = int(
     os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_COUNT", "10")
@@ -46,16 +48,37 @@ def get_embedding_model_descriptions():
     return copy.deepcopy(EMBEDDING_MODEL_DESCRIPTIONS)
 
 
+class TransformersEmbeddingSpecV1(BaseModel):
+    model_format: Literal["transformers"]
+    # Must in order that `str` first, then `int`
+    model_id: Optional[str]
+    model_revision: Optional[str]
+    quantizations: List[str]
+    virtualenv: Optional[VirtualEnvSettings]
+
+
+class LlamaCppEmbeddingSpecV1(BaseModel):
+    model_format: Literal["ggufv2"]
+    # Must in order that `str` first, then `int`
+    model_id: Optional[str]
+    model_revision: Optional[str]
+    quantizations: List[str]
+
+
+EmbeddingSpecV1 = Annotated[
+    Union[TransformersEmbeddingSpecV1, LlamaCppEmbeddingSpecV1],
+    Field(discriminator="model_format"),
+]
+
+
 # this class define the basic info of embedding model
-class EmbeddingModelSpec(CacheableModelSpec):
+class EmbeddingModelFamilyV1(BaseModel):
     model_name: str
     dimensions: int
     max_tokens: int
     language: List[str]
-    model_id: str
-    model_revision: Optional[str]
+    model_specs: List["EmbeddingSpecV1"]
     model_hub: str = "huggingface"
-    virtualenv: Optional[VirtualEnvSettings]
 
 
 class EmbeddingModelDescription(ModelDescription):
@@ -63,71 +86,242 @@ class EmbeddingModelDescription(ModelDescription):
         self,
         address: Optional[str],
         devices: Optional[List[str]],
-        model_spec: EmbeddingModelSpec,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: Optional[str],
         model_path: Optional[str] = None,
     ):
         super().__init__(address, devices, model_path=model_path)
+        self._model_family = model_family
         self._model_spec = model_spec
+        self._quantization = quantization
 
     @property
     def spec(self):
-        return self._model_spec
+        return self._model_family
 
     def to_dict(self):
         return {
             "model_type": "embedding",
             "address": self.address,
             "accelerators": self.devices,
-            "model_name": self._model_spec.model_name,
-            "dimensions": self._model_spec.dimensions,
-            "max_tokens": self._model_spec.max_tokens,
-            "language": self._model_spec.language,
-            "model_revision": self._model_spec.model_revision,
+            "model_name": self._model_family.model_name,
+            "dimensions": self._model_family.dimensions,
+            "max_tokens": self._model_family.max_tokens,
+            "language": self._model_family.language,
+            "model_revision": self._model_family.model_revision,
         }
 
     def to_version_info(self):
-        from .utils import get_model_version
-
-        if self._model_path is None:
-            is_cached = get_cache_status(self._model_spec)
-            file_location = get_cache_dir(self._model_spec)
-        else:
-            is_cached = True
-            file_location = self._model_path
-
+        file_location, is_cached = get_file_location(
+            self._model_family, self._model_spec, self._quantization
+        )
         return {
-            "model_version": get_model_version(self._model_spec),
+            "model_version": get_model_version(
+                self._model_family, self._model_spec, self._quantization
+            ),
             "model_file_location": file_location,
             "cache_status": is_cached,
-            "dimensions": self._model_spec.dimensions,
-            "max_tokens": self._model_spec.max_tokens,
+            "dimensions": self._model_family.dimensions,
+            "max_tokens": self._model_family.max_tokens,
         }
 
 
+def get_model_version(
+    embedding_model: EmbeddingModelFamilyV1,
+    embedding_spec: EmbeddingSpecV1,
+    quantization: str,
+) -> str:
+    return f"{embedding_model.model_name}--{embedding_model.max_tokens}--{embedding_model.dimensions}--{embedding_spec.model_format}--{quantization}"
+
+
+def get_file_location(
+    model_family: EmbeddingModelFamilyV1,
+    spec: EmbeddingSpecV1,
+    quantization: str,
+) -> Tuple[str, bool]:
+    cache_dir = _get_cache_dir(
+        model_family, spec, quantization, create_if_not_exist=False
+    )
+    cache_status = get_cache_status(model_family, spec, quantization)
+    if isinstance(cache_status, list):
+        is_cached = None
+        for q, cs in zip(spec.quantizations, cache_status):
+            if q == quantization:
+                is_cached = cs
+                break
+    else:
+        is_cached = cache_status
+    assert isinstance(is_cached, bool)
+
+    if spec.model_format in ["transformers"]:
+        return cache_dir, is_cached
+    elif spec.model_format in ["ggufv2"]:
+        assert isinstance(spec, LlamaCppEmbeddingSpecV1)
+        filename = spec.model_file_name_template.format(quantization=quantization)
+        model_path = os.path.join(cache_dir, filename)
+        return model_path, is_cached
+    else:
+        raise ValueError(f"Not supported model format {spec.model_format}")
+
+
+def _get_cache_dir(
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
+    quantization: Optional[str] = None,
+    create_if_not_exist=True,
+):
+    # If the model id contains quantization, then we should give each
+    # quantization a dedicated cache dir.
+    quant_suffix = ""
+    if model_spec.model_id and "{" in model_spec.model_id and quantization is not None:
+        quant_suffix = quantization
+    else:
+        for q in model_spec.quantizations:
+            if model_spec.model_id and q in model_spec.model_id:
+                quant_suffix = q
+                break
+
+    # some model name includes ".", e.g. qwen1.5-chat
+    # if the model does not require trust_remote_code, it's OK
+    # because no need to import modeling_xxx.py from the path
+    # but when the model need to trust_remote_code,
+    # e.g. internlm2.5-chat, the import will fail,
+    # but before the model may have been downloaded,
+    # thus we check it first, if exist, return it,
+    # otherwise, we replace the "." with "_" in model name
+    old_cache_dir_name = f"{model_family.model_name}-{model_spec.model_format}"
+    if quant_suffix:
+        old_cache_dir_name += f"-{quant_suffix}"
+    old_cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, old_cache_dir_name)
+    )
+    if os.path.exists(old_cache_dir):
+        return old_cache_dir
+    else:
+        cache_dir_name = (
+            f"{model_family.model_name.replace('.', '_')}-{model_spec.model_format}"
+        )
+        if quant_suffix:
+            cache_dir_name += f"-{quant_suffix}"
+        cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+        if create_if_not_exist and not os.path.exists(cache_dir):
+            os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir
+
+
+def _get_meta_path(
+    cache_dir: str,
+    model_format: str,
+    model_hub: str,
+    quantization: Optional[str] = None,
+):
+    if model_format == "transformers":
+        return os.path.join(cache_dir, f"__valid_download_{model_hub}")
+    elif model_format == "ggufv2":
+        assert quantization is not None
+        return os.path.join(cache_dir, f"__valid_download_{model_hub}_{quantization}")
+    else:
+        raise ValueError(f"Unsupported format: {model_format}")
+
+
 def generate_embedding_description(
-    model_spec: EmbeddingModelSpec,
+    model_family: EmbeddingModelFamilyV1,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[model_spec.model_name].append(
-        EmbeddingModelDescription(None, None, model_spec).to_version_info()
-    )
+    for spec in model_family.model_specs:
+        for q in spec.quantizations:
+            res[model_family.model_name].append(
+                EmbeddingModelDescription(
+                    None, None, model_family, spec, q
+                ).to_version_info()
+            )
     return res
 
 
-def cache(model_spec: EmbeddingModelSpec):
+def cache(
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
+    quantization: Optional[str],
+):
     from ..utils import cache
 
-    return cache(model_spec, EmbeddingModelDescription)
+    return cache(model_family, EmbeddingModelDescription)
+
+
+def _check_revision(
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
+    builtin: list,
+    meta_path: str,
+    quantization: Optional[str] = None,
+) -> bool:
+    for family in builtin:
+        if model_family.model_name == family.model_name:
+            specs = family.model_specs
+            for spec in specs:
+                if spec.model_format == "transformers" and (
+                    quantization is None or quantization in spec.quantizations
+                ):
+                    return valid_model_revision(meta_path, spec.model_revision)
+    return False
 
 
 def get_cache_status(
-    model_spec: EmbeddingModelSpec,
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
+    quantization: Optional[str] = None,
 ) -> bool:
-    return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)
+    """
+    Checks if a model's cache status is available based on the model format and quantization.
+    Supports different directories and model formats.
+    """
 
+    def check_file_status(meta_path: str) -> bool:
+        return os.path.exists(meta_path)
 
-import abc
-from abc import abstractmethod
+    def check_revision_status(
+        meta_path: str, families: list, quantization: Optional[str] = None
+    ) -> bool:
+        return _check_revision(
+            model_family, model_spec, families, meta_path, quantization
+        )
+
+    def handle_quantization(q: Union[str, None]) -> bool:
+        specific_cache_dir = _get_cache_dir(
+            model_family, model_spec, q, create_if_not_exist=False
+        )
+        meta_paths = {
+            "huggingface": _get_meta_path(
+                specific_cache_dir, model_spec.model_format, "huggingface", q
+            ),
+            "modelscope": _get_meta_path(
+                specific_cache_dir, model_spec.model_format, "modelscope", q
+            ),
+        }
+        if model_spec.model_format == "transformers":
+            return check_revision_status(
+                meta_paths["huggingface"], BUILTIN_LLM_FAMILIES, q
+            ) or check_revision_status(
+                meta_paths["modelscope"], BUILTIN_MODELSCOPE_LLM_FAMILIES, q
+            )
+        else:
+            return check_file_status(meta_paths["huggingface"]) or check_file_status(
+                meta_paths["modelscope"]
+            )
+
+    if model_spec.model_id and "{" in model_spec.model_id:
+        return (
+            [handle_quantization(q) for q in model_spec.quantizations]
+            if quantization is None
+            else handle_quantization(quantization)
+        )
+    else:
+        return (
+            [handle_quantization(q) for q in model_spec.quantizations]
+            if model_spec.model_format != "transformers"
+            else handle_quantization(None)
+        )
 
 
 class EmbeddingModel(abc.ABC):
@@ -135,7 +329,9 @@ class EmbeddingModel(abc.ABC):
         self,
         model_uid: str,
         model_path: str,
-        model_spec: EmbeddingModelSpec,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: Optional[str] = None,
         device: Optional[str] = None,
         **kwargs,
     ):
@@ -145,8 +341,10 @@ class EmbeddingModel(abc.ABC):
         self._model = None
         self._tokenizer = None
         self._counter = 0
+        self._model_family = model_family
         self._model_spec = model_spec
-        self._model_name = self._model_spec.model_name
+        self._quantization = quantization
+        self._model_name = self._model_family.model_name
         self._kwargs = kwargs
 
     @classmethod
@@ -156,11 +354,11 @@ class EmbeddingModel(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def match_json(cls, model_spec: EmbeddingModelSpec) -> bool:
+    def match_json(cls, model_spec: EmbeddingModelFamilyV1) -> bool:
         pass
 
     @classmethod
-    def match(cls, model_spec: EmbeddingModelSpec):
+    def match(cls, model_spec: EmbeddingModelFamilyV1):
         """
         Return if the model_spec can be matched.
         """
@@ -295,31 +493,41 @@ def create_embedding_model_instance(
     model_uid: str,
     model_name: str,
     model_engine: Optional[str],
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
-    model_spec = match_embedding(model_name, download_hub)
+    model_family, model_spec, quantization = match_embedding(
+        model_name, model_format, quantization, download_hub
+    )
     if model_path is None:
-        model_path = cache(model_spec)
+        model_path = cache(model_family, model_spec, quantization)
 
     if model_engine is None:
-        # unlike LLM and for compatibility
+        # unlike LLM and for compatibility,
         # we use sentence_transformers as the default engine for all models
         model_engine = "sentence_transformers"
 
     from .embed_family import check_engine_by_model_name_and_engine
 
     embedding_cls = check_engine_by_model_name_and_engine(
-        model_name,
-        model_engine,
+        model_engine, model_name, model_format, quantization
     )
     devices = devices or ["cpu"]
     # model class should be one of flag, fastembed, sentence_transformers
-    model = embedding_cls(model_uid, model_path, model_spec, **kwargs)
+    model = embedding_cls(
+        model_uid, model_path, model_family, model_spec, quantization, devices, **kwargs
+    )
     model_description = EmbeddingModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
+        subpool_addr,
+        devices,
+        model_family,
+        model_spec,
+        quantization,
+        model_path,
     )
     return model, model_description

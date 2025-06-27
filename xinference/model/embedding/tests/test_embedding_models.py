@@ -20,9 +20,9 @@ import tempfile
 import pytest
 
 from ...utils import valid_model_revision
-from ..core import EmbeddingModelSpec, cache, create_embedding_model_instance
+from ..core import EmbeddingModelFamilyV1, cache, create_embedding_model_instance
 
-TEST_MODEL_SPEC = EmbeddingModelSpec(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
@@ -31,7 +31,7 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
 )
 
-TEST_MODEL_SPEC2 = EmbeddingModelSpec(
+TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
@@ -40,7 +40,7 @@ TEST_MODEL_SPEC2 = EmbeddingModelSpec(
     model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
 )
 
-TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
+TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
     model_name="bge-small-zh-v1.5",
     dimensions=512,
     max_tokens=512,
@@ -124,11 +124,11 @@ def test_get_cache_status():
 
 def test_from_local_uri():
     from ...utils import cache_from_uri
-    from ..custom import CustomEmbeddingModelSpec
+    from ..custom import CustomEmbeddingModelFamilyV1
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomEmbeddingModelSpec(
+    model_spec = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_a",
         dimensions=1024,
         max_tokens=2048,
@@ -148,7 +148,7 @@ def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
     from ...utils import cache_from_uri
     from ..custom import (
-        CustomEmbeddingModelSpec,
+        CustomEmbeddingModelFamilyV1,
         register_embedding,
         unregister_embedding,
     )
@@ -156,7 +156,7 @@ def test_register_custom_embedding():
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomEmbeddingModelSpec(
+    model_spec = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_b",
         dimensions=1024,
         max_tokens=2048,
@@ -173,7 +173,7 @@ def test_register_custom_embedding():
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomEmbeddingModelSpec(
+    model_spec = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_b-v15",
         dimensions=1024,
         max_tokens=2048,
@@ -185,7 +185,7 @@ def test_register_custom_embedding():
         register_embedding(model_spec, False)
 
     # name conflict
-    model_spec = CustomEmbeddingModelSpec(
+    model_spec = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_c",
         dimensions=1024,
         max_tokens=2048,

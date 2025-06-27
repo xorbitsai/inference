@@ -16,14 +16,15 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type
 
 if TYPE_CHECKING:
-    from .core import EmbeddingModel, EmbeddingModelSpec
+    from .core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
 
 FLAG_EMBEDDER_CLASSES: List[Type["EmbeddingModel"]] = []
 SENTENCE_TRANSFORMER_CLASSES: List[Type["EmbeddingModel"]] = []
 VLLM_CLASSES: List[Type["EmbeddingModel"]] = []
+LLAMA_CPP_CLASSES: List[Type["EmbeddingModel"]] = []
 
 BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
-MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
+BUILTIN_MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,12 @@ logger = logging.getLogger(__name__)
 # Desc: this file used to manage embedding models information.
 def match_embedding(
     model_name: str,
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> "EmbeddingModelSpec":
+) -> tuple["EmbeddingModelFamilyV1", "EmbeddingSpecV1", str]:
     from ..utils import download_from_modelscope
 
     # The model info has benn init by __init__.py with model_spec.json file
@@ -45,15 +48,20 @@ def match_embedding(
         if model_name == model_spec.model_name:
             return model_spec
 
-    if download_hub == "modelscope" and model_name in MODELSCOPE_EMBEDDING_MODELS:
+    if (
+        download_hub == "modelscope"
+        and model_name in BUILTIN_MODELSCOPE_EMBEDDING_MODELS
+    ):
         logger.debug(f"Embedding model {model_name} found in ModelScope.")
-        return MODELSCOPE_EMBEDDING_MODELS[model_name]
+        return BUILTIN_MODELSCOPE_EMBEDDING_MODELS[model_name]
     elif download_hub == "huggingface" and model_name in BUILTIN_EMBEDDING_MODELS:
         logger.debug(f"Embedding model {model_name} found in Huggingface.")
         return BUILTIN_EMBEDDING_MODELS[model_name]
-    elif download_from_modelscope() and model_name in MODELSCOPE_EMBEDDING_MODELS:
+    elif (
+        download_from_modelscope() and model_name in BUILTIN_MODELSCOPE_EMBEDDING_MODELS
+    ):
         logger.debug(f"Embedding model {model_name} found in ModelScope.")
-        return MODELSCOPE_EMBEDDING_MODELS[model_name]
+        return BUILTIN_MODELSCOPE_EMBEDDING_MODELS[model_name]
     elif model_name in BUILTIN_EMBEDDING_MODELS:
         logger.debug(f"Embedding model {model_name} found in Huggingface.")
         return BUILTIN_EMBEDDING_MODELS[model_name]
@@ -61,7 +69,7 @@ def match_embedding(
         raise ValueError(
             f"Embedding model {model_name} not found, available"
             f"Huggingface: {BUILTIN_EMBEDDING_MODELS.keys()}"
-            f"ModelScope: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
+            f"ModelScope: {BUILTIN_MODELSCOPE_EMBEDDING_MODELS.keys()}"
         )
 
 
@@ -71,8 +79,7 @@ SUPPORTED_ENGINES: Dict[str, List[Type["EmbeddingModel"]]] = {}
 
 
 def check_engine_by_model_name_and_engine(
-    model_name: str,
-    model_engine: str,
+    model_engine: str, model_name: str, model_format: str, quantization: str
 ) -> Type["EmbeddingModel"]:
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in EMBEDDING_ENGINES[model_name].keys():

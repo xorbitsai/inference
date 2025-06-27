@@ -17,9 +17,9 @@ import importlib.util
 import logging
 import os
 import platform
+import pprint
 import queue
 import sys
-import pprint
 from typing import List, Optional, Union
 
 import orjson

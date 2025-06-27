@@ -240,7 +240,7 @@ class WorkerActor(xo.StatelessActor):
             unregister_audio,
         )
         from ..model.embedding import (
-            CustomEmbeddingModelSpec,
+            CustomEmbeddingModelFamilyV1,
             generate_embedding_description,
             register_embedding,
             unregister_embedding,
@@ -278,7 +278,7 @@ class WorkerActor(xo.StatelessActor):
                 generate_llm_description,
             ),
             "embedding": (
-                CustomEmbeddingModelSpec,
+                CustomEmbeddingModelFamilyV1,
                 register_embedding,
                 unregister_embedding,
                 generate_embedding_description,

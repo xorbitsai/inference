@@ -17,7 +17,7 @@ from threading import Lock
 from typing import List, Optional
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
-from .core import EmbeddingModelSpec
+from .core import EmbeddingModelFamilyV1
 
 logger = logging.getLogger(__name__)
 
@@ -25,26 +25,26 @@ logger = logging.getLogger(__name__)
 UD_EMBEDDING_LOCK = Lock()
 
 
-class CustomEmbeddingModelSpec(EmbeddingModelSpec):
+class CustomEmbeddingModelFamilyV1(EmbeddingModelFamilyV1):
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]
 
 
-UD_EMBEDDINGS: List[CustomEmbeddingModelSpec] = []
+UD_EMBEDDINGS: List[CustomEmbeddingModelFamilyV1] = []
 
 
-def get_user_defined_embeddings() -> List[EmbeddingModelSpec]:
+def get_user_defined_embeddings() -> List[EmbeddingModelFamilyV1]:
     with UD_EMBEDDING_LOCK:
         return UD_EMBEDDINGS.copy()
 
 
-def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
+def register_embedding(model_spec: CustomEmbeddingModelFamilyV1, persist: bool):
     from ...constants import XINFERENCE_MODEL_DIR
     from ..utils import is_valid_model_name, is_valid_model_uri
     from . import (
         BUILTIN_EMBEDDING_MODELS,
-        MODELSCOPE_EMBEDDING_MODELS,
+        BUILTIN_MODELSCOPE_EMBEDDING_MODELS,
         generate_engine_config_by_model_name,
     )
 
@@ -58,7 +58,7 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
     with UD_EMBEDDING_LOCK:
         for model_name in (
             list(BUILTIN_EMBEDDING_MODELS.keys())
-            + list(MODELSCOPE_EMBEDDING_MODELS.keys())
+            + list(BUILTIN_MODELSCOPE_EMBEDDING_MODELS.keys())
             + [spec.model_name for spec in UD_EMBEDDINGS]
         ):
             if model_spec.model_name == model_name:
