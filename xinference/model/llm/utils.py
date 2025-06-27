@@ -560,7 +560,7 @@ class ChatModelMixin:
         text: str = text.strip()  # type: ignore
 
         def split_into_blocks(text: str) -> list[str]:
-            # 匹配以 <think> 或 <tool_call> 开始并以 </think> 或 </tool_call> 结束的块
+            # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
             pattern = r"(<(think|tool_call)>.*?</\2>)"
             blocks = re.findall(pattern, text, re.DOTALL)
             return [match[0] for match in blocks]
