@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 import torch
 
 from .....model.utils import select_device
+from ...core import chat_context_var
 from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
@@ -187,9 +188,14 @@ class CogAgentChatModel(PytorchMultiModalModel):
             "return_tensors": "pt",
             "return_dict": True,
         }
-        full_context_kwargs.update(
-            self._get_chat_template_kwargs_from_generate_config(generate_config, self.reasoning_parser) or {}  # type: ignore
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs.update(chat_template_kwargs)
         assert self.model_family.chat_template is not None
         inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],

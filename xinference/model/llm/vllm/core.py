@@ -51,6 +51,7 @@ from ....types import (
     LoRA,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
+from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV1, cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -1201,12 +1202,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -1325,12 +1328,14 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
 
             messages = self._transform_messages(messages)
 
-            full_context_kwargs = (
+            chat_template_kwargs = (
                 self._get_chat_template_kwargs_from_generate_config(
                     generate_config, self.reasoning_parser
                 )
                 or {}
             )
+            chat_context_var.set(chat_template_kwargs)
+            full_context_kwargs = chat_template_kwargs.copy()
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

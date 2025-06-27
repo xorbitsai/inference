@@ -22,6 +22,7 @@ import torch
 
 from ....core.scheduler import InferenceRequest
 from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
+from ..core import chat_context_var
 from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..utils import (
     GLM4_TOOL_CALL_FAMILY,
@@ -464,12 +465,14 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     tools = list(tools) if tools is not None else None
                     tool_choice = r.generate_config.get("tool_choice", "none")
 
-                    full_context_kwargs = (
+                    chat_template_kwargs = (
                         self._get_chat_template_kwargs_from_generate_config(
                             r.generate_config, self.reasoning_parser
                         )
                         or {}
                     )
+                    chat_context_var.set(chat_template_kwargs)
+                    full_context_kwargs = chat_template_kwargs.copy()
                     r.prompt = self._process_messages(
                         r.prompt, tools=tools, tool_choice=tool_choice
                     )

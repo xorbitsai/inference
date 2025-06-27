@@ -20,6 +20,7 @@ import platform
 import warnings
 from abc import abstractmethod
 from collections import defaultdict
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
@@ -155,6 +156,17 @@ class LLM(abc.ABC):
             self.model_family.reasoning_end_tag,  # type: ignore
             enable_thinking=enable_thinking,
         )
+
+
+# Context variable for passing per-request chat context (e.g., chat_template_kwargs).
+# This variable should be set at the beginning of each chat or stream_chat call.
+# It allows downstream components (e.g., reasoning_parser) to access request-specific
+# settings like 'enable_thinking', without requiring those values to be passed explicitly
+# through every function layer.
+#
+# The context is automatically isolated per thread or coroutine, so concurrent requests
+# will not interfere with each other.
+chat_context_var: ContextVar[dict] = ContextVar("chat_context_var", default={})
 
 
 class LLMDescription(ModelDescription):

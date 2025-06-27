@@ -167,13 +167,7 @@ class ChatModelMixin:
         generate_config: Optional[Union[dict, Any]],
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> Optional[dict]:
-        if reasoning_parser and not reasoning_parser.enable_thinking:
-            # hybrid model like qwen3,
-            # disabled thinking
-            return {"enable_thinking": False}
-        if not generate_config:
-            return None
-        if "chat_template_kwargs" in generate_config:
+        if generate_config and "chat_template_kwargs" in generate_config:
             kwargs = generate_config["chat_template_kwargs"]
             if isinstance(kwargs, str):
                 try:
@@ -190,6 +184,10 @@ class ChatModelMixin:
                     f"`chat_template_kwargs` but be a JSON parsable str "
                     f"or dict, got: {kwargs}"
                 )
+        elif reasoning_parser and not reasoning_parser.enable_thinking:
+            # hybrid model like qwen3,
+            # disabled thinking
+            return {"enable_thinking": False}
         return None
 
     @staticmethod
