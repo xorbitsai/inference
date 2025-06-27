@@ -17,7 +17,7 @@ import logging
 from typing import List, Union
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
-from ..core import EmbeddingModel, EmbeddingModelFamilyV1
+from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
@@ -88,8 +88,13 @@ class VLLMEmbeddingModel(EmbeddingModel):
         return importlib.util.find_spec("vllm") is not None
 
     @classmethod
-    def match_json(cls, model_spec: EmbeddingModelFamilyV1) -> bool:
-        prefix = model_spec.model_name.split("-", 1)[0]
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> bool:
+        prefix = model_family.model_name.split("-", 1)[0]
         if prefix in SUPPORTED_MODELS_PREFIXES:
             return True
         return False

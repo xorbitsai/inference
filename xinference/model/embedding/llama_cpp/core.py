@@ -26,7 +26,7 @@ import orjson
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...memory import estimate_gpu_layers
-from ..core import EmbeddingModel, EmbeddingModelFamilyV1
+from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +224,12 @@ class LlamaCppEmbeddingModel(EmbeddingModel):
         return importlib.util.find_spec("xllamacpp") is not None
 
     @classmethod
-    def match_json(cls, model_spec: EmbeddingModelFamilyV1) -> bool:
-        if model_spec.model_format not in ["ggufv2"]:
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> bool:
+        if model_family.model_format not in ["ggufv2"]:
             return False
         return True

@@ -18,14 +18,18 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import valid_model_revision
-from .embed_family import match_embedding
+from .embed_family import (
+    BUILTIN_EMBEDDING_MODELS,
+    BUILTIN_MODELSCOPE_EMBEDDING_MODELS,
+    match_embedding,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +67,7 @@ class LlamaCppEmbeddingSpecV1(BaseModel):
     model_id: Optional[str]
     model_revision: Optional[str]
     quantizations: List[str]
+    model_file_name_template: str
 
 
 EmbeddingSpecV1 = Annotated[
@@ -252,7 +257,7 @@ def cache(
 def _check_revision(
     model_family: EmbeddingModelFamilyV1,
     model_spec: EmbeddingSpecV1,
-    builtin: list,
+    builtin: Iterable,
     meta_path: str,
     quantization: Optional[str] = None,
 ) -> bool:
@@ -281,7 +286,7 @@ def get_cache_status(
         return os.path.exists(meta_path)
 
     def check_revision_status(
-        meta_path: str, families: list, quantization: Optional[str] = None
+        meta_path: str, families: Iterable, quantization: Optional[str] = None
     ) -> bool:
         return _check_revision(
             model_family, model_spec, families, meta_path, quantization
@@ -301,9 +306,11 @@ def get_cache_status(
         }
         if model_spec.model_format == "transformers":
             return check_revision_status(
-                meta_paths["huggingface"], BUILTIN_LLM_FAMILIES, q
+                meta_paths["huggingface"], BUILTIN_EMBEDDING_MODELS.values(), q
             ) or check_revision_status(
-                meta_paths["modelscope"], BUILTIN_MODELSCOPE_LLM_FAMILIES, q
+                meta_paths["modelscope"],
+                BUILTIN_MODELSCOPE_EMBEDDING_MODELS.values(),
+                q,
             )
         else:
             return check_file_status(meta_paths["huggingface"]) or check_file_status(
@@ -354,17 +361,27 @@ class EmbeddingModel(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def match_json(cls, model_spec: EmbeddingModelFamilyV1) -> bool:
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> bool:
         pass
 
     @classmethod
-    def match(cls, model_spec: EmbeddingModelFamilyV1):
+    def match(
+        cls,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ):
         """
         Return if the model_spec can be matched.
         """
         if not cls.check_lib():
             return False
-        return cls.match_json(model_spec)
+        return cls.match_json(model_family, model_spec, quantization)
 
     @abstractmethod
     def load(self):

@@ -61,24 +61,40 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
-def generate_engine_config_by_model_name(model_spec: "EmbeddingModelFamilyV1"):
-    model_name = model_spec.model_name
+def check_format_with_engine(model_format, engine):
+    if model_format in ["ggufv2"] and engine not in ["llama.cpp"]:
+        return False
+    if model_format not in ["ggufv2"] and engine == "llama.cpp":
+        return False
+    return True
+
+
+def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV1"):
+    model_name = model_family.model_name
     engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
         model_name, {}
     )  # structure for engine query
-    for engine in SUPPORTED_ENGINES:
-        CLASSES = SUPPORTED_ENGINES[engine]
-        for cls in CLASSES:
-            # Every engine needs to implement match method
-            if cls.match(model_spec):
-                # we only match the first class for an engine
-                engines[engine] = [
-                    {
-                        "model_name": model_name,
-                        "embedding_class": cls,
-                    }
-                ]
-                break
+    for spec in model_family.model_specs:
+        model_format = spec.model_format
+        quantizations = spec.quantizations
+        for quantization in quantizations:
+            for engine in SUPPORTED_ENGINES:
+                if not check_format_with_engine(
+                    model_format, engine
+                ):  # match the format of model with engine
+                    continue
+                CLASSES = SUPPORTED_ENGINES[engine]
+                for cls in CLASSES:
+                    # Every engine needs to implement match method
+                    if cls.match(model_family, spec, quantization):
+                        # we only match the first class for an engine
+                        engines[engine] = [
+                            {
+                                "model_name": model_name,
+                                "embedding_class": cls,
+                            }
+                        ]
+                        break
     EMBEDDING_ENGINES[model_name] = engines
 
 

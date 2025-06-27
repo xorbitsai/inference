@@ -21,7 +21,7 @@ import numpy as np
 import torch
 
 from ....types import Dict, Embedding, EmbeddingData, EmbeddingUsage
-from ..core import EmbeddingModel, EmbeddingModelFamilyV1
+from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -409,6 +409,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         return importlib.util.find_spec("sentence_transformers") is not None
 
     @classmethod
-    def match_json(cls, model_spec: EmbeddingModelFamilyV1) -> bool:
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> bool:
         # As default embedding engine, sentence-transformer support all models
         return True
