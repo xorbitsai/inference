@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 class BufferTransferMixin:
     def __init__(self):
         self.num_buffer: int = 0
-        self.buffers: List[torch.Tensor] = []
-        self.buffer_queue: Optional[Queue] = None
+        self.buffers: List[torch.Tensor] = []  # type: ignore
+        self.buffer_queue: Optional[Queue] = None  # type: ignore
         self.transfer_block_num = 0
         self.num_attn_layers = 0
 
