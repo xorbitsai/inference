@@ -1056,8 +1056,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         return generate_config
 
     @staticmethod
-    def is_tool_call_chunk(chunk):
+    def is_tool_call_chunk_start(chunk):
         return chunk["choices"][0]["text"].startswith(QWEN_TOOL_CALL_SYMBOLS[0])
+
+    @staticmethod
+    def is_tool_call_chunk_end(chunk):
+        return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
     async def _async_to_tool_completion_chunks(
         self,
@@ -1065,8 +1069,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
         previous_texts = [""]
+        tool_call = False
+        tool_call_texts = [""]
         if self.reasoning_parser:
-            chunks = self.reasoning_parser.prepare_reasoning_content(chunks)
+            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
             if i == 0:
                 for first_chunk in self._get_first_chat_completion_chunk(
@@ -1078,13 +1084,22 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if not choices:
                 yield self._get_final_chat_completion_chunk(chunk)
             else:
-                if self.is_tool_call_chunk(chunk):
-                    yield self._post_process_completion_chunk(
-                        self.model_family,
-                        self.model_uid,
-                        chunk,
-                        reasoning_parser=self.reasoning_parser,
-                    )
+                if self.is_tool_call_chunk_start(chunk):
+                    tool_call = True
+                if tool_call:
+                    tool_call_text = tool_call_texts[-1]
+                    tool_call_text += chunk["choices"][0]["text"]
+                    tool_call_texts.append(tool_call_text)
+                    if self.is_tool_call_chunk_end(chunk):
+                        yield self._post_process_completion_chunk(
+                            self.model_family,
+                            self.model_uid,
+                            chunk,
+                            reasoning_parser=self.reasoning_parser,
+                            tool_call_text=tool_call_text,
+                        )
+                        tool_call = False
+                        tool_call_texts = [""]
                 else:
                     yield self._to_chat_completion_chunk(
                         chunk, self.reasoning_parser, previous_texts
