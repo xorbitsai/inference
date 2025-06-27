@@ -266,7 +266,7 @@ class ReasoningParser:
                         continue
                     assert isinstance(delta, dict)
                     text = delta.get("content")
-                    if text is None:
+                    if not text:
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
@@ -277,7 +277,7 @@ class ReasoningParser:
                 else:
                     # For standard completion chunks
                     text = choices[0].get("text")
-                    if text is None:
+                    if not text:
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
