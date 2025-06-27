@@ -59,6 +59,8 @@ class ImageModelFamilyV1(CacheableModelSpec):
     gguf_model_id: Optional[str]
     gguf_quantizations: Optional[List[str]]
     gguf_model_file_name_template: Optional[str]
+    allow_patterns: Optional[Union[List[str], str]]
+    ignore_patterns: Optional[Union[List[str], str]]
     virtualenv: Optional[VirtualEnvSettings]
 
 
@@ -172,7 +174,12 @@ def match_diffusion(
 def cache(model_spec: ImageModelFamilyV1):
     from ..utils import cache
 
-    return cache(model_spec, ImageModelDescription)
+    kwargs = {}
+    if model_spec.allow_patterns:
+        kwargs["allow_patterns"] = model_spec.allow_patterns
+    if model_spec.ignore_patterns:
+        kwargs["ignore_patterns"] = model_spec.ignore_patterns
+    return cache(model_spec, ImageModelDescription, **kwargs)
 
 
 def get_cache_dir(model_spec: ImageModelFamilyV1):

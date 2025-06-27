@@ -221,6 +221,7 @@ class MediaInterface:
             n: int,
             size_width: int,
             size_height: int,
+            guidance_scale: int,
             num_inference_steps: int,
             padding_image_to_multiple: int,
             sampler_name: Optional[str] = None,
@@ -237,6 +238,7 @@ class MediaInterface:
                 size = f"{int(size_width)}*{int(size_height)}"
             else:
                 size = None
+            guidance_scale = None if guidance_scale == -1 else guidance_scale  # type: ignore
             num_inference_steps = (
                 None if num_inference_steps == -1 else num_inference_steps  # type: ignore
             )
@@ -262,6 +264,7 @@ class MediaInterface:
                         size=size,
                         response_format="b64_json",
                         num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
                         padding_image_to_multiple=padding_image_to_multiple,
                         sampler_name=sampler_name,
                     )
@@ -314,6 +317,7 @@ class MediaInterface:
                     size_height = gr.Number(label="Height", value=-1)
 
                 with gr.Row():
+                    guidance_scale = gr.Number(label="Guidance scale", value=-1)
                     num_inference_steps = gr.Number(
                         label="Inference Step Number", value=-1
                     )
@@ -341,6 +345,7 @@ class MediaInterface:
                     n,
                     size_width,
                     size_height,
+                    guidance_scale,
                     num_inference_steps,
                     padding_image_to_multiple,
                     sampler_name,
