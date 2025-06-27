@@ -1215,13 +1215,14 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        messages = self._transform_messages(messages)
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
 
-        if "internvl2" not in model_family.lower():
+        if "internvl" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
+
+            messages = self._transform_messages(messages)
 
             full_context_kwargs = (
                 self._get_chat_template_kwargs_from_generate_config(
