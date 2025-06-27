@@ -30,7 +30,7 @@ def get_file_host_endian(reader: GGUFReader) -> tuple[str, str]:
         host_endian = "BIG" if file_endian == "LITTLE" else "LITTLE"
     else:
         host_endian = file_endian
-    return (host_endian, file_endian)
+    return host_endian, file_endian
 
 
 def dump_metadata_json(reader: GGUFReader, model_path: str) -> dict:

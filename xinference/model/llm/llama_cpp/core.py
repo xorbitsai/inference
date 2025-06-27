@@ -22,10 +22,10 @@ from typing import Iterator, List, Optional, Union
 import orjson
 
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
+from ...memory import estimate_gpu_layers
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
-from .memory import estimate_gpu_layers
 
 logger = logging.getLogger(__name__)
 
