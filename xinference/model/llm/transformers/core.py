@@ -37,7 +37,7 @@ from ....types import (
     PytorchModelConfig,
 )
 from ...utils import select_device
-from ..core import LLM
+from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -725,12 +725,14 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if (
             tools
             and model_family in QWEN_TOOL_CALL_FAMILY

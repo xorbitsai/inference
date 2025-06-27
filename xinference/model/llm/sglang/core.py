@@ -33,6 +33,7 @@ from ....types import (
     CompletionUsage,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
+from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV1
 from ..utils import ChatModelMixin, generate_completion_chunk
 
@@ -582,16 +583,17 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
         )
-
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
@@ -656,14 +658,16 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
-
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
+
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
             raise ValueError("Not support video input now.")

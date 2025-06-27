@@ -47,7 +47,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
-from ..core import LLM
+from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -691,9 +691,14 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config, self.reasoning_parser) or {}  # type: ignore
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -880,10 +885,14 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         if "internvl2" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
 
-            full_context_kwargs = (
-                self._get_chat_template_kwargs_from_generate_config(generate_config, self.reasoning_parser)  # type: ignore
+            chat_template_kwargs = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    generate_config, self.reasoning_parser
+                )
                 or {}
             )
+            chat_context_var.set(chat_template_kwargs)
+            full_context_kwargs = chat_template_kwargs.copy()
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
