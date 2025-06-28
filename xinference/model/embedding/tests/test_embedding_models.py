@@ -85,7 +85,9 @@ def test_engine_supported():
 def test_model_from_modelscope():
     from ..core import create_embedding_model_instance
 
-    model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model_path = cache(
+        TEST_MODEL_SPEC_FROM_MODELSCOPE, TEST_MODEL_SPEC_FROM_MODELSCOPE.model_specs[0]
+    )
     model, _ = create_embedding_model_instance(
         "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
     )

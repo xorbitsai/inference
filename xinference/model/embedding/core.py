@@ -121,7 +121,9 @@ class EmbeddingModelDescription(ModelDescription):
             "dimensions": self._model_family.dimensions,
             "max_tokens": self._model_family.max_tokens,
             "language": self._model_family.language,
-            "model_revision": self._model_family.model_revision,
+            "model_hub": self._model_family.model_hub,
+            "model_revision": self._model_spec.model_revision,
+            "quantization": self._quantization,
         }
 
     def to_version_info(self):
@@ -303,8 +305,8 @@ def generate_embedding_description(
 
 
 def cache_from_modelscope(
-    llm_family: EmbeddingModelFamilyV1,
-    llm_spec: EmbeddingSpecV1,
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
     quantization: Optional[str] = None,
 ) -> str:
     """
@@ -313,58 +315,58 @@ def cache_from_modelscope(
     from modelscope.hub.file_download import model_file_download
     from modelscope.hub.snapshot_download import snapshot_download
 
-    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    cache_dir = _get_cache_dir(model_family, model_spec)
     if _skip_download(
         cache_dir,
-        llm_spec.model_format,
-        llm_spec.model_hub,
-        llm_spec.model_revision,
+        model_spec.model_format,
+        model_family.model_hub,
+        model_spec.model_revision,
         quantization,
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["transformers"]:
+    if model_spec.model_format in ["transformers"]:
         download_dir = retry_download(
             snapshot_download,
-            llm_family.model_name,
-            {"model_format": llm_spec.model_format},
-            llm_spec.model_id,
-            revision=llm_spec.model_revision,
+            model_family.model_name,
+            {"model_format": model_spec.model_format},
+            model_spec.model_id,
+            revision=model_spec.model_revision,
         )
         create_symlink(download_dir, cache_dir)
 
-    elif llm_spec.model_format in ["ggufv2"]:
+    elif model_spec.model_format in ["ggufv2"]:
         file_names, final_file_name, need_merge = generate_quant_model_file_names(
-            llm_spec, quantization
+            model_spec, quantization
         )
 
         for filename in file_names:
             download_path = retry_download(
                 model_file_download,
-                llm_family.model_name,
-                {"model_format": llm_spec.model_format},
-                llm_spec.model_id,
+                model_family.model_name,
+                {"model_format": model_spec.model_format},
+                model_spec.model_id,
                 filename,
-                revision=llm_spec.model_revision,
+                revision=model_spec.model_revision,
             )
             symlink_local_file(download_path, cache_dir, filename)
     else:
-        raise ValueError(f"Unsupported format: {llm_spec.model_format}")
+        raise ValueError(f"Unsupported format: {model_spec.model_format}")
 
     meta_path = _get_meta_path(
         cache_dir,
-        llm_spec.model_format,
-        llm_spec.model_hub,
+        model_spec.model_format,
+        model_family.model_hub,
         quantization,
     )
-    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+    _generate_meta_file(meta_path, model_family, model_spec, quantization)
 
     return cache_dir
 
 
 def cache_from_huggingface(
-    llm_family: EmbeddingModelFamilyV1,
-    llm_spec: EmbeddingSpecV1,
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
     quantization: Optional[str] = None,
 ) -> str:
     """
@@ -372,12 +374,12 @@ def cache_from_huggingface(
     """
     import huggingface_hub
 
-    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    cache_dir = _get_cache_dir(model_family, model_spec)
     if _skip_download(
         cache_dir,
-        llm_spec.model_format,
-        llm_spec.model_hub,
-        llm_spec.model_revision,
+        model_spec.model_format,
+        model_spec.model_hub,
+        model_spec.model_revision,
         quantization,
     ):
         return cache_dir
@@ -386,51 +388,51 @@ def cache_from_huggingface(
     if not IS_NEW_HUGGINGFACE_HUB:
         use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
-    if llm_spec.model_format in ["transformers"]:
+    if model_spec.model_format in ["transformers"]:
         download_dir = retry_download(
             huggingface_hub.snapshot_download,
-            llm_family.model_name,
+            model_family.model_name,
             {
-                "model_format": llm_spec.model_format,
+                "model_format": model_spec.model_format,
             },
-            llm_spec.model_id,
-            revision=llm_spec.model_revision,
+            model_spec.model_id,
+            revision=model_spec.model_revision,
             **use_symlinks,
         )
         if IS_NEW_HUGGINGFACE_HUB:
             create_symlink(download_dir, cache_dir)
 
-    elif llm_spec.model_format in ["ggufv2"]:
-        assert isinstance(llm_spec, LlamaCppEmbeddingSpecV1)
+    elif model_spec.model_format in ["ggufv2"]:
+        assert isinstance(model_spec, LlamaCppEmbeddingSpecV1)
         file_names, final_file_name, need_merge = generate_quant_model_file_names(
-            llm_spec,
+            model_spec,
             quantization,
         )
 
         for file_name in file_names:
             download_file_path = retry_download(
                 huggingface_hub.hf_hub_download,
-                llm_family.model_name,
+                model_family.model_name,
                 {
-                    "model_format": llm_spec.model_format,
+                    "model_format": model_spec.model_format,
                 },
-                llm_spec.model_id,
-                revision=llm_spec.model_revision,
+                model_spec.model_id,
+                revision=model_spec.model_revision,
                 filename=file_name,
                 **use_symlinks,
             )
             if IS_NEW_HUGGINGFACE_HUB:
                 symlink_local_file(download_file_path, cache_dir, file_name)
     else:
-        raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
+        raise ValueError(f"Unsupported model format: {model_spec.model_format}")
 
     meta_path = _get_meta_path(
         cache_dir,
-        llm_spec.model_format,
-        llm_spec.model_hub,
+        model_spec.model_format,
+        model_spec.model_hub,
         quantization,
     )
-    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+    _generate_meta_file(meta_path, model_family, model_spec, quantization)
 
     return cache_dir
 
@@ -440,10 +442,10 @@ def cache(
     model_spec: EmbeddingSpecV1,
     quantization: Optional[str] = None,
 ) -> str:
-    if model_spec.model_hub == "huggingface":
+    if model_family.model_hub == "huggingface":
         logger.info(f"Caching from Hugging Face: {model_spec.model_id}")
         return cache_from_huggingface(model_family, model_spec, quantization)
-    elif model_spec.model_hub == "modelscope":
+    elif model_family.model_hub == "modelscope":
         logger.info(f"Caching from Modelscope: {model_spec.model_id}")
         return cache_from_modelscope(model_family, model_spec, quantization)
     else:
