@@ -42,11 +42,21 @@ class FlagEmbeddingModel(EmbeddingModel):
         model_uid: str,
         model_path: str,
         model_family: EmbeddingModelFamilyV1,
+        model_spec: EmbeddingSpecV1,
+        quantization: Optional[str] = None,
         device: Optional[str] = None,
         return_sparse: bool = False,
         **kwargs,
     ):
-        super().__init__(model_uid, model_path, model_family, device, **kwargs)
+        super().__init__(
+            model_uid,
+            model_path,
+            model_family,
+            model_spec,
+            quantization,
+            device,
+            **kwargs,
+        )
         self._return_sparse = return_sparse
 
     def load(self):

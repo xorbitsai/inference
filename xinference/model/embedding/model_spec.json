@@ -434,7 +434,7 @@
       {
         "model_format": "ggufv2",
         "model_id": "Qwen/Qwen3-Embedding-0.6B-GGUF",
-        "model_revision": "e85059c9a23c106d40df0da29d27a6b7c528265b",
+        "model_revision": "48f36f50b4a081a6f56dd4a227f9b66668e1399f",
         "quantizations": [
           "Q8_0"
         ],

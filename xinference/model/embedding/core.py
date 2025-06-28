@@ -73,6 +73,7 @@ class LlamaCppEmbeddingSpecV1(CacheableQuantModelSpec):
     model_revision: Optional[str]
     quantizations: List[str]
     model_file_name_template: str
+    model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
 
 

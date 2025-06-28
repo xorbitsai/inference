@@ -98,6 +98,8 @@ def create_model_instance(
             model_uid,
             model_name,
             model_engine,
+            model_format,
+            quantization,
             download_hub,
             model_path,
             **kwargs,
@@ -169,6 +171,7 @@ class CacheableQuantModelSpec(BaseModel):
     model_revision: Optional[str]
     quantizations: List[str]
     model_file_name_template: str
+    model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
 
 

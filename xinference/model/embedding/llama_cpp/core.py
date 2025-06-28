@@ -76,6 +76,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
                 Server,
                 get_device_info,
                 ggml_backend_dev_type,
+                llama_pooling_type,
             )
         except ImportError:
             error_message = "Failed to import module 'xllamacpp'"
@@ -83,16 +84,38 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        # handle legacy cache.
+        if (
+            self._model_spec.model_file_name_split_template
+            and self._quantization in self._model_spec.quantization_parts
+        ):
+            part = self._model_spec.quantization_parts[self._quantization]
+            model_path = os.path.join(
+                self._model_path,
+                self._model_spec.model_file_name_split_template.format(
+                    quantization=self._quantization, part=part[0]
+                ),
+            )
+        else:
+            model_path = os.path.join(
+                self._model_path,
+                self._model_spec.model_file_name_template.format(
+                    quantization=self._quantization
+                ),
+            )
+
         try:
             params = CommonParams()
+            params.embedding = True
             # Compatible with xllamacpp changes
             try:
-                params.model = self._model_path
+                params.model = model_path
             except Exception:
-                params.model.path = self._model_path
+                params.model.path = model_path
 
             # This is the default value, could be overwritten by _llamacpp_model_config
-            params.n_parallel = os.cpu_count()
+            params.n_parallel = min(8, os.cpu_count() or 1)
+            params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
             for k, v in self._llamacpp_model_config.items():
                 try:
                     if "." in k:
@@ -130,7 +153,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
                         )
                         estimate = estimate_gpu_layers(
                             gpus=gpus,
-                            model_path=self._model_path,
+                            model_path=model_path,
                             projectors=[],
                             context_length=params.n_ctx,
                             batch_size=params.n_batch,
@@ -189,35 +212,11 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         assert self._executor
         self._executor.submit(_handle_embedding)
 
-        result_list = []
-        while (r := q.get()) is not _Done:
-            if isinstance(r, _Error):
-                raise Exception(f"Failed to create embedding: {r.msg}")
-            result_list.append(r)
-
-        if not result_list:
-            raise Exception("Failed to get embedding result from xllamacpp")
-
-        response = result_list[0]
-        data = response.get("data", [])
-        usage = response.get("usage", {"prompt_tokens": 0, "total_tokens": 0})
-
-        embedding_list = [
-            EmbeddingData(
-                index=d["index"], object=d["object"], embedding=d["embedding"]
-            )
-            for d in data
-        ]
-
-        return Embedding(
-            object="list",
-            model=self._model_uid,
-            model_replica=self._model_uid,
-            data=embedding_list,
-            usage=EmbeddingUsage(
-                prompt_tokens=usage["prompt_tokens"], total_tokens=usage["total_tokens"]
-            ),
-        )
+        r = q.get()
+        if type(r) is _Error:
+            raise Exception(f"Failed to create embedding: {r.msg}")
+        r["model_replica"] = self._model_uid
+        return Embedding(**r)
 
     @classmethod
     def check_lib(cls) -> bool:
