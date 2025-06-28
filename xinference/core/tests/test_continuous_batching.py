@@ -139,7 +139,9 @@ def test_continuous_batching(setup):
 
     # test correct
     thread1 = InferenceThread("1+1=3正确吗？", {"stream": True}, client, model)
-    thread2 = InferenceThread("中国的首都是哪座城市？", {"stream": False}, client, model)
+    thread2 = InferenceThread(
+        "中国的首都是哪座城市？", {"stream": False}, client, model
+    )
     thread1.start()
     thread2.start()
     thread1.join()
@@ -155,9 +157,14 @@ def test_continuous_batching(setup):
 
     # test error with other correct requests
     thread1 = InferenceThread("1+1=3正确吗？", {"stream": True}, client, model)
-    thread2 = InferenceThread("中国的首都是哪座城市？", {"stream": False}, client, model)
+    thread2 = InferenceThread(
+        "中国的首都是哪座城市？", {"stream": False}, client, model
+    )
     thread3 = InferenceThreadWithError(
-        "猫和狗有什么区别？", {"stream": True, "max_tokens": 99999999999999}, client, model
+        "猫和狗有什么区别？",
+        {"stream": True, "max_tokens": 99999999999999},
+        client,
+        model,
     )
     thread4 = InferenceThreadWithError(
         "简介篮球的发展历史。", {"stream": False, "stream_interval": 0}, client, model
@@ -177,7 +184,11 @@ def test_continuous_batching(setup):
         "1+1=3正确吗？", {"stream": True, "request_id": "aaabbb"}, client, model
     )
     thread2 = InferenceThreadWithError(
-        "中国的首都是哪座城市？", {"stream": False, "request_id": "aaabbb"}, client, model, 0.03
+        "中国的首都是哪座城市？",
+        {"stream": False, "request_id": "aaabbb"},
+        client,
+        model,
+        0.03,
     )
     thread1.start()
     thread2.start()
@@ -206,7 +217,9 @@ def test_continuous_batching(setup):
     thread4.join()
 
     # test abort request for non-stream
-    thread1 = InferenceThread("猫和狗有什么区别吗？", {"request_id": "aaabbb"}, client, model)
+    thread1 = InferenceThread(
+        "猫和狗有什么区别吗？", {"request_id": "aaabbb"}, client, model
+    )
     thread2 = AbortThread(
         client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.01
     )

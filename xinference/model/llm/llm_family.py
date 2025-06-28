@@ -1097,7 +1097,7 @@ def match_model_size(
 
 
 def convert_model_size_to_float(
-    model_size_in_billions: Union[float, int, str]
+    model_size_in_billions: Union[float, int, str],
 ) -> float:
     if isinstance(model_size_in_billions, str):
         if "_" in model_size_in_billions:

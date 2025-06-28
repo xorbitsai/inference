@@ -436,9 +436,11 @@ class PeftModelConfig:
 
     def to_dict(self):
         return {
-            "lora_list": [lora.to_dict() for lora in self.peft_model]
-            if self.peft_model
-            else None,
+            "lora_list": (
+                [lora.to_dict() for lora in self.peft_model]
+                if self.peft_model
+                else None
+            ),
             "image_lora_load_kwargs": self.image_lora_load_kwargs,
             "image_lora_fuse_kwargs": self.image_lora_fuse_kwargs,
         }
