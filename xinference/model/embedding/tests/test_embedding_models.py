@@ -155,23 +155,32 @@ def test_get_cache_status():
 
 
 def test_from_local_uri():
-    from ...utils import cache_from_uri
+    from ..core import cache_from_uri
     from ..custom import CustomEmbeddingModelFamilyV1
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_a",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_a",
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="transformers",
+                model_id="test/custom_test_a",
+                model_uri=os.path.abspath(tmp_dir),
+                quantizations=["none"],
+            )
+        ],
     )
 
-    cache_dir = cache_from_uri(model_spec=model_spec)
+    cache_dir = cache_from_uri(
+        model_family=model_family, model_spec=model_family.model_specs[0]
+    )
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
+    assert os.path.samefile(os.path.realpath(cache_dir), tmp_dir)
     os.remove(cache_dir)
     shutil.rmtree(tmp_dir, ignore_errors=True)
 

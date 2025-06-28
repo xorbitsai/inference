@@ -28,15 +28,12 @@ from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     create_symlink,
     generate_quant_model_file_names,
+    parse_uri,
     retry_download,
     symlink_local_file,
     valid_model_revision,
 )
-from .embed_family import (
-    BUILTIN_EMBEDDING_MODELS,
-    BUILTIN_MODELSCOPE_EMBEDDING_MODELS,
-    match_embedding,
-)
+from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +60,7 @@ class TransformersEmbeddingSpecV1(BaseModel):
     model_format: Literal["transformers"]
     # Must in order that `str` first, then `int`
     model_id: Optional[str]
+    model_uri: Optional[str]
     model_revision: Optional[str]
     quantizations: List[str]
     virtualenv: Optional[VirtualEnvSettings]
@@ -71,6 +69,7 @@ class TransformersEmbeddingSpecV1(BaseModel):
 class LlamaCppEmbeddingSpecV1(CacheableQuantModelSpec):
     model_format: Literal["ggufv2"]
     model_id: str
+    model_uri: Optional[str]
     model_revision: Optional[str]
     quantizations: List[str]
     model_file_name_template: str
@@ -304,6 +303,34 @@ def generate_embedding_description(
     return res
 
 
+def cache_from_uri(
+    model_family: EmbeddingModelFamilyV1,
+    model_spec: EmbeddingSpecV1,
+) -> str:
+    cache_dir_name = f"{model_family.model_name}-{model_spec.model_format}"
+    cache_dir = os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name)
+
+    assert model_spec.model_uri is not None
+    src_scheme, src_root = parse_uri(model_spec.model_uri)
+    if src_root.endswith("/"):
+        # remove trailing path separator.
+        src_root = src_root.rstrip("/")
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(
+                f"Model URI cannot be a relative path: {model_spec.model_uri}"
+            )
+        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
+        # Always link to the model uri, avoid using the outdated old link.
+        if os.path.exists(cache_dir):
+            os.unlink(cache_dir)
+        os.symlink(src_root, cache_dir, target_is_directory=True)
+        return cache_dir
+    else:
+        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+
+
 def cache_from_modelscope(
     model_family: EmbeddingModelFamilyV1,
     model_spec: EmbeddingSpecV1,
@@ -442,14 +469,18 @@ def cache(
     model_spec: EmbeddingSpecV1,
     quantization: Optional[str] = None,
 ) -> str:
-    if model_family.model_hub == "huggingface":
-        logger.info(f"Caching from Hugging Face: {model_spec.model_id}")
-        return cache_from_huggingface(model_family, model_spec, quantization)
-    elif model_family.model_hub == "modelscope":
-        logger.info(f"Caching from Modelscope: {model_spec.model_id}")
-        return cache_from_modelscope(model_family, model_spec, quantization)
+    if model_spec.model_uri is not None:
+        logger.info(f"Caching from URI: {model_spec.model_uri}")
+        return cache_from_uri(model_family, model_spec)
     else:
-        raise ValueError(f"Unknown model hub: {model_spec.model_hub}")
+        if model_family.model_hub == "huggingface":
+            logger.info(f"Caching from Hugging Face: {model_spec.model_id}")
+            return cache_from_huggingface(model_family, model_spec, quantization)
+        elif model_family.model_hub == "modelscope":
+            logger.info(f"Caching from Modelscope: {model_spec.model_id}")
+            return cache_from_modelscope(model_family, model_spec, quantization)
+        else:
+            raise ValueError(f"Unknown model hub: {model_spec.model_hub}")
 
 
 def _check_revision(
@@ -504,10 +535,10 @@ def get_cache_status(
         }
         if model_spec.model_format == "transformers":
             return check_revision_status(
-                meta_paths["huggingface"], BUILTIN_EMBEDDING_MODELS.values(), q
+                meta_paths["huggingface"], [model_family], q
             ) or check_revision_status(
                 meta_paths["modelscope"],
-                BUILTIN_MODELSCOPE_EMBEDDING_MODELS.values(),
+                [model_family],
                 q,
             )
         else:

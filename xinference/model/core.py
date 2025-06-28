@@ -165,6 +165,7 @@ class CacheableModelSpec(BaseModel):
 
 class CacheableQuantModelSpec(BaseModel):
     model_id: str
+    model_uri: Optional[str]
     model_revision: Optional[str]
     quantizations: List[str]
     model_file_name_template: str
