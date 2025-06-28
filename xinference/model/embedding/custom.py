@@ -26,9 +26,7 @@ UD_EMBEDDING_LOCK = Lock()
 
 
 class CustomEmbeddingModelFamilyV1(EmbeddingModelFamilyV1):
-    model_id: Optional[str]  # type: ignore
-    model_revision: Optional[str]  # type: ignore
-    model_uri: Optional[str]
+    pass
 
 
 UD_EMBEDDINGS: List[CustomEmbeddingModelFamilyV1] = []

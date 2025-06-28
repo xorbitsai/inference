@@ -109,15 +109,21 @@ def test_model_from_modelscope():
 def test_meta_file():
     cache_dir = None
     try:
-        cache_dir = cache(TEST_MODEL_SPEC)
-        meta_path = os.path.join(cache_dir, "__valid_download")
-        assert valid_model_revision(meta_path, TEST_MODEL_SPEC.model_revision)
+        cache_dir = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
+        meta_path = os.path.join(cache_dir, "__valid_download_huggingface")
+        assert valid_model_revision(
+            meta_path, TEST_MODEL_SPEC.model_specs[0].model_revision
+        )
 
         # test another version of the same model
-        assert not valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
-        cache_dir = cache(TEST_MODEL_SPEC2)
-        meta_path = os.path.join(cache_dir, "__valid_download")
-        assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
+        assert not valid_model_revision(
+            meta_path, TEST_MODEL_SPEC2.model_specs[0].model_revision
+        )
+        cache_dir = cache(TEST_MODEL_SPEC2, TEST_MODEL_SPEC2.model_specs[0])
+        meta_path = os.path.join(cache_dir, "__valid_download_huggingface")
+        assert valid_model_revision(
+            meta_path, TEST_MODEL_SPEC2.model_specs[0].model_revision
+        )
 
         # test functionality of the new version model
 
@@ -127,7 +133,7 @@ def test_meta_file():
             "mock",
             "bge-small-en-v1.5",
             "sentence_transformers",
-            cache_dir,
+            model_path=cache_dir,
         )
         input_text = "I can do this all day."
         model.load()
