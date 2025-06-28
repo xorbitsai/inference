@@ -14,14 +14,25 @@
 
 import shutil
 
-from ...core import EmbeddingModelFamilyV1, cache, create_embedding_model_instance
+from ...core import (
+    EmbeddingModelFamilyV1,
+    TransformersEmbeddingSpecV1,
+    cache,
+    create_embedding_model_instance,
+)
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     model_name="bge-small-en-v1.5",
     dimensions=384,
     max_tokens=512,
     language=["en"],
-    model_id="BAAI/bge-small-en-v1.5",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="transformers",
+            model_id="BAAI/bge-small-en-v1.5",
+            quantizations=["none"],
+        )
+    ],
     model_hub="modelscope",
 )
 
@@ -30,7 +41,7 @@ def test_embedding_model_with_sentence_transformer():
     model_path = None
 
     try:
-        model_path = cache(TEST_MODEL_SPEC)
+        model_path = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
 
         model, _ = create_embedding_model_instance(
             "mook",
@@ -38,7 +49,7 @@ def test_embedding_model_with_sentence_transformer():
             "mock",
             "bge-small-en-v1.5",
             "sentence_transformers",
-            model_path,
+            model_path=model_path,
         )
         model.load()
 
