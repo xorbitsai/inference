@@ -22,7 +22,6 @@ from typing import Iterator, List, Optional, Union
 import orjson
 
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
-from ...memory import estimate_gpu_layers
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
@@ -100,6 +99,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             from xllamacpp import (
                 CommonParams,
                 Server,
+                estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
             )

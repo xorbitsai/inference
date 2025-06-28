@@ -25,7 +25,6 @@ from typing import List, Optional, Union
 import orjson
 
 from ....types import Embedding
-from ...memory import estimate_gpu_layers
 from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -74,6 +73,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
             from xllamacpp import (
                 CommonParams,
                 Server,
+                estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
                 llama_pooling_type,
