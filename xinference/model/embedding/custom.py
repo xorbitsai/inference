@@ -39,7 +39,7 @@ def get_user_defined_embeddings() -> List[EmbeddingModelFamilyV1]:
         return UD_EMBEDDINGS.copy()
 
 
-def register_embedding(model_spec: CustomEmbeddingModelFamilyV1, persist: bool):
+def register_embedding(model_family: CustomEmbeddingModelFamilyV1, persist: bool):
     from ...constants import XINFERENCE_MODEL_DIR
     from ..utils import is_valid_model_name, is_valid_model_uri
     from . import (
@@ -48,12 +48,13 @@ def register_embedding(model_spec: CustomEmbeddingModelFamilyV1, persist: bool):
         generate_engine_config_by_model_name,
     )
 
-    if not is_valid_model_name(model_spec.model_name):
-        raise ValueError(f"Invalid model name {model_spec.model_name}.")
+    if not is_valid_model_name(model_family.model_name):
+        raise ValueError(f"Invalid model name {model_family.model_name}.")
 
-    model_uri = model_spec.model_uri
-    if model_uri and not is_valid_model_uri(model_uri):
-        raise ValueError(f"Invalid model URI {model_uri}.")
+    for spec in model_family.model_specs:
+        model_uri = spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_EMBEDDING_LOCK:
         for model_name in (
@@ -61,21 +62,21 @@ def register_embedding(model_spec: CustomEmbeddingModelFamilyV1, persist: bool):
             + list(BUILTIN_MODELSCOPE_EMBEDDING_MODELS.keys())
             + [spec.model_name for spec in UD_EMBEDDINGS]
         ):
-            if model_spec.model_name == model_name:
+            if model_family.model_name == model_name:
                 raise ValueError(
-                    f"Model name conflicts with existing model {model_spec.model_name}"
+                    f"Model name conflicts with existing model {model_family.model_name}"
                 )
 
-        UD_EMBEDDINGS.append(model_spec)
-        generate_engine_config_by_model_name(model_spec)
+        UD_EMBEDDINGS.append(model_family)
+        generate_engine_config_by_model_name(model_family)
 
     if persist:
         persist_path = os.path.join(
-            XINFERENCE_MODEL_DIR, "embedding", f"{model_spec.model_name}.json"
+            XINFERENCE_MODEL_DIR, "embedding", f"{model_family.model_name}.json"
         )
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
         with open(persist_path, mode="w") as fd:
-            fd.write(model_spec.json())
+            fd.write(model_family.json())
 
 
 def unregister_embedding(model_name: str, raise_error: bool = True):

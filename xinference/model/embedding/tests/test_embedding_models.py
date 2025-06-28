@@ -187,7 +187,7 @@ def test_from_local_uri():
 
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ...utils import cache_from_uri
+    from ..core import cache_from_uri
     from ..custom import (
         CustomEmbeddingModelFamilyV1,
         register_embedding,
@@ -197,46 +197,66 @@ def test_register_custom_embedding():
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_b",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_b",
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="transformers",
+                model_id="test/custom_test_b",
+                model_uri=os.path.abspath(tmp_dir),
+                quantizations=["none"],
+            )
+        ],
     )
 
-    register_embedding(model_spec, False)
-    cache_from_uri(model_spec)
-    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    register_embedding(model_family, False)
+    cache_from_uri(model_family, model_family.model_specs[0])
+    model_cache_path = os.path.join(
+        XINFERENCE_CACHE_DIR, f"{model_family.model_name}-transformers"
+    )
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_b-v15",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_b",
-        model_uri="file:///c/d",
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="transformers",
+                model_id="test/custom_test_b",
+                model_uri="file:///c/d",
+                quantizations=["none"],
+            )
+        ],
     )
     with pytest.raises(ValueError):
-        register_embedding(model_spec, False)
+        register_embedding(model_family, False)
 
     # name conflict
-    model_spec = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV1(
         model_name="custom_test_c",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_c",
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="transformers",
+                model_id="test/custom_test_c",
+                model_uri=os.path.abspath(tmp_dir),
+                quantizations=["none"],
+            )
+        ],
     )
-    register_embedding(model_spec, False)
+    register_embedding(model_family, False)
     with pytest.raises(ValueError):
-        register_embedding(model_spec, False)
+        register_embedding(model_family, False)
 
     # unregister
     unregister_embedding("custom_test_b")
