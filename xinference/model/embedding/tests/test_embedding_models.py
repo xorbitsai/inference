@@ -275,13 +275,19 @@ def test_register_fault_embedding():
     file_path = os.path.join(XINFERENCE_MODEL_DIR, "embedding/GTE.json")
     data = {
         "model_name": "GTE",
-        "model_id": None,
-        "model_revision": None,
         "model_hub": "huggingface",
         "dimensions": 768,
         "max_tokens": 512,
         "language": ["en", "zh"],
-        "model_uri": "/new_data/cache/gte-Qwen2",
+        "model_specs": [
+            {
+                "model_format": "transformers",
+                "model_id": None,
+                "model_revision": None,
+                "model_uri": "/new_data/cache/gte-Qwen2",
+                "quantizations": ["none"],
+            }
+        ],
     }
 
     with open(file_path, "w") as f:
@@ -297,9 +303,16 @@ def test_register_fault_embedding():
 def test_convert_ids_to_tokens():
     from ..core import create_embedding_model_instance
 
-    model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
+    model_path = cache(
+        TEST_MODEL_SPEC_FROM_MODELSCOPE, TEST_MODEL_SPEC_FROM_MODELSCOPE.model_specs[0]
+    )
     model, _ = create_embedding_model_instance(
-        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+        "mock",
+        None,
+        "mock",
+        "bge-small-zh-v1.5",
+        "sentence_transformers",
+        model_path=model_path,
     )
     model.load()
 
