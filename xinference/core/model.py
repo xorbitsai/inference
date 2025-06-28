@@ -160,10 +160,6 @@ def oom_check(fn):
 class ModelActor(xo.StatelessActor, CancelMixin):
     _replica_model_uid: Optional[str]
 
-    @classmethod
-    def gen_uid(cls, model: "LLM"):
-        return f"{model.__class__}-model-actor"
-
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
         from ..model.llm.sglang.core import SGLANGModel
@@ -317,6 +313,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
+
+    def __getattr__(self, attr: str):
+        return getattr(self._model, attr)
 
     def decrease_serve_count(self):
         self._serve_count -= 1
@@ -1223,12 +1222,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(
         self,
+        *args,
         **kwargs,
     ):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
                 self._model.infer,
+                *args,
                 **kwargs,
             )
         raise AttributeError(

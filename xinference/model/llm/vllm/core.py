@@ -51,6 +51,7 @@ from ....types import (
     LoRA,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
+from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV1, cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -333,6 +334,7 @@ class VLLMModel(LLM):
     def load(self):
         try:
             import vllm
+            from vllm import envs
             from vllm.config import VllmConfig
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -415,8 +417,6 @@ class VLLMModel(LLM):
         elif self._n_worker > 1 or (
             self._device_count > 1 and vllm.__version__ >= "0.7.0"
         ):
-            from .distributed_executor import XinferenceDistributedExecutor
-
             # model across multiple workers or GPUs
             engine_args = AsyncEngineArgs(
                 model=self.model_path,
@@ -424,6 +424,7 @@ class VLLMModel(LLM):
                 max_loras=max_loras,
                 **self._model_config,
             )
+            self._enable_v1_if_supported(engine_args)
 
             assert self._loop is not None
             self._worker_addresses = {}
@@ -465,21 +466,47 @@ class VLLMModel(LLM):
                         assert worker_addresses
                         loop = self._loop
 
-                        class XinferenceAsyncLLMEngine(AsyncLLMEngine):
-                            @classmethod
-                            def _get_executor_cls(
-                                cls, engine_config: VllmConfig
-                            ) -> Type[ExecutorBase]:
-                                return partial(  # type: ignore
-                                    XinferenceDistributedExecutor,
-                                    pool_addresses=worker_addresses,
-                                    n_worker=self._n_worker,
-                                    loop=loop,
-                                )
+                        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+                            # vLLM v0
+                            from .distributed_executor import (
+                                XinferenceDistributedExecutor,
+                            )
 
-                        self._engine = XinferenceAsyncLLMEngine.from_engine_args(
-                            engine_args
-                        )
+                            class XinferenceAsyncLLMEngine(AsyncLLMEngine):
+                                @classmethod
+                                def _get_executor_cls(
+                                    cls, engine_config: VllmConfig
+                                ) -> Type[ExecutorBase]:
+                                    return partial(  # type: ignore
+                                        XinferenceDistributedExecutor,
+                                        pool_addresses=worker_addresses,
+                                        n_worker=self._n_worker,
+                                        loop=loop,
+                                    )
+
+                            self._engine = XinferenceAsyncLLMEngine.from_engine_args(
+                                engine_args
+                            )
+                        else:
+                            from vllm.v1.executor.abstract import Executor
+
+                            from .distributed_executor import (
+                                XinferenceDistributedExecutorV1,
+                            )
+
+                            # vLLM V1
+                            # NOTE: loop has to be None for vLLM v1
+                            # in v1, a new process called EngineCore will be created via fork by default
+                            # in which executor is initialized, we cannot pass loop, or it will be stuck,
+                            # instead, a new loop will be created inside executor
+                            executor_cls = partial(  # type: ignore
+                                XinferenceDistributedExecutorV1,
+                                pool_addresses=worker_addresses,
+                                n_worker=self._n_worker,
+                            )
+                            # patch vllm Executor.get_class
+                            Executor.get_class = lambda vllm_config: executor_cls
+                            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
                 except:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
@@ -496,6 +523,7 @@ class VLLMModel(LLM):
                 max_loras=max_loras,
                 **self._model_config,
             )
+            self._enable_v1_if_supported(engine_args)
             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
         self._check_health_task = None
@@ -509,6 +537,46 @@ class VLLMModel(LLM):
             if self._loading_error:
                 _, err, tb = self._loading_error
                 raise err.with_traceback(tb)
+
+    def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
+        from vllm import __version__ as vllm_version
+
+        if os.getenv("VLLM_USE_V1") is not None:
+            logger.debug(
+                "Setting vLLM v1 via environment variable already, skip checking"
+            )
+            return
+
+        try:
+            supported_func = engine_args._is_v1_supported_oracle
+        except AttributeError:
+            logger.debug(
+                "Cannot get `EngineArgs._is_v1_supported_oracle` "
+                "to decide enabling vLLM v1, perhaps vllm version is too old, "
+                "version: %s",
+                vllm_version,
+            )
+            return
+
+        model_config = engine_args.create_model_config()
+        old_main_thread = threading.main_thread()
+        try:
+            # HACK: patch main thread to let vllm pass check
+            # vllm do some signal handling when on main thread
+            # but they will skip registering signal if not on main thread,
+            # however, the _is_v1_supported_oracle will return False
+            # when not on main thread, we patched the main thread temporially,
+            # It's OK because Xinference will take care of all processes
+            threading.main_thread = lambda: threading.current_thread()
+
+            if supported_func(model_config):
+                logger.debug("Setting vLLM v1 by checking model config")
+                os.environ["VLLM_USE_V1"] = "1"
+            else:
+                logger.debug("Use vLLM v0 due to not supported config")
+        finally:
+            # patch back
+            threading.main_thread = lambda: old_main_thread
 
     def _preprocess_load_gguf(self):
         # check if it is multi gguf files
@@ -550,6 +618,8 @@ class VLLMModel(LLM):
             )
 
     def stop(self):
+        from vllm import envs
+
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
@@ -557,9 +627,17 @@ class VLLMModel(LLM):
         if self._check_health_task:
             self._check_health_task.cancel()
         if self._engine:
-            if model_executor := getattr(self._engine.engine, "model_executor", None):
-                model_executor.shutdown()
-            self._engine = None
+            if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+                # v0
+                if model_executor := getattr(
+                    self._engine.engine, "model_executor", None
+                ):
+                    model_executor.shutdown()
+                self._engine = None
+            else:
+                # v1
+                self._engine.shutdown()
+                self._engine = None
 
     async def init_xavier(self):
         await self._engine.init_xavier()
@@ -603,7 +681,6 @@ class VLLMModel(LLM):
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
-        model_config.setdefault("guided_decoding_backend", "outlines")
         model_config.setdefault("reasoning_content", False)
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if vllm.__version__ >= "0.6.3":
@@ -961,6 +1038,16 @@ class VLLMModel(LLM):
                 assert chunk is not None
                 yield chunk
 
+            logger.info(
+                "Generate finished, request_id: %s, stop reason: %s, prompt tokens: %s, "
+                "completion tokens: %s, all tokens: %s",
+                request_id,
+                finish_reason,
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+            )
+
             # match OpenAI API stream
             yield generate_completion_chunk(
                 chunk_text="",
@@ -1056,8 +1143,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         return generate_config
 
     @staticmethod
-    def is_tool_call_chunk(chunk):
+    def is_tool_call_chunk_start(chunk):
         return chunk["choices"][0]["text"].startswith(QWEN_TOOL_CALL_SYMBOLS[0])
+
+    @staticmethod
+    def is_tool_call_chunk_end(chunk):
+        return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
     async def _async_to_tool_completion_chunks(
         self,
@@ -1065,8 +1156,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         i = 0
         previous_texts = [""]
+        tool_call = False
+        tool_call_texts = [""]
         if self.reasoning_parser:
-            chunks = self.reasoning_parser.prepare_reasoning_content(chunks)
+            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
             if i == 0:
                 for first_chunk in self._get_first_chat_completion_chunk(
@@ -1078,13 +1171,22 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if not choices:
                 yield self._get_final_chat_completion_chunk(chunk)
             else:
-                if self.is_tool_call_chunk(chunk):
-                    yield self._post_process_completion_chunk(
-                        self.model_family,
-                        self.model_uid,
-                        chunk,
-                        reasoning_parser=self.reasoning_parser,
-                    )
+                if self.is_tool_call_chunk_start(chunk):
+                    tool_call = True
+                if tool_call:
+                    tool_call_text = tool_call_texts[-1]
+                    tool_call_text += chunk["choices"][0]["text"]
+                    tool_call_texts.append(tool_call_text)
+                    if self.is_tool_call_chunk_end(chunk):
+                        yield self._post_process_completion_chunk(
+                            self.model_family,
+                            self.model_uid,
+                            chunk,
+                            reasoning_parser=self.reasoning_parser,
+                            tool_call_text=tool_call_text,
+                        )
+                        tool_call = False
+                        tool_call_texts = [""]
                 else:
                     yield self._to_chat_completion_chunk(
                         chunk, self.reasoning_parser, previous_texts
@@ -1100,12 +1202,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -1215,20 +1319,23 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        messages = self._transform_messages(messages)
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
 
-        if "internvl2" not in model_family.lower():
+        if "internvl" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
 
-            full_context_kwargs = (
+            messages = self._transform_messages(messages)
+
+            chat_template_kwargs = (
                 self._get_chat_template_kwargs_from_generate_config(
                     generate_config, self.reasoning_parser
                 )
                 or {}
             )
+            chat_context_var.set(chat_template_kwargs)
+            full_context_kwargs = chat_template_kwargs.copy()
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

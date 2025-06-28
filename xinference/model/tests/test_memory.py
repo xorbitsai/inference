@@ -46,10 +46,10 @@ def test_estimate_gpu_layers():
 
     @dataclass
     class _TestInfo:
-        layer0: int
-        layer1: int
-        expect0: int
-        expect1: int
+        layer0: int  # type: ignore
+        layer1: int  # type: ignore
+        expect0: int  # type: ignore
+        expect1: int  # type: ignore
 
     test_data = [
         _TestInfo(*v)

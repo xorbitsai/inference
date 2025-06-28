@@ -952,7 +952,7 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
             The inference result.
         """
         url = f"{self._base_url}/v1/flexible/infers"
-        params: Dict = {
+        params: Dict = {  # type: ignore
             "model": self._model_uid,
         }
         params.update(kwargs)

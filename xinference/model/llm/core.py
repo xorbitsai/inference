@@ -20,6 +20,7 @@ import platform
 import warnings
 from abc import abstractmethod
 from collections import defaultdict
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
@@ -105,9 +106,14 @@ class LLM(abc.ABC):
     @staticmethod
     @lru_cache
     def _get_cuda_count():
+        from ...device_utils import get_available_device_env_name
         from ...utils import cuda_count
 
-        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        env_name = get_available_device_env_name()
+        if env_name is None:
+            return cuda_count()
+
+        cuda_visible_devices = os.getenv(env_name, None)
         if cuda_visible_devices is None:
             return cuda_count()
 
@@ -150,6 +156,17 @@ class LLM(abc.ABC):
             self.model_family.reasoning_end_tag,  # type: ignore
             enable_thinking=enable_thinking,
         )
+
+
+# Context variable for passing per-request chat context (e.g., chat_template_kwargs).
+# This variable should be set at the beginning of each chat or stream_chat call.
+# It allows downstream components (e.g., reasoning_parser) to access request-specific
+# settings like 'enable_thinking', without requiring those values to be passed explicitly
+# through every function layer.
+#
+# The context is automatically isolated per thread or coroutine, so concurrent requests
+# will not interfere with each other.
+chat_context_var: ContextVar[dict] = ContextVar("chat_context_var", default={})
 
 
 class LLMDescription(ModelDescription):

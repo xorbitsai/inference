@@ -166,6 +166,7 @@
     "quantizationOptional": "Quantization (Optional)",
     "delete": "Delete",
     "controlnet": "Controlnet",
+    "packages": "Packages in Virtual Env",
     "more": "more",
     "modelFormat": "Model Format",
     "enterNumberGreaterThanZero": "Please enter a number greater than 0.",

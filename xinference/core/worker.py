@@ -15,10 +15,12 @@
 import asyncio
 import logging
 import os
+import pathlib
 import platform
 import queue
 import shutil
 import signal
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -809,7 +811,13 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_name or "uv", env_path
         )
         # create env
-        virtual_env_manager.create_env()
+        python_path = None
+        if not hasattr(sys, "_MEIPASS"):
+            # not in pyinstaller
+            # we specify python_path explicitly
+            # sometimes uv would find other versions.
+            python_path = pathlib.Path(sys.executable)
+        virtual_env_manager.create_env(python_path=python_path)
         return virtual_env_manager
 
     @classmethod

@@ -130,7 +130,7 @@ jobs:
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
             pip install mlx-lm
-            pip install mlx-vlm
+            pip install "mlx-vlm<0.2.0"
             pip install mlx-whisper
             pip install f5-tts-mlx
             pip install qwen-vl-utils!=0.0.9
@@ -212,6 +212,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft>=0.15.0"
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
@@ -266,7 +267,10 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper_mlx.py && \
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py && \
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_distributed_model.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \

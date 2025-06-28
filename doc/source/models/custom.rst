@@ -153,6 +153,7 @@ Define a custom rerank model based on the following template:
 * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
 * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/your_model". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
 
+.. _register_custom_model:
 
 Register a Custom Model
 ~~~~~~~~~~~~~~~~~~~~~~~

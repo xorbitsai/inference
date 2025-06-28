@@ -15,3 +15,4 @@ Model Abilities
    image
    audio
    video
+   flexible

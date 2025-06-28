@@ -41,6 +41,7 @@ import { isValidBearerToken } from '../../components/utils'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import AddStop from './components/addStop'
+import AddVirtualenv from './components/addVirtualenv'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const model_ability_options = [
@@ -162,6 +163,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           reasoning_start_tag = '',
           reasoning_end_tag = '',
         } = data
+        const virtualenv = data.virtualenv ?? { packages: [] }
         const specsDataArr = model_specs.map((item) => {
           const {
             model_uri,
@@ -194,6 +196,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             reasoning_start_tag,
             reasoning_end_tag,
           }),
+          virtualenv,
         }
         setFormData(llmData)
         setContrastObj(llmData)
@@ -207,12 +210,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
           const { model_name, dimensions, max_tokens, model_uri, language } =
             data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const embeddingData = {
             model_name,
             dimensions,
             max_tokens,
             model_uri,
             language,
+            virtualenv,
           }
           setFormData(embeddingData)
           setContrastObj(embeddingData)
@@ -222,16 +227,20 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { model_name, model_uri, language } = data
+          const { model_name, max_tokens = 512, model_uri, language } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const rerankData = {
             model_name,
+            max_tokens,
             model_uri,
             language,
+            virtualenv,
           }
           setFormData(rerankData)
           setContrastObj(rerankData)
         } else if (modelType === 'image') {
           const { model_name, model_uri, model_family, controlnet } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const controlnetArr = controlnet.map((item) => {
             const { model_name, model_uri, model_family } = item
             return {
@@ -245,17 +254,27 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             model_uri,
             model_family,
             controlnet: controlnetArr,
+            virtualenv,
           }
           setFormData(imageData)
           setContrastObj(imageData)
           setControlnetArr(controlnetArr)
         } else if (modelType === 'audio') {
-          const { model_name, model_uri, multilingual, model_family } = data
+          const {
+            model_name,
+            model_uri,
+            multilingual,
+            model_ability = [],
+            model_family,
+          } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const audioData = {
             model_name,
             model_uri,
             multilingual,
+            model_ability,
             model_family,
+            virtualenv,
           }
           setFormData(audioData)
           setContrastObj(audioData)
@@ -267,12 +286,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             launcher,
             launcher_args,
           } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const flexibleData = {
             model_name,
             model_uri,
             model_description,
             launcher,
             launcher_args,
+            virtualenv,
           }
           setFormData(flexibleData)
           setContrastObj(flexibleData)
@@ -845,6 +866,46 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     } else {
       setIsEditableFamily(true)
       setFamilyOptions([])
+    }
+  }
+
+  const changeVirtualenv = (type, index, value) => {
+    if (type === 'add') {
+      setFormData((prev) => {
+        return {
+          ...prev,
+          virtualenv: {
+            ...prev.virtualenv,
+            packages: [...prev.virtualenv.packages, ''],
+          },
+        }
+      })
+    } else if (type === 'delete') {
+      setFormData((prev) => {
+        const newPackages = [...prev.virtualenv.packages]
+        newPackages.splice(index, 1)
+
+        return {
+          ...prev,
+          virtualenv: {
+            ...prev.virtualenv,
+            packages: newPackages,
+          },
+        }
+      })
+    } else if (type === 'change') {
+      setFormData((prev) => {
+        const newPackages = [...prev.virtualenv.packages]
+        newPackages[index] = value
+
+        return {
+          ...prev,
+          virtualenv: {
+            ...prev.virtualenv,
+            packages: newPackages,
+          },
+        }
+      })
     }
   }
 
@@ -1478,6 +1539,18 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   {t('registerModel.enterJsonFormattedDictionary')}
                 </Alert>
               )}
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* virtualenv */}
+          {customData.virtualenv && (
+            <>
+              <AddVirtualenv
+                virtualenv={formData.virtualenv}
+                onChangeVirtualenv={changeVirtualenv}
+                scrollRef={scrollRef}
+              />
               <Box padding="15px"></Box>
             </>
           )}

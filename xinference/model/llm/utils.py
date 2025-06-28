@@ -167,13 +167,7 @@ class ChatModelMixin:
         generate_config: Optional[Union[dict, Any]],
         reasoning_parser: Optional[ReasoningParser] = None,
     ) -> Optional[dict]:
-        if reasoning_parser and not reasoning_parser.enable_thinking:
-            # hybrid model like qwen3,
-            # disabled thinking
-            return {"enable_thinking": False}
-        if not generate_config:
-            return None
-        if "chat_template_kwargs" in generate_config:
+        if generate_config and "chat_template_kwargs" in generate_config:
             kwargs = generate_config["chat_template_kwargs"]
             if isinstance(kwargs, str):
                 try:
@@ -190,6 +184,10 @@ class ChatModelMixin:
                     f"`chat_template_kwargs` but be a JSON parsable str "
                     f"or dict, got: {kwargs}"
                 )
+        elif reasoning_parser and not reasoning_parser.enable_thinking:
+            # hybrid model like qwen3,
+            # disabled thinking
+            return {"enable_thinking": False}
         return None
 
     @staticmethod
@@ -220,7 +218,7 @@ class ChatModelMixin:
         _messages = [x for x in messages]  # copy for not modifying the origin messages
         _messages.append({"role": "assistant", "content": ""})
 
-        if model_family == "internvl2":
+        if "internvl" in model_family.lower():
             system_prompt = (
                 messages[0]["content"] if messages[0]["role"] == "system" else ""
             )
@@ -558,14 +556,24 @@ class ChatModelMixin:
     @classmethod
     def _handle_qwen_tool_result(cls, text: str) -> List[Tuple]:
         text: str = text.strip()  # type: ignore
-        contents: List[str] = text.split(QWEN_TOOL_CALL_SYMBOLS[1])
+
+        def split_into_blocks(text: str) -> list[str]:
+            # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
+            pattern = r"(<(think|tool_call)>.*?</\2>)"
+            blocks = re.findall(pattern, text, re.DOTALL)
+            return [match[0] for match in blocks]
+
+        contents = split_into_blocks(text)
         results: List[Tuple] = []
         for content in contents:
             content = content.strip()
             if content:
-                pos = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
-                if pos != -1:
-                    content = content[pos + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
+                pos1 = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
+                if pos1 != -1:
+                    content = content[pos1 + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
+                pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
+                if pos2 != -1:
+                    content = content[:pos2]
                 content = content.strip()
                 try:
                     res = json.loads(content)
@@ -580,8 +588,12 @@ class ChatModelMixin:
         return results
 
     @classmethod
-    def _eval_qwen_chat_arguments(cls, c) -> List[Tuple]:
+    def _eval_qwen_chat_arguments(
+        cls, c, tool_call_text: Optional[str] = None
+    ) -> List[Tuple]:
         text = c["choices"][0]["text"]
+        if tool_call_text:
+            text = tool_call_text
         return cls._handle_qwen_tool_result(text)
 
     @classmethod
@@ -662,12 +674,14 @@ class ChatModelMixin:
         return results
 
     @classmethod
-    def _eval_tool_arguments(cls, model_family, c):
+    def _eval_tool_arguments(
+        cls, model_family, c, tool_call_text: Optional[str] = None
+    ):
         family = model_family.model_family or model_family.model_name
         if family in GLM4_TOOL_CALL_FAMILY:
             result = cls._eval_glm_chat_arguments(c)
         elif family in QWEN_TOOL_CALL_FAMILY:
-            result = cls._eval_qwen_chat_arguments(c)
+            result = cls._eval_qwen_chat_arguments(c, tool_call_text)
         elif family in LLAMA3_TOOL_CALL_FAMILY:
             result = cls._eval_llama3_chat_arguments(c)
         elif family in DEEPSEEK_TOOL_CALL_FAMILY:
@@ -687,15 +701,17 @@ class ChatModelMixin:
         c,
         chunk_id=None,
         reasoning_parser: Optional[ReasoningParser] = None,
+        tool_call_text: Optional[str] = None,
     ):
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
-        tool_result = cls._eval_tool_arguments(model_family, c)
+        tool_result = cls._eval_tool_arguments(model_family, c, tool_call_text)
         tool_calls = []
         failed_contents = []
         for content, func, args in tool_result:
             if func:
                 tool_calls.append(
                     {
+                        "index": 0,
                         "id": f"call_{_id}",
                         "type": "function",
                         "function": {
@@ -782,8 +798,11 @@ class ChatModelMixin:
                     }
                 )
             else:
-                failed_contents.append(content)
+                if content:
+                    failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
+
+        content = ". ".join(failed_contents) if failed_contents else None
 
         # fix: qwen tool_call content field return null
         family = model_family.model_family or model_family.model_name
