@@ -24,7 +24,7 @@ from typing import List, Optional, Union
 
 import orjson
 
-from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ....types import Embedding
 from ...memory import estimate_gpu_layers
 from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
 

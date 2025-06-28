@@ -14,7 +14,7 @@
 import logging
 import os
 from threading import Lock
-from typing import List, Optional
+from typing import List
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from .core import EmbeddingModelFamilyV1
