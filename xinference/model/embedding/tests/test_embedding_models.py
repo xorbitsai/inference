@@ -89,7 +89,12 @@ def test_model_from_modelscope():
         TEST_MODEL_SPEC_FROM_MODELSCOPE, TEST_MODEL_SPEC_FROM_MODELSCOPE.model_specs[0]
     )
     model, _ = create_embedding_model_instance(
-        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+        "mock",
+        None,
+        "mock",
+        "bge-small-zh-v1.5",
+        "sentence_transformers",
+        model_path=model_path,
     )
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
@@ -139,9 +144,11 @@ def test_get_cache_status():
 
     model_path = None
     try:
-        assert get_cache_status(TEST_MODEL_SPEC) is False
-        model_path = cache(TEST_MODEL_SPEC)
-        assert get_cache_status(TEST_MODEL_SPEC) is True
+        assert (
+            get_cache_status(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0]) is False
+        )
+        model_path = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
+        assert get_cache_status(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0]) is True
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)

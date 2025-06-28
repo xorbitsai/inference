@@ -378,7 +378,7 @@ def cache_from_huggingface(
     if _skip_download(
         cache_dir,
         model_spec.model_format,
-        model_spec.model_hub,
+        model_family.model_hub,
         model_spec.model_revision,
         quantization,
     ):
@@ -429,7 +429,7 @@ def cache_from_huggingface(
     meta_path = _get_meta_path(
         cache_dir,
         model_spec.model_format,
-        model_spec.model_hub,
+        model_family.model_hub,
         quantization,
     )
     _generate_meta_file(meta_path, model_family, model_spec, quantization)
@@ -735,7 +735,13 @@ def create_embedding_model_instance(
     devices = devices or ["cpu"]
     # model class should be one of flag, fastembed, sentence_transformers
     model = embedding_cls(
-        model_uid, model_path, model_family, model_spec, quantization, devices, **kwargs
+        model_uid,
+        model_path,
+        model_family,
+        model_spec,
+        quantization,
+        devices[0],
+        **kwargs,
     )
     model_description = EmbeddingModelDescription(
         subpool_addr,
