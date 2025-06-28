@@ -23,8 +23,15 @@ from typing import Annotated, Dict, Iterable, List, Literal, Optional, Tuple, Un
 from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import valid_model_revision
+from ..core import CacheableQuantModelSpec, ModelDescription, VirtualEnvSettings
+from ..utils import (
+    IS_NEW_HUGGINGFACE_HUB,
+    create_symlink,
+    generate_quant_model_file_names,
+    retry_download,
+    symlink_local_file,
+    valid_model_revision,
+)
 from .embed_family import (
     BUILTIN_EMBEDDING_MODELS,
     BUILTIN_MODELSCOPE_EMBEDDING_MODELS,
@@ -61,13 +68,13 @@ class TransformersEmbeddingSpecV1(BaseModel):
     virtualenv: Optional[VirtualEnvSettings]
 
 
-class LlamaCppEmbeddingSpecV1(BaseModel):
+class LlamaCppEmbeddingSpecV1(CacheableQuantModelSpec):
     model_format: Literal["ggufv2"]
-    # Must in order that `str` first, then `int`
-    model_id: Optional[str]
+    model_id: str
     model_revision: Optional[str]
     quantizations: List[str]
     model_file_name_template: str
+    quantization_parts: Optional[Dict[str, List[str]]]
 
 
 EmbeddingSpecV1 = Annotated[
@@ -230,6 +237,57 @@ def _get_meta_path(
         raise ValueError(f"Unsupported format: {model_format}")
 
 
+def _generate_meta_file(
+    meta_path: str,
+    llm_family: EmbeddingModelFamilyV1,
+    llm_spec: EmbeddingSpecV1,
+    quantization: Optional[str] = None,
+):
+    assert not valid_model_revision(
+        meta_path, llm_spec.model_revision
+    ), f"meta file {meta_path} should not be valid"
+    with open(meta_path, "w") as f:
+        import json
+
+        desc = EmbeddingModelDescription(None, None, llm_family, llm_spec, quantization)
+        json.dump(desc.to_dict(), f)
+
+
+def _skip_download(
+    cache_dir: str,
+    model_format: str,
+    model_hub: str,
+    model_revision: Optional[str],
+    quantization: Optional[str] = None,
+) -> bool:
+    if model_format in ["transformers"]:
+        model_hub_to_meta_path = {
+            "huggingface": _get_meta_path(
+                cache_dir, model_format, "huggingface", quantization
+            ),
+            "modelscope": _get_meta_path(
+                cache_dir, model_format, "modelscope", quantization
+            ),
+        }
+        if valid_model_revision(model_hub_to_meta_path[model_hub], model_revision):
+            logger.info(f"Cache {cache_dir} exists")
+            return True
+        else:
+            for hub, meta_path in model_hub_to_meta_path.items():
+                if hub != model_hub and os.path.exists(meta_path):
+                    # PyTorch models from modelscope can also be loaded by transformers.
+                    logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
+                    return True
+            return False
+    elif model_format == "ggufv2":
+        assert quantization is not None
+        return os.path.exists(
+            _get_meta_path(cache_dir, model_format, model_hub, quantization)
+        )
+    else:
+        raise ValueError(f"Unsupported format: {model_format}")
+
+
 def generate_embedding_description(
     model_family: EmbeddingModelFamilyV1,
 ) -> Dict[str, List[Dict]]:
@@ -244,14 +302,152 @@ def generate_embedding_description(
     return res
 
 
+def cache_from_modelscope(
+    llm_family: EmbeddingModelFamilyV1,
+    llm_spec: EmbeddingSpecV1,
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from Modelscope. Return the cache directory.
+    """
+    from modelscope.hub.file_download import model_file_download
+    from modelscope.hub.snapshot_download import snapshot_download
+
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if _skip_download(
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        llm_spec.model_revision,
+        quantization,
+    ):
+        return cache_dir
+
+    if llm_spec.model_format in ["transformers"]:
+        download_dir = retry_download(
+            snapshot_download,
+            llm_family.model_name,
+            {"model_format": llm_spec.model_format},
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+        )
+        create_symlink(download_dir, cache_dir)
+
+    elif llm_spec.model_format in ["ggufv2"]:
+        file_names, final_file_name, need_merge = generate_quant_model_file_names(
+            llm_spec, quantization
+        )
+
+        for filename in file_names:
+            download_path = retry_download(
+                model_file_download,
+                llm_family.model_name,
+                {"model_format": llm_spec.model_format},
+                llm_spec.model_id,
+                filename,
+                revision=llm_spec.model_revision,
+            )
+            symlink_local_file(download_path, cache_dir, filename)
+    else:
+        raise ValueError(f"Unsupported format: {llm_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        quantization,
+    )
+    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+
+    return cache_dir
+
+
+def cache_from_huggingface(
+    llm_family: EmbeddingModelFamilyV1,
+    llm_spec: EmbeddingSpecV1,
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from Hugging Face. Return the cache directory.
+    """
+    import huggingface_hub
+
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if _skip_download(
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        llm_spec.model_revision,
+        quantization,
+    ):
+        return cache_dir
+
+    use_symlinks = {}
+    if not IS_NEW_HUGGINGFACE_HUB:
+        use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+
+    if llm_spec.model_format in ["transformers"]:
+        download_dir = retry_download(
+            huggingface_hub.snapshot_download,
+            llm_family.model_name,
+            {
+                "model_format": llm_spec.model_format,
+            },
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            **use_symlinks,
+        )
+        if IS_NEW_HUGGINGFACE_HUB:
+            create_symlink(download_dir, cache_dir)
+
+    elif llm_spec.model_format in ["ggufv2"]:
+        assert isinstance(llm_spec, LlamaCppEmbeddingSpecV1)
+        file_names, final_file_name, need_merge = generate_quant_model_file_names(
+            llm_spec,
+            quantization,
+        )
+
+        for file_name in file_names:
+            download_file_path = retry_download(
+                huggingface_hub.hf_hub_download,
+                llm_family.model_name,
+                {
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
+                filename=file_name,
+                **use_symlinks,
+            )
+            if IS_NEW_HUGGINGFACE_HUB:
+                symlink_local_file(download_file_path, cache_dir, file_name)
+    else:
+        raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        quantization,
+    )
+    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+
+    return cache_dir
+
+
 def cache(
     model_family: EmbeddingModelFamilyV1,
     model_spec: EmbeddingSpecV1,
-    quantization: Optional[str],
-):
-    from ..utils import cache
-
-    return cache(model_family, EmbeddingModelDescription)
+    quantization: Optional[str] = None,
+) -> str:
+    if model_spec.model_hub == "huggingface":
+        logger.info(f"Caching from Hugging Face: {model_spec.model_id}")
+        return cache_from_huggingface(model_family, model_spec, quantization)
+    elif model_spec.model_hub == "modelscope":
+        logger.info(f"Caching from Modelscope: {model_spec.model_id}")
+        return cache_from_modelscope(model_family, model_spec, quantization)
+    else:
+        raise ValueError(f"Unknown model hub: {model_spec.model_hub}")
 
 
 def _check_revision(

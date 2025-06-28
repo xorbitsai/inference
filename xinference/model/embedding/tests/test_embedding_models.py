@@ -20,15 +20,26 @@ import tempfile
 import pytest
 
 from ...utils import valid_model_revision
-from ..core import EmbeddingModelFamilyV1, cache, create_embedding_model_instance
+from ..core import (
+    EmbeddingModelFamilyV1,
+    TransformersEmbeddingSpecV1,
+    cache,
+    create_embedding_model_instance,
+)
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
     language=["en"],
-    model_id="thenlper/gte-small",
-    model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="transformers",
+            model_id="thenlper/gte-small",
+            model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
+            quantizations=["none"],
+        )
+    ],
 )
 
 TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
@@ -36,8 +47,14 @@ TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
     dimensions=384,
     max_tokens=512,
     language=["en"],
-    model_id="thenlper/gte-small",
-    model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="transformers",
+            model_id="thenlper/gte-small",
+            model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
+            quantizations=["none"],
+        )
+    ],
 )
 
 TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
@@ -45,8 +62,14 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
     dimensions=512,
     max_tokens=512,
     language=["zh"],
-    model_id="Xorbits/bge-small-zh-v1.5",
-    model_revision="v0.0.2",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="transformers",
+            model_id="Xorbits/bge-small-zh-v1.5",
+            model_revision="v0.0.2",
+            quantizations=["none"],
+        )
+    ],
     model_hub="modelscope",
 )
 from ..embed_family import EMBEDDING_ENGINES
