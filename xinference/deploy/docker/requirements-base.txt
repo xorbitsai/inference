@@ -22,4 +22,3 @@ async-timeout
 peft
 opencv-contrib-python-headless
 setproctitle
-gguf

@@ -25,7 +25,6 @@ from ....types import ChatCompletion, ChatCompletionChunk, Completion, Completio
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
-from .memory import estimate_gpu_layers
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +99,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             from xllamacpp import (
                 CommonParams,
                 Server,
+                estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
             )

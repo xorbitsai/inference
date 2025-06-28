@@ -292,9 +292,11 @@ class GradioInterface:
                         max_tokens = gr.Slider(
                             minimum=1,
                             maximum=self.context_length,
-                            value=512
-                            if "reasoning" not in self.model_ability
-                            else self.context_length // 2,
+                            value=(
+                                512
+                                if "reasoning" not in self.model_ability
+                                else self.context_length // 2
+                            ),
                             step=1,
                             label="Max Tokens",
                         )

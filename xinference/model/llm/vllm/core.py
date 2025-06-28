@@ -603,9 +603,9 @@ class VLLMModel(LLM):
 
             path = cache_model_tokenizer_and_config(self.model_family, non_quant_spec)
             # other than gguf file, vllm requires to provide tokenizer and hf_config_path
-            self._model_config["tokenizer"] = self._model_config[
-                "hf_config_path"
-            ] = path
+            self._model_config["tokenizer"] = self._model_config["hf_config_path"] = (
+                path
+            )
 
         if not os.path.isfile(self.model_path):
             self.model_path = os.path.realpath(
@@ -1137,9 +1137,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 not generate_config.get("stop_token_ids")
                 and self.model_family.stop_token_ids
             ):
-                generate_config[
-                    "stop_token_ids"
-                ] = self.model_family.stop_token_ids.copy()
+                generate_config["stop_token_ids"] = (
+                    self.model_family.stop_token_ids.copy()
+                )
         return generate_config
 
     @staticmethod
