@@ -134,7 +134,10 @@ SUPPORTED_ENGINES: Dict[str, List[Type["EmbeddingModel"]]] = {}
 
 
 def check_engine_by_model_name_and_engine(
-    model_engine: str, model_name: str, model_format: str, quantization: str
+    model_engine: str,
+    model_name: str,
+    model_format: Optional[str],
+    quantization: Optional[str],
 ) -> Type["EmbeddingModel"]:
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in EMBEDDING_ENGINES[model_name].keys():

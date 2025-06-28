@@ -506,7 +506,7 @@ def get_cache_status(
     model_family: EmbeddingModelFamilyV1,
     model_spec: EmbeddingSpecV1,
     quantization: Optional[str] = None,
-) -> bool:
+) -> list[bool] | bool:
     """
     Checks if a model's cache status is available based on the model format and quantization.
     Supports different directories and model formats.

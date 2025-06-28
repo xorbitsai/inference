@@ -216,7 +216,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         if type(r) is _Error:
             raise Exception(f"Failed to create embedding: {r.msg}")
         r["model_replica"] = self._model_uid
-        return Embedding(**r)
+        return Embedding(**r)  # type: ignore
 
     @classmethod
     def check_lib(cls) -> bool:
