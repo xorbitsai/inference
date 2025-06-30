@@ -222,6 +222,17 @@
 
   "components": {
     "copySuccess": "Copied to clipboard!",
-    "suggestsCommonParameters": "Suggests common parameters; others allowed."
+    "suggestsCommonParameters": "Suggests common parameters; others allowed.",
+    "back": "Back",
+    "close": "Close",
+    "next": "Next",
+    "last": "Finish",
+    "skip": "Skip Tour",
+    "step-0": "Menu bar, containing all main function entries.",
+    "step-1": "Classify models by category for quick access.",
+    "step-2": "Use the filter function to quickly locate the desired model.",
+    "step-3": "Click to open the model parameter configuration window.",
+    "step-4": "Configure relevant model parameters in this window.",
+    "step-5": "After filling in the required parameters, click the button to start the model."
   }
 }
