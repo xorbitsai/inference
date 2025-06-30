@@ -1,5 +1,5 @@
 uv
-transformers>=4.51.3
+transformers==4.52.4
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
