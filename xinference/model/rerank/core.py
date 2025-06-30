@@ -28,7 +28,7 @@ import torch
 import torch.nn as nn
 
 from ...constants import XINFERENCE_CACHE_DIR
-from ...device_utils import empty_cache
+from ...device_utils import empty_cache, is_device_available
 from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
 from ..utils import is_model_cached
@@ -252,7 +252,9 @@ class RerankModel:
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            enable_flash_attn = self._model_config.get("enable_flash_attn", True)
+            enable_flash_attn = self._model_config.get(
+                "enable_flash_attn", is_device_available("cuda")
+            )
             model_kwargs = {"device_map": "auto"}
             if flash_attn_installed and enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
