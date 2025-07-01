@@ -20,6 +20,7 @@ from typing import List, Optional, Union, no_type_check
 import numpy as np
 import torch
 
+from ....device_utils import is_device_available
 from ....types import Dict, Embedding, EmbeddingData, EmbeddingUsage
 from ..core import EmbeddingModel, EmbeddingModelSpec
 
@@ -90,7 +91,9 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         elif "qwen3" in self._model_spec.model_name.lower():
             # qwen3 embedding
             flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
-            flash_attn_enabled = self._kwargs.get("enable_flash_attn", True)
+            flash_attn_enabled = self._kwargs.get(
+                "enable_flash_attn", is_device_available("cuda")
+            )
             model_kwargs = {"device_map": "auto"}
             tokenizer_kwargs = {}
             if flash_attn_installed and flash_attn_enabled:
