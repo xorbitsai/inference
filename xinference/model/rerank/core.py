@@ -252,7 +252,7 @@ class RerankModel:
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            enable_flash_attn = self._model_config.get(
+            enable_flash_attn = self._model_config.pop(
                 "enable_flash_attn", is_device_available("cuda")
             )
             model_kwargs = {"device_map": "auto"}
