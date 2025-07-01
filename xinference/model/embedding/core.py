@@ -772,7 +772,6 @@ def create_embedding_model_instance(
         model_family,
         model_spec,
         quantization,
-        devices[0],
         **kwargs,
     )
     model_description = EmbeddingModelDescription(
