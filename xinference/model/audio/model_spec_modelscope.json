@@ -202,6 +202,15 @@
     }
   },
   {
+    "model_name": "FishSpeech-1.5",
+    "model_family": "FishAudio",
+    "model_hub": "modelscope",
+    "model_id": "fishaudio/fish-speech-1.5",
+    "model_revision": "master",
+    "model_ability": ["text2audio"],
+    "multilingual": true
+  },
+  {
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
     "model_hub": "modelscope",
