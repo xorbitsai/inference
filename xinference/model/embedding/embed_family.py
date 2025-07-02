@@ -114,11 +114,7 @@ def match_embedding(
                 )
             else:
                 # TODO: If user does not specify quantization, just use the first one
-                _q = (
-                    "none"
-                    if spec.model_format == "transformers"
-                    else spec.quantizations[0]
-                )
+                _q = "none" if spec.model_format == "pytorch" else spec.quantizations[0]
                 return family, _apply_format_to_model_id(spec, _q), _q
 
     raise ValueError(

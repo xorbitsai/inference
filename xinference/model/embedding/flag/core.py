@@ -293,7 +293,7 @@ class FlagEmbeddingModel(EmbeddingModel):
         quantization: str,
     ) -> bool:
         if (
-            model_spec.model_format in ["transformers"]
+            model_spec.model_format in ["pytorch"]
             and model_family.model_name in FLAG_EMBEDDER_MODEL_LIST
         ):
             return True

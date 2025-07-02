@@ -31,7 +31,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     language=["en"],
     model_specs=[
         TransformersEmbeddingSpecV1(
-            model_format="transformers",
+            model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
             quantizations=["none"],
         )

@@ -57,7 +57,7 @@ def get_embedding_model_descriptions():
 
 
 class TransformersEmbeddingSpecV1(BaseModel):
-    model_format: Literal["transformers"]
+    model_format: Literal["pytorch"]
     # Must in order that `str` first, then `int`
     model_id: Optional[str]
     model_uri: Optional[str]
@@ -168,7 +168,7 @@ def get_file_location(
         is_cached = cache_status
     assert isinstance(is_cached, bool)
 
-    if spec.model_format in ["transformers"]:
+    if spec.model_format in ["pytorch"]:
         return cache_dir, is_cached
     elif spec.model_format in ["ggufv2"]:
         assert isinstance(spec, LlamaCppEmbeddingSpecV1)
@@ -230,7 +230,7 @@ def _get_meta_path(
     model_hub: str,
     quantization: Optional[str] = None,
 ):
-    if model_format == "transformers":
+    if model_format == "pytorch":
         return os.path.join(cache_dir, f"__valid_download_{model_hub}")
     elif model_format == "ggufv2":
         assert quantization is not None
@@ -262,7 +262,7 @@ def _skip_download(
     model_revision: Optional[str],
     quantization: Optional[str] = None,
 ) -> bool:
-    if model_format in ["transformers"]:
+    if model_format in ["pytorch"]:
         model_hub_to_meta_path = {
             "huggingface": _get_meta_path(
                 cache_dir, model_format, "huggingface", quantization
@@ -353,7 +353,7 @@ def cache_from_modelscope(
     ):
         return cache_dir
 
-    if model_spec.model_format in ["transformers"]:
+    if model_spec.model_format in ["pytorch"]:
         download_dir = retry_download(
             snapshot_download,
             model_family.model_name,
@@ -416,7 +416,7 @@ def cache_from_huggingface(
     if not IS_NEW_HUGGINGFACE_HUB:
         use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
-    if model_spec.model_format in ["transformers"]:
+    if model_spec.model_format in ["pytorch"]:
         download_dir = retry_download(
             huggingface_hub.snapshot_download,
             model_family.model_name,
@@ -495,7 +495,7 @@ def _check_revision(
         if model_family.model_name == family.model_name:
             specs = family.model_specs
             for spec in specs:
-                if spec.model_format == "transformers" and (
+                if spec.model_format == "pytorch" and (
                     quantization is None or quantization in spec.quantizations
                 ):
                     return valid_model_revision(meta_path, spec.model_revision)
@@ -534,7 +534,7 @@ def get_cache_status(
                 specific_cache_dir, model_spec.model_format, "modelscope", q
             ),
         }
-        if model_spec.model_format == "transformers":
+        if model_spec.model_format == "pytorch":
             return check_revision_status(
                 meta_paths["huggingface"], [model_family], q
             ) or check_revision_status(
@@ -556,7 +556,7 @@ def get_cache_status(
     else:
         return (
             [handle_quantization(q) for q in model_spec.quantizations]
-            if model_spec.model_format != "transformers"
+            if model_spec.model_format != "pytorch"
             else handle_quantization(None)
         )
 

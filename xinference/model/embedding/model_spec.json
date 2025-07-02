@@ -6,7 +6,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-large-en",
         "model_revision": "d57a0d82f0d0884de76bbce093f201364d9b720e",
         "quantizations": ["none"]
@@ -20,7 +20,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-base-en",
         "model_revision": "90e113f4f9cd0c83220c873b94ca7bc37f85de97",
         "quantizations": ["none"]
@@ -34,7 +34,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "thenlper/gte-large",
         "model_revision": "2b5163b62ed28492dc70eb19a882b71c81dbc7c8",
         "quantizations": ["none"]
@@ -48,7 +48,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "thenlper/gte-base",
         "model_revision": "792749e8178be77f479b26788a0e1adb4ec9c8a9",
         "quantizations": ["none"]
@@ -62,7 +62,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "intfloat/e5-large-v2",
         "model_revision": "b322e09026e4ea05f42beadf4d661fb4e101d311",
         "quantizations": ["none"]
@@ -76,7 +76,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-large-zh",
         "model_revision": "1b543b301eb63dd32914b56d939db2a972df15d5",
         "quantizations": ["none"]
@@ -90,7 +90,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-large-zh-noinstruct",
         "model_revision": "d971248454d6267756fab9caa431c2c2fc5f0f35",
         "quantizations": ["none"]
@@ -104,7 +104,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-base-zh",
         "model_revision": "faefe5952238b3d28bc35d1c8fe63eb269d8cee0",
         "quantizations": ["none"]
@@ -118,7 +118,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "intfloat/multilingual-e5-large",
         "model_revision": "c505dce3578a12ec54e47bdc72bef5cd0eacb085",
         "quantizations": ["none"]
@@ -132,7 +132,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-small-zh",
         "model_revision": "52185a5f4aa5bb1fe80c0671b7303161880a2d79",
         "quantizations": ["none"]
@@ -146,7 +146,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-small-zh-v1.5",
         "model_revision": "a7ec18349c42fc774b0e86af26215e38a10fbe9d",
         "quantizations": ["none"]
@@ -160,7 +160,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-base-zh-v1.5",
         "model_revision": "fcd022c36ff982da395e71ae930a5ad0d4b9330f",
         "quantizations": ["none"]
@@ -174,7 +174,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-large-zh-v1.5",
         "model_revision": "029c4bfff6b0c5cfcd20b40c17ed52ec55202748",
         "quantizations": ["none"]
@@ -188,7 +188,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-small-en-v1.5",
         "model_revision": "88885630388d6249d876a3ab145b78b34665b79a",
         "quantizations": ["none"]
@@ -202,7 +202,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-base-en-v1.5",
         "model_revision": "1dafa38af496bee39ad5e0d11447fac46d0714e1",
         "quantizations": ["none"]
@@ -216,7 +216,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-large-en-v1.5",
         "model_revision": "5888da4a3a013e65d33dd6f612ecd4625eb87a7d",
         "quantizations": ["none"]
@@ -230,7 +230,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-embeddings-v2-small-en",
         "model_revision": "b811f03af3d4d7ea72a7c25c802b21fc675a5d99",
         "quantizations": ["none"]
@@ -244,7 +244,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-embeddings-v2-base-en",
         "model_revision": "7302ac470bed880590f9344bfeee32ff8722d0e5",
         "quantizations": ["none"]
@@ -258,7 +258,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-embeddings-v2-base-zh",
         "model_revision": "67974cbef5cf50562eadd745de8afc661c52c96f",
         "quantizations": ["none"]
@@ -272,7 +272,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "shibing624/text2vec-bge-large-chinese",
         "model_revision": "f5027ca48ea8316d63ee26d2b9bd27a061de33a3",
         "quantizations": ["none"]
@@ -286,7 +286,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "shibing624/text2vec-base-chinese",
         "model_revision": "8acc1289891d75f6b665ad623359798b55f86adb",
         "quantizations": ["none"]
@@ -300,7 +300,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "shibing624/text2vec-base-chinese-paraphrase",
         "model_revision": "beaf10481a5d9ca3b0daa9f0df6831ec956bf739",
         "quantizations": ["none"]
@@ -314,7 +314,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "shibing624/text2vec-base-chinese-sentence",
         "model_revision": "e73a94e821f22c6163166bfab9408d03933a5525",
         "quantizations": ["none"]
@@ -328,7 +328,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "shibing624/text2vec-base-multilingual",
         "model_revision": "f241877385fa56ebcc75f04d1850e1579cfa661d",
         "quantizations": ["none"]
@@ -342,7 +342,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "BAAI/bge-m3",
         "model_revision": "73a15ad29ab604f3bdc31601849a9defe86d563f",
         "quantizations": ["none"]
@@ -356,7 +356,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "maidalun1020/bce-embedding-base_v1",
         "model_revision": "236d9024fc1b4046f03848723f934521a66a9323",
         "quantizations": ["none"]
@@ -370,7 +370,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "moka-ai/m3e-small",
         "model_revision": "44c696631b2a8c200220aaaad5f987f096e986df",
         "quantizations": ["none"]
@@ -384,7 +384,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "moka-ai/m3e-base",
         "model_revision": "764b537a0e50e5c7d64db883f2d2e051cbe3c64c",
         "quantizations": ["none"]
@@ -398,7 +398,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "moka-ai/m3e-large",
         "model_revision": "12900375086c37ba5d83d1e417b21dc7d1d1f388",
         "quantizations": ["none"]
@@ -412,7 +412,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Alibaba-NLP/gte-Qwen2-7B-instruct",
         "model_revision": "e26182b2122f4435e8b3ebecbf363990f409b45b",
         "quantizations": ["none"]
@@ -426,7 +426,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Qwen/Qwen3-Embedding-0.6B",
         "model_revision": "744169034862c8eec56628663995004342e4e449",
         "quantizations": ["none"]
@@ -449,7 +449,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Qwen/Qwen3-Embedding-4B",
         "model_revision": "408b81b7fab742073065d5b3661fa74c1b3ee0a1",
         "quantizations": ["none"]
@@ -476,7 +476,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Qwen/Qwen3-Embedding-8B",
         "model_revision": "a3d38e32b9c835d5b3d0d0a3ef3c133bbea92539",
         "quantizations": ["none"]
@@ -503,7 +503,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-embeddings-v3",
         "quantizations": ["none"]
       }
@@ -516,7 +516,7 @@
     "language": ["89 languages supported"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-clip-v2",
         "quantizations": ["none"],
         "virtualenv": {

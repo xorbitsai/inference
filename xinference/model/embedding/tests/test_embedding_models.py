@@ -34,7 +34,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     language=["en"],
     model_specs=[
         TransformersEmbeddingSpecV1(
-            model_format="transformers",
+            model_format="pytorch",
             model_id="thenlper/gte-small",
             model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
             quantizations=["none"],
@@ -49,7 +49,7 @@ TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
     language=["en"],
     model_specs=[
         TransformersEmbeddingSpecV1(
-            model_format="transformers",
+            model_format="pytorch",
             model_id="thenlper/gte-small",
             model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
             quantizations=["none"],
@@ -64,7 +64,7 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
     language=["zh"],
     model_specs=[
         TransformersEmbeddingSpecV1(
-            model_format="transformers",
+            model_format="pytorch",
             model_id="Xorbits/bge-small-zh-v1.5",
             model_revision="v0.0.2",
             quantizations=["none"],
@@ -173,7 +173,7 @@ def test_from_local_uri():
         language=["zh"],
         model_specs=[
             TransformersEmbeddingSpecV1(
-                model_format="transformers",
+                model_format="pytorch",
                 model_id="test/custom_test_a",
                 model_uri=os.path.abspath(tmp_dir),
                 quantizations=["none"],
@@ -210,7 +210,7 @@ def test_register_custom_embedding():
         language=["zh"],
         model_specs=[
             TransformersEmbeddingSpecV1(
-                model_format="transformers",
+                model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri=os.path.abspath(tmp_dir),
                 quantizations=["none"],
@@ -221,7 +221,7 @@ def test_register_custom_embedding():
     register_embedding(model_family, False)
     cache_from_uri(model_family, model_family.model_specs[0])
     model_cache_path = os.path.join(
-        XINFERENCE_CACHE_DIR, f"{model_family.model_name}-transformers"
+        XINFERENCE_CACHE_DIR, f"{model_family.model_name}-pytorch"
     )
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
@@ -235,7 +235,7 @@ def test_register_custom_embedding():
         language=["zh"],
         model_specs=[
             TransformersEmbeddingSpecV1(
-                model_format="transformers",
+                model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri="file:///c/d",
                 quantizations=["none"],
@@ -253,7 +253,7 @@ def test_register_custom_embedding():
         language=["zh"],
         model_specs=[
             TransformersEmbeddingSpecV1(
-                model_format="transformers",
+                model_format="pytorch",
                 model_id="test/custom_test_c",
                 model_uri=os.path.abspath(tmp_dir),
                 quantizations=["none"],
@@ -287,7 +287,7 @@ def test_register_fault_embedding():
         "language": ["en", "zh"],
         "model_specs": [
             {
-                "model_format": "transformers",
+                "model_format": "pytorch",
                 "model_id": None,
                 "model_revision": None,
                 "model_uri": "/new_data/cache/gte-Qwen2",

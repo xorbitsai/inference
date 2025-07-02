@@ -6,7 +6,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-large-en",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -21,7 +21,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-base-en",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -36,7 +36,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/gte-large",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -51,7 +51,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/gte-base",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -66,7 +66,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/e5-large-v2",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -81,7 +81,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-large-zh",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -96,7 +96,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-large-zh-noinstruct",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -111,7 +111,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-base-zh",
         "model_revision": "v0.0.2",
         "quantizations": ["none"]
@@ -126,7 +126,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/multilingual-e5-large",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -141,7 +141,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-small-zh",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -156,7 +156,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-small-zh-v1.5",
         "model_revision": "v0.0.2",
         "quantizations": ["none"]
@@ -171,7 +171,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-base-zh-v1.5",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -186,7 +186,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-large-zh-v1.5",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -201,7 +201,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-small-en-v1.5",
         "model_revision": "v0.0.2",
         "quantizations": ["none"]
@@ -216,7 +216,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-base-en-v1.5",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -231,7 +231,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-large-en-v1.5",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -246,7 +246,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/jina-embeddings-v2-small-en",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -261,7 +261,7 @@
     "language": ["en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/jina-embeddings-v2-base-en",
         "model_revision": "v0.0.1",
         "quantizations": ["none"]
@@ -276,7 +276,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-embeddings-v2-base-zh",
         "quantizations": ["none"]
       }
@@ -290,7 +290,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Jerry0/text2vec-large-chinese",
         "quantizations": ["none"]
       }
@@ -304,7 +304,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Jerry0/text2vec-base-chinese",
         "quantizations": ["none"]
       }
@@ -318,7 +318,7 @@
     "language": ["zh"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "mwei23/text2vec-base-chinese-paraphrase",
         "quantizations": ["none"]
       }
@@ -332,7 +332,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Xorbits/bge-m3",
         "quantizations": ["none"]
       }
@@ -346,7 +346,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "maidalun/bce-embedding-base_v1",
         "quantizations": ["none"]
       }
@@ -360,7 +360,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "AI-ModelScope/m3e-small",
         "quantizations": ["none"]
       }
@@ -374,7 +374,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "AI-ModelScope/m3e-base",
         "quantizations": ["none"]
       }
@@ -388,7 +388,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "AI-ModelScope/m3e-large",
         "quantizations": ["none"]
       }
@@ -402,7 +402,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "iic/gte_Qwen2-7B-instruct",
         "quantizations": ["none"]
       }
@@ -416,7 +416,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Qwen/Qwen3-Embedding-0.6B",
         "quantizations": ["none"]
       },
@@ -438,7 +438,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Qwen/Qwen3-Embedding-4B",
         "quantizations": ["none"]
       },
@@ -464,7 +464,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "Qwen/Qwen3-Embedding-8B",
         "quantizations": ["none"]
       },
@@ -490,7 +490,7 @@
     "language": ["zh", "en"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-embeddings-v3",
         "quantizations": ["none"]
       }
@@ -504,7 +504,7 @@
     "language": ["89 languages supported"],
     "model_specs": [
       {
-        "model_format": "transformers",
+        "model_format": "pytorch",
         "model_id": "jinaai/jina-clip-v2",
         "quantizations": ["none"],
         "virtualenv": {
