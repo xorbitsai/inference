@@ -409,7 +409,6 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_llm_reg(
         self, llm_family: "LLMFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
-        # from ..model.llm import get_cache_status
         from ..model.llm.cache_manager import LLMCacheManager
 
         instance_cnt = await self.get_instance_count(llm_family.model_name)
