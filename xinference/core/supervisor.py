@@ -425,7 +425,6 @@ class SupervisorActor(xo.StatelessActor):
             ]:
                 _llm_family.model_specs = [spec]
                 cache_manager = LLMCacheManager(_llm_family)
-                # cache_status = get_cache_status(llm_family, spec)
                 specs.append(
                     {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
                 )
