@@ -20,23 +20,23 @@ from typing import Any, Dict, List
 
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
-    MODEL_NAME_TO_REVISION,
-    EmbeddingModelSpec,
+    EmbeddingModelFamilyV1,
     generate_embedding_description,
     get_cache_status,
     get_embedding_model_descriptions,
 )
 from .custom import (
-    CustomEmbeddingModelSpec,
+    CustomEmbeddingModelFamilyV1,
     get_user_defined_embeddings,
     register_embedding,
     unregister_embedding,
 )
 from .embed_family import (
     BUILTIN_EMBEDDING_MODELS,
+    BUILTIN_MODELSCOPE_EMBEDDING_MODELS,
     EMBEDDING_ENGINES,
     FLAG_EMBEDDER_CLASSES,
-    MODELSCOPE_EMBEDDING_MODELS,
+    LLAMA_CPP_CLASSES,
     SENTENCE_TRANSFORMER_CLASSES,
     SUPPORTED_ENGINES,
     VLLM_CLASSES,
@@ -53,7 +53,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(
+                    user_defined_llm_family = CustomEmbeddingModelFamilyV1.parse_obj(
                         json.load(fd)
                     )
                     register_embedding(user_defined_llm_family, persist=False)
@@ -61,24 +61,40 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
-def generate_engine_config_by_model_name(model_spec: "EmbeddingModelSpec"):
-    model_name = model_spec.model_name
+def check_format_with_engine(model_format, engine):
+    if model_format in ["ggufv2"] and engine not in ["llama.cpp"]:
+        return False
+    if model_format not in ["ggufv2"] and engine == "llama.cpp":
+        return False
+    return True
+
+
+def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV1"):
+    model_name = model_family.model_name
     engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
         model_name, {}
     )  # structure for engine query
-    for engine in SUPPORTED_ENGINES:
-        CLASSES = SUPPORTED_ENGINES[engine]
-        for cls in CLASSES:
-            # Every engine needs to implement match method
-            if cls.match(model_spec):
-                # we only match the first class for an engine
-                engines[engine] = [
-                    {
-                        "model_name": model_name,
-                        "embedding_class": cls,
-                    }
-                ]
-                break
+    for spec in model_family.model_specs:
+        model_format = spec.model_format
+        quantizations = spec.quantizations
+        for quantization in quantizations:
+            for engine in SUPPORTED_ENGINES:
+                if not check_format_with_engine(
+                    model_format, engine
+                ):  # match the format of model with engine
+                    continue
+                CLASSES = SUPPORTED_ENGINES[engine]
+                for cls in CLASSES:
+                    # Every engine needs to implement match method
+                    if cls.match(model_family, spec, quantization):
+                        # we only match the first class for an engine
+                        engines[engine] = [
+                            {
+                                "model_name": model_name,
+                                "embedding_class": cls,
+                            }
+                        ]
+                        break
     EMBEDDING_ENGINES[model_name] = engines
 
 
@@ -91,28 +107,27 @@ def _install():
     ################### HuggingFace Model List Info Init ###################
     BUILTIN_EMBEDDING_MODELS.update(
         dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
+            (spec["model_name"], EmbeddingModelFamilyV1(**spec))
             for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
         )
     )
-    for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
     ################### ModelScope Model List Info Init ###################
-    MODELSCOPE_EMBEDDING_MODELS.update(
+    BUILTIN_MODELSCOPE_EMBEDDING_MODELS.update(
         dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
+            (spec["model_name"], EmbeddingModelFamilyV1(**spec))
             for spec in json.load(
                 codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
             )
         )
     )
-    for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
     # TODO: consider support more download hub in future...
     # register model description after recording model revision
-    for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
+    for model_spec_info in [
+        BUILTIN_EMBEDDING_MODELS,
+        BUILTIN_MODELSCOPE_EMBEDDING_MODELS,
+    ]:
         for model_name, model_spec in model_spec_info.items():
             if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
                 EMBEDDING_MODEL_DESCRIPTIONS.update(
@@ -120,19 +135,22 @@ def _install():
                 )
 
     from .flag.core import FlagEmbeddingModel
+    from .llama_cpp.core import XllamaCppEmbeddingModel
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
 
     SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
     FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
     VLLM_CLASSES.extend([VLLMEmbeddingModel])
+    LLAMA_CPP_CLASSES.extend([XllamaCppEmbeddingModel])
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
+    SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
 
     # Init embedding engine
-    for model_infos in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
+    for model_infos in [BUILTIN_EMBEDDING_MODELS, BUILTIN_MODELSCOPE_EMBEDDING_MODELS]:
         for model_spec in model_infos.values():
             generate_engine_config_by_model_name(model_spec)
 

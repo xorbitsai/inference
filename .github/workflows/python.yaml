@@ -39,7 +39,7 @@ jobs:
         with:
           src: "xinference"
           options: "--check"
-          version: "23.12.0"
+          version: "25.1.0"
       - uses: isort/isort-action@master
         with:
           sortPaths: "xinference"
@@ -125,7 +125,7 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install "xllamacpp>=0.1.18" gguf
+          pip install "xllamacpp>=0.1.22"
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"

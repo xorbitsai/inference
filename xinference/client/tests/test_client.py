@@ -395,7 +395,13 @@ def test_client_custom_embedding_model(setup):
   "dimensions": 1024,
   "max_tokens": 512,
   "language": ["en"],
-  "model_id": "Xorbits/bge-small-en"
+  "model_specs": [
+    {
+      "model_format": "pytorch",
+      "model_id": "Xorbits/bge-small-en",
+      "quantizations": ["none"]
+    }
+  ]
 }"""
     client.register_model(model_type="embedding", model=model, persist=False)
 

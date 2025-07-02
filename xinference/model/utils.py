@@ -34,7 +34,7 @@ from ..constants import (
     XINFERENCE_ENV_MODEL_SRC,
 )
 from ..device_utils import get_available_device, is_device_available
-from .core import CacheableModelSpec
+from .core import CacheableModelSpec, CacheableQuantModelSpec
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
@@ -497,3 +497,40 @@ def get_engine_params_by_name(
             f"Cannot support model_engine for {model_type}, "
             f"only available for LLM, embedding"
         )
+
+
+def generate_quant_model_file_names(
+    model_spec: CacheableQuantModelSpec,
+    quantization: Optional[str] = None,
+) -> Tuple[List[str], str, bool]:
+    file_names = []
+    final_file_name = model_spec.model_file_name_template.format(
+        quantization=quantization
+    )
+    need_merge = False
+
+    if (
+        model_spec.quantization_parts is None
+        or quantization not in model_spec.quantization_parts
+    ):
+        file_names.append(final_file_name)
+    elif quantization is not None and quantization in model_spec.quantization_parts:
+        parts = model_spec.quantization_parts[quantization]
+        need_merge = True
+
+        logger.info(
+            f"Model {model_spec.model_id} {model_spec.model_format} {quantization} has {len(parts)} parts."
+        )
+
+        if model_spec.model_file_name_split_template is None:
+            raise ValueError(
+                f"No model_file_name_split_template for model spec {model_spec.model_id}"
+            )
+
+        for part in parts:
+            file_name = model_spec.model_file_name_split_template.format(
+                quantization=quantization, part=part
+            )
+            file_names.append(file_name)
+
+    return file_names, final_file_name, need_merge

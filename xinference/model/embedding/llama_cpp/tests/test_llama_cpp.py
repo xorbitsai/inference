@@ -16,50 +16,48 @@ import shutil
 
 from ...core import (
     EmbeddingModelFamilyV1,
-    TransformersEmbeddingSpecV1,
+    LlamaCppEmbeddingSpecV1,
     cache,
     create_embedding_model_instance,
 )
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
-    model_name="bge-small-en-v1.5",
-    dimensions=384,
-    max_tokens=512,
+    model_name="Qwen3-Embedding-0.6B",
+    dimensions=1024,
+    max_tokens=32768,
     language=["en"],
     model_specs=[
-        TransformersEmbeddingSpecV1(
-            model_format="pytorch",
-            model_id="BAAI/bge-small-en-v1.5",
-            quantizations=["none"],
+        LlamaCppEmbeddingSpecV1(
+            model_format="ggufv2",
+            model_id="Qwen/Qwen3-Embedding-0.6B-GGUF",
+            model_file_name_template="Qwen3-Embedding-0.6B-{quantization}.gguf",
+            quantizations=["Q8_0"],
         )
     ],
-    model_hub="modelscope",
+    model_hub="huggingface",
 )
 
 
-def test_embedding_model_with_sentence_transformer():
+def test_embedding_model_with_xllamacpp():
     model_path = None
-
     try:
-        model_path = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
+        model_path = cache(
+            TEST_MODEL_SPEC,
+            TEST_MODEL_SPEC.model_specs[0],
+            TEST_MODEL_SPEC.model_specs[0].quantizations[0],
+        )
 
         model, _ = create_embedding_model_instance(
             "mook",
-            None,
+            "cuda",
             "mock",
-            "bge-small-en-v1.5",
-            "sentence_transformers",
+            "Qwen3-Embedding-0.6B",
+            "llama.cpp",
+            model_format="ggufv2",
+            quantization="Q8_0",
             model_path=model_path,
         )
         model.load()
-
-        # input is a string
-        input_text = "what is the capital of China?"
-
-        # test sparse and dense
-        r = model.create_embedding(input_text)
-        assert len(r["data"]) == 1
-        assert len(r["data"][0]["embedding"]) == 384
 
         # input is a lit
         input_texts = [
@@ -71,8 +69,10 @@ def test_embedding_model_with_sentence_transformer():
         # test sparse and dense
         r = model.create_embedding(input_texts)
         assert len(r["data"]) == 4
+
+        r = model.create_embedding(input_texts)
         for d in r["data"]:
-            assert len(d["embedding"]) == 384
+            assert len(d["embedding"]) == 1024
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)

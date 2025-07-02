@@ -63,7 +63,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV1
-    from ..model.embedding import EmbeddingModelSpec
+    from ..model.embedding import EmbeddingModelFamilyV1
     from ..model.flexible import FlexibleModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
@@ -94,9 +94,9 @@ class WorkerStatus:
 class ReplicaInfo:
     replica: int
     scheduler: Iterator
-    replica_to_worker_refs: DefaultDict[
-        int, List[xo.ActorRefType["WorkerActor"]]
-    ] = field(default_factory=lambda: defaultdict(list))
+    replica_to_worker_refs: DefaultDict[int, List[xo.ActorRefType["WorkerActor"]]] = (
+        field(default_factory=lambda: defaultdict(list))
+    )
 
 
 class SupervisorActor(xo.StatelessActor):
@@ -144,10 +144,12 @@ class SupervisorActor(xo.StatelessActor):
         from .progress_tracker import ProgressTrackerActor
         from .status_guard import StatusGuardActor
 
-        self._status_guard_ref: xo.ActorRefType[  # type: ignore
-            "StatusGuardActor"
-        ] = await xo.create_actor(
-            StatusGuardActor, address=self.address, uid=StatusGuardActor.default_uid()
+        self._status_guard_ref: xo.ActorRefType["StatusGuardActor"] = (  # type: ignore
+            await xo.create_actor(
+                StatusGuardActor,
+                address=self.address,
+                uid=StatusGuardActor.default_uid(),
+            )
         )
         self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
@@ -180,7 +182,7 @@ class SupervisorActor(xo.StatelessActor):
             unregister_audio,
         )
         from ..model.embedding import (
-            CustomEmbeddingModelSpec,
+            CustomEmbeddingModelFamilyV1,
             generate_embedding_description,
             get_embedding_model_descriptions,
             register_embedding,
@@ -223,7 +225,7 @@ class SupervisorActor(xo.StatelessActor):
                 generate_llm_description,
             ),
             "embedding": (
-                CustomEmbeddingModelSpec,
+                CustomEmbeddingModelFamilyV1,
                 register_embedding,
                 unregister_embedding,
                 generate_embedding_description,
@@ -426,24 +428,27 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_embedding_model_reg(
-        self, model_spec: "EmbeddingModelSpec", is_builtin: bool
+        self, model_family: "EmbeddingModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.embedding import get_cache_status
 
-        instance_cnt = await self.get_instance_count(model_spec.model_name)
-        version_cnt = await self.get_model_version_count(model_spec.model_name)
+        instance_cnt = await self.get_instance_count(model_family.model_name)
+        version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self.is_local_deployment():
+            specs = []
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_status = get_cache_status(model_spec)
+            for spec in model_family.model_specs:
+                cache_status = get_cache_status(model_family, spec)
+                specs.append({**spec.dict(), "cache_status": cache_status})
             res = {
-                **model_spec.dict(),
-                "cache_status": cache_status,
+                **model_family.dict(),
                 "is_builtin": is_builtin,
+                "model_specs": specs,
             }
         else:
             res = {
-                **model_spec.dict(),
+                **model_family.dict(),
                 "is_builtin": is_builtin,
             }
         res["model_version_count"] = version_cnt

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from .._compat import BaseModel
 from ..types import PeftModelConfig
@@ -98,6 +98,8 @@ def create_model_instance(
             model_uid,
             model_name,
             model_engine,
+            model_format,
+            quantization,
             download_hub,
             model_path,
             **kwargs,
@@ -161,6 +163,16 @@ class CacheableModelSpec(BaseModel):
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
+
+
+class CacheableQuantModelSpec(BaseModel):
+    model_id: str
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+    quantizations: List[str]
+    model_file_name_template: str
+    model_file_name_split_template: Optional[str]
+    quantization_parts: Optional[Dict[str, List[str]]]
 
 
 class VirtualEnvSettings(BaseModel):
