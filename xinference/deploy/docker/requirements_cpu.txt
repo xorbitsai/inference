@@ -99,4 +99,4 @@ jsonschema # for minicpm-4B
 verovio>=4.3.1  # For got_ocr2
 langdetect  # MegaTTS3
 pyloudnorm  # MegaTTS3
-gguf  # For flux
+gguf  # For flux and sd3.5 series
