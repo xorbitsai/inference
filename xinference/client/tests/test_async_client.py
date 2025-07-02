@@ -396,7 +396,7 @@ async def test_async_client_custom_embedding_model(setup):
   "language": ["en"],
   "model_specs": [
     {
-      "model_format": "transformers",
+      "model_format": "pytorch",
       "model_id": "Xorbits/bge-small-en",
       "quantizations": ["none"]
     }
