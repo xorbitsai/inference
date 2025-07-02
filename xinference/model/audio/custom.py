@@ -25,7 +25,7 @@ from ..._compat import (
     ValidationError,
     load_str_bytes,
 )
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import XINFERENCE_MODEL_DIR
 from .core import AudioModelFamilyV1
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ def get_user_defined_audios() -> List[CustomAudioModelFamilyV1]:
 def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
     from ...constants import XINFERENCE_MODEL_DIR
     from ..utils import is_valid_model_name, is_valid_model_uri
-    from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
+    from . import BUILTIN_AUDIO_MODELS
 
     if not is_valid_model_name(model_spec.model_name):
         raise ValueError(f"Invalid model name {model_spec.model_name}.")
@@ -93,11 +93,9 @@ def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
         raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_AUDIO_LOCK:
-        for model_name in (
-            list(BUILTIN_AUDIO_MODELS.keys())
-            + list(MODELSCOPE_AUDIO_MODELS.keys())
-            + [spec.model_name for spec in UD_AUDIOS]
-        ):
+        for model_name in list(BUILTIN_AUDIO_MODELS.keys()) + [
+            spec.model_name for spec in UD_AUDIOS
+        ]:
             if model_spec.model_name == model_name:
                 raise ValueError(
                     f"Model name conflicts with existing model {model_spec.model_name}"
@@ -107,7 +105,7 @@ def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
 
     if persist:
         persist_path = os.path.join(
-            XINFERENCE_MODEL_DIR, "audio", f"{model_spec.model_name}.json"
+            XINFERENCE_MODEL_DIR, "v2", "audio", f"{model_spec.model_name}.json"
         )
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
         with open(persist_path, mode="w") as fd:
@@ -115,6 +113,8 @@ def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
 
 
 def unregister_audio(model_name: str, raise_error: bool = True):
+    from ..cache_manager import CacheManager
+
     with UD_AUDIO_LOCK:
         model_spec = None
         for i, f in enumerate(UD_AUDIOS):
@@ -125,19 +125,20 @@ def unregister_audio(model_name: str, raise_error: bool = True):
             UD_AUDIOS.remove(model_spec)
 
             persist_path = os.path.join(
-                XINFERENCE_MODEL_DIR, "audio", f"{model_spec.model_name}.json"
+                XINFERENCE_MODEL_DIR, "v2", "audio", f"{model_spec.model_name}.json"
             )
             if os.path.exists(persist_path):
                 os.remove(persist_path)
 
-            cache_dir = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-            if os.path.exists(cache_dir):
+            cache_manager = CacheManager(model_spec)
+            cache_dir = cache_manager.get_cache_dir()
+            if cache_manager.get_cache_status():
                 logger.warning(
                     f"Remove the cache of user-defined model {model_spec.model_name}. "
                     f"Cache directory: {cache_dir}"
                 )
-                if os.path.isdir(cache_dir):
-                    os.rmdir(cache_dir)
+                if os.path.islink(cache_dir):
+                    os.remove(cache_dir)
                 else:
                     logger.warning(
                         f"Cache directory is not a soft link, please remove it manually."

@@ -16,15 +16,14 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict
+from typing import Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
+from ..utils import flatten_model_src
 from .core import (
-    MODEL_NAME_TO_REVISION,
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelSpec,
     generate_rerank_description,
-    get_cache_status,
     get_rerank_model_descriptions,
 )
 from .custom import (
@@ -34,13 +33,12 @@ from .custom import (
     unregister_rerank,
 )
 
-BUILTIN_RERANK_MODELS: Dict[str, Any] = {}
-MODELSCOPE_RERANK_MODELS: Dict[str, Any] = {}
+BUILTIN_RERANK_MODELS: Dict[str, List["RerankModelSpec"]] = {}
 
 
 def register_custom_model():
     # if persist=True, load them when init
-    user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
+    user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "rerank")
     if os.path.isdir(user_defined_rerank_dir):
         for f in os.listdir(user_defined_rerank_dir):
             try:
@@ -57,15 +55,13 @@ def register_custom_model():
 
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_RERANK_MODELS)
-    load_model_family_from_json("model_spec_modelscope.json", MODELSCOPE_RERANK_MODELS)
 
     # register model description after recording model revision
-    for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
-        for model_name, model_spec in model_spec_info.items():
-            if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
-                RERANK_MODEL_DESCRIPTIONS.update(
-                    generate_rerank_description(model_spec)
-                )
+    # for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
+    for model_name, model_specs in BUILTIN_RERANK_MODELS.items():
+        model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
+        if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
+            RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
     register_custom_model()
 
@@ -76,12 +72,14 @@ def _install():
 
 def load_model_family_from_json(json_filename, target_families):
     _model_spec_json = os.path.join(os.path.dirname(__file__), json_filename)
-    target_families.update(
-        dict(
-            (spec["model_name"], RerankModelSpec(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-        )
-    )
-    for model_name, model_spec in target_families.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    flattened_model_specs = []
+    for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8")):
+        flattened_model_specs.extend(flatten_model_src(spec))
+
+    for spec in flattened_model_specs:
+        if spec["model_name"] not in target_families:
+            target_families[spec["model_name"]] = [RerankModelSpec(**spec)]
+        else:
+            target_families[spec["model_name"]].append(RerankModelSpec(**spec))
+
     del _model_spec_json

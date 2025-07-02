@@ -14,30 +14,21 @@
 
 import collections.abc
 import logging
-import os
 import platform
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Union
 
-from ...constants import XINFERENCE_CACHE_DIR
 from ...types import PeftModelConfig
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import (
-    IS_NEW_HUGGINGFACE_HUB,
-    retry_download,
-    symlink_local_file,
-    valid_model_revision,
-)
+from ..core import CacheableModelSpec, VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
 from .ocr.got_ocr2 import GotOCR2Model
 from .stable_diffusion.core import DiffusionModel
 from .stable_diffusion.mlx import MLXDiffusionModel
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
-BUILTIN_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
-MODELSCOPE_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
+BUILTIN_IMAGE_MODELS: Dict[str, List["ImageModelFamilyV1"]] = {}
 
 
 def get_image_model_descriptions():
@@ -46,7 +37,7 @@ def get_image_model_descriptions():
     return copy.deepcopy(IMAGE_MODEL_DESCRIPTIONS)
 
 
-class ImageModelFamilyV1(CacheableModelSpec):
+class ImageModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
     model_family: str
     model_name: str
     model_id: str
@@ -61,65 +52,48 @@ class ImageModelFamilyV1(CacheableModelSpec):
     gguf_model_file_name_template: Optional[str]
     virtualenv: Optional[VirtualEnvSettings]
 
+    class Config:
+        extra = "allow"
 
-class ImageModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_spec: ImageModelFamilyV1,
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_spec = model_spec
-
-    @property
-    def spec(self):
-        return self._model_spec
-
-    def to_dict(self):
-        if self._model_spec.controlnet is not None:
-            controlnet = [cn.dict() for cn in self._model_spec.controlnet]
+    def to_description(self):
+        if self.controlnet is not None:
+            controlnet = [cn.dict() for cn in self.controlnet]
         else:
-            controlnet = self._model_spec.controlnet
+            controlnet = self.controlnet
         return {
             "model_type": "image",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._model_spec.model_name,
-            "model_family": self._model_spec.model_family,
-            "model_revision": self._model_spec.model_revision,
-            "model_ability": self._model_spec.model_ability,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "model_name": self.model_name,
+            "model_family": self.model_family,
+            "model_revision": self.model_revision,
+            "model_ability": self.model_ability,
             "controlnet": controlnet,
         }
 
     def to_version_info(self):
+        from .cache_manager import ImageCacheManager
         from .utils import get_model_version
 
-        if self._model_path is None:
-            is_cached = get_cache_status(self._model_spec)
-            file_location = get_cache_dir(self._model_spec)
-        else:
-            is_cached = True
-            file_location = self._model_path
+        cache_manager = ImageCacheManager(self)
 
-        if self._model_spec.controlnet is None:
+        if not self.controlnet:
             return [
                 {
-                    "model_version": get_model_version(self._model_spec, None),
-                    "model_file_location": file_location,
-                    "cache_status": is_cached,
+                    "model_version": get_model_version(self, None),
+                    "model_file_location": cache_manager.get_cache_dir(),
+                    "cache_status": cache_manager.get_cache_status(),
                     "controlnet": "zoe-depth",
                 }
             ]
         else:
             res = []
-            for cn in self._model_spec.controlnet:
+            for cn in self.controlnet:
                 res.append(
                     {
-                        "model_version": get_model_version(self._model_spec, cn),
-                        "model_file_location": file_location,
-                        "cache_status": is_cached,
+                        "model_version": get_model_version(self, cn),
+                        "model_file_location": cache_manager.get_cache_dir(),
+                        "cache_status": cache_manager.get_cache_status(),
                         "controlnet": cn.model_name,
                     }
                 )
@@ -130,9 +104,7 @@ def generate_image_description(
     image_model: ImageModelFamilyV1,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[image_model.model_name].extend(
-        ImageModelDescription(None, None, image_model).to_version_info()
-    )
+    res[image_model.model_name].extend(image_model.to_version_info())
     return res
 
 
@@ -143,25 +115,33 @@ def match_diffusion(
     ] = None,
 ) -> ImageModelFamilyV1:
     from ..utils import download_from_modelscope
-    from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
+    from . import BUILTIN_IMAGE_MODELS
     from .custom import get_user_defined_images
 
     for model_spec in get_user_defined_images():
         if model_spec.model_name == model_name:
             return model_spec
 
-    if download_hub == "modelscope" and model_name in MODELSCOPE_IMAGE_MODELS:
-        logger.debug(f"Image model {model_name} found in ModelScope.")
-        return MODELSCOPE_IMAGE_MODELS[model_name]
-    elif download_hub == "huggingface" and model_name in BUILTIN_IMAGE_MODELS:
-        logger.debug(f"Image model {model_name} found in Huggingface.")
-        return BUILTIN_IMAGE_MODELS[model_name]
-    elif download_from_modelscope() and model_name in MODELSCOPE_IMAGE_MODELS:
-        logger.debug(f"Image model {model_name} found in ModelScope.")
-        return MODELSCOPE_IMAGE_MODELS[model_name]
-    elif model_name in BUILTIN_IMAGE_MODELS:
-        logger.debug(f"Image model {model_name} found in Huggingface.")
-        return BUILTIN_IMAGE_MODELS[model_name]
+    if model_name in BUILTIN_IMAGE_MODELS:
+        if download_hub == "modelscope" or download_from_modelscope():
+            return (
+                [
+                    x
+                    for x in BUILTIN_IMAGE_MODELS[model_name]
+                    if x.model_hub == "modelscope"
+                ]
+                + [
+                    x
+                    for x in BUILTIN_IMAGE_MODELS[model_name]
+                    if x.model_hub == "huggingface"
+                ]
+            )[0]
+        else:
+            return [
+                x
+                for x in BUILTIN_IMAGE_MODELS[model_name]
+                if x.model_hub == "huggingface"
+            ][0]
     else:
         raise ValueError(
             f"Image model {model_name} not found, available"
@@ -169,117 +149,27 @@ def match_diffusion(
         )
 
 
-def cache(model_spec: ImageModelFamilyV1):
-    from ..utils import cache
-
-    return cache(model_spec, ImageModelDescription)
-
-
-def get_cache_dir(model_spec: ImageModelFamilyV1):
-    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
-
-
-def get_cache_status(
-    model_spec: ImageModelFamilyV1,
-) -> bool:
-    cache_dir = get_cache_dir(model_spec)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-
-    model_name = model_spec.model_name
-    if model_name in BUILTIN_IMAGE_MODELS and model_name in MODELSCOPE_IMAGE_MODELS:
-        hf_spec = BUILTIN_IMAGE_MODELS[model_name]
-        ms_spec = MODELSCOPE_IMAGE_MODELS[model_name]
-
-        return any(
-            [
-                valid_model_revision(meta_path, hf_spec.model_revision),
-                valid_model_revision(meta_path, ms_spec.model_revision),
-            ]
-        )
-    else:  # Usually for UT
-        return valid_model_revision(meta_path, model_spec.model_revision)
-
-
-def cache_gguf(spec: ImageModelFamilyV1, quantization: Optional[str] = None):
-    if not quantization:
-        return
-
-    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, spec.model_name))
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-
-    if not spec.gguf_model_file_name_template:
-        raise NotImplementedError(
-            f"{spec.model_name} does not support GGUF quantization"
-        )
-    if quantization not in (spec.gguf_quantizations or []):
-        raise ValueError(
-            f"Cannot support quantization {quantization}, "
-            f"available quantizations: {spec.gguf_quantizations}"
-        )
-
-    filename = spec.gguf_model_file_name_template.format(quantization=quantization)  # type: ignore
-    full_path = os.path.join(cache_dir, filename)
-
-    if spec.model_hub == "huggingface":
-        import huggingface_hub
-
-        use_symlinks = {}
-        if not IS_NEW_HUGGINGFACE_HUB:
-            use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
-        download_file_path = retry_download(
-            huggingface_hub.hf_hub_download,
-            spec.model_name,
-            None,
-            spec.gguf_model_id,
-            filename=filename,
-            **use_symlinks,
-        )
-        if IS_NEW_HUGGINGFACE_HUB:
-            symlink_local_file(download_file_path, cache_dir, filename)
-    elif spec.model_hub == "modelscope":
-        from modelscope.hub.file_download import model_file_download
-
-        download_file_path = retry_download(
-            model_file_download,
-            spec.model_name,
-            None,
-            spec.gguf_model_id,
-            filename,
-            revision=spec.model_revision,
-        )
-        symlink_local_file(download_file_path, cache_dir, filename)
-    else:
-        raise NotImplementedError
-
-    return full_path
-
-
 def create_ocr_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_spec: ImageModelFamilyV1,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[GotOCR2Model, ImageModelDescription]:
+) -> GotOCR2Model:
+    from .cache_manager import ImageCacheManager
+
     if not model_path:
-        model_path = cache(model_spec)
+        cache_manager = ImageCacheManager(model_spec)
+        model_path = cache_manager.cache()
     model = GotOCR2Model(
         model_uid,
         model_path,
         model_spec=model_spec,
         **kwargs,
     )
-    model_description = ImageModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
-    )
-    return model, model_description
+    return model
 
 
 def create_image_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_name: str,
     peft_model_config: Optional[PeftModelConfig] = None,
@@ -290,14 +180,12 @@ def create_image_model_instance(
     gguf_quantization: Optional[str] = None,
     gguf_model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[
-    Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model], ImageModelDescription
-]:
+) -> Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model]:
+    from .cache_manager import ImageCacheManager
+
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         return create_ocr_model_instance(
-            subpool_addr=subpool_addr,
-            devices=devices,
             model_uid=model_uid,
             model_name=model_name,
             model_spec=model_spec,
@@ -327,7 +215,8 @@ def create_image_model_instance(
         for name in controlnet:
             for cn_model_spec in model_spec.controlnet:
                 if cn_model_spec.model_name == name:
-                    controlnet_model_path = cache(cn_model_spec)
+                    cn_cache_manager = ImageCacheManager(cn_model_spec)
+                    controlnet_model_path = cn_cache_manager.cache()
                     controlnet_model_paths.append(controlnet_model_path)
                     break
             else:
@@ -340,10 +229,11 @@ def create_image_model_instance(
             kwargs["controlnet"] = [
                 (n, path) for n, path in zip(controlnet, controlnet_model_paths)
             ]
+    cache_manager = ImageCacheManager(model_spec)
     if not model_path:
-        model_path = cache(model_spec)
+        model_path = cache_manager.cache()
     if not gguf_model_path and gguf_quantization:
-        gguf_model_path = cache_gguf(model_spec, gguf_quantization)
+        gguf_model_path = cache_manager.cache_gguf(gguf_quantization)
     if peft_model_config is not None:
         lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs
@@ -373,7 +263,4 @@ def create_image_model_instance(
         gguf_model_path=gguf_model_path,
         **kwargs,
     )
-    model_description = ImageModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
-    )
-    return model, model_description
+    return model

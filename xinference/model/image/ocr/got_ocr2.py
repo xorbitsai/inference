@@ -32,6 +32,7 @@ class GotOCR2Model:
         model_spec: Optional["ImageModelFamilyV1"] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device

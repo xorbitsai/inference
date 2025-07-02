@@ -1397,7 +1397,9 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+    def list_model_registrations(
+        self, model_type: str, detailed: bool = False
+    ) -> List[Dict[str, Any]]:
         """
         List models registered on the server.
 
@@ -1405,6 +1407,8 @@ class Client:
         ----------
         model_type: str
             The type of the model.
+        detailed: bool
+            Whether to display detailed information.
 
         Returns
         -------
@@ -1417,7 +1421,7 @@ class Client:
             Report failure to list model registration. Provide details of failure through error message.
 
         """
-        url = f"{self.base_url}/v1/model_registrations/{model_type}"
+        url = f"{self.base_url}/v1/model_registrations/{model_type}?detailed={'true' if detailed else 'false'}"
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(

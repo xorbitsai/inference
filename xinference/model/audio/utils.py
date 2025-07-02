@@ -21,13 +21,7 @@ from collections.abc import Callable
 import numpy as np
 import torch
 
-from .core import AudioModelFamilyV1
-
 logger = logging.getLogger(__name__)
-
-
-def get_model_version(audio_model: AudioModelFamilyV1) -> str:
-    return audio_model.model_name
 
 
 def _extract_pcm_from_wav_bytes(wav_bytes):

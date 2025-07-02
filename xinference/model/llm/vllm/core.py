@@ -263,8 +263,6 @@ class VLLMModel(LLM):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
@@ -279,7 +277,7 @@ class VLLMModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
         self.lora_modules = peft_model

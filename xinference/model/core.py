@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from .._compat import BaseModel
 from ..types import PeftModelConfig
@@ -65,7 +65,7 @@ def create_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[Any, ModelDescription]:
+) -> Any:
     from .audio.core import create_audio_model_instance
     from .embedding.core import create_embedding_model_instance
     from .flexible.core import create_flexible_model_instance
@@ -76,8 +76,6 @@ def create_model_instance(
 
     if model_type == "LLM":
         return create_llm_model_instance(
-            subpool_addr,
-            devices,
             model_uid,
             model_name,
             model_engine,
@@ -107,8 +105,6 @@ def create_model_instance(
     elif model_type == "image":
         kwargs.pop("trust_remote_code", None)
         return create_image_model_instance(
-            subpool_addr,
-            devices,
             model_uid,
             model_name,
             peft_model_config,
@@ -119,8 +115,6 @@ def create_model_instance(
     elif model_type == "rerank":
         kwargs.pop("trust_remote_code", None)
         return create_rerank_model_instance(
-            subpool_addr,
-            devices,
             model_uid,
             model_name,
             download_hub,
@@ -130,8 +124,6 @@ def create_model_instance(
     elif model_type == "audio":
         kwargs.pop("trust_remote_code", None)
         return create_audio_model_instance(
-            subpool_addr,
-            devices,
             model_uid,
             model_name,
             download_hub,
@@ -141,8 +133,6 @@ def create_model_instance(
     elif model_type == "video":
         kwargs.pop("trust_remote_code", None)
         return create_video_model_instance(
-            subpool_addr,
-            devices,
             model_uid,
             model_name,
             download_hub,
@@ -152,7 +142,7 @@ def create_model_instance(
     elif model_type == "flexible":
         kwargs.pop("trust_remote_code", None)
         return create_flexible_model_instance(
-            subpool_addr, devices, model_uid, model_name, model_path, **kwargs
+            model_uid, model_name, model_path, **kwargs
         )
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")

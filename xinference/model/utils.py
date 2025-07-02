@@ -18,6 +18,7 @@ import logging
 import os
 import random
 import threading
+from abc import ABC, abstractmethod
 from copy import deepcopy
 from json import JSONDecodeError
 from pathlib import Path
@@ -534,3 +535,25 @@ def generate_quant_model_file_names(
             file_names.append(file_name)
 
     return file_names, final_file_name, need_merge
+
+
+def flatten_model_src(input_json):
+    flattened = []
+    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+    for model_hub, hub_info in input_json["model_src"].items():
+        record = base_info.copy()
+        hub_info.pop("model_hub", None)
+        record.update(hub_info)
+        record["model_hub"] = model_hub
+        flattened.append(record)
+    return flattened
+
+
+class ModelInstanceInfoMixin(ABC):
+    @abstractmethod
+    def to_description(self):
+        """"""
+
+    @abstractmethod
+    def to_version_info(self):
+        """"""

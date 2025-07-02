@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import os
 from collections import defaultdict
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from ...constants import XINFERENCE_CACHE_DIR
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import valid_model_revision
+from ..core import CacheableModelSpec, VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
 from .chattts import ChatTTSModel
 from .cosyvoice import CosyVoiceModel
 from .f5tts import F5TTSModel
@@ -33,9 +31,7 @@ from .whisper_mlx import WhisperMLXModel
 
 logger = logging.getLogger(__name__)
 
-# Used for check whether the model is cached.
 # Init when registering all the builtin models.
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 AUDIO_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
@@ -45,7 +41,7 @@ def get_audio_model_descriptions():
     return copy.deepcopy(AUDIO_MODEL_DESCRIPTIONS)
 
 
-class AudioModelFamilyV1(CacheableModelSpec):
+class AudioModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
     model_family: str
     model_name: str
     model_id: str
@@ -58,57 +54,37 @@ class AudioModelFamilyV1(CacheableModelSpec):
     engine: Optional[str]
     virtualenv: Optional[VirtualEnvSettings]
 
+    class Config:
+        extra = "allow"
 
-class AudioModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_spec: AudioModelFamilyV1,
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_spec = model_spec
-
-    @property
-    def spec(self):
-        return self._model_spec
-
-    def to_dict(self):
+    def to_description(self):
         return {
             "model_type": "audio",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._model_spec.model_name,
-            "model_family": self._model_spec.model_family,
-            "model_revision": self._model_spec.model_revision,
-            "model_ability": self._model_spec.model_ability,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "model_name": self.model_name,
+            "model_family": self.model_family,
+            "model_revision": self.model_revision,
+            "model_ability": self.model_ability,
         }
 
     def to_version_info(self):
-        from .utils import get_model_version
+        from ..cache_manager import CacheManager
 
-        if self._model_path is None:
-            is_cached = get_cache_status(self._model_spec)
-            file_location = get_cache_dir(self._model_spec)
-        else:
-            is_cached = True
-            file_location = self._model_path
+        cache_manager = CacheManager(self)
 
         return {
-            "model_version": get_model_version(self._model_spec),
-            "model_file_location": file_location,
-            "cache_status": is_cached,
+            "model_version": self.model_name,
+            "model_file_location": cache_manager.get_cache_dir(),
+            "cache_status": cache_manager.get_cache_status(),
         }
 
 
 def generate_audio_description(
-    image_model: AudioModelFamilyV1,
+    audio_model: AudioModelFamilyV1,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[image_model.model_name].append(
-        AudioModelDescription(None, None, image_model).to_version_info()
-    )
+    res[audio_model.model_name].append(audio_model.to_version_info())
     return res
 
 
@@ -119,25 +95,22 @@ def match_audio(
     ] = None,
 ) -> AudioModelFamilyV1:
     from ..utils import download_from_modelscope
-    from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
+    from . import BUILTIN_AUDIO_MODELS
     from .custom import get_user_defined_audios
 
     for model_spec in get_user_defined_audios():
         if model_spec.model_name == model_name:
             return model_spec
 
-    if download_hub == "huggingface" and model_name in BUILTIN_AUDIO_MODELS:
-        logger.debug(f"Audio model {model_name} found in huggingface.")
-        return BUILTIN_AUDIO_MODELS[model_name]
-    elif download_hub == "modelscope" and model_name in MODELSCOPE_AUDIO_MODELS:
-        logger.debug(f"Audio model {model_name} found in ModelScope.")
-        return MODELSCOPE_AUDIO_MODELS[model_name]
-    elif download_from_modelscope() and model_name in MODELSCOPE_AUDIO_MODELS:
-        logger.debug(f"Audio model {model_name} found in ModelScope.")
-        return MODELSCOPE_AUDIO_MODELS[model_name]
-    elif model_name in BUILTIN_AUDIO_MODELS:
-        logger.debug(f"Audio model {model_name} found in huggingface.")
-        return BUILTIN_AUDIO_MODELS[model_name]
+    if model_name in BUILTIN_AUDIO_MODELS:
+        model_families = BUILTIN_AUDIO_MODELS[model_name]
+        if download_hub == "modelscope" or download_from_modelscope():
+            return (
+                [x for x in model_families if x.model_hub == "modelscope"]
+                + [x for x in model_families if x.model_hub == "huggingface"]
+            )[0]
+        else:
+            return [x for x in model_families if x.model_hub == "huggingface"][0]
     else:
         raise ValueError(
             f"Audio model {model_name} not found, available"
@@ -145,27 +118,7 @@ def match_audio(
         )
 
 
-def cache(model_spec: AudioModelFamilyV1):
-    from ..utils import cache
-
-    return cache(model_spec, AudioModelDescription)
-
-
-def get_cache_dir(model_spec: AudioModelFamilyV1):
-    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
-
-
-def get_cache_status(
-    model_spec: AudioModelFamilyV1,
-) -> bool:
-    cache_dir = get_cache_dir(model_spec)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    return valid_model_revision(meta_path, model_spec.model_revision)
-
-
 def create_audio_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_name: str,
     download_hub: Optional[
@@ -173,25 +126,25 @@ def create_audio_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[
-    Union[
-        WhisperModel,
-        WhisperMLXModel,
-        FunASRModel,
-        ChatTTSModel,
-        CosyVoiceModel,
-        FishSpeechModel,
-        F5TTSModel,
-        F5TTSMLXModel,
-        MeloTTSModel,
-        KokoroModel,
-        MegaTTSModel,
-    ],
-    AudioModelDescription,
+) -> Union[
+    WhisperModel,
+    WhisperMLXModel,
+    FunASRModel,
+    ChatTTSModel,
+    CosyVoiceModel,
+    FishSpeechModel,
+    F5TTSModel,
+    F5TTSMLXModel,
+    MeloTTSModel,
+    KokoroModel,
+    MegaTTSModel,
 ]:
+    from ..cache_manager import CacheManager
+
     model_spec = match_audio(model_name, download_hub)
     if model_path is None:
-        model_path = cache(model_spec)
+        cache_manager = CacheManager(model_spec)
+        model_path = cache_manager.cache()
     model: Union[
         WhisperModel,
         WhisperMLXModel,
@@ -230,7 +183,4 @@ def create_audio_model_instance(
         model = MegaTTSModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
-    model_description = AudioModelDescription(
-        subpool_addr, devices, model_spec, model_path
-    )
-    return model, model_description
+    return model

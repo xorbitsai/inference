@@ -91,6 +91,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         gguf_model_path: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device

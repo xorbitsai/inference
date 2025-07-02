@@ -17,7 +17,7 @@ import os
 from threading import Lock
 from typing import List, Optional
 
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import XINFERENCE_MODEL_DIR
 from .core import ImageModelFamilyV1
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def get_user_defined_images() -> List[ImageModelFamilyV1]:
 
 def register_image(model_spec: CustomImageModelFamilyV1, persist: bool):
     from ..utils import is_valid_model_name, is_valid_model_uri
-    from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
+    from . import BUILTIN_IMAGE_MODELS
 
     if not is_valid_model_name(model_spec.model_name):
         raise ValueError(f"Invalid model name {model_spec.model_name}.")
@@ -52,11 +52,9 @@ def register_image(model_spec: CustomImageModelFamilyV1, persist: bool):
         raise ValueError(f"Invalid model URI {model_uri}")
 
     with UD_IMAGE_LOCK:
-        for model_name in (
-            list(BUILTIN_IMAGE_MODELS.keys())
-            + list(MODELSCOPE_IMAGE_MODELS.keys())
-            + [spec.model_name for spec in UD_IMAGES]
-        ):
+        for model_name in list(BUILTIN_IMAGE_MODELS.keys()) + [
+            spec.model_name for spec in UD_IMAGES
+        ]:
             if model_spec.model_name == model_name:
                 raise ValueError(
                     f"Model name conflicts with existing model {model_spec.model_name}"
@@ -65,7 +63,7 @@ def register_image(model_spec: CustomImageModelFamilyV1, persist: bool):
 
     if persist:
         persist_path = os.path.join(
-            XINFERENCE_MODEL_DIR, "image", f"{model_spec.model_name}.json"
+            XINFERENCE_MODEL_DIR, "v2", "image", f"{model_spec.model_name}.json"
         )
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
         with open(persist_path, "w") as f:
@@ -73,6 +71,8 @@ def register_image(model_spec: CustomImageModelFamilyV1, persist: bool):
 
 
 def unregister_image(model_name: str, raise_error: bool = True):
+    from .cache_manager import ImageCacheManager
+
     with UD_IMAGE_LOCK:
         model_spec = None
         for i, f in enumerate(UD_IMAGES):
@@ -83,14 +83,15 @@ def unregister_image(model_name: str, raise_error: bool = True):
             UD_IMAGES.remove(model_spec)
 
             persist_path = os.path.join(
-                XINFERENCE_MODEL_DIR, "image", f"{model_spec.model_id}.json"
+                XINFERENCE_MODEL_DIR, "v2", "image", f"{model_spec.model_name}.json"
             )
 
             if os.path.exists(persist_path):
                 os.remove(persist_path)
 
-            cache_dir = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-            if os.path.exists(cache_dir):
+            cache_manager = ImageCacheManager(model_spec)
+            cache_dir = cache_manager.get_cache_dir()
+            if cache_manager.get_cache_status():
                 logger.warning(
                     f"Remove the cache of user-defined model {model_spec.model_name}. "
                     f"Cache directory: {cache_dir}"

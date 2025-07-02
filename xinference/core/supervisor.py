@@ -204,8 +204,8 @@ class SupervisorActor(xo.StatelessActor):
         )
         from ..model.llm import (
             CustomLLMFamilyV1,
-            generate_llm_description,
-            get_llm_model_descriptions,
+            generate_llm_version_info,
+            get_llm_version_infos,
             register_llm,
             unregister_llm,
         )
@@ -222,7 +222,7 @@ class SupervisorActor(xo.StatelessActor):
                 CustomLLMFamilyV1,
                 register_llm,
                 unregister_llm,
-                generate_llm_description,
+                generate_llm_version_info,
             ),
             "embedding": (
                 CustomEmbeddingModelFamilyV1,
@@ -258,7 +258,7 @@ class SupervisorActor(xo.StatelessActor):
 
         # record model version
         model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_model_descriptions())
+        model_version_infos.update(get_llm_version_infos())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
@@ -409,7 +409,8 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_llm_reg(
         self, llm_family: "LLMFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.llm import get_cache_status
+        # from ..model.llm import get_cache_status
+        from ..model.llm.cache_manager import LLMCacheManager
 
         instance_cnt = await self.get_instance_count(llm_family.model_name)
         version_cnt = await self.get_model_version_count(llm_family.model_name)
@@ -417,9 +418,18 @@ class SupervisorActor(xo.StatelessActor):
         if self.is_local_deployment():
             specs = []
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            for spec in llm_family.model_specs:
-                cache_status = get_cache_status(llm_family, spec)
-                specs.append({**spec.dict(), "cache_status": cache_status})
+            _llm_family = llm_family.copy()
+            for spec in [
+                _spec
+                for _spec in llm_family.model_specs
+                if _spec.model_hub == "huggingface"
+            ]:
+                _llm_family.model_specs = [spec]
+                cache_manager = LLMCacheManager(_llm_family)
+                # cache_status = get_cache_status(llm_family, spec)
+                specs.append(
+                    {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
+                )
             res = {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
         else:
             res = {**llm_family.dict(), "is_builtin": is_builtin}
@@ -458,14 +468,15 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_rerank_model_reg(
         self, model_spec: "RerankModelSpec", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.rerank import get_cache_status
+        from ..model.cache_manager import CacheManager
 
         instance_cnt = await self.get_instance_count(model_spec.model_name)
         version_cnt = await self.get_model_version_count(model_spec.model_name)
+        cache_manager = CacheManager(model_spec)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_status = get_cache_status(model_spec)
+            cache_status = cache_manager.get_cache_status()
             res = {
                 **model_spec.dict(),
                 "cache_status": cache_status,
@@ -483,17 +494,17 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_image_model_reg(
         self, model_family: "ImageModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.image import get_cache_status
+        from ..model.image.cache_manager import ImageCacheManager
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_status = get_cache_status(model_family)
+            cache_manager = ImageCacheManager(model_family)
             res = {
                 **model_family.dict(),
-                "cache_status": cache_status,
+                "cache_status": cache_manager.get_cache_status(),
                 "is_builtin": is_builtin,
             }
         else:
@@ -508,17 +519,17 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_audio_model_reg(
         self, model_family: "AudioModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.audio import get_cache_status
+        from ..model.cache_manager import CacheManager
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
+        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_status = get_cache_status(model_family)
             res = {
                 **model_family.dict(),
-                "cache_status": cache_status,
+                "cache_status": cache_manager.get_cache_status(),
                 "is_builtin": is_builtin,
             }
         else:
@@ -533,17 +544,17 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_video_model_reg(
         self, model_family: "VideoModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.video import get_cache_status
+        from ..model.cache_manager import CacheManager
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
+        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_status = get_cache_status(model_family)
             res = {
                 **model_family.dict(),
-                "cache_status": cache_status,
+                "cache_status": cache_manager.get_cache_status(),
                 "is_builtin": is_builtin,
             }
         else:
@@ -635,8 +646,9 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            for model_name, family in BUILTIN_IMAGE_MODELS.items():
+            for model_name, families in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
                     ret.append(await self._to_image_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -657,8 +669,9 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            for model_name, family in BUILTIN_AUDIO_MODELS.items():
+            for model_name, families in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
                     ret.append(await self._to_audio_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -678,8 +691,9 @@ class SupervisorActor(xo.StatelessActor):
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS
 
-            for model_name, family in BUILTIN_VIDEO_MODELS.items():
+            for model_name, families in BUILTIN_VIDEO_MODELS.items():
                 if detailed:
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
                     ret.append(await self._to_video_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -690,8 +704,9 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            for model_name, family in BUILTIN_RERANK_MODELS.items():
+            for model_name, families in BUILTIN_RERANK_MODELS.items():
                 if detailed:
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
                     ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -760,25 +775,46 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            for f in list(BUILTIN_IMAGE_MODELS.values()) + get_user_defined_images():
-                if f.model_name == model_name:
-                    return f
+            if model_name in BUILTIN_IMAGE_MODELS:
+                return [
+                    x
+                    for x in BUILTIN_IMAGE_MODELS[model_name]
+                    if x.model_hub == "huggingface"
+                ][0]
+            else:
+                for f in get_user_defined_images():
+                    if f.model_name == model_name:
+                        return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            for f in list(BUILTIN_AUDIO_MODELS.values()) + get_user_defined_audios():
-                if f.model_name == model_name:
-                    return f
+            if model_name in BUILTIN_AUDIO_MODELS:
+                return [
+                    x
+                    for x in BUILTIN_AUDIO_MODELS[model_name]
+                    if x.model_hub == "huggingface"
+                ][0]
+            else:
+                for f in get_user_defined_audios():
+                    if f.model_name == model_name:
+                        return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
-                if f.model_name == model_name:
-                    return f
+            if model_name in BUILTIN_RERANK_MODELS:
+                return [
+                    x
+                    for x in BUILTIN_RERANK_MODELS[model_name]
+                    if x.model_hub == "huggingface"
+                ][0]
+            else:
+                for f in get_user_defined_reranks():
+                    if f.model_name == model_name:
+                        return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "flexible":
             from ..model.flexible import get_flexible_models

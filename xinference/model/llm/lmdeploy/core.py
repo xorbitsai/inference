@@ -77,13 +77,11 @@ class LMDeployModel(LLM):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         model_config: Optional[LMDeployModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._model_config: LMDeployModelConfig = self._sanitize_model_config(
             model_config
         )

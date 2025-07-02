@@ -17,10 +17,11 @@ import logging
 import os
 from collections import defaultdict
 from threading import Lock
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
+from ..core import CacheableModelSpec, VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
 from .utils import get_launcher
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 FLEXIBLE_MODEL_LOCK = Lock()
 
 
-class FlexibleModelSpec(CacheableModelSpec):
+class FlexibleModelSpec(CacheableModelSpec, ModelInstanceInfoMixin):
     model_id: Optional[str]  # type: ignore
     model_description: Optional[str]
     model_uri: Optional[str]
@@ -39,42 +40,26 @@ class FlexibleModelSpec(CacheableModelSpec):
     def parser_args(self):
         return json.loads(self.launcher_args)
 
+    class Config:
+        extra = "allow"
 
-class FlexibleModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_spec: FlexibleModelSpec,
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_spec = model_spec
-
-    @property
-    def spec(self):
-        return self._model_spec
-
-    def to_dict(self):
+    def to_description(self):
         return {
             "model_type": "flexible",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._model_spec.model_name,
-            "launcher": self._model_spec.launcher,
-            "launcher_args": self._model_spec.launcher_args,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "model_name": self.model_name,
+            "launcher": self.launcher,
+            "launcher_args": self.launcher_args,
         }
-
-    def get_model_version(self) -> str:
-        return f"{self._model_spec.model_name}"
 
     def to_version_info(self):
         return {
-            "model_version": self.get_model_version(),
+            "model_version": self.model_name,
             "cache_status": True,
-            "model_file_location": self._model_spec.model_uri,
-            "launcher": self._model_spec.launcher,
-            "launcher_args": self._model_spec.launcher_args,
+            "model_file_location": self.model_uri,
+            "launcher": self.launcher,
+            "launcher_args": self.launcher_args,
         }
 
 
@@ -82,9 +67,7 @@ def generate_flexible_model_description(
     model_spec: FlexibleModelSpec,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[model_spec.model_name].append(
-        FlexibleModelDescription(None, None, model_spec).to_version_info()
-    )
+    res[model_spec.model_name].append(model_spec.to_version_info())
     return res
 
 
@@ -129,7 +112,7 @@ def register_flexible_model(model_spec: FlexibleModelSpec, persist: bool):
 
     if persist:
         persist_path = os.path.join(
-            XINFERENCE_MODEL_DIR, "flexible", f"{model_spec.model_name}.json"
+            XINFERENCE_MODEL_DIR, "v2", "flexible", f"{model_spec.model_name}.json"
         )
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
         with open(persist_path, mode="w") as fd:
@@ -147,7 +130,7 @@ def unregister_flexible_model(model_name: str, raise_error: bool = True):
             FLEXIBLE_MODELS.remove(model_spec)
 
             persist_path = os.path.join(
-                XINFERENCE_MODEL_DIR, "flexible", f"{model_spec.model_name}.json"
+                XINFERENCE_MODEL_DIR, "v2", "flexible", f"{model_spec.model_name}.json"
             )
             if os.path.exists(persist_path):
                 os.remove(persist_path)
@@ -176,9 +159,11 @@ class FlexibleModel:
         self,
         model_uid: str,
         model_path: str,
+        model_family: FlexibleModelSpec,
         device: Optional[str] = None,
         config: Optional[Dict] = None,
     ):
+        self.model_family = model_family
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
@@ -219,13 +204,11 @@ def match_flexible_model(model_name):
 
 
 def create_flexible_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_name: str,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[FlexibleModel, FlexibleModelDescription]:
+) -> FlexibleModel:
     model_spec = match_flexible_model(model_name)
     if not model_path:
         model_path = model_spec.model_uri
@@ -237,7 +220,4 @@ def create_flexible_model_instance(
         model_uid=model_uid, model_spec=model_spec, **kwargs
     )
 
-    model_description = FlexibleModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
-    )
-    return model, model_description
+    return model
