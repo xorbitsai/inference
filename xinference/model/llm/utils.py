@@ -562,15 +562,15 @@ class ChatModelMixin:
             pattern = r"(<(think|tool_call)>.*?</\2>)"
             parts = []
             last_end = 0
-            # 查找所有标签块并记录位置
+            # Find all label blocks and record their positions
             for m in re.finditer(pattern, text, re.DOTALL):
-                # 添加标签前的文本
+                # Text before adding tags
                 if m.start() > last_end:
                     parts.append(text[last_end : m.start()])
-                # 添加标签块
+                # Add label block
                 parts.append(m.group(0))
                 last_end = m.end()
-            # 添加最后一个标签后的文本
+            # Text after adding the last tag
             if last_end < len(text):
                 parts.append(text[last_end:])
             return parts
