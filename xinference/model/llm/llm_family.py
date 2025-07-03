@@ -14,7 +14,6 @@
 
 import logging
 import os
-from threading import Lock
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 from typing_extensions import Annotated, Literal
@@ -30,14 +29,13 @@ from ..._compat import (
     load_str_bytes,
     validator,
 )
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import XINFERENCE_CACHE_DIR
 from ..core import VirtualEnvSettings
 from ..utils import (
     ModelInstanceInfoMixin,
     download_from_csghub,
     download_from_modelscope,
     download_from_openmind_hub,
-    is_valid_model_uri,
     retry_download,
     symlink_local_file,
 )
@@ -308,27 +306,15 @@ CustomLLMFamilyV1.update_forward_refs()
 LLAMA_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
-BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
-BUILTIN_OPENMIND_HUB_LLM_FAMILIES: List["LLMFamilyV1"] = []
-BUILTIN_CSGHUB_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 SGLANG_CLASSES: List[Type[LLM]] = []
 TRANSFORMERS_CLASSES: List[Type[LLM]] = []
-
-UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
-
-UD_LLM_FAMILIES_LOCK = Lock()
-
 VLLM_CLASSES: List[Type[LLM]] = []
-
 MLX_CLASSES: List[Type[LLM]] = []
-
 LMDEPLOY_CLASSES: List[Type[LLM]] = []
 
 LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
-
-LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
 
 # Add decorator definition
@@ -510,11 +496,6 @@ def _merge_cached_files(
     logger.info(f"Merge complete.")
 
 
-def get_user_defined_llm_families():
-    with UD_LLM_FAMILIES_LOCK:
-        return UD_LLM_FAMILIES.copy()
-
-
 def match_model_size(
     model_size: Union[int, str], spec_model_size: Union[int, str]
 ) -> bool:
@@ -560,6 +541,8 @@ def match_llm(
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
     """
+    from .custom import get_user_defined_llm_families
+
     user_defined_llm_families = get_user_defined_llm_families()
 
     def _match_quantization(q: Union[str, None], quant: str):
@@ -642,79 +625,6 @@ def match_llm(
                 _llm_family.model_specs = [_apply_format_to_model_id(spec, _q)]
                 return _llm_family
     return None
-
-
-def register_llm(llm_family: LLMFamilyV1, persist: bool):
-    from ..utils import is_valid_model_name
-    from . import generate_engine_config_by_model_family
-
-    if not is_valid_model_name(llm_family.model_name):
-        raise ValueError(f"Invalid model name {llm_family.model_name}.")
-
-    for spec in llm_family.model_specs:
-        model_uri = spec.model_uri
-        if model_uri and not is_valid_model_uri(model_uri):
-            raise ValueError(f"Invalid model URI {model_uri}.")
-
-    with UD_LLM_FAMILIES_LOCK:
-        for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
-            if llm_family.model_name == family.model_name:
-                raise ValueError(
-                    f"Model name conflicts with existing model {family.model_name}"
-                )
-
-        UD_LLM_FAMILIES.append(llm_family)
-        generate_engine_config_by_model_family(llm_family)
-
-    if persist:
-        persist_path = os.path.join(
-            XINFERENCE_MODEL_DIR, "v2", "llm", f"{llm_family.model_name}.json"
-        )
-        os.makedirs(os.path.dirname(persist_path), exist_ok=True)
-        with open(persist_path, mode="w") as fd:
-            fd.write(llm_family.json())
-
-
-def unregister_llm(model_name: str, raise_error: bool = True):
-    from .cache_manager import LLMCacheManager
-
-    with UD_LLM_FAMILIES_LOCK:
-        llm_family = None
-        for i, f in enumerate(UD_LLM_FAMILIES):
-            if f.model_name == model_name:
-                llm_family = f
-                break
-        if llm_family:
-            UD_LLM_FAMILIES.remove(llm_family)
-            del LLM_ENGINES[model_name]
-
-            persist_path = os.path.join(
-                XINFERENCE_MODEL_DIR, "v2", "llm", f"{llm_family.model_name}.json"
-            )
-            if os.path.exists(persist_path):
-                os.remove(persist_path)
-
-            _llm_family = llm_family.copy()
-            for spec in llm_family.model_specs:
-                _llm_family.model_specs = [spec]
-                cache_manager = LLMCacheManager(_llm_family)
-                cache_dir = cache_manager.get_cache_dir()
-                if os.path.exists(cache_dir):
-                    logger.warning(
-                        f"Remove the cache of user-defined model {llm_family.model_name}. "
-                        f"Cache directory: {cache_dir}"
-                    )
-                    if os.path.islink(cache_dir):
-                        os.remove(cache_dir)
-                    else:
-                        logger.warning(
-                            f"Cache directory is not a soft link, please remove it manually."
-                        )
-        else:
-            if raise_error:
-                raise ValueError(f"Model {model_name} not found")
-            else:
-                logger.warning(f"Custom model {model_name} not found")
 
 
 def check_engine_by_spec_parameters(

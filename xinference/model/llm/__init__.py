@@ -22,6 +22,7 @@ from .core import (
     generate_llm_version_info,
     get_llm_version_infos,
 )
+from .custom import get_user_defined_llm_families, register_llm, unregister_llm
 from .llm_family import (
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
@@ -42,10 +43,7 @@ from .llm_family import (
     LLMSpecV1,
     MLXLLMSpecV1,
     PytorchLLMSpecV1,
-    get_user_defined_llm_families,
     match_llm,
-    register_llm,
-    unregister_llm,
 )
 
 

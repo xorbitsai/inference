@@ -549,6 +549,15 @@ def flatten_model_src(input_json):
     return flattened
 
 
+def find_custom_model(model_name: str, custom_model_collections):
+    model_spec = None
+    for f in custom_model_collections:
+        if f.model_name == model_name:
+            model_spec = f
+            break
+    return model_spec
+
+
 class ModelInstanceInfoMixin(ABC):
     @abstractmethod
     def to_description(self):

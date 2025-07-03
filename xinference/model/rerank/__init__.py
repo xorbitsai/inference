@@ -56,8 +56,6 @@ def register_custom_model():
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_RERANK_MODELS)
 
-    # register model description after recording model revision
-    # for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
     for model_name, model_specs in BUILTIN_RERANK_MODELS.items():
         model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
         if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:

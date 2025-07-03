@@ -11,11 +11,13 @@ logger = logging.getLogger(__name__)
 
 class CacheManager:
     def __init__(self, model_family: "CacheableModelSpec"):
-        from ..constants import XINFERENCE_CACHE_DIR
+        from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 
         self._model_family = model_family
         self._v2_cache_dir_prefix = os.path.join(XINFERENCE_CACHE_DIR, "v2")
+        self._v2_custom_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2")
         os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
+        os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
 
     def get_cache_dir(self):
         return os.path.join(self._v2_cache_dir_prefix, self._model_family.model_name)
@@ -96,3 +98,35 @@ class CacheManager:
 
     def cache(self) -> str:
         return self._cache()
+
+    def register_custom_model(self, model_type: str):
+        persist_path = os.path.join(
+            self._v2_custom_dir_prefix,
+            model_type,
+            f"{self._model_family.model_name}.json",
+        )
+        os.makedirs(os.path.dirname(persist_path), exist_ok=True)
+        with open(persist_path, mode="w") as fd:
+            fd.write(self._model_family.json())
+
+    def unregister_custom_model(self, model_type: str):
+        persist_path = os.path.join(
+            self._v2_custom_dir_prefix,
+            model_type,
+            f"{self._model_family.model_name}.json",
+        )
+        if os.path.exists(persist_path):
+            os.remove(persist_path)
+
+        cache_dir = self.get_cache_dir()
+        if self.get_cache_status():
+            logger.warning(
+                f"Remove the cache of user-defined model {self._model_family.model_name}. "
+                f"Cache directory: {cache_dir}"
+            )
+            if os.path.islink(cache_dir):
+                os.remove(cache_dir)
+            else:
+                logger.warning(
+                    f"Cache directory is not a soft link, please remove it manually."
+                )
