@@ -35,7 +35,12 @@ from ....types import (
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV1
-from ..utils import ChatModelMixin, generate_completion_chunk
+from ..utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
+    ChatModelMixin,
+    generate_completion_chunk,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -583,6 +588,9 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
+        # fix: Object of type list_iterator is not JSON serializable
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
+        model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
@@ -591,6 +599,12 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
+        if tools:
+            if (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            ):
+                full_context_kwargs["tools"] = tools
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
         )
@@ -603,6 +617,10 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         else:
             c = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
+            if tools:
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
             return self._to_chat_completion(c, self.reasoning_parser)
 
 
