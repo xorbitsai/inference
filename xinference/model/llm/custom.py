@@ -38,9 +38,9 @@ class LLMModelRegistry(ModelRegistry):
 
         with self.lock:
             for family in self.builtin_models + self.models:
-                if llm_family.model_name == family.model_name:
+                if llm_family.model_name == family.model_name:  # type: ignore
                     raise ValueError(
-                        f"Model name conflicts with existing model {family.model_name}"
+                        f"Model name conflicts with existing model {family.model_name}"  # type: ignore
                     )
 
             UD_LLM_FAMILIES.append(llm_family)
