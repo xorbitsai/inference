@@ -248,6 +248,10 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.8.1":
+    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-small-3.2-instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("mistral-small-3.2-instruct")
+
 if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
