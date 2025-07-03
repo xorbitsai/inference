@@ -560,23 +560,33 @@ class ChatModelMixin:
         def split_into_blocks(text: str) -> list[str]:
             # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
             pattern = r"(<(think|tool_call)>.*?</\2>)"
-            blocks = re.findall(pattern, text, re.DOTALL)
-            return [match[0] for match in blocks]
+            parts = []
+            last_end = 0
+            # 查找所有标签块并记录位置
+            for m in re.finditer(pattern, text, re.DOTALL):
+                # 添加标签前的文本
+                if m.start() > last_end:
+                    parts.append(text[last_end : m.start()])
+                # 添加标签块
+                parts.append(m.group(0))
+                last_end = m.end()
+            # 添加最后一个标签后的文本
+            if last_end < len(text):
+                parts.append(text[last_end:])
+            return parts
 
         contents = split_into_blocks(text)
         results: List[Tuple] = []
         for content in contents:
-            content = content.strip()
-            if content:
+            if content.strip():
                 pos1 = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
                 if pos1 != -1:
                     content = content[pos1 + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
                 pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
                 if pos2 != -1:
                     content = content[:pos2]
-                content = content.strip()
                 try:
-                    res = json.loads(content)
+                    res = json.loads(content, strict=False)
                     results.append((None, res["name"], res["arguments"]))
                 except Exception as e:
                     logger.error(
@@ -724,7 +734,7 @@ class ChatModelMixin:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 
-        content = ". ".join(failed_contents) if failed_contents else None
+        content = "".join(failed_contents) if failed_contents else None
 
         # fix: qwen tool_call content field return null
         family = model_family.model_family or model_family.model_name
@@ -802,7 +812,7 @@ class ChatModelMixin:
                     failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 
-        content = ". ".join(failed_contents) if failed_contents else None
+        content = "".join(failed_contents) if failed_contents else None
 
         # fix: qwen tool_call content field return null
         family = model_family.model_family or model_family.model_name
