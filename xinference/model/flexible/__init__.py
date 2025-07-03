@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import codecs
 import json
 import logging
@@ -25,6 +24,8 @@ from .core import (
     FlexibleModelSpec,
     generate_flexible_model_description,
     get_flexible_model_descriptions,
+)
+from .custom import (
     get_flexible_models,
     register_flexible_model,
     unregister_flexible_model,
