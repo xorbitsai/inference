@@ -4,9 +4,9 @@
 # Xorbits Inference：模型推理， 轻而易举 🤖
 
 <p align="center">
-  <a href="https://github.com/xorbitsai/enterprise-docs/blob/main/README_zh_CN.md">Xinference 企业版</a> ·
+  <a href="https://xinference.cn">Xinference 企业版</a> ·
   <a href="https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#installation">自托管</a> ·
-  <a href="https://inference.readthedocs.io/">文档</a>
+  <a href="https://inference.readthedocs.io/zh-cn/latest/index.html">文档</a>
 </p>
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
