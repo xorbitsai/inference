@@ -19,17 +19,19 @@ class LLMCacheManager(CacheManager):
         self._llm_family = llm_family
         self._model_name = llm_family.model_name
         self._model_format = llm_family.model_specs[0].model_format
-        self._model_size_in_billions = llm_family.model_specs[0].model_size_in_billions
+        self._model_size_in_billions = getattr(
+            llm_family.model_specs[0], "model_size_in_billions", None
+        )
         self._quantization = llm_family.model_specs[0].quantization
         self._model_uri = llm_family.model_specs[0].model_uri
         self._multimodal_projector = multimodal_projector
         self._model_id = llm_family.model_specs[0].model_id
         self._model_hub = llm_family.model_specs[0].model_hub
         self._model_revision = llm_family.model_specs[0].model_revision
-
-    def get_cache_dir(self):
-        model_dir_name = f"{self._model_name}-{self._model_format}-{self._model_size_in_billions}b-{self._quantization}"
-        return os.path.join(self._v2_cache_dir_prefix, model_dir_name)
+        self._cache_dir = os.path.join(
+            self._v2_cache_dir_prefix,
+            f"{self._model_name}-{self._model_format}-{self._model_size_in_billions}b-{self._quantization}",
+        )
 
     def cache_uri(self) -> str:
         from ..utils import parse_uri
@@ -64,13 +66,10 @@ class LLMCacheManager(CacheManager):
         from ..utils import (
             IS_NEW_HUGGINGFACE_HUB,
             create_symlink,
+            generate_model_file_names_with_quantization_parts,
+            merge_cached_files,
             retry_download,
             symlink_local_file,
-        )
-        from .llm_family import (
-            LlamaCppLLMSpecV1,
-            _generate_model_file_names,
-            _merge_cached_files,
         )
 
         cache_dir = self.get_cache_dir()
@@ -96,9 +95,10 @@ class LLMCacheManager(CacheManager):
             if IS_NEW_HUGGINGFACE_HUB:
                 create_symlink(download_dir, cache_dir)
         elif self._model_format in ["ggufv2"]:
-            assert isinstance(self._llm_family.model_specs[0], LlamaCppLLMSpecV1)
-            file_names, final_file_name, need_merge = _generate_model_file_names(
-                self._llm_family.model_specs[0], self._multimodal_projector
+            file_names, final_file_name, need_merge = (
+                generate_model_file_names_with_quantization_parts(
+                    self._llm_family.model_specs[0], self._multimodal_projector
+                )
             )
 
             for file_name in file_names:
@@ -118,7 +118,7 @@ class LLMCacheManager(CacheManager):
                     symlink_local_file(download_file_path, cache_dir, file_name)
 
             if need_merge:
-                _merge_cached_files(cache_dir, file_names, final_file_name)
+                merge_cached_files(cache_dir, file_names, final_file_name)
         else:
             raise ValueError(f"Unsupported model format: {self._model_format}")
 
@@ -131,11 +131,12 @@ class LLMCacheManager(CacheManager):
         from modelscope.hub.file_download import model_file_download
         from modelscope.hub.snapshot_download import snapshot_download
 
-        from ..utils import create_symlink, retry_download, symlink_local_file
-        from .llm_family import (
-            LlamaCppLLMSpecV1,
-            _generate_model_file_names,
-            _merge_cached_files,
+        from ..utils import (
+            create_symlink,
+            generate_model_file_names_with_quantization_parts,
+            merge_cached_files,
+            retry_download,
+            symlink_local_file,
         )
 
         cache_dir = self.get_cache_dir()
@@ -156,9 +157,10 @@ class LLMCacheManager(CacheManager):
             create_symlink(download_dir, cache_dir)
 
         elif self._model_format in ["ggufv2"]:
-            assert isinstance(self._llm_family.model_specs[0], LlamaCppLLMSpecV1)
-            file_names, final_file_name, need_merge = _generate_model_file_names(
-                self._llm_family.model_specs[0], self._multimodal_projector
+            file_names, final_file_name, need_merge = (
+                generate_model_file_names_with_quantization_parts(
+                    self._llm_family.model_specs[0], self._multimodal_projector
+                )
             )
 
             for filename in file_names:
@@ -176,7 +178,7 @@ class LLMCacheManager(CacheManager):
                 symlink_local_file(download_path, cache_dir, filename)
 
             if need_merge:
-                _merge_cached_files(cache_dir, file_names, final_file_name)
+                merge_cached_files(cache_dir, file_names, final_file_name)
         else:
             raise ValueError(f"Unsupported format: {self._model_format}")
 
@@ -219,11 +221,12 @@ class LLMCacheManager(CacheManager):
         from pycsghub.snapshot_download import snapshot_download
 
         from ...constants import XINFERENCE_CSG_ENDPOINT, XINFERENCE_ENV_CSG_TOKEN
-        from ..utils import create_symlink, retry_download, symlink_local_file
-        from .llm_family import (
-            LlamaCppLLMSpecV1,
-            _generate_model_file_names,
-            _merge_cached_files,
+        from ..utils import (
+            create_symlink,
+            generate_model_file_names_with_quantization_parts,
+            merge_cached_files,
+            retry_download,
+            symlink_local_file,
         )
 
         cache_dir = self.get_cache_dir()
@@ -244,9 +247,10 @@ class LLMCacheManager(CacheManager):
             )
             create_symlink(download_dir, cache_dir)
         elif self._model_format in ["ggufv2"]:
-            assert isinstance(self._llm_family.model_specs[0], LlamaCppLLMSpecV1)
-            file_names, final_file_name, need_merge = _generate_model_file_names(
-                self._llm_family.model_specs[0], self._multimodal_projector
+            file_names, final_file_name, need_merge = (
+                generate_model_file_names_with_quantization_parts(
+                    self._llm_family.model_specs[0], self._multimodal_projector
+                )
             )
 
             for filename in file_names:
@@ -265,7 +269,7 @@ class LLMCacheManager(CacheManager):
                 symlink_local_file(download_path, cache_dir, filename)
 
             if need_merge:
-                _merge_cached_files(cache_dir, file_names, final_file_name)
+                merge_cached_files(cache_dir, file_names, final_file_name)
         else:
             raise ValueError(f"Unsupported format: {self._model_format}")
 

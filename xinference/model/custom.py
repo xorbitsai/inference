@@ -28,16 +28,24 @@ class ModelRegistry:
         with self.lock:
             return self.models.copy()
 
-    def register(self, model_spec: "CacheableModelSpec", persist: bool):
-        from .cache_manager import CacheManager
-        from .utils import is_valid_model_name, is_valid_model_uri
-
-        if not is_valid_model_name(model_spec.model_name):
-            raise ValueError(f"Invalid model name {model_spec.model_name}.")
+    def check_model_uri(self, model_spec: "CacheableModelSpec"):
+        from .utils import is_valid_model_uri
 
         model_uri = model_spec.model_uri
         if model_uri and not is_valid_model_uri(model_uri):
             raise ValueError(f"Invalid model URI {model_uri}.")
+
+    def add_ud_model(self, model_spec):
+        self.models.append(model_spec)
+
+    def register(self, model_spec: "CacheableModelSpec", persist: bool):
+        from .cache_manager import CacheManager
+        from .utils import is_valid_model_name
+
+        if not is_valid_model_name(model_spec.model_name):
+            raise ValueError(f"Invalid model name {model_spec.model_name}.")
+
+        self.check_model_uri(model_spec)
 
         with self.lock:
             for model_name in self.builtin_models + [
@@ -48,21 +56,27 @@ class ModelRegistry:
                         f"Model name conflicts with existing model {model_spec.model_name}"
                     )
 
-            self.models.append(model_spec)
+            self.add_ud_model(model_spec)
 
         if persist:
             cache_manager = CacheManager(model_spec)
             cache_manager.register_custom_model(self.model_type)
 
-    def unregister(self, model_name: str, raise_error: bool = True):
+    def remove_ud_model(self, model_spec):
+        self.models.remove(model_spec)
+
+    def remove_ud_model_files(self, model_spec):
         from .cache_manager import CacheManager
 
+        cache_manager = CacheManager(model_spec)
+        cache_manager.unregister_custom_model(self.model_type)
+
+    def unregister(self, model_name: str, raise_error: bool = True):
         with self.lock:
             model_spec = self.find_model(model_name)
             if model_spec:
-                self.models.remove(model_spec)
-                cache_manager = CacheManager(model_spec)
-                cache_manager.unregister_custom_model(self.model_type)
+                self.remove_ud_model(model_spec)
+                self.remove_ud_model_files(model_spec)
             else:
                 if raise_error:
                     raise ValueError(f"Model {model_name} not found")
@@ -78,6 +92,7 @@ class RegistryManager:
     @classmethod
     def get_registry(cls, model_type: str) -> ModelRegistry:
         from .audio.custom import AudioModelRegistry
+        from .embedding.custom import EmbeddingModelRegistry
         from .flexible.custom import FlexibleModelRegistry
         from .image.custom import ImageModelRegistry
         from .llm.custom import LLMModelRegistry
@@ -94,6 +109,8 @@ class RegistryManager:
                 cls._instances[model_type] = LLMModelRegistry()
             elif model_type == "flexible":
                 cls._instances[model_type] = FlexibleModelRegistry()
+            elif model_type == "embedding":
+                cls._instances[model_type] = EmbeddingModelRegistry()
             else:
                 raise ValueError(f"Unknown model type: {model_type}")
         return cls._instances[model_type]

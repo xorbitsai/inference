@@ -55,7 +55,7 @@ def get_flexible_models():
     return registry.get_custom_models()
 
 
-def register_flexible_model(model_spec: FlexibleModelSpec, persist: bool):
+def register_flexible_model(model_spec: "FlexibleModelSpec", persist: bool):
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("flexible")

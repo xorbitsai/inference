@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Set, Type, Union
 
 from typing_extensions import Annotated, Literal
 
@@ -37,7 +37,6 @@ from ..utils import (
     download_from_modelscope,
     download_from_openmind_hub,
     retry_download,
-    symlink_local_file,
 )
 from . import LLM
 
@@ -439,61 +438,6 @@ def _get_cache_dir_for_model_mem(
     if create_if_not_exist and not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     return cache_dir
-
-
-def _generate_model_file_names(
-    llm_spec: LlamaCppLLMSpecV1,
-    multimodal_projector: Optional[str] = None,
-) -> Tuple[List[str], str, bool]:
-    file_names = []
-    final_file_name = llm_spec.model_file_name_template.format(
-        quantization=llm_spec.quantization
-    )
-    need_merge = False
-
-    if (
-        llm_spec.quantization_parts is None
-        or llm_spec.quantization not in llm_spec.quantization_parts
-    ):
-        file_names.append(final_file_name)
-    elif (
-        llm_spec.quantization is not None
-        and llm_spec.quantization in llm_spec.quantization_parts
-    ):
-        parts = llm_spec.quantization_parts[llm_spec.quantization]
-        need_merge = True
-
-        logger.info(
-            f"Model {llm_spec.model_id} {llm_spec.model_format} {llm_spec.quantization} has {len(parts)} parts."
-        )
-
-        if llm_spec.model_file_name_split_template is None:
-            raise ValueError(
-                f"No model_file_name_split_template for model spec {llm_spec.model_id}"
-            )
-
-        for part in parts:
-            file_name = llm_spec.model_file_name_split_template.format(
-                quantization=llm_spec.quantization, part=part
-            )
-            file_names.append(file_name)
-    if multimodal_projector:
-        file_names.append(multimodal_projector)
-
-    return file_names, final_file_name, need_merge
-
-
-def _merge_cached_files(
-    cache_dir: str, input_file_names: List[str], output_file_name: str
-):
-    # now llama.cpp can find the gguf parts automatically
-    # we only need to provide the first part
-    # thus we create the symlink to the first part
-    symlink_local_file(
-        os.path.join(cache_dir, input_file_names[0]), cache_dir, output_file_name
-    )
-
-    logger.info(f"Merge complete.")
 
 
 def match_model_size(

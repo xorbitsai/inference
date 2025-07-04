@@ -22,7 +22,18 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import huggingface_hub
 import numpy as np
@@ -35,7 +46,11 @@ from ..constants import (
     XINFERENCE_ENV_MODEL_SRC,
 )
 from ..device_utils import get_available_device, is_device_available
-from .core import CacheableModelSpec, CacheableQuantModelSpec
+from .core import CacheableModelSpec
+
+if TYPE_CHECKING:
+    from .embedding.core import LlamaCppEmbeddingSpecV1
+    from .llm.llm_family import LlamaCppLLMSpecV1
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
@@ -500,27 +515,30 @@ def get_engine_params_by_name(
         )
 
 
-def generate_quant_model_file_names(
-    model_spec: CacheableQuantModelSpec,
-    quantization: Optional[str] = None,
+def generate_model_file_names_with_quantization_parts(
+    model_spec: Union["LlamaCppLLMSpecV1", "LlamaCppEmbeddingSpecV1"],
+    multimodal_projector: Optional[str] = None,
 ) -> Tuple[List[str], str, bool]:
     file_names = []
     final_file_name = model_spec.model_file_name_template.format(
-        quantization=quantization
+        quantization=model_spec.quantization
     )
     need_merge = False
 
     if (
         model_spec.quantization_parts is None
-        or quantization not in model_spec.quantization_parts
+        or model_spec.quantization not in model_spec.quantization_parts
     ):
         file_names.append(final_file_name)
-    elif quantization is not None and quantization in model_spec.quantization_parts:
-        parts = model_spec.quantization_parts[quantization]
+    elif (
+        model_spec.quantization is not None
+        and model_spec.quantization in model_spec.quantization_parts
+    ):
+        parts = model_spec.quantization_parts[model_spec.quantization]
         need_merge = True
 
         logger.info(
-            f"Model {model_spec.model_id} {model_spec.model_format} {quantization} has {len(parts)} parts."
+            f"Model {model_spec.model_id} {model_spec.model_format} {model_spec.quantization} has {len(parts)} parts."
         )
 
         if model_spec.model_file_name_split_template is None:
@@ -530,11 +548,26 @@ def generate_quant_model_file_names(
 
         for part in parts:
             file_name = model_spec.model_file_name_split_template.format(
-                quantization=quantization, part=part
+                quantization=model_spec.quantization, part=part
             )
             file_names.append(file_name)
+    if multimodal_projector:
+        file_names.append(multimodal_projector)
 
     return file_names, final_file_name, need_merge
+
+
+def merge_cached_files(
+    cache_dir: str, input_file_names: List[str], output_file_name: str
+):
+    # now llama.cpp can find the gguf parts automatically
+    # we only need to provide the first part
+    # thus we create the symlink to the first part
+    symlink_local_file(
+        os.path.join(cache_dir, input_file_names[0]), cache_dir, output_file_name
+    )
+
+    logger.info(f"Merge complete.")
 
 
 def flatten_model_src(input_json):
@@ -546,6 +579,27 @@ def flatten_model_src(input_json):
         record.update(hub_info)
         record["model_hub"] = model_hub
         flattened.append(record)
+    return flattened
+
+
+def flatten_quantizations(input_json):
+    flattened = []
+
+    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+
+    for model_hub, hub_info in input_json["model_src"].items():
+        quantizations = hub_info["quantizations"]
+
+        for quant in quantizations:
+            record = base_info.copy()
+            record["model_hub"] = model_hub
+            record["quantization"] = quant
+
+            for key, value in hub_info.items():
+                if key != "quantizations":
+                    record[key] = value
+
+            flattened.append(record)
     return flattened
 
 

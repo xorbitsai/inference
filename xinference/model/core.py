@@ -11,47 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
 from .._compat import BaseModel
 from ..types import PeftModelConfig
 
 
-class ModelDescription(ABC):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_path: Optional[str] = None,
-    ):
-        self.address = address
-        self.devices = devices
-        self._model_path = model_path
-
-    @property
-    @abstractmethod
-    def spec(self):
-        pass
-
-    def to_dict(self):
-        """
-        Return a dict to describe some information about model.
-        :return:
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def to_version_info(self):
-        """
-        Return a dict to describe version info about a model instance
-        """
-
-
 def create_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_type: str,
     model_name: str,
@@ -91,8 +57,6 @@ def create_model_instance(
         # embedding model doesn't accept trust_remote_code
         kwargs.pop("trust_remote_code", None)
         return create_embedding_model_instance(
-            subpool_addr,
-            devices,
             model_uid,
             model_name,
             model_engine,
@@ -153,16 +117,6 @@ class CacheableModelSpec(BaseModel):
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
-
-
-class CacheableQuantModelSpec(BaseModel):
-    model_id: str
-    model_uri: Optional[str]
-    model_revision: Optional[str]
-    quantizations: List[str]
-    model_file_name_template: str
-    model_file_name_split_template: Optional[str]
-    quantization_parts: Optional[Dict[str, List[str]]]
 
 
 class VirtualEnvSettings(BaseModel):

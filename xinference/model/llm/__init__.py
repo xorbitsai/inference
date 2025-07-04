@@ -16,6 +16,7 @@ import json
 import os
 import warnings
 
+from ..utils import flatten_quantizations
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -121,28 +122,6 @@ def register_custom_model():
                     register_llm(user_defined_llm_family, persist=False)
             except Exception as e:
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
-
-
-def flatten_quantizations(input_json):
-    flattened = []
-
-    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
-
-    for model_hub, hub_info in input_json["model_src"].items():
-        quantizations = hub_info["quantizations"]
-
-        for quant in quantizations:
-            record = base_info.copy()
-            record["model_hub"] = model_hub
-            record["quantization"] = quant
-
-            for key, value in hub_info.items():
-                if key != "quantizations":
-                    record[key] = value
-
-            flattened.append(record)
-
-    return flattened
 
 
 def load_model_family_from_json(json_filename, target_families):

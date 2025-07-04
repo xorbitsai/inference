@@ -1029,8 +1029,6 @@ class WorkerActor(xo.StatelessActor):
                         )
                         model = await asyncio.to_thread(
                             create_model_instance,
-                            subpool_address,
-                            devices,
                             model_uid,
                             model_type,
                             model_name,

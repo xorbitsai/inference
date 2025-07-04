@@ -18,9 +18,12 @@ class CacheManager:
         self._v2_custom_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2")
         os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
         os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
+        self._cache_dir = os.path.join(
+            self._v2_cache_dir_prefix, self._model_family.model_name
+        )
 
     def get_cache_dir(self):
-        return os.path.join(self._v2_cache_dir_prefix, self._model_family.model_name)
+        return self._cache_dir
 
     def get_cache_status(self):
         cache_dir = self.get_cache_dir()

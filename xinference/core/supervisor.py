@@ -438,17 +438,27 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_embedding_model_reg(
         self, model_family: "EmbeddingModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.embedding import get_cache_status
+        from ..model.embedding.cache_manager import EmbeddingCacheManager
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self.is_local_deployment():
+            _family = model_family.copy()
             specs = []
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            for spec in model_family.model_specs:
-                cache_status = get_cache_status(model_family, spec)
-                specs.append({**spec.dict(), "cache_status": cache_status})
+            for spec in [
+                x for x in model_family.model_specs if x.model_hub == "huggingface"
+            ]:
+                _family.model_specs = [spec]
+                specs.append(
+                    {
+                        **spec.dict(),
+                        "cache_status": EmbeddingCacheManager(
+                            _family
+                        ).get_cache_status(),
+                    }
+                )
             res = {
                 **model_family.dict(),
                 "is_builtin": is_builtin,
