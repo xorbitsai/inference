@@ -43,12 +43,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         llamacpp_model_config: Optional[dict] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None

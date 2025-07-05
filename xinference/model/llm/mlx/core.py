@@ -99,13 +99,11 @@ class MLXModel(LLM):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         model_config: Optional[MLXModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
         # for distributed

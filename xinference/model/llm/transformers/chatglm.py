@@ -41,8 +41,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -50,8 +48,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         super().__init__(
             model_uid,
             model_family,
-            model_spec,
-            quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
             peft_model=peft_model,
