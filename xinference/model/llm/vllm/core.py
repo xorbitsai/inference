@@ -117,6 +117,11 @@ class VLLMGenerateConfig(TypedDict, total=False):
 try:
     import vllm  # noqa: F401
 
+    if not getattr(vllm, "__version__", None):
+        raise ImportError(
+            "vllm not installed properly, or wrongly be found in sys.path"
+        )
+
     VLLM_INSTALLED = True
 except ImportError:
     VLLM_INSTALLED = False
