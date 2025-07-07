@@ -51,4 +51,4 @@ Now you can use xinference according to :ref:`doc <using_xinference>`.
 Enterprise Support
 ~~~~~~~~~~~~~~~~~~
 If you encounter any performance or other issues for Ascend NPU, please reach out to us
-via `link <https://xorbits.io/community>`_.
+via `link <https://xinference.io>`_.
