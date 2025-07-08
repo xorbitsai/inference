@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 @register_batching_multimodal_models("MiniCPM-V-2.6")
 @register_transformer
 @register_non_default_model("MiniCPM-V-2.6")
-class Glm4VModel(PytorchMultiModalModel):
+class MiniCPMV26Model(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str

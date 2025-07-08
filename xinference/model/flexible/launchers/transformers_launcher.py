@@ -51,13 +51,25 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
 
     if task == "text-classification":
         return TransformersTextClassificationModel(
-            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+            model_uid=model_uid,
+            model_path=model_path,
+            model_family=model_spec,
+            device=device,
+            config=kwargs,
         )
     elif task == "mock":
         return MockModel(
-            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+            model_uid=model_uid,
+            model_path=model_path,
+            model_family=model_spec,
+            device=device,
+            config=kwargs,
         )
     else:
         return AutoModel(
-            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+            model_uid=model_uid,
+            model_path=model_path,
+            model_family=model_spec,
+            device=device,
+            config=kwargs,
         )

@@ -16,16 +16,13 @@ import codecs
 import json
 import os
 import warnings
-from itertools import chain
 
+from ..utils import flatten_model_src
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
-    MODEL_NAME_TO_REVISION,
-    MODELSCOPE_IMAGE_MODELS,
     ImageModelFamilyV1,
     generate_image_description,
-    get_cache_status,
     get_image_model_descriptions,
 )
 from .custom import (
@@ -39,7 +36,7 @@ from .custom import (
 def register_custom_model():
     from ...constants import XINFERENCE_MODEL_DIR
 
-    user_defined_image_dir = os.path.join(XINFERENCE_MODEL_DIR, "image")
+    user_defined_image_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "image")
     if os.path.isdir(user_defined_image_dir):
         for f in os.listdir(user_defined_image_dir):
             try:
@@ -56,12 +53,10 @@ def register_custom_model():
 
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_IMAGE_MODELS)
-    load_model_family_from_json("model_spec_modelscope.json", MODELSCOPE_IMAGE_MODELS)
 
     # register model description
-    for model_name, model_spec in chain(
-        MODELSCOPE_IMAGE_MODELS.items(), BUILTIN_IMAGE_MODELS.items()
-    ):
+    for model_name, model_specs in BUILTIN_IMAGE_MODELS.items():
+        model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
         IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
 
     register_custom_model()
@@ -72,13 +67,14 @@ def _install():
 
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(__file__), json_filename)
-    target_families.update(
-        dict(
-            (spec["model_name"], ImageModelFamilyV1(**spec))
-            for spec in json.load(codecs.open(json_path, "r", encoding="utf-8"))
-        )
-    )
-    for model_name, model_spec in target_families.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    flattened_model_specs = []
+    for spec in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+        flattened_model_specs.extend(flatten_model_src(spec))
+
+    for spec in flattened_model_specs:
+        if spec["model_name"] not in target_families:
+            target_families[spec["model_name"]] = [ImageModelFamilyV1(**spec)]
+        else:
+            target_families[spec["model_name"]].append(ImageModelFamilyV1(**spec))
 
     del json_path

@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
     from ..model.llm.core import LLM
-    from ..model.core import ModelDescription
     import PIL
 
 import logging
@@ -225,7 +224,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         worker_address: str,
         model: "LLM",
         replica_model_uid: str,
-        model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
         xavier_config: Optional[Dict] = None,
         n_worker: Optional[int] = 1,
@@ -244,9 +242,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._worker_address = worker_address
         self._replica_model_uid = replica_model_uid
         self._model = model
-        self._model_description = (
-            model_description.to_dict() if model_description else {}
-        )
+        self._model_description = self._model.model_family.to_description()
         self._request_limits = (
             float("inf") if request_limits is None else request_limits
         )

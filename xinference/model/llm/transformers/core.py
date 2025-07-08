@@ -93,13 +93,11 @@ class PytorchModel(LLM):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._use_fast_tokenizer = True
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
@@ -669,8 +667,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         self,
         model_uid: str,
         model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -678,8 +674,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().__init__(
             model_uid,
             model_family,
-            model_spec,
-            quantization,
             model_path,
             pytorch_model_config,
             peft_model,

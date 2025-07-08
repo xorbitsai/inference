@@ -6,7 +6,6 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.black]
-required-version = "25.1.0"
 include = '\.pyi?$'
 extend-exclude = '''
 /(
