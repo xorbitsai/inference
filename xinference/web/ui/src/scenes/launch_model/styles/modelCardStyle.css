@@ -24,8 +24,10 @@
   align-items: center;
 }
 .drawerCard {
-  position: relative;
-  padding: 20px 80px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 80px 70px;
   min-height: 100%;
   width: 60vw;
   min-width: 350px;
@@ -61,13 +63,14 @@
   height: 80%;
   overflow: scroll;
   padding: 0 10px;
-  padding-bottom: 160px;
+  padding-bottom: 60px;
 }
 .buttonsContainer {
-  position: absolute;
-  bottom: 50px;
-  left: 100px;
-  right: 100px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  min-height: 52px;
 }
 .buttons {
   display: flex;

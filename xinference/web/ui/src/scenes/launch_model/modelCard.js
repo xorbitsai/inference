@@ -66,6 +66,7 @@ import PasteDialog from './components/pasteDialog'
 import Progress from './components/progress'
 import {
   additionalParameterTipList,
+  GUIDE_MODEL_NAME,
   llmAllDataKey,
   quantizationParametersTipList,
 } from './data/data'
@@ -1012,7 +1013,11 @@ const ModelCard = ({
     <>
       <Paper
         id={modelData.model_name}
-        className="container"
+        className={
+          modelData.model_name === GUIDE_MODEL_NAME
+            ? 'container step-3'
+            : 'container'
+        }
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onClick={() => {
@@ -1447,7 +1452,7 @@ const ModelCard = ({
               width="100%"
               mx="auto"
             >
-              <Grid rowSpacing={0} columnSpacing={1}>
+              <Grid rowSpacing={0} columnSpacing={1} className="step-4">
                 <Grid item xs={12}>
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <InputLabel id="modelEngine-label">
@@ -2269,6 +2274,7 @@ const ModelCard = ({
             {isShowProgress && <Progress progress={progress} />}
             <div className="buttons">
               <Button
+                className="step-5"
                 variant="outlined"
                 title={t(
                   isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
@@ -2286,6 +2292,7 @@ const ModelCard = ({
                 {renderButtonContent()}
               </Button>
               <Button
+                className="step-goBack"
                 variant="outlined"
                 title={t('launchModel.goBack')}
                 style={{ flex: 1 }}
