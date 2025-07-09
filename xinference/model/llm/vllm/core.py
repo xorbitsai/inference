@@ -1150,6 +1150,32 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
+    @staticmethod
+    def prefill_messages(messages: List[Dict]) -> List[Dict]:
+        """
+        Preprocess messages to ensure content is not None
+
+        Args:
+            messages: Original message list
+
+        Returns:
+            Processed message list, where content is not None
+        """
+        processed_messages = []
+
+        for msg in messages:
+            if isinstance(msg, dict):
+                if msg.get("content") is None:
+                    msg_copy = msg.copy()
+                    msg_copy["content"] = ""  # Replace None with empty string
+                    processed_messages.append(msg_copy)
+                else:
+                    processed_messages.append(msg)
+            else:
+                processed_messages.append(msg)
+
+        return processed_messages
+
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
@@ -1200,6 +1226,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        # Preprocess messages to ensure content is not None
+        messages = self.prefill_messages(messages)
+
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
