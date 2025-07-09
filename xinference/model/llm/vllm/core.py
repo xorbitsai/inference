@@ -1165,10 +1165,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
         for msg in messages:
             if isinstance(msg, dict):
-                msg_copy = msg.copy()
-                if msg_copy.get("content") is None:
+                if msg.get("content") is None:
+                    msg_copy = msg.copy()
                     msg_copy["content"] = ""  # Replace None with empty string
-                processed_messages.append(msg_copy)
+                    processed_messages.append(msg_copy)
+                else:
+                    processed_messages.append(msg)
             else:
                 processed_messages.append(msg)
 
