@@ -165,7 +165,9 @@ class ReasoningParser:
         Returns:
             bool: True if reasoning content should be extracted, False otherwise
         """
-        return self.reasoning_content
+        if self.is_enable_thinking():
+            return self.reasoning_content
+        return False
 
     def _create_chat_completion_chunk(
         self, chunk: Union[Dict[str, Any], CompletionChunk], content: str
