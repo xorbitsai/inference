@@ -611,7 +611,9 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if stream:
             agen = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser, chat_template_kwargs)
+            return self._async_to_chat_completion_chunks(
+                agen, self.reasoning_parser, chat_template_kwargs
+            )
         else:
             c = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)

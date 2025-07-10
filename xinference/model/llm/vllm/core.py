@@ -1278,7 +1278,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser, chat_template_kwargs)
+            return self._async_to_chat_completion_chunks(
+                agen, self.reasoning_parser, chat_template_kwargs
+            )
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, request_id=request_id
