@@ -519,5 +519,21 @@
       }
     ],
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "jina-embeddings-v4",
+    "dimensions": 2048,
+    "max_tokens": 32768,
+    "language": ["30+ languages supported"],
+    "model_id": "jinaai/jina-embeddings-v4",
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "transformers==4.51.3",
+        "xformers",
+        "flash_attn==2.7.4 ; sys_platform=='linux'"
+      ],
+      "no_build_isolation": true
+    }
   }
 ]
