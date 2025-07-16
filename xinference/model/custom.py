@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class ModelRegistry:
     model_type = "unknown"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.lock = threading.Lock()
         self.models: List["CacheableModelSpec"] = []
         self.builtin_models: List[str] = []
