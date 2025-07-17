@@ -485,50 +485,48 @@ const ModelCard = ({
     try {
       const modelDataWithID = handleModelData()
       // First fetcher request to initiate the model
-      // fetchWrapper
-      //   .post('/v1/models', modelDataWithID)
-      //   .then(() => {
-      //     navigate(`/running_models/${modelType}`)
-      //     sessionStorage.setItem(
-      //       'runningModelType',
-      //       `/running_models/${modelType}`
-      //     )
-      let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-      const historyModelNameArr = historyArr.map((item) => item.model_name)
-      if (historyModelNameArr.includes(modelDataWithID.model_name)) {
-        historyArr = historyArr.map((item) => {
-          if (item.model_name === modelDataWithID.model_name) {
-            return modelDataWithID
+      fetchWrapper
+        .post('/v1/models', modelDataWithID)
+        .then(() => {
+          navigate(`/running_models/${modelType}`)
+          sessionStorage.setItem(
+            'runningModelType',
+            `/running_models/${modelType}`
+          )
+          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+          const historyModelNameArr = historyArr.map((item) => item.model_name)
+          if (historyModelNameArr.includes(modelDataWithID.model_name)) {
+            historyArr = historyArr.map((item) => {
+              if (item.model_name === modelDataWithID.model_name) {
+                return modelDataWithID
+              }
+              return item
+            })
+          } else {
+            historyArr.push(modelDataWithID)
           }
-          return item
+          localStorage.setItem('historyArr', JSON.stringify(historyArr))
         })
-      } else {
-        historyArr.push(modelDataWithID)
-      }
-      localStorage.setItem('historyArr', JSON.stringify(historyArr))
-      // })
-      //   .catch((error) => {
-      //     console.error('Error:', error)
-      //     if (error.response?.status === 499) {
-      //       setSuccessMsg(t('launchModel.cancelledSuccessfully'))
-      //     } else if (error.response?.status !== 403) {
-      //       setErrorMsg(error.message)
-      //     }
-      //   })
-      //   .finally(() => {
-      //     setIsCallingApi(false)
-      //     stopPolling()
-      //     setIsShowProgress(false)
-      //     setIsShowCancel(false)
-      //     setIsLoading(false)
-      //   })
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response?.status === 499) {
+            setSuccessMsg(t('launchModel.cancelledSuccessfully'))
+          } else if (error.response?.status !== 403) {
+            setErrorMsg(error.message)
+          }
+        })
+        .finally(() => {
+          setIsCallingApi(false)
+          stopPolling()
+          setIsShowProgress(false)
+          setIsShowCancel(false)
+          setIsLoading(false)
+        })
       const a = false
       a && startPolling()
     } catch (error) {
       setErrorMsg(`${error}`)
       setIsCallingApi(false)
-
-      setSuccessMsg(t('launchModel.cancelledSuccessfully'))
     }
   }
 
