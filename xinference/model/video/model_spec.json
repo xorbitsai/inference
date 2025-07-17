@@ -1,5 +1,6 @@
 [
   {
+    "version": 2,
     "model_name": "CogVideoX-2b",
     "model_family": "CogVideoX",
     "model_ability": [
@@ -24,6 +25,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "CogVideoX-5b",
     "model_family": "CogVideoX",
     "model_ability": [
@@ -48,6 +50,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "HunyuanVideo",
     "model_family": "HunyuanVideo",
     "model_ability": [
@@ -70,6 +73,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Wan2.1-1.3B",
     "model_family": "Wan",
     "model_ability": [
@@ -100,6 +104,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Wan2.1-14B",
     "model_family": "Wan",
     "model_ability": [
@@ -130,6 +135,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Wan2.1-i2v-14B-480p",
     "model_family": "Wan",
     "model_ability": [
@@ -165,6 +171,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Wan2.1-i2v-14B-720p",
     "model_family": "Wan",
     "model_ability": [
@@ -200,6 +207,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Wan2.1-flf2v-14B-720p",
     "model_family": "Wan",
     "model_ability": [

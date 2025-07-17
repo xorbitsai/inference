@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import logging
 from typing import List
 
+from ..._compat import Literal
 from ..custom import ModelRegistry
 from .core import EmbeddingModelFamilyV1
 
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomEmbeddingModelFamilyV1(EmbeddingModelFamilyV1):
-    pass
+    version: Literal[2] = 2
 
 
 UD_EMBEDDINGS: List[CustomEmbeddingModelFamilyV1] = []

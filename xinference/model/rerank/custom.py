@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomRerankModelSpec(RerankModelSpec):
+    version: Literal[2] = 2
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]

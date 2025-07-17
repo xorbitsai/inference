@@ -38,6 +38,7 @@ def get_image_model_descriptions():
 
 
 class ImageModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_family: str
     model_name: str
     model_id: str

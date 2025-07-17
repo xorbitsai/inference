@@ -1,5 +1,6 @@
 [
   {
+    "version": 2,
     "model_name": "whisper-tiny",
     "model_family": "whisper",
     "model_ability": [
@@ -14,6 +15,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-tiny.en",
     "model_family": "whisper",
     "model_ability": [
@@ -28,6 +30,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-base",
     "model_family": "whisper",
     "model_ability": [
@@ -42,6 +45,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-base.en",
     "model_family": "whisper",
     "model_ability": [
@@ -56,6 +60,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-small",
     "model_family": "whisper",
     "model_ability": [
@@ -70,6 +75,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-small.en",
     "model_family": "whisper",
     "model_ability": [
@@ -84,6 +90,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium",
     "model_family": "whisper",
     "model_ability": [
@@ -98,6 +105,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium.en",
     "model_family": "whisper",
     "model_ability": [
@@ -112,6 +120,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3",
     "model_family": "whisper",
     "model_ability": [
@@ -130,6 +139,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3-turbo",
     "model_family": "whisper",
     "model_ability": [
@@ -148,6 +158,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Belle-distilwhisper-large-v2-zh",
     "model_family": "whisper",
     "model_ability": [
@@ -162,6 +173,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Belle-whisper-large-v2-zh",
     "model_family": "whisper",
     "model_ability": [
@@ -176,6 +188,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Belle-whisper-large-v3-zh",
     "model_family": "whisper",
     "model_ability": [
@@ -194,6 +207,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-tiny-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -208,6 +222,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-tiny.en-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -222,6 +237,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-base-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -236,6 +252,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-base.en-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -250,6 +267,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-small-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -264,6 +282,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-small.en-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -278,6 +297,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -292,6 +312,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium.en-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -306,6 +327,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -320,6 +342,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3-turbo-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -334,6 +357,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "SenseVoiceSmall",
     "model_family": "funasr",
     "model_ability": [
@@ -364,6 +388,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh",
     "model_family": "funasr",
     "model_ability": [
@@ -389,6 +414,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh-hotword",
     "model_family": "funasr",
     "model_ability": [
@@ -415,6 +441,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh-long",
     "model_family": "funasr",
     "model_ability": [
@@ -440,6 +467,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh-spk",
     "model_family": "funasr",
     "model_ability": [
@@ -466,6 +494,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "seaco-paraformer-zh",
     "model_family": "funasr",
     "model_ability": [
@@ -492,6 +521,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_ability": [
@@ -517,6 +547,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice-300M",
     "model_family": "CosyVoice",
     "model_ability": [
@@ -535,6 +566,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice-300M-SFT",
     "model_family": "CosyVoice",
     "model_ability": [
@@ -553,6 +585,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice-300M-Instruct",
     "model_family": "CosyVoice",
     "model_ability": [
@@ -571,6 +604,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice2-0.5B",
     "model_family": "CosyVoice",
     "model_ability": [
@@ -608,6 +642,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "FishSpeech-1.5",
     "model_family": "FishAudio",
     "model_ability": [
@@ -622,6 +657,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
     "model_ability": [
@@ -640,6 +676,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "F5-TTS-MLX",
     "model_family": "F5-TTS-MLX",
     "model_ability": [
@@ -654,6 +691,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-English",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -669,6 +707,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-English-v2",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -684,6 +723,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-English-v3",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -699,6 +739,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-French",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -714,6 +755,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Japanese",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -729,6 +771,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Spanish",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -744,6 +787,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Chinese",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -759,6 +803,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Korean",
     "model_family": "MeloTTS",
     "model_ability": [
@@ -774,6 +819,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Kokoro-82M",
     "model_family": "Kokoro",
     "model_ability": [
@@ -792,6 +838,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "MegaTTS3",
     "model_family": "MegaTTS",
     "model_ability": [

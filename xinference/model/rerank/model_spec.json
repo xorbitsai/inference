@@ -1,5 +1,6 @@
 [
   {
+    "version": 2,
     "model_name": "bge-reranker-large",
     "type": "normal",
     "language": [
@@ -19,6 +20,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "bge-reranker-base",
     "type": "normal",
     "language": [
@@ -38,6 +40,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "bce-reranker-base_v1",
     "type": "normal",
     "language": [
@@ -57,6 +60,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "bge-reranker-v2-m3",
     "type": "normal",
     "language": [
@@ -76,6 +80,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "bge-reranker-v2-gemma",
     "type": "LLM-based",
     "language": [
@@ -95,6 +100,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "bge-reranker-v2-minicpm-layerwise",
     "type": "LLM-based layerwise",
     "language": [
@@ -114,6 +120,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "jina-reranker-v2",
     "type": "normal",
     "language": [
@@ -130,6 +137,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "minicpm-reranker",
     "type": "normal",
     "language": [
@@ -148,6 +156,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Qwen3-Reranker-0.6B",
     "type": "normal",
     "language": [
@@ -166,6 +175,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Qwen3-Reranker-4B",
     "type": "normal",
     "language": [
@@ -184,6 +194,7 @@
     }
   },
   {
+    "version": 2,
     "model_name": "Qwen3-Reranker-8B",
     "type": "normal",
     "language": [

@@ -17,6 +17,7 @@ from typing import Any, List, Optional
 from ..._compat import (
     ROOT_KEY,
     ErrorWrapper,
+    Literal,
     Protocol,
     StrBytes,
     ValidationError,
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomAudioModelFamilyV1(AudioModelFamilyV1):
+    version: Literal[2] = 2
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]

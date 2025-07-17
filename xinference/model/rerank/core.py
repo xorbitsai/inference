@@ -49,6 +49,7 @@ def get_rerank_model_descriptions():
 
 
 class RerankModelSpec(CacheableModelSpec, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_name: str
     language: List[str]
     type: Optional[str] = "unknown"

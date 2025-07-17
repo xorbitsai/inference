@@ -76,6 +76,7 @@ EmbeddingSpecV1 = Annotated[
 
 # this class define the basic info of embedding model
 class EmbeddingModelFamilyV1(BaseModel, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_name: str
     dimensions: int
     max_tokens: int
