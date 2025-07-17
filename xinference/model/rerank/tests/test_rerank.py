@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 import os
 import shutil
@@ -19,7 +20,8 @@ import tempfile
 import pytest
 
 from ....client import Client
-from ..core import RerankModel, RerankModelSpec, cache
+from ...cache_manager import CacheManager
+from ..core import RerankModel, RerankModelSpec
 
 TEST_MODEL_SPEC = RerankModelSpec(
     model_name="bge-reranker-base",
@@ -34,7 +36,7 @@ TEST_MODEL_SPEC = RerankModelSpec(
 def test_model():
     model_path = None
     try:
-        model_path = cache(TEST_MODEL_SPEC)
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
         model = RerankModel(TEST_MODEL_SPEC, "mock", model_path)
 
         query = "A man is eating pasta."

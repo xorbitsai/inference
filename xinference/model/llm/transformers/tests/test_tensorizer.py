@@ -6,7 +6,8 @@ import pytest
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .....constants import XINFERENCE_CACHE_DIR
-from ...llm_family import LLMFamilyV1, PytorchLLMSpecV1, cache
+from ...cache_manager import LLMCacheManager as CacheManager
+from ...llm_family import LLMFamilyV1, PytorchLLMSpecV1
 from ..tensorizer_utils import (
     _tensorizer_serialize_model,
     get_tensorizer_dir,
@@ -43,7 +44,7 @@ class TestTensorizerSerializeModel:
         )
 
         if not os.path.exists(self.model_path):
-            cache(llm_family=family, llm_spec=spec, quantization=None)
+            CacheManager(family).cache()
 
         self.model_config = AutoConfig.from_pretrained(self.model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)

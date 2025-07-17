@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import shutil
 
@@ -18,7 +19,25 @@ import pytest
 from tqdm.auto import tqdm
 
 from ...utils import get_real_path
-from ..utils import CancellableDownloader
+from ..utils import CancellableDownloader, parse_uri
+
+
+def test_parse_uri():
+    scheme, path = parse_uri("dir")
+    assert scheme == "file"
+    assert path == "dir"
+
+    scheme, path = parse_uri("dir/file")
+    assert scheme == "file"
+    assert path == "dir/file"
+
+    scheme, path = parse_uri("s3://bucket")
+    assert scheme == "s3"
+    assert path == "bucket"
+
+    scheme, path = parse_uri("s3://bucket/dir")
+    assert scheme == "s3"
+    assert path == "bucket/dir"
 
 
 def test_tqdm_patch():

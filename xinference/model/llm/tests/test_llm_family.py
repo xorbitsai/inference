@@ -21,21 +21,16 @@ from unittest.mock import patch
 import pytest
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
-from ...utils import is_locale_chinese_simplified, valid_model_revision
+from ...utils import is_locale_chinese_simplified, is_valid_model_uri
+from ..cache_manager import LLMCacheManager as CacheManager
 from ..llm_family import (
     CustomLLMFamilyV1,
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
     PytorchLLMSpecV1,
-    _generate_meta_file,
-    _get_cache_dir,
-    _get_meta_path,
-    _skip_download,
     convert_model_size_to_float,
-    is_valid_model_uri,
     match_llm,
     match_model_size,
-    parse_uri,
 )
 
 
@@ -164,8 +159,6 @@ def test_builtin_llm_families():
 
 
 def test_cache_from_huggingface_pytorch():
-    from ..llm_family import cache_from_huggingface
-
     spec = PytorchLLMSpecV1(
         model_format="pytorch",
         model_size_in_billions=1,
@@ -185,7 +178,7 @@ def test_cache_from_huggingface_pytorch():
         stop=None,
     )
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    cache_dir = CacheManager(family).cache_from_huggingface()
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
@@ -194,8 +187,6 @@ def test_cache_from_huggingface_pytorch():
 
 
 def test_cache_from_huggingface_gguf():
-    from ..llm_family import cache_from_huggingface
-
     spec = LlamaCppLLMSpecV1(
         model_format="ggufv2",
         model_size_in_billions="0_5",
@@ -216,10 +207,12 @@ def test_cache_from_huggingface_gguf():
         stop=None,
     )
 
-    cache_dir = _get_cache_dir(family, spec)
+    cache_manager = CacheManager(family)
+
+    cache_dir = cache_manager.get_cache_dir()
     shutil.rmtree(cache_dir)
 
-    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
+    cache_dir = cache_manager.cache_from_huggingface()
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
@@ -228,8 +221,6 @@ def test_cache_from_huggingface_gguf():
 
 
 def test_cache_from_uri_local():
-    from ..llm_family import cache_from_uri
-
     with open("model.bin", "w") as fd:
         fd.write("foo")
 
@@ -254,7 +245,7 @@ def test_cache_from_uri_local():
         stop=None,
     )
 
-    cache_dir = cache_from_uri(family, spec)
+    cache_dir = CacheManager(family).cache()
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
@@ -262,95 +253,8 @@ def test_cache_from_uri_local():
     os.remove("model.bin")
 
 
-def test_meta_file():
-    from ..llm_family import cache_from_huggingface
-
-    spec = PytorchLLMSpecV1(
-        model_format="pytorch",
-        model_size_in_billions=1,
-        quantizations=["4-bit", "8-bit", "none"],
-        model_id="facebook/opt-125m",
-        model_revision="3d2b5f275bdf882b8775f902e1bfdb790e2cfc32",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="opt",
-        model_lang=["en"],
-        model_ability=["embed", "generate"],
-        model_specs=[spec],
-        chat_template=None,
-        stop_token_ids=None,
-        stop=None,
-    )
-
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
-    meta_path = _get_meta_path(cache_dir, spec.model_format, spec.model_hub, None)
-    assert valid_model_revision(meta_path, "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32")
-    shutil.rmtree(cache_dir)
-
-
-def test_parse_uri():
-    scheme, path = parse_uri("dir")
-    assert scheme == "file"
-    assert path == "dir"
-
-    scheme, path = parse_uri("dir/file")
-    assert scheme == "file"
-    assert path == "dir/file"
-
-    scheme, path = parse_uri("s3://bucket")
-    assert scheme == "s3"
-    assert path == "bucket"
-
-    scheme, path = parse_uri("s3://bucket/dir")
-    assert scheme == "s3"
-    assert path == "bucket/dir"
-
-
-def test_legacy_cache():
-    from ..llm_family import cache, get_legacy_cache_path
-
-    spec = LlamaCppLLMSpecV1(
-        model_format="ggufv2",
-        model_size_in_billions="0_5",
-        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
-        quantizations=["test_legacy_cache"],
-        model_file_name_template="README.md",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="qwen1.5-chat",
-        model_lang=["en"],
-        model_ability=["chat"],
-        model_specs=[spec],
-        chat_template=None,
-        stop_token_ids=None,
-        stop=None,
-    )
-
-    cache_path = get_legacy_cache_path(
-        family.model_name,
-        spec.model_format,
-        spec.model_size_in_billions,
-        quantization="test_legacy_cache",
-    )
-
-    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    with open(cache_path, "w") as fd:
-        fd.write("foo")
-
-    assert cache(
-        llm_family=family, llm_spec=spec, quantization="test_legacy_cache"
-    ) == os.path.dirname(cache_path)
-    shutil.rmtree(os.path.dirname(cache_path), ignore_errors=True)
-
-
 def test_custom_llm():
-    from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
+    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
 
     spec = LlamaCppLLMSpecV1(
         model_format="ggufv2",
@@ -382,7 +286,7 @@ def test_custom_llm():
 
 def test_persistent_custom_llm():
     from ....constants import XINFERENCE_MODEL_DIR
-    from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
+    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
 
     spec = LlamaCppLLMSpecV1(
         model_format="ggufv2",
@@ -477,177 +381,7 @@ def test_is_valid_file_uri():
     assert is_valid_model_uri(f"file://{tmp_file.name}") is False
 
 
-def test_skip_download_pytorch():
-    hf_spec = PytorchLLMSpecV1(
-        model_format="pytorch",
-        model_size_in_billions=3,
-        quantizations=["int8", "int4", "none"],
-        model_id="example/TestModel",
-        model_hub="huggingface",
-        model_revision="456",
-    )
-    ms_spec = PytorchLLMSpecV1(
-        model_format="pytorch",
-        model_size_in_billions=3,
-        quantizations=["int8", "int4", "none"],
-        model_id="example/TestModel",
-        model_hub="modelscope",
-        model_revision="456",
-    )
-    llm_family = LLMFamilyV1(
-        version=1,
-        model_type="LLM",
-        model_name="test_skip_download_pytorch",
-        model_lang=["en"],
-        model_ability=["embed", "generate"],
-        model_specs=[hf_spec, ms_spec],
-        chat_template="xyz",
-        stop_token_ids=[1, 2, 3],
-        stop=["hello", "world"],
-    )
-
-    cache_dir = _get_cache_dir(llm_family, hf_spec)
-
-    hf_meta_path = _get_meta_path(
-        cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
-    )
-    ms_meta_path = _get_meta_path(
-        cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
-    )
-
-    # since huggingface meta file exists, skip for both.
-    _generate_meta_file(hf_meta_path, llm_family, hf_spec, quantization=None)
-    assert os.path.exists(hf_meta_path)
-    try:
-        assert _skip_download(
-            cache_dir,
-            hf_spec.model_format,
-            hf_spec.model_hub,
-            hf_spec.model_revision,
-            quantization=None,
-        )
-        assert _skip_download(
-            cache_dir,
-            ms_spec.model_format,
-            ms_spec.model_hub,
-            ms_spec.model_revision,
-            quantization=None,
-        )
-    finally:
-        os.remove(hf_meta_path)
-        assert not os.path.exists(hf_meta_path)
-
-    # since modelscope meta file exists, skip for both.
-    _generate_meta_file(ms_meta_path, llm_family, ms_spec, quantization=None)
-    assert os.path.exists(ms_meta_path)
-    try:
-        assert _skip_download(
-            cache_dir,
-            hf_spec.model_format,
-            hf_spec.model_hub,
-            hf_spec.model_revision,
-            quantization=None,
-        )
-        assert _skip_download(
-            cache_dir,
-            ms_spec.model_format,
-            ms_spec.model_hub,
-            ms_spec.model_revision,
-            quantization=None,
-        )
-    finally:
-        os.remove(ms_meta_path)
-        assert not os.path.exists(ms_meta_path)
-
-
-def test_skip_download_gguf():
-    hf_spec = LlamaCppLLMSpecV1(
-        model_format="ggufv2",
-        model_size_in_billions=2,
-        quantizations=["q4_0", "q4_1"],
-        model_id="example/TestModel",
-        model_hub="huggingface",
-        model_revision="123",
-        model_file_name_template="TestModel.{quantization}.bin",
-    )
-    ms_spec = LlamaCppLLMSpecV1(
-        model_format="ggufv2",
-        model_size_in_billions=2,
-        quantizations=["q4_0", "q4_1"],
-        model_id="example/TestModel",
-        model_hub="modelscope",
-        model_revision="123",
-        model_file_name_template="TestModel.{quantization}.bin",
-    )
-    llm_family = LLMFamilyV1(
-        version=1,
-        model_type="LLM",
-        model_name="test_skip_download_ggml",
-        model_lang=["en"],
-        model_ability=["embed", "generate"],
-        model_specs=[hf_spec, ms_spec],
-        chat_template="xyz",
-        stop_token_ids=[1, 2, 3],
-        stop=["hello", "world"],
-    )
-
-    cache_dir = _get_cache_dir(llm_family, hf_spec)
-
-    hf_meta_path = _get_meta_path(
-        cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
-    )
-    ms_meta_path = _get_meta_path(
-        cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
-    )
-
-    # since huggingface meta file exists, only skip when model hub is huggingface.
-    _generate_meta_file(hf_meta_path, llm_family, hf_spec, quantization="q4_0")
-    assert os.path.exists(hf_meta_path)
-    try:
-        assert _skip_download(
-            cache_dir,
-            hf_spec.model_format,
-            hf_spec.model_hub,
-            hf_spec.model_revision,
-            quantization="q4_0",
-        )
-        assert not _skip_download(
-            cache_dir,
-            ms_spec.model_format,
-            ms_spec.model_hub,
-            ms_spec.model_revision,
-            quantization="q4_0",
-        )
-    finally:
-        os.remove(hf_meta_path)
-        assert not os.path.exists(hf_meta_path)
-
-    # since modelscope meta file exists, only skip when model hub is modelscope.
-    _generate_meta_file(ms_meta_path, llm_family, ms_spec, quantization="q4_0")
-    assert os.path.exists(ms_meta_path)
-    try:
-        assert not _skip_download(
-            cache_dir,
-            hf_spec.model_format,
-            hf_spec.model_hub,
-            hf_spec.model_revision,
-            quantization="q4_0",
-        )
-        assert _skip_download(
-            cache_dir,
-            ms_spec.model_format,
-            ms_spec.model_hub,
-            ms_spec.model_revision,
-            quantization="q4_0",
-        )
-    finally:
-        os.remove(ms_meta_path)
-        assert not os.path.exists(ms_meta_path)
-
-
 def test_get_cache_status_pytorch():
-    from ..llm_family import cache_from_huggingface, get_cache_status
-
     spec = PytorchLLMSpecV1(
         model_format="pytorch",
         model_size_in_billions=1,
@@ -668,12 +402,14 @@ def test_get_cache_status_pytorch():
         stop=None,
     )
 
-    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    cache_manager = CacheManager(family)
+
+    cache_status = cache_manager.get_cache_status()
     assert not isinstance(cache_status, list)
     assert not cache_status
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
-    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    cache_dir = cache_manager.cache_from_huggingface()
+    cache_status = cache_manager.get_cache_status()
     assert not isinstance(cache_status, list)
     assert cache_status
 
@@ -684,8 +420,6 @@ def test_get_cache_status_pytorch():
 
 
 def test_get_cache_status_gguf():
-    from ..llm_family import cache_from_huggingface, get_cache_status
-
     spec = LlamaCppLLMSpecV1(
         model_format="ggufv2",
         model_size_in_billions="0_5",
@@ -706,12 +440,14 @@ def test_get_cache_status_gguf():
         stop=None,
     )
 
-    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    cache_manager = CacheManager(family)
+
+    cache_status = cache_manager.get_cache_status()
     assert isinstance(cache_status, list)
     assert not any(cache_status)
 
-    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
-    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    cache_dir = cache_manager.cache_from_huggingface()
+    cache_status = cache_manager.get_cache_status()
     assert isinstance(cache_status, list)
     assert len(cache_status) == 2
     assert cache_status[0] and not cache_status[1]
@@ -981,14 +717,9 @@ def test_quert_engine_SGLang():
 
 
 def test_query_engine_general():
+    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
     from ..llama_cpp.core import XllamaCppModel
-    from ..llm_family import (
-        LLM_ENGINES,
-        check_engine_by_spec_parameters,
-        get_user_defined_llm_families,
-        register_llm,
-        unregister_llm,
-    )
+    from ..llm_family import LLM_ENGINES, check_engine_by_spec_parameters
 
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES

@@ -40,7 +40,7 @@ class _Error:
 
 
 class XllamaCppEmbeddingModel(EmbeddingModel):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import base64
 import io
@@ -29,7 +30,8 @@ import xoscar as xo
 from PIL import Image
 
 from ....core.progress_tracker import Progressor, ProgressTrackerActor
-from ..core import ImageModelFamilyV1, cache
+from ..cache_manager import ImageCacheManager as CacheManager
+from ..core import ImageModelFamilyV1
 from ..stable_diffusion.core import DiffusionModel
 
 TEST_MODEL_SPEC = ImageModelFamilyV1(
@@ -46,7 +48,7 @@ logger = logging.getLogger(__name__)
 def test_model():
     model_path = None
     try:
-        model_path = cache(TEST_MODEL_SPEC)
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
         model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
         # input is a string
         input_text = "an apple"
@@ -70,7 +72,7 @@ async def test_progressor():
     def _run_model(**kwargs):
         model_path = None
         try:
-            model_path = cache(TEST_MODEL_SPEC)
+            model_path = CacheManager(TEST_MODEL_SPEC).cache()
             model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
             # input is a string
             input_text = "an apple"
@@ -375,13 +377,12 @@ def test_restful_api_for_sd_inpainting(setup):
 
 
 def test_get_cache_status():
-    from ..core import get_cache_status
-
     model_path = None
+    cache_manager = CacheManager(TEST_MODEL_SPEC)
     try:
-        assert get_cache_status(TEST_MODEL_SPEC) is False
-        model_path = cache(TEST_MODEL_SPEC)
-        assert get_cache_status(TEST_MODEL_SPEC) is True
+        assert cache_manager.get_cache_status() is False
+        model_path = cache_manager.cache()
+        assert cache_manager.get_cache_status() is True
     finally:
         if model_path is not None:
             shutil.rmtree(model_path)

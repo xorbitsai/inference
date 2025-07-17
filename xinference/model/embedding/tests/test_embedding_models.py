@@ -19,13 +19,8 @@ import tempfile
 
 import pytest
 
-from ...utils import valid_model_revision
-from ..core import (
-    EmbeddingModelFamilyV1,
-    TransformersEmbeddingSpecV1,
-    cache,
-    create_embedding_model_instance,
-)
+from ..cache_manager import EmbeddingCacheManager as CacheManager
+from ..core import EmbeddingModelFamilyV1, TransformersEmbeddingSpecV1
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     model_name="gte-small",
@@ -85,9 +80,7 @@ def test_engine_supported():
 def test_model_from_modelscope():
     from ..core import create_embedding_model_instance
 
-    model_path = cache(
-        TEST_MODEL_SPEC_FROM_MODELSCOPE, TEST_MODEL_SPEC_FROM_MODELSCOPE.model_specs[0]
-    )
+    model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
     model, _ = create_embedding_model_instance(
         "mock",
         None,
@@ -106,62 +99,19 @@ def test_model_from_modelscope():
     shutil.rmtree(model_path, ignore_errors=True)
 
 
-def test_meta_file():
-    cache_dir = None
-    try:
-        cache_dir = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
-        meta_path = os.path.join(cache_dir, "__valid_download_huggingface")
-        assert valid_model_revision(
-            meta_path, TEST_MODEL_SPEC.model_specs[0].model_revision
-        )
-
-        # test another version of the same model
-        assert not valid_model_revision(
-            meta_path, TEST_MODEL_SPEC2.model_specs[0].model_revision
-        )
-        cache_dir = cache(TEST_MODEL_SPEC2, TEST_MODEL_SPEC2.model_specs[0])
-        meta_path = os.path.join(cache_dir, "__valid_download_huggingface")
-        assert valid_model_revision(
-            meta_path, TEST_MODEL_SPEC2.model_specs[0].model_revision
-        )
-
-        # test functionality of the new version model
-
-        model, _ = create_embedding_model_instance(
-            "mock",
-            None,
-            "mock",
-            "bge-small-en-v1.5",
-            "sentence_transformers",
-            model_path=cache_dir,
-        )
-        input_text = "I can do this all day."
-        model.load()
-        r = model.create_embedding(input_text)
-        assert len(r["data"]) == 1
-        for d in r["data"]:
-            assert len(d["embedding"]) == 384
-    finally:
-        shutil.rmtree(cache_dir, ignore_errors=True)
-
-
 def test_get_cache_status():
-    from ..core import get_cache_status
-
     model_path = None
     try:
-        assert (
-            get_cache_status(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0]) is False
-        )
-        model_path = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
-        assert get_cache_status(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0]) is True
+        cache_manager = CacheManager(TEST_MODEL_SPEC)
+        assert cache_manager.get_cache_status() is False
+        model_path = cache_manager.cache()
+        assert cache_manager.get_cache_status() is True
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
 
 
 def test_from_local_uri():
-    from ..core import cache_from_uri
     from ..custom import CustomEmbeddingModelFamilyV1
 
     tmp_dir = tempfile.mkdtemp()
@@ -181,9 +131,7 @@ def test_from_local_uri():
         ],
     )
 
-    cache_dir = cache_from_uri(
-        model_family=model_family, model_spec=model_family.model_specs[0]
-    )
+    cache_dir = CacheManager(model_family).cache()
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
     assert os.path.samefile(os.path.realpath(cache_dir), tmp_dir)
@@ -193,7 +141,6 @@ def test_from_local_uri():
 
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ..core import cache_from_uri
     from ..custom import (
         CustomEmbeddingModelFamilyV1,
         register_embedding,
@@ -219,7 +166,7 @@ def test_register_custom_embedding():
     )
 
     register_embedding(model_family, False)
-    cache_from_uri(model_family, model_family.model_specs[0])
+    CacheManager(model_family).cache()
     model_cache_path = os.path.join(
         XINFERENCE_CACHE_DIR, f"{model_family.model_name}-pytorch"
     )
@@ -309,9 +256,7 @@ def test_register_fault_embedding():
 def test_convert_ids_to_tokens():
     from ..core import create_embedding_model_instance
 
-    model_path = cache(
-        TEST_MODEL_SPEC_FROM_MODELSCOPE, TEST_MODEL_SPEC_FROM_MODELSCOPE.model_specs[0]
-    )
+    model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
     model, _ = create_embedding_model_instance(
         "mock",
         None,
