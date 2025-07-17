@@ -1477,6 +1477,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
+                modelType={modelType}
               />
               <Box padding="15px"></Box>
             </>

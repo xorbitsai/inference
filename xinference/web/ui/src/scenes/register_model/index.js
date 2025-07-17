@@ -82,7 +82,7 @@ const RegisterModel = () => {
                   model_uri: '/path/to/llama-1',
                   model_size_in_billions: 7,
                   model_format: 'pytorch',
-                  quantizations: ['none'],
+                  quantization: 'none',
                 },
               ],
               model_family: 'your_custom_model',
@@ -99,8 +99,14 @@ const RegisterModel = () => {
               model_name: 'custom-embedding',
               dimensions: 768,
               max_tokens: 512,
-              model_uri: '/path/to/embedding-model',
               language: ['en'],
+              model_specs: [
+                {
+                  model_uri: '/path/to/llama-1',
+                  model_format: 'pytorch',
+                  quantization: 'none',
+                },
+              ],
               virtualenv: {
                 packages: [],
               },

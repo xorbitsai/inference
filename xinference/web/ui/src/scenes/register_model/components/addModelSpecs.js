@@ -13,13 +13,25 @@ import {
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-const modelFormatArr = [
-  { value: 'pytorch', label: 'PyTorch' },
-  { value: 'ggufv2', label: 'GGUF' },
-  { value: 'gptq', label: 'GPTQ' },
-  { value: 'awq', label: 'AWQ' },
-  { value: 'fp8', label: 'FP8' },
-  { value: 'mlx', label: 'MLX' },
+const modelFormatData = [
+  {
+    type: 'LLM', 
+    options: [
+      { value: 'pytorch', label: 'PyTorch' },
+      { value: 'ggufv2', label: 'GGUF' },
+      { value: 'gptq', label: 'GPTQ' },
+      { value: 'awq', label: 'AWQ' },
+      { value: 'fp8', label: 'FP8' },
+      { value: 'mlx', label: 'MLX' },
+    ]
+  },
+  {
+    type: 'embedding', 
+    options: [
+      { value: 'pytorch', label: 'PyTorch' },
+      { value: 'ggufv2', label: 'GGUF' },
+    ]
+  }
 ]
 
 const AddModelSpecs = ({
@@ -28,6 +40,7 @@ const AddModelSpecs = ({
   specsDataArr,
   onGetArr,
   scrollRef,
+  modelType
 }) => {
   const [count, setCount] = useState(0)
   const [specsArr, setSpecsArr] = useState([])
@@ -45,18 +58,18 @@ const AddModelSpecs = ({
           model_uri,
           model_size_in_billions,
           model_format,
-          quantizations,
+          quantization,
           model_file_name_template,
         } = item
         let size = model_size_in_billions
-        if (typeof size !== 'number') size = size.split('_').join('.')
+        if (typeof size !== 'number') size = size?.split('_').join('.')
 
         return {
           id: index,
           model_uri,
           model_size_in_billions: size,
           model_format,
-          quantizations,
+          quantization,
           model_file_name_template,
         }
       })
@@ -90,26 +103,32 @@ const AddModelSpecs = ({
         model_uri: uri,
         model_size_in_billions: size,
         model_format: modelFormat,
-        quantizations,
+        quantization,
         model_file_name_template,
       } = item
-      const handleSize =
+
+      let handleSize
+      if(modelType === 'LLM') {
+        handleSize =
         parseInt(size) === parseFloat(size)
           ? Number(size)
           : size.split('.').join('_')
+      }
 
-      let handleQuantization = quantizations
+      let handleQuantization = quantization
       if (modelFormat === 'pytorch') {
-        handleQuantization = ['none']
-      } else if (handleQuantization[0] === '' && modelFormat === 'ggufv2') {
-        handleQuantization = ['default']
+        handleQuantization = 'none'
+      } else if (handleQuantization === '' && modelFormat === 'ggufv2') {
+        handleQuantization = 'default'
       }
 
       return {
         model_uri: uri,
-        model_size_in_billions: handleSize,
+        ...(modelType === 'LLM' && {
+          model_size_in_billions: handleSize,
+        }),
         model_format: modelFormat,
-        quantizations: handleQuantization,
+        quantization: handleQuantization,
         model_file_name_template,
       }
     })
@@ -129,7 +148,7 @@ const AddModelSpecs = ({
       model_uri: '/path/to/llama-1',
       model_size_in_billions: 7,
       model_format: 'pytorch',
-      quantizations: [],
+      quantization: '',
     }
     setSpecsArr([...specsArr, item])
     setIsAdd(true)
@@ -153,7 +172,7 @@ const AddModelSpecs = ({
     setSpecsArr(
       specsArr.map((item, subIndex) => {
         if (subIndex === index) {
-          if (type === 'quantizations') {
+          if (type === '') {
             return { ...item, [type]: [newValue] }
           } else if (type === 'model_format') {
             if (newValue === 'ggufv2') {
@@ -161,7 +180,7 @@ const AddModelSpecs = ({
               const obj = {
                 ...item,
                 model_format: newValue,
-                quantizations: [''],
+                quantization: '',
                 model_uri: baseDir,
                 model_file_name_template: filename,
               }
@@ -174,7 +193,7 @@ const AddModelSpecs = ({
                 model_size_in_billions,
                 model_format,
                 [type]: newValue,
-                quantizations: [''],
+                quantization: '',
               }
             }
           } else if (type === 'model_uri') {
@@ -225,7 +244,7 @@ const AddModelSpecs = ({
 
   const handleQuantization = (model_format, index, value, id) => {
     setQuantizationAlertId(quantizationAlertId.filter((item) => item !== id))
-    handleUpdateSpecsArr(index, 'quantizations', value)
+    handleUpdateSpecsArr(index, 'quantization', value)
     if (
       (model_format === 'gptq' ||
         model_format === 'awq' ||
@@ -293,7 +312,7 @@ const AddModelSpecs = ({
               }}
             >
               <Box sx={styles.checkboxWrapper}>
-                {modelFormatArr.map((item) => (
+                {modelFormatData.find(item => item.type === modelType).options.map((item) => (
                   <Box key={item.value} sx={{ marginLeft: '10px' }}>
                     <FormControlLabel
                       value={item.value}
@@ -323,21 +342,23 @@ const AddModelSpecs = ({
             />
             <Box padding="15px"></Box>
 
-            <TextField
-              error={Number(item.model_size_in_billions) > 0 ? false : true}
-              label={t('registerModel.modelSizeBillions')}
-              size="small"
-              value={item.model_size_in_billions}
-              onChange={(e) => {
-                handleModelSize(index, e.target.value, item.id)
-              }}
-            />
-            {modelSizeAlertId.includes(item.id) && (
-              <Alert severity="error">
-                {t('registerModel.enterNumberGreaterThanZero')}
-              </Alert>
-            )}
-            <Box padding="15px"></Box>
+            {modelType === 'LLM' && <>
+              <TextField
+                error={Number(item.model_size_in_billions) > 0 ? false : true}
+                label={t('registerModel.modelSizeBillions')}
+                size="small"
+                value={item.model_size_in_billions}
+                onChange={(e) => {
+                  handleModelSize(index, e.target.value, item.id)
+                }}
+              />
+              {modelSizeAlertId.includes(item.id) && (
+                <Alert severity="error">
+                  {t('registerModel.enterNumberGreaterThanZero')}
+                </Alert>
+              )}
+              <Box padding="15px"></Box>
+            </>}
 
             {item.model_format !== 'pytorch' && (
               <>
@@ -352,7 +373,7 @@ const AddModelSpecs = ({
                       : t('registerModel.quantizationOptional')
                   }
                   size="small"
-                  value={item.quantizations[0]}
+                  value={item.quantization}
                   onChange={(e) => {
                     handleQuantization(
                       item.model_format,
@@ -374,7 +395,7 @@ const AddModelSpecs = ({
                 />
                 {item.model_format !== 'ggufv2' &&
                   quantizationAlertId.includes(item.id) &&
-                  item.quantizations[0] == '' && (
+                  item.quantization == '' && (
                     <Alert severity="error">
                       {t('registerModel.quantizationCannotBeEmpty')}
                     </Alert>
