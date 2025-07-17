@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 
 const modelFormatData = [
   {
-    type: 'LLM', 
+    type: 'LLM',
     options: [
       { value: 'pytorch', label: 'PyTorch' },
       { value: 'ggufv2', label: 'GGUF' },
@@ -23,15 +23,15 @@ const modelFormatData = [
       { value: 'awq', label: 'AWQ' },
       { value: 'fp8', label: 'FP8' },
       { value: 'mlx', label: 'MLX' },
-    ]
+    ],
   },
   {
-    type: 'embedding', 
+    type: 'embedding',
     options: [
       { value: 'pytorch', label: 'PyTorch' },
       { value: 'ggufv2', label: 'GGUF' },
-    ]
-  }
+    ],
+  },
 ]
 
 const AddModelSpecs = ({
@@ -40,7 +40,7 @@ const AddModelSpecs = ({
   specsDataArr,
   onGetArr,
   scrollRef,
-  modelType
+  modelType,
 }) => {
   const [count, setCount] = useState(0)
   const [specsArr, setSpecsArr] = useState([])
@@ -108,11 +108,11 @@ const AddModelSpecs = ({
       } = item
 
       let handleSize
-      if(modelType === 'LLM') {
+      if (modelType === 'LLM') {
         handleSize =
-        parseInt(size) === parseFloat(size)
-          ? Number(size)
-          : size.split('.').join('_')
+          parseInt(size) === parseFloat(size)
+            ? Number(size)
+            : size.split('.').join('_')
       }
 
       let handleQuantization = quantization
@@ -312,15 +312,17 @@ const AddModelSpecs = ({
               }}
             >
               <Box sx={styles.checkboxWrapper}>
-                {modelFormatData.find(item => item.type === modelType).options.map((item) => (
-                  <Box key={item.value} sx={{ marginLeft: '10px' }}>
-                    <FormControlLabel
-                      value={item.value}
-                      control={<Radio />}
-                      label={item.label}
-                    />
-                  </Box>
-                ))}
+                {modelFormatData
+                  .find((item) => item.type === modelType)
+                  .options.map((item) => (
+                    <Box key={item.value} sx={{ marginLeft: '10px' }}>
+                      <FormControlLabel
+                        value={item.value}
+                        control={<Radio />}
+                        label={item.label}
+                      />
+                    </Box>
+                  ))}
               </Box>
             </RadioGroup>
             <Box padding="15px"></Box>
@@ -342,23 +344,25 @@ const AddModelSpecs = ({
             />
             <Box padding="15px"></Box>
 
-            {modelType === 'LLM' && <>
-              <TextField
-                error={Number(item.model_size_in_billions) > 0 ? false : true}
-                label={t('registerModel.modelSizeBillions')}
-                size="small"
-                value={item.model_size_in_billions}
-                onChange={(e) => {
-                  handleModelSize(index, e.target.value, item.id)
-                }}
-              />
-              {modelSizeAlertId.includes(item.id) && (
-                <Alert severity="error">
-                  {t('registerModel.enterNumberGreaterThanZero')}
-                </Alert>
-              )}
-              <Box padding="15px"></Box>
-            </>}
+            {modelType === 'LLM' && (
+              <>
+                <TextField
+                  error={Number(item.model_size_in_billions) > 0 ? false : true}
+                  label={t('registerModel.modelSizeBillions')}
+                  size="small"
+                  value={item.model_size_in_billions}
+                  onChange={(e) => {
+                    handleModelSize(index, e.target.value, item.id)
+                  }}
+                />
+                {modelSizeAlertId.includes(item.id) && (
+                  <Alert severity="error">
+                    {t('registerModel.enterNumberGreaterThanZero')}
+                  </Alert>
+                )}
+                <Box padding="15px"></Box>
+              </>
+            )}
 
             {item.model_format !== 'pytorch' && (
               <>

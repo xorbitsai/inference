@@ -224,14 +224,15 @@ const ModelCard = ({
       if (sizes.length === 1) {
         setModelSize(sizes[0])
       }
-    } else if (modelEngine && modelFormat && ['embedding'].includes(modelType)) {
+    } else if (
+      modelEngine &&
+      modelFormat &&
+      ['embedding'].includes(modelType)
+    ) {
       const quants = [
         ...new Set(
           enginesObj[modelEngine]
-            .filter(
-              (item) =>
-                item.model_format === modelFormat
-            )
+            .filter((item) => item.model_format === modelFormat)
             .map((item) => item.quantization)
         ),
       ]
@@ -492,20 +493,20 @@ const ModelCard = ({
       //       'runningModelType',
       //       `/running_models/${modelType}`
       //     )
-          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-          const historyModelNameArr = historyArr.map((item) => item.model_name)
-          if (historyModelNameArr.includes(modelDataWithID.model_name)) {
-            historyArr = historyArr.map((item) => {
-              if (item.model_name === modelDataWithID.model_name) {
-                return modelDataWithID
-              }
-              return item
-            })
-          } else {
-            historyArr.push(modelDataWithID)
+      let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+      const historyModelNameArr = historyArr.map((item) => item.model_name)
+      if (historyModelNameArr.includes(modelDataWithID.model_name)) {
+        historyArr = historyArr.map((item) => {
+          if (item.model_name === modelDataWithID.model_name) {
+            return modelDataWithID
           }
-          localStorage.setItem('historyArr', JSON.stringify(historyArr))
-        // })
+          return item
+        })
+      } else {
+        historyArr.push(modelDataWithID)
+      }
+      localStorage.setItem('historyArr', JSON.stringify(historyArr))
+      // })
       //   .catch((error) => {
       //     console.error('Error:', error)
       //     if (error.response?.status === 499) {
@@ -2075,7 +2076,8 @@ const ModelCard = ({
               mx="auto"
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
-                {['embedding'].includes(modelType) && (<>
+                {['embedding'].includes(modelType) && (
+                  <>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <InputLabel id="modelEngine-label">
                         {t('launchModel.modelEngine')}
@@ -2088,27 +2090,27 @@ const ModelCard = ({
                         label={t('launchModel.modelEngine')}
                       >
                         {engineOptions.map((engine) => {
-                        const subArr = []
-                        enginesObj[engine].forEach((item) => {
-                          subArr.push(item.model_format)
-                        })
-                        const arr = [...new Set(subArr)]
-                        const specs = modelData.model_specs.filter((spec) =>
-                          arr.includes(spec.model_format)
-                        )
+                          const subArr = []
+                          enginesObj[engine].forEach((item) => {
+                            subArr.push(item.model_format)
+                          })
+                          const arr = [...new Set(subArr)]
+                          const specs = modelData.model_specs.filter((spec) =>
+                            arr.includes(spec.model_format)
+                          )
 
-                        const cached = specs.some((spec) => isCached(spec))
+                          const cached = specs.some((spec) => isCached(spec))
 
-                        const displayedEngine = cached
-                          ? engine + ' ' + t('launchModel.cached')
-                          : engine
+                          const displayedEngine = cached
+                            ? engine + ' ' + t('launchModel.cached')
+                            : engine
 
-                        return (
-                          <MenuItem key={engine} value={engine}>
-                            {displayedEngine}
-                          </MenuItem>
-                        )
-                      })}
+                          return (
+                            <MenuItem key={engine} value={engine}>
+                              {displayedEngine}
+                            </MenuItem>
+                          )
+                        })}
                       </Select>
                     </FormControl>
                     <FormControl
@@ -2163,8 +2165,9 @@ const ModelCard = ({
                         label={t('launchModel.quantization')}
                       >
                         {quantizationOptions.map((quant) => {
-                          const specs = modelData.model_specs
-                            .filter((spec) => spec.model_format === modelFormat)
+                          const specs = modelData.model_specs.filter(
+                            (spec) => spec.model_format === modelFormat
+                          )
 
                           const spec = specs.find((s) => {
                             return s.quantization === quant
