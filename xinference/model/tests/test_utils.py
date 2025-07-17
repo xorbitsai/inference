@@ -69,7 +69,7 @@ def test_tqdm_patch():
 
 async def test_download_hugginface():
     from ..llm import BUILTIN_LLM_FAMILIES
-    from ..llm.llm_family import cache_from_huggingface
+    from ..llm.cache_manager import LLMCacheManager as CacheManager
 
     cache_dir = None
 
@@ -77,12 +77,15 @@ async def test_download_hugginface():
         with CancellableDownloader() as downloader:
             family = next(
                 f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen2.5-instruct"
-            )
+            ).copy()
             spec = next(
                 s
                 for s in family.model_specs
-                if s.model_format == "pytorch" and s.model_size_in_billions == "0_5"
+                if s.model_format == "pytorch"
+                and s.model_size_in_billions == "0_5"
+                and s.model_hub == "huggingface"
             )
+            family.model_specs = [spec]
 
             async def check():
                 while not done:
@@ -93,7 +96,9 @@ async def test_download_hugginface():
             done = False
             check_task = asyncio.create_task(check())
             # download from huggingface
-            cache_dir = await asyncio.to_thread(cache_from_huggingface, family, spec)
+            cache_dir = await asyncio.to_thread(
+                CacheManager(family).cache_from_huggingface
+            )
             done = True
 
             await check_task
@@ -105,23 +110,24 @@ async def test_download_hugginface():
 
 
 async def test_download_modelscope():
-    from ..llm import BUILTIN_MODELSCOPE_LLM_FAMILIES
-    from ..llm.llm_family import cache_from_modelscope
+    from ..llm import BUILTIN_LLM_FAMILIES
+    from ..llm.cache_manager import LLMCacheManager as CacheManager
 
     cache_dir = None
 
     try:
         with CancellableDownloader() as downloader:
             family = next(
-                f
-                for f in BUILTIN_MODELSCOPE_LLM_FAMILIES
-                if f.model_name == "qwen2.5-instruct"
-            )
+                f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen2.5-instruct"
+            ).copy()
             spec = next(
                 s
                 for s in family.model_specs
-                if s.model_format == "pytorch" and s.model_size_in_billions == "0_5"
+                if s.model_format == "pytorch"
+                and s.model_size_in_billions == "0_5"
+                and s.model_hub == "modelscope"
             )
+            family.model_specs = [spec]
 
             async def check():
                 while not done:
@@ -132,7 +138,9 @@ async def test_download_modelscope():
             done = False
             check_task = asyncio.create_task(check())
             # download from huggingface
-            cache_dir = await asyncio.to_thread(cache_from_modelscope, family, spec)
+            cache_dir = await asyncio.to_thread(
+                CacheManager(family).cache_from_modelscope
+            )
             done = True
 
             await check_task
@@ -144,24 +152,25 @@ async def test_download_modelscope():
 
 
 async def test_cancel():
-    from ..llm import BUILTIN_MODELSCOPE_LLM_FAMILIES
-    from ..llm.llm_family import cache_from_modelscope
+    from ..llm import BUILTIN_LLM_FAMILIES
+    from ..llm.cache_manager import LLMCacheManager as CacheManager
 
     with CancellableDownloader() as downloader:
         family = next(
-            f
-            for f in BUILTIN_MODELSCOPE_LLM_FAMILIES
-            if f.model_name == "qwen2.5-instruct"
-        )
+            f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen2.5-instruct"
+        ).copy()
         spec = next(
             s
             for s in family.model_specs
-            if s.model_format == "pytorch" and s.model_size_in_billions == "0_5"
+            if s.model_format == "pytorch"
+            and s.model_size_in_billions == "0_5"
+            and s.model_hub == "modelscope"
         )
+        family.model_specs = [spec]
 
         # download from huggingface
         cache_task = asyncio.create_task(
-            asyncio.to_thread(cache_from_modelscope, family, spec)
+            asyncio.to_thread(CacheManager(family).cache_from_modelscope)
         )
 
         await asyncio.sleep(1)

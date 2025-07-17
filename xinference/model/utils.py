@@ -570,7 +570,7 @@ def merge_cached_files(
     logger.info(f"Merge complete.")
 
 
-def flatten_model_src(input_json):
+def flatten_model_src(input_json: dict):
     flattened = []
     base_info = {key: value for key, value in input_json.items() if key != "model_src"}
     for model_hub, hub_info in input_json["model_src"].items():
@@ -582,7 +582,7 @@ def flatten_model_src(input_json):
     return flattened
 
 
-def flatten_quantizations(input_json):
+def flatten_quantizations(input_json: dict):
     flattened = []
 
     base_info = {key: value for key, value in input_json.items() if key != "model_src"}

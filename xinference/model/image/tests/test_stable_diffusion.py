@@ -399,7 +399,7 @@ def test_register_custom_image():
     with tempfile.TemporaryDirectory() as tmp_dir:
         model_spec = CustomImageModelFamilyV1(
             model_family="stable_diffusion",
-            model_name="my-custom-image",
+            model_name=f"my-custom-image-{uuid.uuid4().hex[:8]}",
             model_id="my-custom-image",
             model_uri=os.path.abspath(tmp_dir),
         )
@@ -425,7 +425,7 @@ def test_persist_custom_image():
 
     model_spec = CustomImageModelFamilyV1(
         model_family="stable_diffusion",
-        model_name="my-custom-image",
+        model_name=f"my-custom-image-{uuid.uuid4().hex[:8]}",
         model_id="my-custom-image",
         model_uri=f"file://{os.path.abspath(tmp_dir)}",
     )

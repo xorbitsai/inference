@@ -203,7 +203,9 @@ def test_auto_detect_type():
             # TODO: we need to fix the auto detect type
             continue
         try:
-            assert m["type"] == RerankModel._auto_detect_type(m["model_id"])
+            assert m["type"] == RerankModel._auto_detect_type(
+                m["model_src"]["huggingface"]["model_id"]
+            )
         except EnvironmentError:
             # gated repo, ignore
             continue

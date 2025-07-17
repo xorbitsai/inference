@@ -30,7 +30,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
         TransformersEmbeddingSpecV1(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
-            quantizations=["none"],
+            quantization="none",
         )
     ],
     model_hub="modelscope",
@@ -43,8 +43,8 @@ def test_embedding_model_with_flag():
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
-            "mook", "cuda", "mock", "bge-small-en-v1.5", "flag", model_path=model_path
+        model = create_embedding_model_instance(
+            "mook", "bge-small-en-v1.5", "flag", model_path=model_path
         )
         model.load()
 

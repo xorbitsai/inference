@@ -33,7 +33,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
         TransformersEmbeddingSpecV1(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
-            quantizations=["none"],
+            quantization="none",
         )
     ],
     model_hub="modelscope",

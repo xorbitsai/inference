@@ -126,7 +126,7 @@ class MLXLLMSpecV1(BaseModel):
 
 
 class LLMFamilyV1(BaseModel, ModelInstanceInfoMixin):
-    version: Literal[1]
+    version: Literal[2]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[str]
@@ -382,13 +382,11 @@ def cache_model_tokenizer_and_config(
     return download_dir
 
 
-def cache_model_config(
-    llm_family: LLMFamilyV1,
-    llm_spec: "LLMSpecV1",
-):
+def cache_model_config(llm_family: LLMFamilyV1):
     """Download model config.json into cache_dir,
     returns local filepath
     """
+    llm_spec = llm_family.model_specs[0]
     cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec, "model_mem")
     config_file = os.path.join(cache_dir, "config.json")
     if not os.path.islink(config_file) and not os.path.exists(config_file):
@@ -421,19 +419,12 @@ def _get_cache_dir_for_model_mem(
     e.g. for cal-model-mem, (might called from supervisor / cli)
     Temporary use separate dir from worker's cache_dir, due to issue of different style of symlink.
     """
-    quant_suffix = ""
-    for q in llm_spec.quantizations:
-        if llm_spec.model_id and q in llm_spec.model_id:
-            quant_suffix = q
-            break
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
-        f"-{llm_spec.model_size_in_billions}b"
+        f"-{llm_spec.model_size_in_billions}b-{llm_spec.quantization}"
     )
-    if quant_suffix:
-        cache_dir_name += f"-{quant_suffix}"
     cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, category, cache_dir_name)
+        os.path.join(XINFERENCE_CACHE_DIR, "v2", category, cache_dir_name)
     )
     if create_if_not_exist and not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)

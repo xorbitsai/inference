@@ -1,6 +1,6 @@
 [
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "codestral-v0.1",
     "model_lang": [
@@ -75,7 +75,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "gorilla-openfunctions-v2",
     "model_lang": [
@@ -133,7 +133,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 1024,
     "model_name": "gpt-2",
     "model_lang": [
@@ -160,7 +160,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "llama-2",
     "model_lang": [
@@ -366,7 +366,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "mistral-instruct-v0.3",
     "model_lang": [
@@ -447,7 +447,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 65536,
     "model_name": "mixtral-8x22B-instruct-v0.1",
     "model_lang": [
@@ -594,7 +594,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "openhermes-2.5",
     "model_lang": [
@@ -652,7 +652,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 2048,
     "model_name": "opt",
     "model_lang": [
@@ -679,7 +679,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 2048,
     "model_name": "phi-2",
     "model_lang": [
@@ -730,7 +730,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "seallm_v2",
     "model_lang": [
@@ -780,7 +780,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "seallm_v2.5",
     "model_lang": [
@@ -830,7 +830,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "DianJin-R1",
     "model_lang": [
@@ -1011,7 +1011,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "HuatuoGPT-o1-LLaMA-3.1",
     "model_lang": [
@@ -1073,7 +1073,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "HuatuoGPT-o1-Qwen2.5",
     "model_lang": [
@@ -1136,7 +1136,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "InternVL3",
     "model_lang": [
@@ -1418,7 +1418,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "MiniCPM-V-2.6",
     "model_lang": [
@@ -1483,7 +1483,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "Ovis2",
     "model_lang": [
@@ -1708,7 +1708,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "QvQ-72B-Preview",
     "model_lang": [
@@ -1777,7 +1777,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "QwQ-32B",
     "model_lang": [
@@ -1949,7 +1949,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "QwQ-32B-Preview",
     "model_lang": [
@@ -2079,7 +2079,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "Skywork",
     "model_lang": [
@@ -2114,7 +2114,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "Skywork-Math",
     "model_lang": [
@@ -2149,7 +2149,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "XiYanSQL-QwenCoder-2504",
     "model_lang": [
@@ -2212,7 +2212,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "Yi",
     "model_lang": [
@@ -2323,7 +2323,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "Yi-1.5",
     "model_lang": [
@@ -2410,7 +2410,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "Yi-1.5-chat",
     "model_lang": [
@@ -2750,7 +2750,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 16384,
     "model_name": "Yi-1.5-chat-16k",
     "model_lang": [
@@ -2866,7 +2866,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 262144,
     "model_name": "Yi-200k",
     "model_lang": [
@@ -2927,7 +2927,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "Yi-chat",
     "model_lang": [
@@ -3038,7 +3038,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "baichuan-2",
     "model_lang": [
@@ -3105,7 +3105,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "baichuan-2-chat",
     "model_lang": [
@@ -3178,7 +3178,7 @@
     "stop": []
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 100000,
     "model_name": "code-llama",
     "model_lang": [
@@ -3324,7 +3324,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 100000,
     "model_name": "code-llama-instruct",
     "model_description": "Code-Llama-Instruct is an instruct-tuned version of the Code-Llama LLM.",
@@ -3501,7 +3501,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 100000,
     "model_name": "code-llama-python",
     "model_lang": [
@@ -3677,7 +3677,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "codegeex4",
     "model_lang": [
@@ -3754,7 +3754,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 65536,
     "model_name": "codeqwen1.5",
     "model_lang": [
@@ -3793,7 +3793,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 65536,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
@@ -3895,7 +3895,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8194,
     "model_name": "codeshell",
     "model_lang": [
@@ -3930,7 +3930,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8194,
     "model_name": "codeshell-chat",
     "model_lang": [
@@ -3974,7 +3974,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "cogagent",
     "model_lang": [
@@ -4019,7 +4019,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "deepseek",
     "model_lang": [
@@ -4120,7 +4120,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "deepseek-chat",
     "model_lang": [
@@ -4228,7 +4228,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 16384,
     "model_name": "deepseek-coder",
     "model_lang": [
@@ -4486,7 +4486,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 16384,
     "model_name": "deepseek-coder-instruct",
     "model_lang": [
@@ -4751,7 +4751,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 163840,
     "model_name": "deepseek-prover-v2",
     "model_lang": [
@@ -4830,7 +4830,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 163840,
     "model_name": "deepseek-r1",
     "model_lang": [
@@ -5246,7 +5246,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 163840,
     "model_name": "deepseek-r1-0528",
     "model_lang": [
@@ -5311,7 +5311,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "deepseek-r1-0528-qwen3",
     "model_lang": [
@@ -5392,7 +5392,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "deepseek-r1-distill-llama",
     "model_lang": [
@@ -5657,7 +5657,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "deepseek-r1-distill-qwen",
     "model_lang": [
@@ -6080,7 +6080,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 128000,
     "model_name": "deepseek-v2-chat",
     "model_lang": [
@@ -6142,7 +6142,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 128000,
     "model_name": "deepseek-v2-chat-0628",
     "model_lang": [
@@ -6184,7 +6184,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 128000,
     "model_name": "deepseek-v2.5",
     "model_lang": [
@@ -6226,7 +6226,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 163840,
     "model_name": "deepseek-v3",
     "model_lang": [
@@ -6501,7 +6501,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 163840,
     "model_name": "deepseek-v3-0324",
     "model_lang": [
@@ -6559,7 +6559,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "deepseek-vl2",
     "model_lang": [
@@ -6639,7 +6639,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "fin-r1",
     "model_lang": [
@@ -6721,7 +6721,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "gemma-3-1b-it",
     "model_lang": [
@@ -6843,7 +6843,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "gemma-3-it",
     "model_lang": [
@@ -7190,7 +7190,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "glm-4v",
     "model_lang": [
@@ -7243,7 +7243,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "glm-edge-chat",
     "model_lang": [
@@ -7429,7 +7429,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "glm4-0414",
     "model_lang": [
@@ -7677,7 +7677,7 @@
     }
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "glm4-chat",
     "model_lang": [
@@ -7784,7 +7784,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 1048576,
     "model_name": "glm4-chat-1m",
     "model_lang": [
@@ -7891,7 +7891,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "internlm3-instruct",
     "model_lang": [
@@ -8022,7 +8022,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "llama-2-chat",
     "model_lang": [
@@ -8270,7 +8270,7 @@
     "stop": []
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "llama-3",
     "model_lang": [
@@ -8360,7 +8360,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "llama-3-instruct",
     "model_lang": [
@@ -8573,7 +8573,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "llama-3.1",
     "model_lang": [
@@ -8680,7 +8680,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "llama-3.1-instruct",
     "model_lang": [
@@ -9053,7 +9053,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "llama-3.2-vision",
     "model_lang": [
@@ -9111,7 +9111,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "llama-3.2-vision-instruct",
     "model_lang": [
@@ -9180,7 +9180,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "llama-3.3-instruct",
     "model_lang": [
@@ -9319,7 +9319,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "marco-o1",
     "model_lang": [
@@ -9410,7 +9410,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "minicpm-2b-dpo-bf16",
     "model_lang": [
@@ -9459,7 +9459,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "minicpm-2b-dpo-fp16",
     "model_lang": [
@@ -9502,7 +9502,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "minicpm-2b-dpo-fp32",
     "model_lang": [
@@ -9545,7 +9545,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "minicpm-2b-sft-bf16",
     "model_lang": [
@@ -9594,7 +9594,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "minicpm-2b-sft-fp32",
     "model_lang": [
@@ -9637,7 +9637,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "minicpm3-4b",
     "model_lang": [
@@ -9706,7 +9706,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "minicpm4",
     "model_lang": [
@@ -9783,7 +9783,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "mistral-instruct-v0.1",
     "model_lang": [
@@ -9872,7 +9872,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "mistral-instruct-v0.2",
     "model_lang": [
@@ -9967,7 +9967,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "mistral-large-instruct",
     "model_lang": [
@@ -10159,7 +10159,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 1024000,
     "model_name": "mistral-nemo-instruct",
     "model_lang": [
@@ -10334,7 +10334,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "mistral-v0.1",
     "model_lang": [
@@ -10417,7 +10417,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "mixtral-instruct-v0.1",
     "model_lang": [
@@ -10506,7 +10506,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "mixtral-v0.1",
     "model_lang": [
@@ -10576,7 +10576,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "moonlight-16b-a3b-instruct",
     "model_lang": [
@@ -10616,7 +10616,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "orion-chat",
     "model_lang": [
@@ -10679,7 +10679,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 128000,
     "model_name": "phi-3-mini-128k-instruct",
     "model_lang": [
@@ -10724,7 +10724,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 4096,
     "model_name": "phi-3-mini-4k-instruct",
     "model_lang": [
@@ -10783,7 +10783,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen-chat",
     "model_lang": [
@@ -11033,7 +11033,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen1.5-chat",
     "model_lang": [
@@ -11782,7 +11782,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen1.5-moe-chat",
     "model_lang": [
@@ -11845,7 +11845,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2-audio",
     "model_lang": [
@@ -11893,7 +11893,7 @@
     }
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2-audio-instruct",
     "model_lang": [
@@ -11941,7 +11941,7 @@
     }
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2-instruct",
     "model_lang": [
@@ -12569,7 +12569,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2-moe-instruct",
     "model_lang": [
@@ -12690,7 +12690,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2-vl-instruct",
     "model_lang": [
@@ -13005,7 +13005,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2.5",
     "model_lang": [
@@ -13190,7 +13190,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2.5-coder",
     "model_lang": [
@@ -13319,7 +13319,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2.5-coder-instruct",
     "model_lang": [
@@ -13872,7 +13872,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2.5-instruct",
     "model_lang": [
@@ -15382,7 +15382,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 1010000,
     "model_name": "qwen2.5-instruct-1m",
     "model_lang": [
@@ -15442,7 +15442,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwen2.5-omni",
     "model_lang": [
@@ -15513,7 +15513,7 @@
     }
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 128000,
     "model_name": "qwen2.5-vl-instruct",
     "model_lang": [
@@ -15778,7 +15778,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 40960,
     "model_name": "qwen3",
     "model_lang": [
@@ -17292,7 +17292,7 @@
     }
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "seallms-v3",
     "model_lang": [
@@ -17363,7 +17363,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 131072,
     "model_name": "skywork-or1",
     "model_lang": [
@@ -17463,7 +17463,7 @@
     "reasoning_end_tag": "</think>"
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "skywork-or1-preview",
     "model_lang": [
@@ -17681,7 +17681,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 8192,
     "model_name": "telechat",
     "model_lang": [
@@ -17822,7 +17822,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 2048,
     "model_name": "tiny-llama",
     "model_lang": [
@@ -17868,7 +17868,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 100000,
     "model_name": "wizardcoder-python-v1.0",
     "model_lang": [
@@ -18000,7 +18000,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 2048,
     "model_name": "wizardmath-v1.0",
     "model_lang": [
@@ -18054,7 +18054,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 2048,
     "model_name": "xverse",
     "model_lang": [
@@ -18129,7 +18129,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 2048,
     "model_name": "xverse-chat",
     "model_lang": [
@@ -18191,7 +18191,7 @@
     ]
   },
   {
-    "version": 1,
+    "version": 2,
     "context_length": 32768,
     "model_name": "qwenLong-l1",
     "model_lang": [

@@ -30,7 +30,8 @@ class LLMCacheManager(CacheManager):
         self._model_revision = llm_family.model_specs[0].model_revision
         self._cache_dir = os.path.join(
             self._v2_cache_dir_prefix,
-            f"{self._model_name}-{self._model_format}-{self._model_size_in_billions}b-{self._quantization}",
+            f"{self._model_name.replace('.', '_')}-{self._model_format}-"
+            f"{self._model_size_in_billions}b-{self._quantization}",
         )
 
     def cache_uri(self) -> str:

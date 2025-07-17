@@ -19,7 +19,7 @@ class CacheManager:
         os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
         os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
         self._cache_dir = os.path.join(
-            self._v2_cache_dir_prefix, self._model_family.model_name
+            self._v2_cache_dir_prefix, self._model_family.model_name.replace(".", "_")
         )
 
     def get_cache_dir(self):

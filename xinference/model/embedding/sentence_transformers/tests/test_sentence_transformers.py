@@ -30,7 +30,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
         TransformersEmbeddingSpecV1(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
-            quantizations=["none"],
+            quantization="none",
         )
     ],
     model_hub="modelscope",
@@ -43,9 +43,7 @@ def test_embedding_model_with_sentence_transformer():
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
-            "mook",
-            None,
+        model = create_embedding_model_instance(
             "mock",
             "bge-small-en-v1.5",
             "sentence_transformers",

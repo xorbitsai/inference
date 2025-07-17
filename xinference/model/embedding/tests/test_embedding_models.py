@@ -32,7 +32,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
             model_format="pytorch",
             model_id="thenlper/gte-small",
             model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
-            quantizations=["none"],
+            quantization="none",
         )
     ],
 )
@@ -47,7 +47,7 @@ TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
             model_format="pytorch",
             model_id="thenlper/gte-small",
             model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
-            quantizations=["none"],
+            quantization="none",
         )
     ],
 )
@@ -62,10 +62,10 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
             model_format="pytorch",
             model_id="Xorbits/bge-small-zh-v1.5",
             model_revision="v0.0.2",
-            quantizations=["none"],
+            quantization="none",
+            model_hub="modelscope",
         )
     ],
-    model_hub="modelscope",
 )
 from ..embed_family import EMBEDDING_ENGINES
 
@@ -81,9 +81,7 @@ def test_model_from_modelscope():
     from ..core import create_embedding_model_instance
 
     model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
-    model, _ = create_embedding_model_instance(
-        "mock",
-        None,
+    model = create_embedding_model_instance(
         "mock",
         "bge-small-zh-v1.5",
         "sentence_transformers",
@@ -126,7 +124,7 @@ def test_from_local_uri():
                 model_format="pytorch",
                 model_id="test/custom_test_a",
                 model_uri=os.path.abspath(tmp_dir),
-                quantizations=["none"],
+                quantization="none",
             )
         ],
     )
@@ -160,7 +158,7 @@ def test_register_custom_embedding():
                 model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri=os.path.abspath(tmp_dir),
-                quantizations=["none"],
+                quantization="none",
             )
         ],
     )
@@ -168,7 +166,7 @@ def test_register_custom_embedding():
     register_embedding(model_family, False)
     CacheManager(model_family).cache()
     model_cache_path = os.path.join(
-        XINFERENCE_CACHE_DIR, f"{model_family.model_name}-pytorch"
+        XINFERENCE_CACHE_DIR, "v2", f"{model_family.model_name}-pytorch-none"
     )
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
@@ -185,7 +183,7 @@ def test_register_custom_embedding():
                 model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri="file:///c/d",
-                quantizations=["none"],
+                quantization="none",
             )
         ],
     )
@@ -203,7 +201,7 @@ def test_register_custom_embedding():
                 model_format="pytorch",
                 model_id="test/custom_test_c",
                 model_uri=os.path.abspath(tmp_dir),
-                quantizations=["none"],
+                quantization="none",
             )
         ],
     )
@@ -224,8 +222,8 @@ def test_register_fault_embedding():
     from ....constants import XINFERENCE_MODEL_DIR
     from .. import _install
 
-    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "embedding"), exist_ok=True)
-    file_path = os.path.join(XINFERENCE_MODEL_DIR, "embedding/GTE.json")
+    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding"), exist_ok=True)
+    file_path = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding/GTE.json")
     data = {
         "model_name": "GTE",
         "model_hub": "huggingface",
@@ -238,7 +236,7 @@ def test_register_fault_embedding():
                 "model_id": None,
                 "model_revision": None,
                 "model_uri": "/new_data/cache/gte-Qwen2",
-                "quantizations": ["none"],
+                "quantization": "none",
             }
         ],
     }
@@ -257,9 +255,7 @@ def test_convert_ids_to_tokens():
     from ..core import create_embedding_model_instance
 
     model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
-    model, _ = create_embedding_model_instance(
-        "mock",
-        None,
+    model = create_embedding_model_instance(
         "mock",
         "bge-small-zh-v1.5",
         "sentence_transformers",

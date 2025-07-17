@@ -31,7 +31,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
             model_format="ggufv2",
             model_id="Qwen/Qwen3-Embedding-0.6B-GGUF",
             model_file_name_template="Qwen3-Embedding-0.6B-{quantization}.gguf",
-            quantizations=["Q8_0"],
+            quantization="Q8_0",
         )
     ],
     model_hub="huggingface",
@@ -43,9 +43,7 @@ def test_embedding_model_with_xllamacpp():
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
-            "mook",
-            "cuda",
+        model = create_embedding_model_instance(
             "mock",
             "Qwen3-Embedding-0.6B",
             "llama.cpp",
