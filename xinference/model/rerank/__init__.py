@@ -37,6 +37,11 @@ BUILTIN_RERANK_MODELS: Dict[str, List["RerankModelFamilyV2"]] = {}
 
 
 def register_custom_model():
+    from ..custom import migrate_from_v1_to_v2
+
+    # migrate from v1 to v2 first
+    migrate_from_v1_to_v2("rerank", CustomRerankModelFamilyV2)
+
     # if persist=True, load them when init
     user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "rerank")
     if os.path.isdir(user_defined_rerank_dir):
