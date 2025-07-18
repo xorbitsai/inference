@@ -230,7 +230,7 @@ async def test_restful_api(setup):
     # register_model
 
     model = """{
-  "version": 1,
+  "version": 2,
   "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
@@ -245,11 +245,7 @@ async def test_restful_api(setup):
     {
       "model_format": "pytorch",
       "model_size_in_billions": 7,
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
+      "quantization": "none",
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],
@@ -275,7 +271,7 @@ async def test_restful_api(setup):
     url = f"{endpoint}/v1/models/LLM/custom_model/versions"
     response = requests.get(url)
     version_infos = response.json()
-    assert len(version_infos) == 3  # three quantizations
+    assert len(version_infos) == 1
 
     url = f"{endpoint}/v1/model_registrations/LLM"
 

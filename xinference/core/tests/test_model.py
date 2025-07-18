@@ -25,7 +25,15 @@ TEST_EVENT = None
 TEST_VALUE = None
 
 
+class MockModelFamily:
+    def to_description(self) -> dict:
+        return {}
+
+
 class MockModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
     async def generate(self, prompt, **kwargs):
         global TEST_VALUE
         TEST_VALUE = True

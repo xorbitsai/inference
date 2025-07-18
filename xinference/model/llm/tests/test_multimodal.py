@@ -317,7 +317,9 @@ def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
             }
         ],
     )
-    assert any(count in completion.choices[0].message.content for count in ["两条", "四条"])
+    assert any(
+        count in completion.choices[0].message.content for count in ["两条", "四条"]
+    )
 
 
 @pytest.mark.skip(reason="Cost too many resources.")

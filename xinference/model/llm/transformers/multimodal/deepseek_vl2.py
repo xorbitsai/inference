@@ -23,7 +23,7 @@ import requests
 import torch
 
 from .....model.utils import select_device
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
 
@@ -39,7 +39,7 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
 
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name
         if "deepseek-vl2" == llm_family.lower():

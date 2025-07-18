@@ -214,16 +214,15 @@ def get_model_layers_info(
         logger.debug("get_model_layers_info by default size=%s", model_size_in_billions)
         size_in_billions = convert_model_size_to_float(model_size_in_billions)
         return _get_default_layers_from_size(size_in_billions)
-    match_result = match_llm(
+    llm_family = match_llm(
         model_name=model_name,
         model_format=model_format,
         model_size_in_billions=model_size_in_billions,
         quantization=quantization,
     )
-    if not match_result:
+    if not llm_family:
         return None
-    llm_family, llm_spec, _quant = match_result
-    config_path = cache_model_config(llm_family, llm_spec)
+    config_path = cache_model_config(llm_family)
     return load_model_config_json(config_path)
 
 

@@ -18,11 +18,8 @@ import tempfile
 
 
 def test_register_flexible_model():
-    from ..core import (
-        FlexibleModelSpec,
-        register_flexible_model,
-        unregister_flexible_model,
-    )
+    from ..core import FlexibleModelSpec
+    from ..custom import register_flexible_model, unregister_flexible_model
 
     tmp_dir = tempfile.mkdtemp()
 

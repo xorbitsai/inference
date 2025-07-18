@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
 
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -35,7 +35,7 @@ class InternVLChatModel(PytorchMultiModalModel):
 
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
         if "internvl3" in family.lower():

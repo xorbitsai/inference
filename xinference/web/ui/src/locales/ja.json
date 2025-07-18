@@ -60,7 +60,6 @@
     "commandLineParsing": "コマンドライン引数解析",
     "copyToCommandLine": "コマンドラインコマンドとしてコピー",
     "modelEngine": "モデルエンジン",
-    "modelEngine.optional": "(オプション) モデルエンジン",
     "modelFormat": "モデルフォーマット",
     "modelSize": "モデルサイズ",
     "quantization": "量子化",

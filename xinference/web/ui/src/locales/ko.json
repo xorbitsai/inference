@@ -60,7 +60,6 @@
     "commandLineParsing": "명령줄 인수 파싱",
     "copyToCommandLine": "명령줄 명령으로 복사",
     "modelEngine": "모델 엔진",
-    "modelEngine.optional": "(선택) 모델 엔진",
     "modelFormat": "모델 형식",
     "modelSize": "모델 크기",
     "quantization": "양자화",

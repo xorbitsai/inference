@@ -54,7 +54,7 @@ from ..constants import (
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
-from ..model.core import ModelDescription, VirtualEnvSettings, create_model_instance
+from ..model.core import VirtualEnvSettings, create_model_instance
 from ..model.utils import CancellableDownloader, get_engine_params_by_name
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
@@ -131,14 +131,14 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
         # attributes maintained after model launched:
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
-        self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
+        self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
         self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
-        self._user_specified_gpu_to_model_uids: Dict[
-            int, Set[Tuple[str, str]]
-        ] = defaultdict(set)
+        self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
+            defaultdict(set)
+        )
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
@@ -236,13 +236,13 @@ class WorkerActor(xo.StatelessActor):
 
     async def __post_create__(self):
         from ..model.audio import (
-            CustomAudioModelFamilyV1,
+            CustomAudioModelFamilyV2,
             generate_audio_description,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
-            CustomEmbeddingModelSpec,
+            CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
             register_embedding,
             unregister_embedding,
@@ -254,19 +254,19 @@ class WorkerActor(xo.StatelessActor):
             unregister_flexible_model,
         )
         from ..model.image import (
-            CustomImageModelFamilyV1,
+            CustomImageModelFamilyV2,
             generate_image_description,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
-            CustomLLMFamilyV1,
-            generate_llm_description,
+            CustomLLMFamilyV2,
+            generate_llm_version_info,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
-            CustomRerankModelSpec,
+            CustomRerankModelFamilyV2,
             generate_rerank_description,
             register_rerank,
             unregister_rerank,
@@ -274,31 +274,31 @@ class WorkerActor(xo.StatelessActor):
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
-                CustomLLMFamilyV1,
+                CustomLLMFamilyV2,
                 register_llm,
                 unregister_llm,
-                generate_llm_description,
+                generate_llm_version_info,
             ),
             "embedding": (
-                CustomEmbeddingModelSpec,
+                CustomEmbeddingModelFamilyV2,
                 register_embedding,
                 unregister_embedding,
                 generate_embedding_description,
             ),
             "rerank": (
-                CustomRerankModelSpec,
+                CustomRerankModelFamilyV2,
                 register_rerank,
                 unregister_rerank,
                 generate_rerank_description,
             ),
             "image": (
-                CustomImageModelFamilyV1,
+                CustomImageModelFamilyV2,
                 register_image,
                 unregister_image,
                 generate_image_description,
             ),
             "audio": (
-                CustomAudioModelFamilyV1,
+                CustomAudioModelFamilyV2,
                 register_audio,
                 unregister_audio,
                 generate_audio_description,
@@ -396,16 +396,18 @@ class WorkerActor(xo.StatelessActor):
         from ..model.embedding import get_embedding_model_descriptions
         from ..model.flexible import get_flexible_model_descriptions
         from ..model.image import get_image_model_descriptions
-        from ..model.llm import get_llm_model_descriptions
+        from ..model.llm import get_llm_version_infos
         from ..model.rerank import get_rerank_model_descriptions
+        from ..model.video import get_video_model_descriptions
 
         # record model version
         model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_model_descriptions())
+        model_version_infos.update(get_llm_version_infos())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_video_model_descriptions())
         model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
@@ -774,10 +776,7 @@ class WorkerActor(xo.StatelessActor):
             assert isinstance(model, LLM)
             return model.model_family.model_ability  # type: ignore
 
-    async def update_cache_status(
-        self, model_name: str, model_description: ModelDescription
-    ):
-        version_info = model_description.to_version_info()
+    async def update_cache_status(self, model_name: str, version_info: Any):
         if isinstance(version_info, list):  # image model
             model_path = version_info[0]["model_file_location"]
             await self._cache_tracker_ref.update_cache_status(
@@ -1028,10 +1027,8 @@ class WorkerActor(xo.StatelessActor):
                                 self._upload_download_progress, progressor, downloader
                             )
                         )
-                        model, model_description = await asyncio.to_thread(
+                        model = await asyncio.to_thread(
                             create_model_instance,
-                            subpool_address,
-                            devices,
                             model_uid,
                             model_type,
                             model_name,
@@ -1044,7 +1041,14 @@ class WorkerActor(xo.StatelessActor):
                             model_path,
                             **model_kwargs,
                         )
-                    await self.update_cache_status(model_name, model_description)
+                    model.model_family.address = subpool_address
+                    model.model_family.accelerators = devices
+                    model.model_family.multimodal_projector = model_kwargs.get(
+                        "multimodal_projector", None
+                    )
+                    await self.update_cache_status(
+                        model_name, model.model_family.to_version_info()
+                    )
 
                 def check_cancel():
                     # check downloader first, sometimes download finished
@@ -1063,7 +1067,7 @@ class WorkerActor(xo.StatelessActor):
                     await asyncio.to_thread(
                         self._prepare_virtual_env,
                         virtual_env_manager,
-                        model_description.spec.virtualenv,
+                        model.model_family.virtualenv,
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
@@ -1078,7 +1082,6 @@ class WorkerActor(xo.StatelessActor):
                     worker_address=self.address,
                     replica_model_uid=model_uid,
                     model=model,
-                    model_description=model_description,
                     request_limits=request_limits,
                     xavier_config=xavier_config,
                     n_worker=n_worker,
@@ -1125,7 +1128,9 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
-            self._model_uid_to_model_spec[model_uid] = model_description
+            self._model_uid_to_model_spec[model_uid] = (
+                model.model_family.to_description()
+            )
             self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
@@ -1301,12 +1306,7 @@ class WorkerActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
-        ret = {}
-
-        items = list(self._model_uid_to_model_spec.items())
-        for k, v in items:
-            ret[k] = v.to_dict()
-        return ret
+        return {k: v for k, v in self._model_uid_to_model_spec.items()}
 
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -1323,7 +1323,7 @@ class WorkerActor(xo.StatelessActor):
         model_desc = self._model_uid_to_model_spec.get(model_uid, None)
         if model_desc is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        return model_desc.to_dict()
+        return model_desc
 
     async def report_status(self):
         status = dict()
@@ -1409,7 +1409,9 @@ class WorkerActor(xo.StatelessActor):
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
         paths = await self.list_deletable_models(model_version)
+        dir_paths = set()
         for path in paths:
+            dir_paths.add(os.path.dirname(path))
             try:
                 if os.path.islink(path):
                     os.unlink(path)
@@ -1422,6 +1424,16 @@ class WorkerActor(xo.StatelessActor):
             except Exception as e:
                 logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
                 return False
+
+        for _dir in dir_paths:
+            try:
+                shutil.rmtree(_dir)
+            except Exception as e:
+                logger.error(
+                    f"Fail to delete parent dir {_dir} with error:{e}."
+                )  # noqa: E231
+                return False
+
         await self._cache_tracker_ref.confirm_and_remove_model(
             model_version, self.address
         )

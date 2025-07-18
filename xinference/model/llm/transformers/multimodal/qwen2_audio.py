@@ -20,7 +20,7 @@ from urllib.request import urlopen
 import numpy as np
 
 from .....model.utils import select_device
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class Qwen2AudioChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-audio".lower() in llm_family.lower():

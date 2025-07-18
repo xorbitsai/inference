@@ -27,7 +27,7 @@ from .....types import (
     ChatCompletionChoice,
     CompletionUsage,
 )
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import PytorchGenerateConfig, register_non_default_model
 from .core import PytorchMultiModalModel
 
@@ -44,7 +44,7 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
 
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
