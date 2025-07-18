@@ -50,7 +50,7 @@ from .core import CacheableModelSpec
 
 if TYPE_CHECKING:
     from .embedding.core import LlamaCppEmbeddingSpecV1
-    from .llm.llm_family import LlamaCppLLMSpecV1
+    from .llm.llm_family import LlamaCppLLMSpecV2
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
@@ -516,7 +516,7 @@ def get_engine_params_by_name(
 
 
 def generate_model_file_names_with_quantization_parts(
-    model_spec: Union["LlamaCppLLMSpecV1", "LlamaCppEmbeddingSpecV1"],
+    model_spec: Union["LlamaCppLLMSpecV2", "LlamaCppEmbeddingSpecV1"],
     multimodal_projector: Optional[str] = None,
 ) -> Tuple[List[str], str, bool]:
     file_names = []

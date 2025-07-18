@@ -24,18 +24,18 @@ from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
-    AudioModelFamilyV1,
+    AudioModelFamilyV2,
     generate_audio_description,
     get_audio_model_descriptions,
 )
 from .custom import (
-    CustomAudioModelFamilyV1,
+    CustomAudioModelFamilyV2,
     get_user_defined_audios,
     register_audio,
     unregister_audio,
 )
 
-BUILTIN_AUDIO_MODELS: Dict[str, List["AudioModelFamilyV1"]] = {}
+BUILTIN_AUDIO_MODELS: Dict[str, List["AudioModelFamilyV2"]] = {}
 
 
 def register_custom_model():
@@ -47,7 +47,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_audio_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_audio_family = CustomAudioModelFamilyV1.parse_obj(
+                    user_defined_audio_family = CustomAudioModelFamilyV2.parse_obj(
                         json.load(fd)
                     )
                     register_audio(user_defined_audio_family, persist=False)
@@ -88,8 +88,8 @@ def load_model_family_from_json(json_filename, target_families):
     for spec in flattened_model_specs:
         if not _need_filter(spec):
             if spec["model_name"] not in target_families:
-                target_families[spec["model_name"]] = [AudioModelFamilyV1(**spec)]
+                target_families[spec["model_name"]] = [AudioModelFamilyV2(**spec)]
             else:
-                target_families[spec["model_name"]].append(AudioModelFamilyV1(**spec))
+                target_families[spec["model_name"]].append(AudioModelFamilyV2(**spec))
 
     del json_path

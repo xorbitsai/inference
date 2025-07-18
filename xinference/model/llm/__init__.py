@@ -38,12 +38,12 @@ from .llm_family import (
     SUPPORTED_ENGINES,
     TRANSFORMERS_CLASSES,
     VLLM_CLASSES,
-    CustomLLMFamilyV1,
-    LlamaCppLLMSpecV1,
-    LLMFamilyV1,
+    CustomLLMFamilyV2,
+    LlamaCppLLMSpecV2,
+    LLMFamilyV2,
     LLMSpecV1,
-    MLXLLMSpecV1,
-    PytorchLLMSpecV1,
+    MLXLLMSpecV2,
+    PytorchLLMSpecV2,
     match_llm,
 )
 
@@ -57,7 +57,7 @@ def check_format_with_engine(model_format, engine):
     return True
 
 
-def generate_engine_config_by_model_family(model_family: "LLMFamilyV1"):
+def generate_engine_config_by_model_family(model_family: "LLMFamilyV2"):
     model_name = model_family.model_name
     specs = model_family.model_specs
     engines = LLM_ENGINES.get(model_name, {})  # structure for engine query
@@ -118,7 +118,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_llm_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_llm_family = CustomLLMFamilyV1.parse_raw(fd.read())
+                    user_defined_llm_family = CustomLLMFamilyV2.parse_raw(fd.read())
                     register_llm(user_defined_llm_family, persist=False)
             except Exception as e:
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
@@ -131,7 +131,7 @@ def load_model_family_from_json(json_filename, target_families):
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
-        model_spec = LLMFamilyV1.parse_obj(json_obj)
+        model_spec = LLMFamilyV2.parse_obj(json_obj)
         target_families.append(model_spec)
 
         # register chat_template

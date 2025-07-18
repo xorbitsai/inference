@@ -41,7 +41,7 @@ def get_audio_model_descriptions():
     return copy.deepcopy(AUDIO_MODEL_DESCRIPTIONS)
 
 
-class AudioModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
+class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     version: Literal[2]
     model_family: str
     model_name: str
@@ -82,7 +82,7 @@ class AudioModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
 
 
 def generate_audio_description(
-    audio_model: AudioModelFamilyV1,
+    audio_model: AudioModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     res[audio_model.model_name].append(audio_model.to_version_info())
@@ -94,7 +94,7 @@ def match_audio(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> AudioModelFamilyV1:
+) -> AudioModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS
     from .custom import get_user_defined_audios

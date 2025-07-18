@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Optional
 from ..utils import set_all_random_seed
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class CosyVoiceModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):

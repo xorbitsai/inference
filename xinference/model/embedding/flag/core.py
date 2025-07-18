@@ -30,7 +30,7 @@ except ImportError:
 
 from ....device_utils import get_available_device
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
-from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
+from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class FlagEmbeddingModel(EmbeddingModel):
         self,
         model_uid: str,
         model_path: str,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         quantization: Optional[str] = None,
         device: Optional[str] = None,
         return_sparse: bool = False,
@@ -286,7 +286,7 @@ class FlagEmbeddingModel(EmbeddingModel):
     @classmethod
     def match_json(
         cls,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:

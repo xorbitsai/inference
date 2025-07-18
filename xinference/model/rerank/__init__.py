@@ -22,18 +22,18 @@ from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
-    RerankModelSpec,
+    RerankModelFamilyV2,
     generate_rerank_description,
     get_rerank_model_descriptions,
 )
 from .custom import (
-    CustomRerankModelSpec,
+    CustomRerankModelFamilyV2,
     get_user_defined_reranks,
     register_rerank,
     unregister_rerank,
 )
 
-BUILTIN_RERANK_MODELS: Dict[str, List["RerankModelSpec"]] = {}
+BUILTIN_RERANK_MODELS: Dict[str, List["RerankModelFamilyV2"]] = {}
 
 
 def register_custom_model():
@@ -45,7 +45,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(
+                    user_defined_rerank_spec = CustomRerankModelFamilyV2.parse_obj(
                         json.load(fd)
                     )
                     register_rerank(user_defined_rerank_spec, persist=False)
@@ -76,8 +76,8 @@ def load_model_family_from_json(json_filename, target_families):
 
     for spec in flattened_model_specs:
         if spec["model_name"] not in target_families:
-            target_families[spec["model_name"]] = [RerankModelSpec(**spec)]
+            target_families[spec["model_name"]] = [RerankModelFamilyV2(**spec)]
         else:
-            target_families[spec["model_name"]].append(RerankModelSpec(**spec))
+            target_families[spec["model_name"]].append(RerankModelFamilyV2(**spec))
 
     del _model_spec_json

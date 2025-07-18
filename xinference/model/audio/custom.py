@@ -24,12 +24,12 @@ from ..._compat import (
     load_str_bytes,
 )
 from ..custom import ModelRegistry
-from .core import AudioModelFamilyV1
+from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class CustomAudioModelFamilyV1(AudioModelFamilyV1):
+class CustomAudioModelFamilyV2(AudioModelFamilyV2):
     version: Literal[2] = 2
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
@@ -44,7 +44,7 @@ class CustomAudioModelFamilyV1(AudioModelFamilyV1):
         encoding: str = "utf8",
         proto: Protocol = None,
         allow_pickle: bool = False,
-    ) -> AudioModelFamilyV1:
+    ) -> AudioModelFamilyV2:
         # See source code of BaseModel.parse_raw
         try:
             obj = load_str_bytes(
@@ -58,7 +58,7 @@ class CustomAudioModelFamilyV1(AudioModelFamilyV1):
         except (ValueError, TypeError, UnicodeDecodeError) as e:
             raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
 
-        audio_spec: AudioModelFamilyV1 = cls.parse_obj(obj)
+        audio_spec: AudioModelFamilyV2 = cls.parse_obj(obj)
 
         # check model_family
         if audio_spec.model_family is None:
@@ -69,7 +69,7 @@ class CustomAudioModelFamilyV1(AudioModelFamilyV1):
         return audio_spec
 
 
-UD_AUDIOS: List[CustomAudioModelFamilyV1] = []
+UD_AUDIOS: List[CustomAudioModelFamilyV2] = []
 
 
 class AudioModelRegistry(ModelRegistry):
@@ -83,14 +83,14 @@ class AudioModelRegistry(ModelRegistry):
         self.builtin_models = list(BUILTIN_AUDIO_MODELS.keys())
 
 
-def get_user_defined_audios() -> List[CustomAudioModelFamilyV1]:
+def get_user_defined_audios() -> List[CustomAudioModelFamilyV2]:
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("audio")
     return registry.get_custom_models()
 
 
-def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
+def register_audio(model_spec: CustomAudioModelFamilyV2, persist: bool):
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("audio")

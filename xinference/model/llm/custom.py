@@ -18,13 +18,13 @@ from typing import TYPE_CHECKING, List
 from ..custom import ModelRegistry
 
 if TYPE_CHECKING:
-    from .llm_family import LLMFamilyV1
+    from .llm_family import LLMFamilyV2
 
 
 logger = logging.getLogger(__name__)
 
 
-UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
+UD_LLM_FAMILIES: List["LLMFamilyV2"] = []
 
 
 class LLMModelRegistry(ModelRegistry):
@@ -43,7 +43,7 @@ class LLMModelRegistry(ModelRegistry):
         self.models.append(model_spec)
         generate_engine_config_by_model_family(model_spec)
 
-    def check_model_uri(self, llm_family: "LLMFamilyV1"):
+    def check_model_uri(self, llm_family: "LLMFamilyV2"):
         from ..utils import is_valid_model_uri
 
         for spec in llm_family.model_specs:
@@ -51,13 +51,13 @@ class LLMModelRegistry(ModelRegistry):
             if model_uri and not is_valid_model_uri(model_uri):
                 raise ValueError(f"Invalid model URI {model_uri}.")
 
-    def remove_ud_model(self, llm_family: "LLMFamilyV1"):
+    def remove_ud_model(self, llm_family: "LLMFamilyV2"):
         from .llm_family import LLM_ENGINES
 
         UD_LLM_FAMILIES.remove(llm_family)
         del LLM_ENGINES[llm_family.model_name]
 
-    def remove_ud_model_files(self, llm_family: "LLMFamilyV1"):
+    def remove_ud_model_files(self, llm_family: "LLMFamilyV2"):
         from .cache_manager import LLMCacheManager
 
         _llm_family = llm_family.copy()
@@ -74,7 +74,7 @@ def get_user_defined_llm_families():
     return registry.get_custom_models()
 
 
-def register_llm(llm_family: "LLMFamilyV1", persist: bool):
+def register_llm(llm_family: "LLMFamilyV2", persist: bool):
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("llm")

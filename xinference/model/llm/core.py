@@ -29,7 +29,7 @@ from ...types import PeftModelConfig
 from .reasoning_parser import ReasoningParser
 
 if TYPE_CHECKING:
-    from .llm_family import LLMFamilyV1, LLMSpecV1
+    from .llm_family import LLMFamilyV2, LLMSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class LLM(abc.ABC):
     def __init__(
         self,
         replica_model_uid: str,
-        model_family: "LLMFamilyV1",
+        model_family: "LLMFamilyV2",
         model_path: str,
         *args,
         **kwargs,
@@ -125,7 +125,7 @@ class LLM(abc.ABC):
 
     @classmethod
     def match(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls.check_lib():
             return False
@@ -134,7 +134,7 @@ class LLM(abc.ABC):
     @classmethod
     @abstractmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         raise NotImplementedError
 
@@ -166,7 +166,7 @@ class LLM(abc.ABC):
 chat_context_var: ContextVar[dict] = ContextVar("chat_context_var", default={})
 
 
-def generate_llm_version_info(llm_family: "LLMFamilyV1") -> Dict[str, List[Dict]]:
+def generate_llm_version_info(llm_family: "LLMFamilyV2") -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     # Use model_specs from huggingface, as HuggingFace is the most comprehensive.
     hf_specs = [

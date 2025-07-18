@@ -31,10 +31,10 @@ from PIL import Image
 
 from ....core.progress_tracker import Progressor, ProgressTrackerActor
 from ..cache_manager import ImageCacheManager as CacheManager
-from ..core import ImageModelFamilyV1
+from ..core import ImageModelFamilyV2
 from ..stable_diffusion.core import DiffusionModel
 
-TEST_MODEL_SPEC = ImageModelFamilyV1(
+TEST_MODEL_SPEC = ImageModelFamilyV2(
     model_family="stable_diffusion",
     model_name="small-stable-diffusion-v0",
     model_id="OFA-Sys/small-stable-diffusion-v0",
@@ -390,14 +390,14 @@ def test_get_cache_status():
 
 def test_register_custom_image():
     from ..custom import (
-        CustomImageModelFamilyV1,
+        CustomImageModelFamilyV2,
         get_user_defined_images,
         register_image,
         unregister_image,
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        model_spec = CustomImageModelFamilyV1(
+        model_spec = CustomImageModelFamilyV2(
             model_family="stable_diffusion",
             model_name=f"my-custom-image-{uuid.uuid4().hex[:8]}",
             model_id="my-custom-image",
@@ -414,7 +414,7 @@ def test_register_custom_image():
 def test_persist_custom_image():
     from ....constants import XINFERENCE_MODEL_DIR
     from ..custom import (
-        CustomImageModelFamilyV1,
+        CustomImageModelFamilyV2,
         get_user_defined_images,
         register_image,
         unregister_image,
@@ -423,7 +423,7 @@ def test_persist_custom_image():
     tmp_dir = tempfile.mktemp()
     os.makedirs(tmp_dir)
 
-    model_spec = CustomImageModelFamilyV1(
+    model_spec = CustomImageModelFamilyV2(
         model_family="stable_diffusion",
         model_name=f"my-custom-image-{uuid.uuid4().hex[:8]}",
         model_id="my-custom-image",

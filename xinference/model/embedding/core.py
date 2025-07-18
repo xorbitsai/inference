@@ -75,7 +75,7 @@ EmbeddingSpecV1 = Annotated[
 
 
 # this class define the basic info of embedding model
-class EmbeddingModelFamilyV1(BaseModel, ModelInstanceInfoMixin):
+class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     version: Literal[2]
     model_name: str
     dimensions: int
@@ -116,13 +116,13 @@ class EmbeddingModelFamilyV1(BaseModel, ModelInstanceInfoMixin):
         }
 
 
-def get_model_version(embedding_model: EmbeddingModelFamilyV1) -> str:
+def get_model_version(embedding_model: EmbeddingModelFamilyV2) -> str:
     spec = embedding_model.model_specs[0]
     return f"{embedding_model.model_name}--{embedding_model.max_tokens}--{embedding_model.dimensions}--{spec.model_format}--{spec.quantization}"
 
 
 def generate_embedding_description(
-    model_family: EmbeddingModelFamilyV1,
+    model_family: EmbeddingModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     specs = [x for x in model_family.model_specs if x.model_hub == "huggingface"]
@@ -138,7 +138,7 @@ class EmbeddingModel(abc.ABC):
         self,
         model_uid: str,
         model_path: str,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         quantization: Optional[str] = None,
         device: Optional[str] = None,
         **kwargs,
@@ -164,7 +164,7 @@ class EmbeddingModel(abc.ABC):
     @abstractmethod
     def match_json(
         cls,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
@@ -173,7 +173,7 @@ class EmbeddingModel(abc.ABC):
     @classmethod
     def match(
         cls,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ):

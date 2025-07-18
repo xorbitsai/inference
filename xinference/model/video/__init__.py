@@ -20,7 +20,7 @@ from ..utils import flatten_model_src
 from .core import (
     BUILTIN_VIDEO_MODELS,
     VIDEO_MODEL_DESCRIPTIONS,
-    VideoModelFamilyV1,
+    VideoModelFamilyV2,
     generate_video_description,
     get_video_model_descriptions,
 )
@@ -43,8 +43,8 @@ def load_model_family_from_json(json_filename, target_families):
 
     for spec in flattened_model_specs:
         if spec["model_name"] not in target_families:
-            target_families[spec["model_name"]] = [VideoModelFamilyV1(**spec)]
+            target_families[spec["model_name"]] = [VideoModelFamilyV2(**spec)]
         else:
-            target_families[spec["model_name"]].append(VideoModelFamilyV1(**spec))
+            target_families[spec["model_name"]].append(VideoModelFamilyV2(**spec))
 
     del json_path

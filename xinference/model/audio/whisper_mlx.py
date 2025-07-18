@@ -18,7 +18,7 @@ import tempfile
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class WhisperMLXModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):

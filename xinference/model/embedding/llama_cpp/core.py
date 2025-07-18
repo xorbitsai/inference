@@ -25,7 +25,7 @@ from typing import List, Optional, Union
 import orjson
 
 from ....types import Embedding
-from ..core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
+from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +225,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
     @classmethod
     def match_json(
         cls,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:

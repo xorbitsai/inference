@@ -22,7 +22,7 @@ from .diffusers import DiffusersVideoModel
 logger = logging.getLogger(__name__)
 
 VIDEO_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
-BUILTIN_VIDEO_MODELS: Dict[str, List["VideoModelFamilyV1"]] = {}
+BUILTIN_VIDEO_MODELS: Dict[str, List["VideoModelFamilyV2"]] = {}
 
 
 def get_video_model_descriptions():
@@ -31,7 +31,7 @@ def get_video_model_descriptions():
     return copy.deepcopy(VIDEO_MODEL_DESCRIPTIONS)
 
 
-class VideoModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
+class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     version: Literal[2]
     model_family: str
     model_name: str
@@ -70,7 +70,7 @@ class VideoModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
 
 
 def generate_video_description(
-    video_model: VideoModelFamilyV1,
+    video_model: VideoModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     res[video_model.model_name].append(video_model.to_version_info())
@@ -82,7 +82,7 @@ def match_diffusion(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> VideoModelFamilyV1:
+) -> VideoModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_VIDEO_MODELS
 

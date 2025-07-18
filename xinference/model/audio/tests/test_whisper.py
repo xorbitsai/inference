@@ -142,14 +142,14 @@ def test_transcriptions_for_whisper(setup):
 
 def test_register_custom_audio():
     from ..custom import (
-        CustomAudioModelFamilyV1,
+        CustomAudioModelFamilyV2,
         get_user_defined_audios,
         register_audio,
         unregister_audio,
     )
 
     # correct
-    family_a = CustomAudioModelFamilyV1(
+    family_a = CustomAudioModelFamilyV2(
         model_family="my-whisper",
         model_name=f"custom_test_a-{uuid.uuid4().hex[:8]}",
         model_id="test/custom_test_a",
@@ -161,7 +161,7 @@ def test_register_custom_audio():
     assert family_a in get_user_defined_audios()
 
     # name conflict
-    family_b = CustomAudioModelFamilyV1(
+    family_b = CustomAudioModelFamilyV2(
         model_family="my-whisper",
         model_name=f"custom_test_b-{uuid.uuid4().hex[:8]}",
         model_id="test/custom_test_b",
@@ -183,7 +183,7 @@ def test_register_custom_audio():
 def test_persistent_custom_audio():
     from ....constants import XINFERENCE_MODEL_DIR
     from ..custom import (
-        CustomAudioModelFamilyV1,
+        CustomAudioModelFamilyV2,
         get_user_defined_audios,
         register_audio,
         unregister_audio,
@@ -192,7 +192,7 @@ def test_persistent_custom_audio():
     temp_dir = tempfile.mkdtemp()
 
     # correct
-    family = CustomAudioModelFamilyV1(
+    family = CustomAudioModelFamilyV2(
         model_family="my-whisper",
         model_name=f"custom_test_a-{uuid.uuid4().hex[:8]}",
         model_id="test/custom_test_a",

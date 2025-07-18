@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from ..cache_manager import CacheManager
 
 if TYPE_CHECKING:
-    from .llm_family import LLMFamilyV1
+    from .llm_family import LLMFamilyV2
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class LLMCacheManager(CacheManager):
     def __init__(
-        self, llm_family: "LLMFamilyV1", multimodal_projector: Optional[str] = None
+        self, llm_family: "LLMFamilyV2", multimodal_projector: Optional[str] = None
     ):
         super().__init__(llm_family)
         self._llm_family = llm_family

@@ -49,7 +49,7 @@ BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
 
 
-class LlamaCppLLMSpecV1(BaseModel):
+class LlamaCppLLMSpecV2(BaseModel):
     model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -77,7 +77,7 @@ class LlamaCppLLMSpecV1(BaseModel):
         return v
 
 
-class PytorchLLMSpecV1(BaseModel):
+class PytorchLLMSpecV2(BaseModel):
     model_format: Literal["pytorch", "gptq", "awq", "fp8"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -101,7 +101,7 @@ class PytorchLLMSpecV1(BaseModel):
         return v
 
 
-class MLXLLMSpecV1(BaseModel):
+class MLXLLMSpecV2(BaseModel):
     model_format: Literal["mlx"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -125,7 +125,7 @@ class MLXLLMSpecV1(BaseModel):
         return v
 
 
-class LLMFamilyV1(BaseModel, ModelInstanceInfoMixin):
+class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     version: Literal[2]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
@@ -205,7 +205,7 @@ class LLMFamilyV1(BaseModel, ModelInstanceInfoMixin):
         }
 
 
-class CustomLLMFamilyV1(LLMFamilyV1):
+class CustomLLMFamilyV2(LLMFamilyV2):
     @classmethod
     def parse_raw(
         cls: Any,
@@ -215,7 +215,7 @@ class CustomLLMFamilyV1(LLMFamilyV1):
         encoding: str = "utf8",
         proto: Protocol = None,
         allow_pickle: bool = False,
-    ) -> LLMFamilyV1:
+    ) -> LLMFamilyV2:
         # See source code of BaseModel.parse_raw
         try:
             obj = load_str_bytes(
@@ -228,7 +228,7 @@ class CustomLLMFamilyV1(LLMFamilyV1):
             )
         except (ValueError, TypeError, UnicodeDecodeError) as e:
             raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
-        llm_spec: CustomLLMFamilyV1 = cls.parse_obj(obj)
+        llm_spec: CustomLLMFamilyV2 = cls.parse_obj(obj)
         vision_model_names: Set[str] = {
             family.model_name
             for family in BUILTIN_LLM_FAMILIES
@@ -294,17 +294,17 @@ class CustomLLMFamilyV1(LLMFamilyV1):
 
 
 LLMSpecV1 = Annotated[
-    Union[LlamaCppLLMSpecV1, PytorchLLMSpecV1, MLXLLMSpecV1],
+    Union[LlamaCppLLMSpecV2, PytorchLLMSpecV2, MLXLLMSpecV2],
     Field(discriminator="model_format"),
 ]
 
-LLMFamilyV1.update_forward_refs()
-CustomLLMFamilyV1.update_forward_refs()
+LLMFamilyV2.update_forward_refs()
+CustomLLMFamilyV2.update_forward_refs()
 
 
 LLAMA_CLASSES: List[Type[LLM]] = []
 
-BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
+BUILTIN_LLM_FAMILIES: List["LLMFamilyV2"] = []
 
 SGLANG_CLASSES: List[Type[LLM]] = []
 TRANSFORMERS_CLASSES: List[Type[LLM]] = []
@@ -336,7 +336,7 @@ def register_transformer(cls):
 
 
 def cache_model_tokenizer_and_config(
-    llm_family: LLMFamilyV1,
+    llm_family: LLMFamilyV2,
     llm_spec: "LLMSpecV1",
 ) -> str:
     """
@@ -382,7 +382,7 @@ def cache_model_tokenizer_and_config(
     return download_dir
 
 
-def cache_model_config(llm_family: LLMFamilyV1):
+def cache_model_config(llm_family: LLMFamilyV2):
     """Download model config.json into cache_dir,
     returns local filepath
     """
@@ -408,7 +408,7 @@ def cache_model_config(llm_family: LLMFamilyV1):
 
 
 def _get_cache_dir_for_model_mem(
-    llm_family: LLMFamilyV1,
+    llm_family: LLMFamilyV2,
     llm_spec: "LLMSpecV1",
     category: str,
     create_if_not_exist=True,
@@ -472,7 +472,7 @@ def match_llm(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> Optional[LLMFamilyV1]:
+) -> Optional[LLMFamilyV2]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
     """

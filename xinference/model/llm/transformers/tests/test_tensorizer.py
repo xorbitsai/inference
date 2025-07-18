@@ -7,7 +7,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .....constants import XINFERENCE_CACHE_DIR
 from ...cache_manager import LLMCacheManager as CacheManager
-from ...llm_family import LLMFamilyV1, PytorchLLMSpecV1
+from ...llm_family import LLMFamilyV2, PytorchLLMSpecV2
 from ..tensorizer_utils import (
     _tensorizer_serialize_model,
     get_tensorizer_dir,
@@ -25,14 +25,14 @@ class TestTensorizerSerializeModel:
             XINFERENCE_CACHE_DIR, "v2", model_full_name.replace(".", "_")
         )
         self.tensorizer_dir = get_tensorizer_dir(self.model_path)
-        spec = PytorchLLMSpecV1(
+        spec = PytorchLLMSpecV2(
             model_format="pytorch",
             model_size_in_billions="0_5",
             quantization="none",
             model_id="Qwen/Qwen1.5-0.5B-Chat",
             model_revision=None,
         )
-        family = LLMFamilyV1(
+        family = LLMFamilyV2(
             version=2,
             context_length=32768,
             model_type="LLM",

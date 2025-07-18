@@ -18,13 +18,13 @@ import pytest
 
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
-    EmbeddingModelFamilyV1,
+    EmbeddingModelFamilyV2,
     TransformersEmbeddingSpecV1,
     create_embedding_model_instance,
 )
 from ..core import VLLMEmbeddingModel
 
-TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
     model_name="bge-small-en-v1.5",
     dimensions=384,

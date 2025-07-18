@@ -62,13 +62,13 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from ..model.audio import AudioModelFamilyV1
-    from ..model.embedding import EmbeddingModelFamilyV1
+    from ..model.audio import AudioModelFamilyV2
+    from ..model.embedding import EmbeddingModelFamilyV2
     from ..model.flexible import FlexibleModelSpec
-    from ..model.image import ImageModelFamilyV1
-    from ..model.llm import LLMFamilyV1
-    from ..model.rerank import RerankModelSpec
-    from ..model.video import VideoModelFamilyV1
+    from ..model.image import ImageModelFamilyV2
+    from ..model.llm import LLMFamilyV2
+    from ..model.rerank import RerankModelFamilyV2
+    from ..model.video import VideoModelFamilyV2
     from .worker import WorkerActor
 
 
@@ -175,14 +175,14 @@ class SupervisorActor(xo.StatelessActor):
         )
 
         from ..model.audio import (
-            CustomAudioModelFamilyV1,
+            CustomAudioModelFamilyV2,
             generate_audio_description,
             get_audio_model_descriptions,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
-            CustomEmbeddingModelFamilyV1,
+            CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
             get_embedding_model_descriptions,
             register_embedding,
@@ -196,21 +196,21 @@ class SupervisorActor(xo.StatelessActor):
             unregister_flexible_model,
         )
         from ..model.image import (
-            CustomImageModelFamilyV1,
+            CustomImageModelFamilyV2,
             generate_image_description,
             get_image_model_descriptions,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
-            CustomLLMFamilyV1,
+            CustomLLMFamilyV2,
             generate_llm_version_info,
             get_llm_version_infos,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
-            CustomRerankModelSpec,
+            CustomRerankModelFamilyV2,
             generate_rerank_description,
             get_rerank_model_descriptions,
             register_rerank,
@@ -219,31 +219,31 @@ class SupervisorActor(xo.StatelessActor):
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
-                CustomLLMFamilyV1,
+                CustomLLMFamilyV2,
                 register_llm,
                 unregister_llm,
                 generate_llm_version_info,
             ),
             "embedding": (
-                CustomEmbeddingModelFamilyV1,
+                CustomEmbeddingModelFamilyV2,
                 register_embedding,
                 unregister_embedding,
                 generate_embedding_description,
             ),
             "rerank": (
-                CustomRerankModelSpec,
+                CustomRerankModelFamilyV2,
                 register_rerank,
                 unregister_rerank,
                 generate_rerank_description,
             ),
             "image": (
-                CustomImageModelFamilyV1,
+                CustomImageModelFamilyV2,
                 register_image,
                 unregister_image,
                 generate_image_description,
             ),
             "audio": (
-                CustomAudioModelFamilyV1,
+                CustomAudioModelFamilyV2,
                 register_audio,
                 unregister_audio,
                 generate_audio_description,
@@ -407,7 +407,7 @@ class SupervisorActor(xo.StatelessActor):
         }
 
     async def _to_llm_reg(
-        self, llm_family: "LLMFamilyV1", is_builtin: bool
+        self, llm_family: "LLMFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.llm.cache_manager import LLMCacheManager
 
@@ -436,7 +436,7 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_embedding_model_reg(
-        self, model_family: "EmbeddingModelFamilyV1", is_builtin: bool
+        self, model_family: "EmbeddingModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.embedding.cache_manager import EmbeddingCacheManager
 
@@ -474,7 +474,7 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_rerank_model_reg(
-        self, model_spec: "RerankModelSpec", is_builtin: bool
+        self, model_spec: "RerankModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.cache_manager import CacheManager
 
@@ -500,7 +500,7 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_image_model_reg(
-        self, model_family: "ImageModelFamilyV1", is_builtin: bool
+        self, model_family: "ImageModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.image.cache_manager import ImageCacheManager
 
@@ -525,7 +525,7 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_audio_model_reg(
-        self, model_family: "AudioModelFamilyV1", is_builtin: bool
+        self, model_family: "AudioModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.cache_manager import CacheManager
 
@@ -550,7 +550,7 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_video_model_reg(
-        self, model_family: "VideoModelFamilyV1", is_builtin: bool
+        self, model_family: "VideoModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.cache_manager import CacheManager
 

@@ -50,9 +50,9 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
-from .. import LLM, LLMFamilyV1, LLMSpecV1
+from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
-from ..llm_family import CustomLLMFamilyV1, cache_model_tokenizer_and_config
+from ..llm_family import CustomLLMFamilyV2, cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -262,7 +262,7 @@ class VLLMModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
+        model_family: "LLMFamilyV2",
         model_path: str,
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
@@ -347,7 +347,7 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        from ..llm_family import LlamaCppLLMSpecV1
+        from ..llm_family import LlamaCppLLMSpecV2
 
         if "0.3.1" <= vllm.__version__ <= "0.3.3":
             # from vllm v0.3.1 to v0.3.3, it uses cupy as NCCL backend
@@ -366,7 +366,7 @@ class VLLMModel(LLM):
         )
 
         if (
-            isinstance(self.model_spec, LlamaCppLLMSpecV1)
+            isinstance(self.model_spec, LlamaCppLLMSpecV2)
             and self.model_spec.model_format == "ggufv2"
         ):
             # gguf
@@ -789,7 +789,7 @@ class VLLMModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -811,7 +811,7 @@ class VLLMModel(LLM):
             else:
                 if "4" not in quantization:
                     return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
                 return False
         else:
@@ -1088,7 +1088,7 @@ class VLLMModel(LLM):
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "ggufv2"]:
             return False
@@ -1109,7 +1109,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
         else:
@@ -1245,7 +1245,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -1267,7 +1267,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
                 return False
         else:

@@ -22,7 +22,7 @@ from .....core.model import register_batching_multimodal_models
 from .....core.scheduler import InferenceRequest
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 class MiniCPMV26Model(PytorchMultiModalModel):
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
         if "MiniCPM-V-2.6".lower() in family.lower():

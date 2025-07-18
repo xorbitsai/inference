@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Optional
 import PIL.Image
 
 if TYPE_CHECKING:
-    from ..core import ImageModelFamilyV1
+    from ..core import ImageModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class GotOCR2Model:
         model_uid: str,
         model_path: Optional[str] = None,
         device: Optional[str] = None,
-        model_spec: Optional["ImageModelFamilyV1"] = None,
+        model_spec: Optional["ImageModelFamilyV2"] = None,
         **kwargs,
     ):
         self.model_family = model_spec

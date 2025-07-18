@@ -15,12 +15,12 @@ import logging
 from typing import List, Literal, Optional
 
 from ..custom import ModelRegistry
-from .core import RerankModelSpec
+from .core import RerankModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class CustomRerankModelSpec(RerankModelSpec):
+class CustomRerankModelFamilyV2(RerankModelFamilyV2):
     version: Literal[2] = 2
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
@@ -28,7 +28,7 @@ class CustomRerankModelSpec(RerankModelSpec):
     model_type: Literal["rerank"] = "rerank"  # for frontend
 
 
-UD_RERANKS: List[CustomRerankModelSpec] = []
+UD_RERANKS: List[CustomRerankModelFamilyV2] = []
 
 
 class RerankModelRegistry(ModelRegistry):
@@ -42,14 +42,14 @@ class RerankModelRegistry(ModelRegistry):
         self.builtin_models = list(BUILTIN_RERANK_MODELS.keys())
 
 
-def get_user_defined_reranks() -> List[CustomRerankModelSpec]:
+def get_user_defined_reranks() -> List[CustomRerankModelFamilyV2]:
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("rerank")
     return registry.get_custom_models()
 
 
-def register_rerank(model_spec: CustomRerankModelSpec, persist: bool):
+def register_rerank(model_spec: CustomRerankModelFamilyV2, persist: bool):
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("rerank")

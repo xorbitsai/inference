@@ -21,12 +21,12 @@ from ..utils import flatten_model_src
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
-    ImageModelFamilyV1,
+    ImageModelFamilyV2,
     generate_image_description,
     get_image_model_descriptions,
 )
 from .custom import (
-    CustomImageModelFamilyV1,
+    CustomImageModelFamilyV2,
     get_user_defined_images,
     register_image,
     unregister_image,
@@ -43,7 +43,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_image_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_image_family = CustomImageModelFamilyV1.parse_obj(
+                    user_defined_image_family = CustomImageModelFamilyV2.parse_obj(
                         json.load(fd)
                     )
                     register_image(user_defined_image_family, persist=False)
@@ -73,8 +73,8 @@ def load_model_family_from_json(json_filename, target_families):
 
     for spec in flattened_model_specs:
         if spec["model_name"] not in target_families:
-            target_families[spec["model_name"]] = [ImageModelFamilyV1(**spec)]
+            target_families[spec["model_name"]] = [ImageModelFamilyV2(**spec)]
         else:
-            target_families[spec["model_name"]].append(ImageModelFamilyV1(**spec))
+            target_families[spec["model_name"]].append(ImageModelFamilyV2(**spec))
 
     del json_path

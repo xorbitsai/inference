@@ -23,10 +23,10 @@ from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, is_valid_model_uri
 from ..cache_manager import LLMCacheManager as CacheManager
 from ..llm_family import (
-    CustomLLMFamilyV1,
-    LlamaCppLLMSpecV1,
-    LLMFamilyV1,
-    PytorchLLMSpecV1,
+    CustomLLMFamilyV2,
+    LlamaCppLLMSpecV2,
+    LLMFamilyV2,
+    PytorchLLMSpecV2,
     convert_model_size_to_float,
     match_llm,
     match_model_size,
@@ -78,8 +78,8 @@ def test_deserialize_llm_family_v1():
    "stop_token_ids": [1, 2, 3],
    "stop": ["hello", "world"]
 }"""
-    model_family = LLMFamilyV1.parse_raw(serialized)
-    assert isinstance(model_family, LLMFamilyV1)
+    model_family = LLMFamilyV2.parse_raw(serialized)
+    assert isinstance(model_family, LLMFamilyV2)
     assert model_family.version == 2
     assert model_family.context_length == 2048
     assert model_family.model_name == "TestModel"
@@ -112,13 +112,13 @@ def test_deserialize_llm_family_v1():
 
 
 def test_cache_from_huggingface_pytorch():
-    spec = PytorchLLMSpecV1(
+    spec = PytorchLLMSpecV2(
         model_format="pytorch",
         model_size_in_billions=1,
         quantization="none",
         model_id="facebook/opt-125m",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -140,14 +140,14 @@ def test_cache_from_huggingface_pytorch():
 
 
 def test_cache_from_huggingface_gguf():
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions="0_5",
         model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantization="q4_0",
         model_file_name_template="README.md",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -177,7 +177,7 @@ def test_cache_from_uri_local():
     with open("model.bin", "w") as fd:
         fd.write("foo")
 
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions=3,
         model_id="TestModel",
@@ -185,7 +185,7 @@ def test_cache_from_uri_local():
         quantization="",
         model_file_name_template="model.bin",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -209,14 +209,14 @@ def test_cache_from_uri_local():
 def test_custom_llm():
     from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
 
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions="0_5",
         model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantization="",
         model_file_name_template="README.md",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -241,14 +241,14 @@ def test_persistent_custom_llm():
     from ....constants import XINFERENCE_MODEL_DIR
     from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
 
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions="0_5",
         model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantization="",
         model_file_name_template="README.md",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -331,14 +331,14 @@ def test_is_valid_file_uri():
 
 
 def test_get_cache_status_pytorch():
-    spec = PytorchLLMSpecV1(
+    spec = PytorchLLMSpecV2(
         model_format="pytorch",
         model_size_in_billions=1,
         quantization="none",
         model_id="facebook/opt-125m",
         model_revision="3d2b5f275bdf882b8775f902e1bfdb790e2cfc32",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -369,14 +369,14 @@ def test_get_cache_status_pytorch():
 
 
 def test_get_cache_status_gguf():
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions="0_5",
         model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantization="q4_0",
         model_file_name_template="README.md",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -413,7 +413,7 @@ def test_parse_chat_template():
     assert "glm4-chat" in BUILTIN_LLM_PROMPT_STYLE
     assert "baichuan-2-chat" in BUILTIN_LLM_PROMPT_STYLE
 
-    hf_spec = LlamaCppLLMSpecV1(
+    hf_spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions=2,
         quantization="q4_0",
@@ -422,7 +422,7 @@ def test_parse_chat_template():
         model_revision="123",
         model_file_name_template="TestModel.{quantization}.bin",
     )
-    ms_spec = LlamaCppLLMSpecV1(
+    ms_spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions=2,
         quantization="q4_0",
@@ -432,7 +432,7 @@ def test_parse_chat_template():
         model_file_name_template="TestModel.{quantization}.bin",
     )
 
-    llm_family = CustomLLMFamilyV1(
+    llm_family = CustomLLMFamilyV2(
         version=2,
         model_type="LLM",
         model_name="test_LLM",
@@ -442,11 +442,11 @@ def test_parse_chat_template():
         model_family="glm4-chat",
         chat_template="glm4-chat",
     )
-    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    model_spec = CustomLLMFamilyV2.parse_raw(bytes(llm_family.json(), "utf8"))
     assert model_spec.model_name == llm_family.model_name
 
     # test vision
-    llm_family = CustomLLMFamilyV1(
+    llm_family = CustomLLMFamilyV2(
         version=2,
         model_type="LLM",
         model_name="test_LLM",
@@ -456,11 +456,11 @@ def test_parse_chat_template():
         model_family="qwen2-vl-instruct",
         chat_template="qwen2-vl-instruct",
     )
-    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf-8"))
+    model_spec = CustomLLMFamilyV2.parse_raw(bytes(llm_family.json(), "utf-8"))
     assert "vision" in model_spec.model_ability
 
     # error: missing model_family
-    llm_family = CustomLLMFamilyV1(
+    llm_family = CustomLLMFamilyV2(
         version=2,
         model_type="LLM",
         model_name="test_LLM",
@@ -470,10 +470,10 @@ def test_parse_chat_template():
         chat_template="glm4-chat",
     )
     with pytest.raises(ValueError):
-        CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+        CustomLLMFamilyV2.parse_raw(bytes(llm_family.json(), "utf8"))
 
     # successful new model family
-    llm_family = CustomLLMFamilyV1(
+    llm_family = CustomLLMFamilyV2(
         version=2,
         model_type="LLM",
         model_name="test_LLM",
@@ -483,7 +483,7 @@ def test_parse_chat_template():
         model_specs=[hf_spec, ms_spec],
         chat_template="glm4-chat",
     )
-    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    model_spec = CustomLLMFamilyV2.parse_raw(bytes(llm_family.json(), "utf8"))
     assert (
         model_spec.chat_template
         == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["chat_template"]
@@ -495,7 +495,7 @@ def test_parse_chat_template():
     assert model_spec.stop == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["stop"]
 
     # when chat_template is None, chat_template = model_family
-    llm_family = CustomLLMFamilyV1(
+    llm_family = CustomLLMFamilyV2(
         version=2,
         model_type="LLM",
         model_name="test_LLM",
@@ -505,7 +505,7 @@ def test_parse_chat_template():
         model_family="glm4-chat",
         chat_template=None,
     )
-    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    model_spec = CustomLLMFamilyV2.parse_raw(bytes(llm_family.json(), "utf8"))
     assert (
         model_spec.chat_template
         == BUILTIN_LLM_PROMPT_STYLE["glm4-chat"]["chat_template"]
@@ -717,14 +717,14 @@ def test_query_engine_general():
         == "Model qwen1.5-chat cannot be run on engine llama.cpp, with format ggufv2, size 2_2 and quantization q2_k."
     )
 
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions="0_5",
         model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantization="",
         model_file_name_template="README.md",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",
@@ -753,14 +753,14 @@ def test_query_engine_general():
     assert family not in get_user_defined_llm_families()
     assert "custom_model" not in LLM_ENGINES
 
-    spec = LlamaCppLLMSpecV1(
+    spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
         model_size_in_billions="1_8",
         model_id="null",
         quantization="default",
         model_file_name_template="qwen1_5-1_8b-chat-q4_0.gguf",
     )
-    family = LLMFamilyV1(
+    family = LLMFamilyV2(
         version=2,
         context_length=2048,
         model_type="LLM",

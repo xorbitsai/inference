@@ -7,12 +7,12 @@ from ..cache_manager import CacheManager
 class ImageCacheManager(CacheManager):
     def cache_gguf(self, quantization: Optional[str] = None):
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
-        from .core import ImageModelFamilyV1
+        from .core import ImageModelFamilyV2
 
         if not quantization:
             return None
 
-        assert isinstance(self._model_family, ImageModelFamilyV1)
+        assert isinstance(self._model_family, ImageModelFamilyV2)
         cache_dir = self.get_cache_dir()
 
         if not self._model_family.gguf_model_file_name_template:

@@ -48,7 +48,7 @@ def get_rerank_model_descriptions():
     return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
-class RerankModelSpec(CacheableModelSpec, ModelInstanceInfoMixin):
+class RerankModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     version: Literal[2]
     model_name: str
     language: List[str]
@@ -85,7 +85,9 @@ class RerankModelSpec(CacheableModelSpec, ModelInstanceInfoMixin):
         }
 
 
-def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[Dict]]:
+def generate_rerank_description(
+    model_spec: RerankModelFamilyV2,
+) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     res[model_spec.model_name].append(model_spec.to_version_info())
     return res
@@ -123,7 +125,7 @@ class _ModelWrapper(nn.Module):
 class RerankModel:
     def __init__(
         self,
-        model_spec: RerankModelSpec,
+        model_spec: RerankModelFamilyV2,
         model_uid: str,
         model_path: Optional[str] = None,
         device: Optional[str] = None,

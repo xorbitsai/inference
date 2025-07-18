@@ -28,7 +28,7 @@ from .stable_diffusion.mlx import MLXDiffusionModel
 logger = logging.getLogger(__name__)
 
 IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
-BUILTIN_IMAGE_MODELS: Dict[str, List["ImageModelFamilyV1"]] = {}
+BUILTIN_IMAGE_MODELS: Dict[str, List["ImageModelFamilyV2"]] = {}
 
 
 def get_image_model_descriptions():
@@ -37,7 +37,7 @@ def get_image_model_descriptions():
     return copy.deepcopy(IMAGE_MODEL_DESCRIPTIONS)
 
 
-class ImageModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
+class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     version: Literal[2] = 2
     model_family: str
     model_name: str
@@ -45,7 +45,7 @@ class ImageModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
     model_revision: str
     model_hub: str = "huggingface"
     model_ability: Optional[List[str]]
-    controlnet: Optional[List["ImageModelFamilyV1"]]
+    controlnet: Optional[List["ImageModelFamilyV2"]]
     default_model_config: Optional[dict] = {}
     default_generate_config: Optional[dict] = {}
     gguf_model_id: Optional[str]
@@ -102,7 +102,7 @@ class ImageModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
 
 
 def generate_image_description(
-    image_model: ImageModelFamilyV1,
+    image_model: ImageModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
     res[image_model.model_name].extend(image_model.to_version_info())
@@ -114,7 +114,7 @@ def match_diffusion(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> ImageModelFamilyV1:
+) -> ImageModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS
     from .custom import get_user_defined_images
@@ -152,7 +152,7 @@ def match_diffusion(
 
 def create_ocr_model_instance(
     model_uid: str,
-    model_spec: ImageModelFamilyV1,
+    model_spec: ImageModelFamilyV2,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> GotOCR2Model:

@@ -236,13 +236,13 @@ class WorkerActor(xo.StatelessActor):
 
     async def __post_create__(self):
         from ..model.audio import (
-            CustomAudioModelFamilyV1,
+            CustomAudioModelFamilyV2,
             generate_audio_description,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
-            CustomEmbeddingModelFamilyV1,
+            CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
             register_embedding,
             unregister_embedding,
@@ -254,19 +254,19 @@ class WorkerActor(xo.StatelessActor):
             unregister_flexible_model,
         )
         from ..model.image import (
-            CustomImageModelFamilyV1,
+            CustomImageModelFamilyV2,
             generate_image_description,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
-            CustomLLMFamilyV1,
+            CustomLLMFamilyV2,
             generate_llm_version_info,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
-            CustomRerankModelSpec,
+            CustomRerankModelFamilyV2,
             generate_rerank_description,
             register_rerank,
             unregister_rerank,
@@ -274,31 +274,31 @@ class WorkerActor(xo.StatelessActor):
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
-                CustomLLMFamilyV1,
+                CustomLLMFamilyV2,
                 register_llm,
                 unregister_llm,
                 generate_llm_version_info,
             ),
             "embedding": (
-                CustomEmbeddingModelFamilyV1,
+                CustomEmbeddingModelFamilyV2,
                 register_embedding,
                 unregister_embedding,
                 generate_embedding_description,
             ),
             "rerank": (
-                CustomRerankModelSpec,
+                CustomRerankModelFamilyV2,
                 register_rerank,
                 unregister_rerank,
                 generate_rerank_description,
             ),
             "image": (
-                CustomImageModelFamilyV1,
+                CustomImageModelFamilyV2,
                 register_image,
                 unregister_image,
                 generate_image_description,
             ),
             "audio": (
-                CustomAudioModelFamilyV1,
+                CustomAudioModelFamilyV2,
                 register_audio,
                 unregister_audio,
                 generate_audio_description,

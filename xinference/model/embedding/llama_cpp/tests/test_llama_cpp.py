@@ -16,12 +16,12 @@ import shutil
 
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
-    EmbeddingModelFamilyV1,
+    EmbeddingModelFamilyV2,
     LlamaCppEmbeddingSpecV1,
     create_embedding_model_instance,
 )
 
-TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
     model_name="Qwen3-Embedding-0.6B",
     dimensions=1024,

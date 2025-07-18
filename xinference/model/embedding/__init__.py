@@ -21,12 +21,12 @@ from typing import Any, Dict, List
 from ..utils import flatten_quantizations
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
-    EmbeddingModelFamilyV1,
+    EmbeddingModelFamilyV2,
     generate_embedding_description,
     get_embedding_model_descriptions,
 )
 from .custom import (
-    CustomEmbeddingModelFamilyV1,
+    CustomEmbeddingModelFamilyV2,
     get_user_defined_embeddings,
     register_embedding,
     unregister_embedding,
@@ -52,7 +52,7 @@ def register_custom_model():
                 with codecs.open(
                     os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_llm_family = CustomEmbeddingModelFamilyV1.parse_obj(
+                    user_defined_llm_family = CustomEmbeddingModelFamilyV2.parse_obj(
                         json.load(fd)
                     )
                     register_embedding(user_defined_llm_family, persist=False)
@@ -68,7 +68,7 @@ def check_format_with_engine(model_format, engine):
     return True
 
 
-def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV1"):
+def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2"):
     model_name = model_family.model_name
     engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
         model_name, {}
@@ -115,7 +115,7 @@ def _install():
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
-        BUILTIN_EMBEDDING_MODELS[json_obj["model_name"]] = EmbeddingModelFamilyV1(
+        BUILTIN_EMBEDDING_MODELS[json_obj["model_name"]] = EmbeddingModelFamilyV2(
             **json_obj
         )
 

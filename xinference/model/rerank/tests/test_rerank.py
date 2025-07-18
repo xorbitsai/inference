@@ -21,9 +21,9 @@ import pytest
 
 from ....client import Client
 from ...cache_manager import CacheManager
-from ..core import RerankModel, RerankModelSpec
+from ..core import RerankModel, RerankModelFamilyV2
 
-TEST_MODEL_SPEC = RerankModelSpec(
+TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
     model_name="bge-reranker-base",
     type="normal",
@@ -127,11 +127,11 @@ def test_restful_api(model_name, setup):
 
 def test_from_local_uri():
     from ...utils import cache_from_uri
-    from ..custom import CustomRerankModelSpec
+    from ..custom import CustomRerankModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_rerank_a",
         language=["zh"],
         model_uri=os.path.abspath(tmp_dir),
@@ -147,12 +147,12 @@ def test_from_local_uri():
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
     from ...utils import cache_from_uri
-    from ..custom import CustomRerankModelSpec, register_rerank, unregister_rerank
+    from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
 
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_b",
         language=["zh"],
         model_uri=os.path.abspath(tmp_dir),
@@ -166,7 +166,7 @@ def test_register_custom_rerank():
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_b-v15",
         language=["zh"],
         model_uri="file:///c/d",
@@ -175,7 +175,7 @@ def test_register_custom_rerank():
         register_rerank(model_spec, False)
 
     # name conflict
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_c",
         language=["zh"],
         model_uri=os.path.abspath(tmp_dir),

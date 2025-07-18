@@ -16,20 +16,20 @@ from typing import List, Optional
 
 from ..._compat import Literal
 from ..custom import ModelRegistry
-from .core import ImageModelFamilyV1
+from .core import ImageModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class CustomImageModelFamilyV1(ImageModelFamilyV1):
+class CustomImageModelFamilyV2(ImageModelFamilyV2):
     version: Literal[2] = 2
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]
-    controlnet: Optional[List["CustomImageModelFamilyV1"]]
+    controlnet: Optional[List["CustomImageModelFamilyV2"]]
 
 
-UD_IMAGES: List[CustomImageModelFamilyV1] = []
+UD_IMAGES: List[CustomImageModelFamilyV2] = []
 
 
 class ImageModelRegistry(ModelRegistry):
@@ -43,14 +43,14 @@ class ImageModelRegistry(ModelRegistry):
         self.builtin_models = list(BUILTIN_IMAGE_MODELS.keys())
 
 
-def get_user_defined_images() -> List[ImageModelFamilyV1]:
+def get_user_defined_images() -> List[ImageModelFamilyV2]:
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("image")
     return registry.get_custom_models()
 
 
-def register_image(model_spec: CustomImageModelFamilyV1, persist: bool):
+def register_image(model_spec: CustomImageModelFamilyV2, persist: bool):
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("image")

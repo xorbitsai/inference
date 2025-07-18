@@ -38,7 +38,7 @@ from ....types import (
 )
 from ...utils import select_device
 from ..core import LLM, chat_context_var
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
@@ -92,7 +92,7 @@ class PytorchModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -343,7 +343,7 @@ class PytorchModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
@@ -666,7 +666,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -696,7 +696,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False

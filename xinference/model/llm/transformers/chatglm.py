@@ -23,7 +23,7 @@ import torch
 from ....core.scheduler import InferenceRequest
 from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
 from ..core import chat_context_var
-from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..utils import (
     GLM4_TOOL_CALL_FAMILY,
     generate_chat_completion,
@@ -40,7 +40,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -84,7 +84,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False

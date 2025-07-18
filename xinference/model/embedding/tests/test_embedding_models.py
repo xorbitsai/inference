@@ -20,9 +20,9 @@ import tempfile
 import pytest
 
 from ..cache_manager import EmbeddingCacheManager as CacheManager
-from ..core import EmbeddingModelFamilyV1, TransformersEmbeddingSpecV1
+from ..core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
 
-TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
     model_name="gte-small",
     dimensions=384,
@@ -38,7 +38,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
     ],
 )
 
-TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC2 = EmbeddingModelFamilyV2(
     version=2,
     model_name="gte-small",
     dimensions=384,
@@ -54,7 +54,7 @@ TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
     ],
 )
 
-TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV2(
     version=2,
     model_name="bge-small-zh-v1.5",
     dimensions=512,
@@ -113,11 +113,11 @@ def test_get_cache_status():
 
 
 def test_from_local_uri():
-    from ..custom import CustomEmbeddingModelFamilyV1
+    from ..custom import CustomEmbeddingModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_family = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_a",
         dimensions=1024,
         max_tokens=2048,
@@ -143,7 +143,7 @@ def test_from_local_uri():
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
     from ..custom import (
-        CustomEmbeddingModelFamilyV1,
+        CustomEmbeddingModelFamilyV2,
         register_embedding,
         unregister_embedding,
     )
@@ -151,7 +151,7 @@ def test_register_custom_embedding():
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_family = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_b",
         dimensions=1024,
         max_tokens=2048,
@@ -176,7 +176,7 @@ def test_register_custom_embedding():
     os.remove(model_cache_path)
 
     # Invalid path
-    model_family = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_b-v15",
         dimensions=1024,
         max_tokens=2048,
@@ -194,7 +194,7 @@ def test_register_custom_embedding():
         register_embedding(model_family, False)
 
     # name conflict
-    model_family = CustomEmbeddingModelFamilyV1(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_c",
         dimensions=1024,
         max_tokens=2048,

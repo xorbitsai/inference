@@ -17,16 +17,16 @@ from typing import List
 
 from ..._compat import Literal
 from ..custom import ModelRegistry
-from .core import EmbeddingModelFamilyV1
+from .core import EmbeddingModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class CustomEmbeddingModelFamilyV1(EmbeddingModelFamilyV1):
+class CustomEmbeddingModelFamilyV2(EmbeddingModelFamilyV2):
     version: Literal[2] = 2
 
 
-UD_EMBEDDINGS: List[CustomEmbeddingModelFamilyV1] = []
+UD_EMBEDDINGS: List[CustomEmbeddingModelFamilyV2] = []
 
 
 class EmbeddingModelRegistry(ModelRegistry):
@@ -45,7 +45,7 @@ class EmbeddingModelRegistry(ModelRegistry):
         UD_EMBEDDINGS.append(model_spec)
         generate_engine_config_by_model_name(model_spec)
 
-    def check_model_uri(self, model_family: "EmbeddingModelFamilyV1"):
+    def check_model_uri(self, model_family: "EmbeddingModelFamilyV2"):
         from ..utils import is_valid_model_uri
 
         for spec in model_family.model_specs:
@@ -53,13 +53,13 @@ class EmbeddingModelRegistry(ModelRegistry):
             if model_uri and not is_valid_model_uri(model_uri):
                 raise ValueError(f"Invalid model URI {model_uri}.")
 
-    def remove_ud_model(self, model_family: "CustomEmbeddingModelFamilyV1"):
+    def remove_ud_model(self, model_family: "CustomEmbeddingModelFamilyV2"):
         from .embed_family import EMBEDDING_ENGINES
 
         UD_EMBEDDINGS.remove(model_family)
         del EMBEDDING_ENGINES[model_family.model_name]
 
-    def remove_ud_model_files(self, model_family: "CustomEmbeddingModelFamilyV1"):
+    def remove_ud_model_files(self, model_family: "CustomEmbeddingModelFamilyV2"):
         from .cache_manager import EmbeddingCacheManager
 
         _model_family = model_family.copy()
@@ -69,14 +69,14 @@ class EmbeddingModelRegistry(ModelRegistry):
             cache_manager.unregister_custom_model(self.model_type)
 
 
-def get_user_defined_embeddings() -> List[EmbeddingModelFamilyV1]:
+def get_user_defined_embeddings() -> List[EmbeddingModelFamilyV2]:
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("embedding")
     return registry.get_custom_models()
 
 
-def register_embedding(model_family: CustomEmbeddingModelFamilyV1, persist: bool):
+def register_embedding(model_family: CustomEmbeddingModelFamilyV2, persist: bool):
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("embedding")

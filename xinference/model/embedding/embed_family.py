@@ -16,14 +16,14 @@ import logging
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Type, Union
 
 if TYPE_CHECKING:
-    from .core import EmbeddingModel, EmbeddingModelFamilyV1, EmbeddingSpecV1
+    from .core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_CLASSES: List[Type["EmbeddingModel"]] = []
 SENTENCE_TRANSFORMER_CLASSES: List[Type["EmbeddingModel"]] = []
 VLLM_CLASSES: List[Type["EmbeddingModel"]] = []
 LLAMA_CPP_CLASSES: List[Type["EmbeddingModel"]] = []
 
-BUILTIN_EMBEDDING_MODELS: Dict[str, "EmbeddingModelFamilyV1"] = {}
+BUILTIN_EMBEDDING_MODELS: Dict[str, "EmbeddingModelFamilyV2"] = {}
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def match_embedding(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> "EmbeddingModelFamilyV1":
+) -> "EmbeddingModelFamilyV2":
     from ..utils import download_from_modelscope
     from .custom import get_user_defined_embeddings
 

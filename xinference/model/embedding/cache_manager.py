@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING
 from ..cache_manager import CacheManager
 
 if TYPE_CHECKING:
-    from .core import EmbeddingModelFamilyV1
+    from .core import EmbeddingModelFamilyV2
 
 
 class EmbeddingCacheManager(CacheManager):
-    def __init__(self, model_family: "EmbeddingModelFamilyV1"):
+    def __init__(self, model_family: "EmbeddingModelFamilyV2"):
         from ..llm.cache_manager import LLMCacheManager
 
         super().__init__(model_family)
