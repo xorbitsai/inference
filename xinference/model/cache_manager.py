@@ -68,6 +68,11 @@ class CacheManager:
             return cache_dir
 
         from_modelscope: bool = self._model_family.model_hub == "modelscope"
+        cache_config = (
+            self._model_family.cache_config.copy()
+            if self._model_family.cache_config
+            else {}
+        )
         if from_modelscope:
             from modelscope.hub.snapshot_download import (
                 snapshot_download as ms_download,
@@ -79,12 +84,13 @@ class CacheManager:
                 None,
                 self._model_family.model_id,
                 revision=self._model_family.model_revision,
+                **cache_config,
             )
             create_symlink(download_dir, cache_dir)
         else:
             from huggingface_hub import snapshot_download as hf_download
 
-            use_symlinks = {}
+            use_symlinks = cache_config
             if not IS_NEW_HUGGINGFACE_HUB:
                 use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
             download_dir = retry_download(

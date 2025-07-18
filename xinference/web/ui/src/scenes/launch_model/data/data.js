@@ -111,6 +111,7 @@ export const featureModels = [
     type: 'image',
     feature_models: [
       'FLUX.1-dev',
+      'FLUX.1-Kontext-dev',
       'FLUX.1-schnell',
       'sd3.5-large',
       'HunyuanDiT-v1.2',

@@ -278,59 +278,6 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
-def cache(model_spec: CacheableModelSpec, model_description_type: type):
-    if (
-        hasattr(model_spec, "model_uri")
-        and getattr(model_spec, "model_uri", None) is not None
-    ):
-        logger.info(f"Model caching from URI: {model_spec.model_uri}")
-        return cache_from_uri(model_spec=model_spec)
-
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    if valid_model_revision(meta_path, model_spec.model_revision, model_spec.model_hub):
-        return cache_dir
-
-    from_modelscope: bool = model_spec.model_hub == "modelscope"
-    if from_modelscope:
-        from modelscope.hub.snapshot_download import snapshot_download as ms_download
-
-        download_dir = retry_download(
-            ms_download,
-            model_spec.model_name,
-            None,
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-        )
-        create_symlink(download_dir, cache_dir)
-    else:
-        from huggingface_hub import snapshot_download as hf_download
-
-        use_symlinks = {}
-        if not IS_NEW_HUGGINGFACE_HUB:
-            use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
-        download_dir = retry_download(
-            hf_download,
-            model_spec.model_name,
-            None,
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-            **use_symlinks,
-        )
-        if IS_NEW_HUGGINGFACE_HUB:
-            create_symlink(download_dir, cache_dir)
-    with open(meta_path, "w") as f:
-        import json
-
-        desc = model_description_type(None, None, model_spec)
-        json.dump(desc.to_dict(), f)
-    return cache_dir
-
-
 def select_device(device):
     try:
         import torch  # noqa: F401
