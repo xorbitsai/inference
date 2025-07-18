@@ -22,7 +22,7 @@ import torch
 from .....core.model import register_batching_multimodal_models
 from .....core.scheduler import InferenceRequest
 from .....model.utils import select_device
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image
 from ..core import register_non_default_model
 from ..utils import get_max_src_len
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class Glm4_1VModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
         if "glm-4.1v" in family.lower():
@@ -56,17 +56,16 @@ class Glm4_1VModel(PytorchMultiModalModel):
         )
 
     def load_multimodal_model(self):
-        from transformers import AutoModel
-        from transformers import Glm4vConfig
+        from transformers import AutoModel, Glm4vConfig
 
         kwargs = {"device_map": self._device}
         kwargs = self.apply_bnb_quantization(kwargs)
 
         model = AutoModel.from_pretrained(
-                self.model_path,
-                trust_remote_code=True,
-                **kwargs,
-            )
+            self.model_path,
+            trust_remote_code=True,
+            **kwargs,
+        )
         self._model = model.eval()
         # Specify hyperparameters for generation
         self._model.generation_config = Glm4vConfig.from_pretrained(
