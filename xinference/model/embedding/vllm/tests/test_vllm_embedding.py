@@ -16,15 +16,16 @@ import shutil
 
 import pytest
 
+from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
-    EmbeddingModelFamilyV1,
+    EmbeddingModelFamilyV2,
     TransformersEmbeddingSpecV1,
-    cache,
     create_embedding_model_instance,
 )
 from ..core import VLLMEmbeddingModel
 
-TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
+    version=2,
     model_name="bge-small-en-v1.5",
     dimensions=384,
     max_tokens=512,
@@ -33,10 +34,10 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
         TransformersEmbeddingSpecV1(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
-            quantizations=["none"],
+            quantization="none",
+            model_hub="modelscope",
         )
     ],
-    model_hub="modelscope",
 )
 
 
@@ -45,7 +46,7 @@ def test_embedding_model_with_vllm():
     model_path = None
 
     try:
-        model_path = cache(TEST_MODEL_SPEC, TEST_MODEL_SPEC.model_specs[0])
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
         model, _ = create_embedding_model_instance(
             "mook",

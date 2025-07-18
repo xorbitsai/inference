@@ -6,7 +6,8 @@ import pytest
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .....constants import XINFERENCE_CACHE_DIR
-from ...llm_family import LLMFamilyV1, PytorchLLMSpecV1, cache
+from ...cache_manager import LLMCacheManager as CacheManager
+from ...llm_family import LLMFamilyV2, PytorchLLMSpecV2
 from ..tensorizer_utils import (
     _tensorizer_serialize_model,
     get_tensorizer_dir,
@@ -19,18 +20,20 @@ class TestTensorizerSerializeModel:
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         # Setup: Load the model and tokenizer
-        model_full_name = "qwen1.5-chat-pytorch-0_5b"
-        self.model_path = f"{XINFERENCE_CACHE_DIR}/{model_full_name.replace('.', '_')}"
+        model_full_name = "qwen1.5-chat-pytorch-0_5b-none"
+        self.model_path = os.path.join(
+            XINFERENCE_CACHE_DIR, "v2", model_full_name.replace(".", "_")
+        )
         self.tensorizer_dir = get_tensorizer_dir(self.model_path)
-        spec = PytorchLLMSpecV1(
+        spec = PytorchLLMSpecV2(
             model_format="pytorch",
             model_size_in_billions="0_5",
-            quantizations=["4-bit", "8-bit", "none"],
+            quantization="none",
             model_id="Qwen/Qwen1.5-0.5B-Chat",
             model_revision=None,
         )
-        family = LLMFamilyV1(
-            version=1,
+        family = LLMFamilyV2(
+            version=2,
             context_length=32768,
             model_type="LLM",
             model_name="qwen1.5-chat",
@@ -43,7 +46,7 @@ class TestTensorizerSerializeModel:
         )
 
         if not os.path.exists(self.model_path):
-            cache(llm_family=family, llm_spec=spec, quantization=None)
+            assert CacheManager(family).cache() == self.model_path
 
         self.model_config = AutoConfig.from_pretrained(self.model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)

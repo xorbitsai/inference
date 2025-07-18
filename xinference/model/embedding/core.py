@@ -18,21 +18,12 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, Iterable, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
 from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
-from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
-from ..core import CacheableQuantModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import (
-    IS_NEW_HUGGINGFACE_HUB,
-    create_symlink,
-    generate_quant_model_file_names,
-    parse_uri,
-    retry_download,
-    symlink_local_file,
-    valid_model_revision,
-)
+from ..core import VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
@@ -58,20 +49,20 @@ def get_embedding_model_descriptions():
 
 class TransformersEmbeddingSpecV1(BaseModel):
     model_format: Literal["pytorch"]
-    # Must in order that `str` first, then `int`
+    model_hub: str = "huggingface"
     model_id: Optional[str]
     model_uri: Optional[str]
     model_revision: Optional[str]
-    quantizations: List[str]
-    virtualenv: Optional[VirtualEnvSettings]
+    quantization: str
 
 
-class LlamaCppEmbeddingSpecV1(CacheableQuantModelSpec):
+class LlamaCppEmbeddingSpecV1(BaseModel):
     model_format: Literal["ggufv2"]
-    model_id: str
+    model_hub: str = "huggingface"
+    model_id: Optional[str]
     model_uri: Optional[str]
     model_revision: Optional[str]
-    quantizations: List[str]
+    quantization: str
     model_file_name_template: str
     model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
@@ -84,481 +75,62 @@ EmbeddingSpecV1 = Annotated[
 
 
 # this class define the basic info of embedding model
-class EmbeddingModelFamilyV1(BaseModel):
+class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_name: str
     dimensions: int
     max_tokens: int
     language: List[str]
     model_specs: List["EmbeddingSpecV1"]
-    model_hub: str = "huggingface"
+    virtualenv: Optional[VirtualEnvSettings]
 
+    class Config:
+        extra = "allow"
 
-class EmbeddingModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_family: EmbeddingModelFamilyV1,
-        model_spec: EmbeddingSpecV1,
-        quantization: Optional[str],
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_family = model_family
-        self._model_spec = model_spec
-        self._quantization = quantization
-
-    @property
-    def spec(self):
-        return self._model_family
-
-    def to_dict(self):
+    def to_description(self):
+        spec = self.model_specs[0]
         return {
             "model_type": "embedding",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._model_family.model_name,
-            "dimensions": self._model_family.dimensions,
-            "max_tokens": self._model_family.max_tokens,
-            "language": self._model_family.language,
-            "model_hub": self._model_family.model_hub,
-            "model_revision": self._model_spec.model_revision,
-            "quantization": self._quantization,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "model_name": self.model_name,
+            "dimensions": self.dimensions,
+            "max_tokens": self.max_tokens,
+            "language": self.language,
+            "model_hub": spec.model_hub,
+            "model_revision": spec.model_revision,
+            "quantization": spec.quantization,
         }
 
     def to_version_info(self):
-        file_location, is_cached = get_file_location(
-            self._model_family, self._model_spec, self._quantization
-        )
+        from .cache_manager import EmbeddingCacheManager
+
+        cache_manager = EmbeddingCacheManager(self)
+
         return {
-            "model_version": get_model_version(
-                self._model_family, self._model_spec, self._quantization
-            ),
-            "model_file_location": file_location,
-            "cache_status": is_cached,
-            "dimensions": self._model_family.dimensions,
-            "max_tokens": self._model_family.max_tokens,
+            "model_version": get_model_version(self),
+            "model_file_location": cache_manager.get_cache_dir(),
+            "cache_status": cache_manager.get_cache_status(),
+            "dimensions": self.dimensions,
+            "max_tokens": self.max_tokens,
         }
 
 
-def get_model_version(
-    embedding_model: EmbeddingModelFamilyV1,
-    embedding_spec: EmbeddingSpecV1,
-    quantization: str,
-) -> str:
-    return f"{embedding_model.model_name}--{embedding_model.max_tokens}--{embedding_model.dimensions}--{embedding_spec.model_format}--{quantization}"
-
-
-def get_file_location(
-    model_family: EmbeddingModelFamilyV1,
-    spec: EmbeddingSpecV1,
-    quantization: str,
-) -> Tuple[str, bool]:
-    cache_dir = _get_cache_dir(
-        model_family, spec, quantization, create_if_not_exist=False
-    )
-    cache_status = get_cache_status(model_family, spec, quantization)
-    if isinstance(cache_status, list):
-        is_cached = None
-        for q, cs in zip(spec.quantizations, cache_status):
-            if q == quantization:
-                is_cached = cs
-                break
-    else:
-        is_cached = cache_status
-    assert isinstance(is_cached, bool)
-
-    if spec.model_format in ["pytorch"]:
-        return cache_dir, is_cached
-    elif spec.model_format in ["ggufv2"]:
-        assert isinstance(spec, LlamaCppEmbeddingSpecV1)
-        filename = spec.model_file_name_template.format(quantization=quantization)
-        model_path = os.path.join(cache_dir, filename)
-        return model_path, is_cached
-    else:
-        raise ValueError(f"Not supported model format {spec.model_format}")
-
-
-def _get_cache_dir(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-    quantization: Optional[str] = None,
-    create_if_not_exist=True,
-):
-    # If the model id contains quantization, then we should give each
-    # quantization a dedicated cache dir.
-    quant_suffix = ""
-    if model_spec.model_id and "{" in model_spec.model_id and quantization is not None:
-        quant_suffix = quantization
-    else:
-        for q in model_spec.quantizations:
-            if model_spec.model_id and q in model_spec.model_id:
-                quant_suffix = q
-                break
-
-    # some model name includes ".", e.g. qwen1.5-chat
-    # if the model does not require trust_remote_code, it's OK
-    # because no need to import modeling_xxx.py from the path
-    # but when the model need to trust_remote_code,
-    # e.g. internlm2.5-chat, the import will fail,
-    # but before the model may have been downloaded,
-    # thus we check it first, if exist, return it,
-    # otherwise, we replace the "." with "_" in model name
-    old_cache_dir_name = f"{model_family.model_name}-{model_spec.model_format}"
-    if quant_suffix:
-        old_cache_dir_name += f"-{quant_suffix}"
-    old_cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, old_cache_dir_name)
-    )
-    if os.path.exists(old_cache_dir):
-        return old_cache_dir
-    else:
-        cache_dir_name = (
-            f"{model_family.model_name.replace('.', '_')}-{model_spec.model_format}"
-        )
-        if quant_suffix:
-            cache_dir_name += f"-{quant_suffix}"
-        cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-        if create_if_not_exist and not os.path.exists(cache_dir):
-            os.makedirs(cache_dir, exist_ok=True)
-        return cache_dir
-
-
-def _get_meta_path(
-    cache_dir: str,
-    model_format: str,
-    model_hub: str,
-    quantization: Optional[str] = None,
-):
-    if model_format == "pytorch":
-        return os.path.join(cache_dir, f"__valid_download_{model_hub}")
-    elif model_format == "ggufv2":
-        assert quantization is not None
-        return os.path.join(cache_dir, f"__valid_download_{model_hub}_{quantization}")
-    else:
-        raise ValueError(f"Unsupported format: {model_format}")
-
-
-def _generate_meta_file(
-    meta_path: str,
-    llm_family: EmbeddingModelFamilyV1,
-    llm_spec: EmbeddingSpecV1,
-    quantization: Optional[str] = None,
-):
-    assert not valid_model_revision(
-        meta_path, llm_spec.model_revision
-    ), f"meta file {meta_path} should not be valid"
-    with open(meta_path, "w") as f:
-        import json
-
-        desc = EmbeddingModelDescription(None, None, llm_family, llm_spec, quantization)
-        json.dump(desc.to_dict(), f)
-
-
-def _skip_download(
-    cache_dir: str,
-    model_format: str,
-    model_hub: str,
-    model_revision: Optional[str],
-    quantization: Optional[str] = None,
-) -> bool:
-    if model_format in ["pytorch"]:
-        model_hub_to_meta_path = {
-            "huggingface": _get_meta_path(
-                cache_dir, model_format, "huggingface", quantization
-            ),
-            "modelscope": _get_meta_path(
-                cache_dir, model_format, "modelscope", quantization
-            ),
-        }
-        if valid_model_revision(model_hub_to_meta_path[model_hub], model_revision):
-            logger.info(f"Cache {cache_dir} exists")
-            return True
-        else:
-            for hub, meta_path in model_hub_to_meta_path.items():
-                if hub != model_hub and os.path.exists(meta_path):
-                    # PyTorch models from modelscope can also be loaded by transformers.
-                    logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
-                    return True
-            return False
-    elif model_format == "ggufv2":
-        assert quantization is not None
-        return os.path.exists(
-            _get_meta_path(cache_dir, model_format, model_hub, quantization)
-        )
-    else:
-        raise ValueError(f"Unsupported format: {model_format}")
+def get_model_version(embedding_model: EmbeddingModelFamilyV2) -> str:
+    spec = embedding_model.model_specs[0]
+    return f"{embedding_model.model_name}--{embedding_model.max_tokens}--{embedding_model.dimensions}--{spec.model_format}--{spec.quantization}"
 
 
 def generate_embedding_description(
-    model_family: EmbeddingModelFamilyV1,
+    model_family: EmbeddingModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    for spec in model_family.model_specs:
-        for q in spec.quantizations:
-            res[model_family.model_name].append(
-                EmbeddingModelDescription(
-                    None, None, model_family, spec, q
-                ).to_version_info()
-            )
+    specs = [x for x in model_family.model_specs if x.model_hub == "huggingface"]
+    for spec in specs:
+        family = model_family.copy()
+        family.model_specs = [spec]
+        res[model_family.model_name].append(family.to_version_info())
     return res
-
-
-def cache_from_uri(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-) -> str:
-    cache_dir_name = f"{model_family.model_name}-{model_spec.model_format}"
-    cache_dir = os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name)
-
-    assert model_spec.model_uri is not None
-    src_scheme, src_root = parse_uri(model_spec.model_uri)
-    if src_root.endswith("/"):
-        # remove trailing path separator.
-        src_root = src_root.rstrip("/")
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(
-                f"Model URI cannot be a relative path: {model_spec.model_uri}"
-            )
-        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        # Always link to the model uri, avoid using the outdated old link.
-        if os.path.exists(cache_dir):
-            os.unlink(cache_dir)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
-    else:
-        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
-
-
-def cache_from_modelscope(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-    quantization: Optional[str] = None,
-) -> str:
-    """
-    Cache model from Modelscope. Return the cache directory.
-    """
-    from modelscope.hub.file_download import model_file_download
-    from modelscope.hub.snapshot_download import snapshot_download
-
-    cache_dir = _get_cache_dir(model_family, model_spec)
-    if _skip_download(
-        cache_dir,
-        model_spec.model_format,
-        model_family.model_hub,
-        model_spec.model_revision,
-        quantization,
-    ):
-        return cache_dir
-
-    if model_spec.model_format in ["pytorch"]:
-        download_dir = retry_download(
-            snapshot_download,
-            model_family.model_name,
-            {"model_format": model_spec.model_format},
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-        )
-        create_symlink(download_dir, cache_dir)
-
-    elif model_spec.model_format in ["ggufv2"]:
-        file_names, final_file_name, need_merge = generate_quant_model_file_names(
-            model_spec, quantization
-        )
-
-        for filename in file_names:
-            download_path = retry_download(
-                model_file_download,
-                model_family.model_name,
-                {"model_format": model_spec.model_format},
-                model_spec.model_id,
-                filename,
-                revision=model_spec.model_revision,
-            )
-            symlink_local_file(download_path, cache_dir, filename)
-    else:
-        raise ValueError(f"Unsupported format: {model_spec.model_format}")
-
-    meta_path = _get_meta_path(
-        cache_dir,
-        model_spec.model_format,
-        model_family.model_hub,
-        quantization,
-    )
-    _generate_meta_file(meta_path, model_family, model_spec, quantization)
-
-    return cache_dir
-
-
-def cache_from_huggingface(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-    quantization: Optional[str] = None,
-) -> str:
-    """
-    Cache model from Hugging Face. Return the cache directory.
-    """
-    import huggingface_hub
-
-    cache_dir = _get_cache_dir(model_family, model_spec)
-    if _skip_download(
-        cache_dir,
-        model_spec.model_format,
-        model_family.model_hub,
-        model_spec.model_revision,
-        quantization,
-    ):
-        return cache_dir
-
-    use_symlinks = {}
-    if not IS_NEW_HUGGINGFACE_HUB:
-        use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
-
-    if model_spec.model_format in ["pytorch"]:
-        download_dir = retry_download(
-            huggingface_hub.snapshot_download,
-            model_family.model_name,
-            {
-                "model_format": model_spec.model_format,
-            },
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-            **use_symlinks,
-        )
-        if IS_NEW_HUGGINGFACE_HUB:
-            create_symlink(download_dir, cache_dir)
-
-    elif model_spec.model_format in ["ggufv2"]:
-        assert isinstance(model_spec, LlamaCppEmbeddingSpecV1)
-        file_names, final_file_name, need_merge = generate_quant_model_file_names(
-            model_spec,
-            quantization,
-        )
-
-        for file_name in file_names:
-            download_file_path = retry_download(
-                huggingface_hub.hf_hub_download,
-                model_family.model_name,
-                {
-                    "model_format": model_spec.model_format,
-                },
-                model_spec.model_id,
-                revision=model_spec.model_revision,
-                filename=file_name,
-                **use_symlinks,
-            )
-            if IS_NEW_HUGGINGFACE_HUB:
-                symlink_local_file(download_file_path, cache_dir, file_name)
-    else:
-        raise ValueError(f"Unsupported model format: {model_spec.model_format}")
-
-    meta_path = _get_meta_path(
-        cache_dir,
-        model_spec.model_format,
-        model_family.model_hub,
-        quantization,
-    )
-    _generate_meta_file(meta_path, model_family, model_spec, quantization)
-
-    return cache_dir
-
-
-def cache(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-    quantization: Optional[str] = None,
-) -> str:
-    if model_spec.model_uri is not None:
-        logger.info(f"Caching from URI: {model_spec.model_uri}")
-        return cache_from_uri(model_family, model_spec)
-    else:
-        if model_family.model_hub == "huggingface":
-            logger.info(f"Caching from Hugging Face: {model_spec.model_id}")
-            return cache_from_huggingface(model_family, model_spec, quantization)
-        elif model_family.model_hub == "modelscope":
-            logger.info(f"Caching from Modelscope: {model_spec.model_id}")
-            return cache_from_modelscope(model_family, model_spec, quantization)
-        else:
-            raise ValueError(f"Unknown model hub: {model_spec.model_hub}")
-
-
-def _check_revision(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-    builtin: Iterable,
-    meta_path: str,
-    quantization: Optional[str] = None,
-) -> bool:
-    for family in builtin:
-        if model_family.model_name == family.model_name:
-            specs = family.model_specs
-            for spec in specs:
-                if spec.model_format == "pytorch" and (
-                    quantization is None or quantization in spec.quantizations
-                ):
-                    return valid_model_revision(meta_path, spec.model_revision)
-    return False
-
-
-def get_cache_status(
-    model_family: EmbeddingModelFamilyV1,
-    model_spec: EmbeddingSpecV1,
-    quantization: Optional[str] = None,
-) -> Union[List[bool], bool]:
-    """
-    Checks if a model's cache status is available based on the model format and quantization.
-    Supports different directories and model formats.
-    """
-
-    def check_file_status(meta_path: str) -> bool:
-        return os.path.exists(meta_path)
-
-    def check_revision_status(
-        meta_path: str, families: Iterable, quantization: Optional[str] = None
-    ) -> bool:
-        return _check_revision(
-            model_family, model_spec, families, meta_path, quantization
-        )
-
-    def handle_quantization(q: Union[str, None]) -> bool:
-        specific_cache_dir = _get_cache_dir(
-            model_family, model_spec, q, create_if_not_exist=False
-        )
-        meta_paths = {
-            "huggingface": _get_meta_path(
-                specific_cache_dir, model_spec.model_format, "huggingface", q
-            ),
-            "modelscope": _get_meta_path(
-                specific_cache_dir, model_spec.model_format, "modelscope", q
-            ),
-        }
-        if model_spec.model_format == "pytorch":
-            return check_revision_status(
-                meta_paths["huggingface"], [model_family], q
-            ) or check_revision_status(
-                meta_paths["modelscope"],
-                [model_family],
-                q,
-            )
-        else:
-            return check_file_status(meta_paths["huggingface"]) or check_file_status(
-                meta_paths["modelscope"]
-            )
-
-    if model_spec.model_id and "{" in model_spec.model_id:
-        return (
-            [handle_quantization(q) for q in model_spec.quantizations]
-            if quantization is None
-            else handle_quantization(quantization)
-        )
-    else:
-        return (
-            [handle_quantization(q) for q in model_spec.quantizations]
-            if model_spec.model_format != "pytorch"
-            else handle_quantization(None)
-        )
 
 
 class EmbeddingModel(abc.ABC):
@@ -566,8 +138,7 @@ class EmbeddingModel(abc.ABC):
         self,
         model_uid: str,
         model_path: str,
-        model_family: EmbeddingModelFamilyV1,
-        model_spec: EmbeddingSpecV1,
+        model_family: EmbeddingModelFamilyV2,
         quantization: Optional[str] = None,
         device: Optional[str] = None,
         **kwargs,
@@ -578,10 +149,10 @@ class EmbeddingModel(abc.ABC):
         self._model = None
         self._tokenizer = None
         self._counter = 0
-        self._model_family = model_family
-        self._model_spec = model_spec
+        self.model_family = model_family
+        self._model_spec = model_family.model_specs[0]
         self._quantization = quantization
-        self._model_name = self._model_family.model_name
+        self._model_name = self.model_family.model_name
         self._kwargs = kwargs
 
     @classmethod
@@ -593,7 +164,7 @@ class EmbeddingModel(abc.ABC):
     @abstractmethod
     def match_json(
         cls,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
@@ -602,7 +173,7 @@ class EmbeddingModel(abc.ABC):
     @classmethod
     def match(
         cls,
-        model_family: EmbeddingModelFamilyV1,
+        model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ):
@@ -735,8 +306,6 @@ class EmbeddingModel(abc.ABC):
 
 
 def create_embedding_model_instance(
-    subpool_addr: str,
-    devices: Optional[List[str]],
     model_uid: str,
     model_name: str,
     model_engine: Optional[str],
@@ -747,12 +316,13 @@ def create_embedding_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
-    model_family, model_spec, quantization = match_embedding(
-        model_name, model_format, quantization, download_hub
-    )
+) -> EmbeddingModel:
+    from .cache_manager import EmbeddingCacheManager
+
+    model_family = match_embedding(model_name, model_format, quantization, download_hub)
     if model_path is None:
-        model_path = cache(model_family, model_spec, quantization)
+        cache_manager = EmbeddingCacheManager(model_family)
+        model_path = cache_manager.cache()
 
     if model_engine is None:
         # unlike LLM and for compatibility,
@@ -764,22 +334,11 @@ def create_embedding_model_instance(
     embedding_cls = check_engine_by_model_name_and_engine(
         model_engine, model_name, model_format, quantization
     )
-    devices = devices or ["cpu"]
-    # model class should be one of flag, fastembed, sentence_transformers
     model = embedding_cls(
         model_uid,
         model_path,
         model_family,
-        model_spec,
         quantization,
         **kwargs,
     )
-    model_description = EmbeddingModelDescription(
-        subpool_addr,
-        devices,
-        model_family,
-        model_spec,
-        quantization,
-        model_path,
-    )
-    return model, model_description
+    return model

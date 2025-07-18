@@ -1,194 +1,368 @@
 [
   {
+    "version": 2,
     "model_name": "whisper-tiny",
     "model_family": "whisper",
-    "model_id": "openai/whisper-tiny",
-    "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475",
-    "model_ability": ["audio2text"],
-    "multilingual": true
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-tiny",
+        "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-tiny.en",
     "model_family": "whisper",
-    "model_id": "openai/whisper-tiny.en",
-    "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-tiny.en",
+        "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-base",
     "model_family": "whisper",
-    "model_id": "openai/whisper-base",
-    "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237",
-    "model_ability": ["audio2text"],
-    "multilingual": true
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-base",
+        "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-base.en",
     "model_family": "whisper",
-    "model_id": "openai/whisper-base.en",
-    "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-base.en",
+        "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-small",
     "model_family": "whisper",
-    "model_id": "openai/whisper-small",
-    "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac",
-    "model_ability": ["audio2text"],
-    "multilingual": true
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-small",
+        "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-small.en",
     "model_family": "whisper",
-    "model_id": "openai/whisper-small.en",
-    "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-small.en",
+        "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium",
     "model_family": "whisper",
-    "model_id": "openai/whisper-medium",
-    "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed",
-    "model_ability": ["audio2text"],
-    "multilingual": true
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-medium",
+        "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium.en",
     "model_family": "whisper",
-    "model_id": "openai/whisper-medium.en",
-    "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-medium.en",
+        "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3",
     "model_family": "whisper",
-    "model_id": "openai/whisper-large-v3",
-    "model_revision": "6cdf07a7e3ec3806e5d55f787915b85d4cd020b1",
-    "model_ability": ["audio2text"],
-    "multilingual": true
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-large-v3",
+        "model_revision": "6cdf07a7e3ec3806e5d55f787915b85d4cd020b1"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/whisper-large-v3",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3-turbo",
     "model_family": "whisper",
-    "model_id": "openai/whisper-large-v3-turbo",
-    "model_revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
-    "model_ability": ["audio2text"],
-    "multilingual": true
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-large-v3-turbo",
+        "model_revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/whisper-large-v3-turbo",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "Belle-distilwhisper-large-v2-zh",
     "model_family": "whisper",
-    "model_id": "BELLE-2/Belle-distilwhisper-large-v2-zh",
-    "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "BELLE-2/Belle-distilwhisper-large-v2-zh",
+        "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "Belle-whisper-large-v2-zh",
     "model_family": "whisper",
-    "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
-    "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
+        "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "Belle-whisper-large-v3-zh",
     "model_family": "whisper",
-    "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
-    "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600",
-    "model_ability": ["audio2text"],
-    "multilingual": false
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
+        "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/Belle-whisper-large-v3-zh",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-tiny-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-tiny",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-tiny"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-tiny.en-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-tiny.en-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-tiny.en-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-base-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-base-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-base-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-base.en-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-base.en-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-base.en-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-small-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-small-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-small-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-small.en-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-small.en-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-small.en-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-medium-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-medium-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-medium.en-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-medium.en-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-medium.en-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-large-v3-mlx",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-large-v3-mlx"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "whisper-large-v3-turbo-mlx",
     "model_family": "whisper",
-    "model_id": "mlx-community/whisper-large-v3-turbo",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
-    "engine": "mlx"
+    "engine": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/whisper-large-v3-turbo"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "SenseVoiceSmall",
     "model_family": "funasr",
-    "model_id": "FunAudioLLM/SenseVoiceSmall",
-    "model_revision": "3eb3b4eeffc2f2dde6051b853983753db33e35c3",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": true,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -201,14 +375,25 @@
       "batch_size_s": 60,
       "merge_vad": true,
       "merge_length_s": 15
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "FunAudioLLM/SenseVoiceSmall",
+        "model_revision": "3eb3b4eeffc2f2dde6051b853983753db33e35c3"
+      },
+      "modelscope": {
+        "model_id": "iic/SenseVoiceSmall",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh",
     "model_family": "funasr",
-    "model_id": "funasr/paraformer-zh",
-    "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -216,14 +401,25 @@
     },
     "default_transcription_config": {
       "batch_size_s": 300
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "funasr/paraformer-zh",
+        "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e"
+      },
+      "modelscope": {
+        "model_id": "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh-hotword",
     "model_family": "funasr",
-    "model_id": "JunHowie/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404",
-    "model_revision": "26d622993683d7b0c517ee5ec9c1c8bdde76e324",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -232,14 +428,25 @@
     "default_transcription_config": {
       "hotword": "",
       "batch_size_s": 300
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "JunHowie/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404",
+        "model_revision": "26d622993683d7b0c517ee5ec9c1c8bdde76e324"
+      },
+      "modelscope": {
+        "model_id": "iic/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh-long",
     "model_family": "funasr",
-    "model_id": "JunHowie/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
-    "model_revision": "b6d8cb81645e34056cd3dda41e5624a740587de3",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -247,30 +454,52 @@
     },
     "default_transcription_config": {
       "batch_size_s": 300
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "JunHowie/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+        "model_revision": "b6d8cb81645e34056cd3dda41e5624a740587de3"
+      },
+      "modelscope": {
+        "model_id": "iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "paraformer-zh-spk",
     "model_family": "funasr",
-    "model_id": "JunHowie/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
-    "model_revision": "36abd64af4392fe02bf76453bc86c081cf1ca6da",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
     "default_model_config": {
       "vad_model": "fsmn-vad",
       "punc_model": "ct-punc",
-      "spk_model":"cam++"
+      "spk_model": "cam++"
     },
     "default_transcription_config": {
       "batch_size_s": 300
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "JunHowie/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
+        "model_revision": "36abd64af4392fe02bf76453bc86c081cf1ca6da"
+      },
+      "modelscope": {
+        "model_id": "iic/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "seaco-paraformer-zh",
     "model_family": "funasr",
-    "model_id": "JunHowie/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
-    "model_revision": "42e6be00854cf8de0f40002794f99df2a444fa97",
-    "model_ability": ["audio2text"],
+    "model_ability": [
+      "audio2text"
+    ],
     "multilingual": false,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -279,14 +508,25 @@
     "default_transcription_config": {
       "hotword": "",
       "batch_size_s": 300
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "JunHowie/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+        "model_revision": "42e6be00854cf8de0f40002794f99df2a444fa97"
+      },
+      "modelscope": {
+        "model_id": "iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
-    "model_id": "2Noise/ChatTTS",
-    "model_revision": "1a3c04a8b0651689bd9242fbb55b1f4b5a9aef84",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": true,
     "virtualenv": {
       "packages": [
@@ -294,38 +534,82 @@
         "#system_torch#",
         "#system_numpy#"
       ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "2Noise/ChatTTS",
+        "model_revision": "1a3c04a8b0651689bd9242fbb55b1f4b5a9aef84"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/ChatTTS",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice-300M",
     "model_family": "CosyVoice",
-    "model_id": "FunAudioLLM/CosyVoice-300M",
-    "model_revision": "39c4e13d46bd4dfb840d214547623e5fcd2428e2",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "FunAudioLLM/CosyVoice-300M",
+        "model_revision": "39c4e13d46bd4dfb840d214547623e5fcd2428e2"
+      },
+      "modelscope": {
+        "model_id": "iic/CosyVoice-300M",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice-300M-SFT",
     "model_family": "CosyVoice",
-    "model_id": "FunAudioLLM/CosyVoice-300M-SFT",
-    "model_revision": "096a5cff8d497fabb3dec2756a200f3688457a1b",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "FunAudioLLM/CosyVoice-300M-SFT",
+        "model_revision": "096a5cff8d497fabb3dec2756a200f3688457a1b"
+      },
+      "modelscope": {
+        "model_id": "iic/CosyVoice-300M-SFT",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice-300M-Instruct",
     "model_family": "CosyVoice",
-    "model_id": "FunAudioLLM/CosyVoice-300M-Instruct",
-    "model_revision": "ba5265d9a3169c1fedce145122c9dd4bc24e062c",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "FunAudioLLM/CosyVoice-300M-Instruct",
+        "model_revision": "ba5265d9a3169c1fedce145122c9dd4bc24e062c"
+      },
+      "modelscope": {
+        "model_id": "iic/CosyVoice-300M-Instruct",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "CosyVoice2-0.5B",
     "model_family": "CosyVoice",
-    "model_id": "JunHowie/CosyVoice2-0.5B",
-    "model_revision": "7ac9e9a026aec35efe48cde1196eaad6a00ad5f2",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": true,
     "virtualenv": {
       "packages": [
@@ -345,118 +629,231 @@
         "#system_numpy#",
         "#system_torch#"
       ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "JunHowie/CosyVoice2-0.5B",
+        "model_revision": "7ac9e9a026aec35efe48cde1196eaad6a00ad5f2"
+      },
+      "modelscope": {
+        "model_id": "iic/CosyVoice2-0.5B",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "FishSpeech-1.5",
     "model_family": "FishAudio",
-    "model_id": "fishaudio/fish-speech-1.5",
-    "model_revision": "268b6ec86243dd683bc78dab7e9a6cedf9191f2a",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "fishaudio/fish-speech-1.5",
+        "model_revision": "268b6ec86243dd683bc78dab7e9a6cedf9191f2a"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
-    "model_id": "SWivid/F5-TTS",
-    "model_revision": "4dcc16f297f2ff98a17b3726b16f5de5a5e45672",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "SWivid/F5-TTS",
+        "model_revision": "4dcc16f297f2ff98a17b3726b16f5de5a5e45672"
+      },
+      "modelscope": {
+        "model_id": "SWivid/F5-TTS_Emilia-ZH-EN",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "F5-TTS-MLX",
     "model_family": "F5-TTS-MLX",
-    "model_id": "lucasnewman/f5-tts-mlx",
-    "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "lucasnewman/f5-tts-mlx",
+        "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-English",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-English",
-    "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "EN"
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-English",
+        "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-English-v2",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-English-v2",
-    "model_revision": "a53e3509c4ee4ff16d79272feb2474ff864e18f3",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "EN"
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-English-v2",
+        "model_revision": "a53e3509c4ee4ff16d79272feb2474ff864e18f3"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-English-v3",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-English-v3",
-    "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "EN"
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-English-v3",
+        "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-French",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-French",
-    "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "FR"
+    "language": "FR",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-French",
+        "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Japanese",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-Japanese",
-    "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "JP"
+    "language": "JP",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-Japanese",
+        "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Spanish",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-Spanish",
-    "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "ES"
+    "language": "ES",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-Spanish",
+        "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Chinese",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-Chinese",
-    "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "ZH"
+    "language": "ZH",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-Chinese",
+        "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MeloTTS-Korean",
     "model_family": "MeloTTS",
-    "model_id": "myshell-ai/MeloTTS-Korean",
-    "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323",
-    "model_ability": ["text2audio"],
+    "model_ability": [
+      "text2audio"
+    ],
     "multilingual": false,
-    "language": "KR"
+    "language": "KR",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-Korean",
+        "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "Kokoro-82M",
     "model_family": "Kokoro",
-    "model_id": "hexgrad/Kokoro-82M",
-    "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "hexgrad/Kokoro-82M",
+        "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/Kokoro-82M",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "MegaTTS3",
     "model_family": "MegaTTS",
-    "model_id": "ByteDance/MegaTTS3",
-    "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738",
-    "model_ability": ["text2audio"],
-    "multilingual": true
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738"
+      },
+      "modelscope": {
+        "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "master"
+      }
+    }
   }
 ]

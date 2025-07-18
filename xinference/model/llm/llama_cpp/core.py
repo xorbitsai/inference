@@ -23,7 +23,7 @@ import orjson
 
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
 from ..core import LLM
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
@@ -42,13 +42,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         llamacpp_model_config: Optional[dict] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
@@ -83,7 +81,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
     @classmethod
     def match_json(
-        cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+        cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggufv2"]:
             return False

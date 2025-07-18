@@ -17,7 +17,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +27,11 @@ class MegaTTSModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec

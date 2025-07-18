@@ -37,7 +37,7 @@ from ..utils import handle_image_result
 
 if TYPE_CHECKING:
     from ....core.progress_tracker import Progressor
-    from ..core import ImageModelFamilyV1
+    from ..core import ImageModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +87,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
-        model_spec: Optional["ImageModelFamilyV1"] = None,
+        model_spec: Optional["ImageModelFamilyV2"] = None,
         gguf_model_path: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device

@@ -210,7 +210,7 @@ def test_RESTful_client_custom_model(setup):
         assert model_reg["is_builtin"]
 
     model = """{
-  "version": 1,
+  "version": 2,
   "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
@@ -224,11 +224,7 @@ def test_RESTful_client_custom_model(setup):
     {
       "model_format": "pytorch",
       "model_size_in_billions": 7,
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
+      "quantization": "none",
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],
@@ -260,7 +256,7 @@ def test_RESTful_client_custom_model(setup):
 
     # test register with chat_template using model_family
     model_with_prompt = """{
-  "version": 1,
+  "version": 2,
   "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
@@ -275,11 +271,7 @@ def test_RESTful_client_custom_model(setup):
     {
       "model_format": "pytorch",
       "model_size_in_billions": 7,
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
+      "quantization": "none",
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],
@@ -289,7 +281,7 @@ def test_RESTful_client_custom_model(setup):
     client.unregister_model(model_type="LLM", model_name="custom_model")
 
     model_with_vision = """{
-      "version": 1,
+      "version": 2,
       "context_length":2048,
       "model_name": "custom_model",
       "model_lang": [
@@ -304,11 +296,7 @@ def test_RESTful_client_custom_model(setup):
         {
           "model_format": "pytorch",
           "model_size_in_billions": 7,
-          "quantizations": [
-            "4-bit",
-            "8-bit",
-            "none"
-          ],
+          "quantization": "none",
           "model_id": "ziqingyang/chinese-alpaca-2-7b"
         }
       ],
@@ -318,7 +306,7 @@ def test_RESTful_client_custom_model(setup):
         client.register_model(model_type="LLM", model=model_with_vision, persist=False)
 
     model_with_tool_call = """{
-          "version": 1,
+          "version": 2,
           "context_length":2048,
           "model_name": "custom_model",
           "model_lang": [
@@ -333,11 +321,7 @@ def test_RESTful_client_custom_model(setup):
             {
               "model_format": "pytorch",
               "model_size_in_billions": 7,
-              "quantizations": [
-                "4-bit",
-                "8-bit",
-                "none"
-              ],
+              "quantization": "none",
               "model_id": "ziqingyang/chinese-alpaca-2-7b"
             }
           ],
@@ -399,7 +383,7 @@ def test_client_custom_embedding_model(setup):
     {
       "model_format": "pytorch",
       "model_id": "Xorbits/bge-small-en",
-      "quantizations": ["none"]
+      "quantization": "none"
     }
   ]
 }"""
