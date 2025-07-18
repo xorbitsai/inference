@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import importlib.util
 import sys
 
 import pytest
+import torch
 
 
 @pytest.mark.skip(reason="Cost too many resources.")
@@ -319,3 +322,119 @@ async def test_qwen3_with_tools(setup):
     # Check specific parameters if expected
     if "location" in args:
         assert isinstance(args["location"], str)
+
+
+ENGINES = ["Transformers"]
+if importlib.util.find_spec("vllm") is not None:
+    ENGINES.append("vLLM")
+
+
+@pytest.fixture
+def setup_cluster():
+    import xoscar as xo
+
+    from ....api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
+    from ....conftest import TEST_FILE_LOGGING_CONF, TEST_LOGGING_CONF, api_health_check
+    from ....deploy.local import health_check
+    from ....deploy.local import run_in_subprocess as supervisor_run_in_subprocess
+
+    supervisor_address = f"localhost:{xo.utils.get_next_port()}"
+    local_cluster = supervisor_run_in_subprocess(
+        supervisor_address, None, None, TEST_LOGGING_CONF
+    )
+
+    if not health_check(address=supervisor_address, max_attempts=20, sleep_interval=1):
+        raise RuntimeError("Supervisor is not available after multiple attempts")
+
+    port = xo.utils.get_next_port()
+    endpoint = f"http://localhost:{port}"
+    try:
+        restful_api_proc = restful_api_run_in_subprocess(
+            supervisor_address,
+            host="localhost",
+            port=port,
+            logging_conf=TEST_FILE_LOGGING_CONF,
+        )
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
+
+        yield f"http://localhost:{port}", supervisor_address
+        restful_api_proc.kill()
+    finally:
+        local_cluster.kill()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stream, enable_model_thinking, enable_chat_thinking",
+    [
+        (False, True, False),
+        (False, True, True),
+        (True, True, True),
+        (True, True, False),
+    ],
+)
+@pytest.mark.parametrize("engine", ENGINES)
+async def test_qwen3_enable_thinking(
+    setup_cluster, stream, enable_model_thinking, enable_chat_thinking, engine
+):
+    endpoint, _ = setup_cluster
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    kwargs = {}
+    if engine == "vLLM":
+        total_mem_bytes = torch.cuda.get_device_properties(0).total_memory
+        total_mem_gb = total_mem_bytes / (1024**3)
+        # 2G gpu memory
+        kwargs["gpu_memory_utilization"] = min(2 / total_mem_gb, 1.0)
+        kwargs["max_model_len"] = 1000
+        # enforce_eager to save launch time
+        kwargs["enforce_eager"] = True
+
+    model_uid = client.launch_model(
+        model_uid="qwen3",
+        model_name="qwen3",
+        model_engine=engine,
+        model_format="pytorch",
+        model_size_in_billions="0_6",
+        quantization="none",
+        n_gpu="auto",
+        replica=1,
+        enable_thinking=enable_model_thinking,
+        reasoning_content=False,
+        **kwargs,
+    )
+    model = client.get_model(model_uid)
+    assert model is not None
+
+    completion = model.chat(
+        messages=[{"role": "user", "content": "Hello"}],
+        generate_config={
+            "max_tokens": 25,
+            "chat_template_kwargs": {"enable_thinking": enable_chat_thinking},
+            "stream": stream,
+        },
+    )
+
+    try:
+        if stream:
+            full_content = ""
+            for chunk in completion:
+                delta = chunk["choices"][0]["delta"]
+                if delta.get("content"):
+                    full_content += delta["content"]
+            if enable_chat_thinking:
+                assert "<think>" in full_content
+            else:
+                assert "<think>" not in full_content
+        else:
+            assert completion is not None
+            assert completion["choices"][0]["message"]["content"] is not None
+            if enable_chat_thinking:
+                assert "<think>" in completion["choices"][0]["message"]["content"]
+            else:
+                assert "<think>" not in completion["choices"][0]["message"]["content"]
+    finally:
+        client.terminate_model(model_uid)
