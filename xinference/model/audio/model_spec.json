@@ -653,6 +653,10 @@
       "huggingface": {
         "model_id": "fishaudio/fish-speech-1.5",
         "model_revision": "268b6ec86243dd683bc78dab7e9a6cedf9191f2a"
+      },
+      "modelscope": {
+        "model_id": "fishaudio/fish-speech-1.5",
+        "model_revision": "master"
       }
     }
   },
