@@ -247,7 +247,7 @@ def create_image_model_instance(
     if (
         platform.system() == "Darwin"
         and "arm" in platform.machine().lower()
-        and model_name in MLXDiffusionModel.supported_models
+        and MLXDiffusionModel.support_model(model_name)
     ):
         # Mac with M series silicon chips
         model_cls = MLXDiffusionModel

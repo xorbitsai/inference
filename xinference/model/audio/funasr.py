@@ -101,7 +101,11 @@ class FunASRModel:
             if not is_device_available(self._device):
                 raise ValueError(f"Device {self._device} is not available!")
 
-        kwargs = self._model_spec.default_model_config.copy()
+        kwargs = (
+            self._model_spec.default_model_config.copy()
+            if getattr(self._model_spec, "default_model_config", None)
+            else {}
+        )
         kwargs.update(self._kwargs)
         logger.debug("Loading FunASR model with kwargs: %s", kwargs)
         self._model = AutoModel(model=self._model_path, device=self._device, **kwargs)
@@ -132,7 +136,11 @@ class FunASRModel:
         with tempfile.NamedTemporaryFile(buffering=0) as f:
             f.write(audio)
 
-            kw = self._model_spec.default_transcription_config.copy()  # type: ignore
+            kw = (
+                self._model_spec.default_transcription_config.copy()  # type: ignore
+                if getattr(self._model_spec, "default_transcription_config", None)
+                else {}
+            )
             kw.update(kwargs)
             logger.debug("Calling FunASR model with kwargs: %s", kw)
             result = self._model.generate(  # type: ignore

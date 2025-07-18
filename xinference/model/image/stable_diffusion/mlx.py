@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 from PIL import Image
-from xoscar.utils import classproperty
 
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
@@ -82,9 +81,9 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
     def model_ability(self):
         return self._abilities
 
-    @classproperty
-    def supported_models(self):
-        return ["FLUX.1-schnell", "FLUX.1-dev"]
+    @staticmethod
+    def support_model(model_name: str) -> bool:
+        return "flux" in model_name.lower()
 
     def load(self):
         try:
