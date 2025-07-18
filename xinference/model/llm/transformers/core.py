@@ -397,8 +397,8 @@ class PytorchModel(LLM):
         """
         data = []
         for r in reqs:
+            r.extra_kwargs["attention_mask_seq_len"] += 1
             if self._tokenizer.padding_side == "left":
-                r.extra_kwargs["attention_mask_seq_len"] += 1
                 attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
                 pad_len = seq_length - attention_mask_seq_len
                 assert pad_len > 0, (
