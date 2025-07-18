@@ -71,7 +71,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="LLM"
             customData={{
-              version: 1,
+              version: 2,
               model_name: 'custom-llm',
               model_description: 'This is a custom model description.',
               context_length: 2048,
@@ -96,6 +96,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="embedding"
             customData={{
+              version: 2,
               model_name: 'custom-embedding',
               dimensions: 768,
               max_tokens: 512,
@@ -117,6 +118,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="rerank"
             customData={{
+              version: 2,
               model_name: 'custom-rerank',
               model_uri: '/path/to/rerank-model',
               language: ['en'],
@@ -131,6 +133,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="image"
             customData={{
+              version: 2,
               model_name: 'custom-image',
               model_uri: '/path/to/image-model',
               model_family: 'stable_diffusion',
@@ -145,6 +148,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="audio"
             customData={{
+              version: 2,
               model_name: 'custom-audio',
               model_uri: '/path/to/audio-model',
               multilingual: false,
@@ -160,6 +164,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="flexible"
             customData={{
+              version: 2,
               model_name: 'flexible-model',
               model_description: 'This is a model description.',
               model_uri: '/path/to/model',
