@@ -208,8 +208,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { version, model_name, dimensions, max_tokens, model_uri, language } =
-            data
+          const {
+            version,
+            model_name,
+            dimensions,
+            max_tokens,
+            model_uri,
+            language,
+          } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const embeddingData = {
             version,
@@ -228,7 +234,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { version, model_name, max_tokens = 512, model_uri, language } = data
+          const {
+            version,
+            model_name,
+            max_tokens = 512,
+            model_uri,
+            language,
+          } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const rerankData = {
             version,
@@ -241,7 +253,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setFormData(rerankData)
           setContrastObj(rerankData)
         } else if (modelType === 'image') {
-          const { version, model_name, model_uri, model_family, controlnet } = data
+          const { version, model_name, model_uri, model_family, controlnet } =
+            data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const controlnetArr = controlnet.map((item) => {
             const { model_name, model_uri, model_family } = item

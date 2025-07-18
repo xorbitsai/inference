@@ -1346,7 +1346,8 @@ const ModelCard = ({
                 {(() => {
                   if (
                     (modelData.model_specs &&
-                    modelData.model_specs.some((spec) => isCached(spec))) || modelData.cache_status
+                      modelData.model_specs.some((spec) => isCached(spec))) ||
+                    modelData.cache_status
                   ) {
                     return (
                       <Chip
