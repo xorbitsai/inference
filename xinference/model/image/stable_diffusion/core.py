@@ -247,6 +247,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             )
         except ValueError:
             if "kontext" in self._model_spec.model_name.lower():
+                # TODO: remove this branch when auto pipeline supports
                 # flux.1-kontext-dev
                 from diffusers import FluxKontextPipeline
 
