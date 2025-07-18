@@ -146,6 +146,10 @@ class FunASRModel:
             result = self._model.generate(  # type: ignore
                 input=f.name, cache={}, language=language, **kw
             )
+            if not result or not isinstance(result, list):
+                raise RuntimeError(f"FunASR returned empty or invalid result: {result}")
+            if "text" not in result[0]:
+                raise RuntimeError(f"Missing 'text' field in result[0]: {result[0]}")
             text = rich_transcription_postprocess(result[0]["text"])
 
             if response_format == "json":
