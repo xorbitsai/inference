@@ -110,6 +110,10 @@ def generate_engine_config_by_model_family(model_family: "LLMFamilyV2"):
 
 def register_custom_model():
     from ...constants import XINFERENCE_MODEL_DIR
+    from ..custom import migrate_from_v1_to_v2
+
+    # migrate from v1 to v2 first
+    migrate_from_v1_to_v2("llm", CustomLLMFamilyV2)
 
     user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "llm")
     if os.path.isdir(user_defined_llm_dir):

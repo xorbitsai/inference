@@ -17,6 +17,7 @@ import logging
 from collections import defaultdict
 from typing import Dict, List, Optional
 
+from ..._compat import Literal
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .utils import get_launcher
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class FlexibleModelSpec(CacheableModelSpec, ModelInstanceInfoMixin):
+    version: Literal[1, 2] = 2
     model_id: Optional[str]  # type: ignore
     model_description: Optional[str]
     model_uri: Optional[str]
