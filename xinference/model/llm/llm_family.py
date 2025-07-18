@@ -337,13 +337,14 @@ def register_transformer(cls):
 
 def cache_model_tokenizer_and_config(
     llm_family: LLMFamilyV2,
-    llm_spec: "LLMSpecV1",
 ) -> str:
     """
     Download model config.json and tokenizers only
     """
+    llm_spec = llm_family.model_specs[0]
     cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec, "tokenizer_config")
     os.makedirs(cache_dir, exist_ok=True)
+    patterns = ["tokenizer*", "config.json", "configuration*", "tokenization*"]
     if llm_spec.model_hub == "huggingface":
         from huggingface_hub import snapshot_download
 
@@ -356,7 +357,7 @@ def cache_model_tokenizer_and_config(
             },
             llm_spec.model_id,
             revision=llm_spec.model_revision,
-            allow_patterns=["tokenizer*", "config.json"],
+            allow_patterns=patterns,
             local_dir=cache_dir,
         )
     elif llm_spec.model_hub == "modelscope":
@@ -371,7 +372,7 @@ def cache_model_tokenizer_and_config(
             },
             llm_spec.model_id,
             revision=llm_spec.model_revision,
-            allow_patterns=["tokenizer*", "config.json"],
+            allow_patterns=patterns,
             local_dir=cache_dir,
         )
     else:

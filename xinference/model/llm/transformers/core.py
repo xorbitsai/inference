@@ -365,14 +365,26 @@ class PytorchModel(LLM):
         data = []
         for r in reqs:
             real_len = seq_length - r.padding_len
-            x = torch.cat(
-                [
-                    torch.full((r.padding_len,), 0, dtype=torch.long),
-                    torch.ones((real_len,), dtype=torch.long),
-                ]
-            )
-            data.append(x)
             r.extra_kwargs["attention_mask_seq_len"] = real_len
+
+            if self._tokenizer.padding_side == "left":
+                # [PAD][PAD]...[TOKEN]
+                x = torch.cat(
+                    [
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                        torch.ones((real_len,), dtype=torch.long),
+                    ]
+                )
+            else:  # right padding
+                # [TOKEN]...[PAD][PAD]
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                    ]
+                )
+            data.append(x)
+
         return torch.stack(data).to(self._device)
 
     def build_decode_attention_mask(
@@ -385,15 +397,31 @@ class PytorchModel(LLM):
         """
         data = []
         for r in reqs:
-            r.extra_kwargs["attention_mask_seq_len"] += 1
-            attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
-            pad_len = seq_length - attention_mask_seq_len
-            x = torch.cat(
-                [
-                    torch.full((pad_len,), 0, dtype=torch.long),
-                    torch.ones((attention_mask_seq_len,), dtype=torch.long),
-                ]
-            )
+            if self._tokenizer.padding_side == "left":
+                r.extra_kwargs["attention_mask_seq_len"] += 1
+                attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
+                pad_len = seq_length - attention_mask_seq_len
+                assert pad_len > 0, (
+                    f"pad_len must be greater than 0, got {pad_len} = "
+                    f"seq_length({seq_length}) - attention_mask_seq_len({attention_mask_seq_len})"
+                )
+                x = torch.cat(
+                    [
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                        torch.ones((attention_mask_seq_len,), dtype=torch.long),
+                    ]
+                )
+            else:
+                max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs)
+                real_len = r.extra_kwargs["attention_mask_seq_len"]
+                pad_len = max_len - real_len
+
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                    ]
+                )
             data.append(x)
         return torch.stack(data).to(self._device)
 
