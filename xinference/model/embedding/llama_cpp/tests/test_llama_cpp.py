@@ -22,6 +22,7 @@ from ...core import (
 )
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+    version=2,
     model_name="Qwen3-Embedding-0.6B",
     dimensions=1024,
     max_tokens=32768,
@@ -32,9 +33,9 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
             model_id="Qwen/Qwen3-Embedding-0.6B-GGUF",
             model_file_name_template="Qwen3-Embedding-0.6B-{quantization}.gguf",
             quantization="Q8_0",
+            model_hub="huggingface",
         )
     ],
-    model_hub="huggingface",
 )
 
 

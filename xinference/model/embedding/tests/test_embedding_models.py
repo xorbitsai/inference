@@ -23,6 +23,7 @@ from ..cache_manager import EmbeddingCacheManager as CacheManager
 from ..core import EmbeddingModelFamilyV1, TransformersEmbeddingSpecV1
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+    version=2,
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
@@ -38,6 +39,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
 )
 
 TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
+    version=2,
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
@@ -53,6 +55,7 @@ TEST_MODEL_SPEC2 = EmbeddingModelFamilyV1(
 )
 
 TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV1(
+    version=2,
     model_name="bge-small-zh-v1.5",
     dimensions=512,
     max_tokens=512,

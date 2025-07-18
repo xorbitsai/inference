@@ -433,13 +433,13 @@ def test_persist_custom_image():
     register_image(model_spec, persist=True)
     assert model_spec in get_user_defined_images()
     assert f"{model_spec.model_name}.json" in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "image")
+        os.path.join(XINFERENCE_MODEL_DIR, "v2", "image")
     )
 
     unregister_image(model_spec.model_name)
     assert model_spec not in get_user_defined_images()
     assert f"{model_spec.model_name}.json" not in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "image")
+        os.path.join(XINFERENCE_MODEL_DIR, "v2", "image")
     )
 
 

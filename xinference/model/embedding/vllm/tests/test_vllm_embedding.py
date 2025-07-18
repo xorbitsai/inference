@@ -25,6 +25,7 @@ from ...core import (
 from ..core import VLLMEmbeddingModel
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+    version=2,
     model_name="bge-small-en-v1.5",
     dimensions=384,
     max_tokens=512,
@@ -34,9 +35,9 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
             quantization="none",
+            model_hub="modelscope",
         )
     ],
-    model_hub="modelscope",
 )
 
 

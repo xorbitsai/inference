@@ -24,6 +24,7 @@ from ...cache_manager import CacheManager
 from ..core import RerankModel, RerankModelSpec
 
 TEST_MODEL_SPEC = RerankModelSpec(
+    version=2,
     model_name="bge-reranker-base",
     type="normal",
     max_tokens=512,

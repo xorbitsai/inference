@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os.path
 import tempfile
+import uuid
 
 import pytest
 
@@ -149,10 +151,10 @@ def test_register_custom_audio():
     # correct
     family_a = CustomAudioModelFamilyV1(
         model_family="my-whisper",
-        model_name="custom_test_a",
+        model_name=f"custom_test_a-{uuid.uuid4().hex[:8]}",
         model_id="test/custom_test_a",
         multilingual=True,
-        ability="audio-to-text",
+        model_ability=["audio2text"],
     )
 
     register_audio(family_a, False)
@@ -161,10 +163,10 @@ def test_register_custom_audio():
     # name conflict
     family_b = CustomAudioModelFamilyV1(
         model_family="my-whisper",
-        model_name="custom_test_b",
+        model_name=f"custom_test_b-{uuid.uuid4().hex[:8]}",
         model_id="test/custom_test_b",
         multilingual=True,
-        ability="audio-to-text",
+        model_ability=["audio2text"],
     )
     register_audio(family_b, False)
     assert family_b in get_user_defined_audios()
@@ -192,20 +194,20 @@ def test_persistent_custom_audio():
     # correct
     family = CustomAudioModelFamilyV1(
         model_family="my-whisper",
-        model_name="custom_test_a",
+        model_name=f"custom_test_a-{uuid.uuid4().hex[:8]}",
         model_id="test/custom_test_a",
         multilingual=True,
         model_uri=os.path.abspath(temp_dir),
-        ability="audio-to-text",
+        model_ability=["audio2text"],
     )
 
     register_audio(family, True)
     assert family in get_user_defined_audios()
     assert f"{family.model_name}.json" in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "audio")
+        os.path.join(XINFERENCE_MODEL_DIR, "v2", "audio")
     )
 
     unregister_audio(family.model_name)
     assert f"{family.model_name}.json" not in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "audio")
+        os.path.join(XINFERENCE_MODEL_DIR, "v2", "audio")
     )
