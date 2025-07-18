@@ -82,6 +82,7 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     max_tokens: int
     language: List[str]
     model_specs: List["EmbeddingSpecV1"]
+    cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:

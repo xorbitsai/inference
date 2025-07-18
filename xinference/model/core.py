@@ -117,6 +117,7 @@ class CacheableModelSpec(BaseModel):
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
+    cache_config: Optional[dict]
 
 
 class VirtualEnvSettings(BaseModel):

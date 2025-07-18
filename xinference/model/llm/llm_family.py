@@ -152,6 +152,7 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     stop: Optional[List[str]]
     reasoning_start_tag: Optional[str]
     reasoning_end_tag: Optional[str]
+    cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:

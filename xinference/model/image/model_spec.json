@@ -113,8 +113,6 @@
     "version": 2,
     "model_name": "FLUX.1-Kontext-dev",
     "model_family": "stable_diffusion",
-    "model_id": "black-forest-labs/FLUX.1-Kontext-dev",
-    "model_revision": "5f6b5b0f9b24f61c714603ae90c01343563bc3dd",
     "model_ability": [
       "image2image"
     ],
@@ -123,25 +121,52 @@
       "quantize_text_encoder": "text_encoder_2",
       "torch_dtype": "bfloat16"
     },
-    "ignore_patterns": [
-      "ae.safetensors",
-      "flux1-kontext-dev.safetensors"
-    ],
-    "gguf_model_id": "bullerwins/FLUX.1-Kontext-dev-GGUF",
-    "gguf_quantizations": [
-      "BF16",
-      "Q2_K",
-      "Q3_K_S",
-      "Q4_K_M",
-      "Q4_K_S",
-      "Q4_K_S",
-      "Q5_K_M",
-      "Q5_K_S",
-      "Q5_K_S",
-      "Q6_K",
-      "Q8_0"
-    ],
-    "gguf_model_file_name_template": "flux1-kontext-dev-{quantization}.gguf",
+    "cache_config": {
+      "ignore_patterns": [
+        "ae.safetensors",
+        "flux1-kontext-dev.safetensors"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.1-Kontext-dev",
+        "model_revision": "5f6b5b0f9b24f61c714603ae90c01343563bc3dd",
+        "gguf_model_id": "bullerwins/FLUX.1-Kontext-dev-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-kontext-dev-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.1-Kontext-dev",
+        "model_revision": "master",
+        "gguf_model_id": "bullerwins/FLUX.1-Kontext-dev-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-kontext-dev-{quantization}.gguf"
+      }
+    },
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers.git",
