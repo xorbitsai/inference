@@ -51,8 +51,6 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     gguf_model_id: Optional[str]
     gguf_quantizations: Optional[List[str]]
     gguf_model_file_name_template: Optional[str]
-    allow_patterns: Optional[Union[List[str], str]]
-    ignore_patterns: Optional[Union[List[str], str]]
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
