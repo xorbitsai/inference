@@ -18410,6 +18410,33 @@
         }
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": 21,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/ERNIE-4.5-21B-A3B-PT-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/ERNIE-4.5-21B-A3B-PT-{quantization}"
+          }
+        }
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 300,
         "activated_size_in_billions": 47,
@@ -18514,6 +18541,25 @@
             "model_file_name_split_template": "{quantization}/ERNIE-4.5-300B-A47B-PT-{quantization}-{part}.gguf"
           }
         }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 300,
+        "activated_size_in_billions": 47,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/ERNIE-4.5-300B-47B-PT-{quantization}"
+          }
+        }
       }
     ],
     "chat_template": "{%- if not add_generation_prompt is defined -%}\n    {%- set add_generation_prompt = true -%}\n{%- endif -%}\n{%- if not cls_token is defined -%}\n    {%- set cls_token = \"<|begin_of_sentence|>\" -%}\n{%- endif -%}\n{%- if not sep_token is defined -%}\n    {%- set sep_token = \"<|end_of_sentence|>\" -%}\n{%- endif -%}\n{{- cls_token -}}\n{%- for message in messages -%}\n    {%- if message[\"role\"] == \"user\" -%}\n        {{- \"User: \" + message[\"content\"] + \"\n\" -}}\n    {%- elif message[\"role\"] == \"assistant\" -%}\n        {{- \"Assistant: \" + message[\"content\"] + sep_token -}}\n    {%- elif message[\"role\"] == \"system\" -%}\n        {{- message[\"content\"] + \"\n\" -}}\n    {%- endif -%}\n{%- endfor -%}\n{%- if add_generation_prompt -%}\n    {{- \"Assistant: \" -}}\n{%- endif -%}",
@@ -18522,6 +18568,13 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "mlx-lm>=0.25.2 ; sys_platform=='darwin'",
+        "#system_numpy#"
+      ]
+    }
   }
 ]
