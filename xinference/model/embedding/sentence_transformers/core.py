@@ -117,7 +117,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 trust_remote_code=True,
             )
 
-        self._tokenizer = self._model.tokenizer
+        if hasattr(self._model, "tokenizer"):
+            self._tokenizer = self._model.tokenizer
 
     def create_embedding(
         self,
@@ -252,7 +253,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 features.update(extra_features)
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
-                if "clip" in self.model_family.model_name.lower():
+                if (
+                    "clip" in self.model_family.model_name.lower()
+                    or "jina-embeddings-v4" in self.model_family.model_name.lower()
+                ):
                     if "input_ids" in features and hasattr(
                         features["input_ids"], "numel"
                     ):
@@ -330,7 +334,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 convert_to_numpy=False,
                 **kwargs,
             )
-        elif "clip" in self.model_family.model_name.lower():
+        elif (
+            "clip" in self.model_family.model_name.lower()
+            or "jina-embeddings-v4" in self.model_family.model_name.lower()
+        ):
             import base64
             import re
             from io import BytesIO
