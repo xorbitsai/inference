@@ -50,7 +50,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
-from .. import LLM, LLMFamilyV2, LLMSpecV1
+from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV2, cache_model_tokenizer_and_config
 from ..utils import (
@@ -261,6 +261,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.9.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.9.2":
+    VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
 
 
 class VLLMModel(LLM):
@@ -595,16 +598,21 @@ class VLLMModel(LLM):
 
         if "tokenizer" not in self._model_config:
             # find pytorch format without quantization
+            family = next(
+                family
+                for family in BUILTIN_LLM_FAMILIES
+                if family.model_name == self.model_family.model_name
+            ).copy()
             non_quant_spec = next(
                 spec
-                for spec in self.model_family.model_specs
-                if spec.model_format == "pytorch"
-                and "none" in spec.quantizations
+                for spec in family.model_specs
+                if spec.quantization == "none"
                 and spec.model_size_in_billions
                 == self.model_spec.model_size_in_billions
+                and spec.model_hub == self.model_spec.model_hub
             )
-
-            path = cache_model_tokenizer_and_config(self.model_family, non_quant_spec)
+            family.model_specs = [non_quant_spec]
+            path = cache_model_tokenizer_and_config(family)
             # other than gguf file, vllm requires to provide tokenizer and hf_config_path
             self._model_config["tokenizer"] = self._model_config["hf_config_path"] = (
                 path
