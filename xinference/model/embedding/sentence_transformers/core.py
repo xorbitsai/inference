@@ -117,7 +117,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 trust_remote_code=True,
             )
 
-        if hasattr(self._model, 'tokenizer'):
+        if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
 
     def create_embedding(
