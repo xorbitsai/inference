@@ -49,6 +49,7 @@ from ...types import (
     CompletionChunk,
     CompletionUsage,
 )
+from .core import chat_context_var
 from .reasoning_parser import ReasoningParser
 
 logger = logging.getLogger(__name__)
@@ -311,9 +312,7 @@ class ChatModelMixin:
         for i, choice in enumerate(choices):  # type: ignore
             delta = ChatCompletionChunkDelta()
             if "text" in choice and choice["finish_reason"] is None:
-                if not reasoning_parser or not reasoning_parser.check_content_parser():
-                    delta["content"] = choice["text"]
-                else:
+                if reasoning_parser and reasoning_parser.check_content_parser():
                     assert previous_texts is not None
                     current_text = previous_texts[-1] + choice["text"]
                     delta = reasoning_parser.extract_reasoning_content_streaming(
@@ -322,6 +321,8 @@ class ChatModelMixin:
                         delta_text=choice["text"],
                     )
                     previous_texts[-1] = current_text
+                else:
+                    delta["content"] = choice["text"]
             elif "text" in choice and choice["finish_reason"] is not None:
                 delta["content"] = choice["text"]
                 if reasoning_parser and reasoning_parser.check_content_parser():
@@ -455,12 +456,19 @@ class ChatModelMixin:
         cls,
         chunks: AsyncGenerator[CompletionChunk, None],
         reasoning_parser: Optional[ReasoningParser] = None,
+        ctx: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
         previous_texts = [""]
         # Process chunks
         if reasoning_parser:
+            set_context()
             chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
+            set_context()
             choices = chunk.get("choices")
             if not choices:
                 # usage
