@@ -32,9 +32,9 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
 )
-from .. import LLM, LLMFamilyV1, LLMSpecV1
+from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
-from ..llm_family import CustomLLMFamilyV1
+from ..llm_family import CustomLLMFamilyV2
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -136,13 +136,11 @@ class SGLANGModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         model_config: Optional[SGLANGModelConfig],
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -324,7 +322,7 @@ class SGLANGModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -335,7 +333,7 @@ class SGLANGModel(LLM):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
                 return False
         else:
@@ -552,14 +550,14 @@ class SGLANGModel(LLM):
 class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
                 return False
         else:
@@ -627,7 +625,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
 class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -638,7 +636,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
                 return False
         else:

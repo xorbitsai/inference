@@ -208,10 +208,17 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { model_name, dimensions, max_tokens, model_uri, language } =
-            data
+          const {
+            version,
+            model_name,
+            dimensions,
+            max_tokens,
+            model_uri,
+            language,
+          } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const embeddingData = {
+            version,
             model_name,
             dimensions,
             max_tokens,
@@ -227,9 +234,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { model_name, max_tokens = 512, model_uri, language } = data
+          const {
+            version,
+            model_name,
+            max_tokens = 512,
+            model_uri,
+            language,
+          } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const rerankData = {
+            version,
             model_name,
             max_tokens,
             model_uri,
@@ -239,7 +253,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setFormData(rerankData)
           setContrastObj(rerankData)
         } else if (modelType === 'image') {
-          const { model_name, model_uri, model_family, controlnet } = data
+          const { version, model_name, model_uri, model_family, controlnet } =
+            data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const controlnetArr = controlnet.map((item) => {
             const { model_name, model_uri, model_family } = item
@@ -250,6 +265,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             }
           })
           const imageData = {
+            version,
             model_name,
             model_uri,
             model_family,
@@ -261,6 +277,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setControlnetArr(controlnetArr)
         } else if (modelType === 'audio') {
           const {
+            version,
             model_name,
             model_uri,
             multilingual,
@@ -269,6 +286,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const audioData = {
+            version,
             model_name,
             model_uri,
             multilingual,
@@ -280,6 +298,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setContrastObj(audioData)
         } else if (modelType === 'flexible') {
           const {
+            version,
             model_name,
             model_uri,
             model_description,
@@ -288,6 +307,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const flexibleData = {
+            version,
             model_name,
             model_uri,
             model_description,
@@ -1477,6 +1497,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
+                modelType={modelType}
               />
               <Box padding="15px"></Box>
             </>

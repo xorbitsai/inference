@@ -14,14 +14,15 @@
 
 import shutil
 
+from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
-    EmbeddingModelFamilyV1,
+    EmbeddingModelFamilyV2,
     LlamaCppEmbeddingSpecV1,
-    cache,
     create_embedding_model_instance,
 )
 
-TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
+    version=2,
     model_name="Qwen3-Embedding-0.6B",
     dimensions=1024,
     max_tokens=32768,
@@ -31,25 +32,19 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV1(
             model_format="ggufv2",
             model_id="Qwen/Qwen3-Embedding-0.6B-GGUF",
             model_file_name_template="Qwen3-Embedding-0.6B-{quantization}.gguf",
-            quantizations=["Q8_0"],
+            quantization="Q8_0",
+            model_hub="huggingface",
         )
     ],
-    model_hub="huggingface",
 )
 
 
 def test_embedding_model_with_xllamacpp():
     model_path = None
     try:
-        model_path = cache(
-            TEST_MODEL_SPEC,
-            TEST_MODEL_SPEC.model_specs[0],
-            TEST_MODEL_SPEC.model_specs[0].quantizations[0],
-        )
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
-            "mook",
-            "cuda",
+        model = create_embedding_model_instance(
             "mock",
             "Qwen3-Embedding-0.6B",
             "llama.cpp",

@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, List, Optional
 from ...device_utils import get_available_device, is_device_available
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +29,11 @@ class FunASRModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec
@@ -100,7 +101,11 @@ class FunASRModel:
             if not is_device_available(self._device):
                 raise ValueError(f"Device {self._device} is not available!")
 
-        kwargs = self._model_spec.default_model_config.copy()
+        kwargs = (
+            self._model_spec.default_model_config.copy()
+            if getattr(self._model_spec, "default_model_config", None)
+            else {}
+        )
         kwargs.update(self._kwargs)
         logger.debug("Loading FunASR model with kwargs: %s", kwargs)
         self._model = AutoModel(model=self._model_path, device=self._device, **kwargs)
@@ -131,12 +136,20 @@ class FunASRModel:
         with tempfile.NamedTemporaryFile(buffering=0) as f:
             f.write(audio)
 
-            kw = self._model_spec.default_transcription_config.copy()  # type: ignore
+            kw = (
+                self._model_spec.default_transcription_config.copy()  # type: ignore
+                if getattr(self._model_spec, "default_transcription_config", None)
+                else {}
+            )
             kw.update(kwargs)
             logger.debug("Calling FunASR model with kwargs: %s", kw)
             result = self._model.generate(  # type: ignore
                 input=f.name, cache={}, language=language, **kw
             )
+            if not result or not isinstance(result, list):
+                raise RuntimeError(f"FunASR returned empty or invalid result: {result}")
+            if "text" not in result[0]:
+                raise RuntimeError(f"Missing 'text' field in result[0]: {result[0]}")
             text = rich_transcription_postprocess(result[0]["text"])
 
             if response_format == "json":

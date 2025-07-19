@@ -191,7 +191,7 @@ const ModelCard = ({
   }, [enginesObj])
 
   useEffect(() => {
-    if (modelEngine && modelType === 'LLM') {
+    if (modelEngine && ['LLM', 'embedding'].includes(modelType)) {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
@@ -206,7 +206,7 @@ const ModelCard = ({
   }, [modelEngine])
 
   useEffect(() => {
-    if (modelEngine && modelFormat) {
+    if (modelEngine && modelFormat && ['LLM'].includes(modelType)) {
       const sizes = [
         ...new Set(
           enginesObj[modelEngine]
@@ -223,6 +223,25 @@ const ModelCard = ({
       }
       if (sizes.length === 1) {
         setModelSize(sizes[0])
+      }
+    } else if (
+      modelEngine &&
+      modelFormat &&
+      ['embedding'].includes(modelType)
+    ) {
+      const quants = [
+        ...new Set(
+          enginesObj[modelEngine]
+            .filter((item) => item.model_format === modelFormat)
+            .map((item) => item.quantization)
+        ),
+      ]
+      setQuantizationOptions(quants)
+      if (!quants.includes(quantization)) {
+        setQuantization('')
+      }
+      if (quants.length === 1) {
+        setQuantization(quants[0])
       }
     }
   }, [modelEngine, modelFormat])
@@ -397,8 +416,11 @@ const ModelCard = ({
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
     if (['image', 'video'].includes(modelType))
       modelDataWithID_other.cpu_offload = cpuOffload
-    if (['embedding'].includes(modelType) && modelEngine)
+    if (['embedding'].includes(modelType)) {
       modelDataWithID_other.model_engine = modelEngine
+      modelDataWithID_other.model_format = modelFormat
+      modelDataWithID_other.quantization = quantization
+    }
 
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
@@ -782,6 +804,8 @@ const ModelCard = ({
   const handleOtherHistory = (data) => {
     const {
       model_engine,
+      model_format,
+      quantization,
       model_uid,
       replica,
       n_gpu,
@@ -801,6 +825,8 @@ const ModelCard = ({
     } else {
       setModelEngine(model_engine || '')
     }
+    setModelFormat(model_format || '')
+    setQuantization(quantization || '')
     setModelUID(model_uid || '')
     setReplica(replica || 1)
     setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
@@ -904,6 +930,8 @@ const ModelCard = ({
       setIsPeftModelConfig(false)
     } else {
       setModelEngine('')
+      setModelFormat('')
+      setQuantization('')
       setModelUID('')
       setReplica(1)
       setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
@@ -1316,7 +1344,11 @@ const ModelCard = ({
                   }
                 })()}
                 {(() => {
-                  if (modelData.cache_status) {
+                  if (
+                    (modelData.model_specs &&
+                      modelData.model_specs.some((spec) => isCached(spec))) ||
+                    modelData.cache_status
+                  ) {
                     return (
                       <Chip
                         label={t('launchModel.manageCachedModels')}
@@ -1587,7 +1619,7 @@ const ModelCard = ({
                           )
 
                         const spec = specs.find((s) => {
-                          return s.quantizations.includes(quant)
+                          return s.quantizations === quant
                         })
                         const cached = Array.isArray(spec?.cache_status)
                           ? spec?.cache_status[
@@ -1651,6 +1683,52 @@ const ModelCard = ({
                           return (
                             <MenuItem key={projector} value={projector}>
                               {displayedProjector}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat || !modelSize}
+                    >
+                      <InputLabel id="quantization-label">
+                        {t('launchModel.quantization')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="quantization-label"
+                        value={quantization}
+                        onChange={(e) => setQuantization(e.target.value)}
+                        label={t('launchModel.quantization')}
+                      >
+                        {quantizationOptions.map((quant) => {
+                          const specs = modelData.model_specs
+                            .filter((spec) => spec.model_format === modelFormat)
+                            .filter(
+                              (spec) =>
+                                spec.model_size_in_billions ===
+                                convertModelSize(modelSize)
+                            )
+
+                          const spec = specs.find((s) => {
+                            return s.quantizations === quant
+                          })
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.quantizations.indexOf(quant)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedQuant = cached
+                            ? quant + ' ' + t('launchModel.cached')
+                            : quant
+
+                          return (
+                            <MenuItem key={quant} value={quant}>
+                              {displayedQuant}
                             </MenuItem>
                           )
                         })}
@@ -1997,26 +2075,121 @@ const ModelCard = ({
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
                 {['embedding'].includes(modelType) && (
-                  <FormControl variant="outlined" margin="normal" fullWidth>
-                    <InputLabel id="modelEngine-label">
-                      {t('launchModel.modelEngine.optional')}
-                    </InputLabel>
-                    <Select
-                      className="textHighlight"
-                      labelId="modelEngine-label"
-                      value={modelEngine}
-                      onChange={(e) => setModelEngine(e.target.value)}
-                      label={t('launchModel.modelEngine.optional')}
+                  <>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <InputLabel id="modelEngine-label">
+                        {t('launchModel.modelEngine')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="modelEngine-label"
+                        value={modelEngine}
+                        onChange={(e) => setModelEngine(e.target.value)}
+                        label={t('launchModel.modelEngine')}
+                      >
+                        {engineOptions.map((engine) => {
+                          const subArr = []
+                          enginesObj[engine].forEach((item) => {
+                            subArr.push(item.model_format)
+                          })
+                          const arr = [...new Set(subArr)]
+                          const specs = modelData.model_specs.filter((spec) =>
+                            arr.includes(spec.model_format)
+                          )
+
+                          const cached = specs.some((spec) => isCached(spec))
+
+                          const displayedEngine = cached
+                            ? engine + ' ' + t('launchModel.cached')
+                            : engine
+
+                          return (
+                            <MenuItem key={engine} value={engine}>
+                              {displayedEngine}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelEngine}
                     >
-                      {engineOptions.map((engine) => {
-                        return (
-                          <MenuItem key={engine} value={engine}>
-                            {engine}
-                          </MenuItem>
-                        )
-                      })}
-                    </Select>
-                  </FormControl>
+                      <InputLabel id="modelFormat-label">
+                        {t('launchModel.modelFormat')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="modelFormat-label"
+                        value={modelFormat}
+                        onChange={(e) => setModelFormat(e.target.value)}
+                        label={t('launchModel.modelFormat')}
+                      >
+                        {formatOptions.map((format) => {
+                          const specs = modelData.model_specs.filter(
+                            (spec) => spec.model_format === format
+                          )
+
+                          const cached = specs.some((spec) => isCached(spec))
+
+                          const displayedFormat = cached
+                            ? format + ' ' + t('launchModel.cached')
+                            : format
+
+                          return (
+                            <MenuItem key={format} value={format}>
+                              {displayedFormat}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat}
+                    >
+                      <InputLabel id="quantization-label">
+                        {t('launchModel.quantization')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="quantization-label"
+                        value={quantization}
+                        onChange={(e) => setQuantization(e.target.value)}
+                        label={t('launchModel.quantization')}
+                      >
+                        {quantizationOptions.map((quant) => {
+                          const specs = modelData.model_specs.filter(
+                            (spec) => spec.model_format === modelFormat
+                          )
+
+                          const spec = specs.find((s) => {
+                            return s.quantization === quant
+                          })
+
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.quantizations.indexOf(quant)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedQuant = cached
+                            ? quant + ' ' + t('launchModel.cached')
+                            : quant
+
+                          return (
+                            <MenuItem key={quant} value={quant}>
+                              {displayedQuant}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </>
                 )}
                 <TextField
                   className="textHighlight"

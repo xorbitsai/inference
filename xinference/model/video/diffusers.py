@@ -30,8 +30,8 @@ from ...device_utils import gpu_count, move_model_to_available_device
 from ...types import Video, VideoList
 
 if TYPE_CHECKING:
-    from ....core.progress_tracker import Progressor
-    from .core import VideoModelFamilyV1
+    from ...core.progress_tracker import Progressor
+    from .core import VideoModelFamilyV2
 
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,10 @@ class DiffusersVideoModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "VideoModelFamilyV1",
+        model_spec: "VideoModelFamilyV2",
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec

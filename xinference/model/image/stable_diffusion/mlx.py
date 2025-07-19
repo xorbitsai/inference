@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 from PIL import Image
-from xoscar.utils import classproperty
 
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
@@ -28,7 +27,7 @@ from ..utils import handle_image_result
 
 if TYPE_CHECKING:
     from ....core.progress_tracker import Progressor
-    from ..core import ImageModelFamilyV1
+    from ..core import ImageModelFamilyV2
 
 
 logger = logging.getLogger(__name__)
@@ -61,9 +60,10 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
-        model_spec: Optional["ImageModelFamilyV1"] = None,
+        model_spec: Optional["ImageModelFamilyV2"] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
@@ -81,9 +81,9 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
     def model_ability(self):
         return self._abilities
 
-    @classproperty
-    def supported_models(self):
-        return ["FLUX.1-schnell", "FLUX.1-dev"]
+    @staticmethod
+    def support_model(model_name: str) -> bool:
+        return "flux" in model_name.lower()
 
     def load(self):
         try:
