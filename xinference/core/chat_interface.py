@@ -359,7 +359,7 @@ class GradioInterface:
                     if "content" not in delta:
                         continue
                     else:
-                        response_content += delta["content"]
+                        response_content += html.escape(delta["content"])
                         bot[-1][1] = response_content
                         yield history, bot
                 history.append(
