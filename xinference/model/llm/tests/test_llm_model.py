@@ -303,6 +303,7 @@ async def test_qwen3_with_tools(setup):
     )
     assert completion is not None
     assert completion.choices[0].message.content is not None
+    assert len(completion.choices[0].message.content) > 0
     assert completion.choices[0].message.tool_calls is not None
     # Check if tool_calls is a list
     assert isinstance(completion.choices[0].message.tool_calls, list)
