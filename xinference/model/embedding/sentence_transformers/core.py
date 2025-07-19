@@ -122,7 +122,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 trust_remote_code=True,
             )
 
-        self._tokenizer = self._model.tokenizer
+        if hasattr(self._model, 'tokenizer'):
+            self._tokenizer = self._model.tokenizer
 
     def create_embedding(
         self,
@@ -335,7 +336,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 convert_to_numpy=False,
                 **kwargs,
             )
-        elif "clip" in self._model_family.model_name.lower():
+        elif (
+            "clip" in self._model_family.model_name.lower()
+            or "jina-embeddings-v4" in self._model_family.model_name.lower()
+        ):
             import base64
             import re
             from io import BytesIO
