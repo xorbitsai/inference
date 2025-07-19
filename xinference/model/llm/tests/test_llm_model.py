@@ -151,3 +151,171 @@ async def test_restful_api_for_deepseek_without_reasoning(
     assert result
     assert "reasoning_content" not in result[0].choices[0].delta.to_dict()
     assert result[-1].choices[0].finish_reason == "stop"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stream, enable_thinking, reasoning_content",
+    [
+        (False, False, False),
+        (False, True, False),
+        (False, True, True),
+        (True, False, False),
+        (True, True, True),
+        (True, True, False),
+    ],
+)
+async def test_qwen3_with_thinking_params(
+    setup, stream, enable_thinking, reasoning_content
+):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="qwen3",
+        model_name="qwen3",
+        model_engine="Transformers",
+        model_format="pytorch",
+        model_size_in_billions="0_6",
+        quantization="none",
+        n_gpu="auto",
+        replica=1,
+        stream=stream,
+        enable_thinking=enable_thinking,
+        reasoning_content=reasoning_content,
+    )
+    model = client.get_model(model_uid)
+    assert model is not None
+
+    # openai client
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[{"role": "user", "content": "Hello"}],
+        stream=stream,
+    )
+
+    if stream:
+        full_content = ""
+        full_reasoning = ""
+        for chunk in completion:
+            delta = chunk.choices[0].delta
+            if hasattr(delta, "content") and delta.content:
+                full_content += delta.content
+            if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+                full_reasoning += delta.reasoning_content
+        if enable_thinking:
+            if reasoning_content:
+                assert full_reasoning
+            else:
+                assert not full_reasoning
+                assert "<think>" in full_content
+        else:
+            assert not full_reasoning
+            assert "<think>" not in full_content
+    else:
+        assert completion is not None
+        assert completion.choices[0].message.content is not None
+        if enable_thinking:
+            if reasoning_content:
+                assert completion.choices[0].message.reasoning_content is not None
+            else:
+                assert "<think>" in completion.choices[0].message.content
+                assert "reasoning_content" not in completion.choices[0].message
+        else:
+            assert "<think>" not in completion.choices[0].message.content
+
+
+@pytest.mark.asyncio
+async def test_qwen3_with_tools(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    # Launch model
+    model_uid = client.launch_model(
+        model_uid="qwen3",
+        model_name="qwen3",
+        model_engine="Transformers",
+        model_format="pytorch",
+        model_size_in_billions="0_6",
+        quantization="none",
+        n_gpu="auto",
+        replica=1,
+        enable_thinking=True,
+    )
+    model = client.get_model(model_uid)
+    assert model is not None
+
+    # openai client
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[{"role": "user", "content": "你好"}],
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "查询天气",
+                    "parameters": {},
+                },
+            }
+        ],
+    )
+
+    assert completion is not None
+    assert completion.choices[0].message.content is not None
+    assert completion.choices[0].message.tool_calls is not None
+
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[{"role": "user", "content": "查询上海天气"}],
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "查询天气",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "城市或者地区，比如北京，上海",
+                            }
+                        },
+                        "required": ["location"],
+                    },
+                },
+            }
+        ],
+    )
+    assert completion is not None
+    assert completion.choices[0].message.content is not None
+    assert completion.choices[0].message.tool_calls is not None
+    # Check if tool_calls is a list
+    assert isinstance(completion.choices[0].message.tool_calls, list)
+    # Check the structure of tool_calls
+    tool_call = completion.choices[0].message.tool_calls[0]
+    assert hasattr(tool_call, "id")
+    assert hasattr(tool_call, "type")
+    assert tool_call.type == "function"
+    assert hasattr(tool_call, "function")
+    assert hasattr(tool_call.function, "name")
+    assert hasattr(tool_call.function, "arguments")
+    # Check if arguments is a valid JSON string
+    import json
+
+    args = json.loads(tool_call.function.arguments)
+    assert isinstance(args, dict)
+    # Check specific parameters if expected
+    if "location" in args:
+        assert isinstance(args["location"], str)
