@@ -14,11 +14,110 @@
 
 import json
 import os
+import sys
 from collections import defaultdict
 
 from jinja2 import Environment, FileSystemLoader
+
+# Mock engine libraries before importing xinference modules
+def mock_engine_libraries():
+    """Mock engine libraries to make them appear installed for documentation generation"""
+    from types import ModuleType
+    from importlib.machinery import ModuleSpec
+    
+    # Create mock vllm module
+    vllm_mock = ModuleType('vllm')
+    vllm_mock.__version__ = "0.9.2"  # Latest version for full feature support
+    vllm_mock.__spec__ = ModuleSpec('vllm', None)
+    vllm_mock.__file__ = "mock_vllm.py"
+    
+    # Create mock mlx module with core submodule
+    
+    mlx_mock = ModuleType('mlx')
+    mlx_mock.__version__ = "0.1.0"
+    mlx_mock.__spec__ = ModuleSpec('mlx', None)
+    mlx_mock.__file__ = "mock_mlx.py"
+    
+    mlx_core_mock = ModuleType('mlx.core')
+    mlx_core_mock.__spec__ = ModuleSpec('mlx.core', None)
+    mlx_core_mock.__file__ = "mock_mlx_core.py"
+    # Add required attributes for xoscar serialization
+    mlx_core_mock.array = type('MockArray', (), {})
+    mlx_mock.core = mlx_core_mock
+    
+    # Create mock lmdeploy module  
+    lmdeploy_mock = ModuleType('lmdeploy')
+    lmdeploy_mock.__version__ = "0.6.0"
+    lmdeploy_mock.__spec__ = ModuleSpec('lmdeploy', None)
+    lmdeploy_mock.__file__ = "mock_lmdeploy.py"
+    
+    # Create mock sglang module
+    sglang_mock = ModuleType('sglang')
+    sglang_mock.__version__ = "0.3.0"
+    sglang_mock.__spec__ = ModuleSpec('sglang', None)
+    sglang_mock.__file__ = "mock_sglang.py"
+    
+    # Mock these modules in sys.modules
+    sys.modules['vllm'] = vllm_mock
+    sys.modules['mlx'] = mlx_mock
+    sys.modules['mlx.core'] = mlx_core_mock
+    sys.modules['lmdeploy'] = lmdeploy_mock
+    sys.modules['sglang'] = sglang_mock
+
+# Apply mocking before importing xinference modules
+mock_engine_libraries()
+
 from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
 from xinference.model.llm.vllm.core import VLLM_INSTALLED, VLLM_SUPPORTED_MODELS, VLLM_SUPPORTED_CHAT_MODELS
+
+# Additional mocking for platform/hardware checks in documentation generation
+def mock_platform_checks():
+    """Mock platform and hardware checks for documentation generation"""
+    from unittest.mock import patch
+    
+    # Mock vLLM platform checks
+    import xinference.model.llm.vllm.core as vllm_core
+    vllm_core.VLLMModel._is_linux = lambda: True
+    vllm_core.VLLMModel._has_cuda_device = lambda: True
+    vllm_core.VLLMChatModel._is_linux = lambda: True
+    vllm_core.VLLMChatModel._has_cuda_device = lambda: True
+    vllm_core.VLLMVisionModel._is_linux = lambda: True
+    vllm_core.VLLMVisionModel._has_cuda_device = lambda: True
+    
+    # Mock SGLang platform checks if available
+    try:
+        import xinference.model.llm.sglang.core as sglang_core
+        sglang_core.SGLANGModel._is_linux = lambda: True
+        sglang_core.SGLANGModel._has_cuda_device = lambda: True
+        sglang_core.SGLANGChatModel._is_linux = lambda: True
+        sglang_core.SGLANGChatModel._has_cuda_device = lambda: True
+        sglang_core.SGLANGVisionModel._is_linux = lambda: True
+        sglang_core.SGLANGVisionModel._has_cuda_device = lambda: True
+    except ImportError:
+        pass
+    
+    # Mock LMDEPLOY platform checks if available
+    try:
+        import xinference.model.llm.lmdeploy.core as lmdeploy_core
+        lmdeploy_core.LMDeployModel._is_linux = lambda: True
+        lmdeploy_core.LMDeployModel._has_cuda_device = lambda: True
+        lmdeploy_core.LMDeployChatModel._is_linux = lambda: True
+        lmdeploy_core.LMDeployChatModel._has_cuda_device = lambda: True
+    except ImportError:
+        pass
+
+mock_platform_checks()
+
+# Re-register engines with mocked platform checks
+from xinference.model.llm import generate_engine_config_by_model_family
+from xinference.model.llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES
+
+# Clear existing engine configurations
+LLM_ENGINES.clear()
+
+# Re-register all model families with mocked platform checks
+for family in BUILTIN_LLM_FAMILIES:
+    generate_engine_config_by_model_family(family)
 
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
 MODEL_HUB_MODELSCOPE = "ModelScope"
@@ -54,9 +153,6 @@ def main():
         models = json.load(model_file)
 
         model_by_names = { m['model_name']: m for m in models}
-        model_scope_file = open('../../xinference/model/llm/llm_family_modelscope.json')
-        models_modelscope = json.load(model_scope_file)
-        model_by_names_modelscope = { m['model_name']: m for m in models_modelscope}
 
         sorted_models = []
         output_dir = './models/builtin/llm'
@@ -69,15 +165,47 @@ def main():
             sorted_models.append(model)
 
             for model_spec in model['model_specs']:
-                model_spec['model_hubs'] = [{                                                                  
-                    'name': MODEL_HUB_HUGGING_FACE, 
-                    'url': f"https://huggingface.co/{model_spec['model_id']}"
-                }]
+                model_spec['model_hubs'] = []
+                
+                # Process different model sources
+                if 'model_src' in model_spec:
+                    # Handle new model_src structure
+                    if 'huggingface' in model_spec['model_src']:
+                        hf_src = model_spec['model_src']['huggingface']
+                        model_spec['model_hubs'].append({
+                            'name': MODEL_HUB_HUGGING_FACE,
+                            'url': f"https://huggingface.co/{hf_src['model_id']}"
+                        })
+                        # Set model_id and quantizations for template compatibility
+                        model_spec['model_id'] = hf_src['model_id']
+                        model_spec['quantizations'] = hf_src['quantizations']
+                        quantizations = hf_src['quantizations']
+                    
+                    if 'modelscope' in model_spec['model_src']:
+                        ms_src = model_spec['model_src']['modelscope']
+                        model_spec['model_hubs'].append({
+                            'name': MODEL_HUB_MODELSCOPE,
+                            'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
+                        })
+                        
+                    # If only modelscope exists and no huggingface, use modelscope data
+                    if 'modelscope' in model_spec['model_src'] and 'huggingface' not in model_spec['model_src']:
+                        ms_src = model_spec['model_src']['modelscope']
+                        model_spec['model_id'] = ms_src['model_id']
+                        model_spec['quantizations'] = ms_src['quantizations']
+                        quantizations = ms_src['quantizations']
+                else:
+                    # Fallback for old format if still exists
+                    model_spec['model_hubs'].append({
+                        'name': MODEL_HUB_HUGGING_FACE,
+                        'url': f"https://huggingface.co/{model_spec['model_id']}"
+                    })
+                    quantizations = model_spec.get('quantizations', [])
 
                 # model engines
                 engines = []
                 for engine in SUPPORTED_ENGINES:
-                    for quantization in model_spec['quantizations']:
+                    for quantization in quantizations:
                         size = model_spec['model_size_in_billions']
                         if isinstance(size, str) and '_' not in size:
                             size = int(size)
@@ -89,22 +217,6 @@ def main():
                         else:
                             engines.append(engine)
                 model_spec['engines'] = sorted(list(set(engines)), reverse=True)
-
-            # manual merge
-            if model_name in model_by_names_modelscope.keys():
-
-                def get_unique_id(spec):
-                    return spec['model_format'] + '-' + str(spec['model_size_in_billions'])
-
-                model_by_ids_modelscope = {get_unique_id(s) : s for s in model_by_names_modelscope[model_name]['model_specs']}
-
-                for model_spec in model['model_specs']:
-                    spec_id = get_unique_id(model_spec)
-                    if spec_id in model_by_ids_modelscope.keys():
-                        model_spec['model_hubs'].append({
-                            'name': MODEL_HUB_MODELSCOPE,
-                            'url': f"https://modelscope.cn/models/{model_by_ids_modelscope[spec_id]['model_id']}"
-                        })
 
             rendered = env.get_template('llm.rst.jinja').render(model)
             output_file_name = f"{model['model_name'].lower()}.rst"
@@ -130,11 +242,6 @@ def main():
         models = json.load(file)
 
         model_by_names = { m['model_name']: m for m in models}
-        model_scope_file = open('../../xinference/model/embedding/model_spec_modelscope.json')
-        models_modelscope = json.load(model_scope_file)
-
-        model_by_names_modelscope = { s['model_name']: s for s in models_modelscope}
-
 
         sorted_models = []
         output_dir = './models/builtin/embedding'
@@ -145,20 +252,45 @@ def main():
 
             sorted_models.append(model)
 
-            model['model_hubs'] = [
-                {
-                    'name': MODEL_HUB_HUGGING_FACE, 
-                    'url': f"https://huggingface.co/{model['model_id']}"
-                }
-            ]
-
-            # manual merge
-            if model['model_name'] in model_by_names_modelscope.keys():
-                model_id_modelscope = model_by_names_modelscope[model['model_name']]['model_id']
-                model['model_hubs'].append({
-                    'name': MODEL_HUB_MODELSCOPE,
-                    'url': f"https://modelscope.cn/models/{model_id_modelscope}"
-                })
+            model['model_hubs'] = []
+            
+            # Process model specs for new model_src structure
+            if 'model_specs' in model and model['model_specs']:
+                model_spec = model['model_specs'][0]  # Use first spec for model hubs
+                if 'model_src' in model_spec:
+                    if 'huggingface' in model_spec['model_src']:
+                        hf_src = model_spec['model_src']['huggingface']
+                        model['model_hubs'].append({
+                            'name': MODEL_HUB_HUGGING_FACE,
+                            'url': f"https://huggingface.co/{hf_src['model_id']}"
+                        })
+                        # Set model_id for template compatibility (prefer huggingface)
+                        model['model_id'] = hf_src['model_id']
+                    
+                    if 'modelscope' in model_spec['model_src']:
+                        ms_src = model_spec['model_src']['modelscope']
+                        model['model_hubs'].append({
+                            'name': MODEL_HUB_MODELSCOPE,
+                            'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
+                        })
+                        # Only set modelscope model_id if no huggingface exists
+                        if 'huggingface' not in model_spec['model_src']:
+                            model['model_id'] = ms_src['model_id']
+                else:
+                    # Fallback for old format
+                    model_id = model_spec.get('model_id', model.get('model_id', ''))
+                    model['model_id'] = model_id
+                    model['model_hubs'].append({
+                        'name': MODEL_HUB_HUGGING_FACE,
+                        'url': f"https://huggingface.co/{model_id}"
+                    })
+            else:
+                # Fallback for very old format
+                if 'model_id' in model:
+                    model['model_hubs'].append({
+                        'name': MODEL_HUB_HUGGING_FACE,
+                        'url': f"https://huggingface.co/{model['model_id']}"
+                    })
 
             rendered = env.get_template('embedding.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
@@ -179,6 +311,13 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for model in sorted_models:
+            # Process model_src for template compatibility
+            if 'model_src' in model:
+                if 'huggingface' in model['model_src']:
+                    model['model_id'] = model['model_src']['huggingface']['model_id']
+                elif 'modelscope' in model['model_src']:
+                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            
             rendered = env.get_template('rerank.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -198,12 +337,29 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for model in sorted_models:
+            # Process model_src for template compatibility
+            if 'model_src' in model:
+                if 'huggingface' in model['model_src']:
+                    hf_src = model['model_src']['huggingface']
+                    model['model_id'] = hf_src['model_id']
+                    # Handle GGUF related fields
+                    if 'gguf_model_id' in hf_src:
+                        model['gguf_model_id'] = hf_src['gguf_model_id']
+                    if 'gguf_quantizations' in hf_src:
+                        model['gguf_quantizations'] = ", ".join(hf_src['gguf_quantizations'])
+                elif 'modelscope' in model['model_src']:
+                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            
             available_controlnet = [cn["model_name"] for cn in model.get("controlnet", [])]
             if not available_controlnet:
                 available_controlnet = None
             model["available_controlnet"] = available_controlnet
             model["model_ability"] = ', '.join(model.get("model_ability"))
-            model["gguf_quantizations"] = ", ".join(model.get("gguf_quantizations", []))
+            
+            # Ensure gguf_quantizations is properly formatted (fallback for old format)
+            if "gguf_quantizations" not in model:
+                model["gguf_quantizations"] = ", ".join(model.get("gguf_quantizations", []))
+            
             rendered = env.get_template('image.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -222,6 +378,13 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for model in sorted_models:
+            # Process model_src for template compatibility
+            if 'model_src' in model:
+                if 'huggingface' in model['model_src']:
+                    model['model_id'] = model['model_src']['huggingface']['model_id']
+                elif 'modelscope' in model['model_src']:
+                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            
             rendered = env.get_template('audio.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -240,6 +403,13 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for model in sorted_models:
+            # Process model_src for template compatibility
+            if 'model_src' in model:
+                if 'huggingface' in model['model_src']:
+                    model['model_id'] = model['model_src']['huggingface']['model_id']
+                elif 'modelscope' in model['model_src']:
+                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            
             model["model_ability"] = ', '.join(model.get("model_ability"))
             rendered = env.get_template('video.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")

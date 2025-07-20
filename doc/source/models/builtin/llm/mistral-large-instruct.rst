@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 123 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
 - **Model ID:** mistralai/Mistral-Large-Instruct-2407
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-Large-Instruct-2407>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407-bnb-4bit>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-Large-Instruct-2407>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -38,7 +38,7 @@ Model Spec 2 (pytorch, 123 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
 - **Model ID:** unsloth/Mistral-Large-Instruct-2407-bnb-4bit
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Mistral-Large-Instruct-2407-bnb-4bit>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407-bnb-4bit>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Mistral-Large-Instruct-2407-bnb-4bit>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

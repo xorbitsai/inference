@@ -154,6 +154,7 @@ Currently, supported model includes:
 - ``qwenLong-l1``
 - ``qwen3``
 - ``minicpm4``
+- ``Ernie4.5``
 .. vllm_end
 
 .. _sglang_backend:

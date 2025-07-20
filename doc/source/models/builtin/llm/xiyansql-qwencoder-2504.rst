@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** XGenerationLab/XiYanSQL-QwenCoder-7B-2504
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/XGenerationLab/XiYanSQL-QwenCoder-7B-2504>`__, `ModelScope <https://modelscope.cn/models/XGenerationLab/XiYanSQL-QwenCoder-7B-2504>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 32 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** XGenerationLab/XiYanSQL-QwenCoder-32B-2504
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/XGenerationLab/XiYanSQL-QwenCoder-32B-2504>`__, `ModelScope <https://modelscope.cn/models/XGenerationLab/XiYanSQL-QwenCoder-32B-2504>`__
 

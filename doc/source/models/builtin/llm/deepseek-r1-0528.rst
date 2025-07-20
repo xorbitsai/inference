@@ -29,3 +29,19 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name deepseek-r1-0528 --size-in-billions 671 --model-format pytorch --quantization ${quantization}
 
+
+Model Spec 2 (gptq, 671 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 671
+- **Quantizations:** Int4-Int8Mix-Lite, Int4-Int8Mix-Compact, Int4-Int8Mix-Medium
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** QuantTrio/DeepSeek-R1-0528-GPTQ-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-R1-0528-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/tclf90/DeepSeek-R1-0528-GPTQ-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name deepseek-r1-0528 --size-in-billions 671 --model-format gptq --quantization ${quantization}
+

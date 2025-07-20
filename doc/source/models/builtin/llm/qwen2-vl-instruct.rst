@@ -38,7 +38,7 @@ Model Spec 2 (gptq, 2 Billion)
 - **Quantizations:** Int8
 - **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -118,7 +118,7 @@ Model Spec 7 (gptq, 7 Billion)
 - **Quantizations:** Int8
 - **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -158,23 +158,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 7 --model-format awq --quantization ${quantization}
 
 
-Model Spec 10 (mlx, 7 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** mlx
-- **Model Size (in billions):** 7
-- **Quantizations:** 4bit, 8bit
-- **Engines**: MLX
-- **Model ID:** mlx-community/Qwen2-VL-7B-Instruct-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2-VL-7B-Instruct-{quantization}>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2-VL-7B-Instruct-MLX-8bit>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
-
-
-Model Spec 11 (pytorch, 72 Billion)
+Model Spec 10 (pytorch, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -190,7 +174,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 12 (awq, 72 Billion)
+Model Spec 11 (awq, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -206,7 +190,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format awq --quantization ${quantization}
 
 
-Model Spec 13 (gptq, 72 Billion)
+Model Spec 12 (gptq, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -222,7 +206,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 14 (mlx, 72 Billion)
+Model Spec 13 (mlx, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -236,4 +220,20 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 72 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 14 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** 4bit, 8bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2-VL-7B-Instruct-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2-VL-7B-Instruct-{quantization}>`__, `ModelScope <https://modelscope.cn/models/okwinds/Qwen2-VL-7B-Instruct-MLX-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-vl-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
 

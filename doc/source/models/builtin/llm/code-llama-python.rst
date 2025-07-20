@@ -38,7 +38,7 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
 - **Model ID:** TheBloke/CodeLlama-13B-Python-fp16
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-13B-Python-fp16>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/CodeLlama-13b-Python-hf>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-13B-Python-fp16>`__, `ModelScope <https://modelscope.cn/models/Xorbits/CodeLlama-13B-Python-fp16>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
