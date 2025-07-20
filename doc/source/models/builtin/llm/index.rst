@@ -161,6 +161,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Tongyi DianJin is a financial intelligence solution platform built by Alibaba Cloud, dedicated to providing financial business developers with a convenient artificial intelligence application development environment.
 
+   * - :ref:`ernie4.5 <models_llm_ernie4.5>`
+     - chat
+     - 131072
+     - ERNIE 4.5, a new family of large-scale multimodal models comprising 10 distinct variants.
+
    * - :ref:`fin-r1 <models_llm_fin-r1>`
      - chat
      - 131072
@@ -175,6 +180,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 131072
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
+
+   * - :ref:`glm-4.1v-thinking <models_llm_glm-4.1v-thinking>`
+     - chat, vision, reasoning
+     - 65536
+     - GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.
 
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
@@ -669,11 +679,15 @@ The following is a list of built-in LLM in Xinference:
   
    dianjin-r1
   
+   ernie4.5
+  
    fin-r1
   
    gemma-3-1b-it
   
    gemma-3-it
+  
+   glm-4.1v-thinking
   
    glm-4v
   

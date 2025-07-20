@@ -70,7 +70,7 @@ Model Spec 4 (mlx, 32 Billion)
 - **Quantizations:** 4bit
 - **Engines**: MLX
 - **Model ID:** mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-8bit>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen_QwQ-32B-Preview_MLX-4bit>`__, `ModelScope <https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-4bit>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -102,7 +102,7 @@ Model Spec 6 (mlx, 32 Billion)
 - **Quantizations:** none
 - **Engines**: MLX
 - **Model ID:** mlx-community/QwQ-32B-Preview-bf16
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/QwQ-32B-Preview-bf16>`__, `ModelScope <https://modelscope.cn/models/okwinds/QwQ-32B-Preview-MLX-8bit>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/QwQ-32B-Preview-bf16>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

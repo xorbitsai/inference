@@ -70,7 +70,7 @@ Model Spec 4 (pytorch, 72 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-VL-72B-Instruct
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen2.5-VL-72B-Instruct-AWQ>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen2.5-VL-72B-Instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -174,7 +174,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2.5-vl-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 11 (mlx, 72 Billion)
+Model Spec 11 (mlx, 32 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 32
+- **Quantizations:** 4bit, 6bit, 8bit, bf16
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2.5-vl-instruct --size-in-billions 32 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 12 (mlx, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx

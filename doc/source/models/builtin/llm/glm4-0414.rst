@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 9 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
 - **Quantizations:** 4bit, 6bit, 8bit, bf16
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/GLM-4-9B-0414-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/GLM-4-9B-0414-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/GLM-4-9B-0414-{quantization}>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (mlx, 32 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 32
 - **Quantizations:** 4bit, 8bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/GLM-4-32B-0414-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/GLM-4-32B-0414-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/GLM-4-32B-0414-{quantization}>`__
 
