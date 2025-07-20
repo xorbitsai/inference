@@ -1191,14 +1191,21 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
+        ctx: Optional[Dict[str, Any]] = {},
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
         i = 0
         previous_texts = [""]
         tool_call = False
         tool_call_texts = [""]
         if self.reasoning_parser:
+            set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
+            set_context()
             if i == 0:
                 for first_chunk in self._get_first_chat_completion_chunk(
                     chunk, self.reasoning_parser
@@ -1271,8 +1278,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             assert isinstance(agen, AsyncGenerator)
             if tools:
-                return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
+                return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
+            return self._async_to_chat_completion_chunks(
+                agen, self.reasoning_parser, chat_template_kwargs
+            )
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, request_id=request_id
