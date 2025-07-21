@@ -19,12 +19,13 @@ import torch
 
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
-from ...utils import _decode_image
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
+from ...utils import _decode_image
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
 
 logger = logging.getLogger(__name__)
+
 
 @register_transformer
 @register_non_default_model("mistral-small-3.2-instruct")
@@ -52,8 +53,8 @@ class MistralMultimodalModel(PytorchMultiModalModel):
         self._device = select_device(device)
 
     def load_processor(self):
-        from transformers import AutoProcessor
-        from transformers import AutoTokenizer
+        from transformers import AutoProcessor, AutoTokenizer
+
         min_pixels = self._pytorch_model_config.get("min_pixels")
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
@@ -65,23 +66,22 @@ class MistralMultimodalModel(PytorchMultiModalModel):
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True, use_fast=False
         )
-        
 
     def load_multimodal_model(self):
-        from transformers import BitsAndBytesConfig
-        from transformers import Mistral3ForConditionalGeneration
+        from transformers import BitsAndBytesConfig, Mistral3ForConditionalGeneration
+
         kwargs = {"device_map": self._device}
         kwargs = self.apply_bnb_quantization(kwargs)
-        
-        if '4bit' in self.model_path:
+
+        if "4bit" in self.model_path:
             quantization_config = BitsAndBytesConfig(load_in_4bit=True)
             kwargs["quantization_config"] = quantization_config
-        elif '8bit' in self.model_path:
+        elif "8bit" in self.model_path:
             quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             kwargs["quantization_config"] = quantization_config
 
         self._model = Mistral3ForConditionalGeneration.from_pretrained(
-            self.model_path, 
+            self.model_path,
             low_cpu_mem_usage=True,
             trust_remote_code=True,
             torch_dtype=torch.float16,
@@ -90,9 +90,10 @@ class MistralMultimodalModel(PytorchMultiModalModel):
         # if self._device == 'cuda':
         #     self._model.cuda()
 
-                
     @staticmethod
-    def _get_processed_msgs(messages: List[Dict]) -> List[Dict]:
+    def _get_processed_msgs(
+        messages: List[Dict],
+    ) -> tuple[List[Dict], List[str], List[Any]]:
         res = []
         texts = []
         images = []
@@ -100,7 +101,9 @@ class MistralMultimodalModel(PytorchMultiModalModel):
             role = message["role"]
             content = message["content"]
             if isinstance(content, str):
-                res.append({"role": role, "content": [{"type": "text", "text": content}]})
+                res.append(
+                    {"role": role, "content": [{"type": "text", "text": content}]}
+                )
                 texts.append(content)
             else:
                 texts = []
@@ -125,14 +128,24 @@ class MistralMultimodalModel(PytorchMultiModalModel):
                 assert len(images) <= 1
                 text = " ".join(texts)
                 if images:
-                    res.append({"role": role, "content":  [{"type": "image", "image": images[0]}, {"type": "text", "text": text}] })
+                    res.append(
+                        {
+                            "role": role,
+                            "content": [
+                                {"type": "image", "image": images[0]},
+                                {"type": "text", "text": text},
+                            ],
+                        }
+                    )
                     texts.append(text)
                     images.append(images[0])
                 else:
                     texts.append(text)
-                    res.append({"role": role, "content": [{"type": "text", "text": text}]})
-        return res,texts,images
-    
+                    res.append(
+                        {"role": role, "content": [{"type": "text", "text": text}]}
+                    )
+        return res, texts, images
+
     @staticmethod
     def flatten_content(msg):
         if isinstance(msg["content"], list):
@@ -144,10 +157,8 @@ class MistralMultimodalModel(PytorchMultiModalModel):
                     parts.append(part["text"])
             msg["content"] = "".join(parts)
         return msg
-    
-    def build_inputs_from_messages(
-        self, messages: List[Dict], generate_config: Dict
-    ):
+
+    def build_inputs_from_messages(self, messages: List[Dict], generate_config: Dict):
         rst, text, images = self._get_processed_msgs(messages)
         flattened_messages = [self.flatten_content(m.copy()) for m in rst]
         inputs = self._tokenizer.apply_chat_template(
@@ -177,6 +188,7 @@ class MistralMultimodalModel(PytorchMultiModalModel):
         generate_config: Dict,
     ) -> Tuple[Iterator, int]:
         from threading import Thread
+
         from transformers import TextIteratorStreamer
 
         inputs = self.build_inputs_from_messages(messages, generate_config)
@@ -184,10 +196,7 @@ class MistralMultimodalModel(PytorchMultiModalModel):
 
         tokenizer = self._tokenizer
         streamer = TextIteratorStreamer(
-            tokenizer, 
-            timeout=60.0,
-            skip_prompt=True,
-            skip_special_tokens=True
+            tokenizer, timeout=60.0, skip_prompt=True, skip_special_tokens=True
         )
 
         gen_kwargs = {"streamer": streamer, **inputs, **configs}
