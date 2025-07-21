@@ -139,6 +139,7 @@ def create_audio_model_instance(
     F5TTSMLXModel,
     MeloTTSModel,
     KokoroModel,
+    KokoroMLXModel,
     MegaTTSModel,
 ]:
     from ..cache_manager import CacheManager
@@ -158,6 +159,7 @@ def create_audio_model_instance(
         F5TTSMLXModel,
         MeloTTSModel,
         KokoroModel,
+        KokoroMLXModel,
         MegaTTSModel,
     ]
     if model_spec.model_family == "whisper":
