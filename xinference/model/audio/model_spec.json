@@ -843,6 +843,32 @@
   },
   {
     "version": 2,
+    "model_name": "Kokoro-82M-MLX",
+    "model_family": "Kokoro-MLX",
+    "model_ability": [
+      "text2audio"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/Kokoro-82M",
+        "model_revision": "2acc06939cce874e0ddc454c5cb544f7f812e793"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/Kokoro-82M-MLX",
+        "model_revision": "master"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio==0.2.3",
+        "mlx-lm==0.24.1",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
     "model_name": "MegaTTS3",
     "model_family": "MegaTTS",
     "model_ability": [
