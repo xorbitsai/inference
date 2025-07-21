@@ -18252,6 +18252,100 @@
   },
   {
     "version": 2,
+    "context_length": 65536,
+    "model_name": "glm-4.1v-thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "reasoning"
+    ],
+    "model_description": "GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "THUDM/GLM-4.1V-9B-Thinking",
+            "model_revision": "b627c82cd8fc9175ff2b82b33fb439eba260055f"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.1V-9B-Thinking",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "dengcao/GLM-4.1V-9B-Thinking-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "dengcao/GLM-4.1V-9B-Thinking-AWQ",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "[gMASK]<sop> {%- for msg in messages %} {%- if msg.role == 'system' %} <|system|> {{ msg.content }} {%- elif msg.role == 'user' %} <|user|>{{ '\n' }} {%- if msg.content is string %} {{ msg.content }} {%- else %} {%- for item in msg.content %} {%- if item.type == 'video' or 'video' in item %} <|begin_of_video|><|video|><|end_of_video|> {%- elif item.type == 'image' or 'image' in item %} <|begin_of_image|><|image|><|end_of_image|> {%- elif item.type == 'text' %} {{ item.text }} {%- endif %} {%- endfor %} {%- endif %} {%- elif msg.role == 'assistant' %} {%- if msg.metadata %} <|assistant|>{{ msg.metadata }} {{ msg.content }} {%- else %} <|assistant|> {{ msg.content }} {%- endif %} {%- endif %} {%- endfor %} {% if add_generation_prompt %}<|assistant|> {% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.53.2",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
     "context_length": 131072,
     "model_name": "mistral-small-3.2-instruct",
     "model_lang": [
