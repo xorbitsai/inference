@@ -20,7 +20,7 @@ import torch
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
 from ...utils import _decode_image
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
 
@@ -38,7 +38,7 @@ class MistralMultimodalModel(PytorchMultiModalModel):
 
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
