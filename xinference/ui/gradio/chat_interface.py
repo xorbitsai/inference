@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from gradio import ChatMessage
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
-from ..client.restful.restful_client import (
+from ...client.restful.restful_client import (
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
@@ -102,7 +102,7 @@ class GradioInterface:
             lora_name: str,
             stream: bool,
         ) -> Generator:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
@@ -337,7 +337,7 @@ class GradioInterface:
         self,
     ) -> "gr.Blocks":
         def predict(history, bot, max_tokens, temperature, stream):
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
@@ -662,7 +662,7 @@ class GradioInterface:
             }
 
         def complete(text, hist, max_tokens, temperature, lora_name) -> Generator:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
@@ -700,7 +700,7 @@ class GradioInterface:
             }
 
         def retry(text, hist, max_tokens, temperature, lora_name) -> Generator:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)

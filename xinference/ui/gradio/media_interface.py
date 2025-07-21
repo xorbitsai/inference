@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import gradio as gr
 import PIL.Image
 from gradio import Markdown
 
-from ..client.restful.restful_client import (
+from ...client.restful.restful_client import (
     RESTfulAudioModelHandle,
     RESTfulImageModelHandle,
     RESTfulVideoModelHandle,
@@ -88,7 +88,7 @@ class MediaInterface:
         return interface
 
     def text2image_interface(self) -> "gr.Blocks":
-        from ..model.image.stable_diffusion.core import SAMPLING_METHODS
+        from ...model.image.stable_diffusion.core import SAMPLING_METHODS
 
         def text_generate_image(
             prompt: str,
@@ -101,7 +101,7 @@ class MediaInterface:
             sampler_name: Optional[str] = None,
             progress=gr.Progress(),
         ) -> PIL.Image.Image:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
@@ -212,7 +212,7 @@ class MediaInterface:
         return text2image_vl_interface
 
     def image2image_interface(self) -> "gr.Blocks":
-        from ..model.image.stable_diffusion.core import SAMPLING_METHODS
+        from ...model.image.stable_diffusion.core import SAMPLING_METHODS
 
         def image_generate_image(
             prompt: str,
@@ -227,7 +227,7 @@ class MediaInterface:
             sampler_name: Optional[str] = None,
             progress=gr.Progress(),
         ) -> PIL.Image.Image:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
@@ -366,7 +366,7 @@ class MediaInterface:
             height: int,
             progress=gr.Progress(),
         ) -> List[Tuple[str, str]]:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
@@ -480,7 +480,7 @@ class MediaInterface:
             height: int,
             progress=gr.Progress(),
         ) -> List[Tuple[str, str]]:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
@@ -597,7 +597,7 @@ class MediaInterface:
             height: int,
             progress=gr.Progress(),
         ) -> List[Tuple[str, str]]:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
@@ -710,7 +710,7 @@ class MediaInterface:
             prompt: Optional[str],
             temperature: float,
         ) -> str:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
@@ -767,7 +767,7 @@ class MediaInterface:
             prompt_speech_file,
             prompt_text: Optional[str],
         ) -> str:
-            from ..client import RESTfulClient
+            from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self.access_token)
