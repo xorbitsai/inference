@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-06-26 22:59+0800\n"
+"POT-Creation-Date: 2025-07-21 13:33+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/virtualenv.rst:5
 msgid "Model Virtual Environments"
@@ -143,6 +143,81 @@ msgstr ""
 "从 v1.6.0 开始：:ref:`XINFERENCE_HOME <environments_xinference_home>` / "
 "virtualenv / v2 / {model_name}"
 
-#~ msgid "New added in v1.5.0."
-#~ msgstr "v1.5.0 新增。"
+#: ../../source/models/virtualenv.rst:77
+msgid "Experimental Feature"
+msgstr "实验功能"
+
+#: ../../source/models/virtualenv.rst:81
+msgid "This feature requires ``xoscar >= 0.7.12``."
+msgstr "该功能依赖 ``xoscar >= 0.7.12``。"
+
+#: ../../source/models/virtualenv.rst:83
+msgid ""
+"``xinference`` uses the ``uv`` tool to create virtual environments, with "
+"the current Python **system site-packages** set as the base environment. "
+"By default, ``uv`` **does not check for existing packages in the system "
+"environment** and reinstalls all dependencies in the virtual environment."
+" This ensures better isolation from system packages but can result in "
+"redundant installations, longer setup times, and increased disk usage."
+msgstr ""
+"``xinference`` 使用 ``uv`` 工具创建虚拟环境，并将当前 Python 的 **system "
+"site-packages** 设置为基础环境。默认情况下，``uv`` **不会检查系统环境中"
+"是否已有包**，而是会在虚拟环境中重新安装所有依赖。这种方式可以更好地与"
+"系统包隔离，但可能导致重复安装、初始化时间变长以及磁盘占用增加。"
+
+#: ../../source/models/virtualenv.rst:87
+msgid ""
+"Starting from ``xoscar >= 0.7.12``, an **experimental feature** is "
+"available: by setting the environment variable "
+"``XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages "
+"already available in system site-packages**."
+msgstr ""
+"从 ``xoscar >= 0.7.12`` 开始，提供了一个 **实验功能**：通过设置环境变量 `"
+"`XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1``，``uv`` 将会 **跳过系统 site-"
+"packages 中已存在的包**。"
+
+#: ../../source/models/virtualenv.rst:92
+msgid ""
+"The feature is currently disabled but will be enabled by default in "
+"``v2.0.0``."
+msgstr "该功能当前默认关闭，但将在 ``v2.0.0`` 版本中默认启用。"
+
+#: ../../source/models/virtualenv.rst:95
+msgid "Advantages"
+msgstr "优势"
+
+#: ../../source/models/virtualenv.rst:97
+msgid ""
+"Avoid redundant installations of large dependencies (e.g., ``torch`` + "
+"``CUDA``)."
+msgstr "避免重复安装大型依赖（例如 ``torch`` + ``CUDA``）。"
+
+#: ../../source/models/virtualenv.rst:98
+msgid "Speed up virtual environment creation."
+msgstr "加快虚拟环境创建速度。"
+
+#: ../../source/models/virtualenv.rst:99
+msgid "Reduce disk usage."
+msgstr "减少磁盘空间占用。"
+
+#: ../../source/models/virtualenv.rst:102
+msgid "Usage"
+msgstr "使用"
+
+#: ../../source/models/virtualenv.rst:114
+msgid "Performance Comparison"
+msgstr "性能对比"
+
+#: ../../source/models/virtualenv.rst:116
+msgid "Using the ``CosyVoice 0.5B`` model as an example:"
+msgstr "以 ``CosyVoice 0.5B`` 模型为例："
+
+#: ../../source/models/virtualenv.rst:118
+msgid "**Without this feature enabled**::"
+msgstr "**未开启该功能时**::"
+
+#: ../../source/models/virtualenv.rst:129
+msgid "**With this feature enabled**::"
+msgstr "**开启该功能后**::"
+
 

@@ -6,8 +6,7 @@ Distributed Inference
 Some language models including **DeepSeek V3**, **DeepSeek R1**, etc are too large to fit into GPus
 on a single machine, Xinference supported running these models across multiple machines.
 
-.. note::
-    This feature is added in v1.3.0.
+.. versionadded:: v1.3.0
 
 *****************
 Supported Engines
