@@ -230,7 +230,7 @@ async def test_restful_api(setup):
     # register_model
 
     model = """{
-  "version": 1,
+  "version": 2,
   "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
@@ -245,11 +245,7 @@ async def test_restful_api(setup):
     {
       "model_format": "pytorch",
       "model_size_in_billions": 7,
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
+      "quantization": "none",
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],
@@ -275,7 +271,7 @@ async def test_restful_api(setup):
     url = f"{endpoint}/v1/models/LLM/custom_model/versions"
     response = requests.get(url)
     version_infos = response.json()
-    assert len(version_infos) == 3  # three quantizations
+    assert len(version_infos) == 1
 
     url = f"{endpoint}/v1/model_registrations/LLM"
 
@@ -315,11 +311,6 @@ async def test_restful_api(setup):
         if model_reg["model_name"] == "custom_model":
             custom_model_reg = model_reg
     assert custom_model_reg is None
-
-
-@pytest.mark.asyncio
-async def test_restful_api_xllamacpp(set_use_xllamacpp, setup):
-    await test_restful_api(setup)
 
 
 def test_restful_api_for_embedding(setup):
@@ -1116,6 +1107,9 @@ async def test_openai(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1244,6 +1238,9 @@ def test_launch_model_async(setup):
         "model_name": "qwen1.5-chat",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1283,6 +1280,9 @@ def test_cancel_launch_model(setup):
         "model_name": "qwen2.5-instruct",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
@@ -1314,19 +1314,22 @@ def test_events(setup):
     url = f"{endpoint}/v1/models"
 
     payload = {
-        "model_uid": "test_qwen_15",
+        "model_uid": "test_qwen_25",
         "model_engine": "llama.cpp",
-        "model_name": "qwen1.5-chat",
+        "model_name": "qwen2.5-instruct",
         "model_size_in_billions": "0_5",
         "quantization": "q4_0",
+        "n_ctx": 128,
+        "n_parallel": 1,
+        "use_mmap": True,
     }
 
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_qwen_15"
+    assert model_uid_res == "test_qwen_25"
 
-    events_url = f"{endpoint}/v1/models/test_qwen_15/events"
+    events_url = f"{endpoint}/v1/models/test_qwen_25/events"
     response = requests.get(events_url)
     response_data = response.json()
     # [{'event_type': 'INFO', 'event_ts': 1705896156, 'event_content': 'Launch model'}]
@@ -1334,8 +1337,9 @@ def test_events(setup):
     assert "Launch" in response_data[0]["event_content"]
 
     # delete again
-    url = f"{endpoint}/v1/models/test_qwen_15"
-    requests.delete(url)
+    url = f"{endpoint}/v1/models/test_qwen_25"
+    response = requests.delete(url)
+    response.raise_for_status()
 
     response = requests.get(events_url)
     response_data = response.json()
@@ -1379,3 +1383,23 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_qwen15"
     requests.delete(url)
+
+
+def test_builtin_families(setup):
+    endpoint, supervisor_addr = setup
+    url = f"{endpoint}/v1/models/families"
+
+    response = requests.get(url)
+    families = response.json()
+    test_abilities = [
+        "generate",
+        "chat",
+        "vision",
+        "reasoning",
+        "tools",
+        "audio",
+        "omni",
+        "hybrid",
+    ]
+    assert all(ability in families for ability in test_abilities)
+    assert "qwen3" in families["hybrid"]

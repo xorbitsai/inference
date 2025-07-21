@@ -16,10 +16,15 @@ Now, Xinference supported below engines to run models across workers.
 
 * :ref:`SGLang <sglang_backend>` (supported in v1.3.0)
 * :ref:`vLLM <vllm_backend>` (supported in v1.4.1)
+* :ref:`MLX <mlx_backend>` (supported in v1.7.1), MLX distributed currently does not support all models.
+  The following model types are supported at this time. If you have additional requirements,
+  feel free to submit a GitHub issue at `https://github.com/xorbitsai/inference/issues <https://github.com/xorbitsai/inference/issues>`_ to request support.
 
-Upcoming supports. Below engine will support distributed inference soon:
+  - DeepSeek v3 and R1
+  - Qwen2.5-instruct and the models have the same model architectures.
+  - Qwen3 and the models have the same model architectures.
+  - Qwen3-moe and the models have the same model architectures.
 
-* :ref:`MLX <mlx_backend>`
 
 *****
 Usage

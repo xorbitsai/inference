@@ -23,7 +23,7 @@ import torch
 from ...device_utils import get_available_device, is_device_available
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +48,11 @@ class FishSpeechModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec
@@ -123,8 +124,9 @@ class FishSpeechModel:
         logger.warning("Fish speech does not support setting voice: %s.", voice)
         if speed != 1.0:
             logger.warning("Fish speech does not support setting speed: %s.", speed)
-        import torchaudio
         from tools.schema import ServeReferenceAudio, ServeTTSRequest
+
+        from .utils import audio_stream_generator, audio_to_bytes
 
         prompt_speech = kwargs.get("prompt_speech")
         prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
@@ -153,40 +155,28 @@ class FishSpeechModel:
 
         if stream:
 
-            def _stream_generator():
-                with BytesIO() as out:
-                    writer = torchaudio.io.StreamWriter(out, format=response_format)
-                    writer.add_audio_stream(
-                        sample_rate=self._model.spec_transform.sample_rate,
-                        num_channels=1,
-                    )
-                    i = 0
-                    last_pos = 0
-                    with writer.open():
-                        for chunk in result:
-                            if chunk.code == "final":
-                                continue
-                            chunk = chunk.audio[1]
-                            if chunk is not None:
-                                chunk = chunk.reshape((chunk.shape[0], 1))
-                                trans_chunk = torch.from_numpy(chunk)
-                                writer.write_audio_chunk(i, trans_chunk)
-                                new_last_pos = out.tell()
-                                if new_last_pos != last_pos:
-                                    out.seek(last_pos)
-                                    encoded_bytes = out.read()
-                                    yield encoded_bytes
-                                    last_pos = new_last_pos
+            def _gen_chunk():
+                for chunk in result:
+                    if chunk.code == "final":
+                        continue
+                    chunk = chunk.audio[1]
+                    if chunk is not None:
+                        yield chunk
 
-            return _stream_generator()
+            return audio_stream_generator(
+                response_format=response_format,
+                sample_rate=self._model.spec_transform.sample_rate,
+                output_generator=_gen_chunk(),
+                output_chunk_transformer=lambda c: torch.from_numpy(
+                    c.reshape((c.shape[0], 1))
+                ),
+            )
         else:
             result = list(result)
             sample_rate, audio = result[0].audio
             audio = np.array([audio])
-
-            # Save the generated audio
-            with BytesIO() as out:
-                torchaudio.save(
-                    out, torch.from_numpy(audio), sample_rate, format=response_format
-                )
-                return out.getvalue()
+            return audio_to_bytes(
+                response_format=response_format,
+                sample_rate=sample_rate,
+                tensor=torch.from_numpy(audio),
+            )

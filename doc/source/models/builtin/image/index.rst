@@ -11,7 +11,11 @@ The following is a list of built-in image models in Xinference:
    :maxdepth: 1
 
   
+   cogview4
+  
    flux.1-dev
+  
+   flux.1-kontext-dev
   
    flux.1-schnell
   

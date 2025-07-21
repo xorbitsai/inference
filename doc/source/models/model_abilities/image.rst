@@ -46,6 +46,9 @@ The Text-to-image API is supported with the following models in Xinference:
 * sd3.5-large-turbo
 * FLUX.1-schnell
 * FLUX.1-dev
+* Kolors
+* hunyuandit-v1.2
+* hunyuandit-v1.2-distilled
 
 
 Quickstart
@@ -107,9 +110,63 @@ We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's
       ]
     }
 
+Image-to-image
+--------------------
 
-Quantize Large Image Models e.g. SD3-Medium, FLUX.1
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The Image-to-image API mimics OpenAI's `create image variation API <https://platform.openai.com/docs/api-reference/images/createVariation>`_.
+We can try image-to-image API out either via cURL, OpenAI Client, or Xinference's python client:
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/variations' \
+      -F model=<MODEL_UID> \
+      -F image=@xxx.jpg \
+      -F prompt="an apple"
+
+
+  .. code-tab:: python OpenAI Python Client
+
+    import openai
+
+    client = openai.Client(
+        api_key="cannot be empty",
+        base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1"
+    )
+    client.images.create_variation(
+        model=<MODEL_UID>,
+        image=open("image_edit_original.png", "rb"),
+        prompt="an apple"
+    )
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+
+    model = client.get_model("<MODEL_UID>")
+    input_text = "an apple"
+    with open("xxx.jpg", "rb") as f:
+        model.image_to_image(f.read(), input_text)
+
+
+  .. code-tab:: json output
+
+    {
+      "created": 1697536913,
+      "data": [
+        {
+          "url": "/home/admin/.xinference/image/605d2f545ac74142b8031455af31ee33.jpg",
+          "b64_json": null
+        }
+      ]
+    }
+
+Memory optimization for Large Image Models e.g. SD3-Medium, FLUX.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. note::
 
@@ -162,6 +219,10 @@ Below list default options that used from v0.16.1.
     and for command line, specify ``--quantize_text_encoder False`` to disable quantization
     for text encoder.
 
+For :ref:`CogView4 <models_builtin_cogview4>`, we found that quantization has a significant impact on the model.
+Therefore, when GPU memory is limited, we recommend enabling the CPU offload option in the Web UI,
+and specifying ``--cpu_offload True`` when loading the model via the command line.
+
 GGUF file format
 ~~~~~~~~~~~~~~~~
 
@@ -201,18 +262,6 @@ For those models gguf options are not supported internally, or you want to downl
 you can specify additional option ``gguf_model_path`` for web UI or spcecify
 ``--gguf_model_path /path/to/model_quant.gguf`` for command line.
 
-
-Image-to-image
---------------------
-
-You can find more examples of Images API in the tutorial notebook:
-
-.. grid:: 1
-
-   .. grid-item-card:: Stable Diffusion ControlNet
-      :link: https://github.com/xorbitsai/inference/blob/main/examples/StableDiffusionControlNet.ipynb
-      
-      Learn from a Stable Diffusion ControlNet example
 
 OCR
 --------------------

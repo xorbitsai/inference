@@ -11,14 +11,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import asyncio
+import concurrent.futures
+import importlib
 import importlib.util
 import logging
+import pathlib
 import platform
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+)
+
+import xoscar as xo
 
 from ....fields import max_tokens_field
 from ....types import (
@@ -29,8 +47,8 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
-from ..core import LLM
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..core import LLM, chat_context_var
+from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -46,6 +64,10 @@ class MLXModelConfig(TypedDict, total=False):
     max_gpu_memory: str
     trust_remote_code: bool
     reasoning_content: bool
+    # distributed
+    address: Optional[str]
+    shard: Optional[int]
+    n_worker: Optional[int]
 
 
 class MLXGenerateConfig(TypedDict, total=False):
@@ -71,23 +93,56 @@ class PromptCache:
 
 
 class MLXModel(LLM):
+    _rank_to_addresses: Optional[Dict[int, str]]
+
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         model_config: Optional[MLXModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
+        # for distributed
+        assert model_config is not None
+        self._address = model_config.pop("address", None)
+        self._n_worker = model_config.pop("n_worker", 1)
+        self._shard = model_config.pop("shard", 0)
+        self._driver_info = model_config.pop("driver_info", None)  # type: ignore
+        self._rank_to_addresses = None
+        self._loading_thread = None
+        self._loading_error = None
+        self._all_worker_started = asyncio.Event()
         self._max_kv_size = None
         self._prompt_cache = None
         if peft_model is not None:
             raise ValueError("MLX engine has not supported lora yet")
+        # used to call async
+        self._loop = None
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop):
+        # loop will be passed into ModelWrapper,
+        # to call aynsc method with asyncio.run_coroutine_threadsafe
+        self._loop = loop  # type: ignore
+
+    @property
+    def driver_info(self) -> Optional[dict]:
+        return self._driver_info
+
+    def set_shard_info(self, shard: int, address: str):
+        # set shard info to rank 0
+        if self._rank_to_addresses is None:
+            self._rank_to_addresses = {}
+        self._rank_to_addresses[shard] = address
+        if len(self._rank_to_addresses) == self._n_worker:
+            self._all_worker_started.set()
+
+    async def get_rank_addresses(self) -> Optional[Dict[int, str]]:
+        await self._all_worker_started.wait()
+        return self._rank_to_addresses
 
     def _sanitize_model_config(
         self, model_config: Optional[MLXModelConfig]
@@ -158,9 +213,103 @@ class MLXModel(LLM):
                 tokenizer.add_eos_token(stop_token_id)
         return model, tokenizer
 
+    def _load_model_shard(self, **kwargs):
+        try:
+            import mlx.core as mx
+            from mlx_lm.utils import load_model, load_tokenizer
+        except ImportError:
+            error_message = "Failed to import module 'mlx_lm'"
+            installation_guide = [
+                "Please make sure 'mlx_lm' is installed. ",
+                "You can install it by `pip install mlx_lm`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        # Ensure some attributes correctly inited by model actor
+        assert (
+            self._loop is not None and self._rank_to_addresses is not None
+        ), "Service not started correctly"
+
+        tokenizer_config = dict(
+            use_fast=self._use_fast_tokenizer,
+            trust_remote_code=kwargs["trust_remote_code"],
+            revision=kwargs["revision"],
+        )
+        logger.debug(
+            "loading model with tokenizer config: %s, model config: %s, shard: %d, n_worker: %d",
+            tokenizer_config,
+            self._model_config,
+            self._shard,
+            self._n_worker,
+        )
+
+        cache_limit_gb = kwargs.get("cache_limit_gb", None)
+        if cache_limit_gb:
+            logger.debug(f"Setting cache limit to {cache_limit_gb} GB")
+            mx.metal.set_cache_limit(cache_limit_gb * 1024 * 1024 * 1024)
+
+        self._max_kv_size = kwargs.get("max_kv_size", None)
+        self._prompt_cache = PromptCache()
+
+        self._model, config = load_model(
+            pathlib.Path(self.model_path),
+            lazy=True,
+            get_model_classes=self._get_classes,
+        )
+        model = self._model.model
+        model.rank = self._shard
+        model.world_size = self._n_worker
+        model.model_uid = self.model_uid
+        model.loop = self._loop
+        model.address = self._address
+        model.rank_to_addresses = self._rank_to_addresses
+
+        # create actors and so forth
+        model.prepare()
+        # real load the partial weights
+        model.pipeline()
+        mx.eval(model.parameters())
+
+        self._tokenizer = load_tokenizer(
+            pathlib.Path(self.model_path),
+            tokenizer_config,
+            eos_token_ids=config.get("eos_token_id", None),
+        )
+
+    @staticmethod
+    def _get_classes(config: dict):
+        """
+        Retrieve the model and model args classes based on the configuration
+        that supported distributed inference.
+
+        Args:
+            config (dict): The model configuration.
+
+        Returns:
+            A tuple containing the Model class and the ModelArgs class.
+        """
+        from mlx_lm.utils import MODEL_REMAPPING
+
+        model_type = config["model_type"]
+        model_type = MODEL_REMAPPING.get(model_type, model_type)
+        try:
+            arch = importlib.import_module(
+                f"xinference.model.llm.mlx.distributed_models.{model_type}"
+            )
+        except ImportError:
+            msg = f"Model type {model_type} not supported for distributed inference."
+            logger.error(msg)
+            raise ValueError(msg)
+
+        return arch.Model, arch.ModelArgs
+
     def load(self):
         reasoning_content = self._model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._model_config.pop("enable_thinking", True)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         kwargs = {}
         kwargs["revision"] = self._model_config.get(
@@ -169,7 +318,49 @@ class MLXModel(LLM):
         kwargs["trust_remote_code"] = self._model_config.get("trust_remote_code")
         kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
 
-        self._model, self._tokenizer = self._load_model(**kwargs)
+        if self._n_worker <= 1:
+            self._model, self._tokenizer = self._load_model(**kwargs)
+        else:
+
+            def _load():
+                try:
+                    if self._shard == 0:
+                        self._driver_info = {"address": self._address}
+                        self.set_shard_info(0, self._address)
+                    else:
+                        assert self._driver_info is not None
+                        driver_address = self._driver_info["address"]
+
+                        async def wait_for_all_shards():
+                            model_ref = await xo.actor_ref(
+                                address=driver_address, uid=self.raw_model_uid
+                            )
+                            # set shard info
+                            await model_ref.set_shard_info(self._shard, self._address)
+                            # wait for all shards
+                            self._rank_to_addresses = (
+                                await model_ref.get_rank_addresses()
+                            )
+
+                        asyncio.run_coroutine_threadsafe(
+                            wait_for_all_shards(), self._loop
+                        ).result()
+
+                    self._load_model_shard(**kwargs)
+                except:
+                    logger.exception("Loading mlx shard model failed")
+                    self._loading_error = sys.exc_info()
+
+            # distributed inference
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+
+    def wait_for_load(self):
+        if self._loading_thread:
+            self._loading_thread.join()
+            if self._loading_error:
+                _, err, tb = self._loading_error
+                raise err.with_traceback(tb)
 
     @classmethod
     def check_lib(cls) -> bool:
@@ -177,7 +368,7 @@ class MLXModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["mlx"]:
             return False
@@ -366,20 +557,57 @@ class MLXModel(LLM):
             )
             yield completion_chunk, completion_usage
 
+    def _run_non_drivers(
+        self, method: str, stream: bool, *args, **kwargs
+    ) -> Optional[concurrent.futures.Future]:
+        assert self._n_worker is not None and self._shard is not None
+        if self._n_worker == 1 or self._shard > 0:
+            # only run for distributed driver
+            return None
+
+        async def run_other_shard(shard: int):
+            assert self._rank_to_addresses is not None
+            address = self._rank_to_addresses[shard]
+            model_actor_ref = await xo.actor_ref(
+                address=address, uid=self.raw_model_uid
+            )
+            # we don't actually need to get the result from shard >= 1
+            if stream:
+                async for _ in await getattr(model_actor_ref, method)(*args, **kwargs):
+                    pass
+            else:
+                await getattr(model_actor_ref, method)(*args, **kwargs)
+
+        async def run_non_driver_shards():
+            logger.debug("Start to run non driver %s", method)
+            coros = []
+            for rank in range(1, self._n_worker):
+                coros.append(run_other_shard(rank))
+            await asyncio.gather(*coros)
+
+        assert self._loop is not None
+        return asyncio.run_coroutine_threadsafe(run_non_driver_shards(), self._loop)
+
     def generate(
         self,
         prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[MLXGenerateConfig] = None,
+        from_chat: bool = False,
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
-            prompt: Union[str, Dict[str, Any]], generate_config: MLXGenerateConfig
+            prompt: Union[str, Dict[str, Any]],
+            generate_config: MLXGenerateConfig,
+            cb: Callable,
         ) -> Iterator[CompletionChunk]:
-            for completion_chunk, completion_usage in self._generate_stream(
-                prompt,
-                generate_config,
-            ):
-                completion_chunk["usage"] = completion_usage
-                yield completion_chunk
+            try:
+                for completion_chunk, completion_usage in self._generate_stream(
+                    prompt,
+                    generate_config,
+                ):
+                    completion_chunk["usage"] = completion_usage
+                    yield completion_chunk
+            finally:
+                cb()
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -391,6 +619,9 @@ class MLXModel(LLM):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
+        fut = self._run_non_drivers(
+            "generate", stream, prompt, generate_config=generate_config
+        )
         if not stream:
             for completion_chunk, completion_usage in self._generate_stream(
                 prompt,
@@ -405,9 +636,18 @@ class MLXModel(LLM):
                 choices=completion_chunk["choices"],
                 usage=completion_usage,
             )
-            return completion
+            try:
+                return completion
+            finally:
+                if fut:
+                    fut.result()
         else:
-            return generator_wrapper(prompt, generate_config)
+
+            def finish_callback():
+                if fut:
+                    fut.result()
+
+            return generator_wrapper(prompt, generate_config, finish_callback)
 
 
 class MLXChatModel(MLXModel, ChatModelMixin):
@@ -428,7 +668,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["mlx"]:
             return False
@@ -449,9 +689,14 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}  # type: ignore
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
@@ -467,11 +712,11 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
         stream = generate_config.get("stream", False)
         if stream:
-            it = self.generate(full_prompt, generate_config)
+            it = self.generate(full_prompt, generate_config, from_chat=True)
             assert isinstance(it, Iterator)
             return self._to_chat_completion_chunks(it, self.reasoning_parser)
         else:
-            c = self.generate(full_prompt, generate_config)
+            c = self.generate(full_prompt, generate_config, from_chat=True)
             assert not isinstance(c, Iterator)
             if tools:
                 return self._post_process_completion(
@@ -487,7 +732,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["mlx"]:
             return False
@@ -515,6 +760,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         return load(self.model_path)
 
     def load(self):
+        if self._n_worker > 1:
+            raise NotImplementedError(
+                "Distributed inference is not supported for vision models"
+            )
+
         kwargs = {}
         kwargs["revision"] = self._model_config.get(
             "revision", self.model_spec.model_revision
@@ -633,10 +883,14 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         if "internvl2" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
 
-            full_context_kwargs = (
-                self._get_chat_template_kwargs_from_generate_config(generate_config)  # type: ignore
+            chat_template_kwargs = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    generate_config, self.reasoning_parser
+                )
                 or {}
             )
+            chat_context_var.set(chat_template_kwargs)
+            full_context_kwargs = chat_template_kwargs.copy()
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

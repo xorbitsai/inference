@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-12-25 16:49+0800\n"
+"POT-Creation-Date: 2025-05-25 20:40+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -95,34 +95,62 @@ msgid ""
 msgstr "Xinference 支持以下模型使用 ``tools`` 功能："
 
 #: ../../source/models/model_abilities/tools.rst:35
-msgid ":ref:`models_llm_qwen-chat`"
-msgstr ""
-
-#: ../../source/models/model_abilities/tools.rst:36
 msgid ":ref:`models_llm_glm4-chat`"
 msgstr ""
 
-#: ../../source/models/model_abilities/tools.rst:37
+#: ../../source/models/model_abilities/tools.rst:36
 msgid ":ref:`models_llm_glm4-chat-1m`"
 msgstr ""
 
-#: ../../source/models/model_abilities/tools.rst:38
+#: ../../source/models/model_abilities/tools.rst:37
 msgid ":ref:`models_llm_llama-3.1-instruct`"
 msgstr ""
 
+#: ../../source/models/model_abilities/tools.rst:38
+msgid ":ref:`models_llm_llama-3.3-instruct`"
+msgstr ""
+
 #: ../../source/models/model_abilities/tools.rst:39
-msgid ":ref:`models_llm_qwen2.5-instruct`"
+msgid ":ref:`models_llm_qwen1.5-chat`"
 msgstr ""
 
 #: ../../source/models/model_abilities/tools.rst:40
-msgid ":ref:`models_llm_qwen2.5-coder-instruct`"
+msgid ":ref:`models_llm_qwen1.5-moe-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:41
+msgid ":ref:`models_llm_qwen2-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:42
+msgid ":ref:`models_llm_qwen2-moe-instruct`"
 msgstr ""
 
 #: ../../source/models/model_abilities/tools.rst:43
+msgid ":ref:`models_llm_qwen2.5-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:44
+msgid ":ref:`models_llm_qwen2.5-coder-instruct`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:45
+msgid ":ref:`models_llm_qwq-32b`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:46
+msgid ":ref:`models_llm_qwen3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:47
+msgid ":ref:`models_llm_deepseek-v3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:50
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/tools.rst:45
+#: ../../source/models/model_abilities/tools.rst:52
 msgid ""
 "An optional parameter ``tools`` in the Chat API can be used to provide "
 "function specifications. The purpose of this is to enable models to "
@@ -131,15 +159,15 @@ msgstr ""
 "Chat API 中的可选参数 ``tools`` 可以用于提供函数规范。其目的是使模型能够"
 "生成符合所提供规范的函数参数。"
 
-#: ../../source/models/model_abilities/tools.rst:49
+#: ../../source/models/model_abilities/tools.rst:56
 msgid "Example using OpenAI Client"
 msgstr "使用 OpenAI 客户端的示例"
 
-#: ../../source/models/model_abilities/tools.rst:98
+#: ../../source/models/model_abilities/tools.rst:105
 msgid "The output will be:"
 msgstr "输出结果是："
 
-#: ../../source/models/model_abilities/tools.rst:117
+#: ../../source/models/model_abilities/tools.rst:124
 msgid ""
 "Finish reason will be ``tool_calls`` if the LLM uses a tool call. "
 "Othewise it will be the default finish reason."
@@ -147,20 +175,24 @@ msgstr ""
 "如果 LLM 使用了工具调用，完成原因将是 ``tool_calls`` 。否则，它将是默认的"
 "完成原因。"
 
-#: ../../source/models/model_abilities/tools.rst:122
+#: ../../source/models/model_abilities/tools.rst:129
 msgid ""
 "The API will not actually execute any function calls. It is up to "
 "developers to execute function calls using model outputs."
 msgstr "API 本身不会执行任何函数调用。开发者需要使用模型输出来执行函数调用。"
 
-#: ../../source/models/model_abilities/tools.rst:126
+#: ../../source/models/model_abilities/tools.rst:133
 msgid "You can find more examples of ``tools`` ability in the tutorial notebook:"
 msgstr "你可以在教程笔记本中找到更多关于 ``tools`` 能力的示例。"
 
-#: ../../source/models/model_abilities/tools.rst:130
+#: ../../source/models/model_abilities/tools.rst:137
 msgid "Function calling"
 msgstr "函数调用"
 
-#: ../../source/models/model_abilities/tools.rst:133
+#: ../../source/models/model_abilities/tools.rst:140
 msgid "Learn from a complete example demonstrating function calling"
 msgstr "学习一个完整的示例，演示函数调用的过程。"
+
+#~ msgid ":ref:`models_llm_qwen-chat`"
+#~ msgstr ""
+

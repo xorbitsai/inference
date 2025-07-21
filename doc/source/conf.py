@@ -18,7 +18,7 @@ import os
 # -- Project information -----------------------------------------------------
 
 project = 'Xinference'
-copyright = '2023, Xorbits Inc.'
+copyright = '2025, Xorbits Inc.'
 author = 'xorbitsai'
 
 
@@ -107,6 +107,10 @@ if version_match != 'zh-cn':
         "icon": "fa-brands fa-twitter",
         "type": "fontawesome",
     }])
+    html_theme_options["external_links"] = [
+        {"name": "Official Site", "url": "https://xinference.io"},
+    ]
+    html_theme_options["header_links_before_dropdown"] = 6
 else:
     html_theme_options['icon_links'].extend([{
         "name": "WeChat",
@@ -121,7 +125,7 @@ else:
         "type": "fontawesome",
     }])
     html_theme_options["external_links"] = [
-        {"name": "产品官网", "url": "https://xorbits.cn"},
+        {"name": "产品官网", "url": "https://xinference.cn"},
     ]
 
 html_favicon = "_static/favicon.svg"

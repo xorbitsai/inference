@@ -22,18 +22,19 @@ The ``vision`` ability is supported with the following models in Xinference:
 
 * :ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`
 * :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
-* :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
 * :ref:`omnilmm <models_llm_omnilmm>`
-* :ref:`internvl-chat <models_llm_internvl-chat>`
 * :ref:`cogvlm2 <models_llm_cogvlm2>`
 * :ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`
 * :ref:`GLM-4V <models_llm_glm-4v>`
 * :ref:`MiniCPM-Llama3-V 2.6 <models_llm_minicpm-v-2.6>`
-* :ref:`internvl2 <models_llm_internvl2>`
 * :ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`
 * :ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`
 * :ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`
 * :ref:`glm-edge-v <models_llm_glm-edge-v>`
+* :ref:`qwen2.5-vl-instruct <models_llm_qwen2.5-vl-instruct>`
+* :ref:`gemma-3-it <models_llm_gemma-3-it>`
+* :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
+* :ref:`internvl3 <models_llm_internvl3>`
 
 
 Quickstart

@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
     from ..model.llm.core import LLM
-    from ..model.core import ModelDescription
     import PIL
 
 import logging
@@ -71,17 +70,23 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
-XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
-    "qwen-vl-chat",
-    "cogvlm2",
-    "glm-4v",
-    "MiniCPM-V-2.6",
-]
+# !!!!! DO NOT add model_name to this list, using `register_batching_multimodal_models` below instead.
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
+
+
+def register_batching_multimodal_models(*model_names: str):
+    def decorator(cls):
+        for name in model_names:
+            if name not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS:
+                XINFERENCE_BATCHING_ALLOWED_VISION_MODELS.append(name)
+        return cls
+
+    return decorator
 
 
 def request_limit(fn):
@@ -154,10 +159,6 @@ def oom_check(fn):
 class ModelActor(xo.StatelessActor, CancelMixin):
     _replica_model_uid: Optional[str]
 
-    @classmethod
-    def gen_uid(cls, model: "LLM"):
-        return f"{model.__class__}-model-actor"
-
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
         from ..model.llm.sglang.core import SGLANGModel
@@ -223,7 +224,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         worker_address: str,
         model: "LLM",
         replica_model_uid: str,
-        model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
         xavier_config: Optional[Dict] = None,
         n_worker: Optional[int] = 1,
@@ -242,9 +242,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._worker_address = worker_address
         self._replica_model_uid = replica_model_uid
         self._model = model
-        self._model_description = (
-            model_description.to_dict() if model_description else {}
-        )
+        self._model_description = self._model.model_family.to_description()
         self._request_limits = (
             float("inf") if request_limits is None else request_limits
         )
@@ -311,6 +309,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
+
+    def __getattr__(self, attr: str):
+        return getattr(self._model, attr)
 
     def decrease_serve_count(self):
         self._serve_count -= 1
@@ -632,6 +633,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return await _gen.__anext__()  # noqa: F821
                 except StopAsyncIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             def _wrapper(_gen):
                 # Avoid issue: https://github.com/python/cpython/issues/112182
@@ -639,6 +642,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return next(_gen)
                 except StopIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             while True:
                 try:
@@ -699,6 +704,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -715,6 +722,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = await stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -969,6 +978,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 response_format,
                 temperature,
                 timestamp_granularities,
+                **kwargs,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
@@ -1208,12 +1218,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(
         self,
+        *args,
         **kwargs,
     ):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
                 self._model.infer,
+                *args,
                 **kwargs,
             )
         raise AttributeError(
@@ -1229,17 +1241,80 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
-        if hasattr(self._model, "text_to_video"):
-            return await self._call_wrapper_json(
-                self._model.text_to_video,
-                prompt,
-                n,
-                *args,
-                **kwargs,
-            )
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "text_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.text_to_video,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def image_to_video(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "image_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.image_to_video,
+                    image,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from image."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def flf_to_video(
+        self,
+        first_frame: "PIL.Image.Image",
+        last_frame: "PIL.Image.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "firstlastframe_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.firstlastframe_to_video,
+                    first_frame,
+                    last_frame,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from first-last-frame."
         )
 
     async def record_metrics(self, name, op, kwargs):

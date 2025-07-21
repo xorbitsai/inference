@@ -55,6 +55,14 @@ The following is a list of built-in audio models in Xinference:
   
    paraformer-zh
   
+   paraformer-zh-hotword
+  
+   paraformer-zh-long
+  
+   paraformer-zh-spk
+  
+   seaco-paraformer-zh
+  
    sensevoicesmall
   
    whisper-base

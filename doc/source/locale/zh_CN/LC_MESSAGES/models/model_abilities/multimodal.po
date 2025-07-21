@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-26 12:01+0800\n"
+"POT-Creation-Date: 2025-05-25 20:40+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -42,7 +42,7 @@ msgstr ""
 "Xinference 中，这表示某些模型在通过 Chat API 进行对话时能够处理图像输入。"
 
 #: ../../source/models/model_abilities/multimodal.rst:19
-#: ../../source/models/model_abilities/multimodal.rst:137
+#: ../../source/models/model_abilities/multimodal.rst:138
 msgid "Supported models"
 msgstr "支持的模型列表"
 
@@ -61,59 +61,63 @@ msgid ":ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`"
 msgstr ""
 
 #: ../../source/models/model_abilities/multimodal.rst:25
-msgid ":ref:`yi-vl-chat <models_llm_yi-vl-chat>`"
-msgstr ""
-
-#: ../../source/models/model_abilities/multimodal.rst:26
 msgid ":ref:`omnilmm <models_llm_omnilmm>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:27
-msgid ":ref:`internvl-chat <models_llm_internvl-chat>`"
-msgstr ""
-
-#: ../../source/models/model_abilities/multimodal.rst:28
+#: ../../source/models/model_abilities/multimodal.rst:26
 msgid ":ref:`cogvlm2 <models_llm_cogvlm2>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:29
+#: ../../source/models/model_abilities/multimodal.rst:27
 msgid ":ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:30
+#: ../../source/models/model_abilities/multimodal.rst:28
 msgid ":ref:`GLM-4V <models_llm_glm-4v>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:31
+#: ../../source/models/model_abilities/multimodal.rst:29
 msgid ":ref:`MiniCPM-Llama3-V 2.6 <models_llm_minicpm-v-2.6>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:32
-msgid ":ref:`internvl2 <models_llm_internvl2>`"
-msgstr ""
-
-#: ../../source/models/model_abilities/multimodal.rst:33
+#: ../../source/models/model_abilities/multimodal.rst:30
 msgid ":ref:`qwen2-vl-instruct <models_llm_qwen2-vl-instruct>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:34
+#: ../../source/models/model_abilities/multimodal.rst:31
 msgid ":ref:`llama-3.2-vision <models_llm_llama-3.2-vision>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:35
+#: ../../source/models/model_abilities/multimodal.rst:32
 msgid ":ref:`llama-3.2-vision-instruct <models_llm_llama-3.2-vision-instruct>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:36
+#: ../../source/models/model_abilities/multimodal.rst:33
 msgid ":ref:`glm-edge-v <models_llm_glm-edge-v>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:40
-#: ../../source/models/model_abilities/multimodal.rst:144
+#: ../../source/models/model_abilities/multimodal.rst:34
+msgid ":ref:`qwen2.5-vl-instruct <models_llm_qwen2.5-vl-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:35
+msgid ":ref:`gemma-3-it <models_llm_gemma-3-it>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:36
+msgid ":ref:`deepseek-vl2 <models_llm_deepseek-vl2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:37
+msgid ":ref:`internvl3 <models_llm_internvl3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/multimodal.rst:41
+#: ../../source/models/model_abilities/multimodal.rst:145
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/multimodal.rst:42
+#: ../../source/models/model_abilities/multimodal.rst:43
 msgid ""
 "Images are made available to the model in two main ways: by passing a "
 "link to the image or by passing the base64 encoded image directly in the "
@@ -122,31 +126,31 @@ msgstr ""
 "模型可以通过两种主要方式获取图像：通过传递图像的链接或直接在请求中传递 "
 "base64 编码的图像。"
 
-#: ../../source/models/model_abilities/multimodal.rst:46
+#: ../../source/models/model_abilities/multimodal.rst:47
 msgid "Example using OpenAI Client"
 msgstr "使用 OpenAI 客户端的示例"
 
-#: ../../source/models/model_abilities/multimodal.rst:77
+#: ../../source/models/model_abilities/multimodal.rst:78
 msgid "Uploading base 64 encoded images"
 msgstr "上传 Base64 编码的图片"
 
-#: ../../source/models/model_abilities/multimodal.rst:119
+#: ../../source/models/model_abilities/multimodal.rst:120
 msgid "You can find more examples of ``vision`` ability in the tutorial notebook:"
 msgstr "你可以在教程笔记本中找到更多关于 ``vision`` 能力的示例。"
 
-#: ../../source/models/model_abilities/multimodal.rst:123
+#: ../../source/models/model_abilities/multimodal.rst:124
 msgid "Qwen VL Chat"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:126
+#: ../../source/models/model_abilities/multimodal.rst:127
 msgid "Learn vision ability from a example using qwen-vl-chat"
 msgstr "通过使用 qwen-vl-chat 的示例来学习使用 LLM 的视觉能力"
 
-#: ../../source/models/model_abilities/multimodal.rst:129
+#: ../../source/models/model_abilities/multimodal.rst:130
 msgid "Audio"
 msgstr "音频"
 
-#: ../../source/models/model_abilities/multimodal.rst:131
+#: ../../source/models/model_abilities/multimodal.rst:132
 msgid ""
 "With the ``audio`` ability you can have your model take in audio and "
 "performing audio analysis or direct textual responses with regard to "
@@ -158,17 +162,17 @@ msgstr ""
 "生成文本响应。在 Xinference 中，这表示某些模型在通过 Chat API 进行对话时"
 "能够处理音频输入。"
 
-#: ../../source/models/model_abilities/multimodal.rst:139
+#: ../../source/models/model_abilities/multimodal.rst:140
 msgid ""
 "The ``audio`` ability is supported with the following models in "
 "Xinference:"
 msgstr "“音频”功能在 Xinference 中支持以下模型："
 
-#: ../../source/models/model_abilities/multimodal.rst:141
+#: ../../source/models/model_abilities/multimodal.rst:142
 msgid ":ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:146
+#: ../../source/models/model_abilities/multimodal.rst:147
 msgid ""
 "Audios are made available to the model in two main ways: by passing a "
 "link to the image or by passing the audio url directly in the request."
@@ -176,7 +180,16 @@ msgstr ""
 "音频可以通过两种主要方式提供给模型：通过传递图像链接或在请求中直接传递"
 "音频 URL。"
 
-#: ../../source/models/model_abilities/multimodal.rst:151
+#: ../../source/models/model_abilities/multimodal.rst:152
 msgid "Chat with audio"
 msgstr "带有音频的聊天"
+
+#~ msgid ":ref:`yi-vl-chat <models_llm_yi-vl-chat>`"
+#~ msgstr ""
+
+#~ msgid ":ref:`internvl-chat <models_llm_internvl-chat>`"
+#~ msgstr ""
+
+#~ msgid ":ref:`internvl2 <models_llm_internvl2>`"
+#~ msgstr ""
 

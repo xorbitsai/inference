@@ -4,9 +4,7 @@
 Model Virtual Environments
 ==========================
 
-.. note::
-
-  New added in v1.5.0.
+.. versionadded:: v1.5.0
 
 Background
 ##########
@@ -71,4 +69,6 @@ Storage Location
 ################
 
 By default, the model’s virtual environment is stored under path:
-:ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_name}
+
+* Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_name}
+* Since v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v2 / {model_name}

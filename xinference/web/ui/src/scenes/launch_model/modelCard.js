@@ -71,7 +71,7 @@ import {
 } from './data/data'
 
 const csghubArr = ['qwen2-instruct']
-const enginesWithNWorker = ['SGLang', 'vLLM']
+const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
 
 const ModelCard = ({
   url,
@@ -101,6 +101,7 @@ const ModelCard = ({
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [multimodalProjector, setMultimodalProjector] = useState('')
   const [nWorker, setNWorker] = useState(1)
   const [nGPU, setNGPU] = useState('auto')
   const [nGpu, setNGpu] = useState(gpuAvailable === 0 ? 'CPU' : 'GPU')
@@ -111,6 +112,7 @@ const ModelCard = ({
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
   const [modelPath, setModelPath] = useState('')
+  const [enableThinking, setEnableThinking] = useState(true)
   const [reasoningContent, setReasoningContent] = useState(false)
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
@@ -121,6 +123,9 @@ const ModelCard = ({
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
+  const [multimodalProjectorOptions, setMultimodalProjectorOptions] = useState(
+    []
+  )
   const [customDeleted, setCustomDeleted] = useState(false)
   const [customParametersArr, setCustomParametersArr] = useState([])
   const [quantizationParametersArr, setQuantizationParametersArr] = useState([])
@@ -177,12 +182,16 @@ const ModelCard = ({
     }
     const data = handleGetHistory()
     if (keyArr.length && data.model_name) {
-      handleLlmHistory(data)
+      if (modelType === 'LLM') {
+        handleLlmHistory(data)
+      } else {
+        handleOtherHistory(data)
+      }
     }
   }, [enginesObj])
 
   useEffect(() => {
-    if (modelEngine) {
+    if (modelEngine && ['LLM', 'embedding'].includes(modelType)) {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
@@ -197,7 +206,7 @@ const ModelCard = ({
   }, [modelEngine])
 
   useEffect(() => {
-    if (modelEngine && modelFormat) {
+    if (modelEngine && modelFormat && ['LLM'].includes(modelType)) {
       const sizes = [
         ...new Set(
           enginesObj[modelEngine]
@@ -215,6 +224,25 @@ const ModelCard = ({
       if (sizes.length === 1) {
         setModelSize(sizes[0])
       }
+    } else if (
+      modelEngine &&
+      modelFormat &&
+      ['embedding'].includes(modelType)
+    ) {
+      const quants = [
+        ...new Set(
+          enginesObj[modelEngine]
+            .filter((item) => item.model_format === modelFormat)
+            .map((item) => item.quantization)
+        ),
+      ]
+      setQuantizationOptions(quants)
+      if (!quants.includes(quantization)) {
+        setQuantization('')
+      }
+      if (quants.length === 1) {
+        setQuantization(quants[0])
+      }
     }
   }, [modelEngine, modelFormat])
 
@@ -231,12 +259,30 @@ const ModelCard = ({
             .flatMap((item) => item.quantizations)
         ),
       ]
+      const multimodal_projectors = [
+        ...new Set(
+          enginesObj[modelEngine]
+            .filter(
+              (item) =>
+                item.model_format === modelFormat &&
+                item.model_size_in_billions === convertModelSize(modelSize)
+            )
+            .flatMap((item) => item.multimodal_projectors || [])
+        ),
+      ]
       setQuantizationOptions(quants)
+      setMultimodalProjectorOptions(multimodal_projectors || [])
       if (!quants.includes(quantization)) {
         setQuantization('')
       }
       if (quants.length === 1) {
         setQuantization(quants[0])
+      }
+      if (!multimodal_projectors.includes(multimodalProjector)) {
+        setMultimodalProjector('')
+      }
+      if (multimodal_projectors.length > 0 && !multimodalProjector) {
+        setMultimodalProjector(multimodal_projectors[0])
       }
     }
   }, [modelEngine, modelFormat, modelSize])
@@ -255,11 +301,11 @@ const ModelCard = ({
   }, [customParametersArr])
 
   const getNGPURange = () => {
-    if (gpuAvailable === 0) {
-      // remain 'auto' for distributed situation
-      return ['auto', 'CPU']
+    if (gpuAvailable > 0) {
+      return ['auto', 'CPU'].concat(range(1, gpuAvailable))
     }
-    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+
+    return ['auto', 'CPU']
   }
 
   const getNewNGPURange = () => {
@@ -270,9 +316,13 @@ const ModelCard = ({
     }
   }
 
-  const getModelEngine = (model_name) => {
+  const getModelEngine = (model_name, model_type) => {
     fetchWrapper
-      .get(`/v1/engines/${model_name}`)
+      .get(
+        model_type === 'LLM'
+          ? `/v1/engines/${model_name}`
+          : `/v1/engines/${model_type}/${model_name}`
+      )
       .then((data) => {
         setEnginesObj(data)
         setEngineOptions(Object.keys(data))
@@ -351,13 +401,26 @@ const ModelCard = ({
       model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
+    if (multimodalProjector)
+      modelDataWithID_LLM.multimodal_projector = multimodalProjector
     if (nGPULayers >= 0) modelDataWithID_LLM.n_gpu_layers = nGPULayers
-    if (modelData.model_ability?.includes('reasoning'))
+    if (modelData.model_ability?.includes('hybrid'))
+      modelDataWithID_LLM.enable_thinking = enableThinking
+    if (
+      modelData.model_ability?.includes('reasoning') &&
+      (!modelData.model_ability?.includes('hybrid') || enableThinking)
+    )
       modelDataWithID_LLM.reasoning_content = reasoningContent
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
-    if (modelType === 'image') modelDataWithID_other.cpu_offload = cpuOffload
+    if (['image', 'video'].includes(modelType))
+      modelDataWithID_other.cpu_offload = cpuOffload
+    if (['embedding'].includes(modelType)) {
+      modelDataWithID_other.model_engine = modelEngine
+      modelDataWithID_other.model_format = modelFormat
+      modelDataWithID_other.quantization = quantization
+    }
 
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
@@ -640,6 +703,7 @@ const ModelCard = ({
       model_format,
       model_size_in_billions,
       quantization,
+      multimodal_projector,
       n_worker,
       n_gpu,
       n_gpu_layers,
@@ -650,6 +714,7 @@ const ModelCard = ({
       gpu_idx,
       download_hub,
       model_path,
+      enable_thinking,
       reasoning_content,
       peft_model_config,
       quantization_config,
@@ -663,6 +728,7 @@ const ModelCard = ({
     setModelFormat(model_format || '')
     setModelSize(String(model_size_in_billions) || '')
     setQuantization(quantization || '')
+    setMultimodalProjector(multimodal_projector || '')
     setNWorker(Number(n_worker) || 1)
     setNGPU(n_gpu || 'auto')
     if (n_gpu_layers >= 0) {
@@ -677,6 +743,7 @@ const ModelCard = ({
     setGPUIdx(gpu_idx?.join(',') || '')
     setDownloadHub(download_hub || '')
     setModelPath(model_path || '')
+    setEnableThinking(enable_thinking !== false)
     setReasoningContent(reasoning_content || false)
 
     let loraData = []
@@ -736,6 +803,9 @@ const ModelCard = ({
 
   const handleOtherHistory = (data) => {
     const {
+      model_engine,
+      model_format,
+      quantization,
       model_uid,
       replica,
       n_gpu,
@@ -749,6 +819,14 @@ const ModelCard = ({
       model_type,
       peft_model_config,
     } = data
+
+    if (!engineOptions.includes(model_engine)) {
+      setModelEngine('')
+    } else {
+      setModelEngine(model_engine || '')
+    }
+    setModelFormat(model_format || '')
+    setQuantization(quantization || '')
     setModelUID(model_uid || '')
     setReplica(replica || 1)
     setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
@@ -833,6 +911,7 @@ const ModelCard = ({
       setModelFormat('')
       setModelSize('')
       setQuantization('')
+      setMultimodalProjector('')
       setNWorker(1)
       setNGPU('auto')
       setReplica(1)
@@ -842,6 +921,7 @@ const ModelCard = ({
       setGPUIdx('')
       setDownloadHub('')
       setModelPath('')
+      setEnableThinking(true)
       setReasoningContent(false)
       setLoraArr([])
       setCustomArr([])
@@ -849,6 +929,9 @@ const ModelCard = ({
       setIsOther(false)
       setIsPeftModelConfig(false)
     } else {
+      setModelEngine('')
+      setModelFormat('')
+      setQuantization('')
       setModelUID('')
       setReplica(1)
       setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
@@ -965,8 +1048,8 @@ const ModelCard = ({
             const data = handleGetHistory()
             if (data?.model_name) setIsHistory(true)
             setSelected(true)
-            if (modelType === 'LLM') {
-              getModelEngine(modelData.model_name)
+            if (['LLM', 'embedding'].includes(modelType)) {
+              getModelEngine(modelData.model_name, modelType)
             } else if (data?.model_name) {
               handleOtherHistory(data)
             }
@@ -1261,7 +1344,11 @@ const ModelCard = ({
                   }
                 })()}
                 {(() => {
-                  if (modelData.cache_status) {
+                  if (
+                    (modelData.model_specs &&
+                      modelData.model_specs.some((spec) => isCached(spec))) ||
+                    modelData.cache_status
+                  ) {
                     return (
                       <Chip
                         label={t('launchModel.manageCachedModels')}
@@ -1292,19 +1379,31 @@ const ModelCard = ({
                 </p>
               )}
             </div>
-            {modelData.dimensions && (
+            {(modelData.dimensions || modelData.max_tokens) && (
               <div className="iconRow">
                 <div className="iconItem">
-                  <span className="boldIconText">{modelData.dimensions}</span>
-                  <small className="smallText">
-                    {t('launchModel.dimensions')}
-                  </small>
+                  {modelData.dimensions && (
+                    <>
+                      <span className="boldIconText">
+                        {modelData.dimensions}
+                      </span>
+                      <small className="smallText">
+                        {t('launchModel.dimensions')}
+                      </small>
+                    </>
+                  )}
                 </div>
                 <div className="iconItem">
-                  <span className="boldIconText">{modelData.max_tokens}</span>
-                  <small className="smallText">
-                    {t('launchModel.maxTokens')}
-                  </small>
+                  {modelData.max_tokens && (
+                    <>
+                      <span className="boldIconText">
+                        {modelData.max_tokens}
+                      </span>
+                      <small className="smallText">
+                        {t('launchModel.maxTokens')}
+                      </small>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1520,7 +1619,7 @@ const ModelCard = ({
                           )
 
                         const spec = specs.find((s) => {
-                          return s.quantizations.includes(quant)
+                          return s.quantizations === quant
                         })
                         const cached = Array.isArray(spec?.cache_status)
                           ? spec?.cache_status[
@@ -1541,6 +1640,102 @@ const ModelCard = ({
                     </Select>
                   </FormControl>
                 </Grid>
+                {multimodalProjectorOptions.length > 0 && (
+                  <Grid item xs={12}>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat || !modelSize}
+                    >
+                      <InputLabel id="multimodelProjector-label">
+                        {t('launchModel.multimodelProjector')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="multimodelProjector-label"
+                        value={multimodalProjector}
+                        onChange={(e) => setMultimodalProjector(e.target.value)}
+                        label={t('launchModel.multimodelProjector')}
+                      >
+                        {multimodalProjectorOptions.map((projector) => {
+                          const specs = modelData.model_specs
+                            .filter((spec) => spec.model_format === modelFormat)
+                            .filter(
+                              (spec) =>
+                                spec.model_size_in_billions ===
+                                convertModelSize(modelSize)
+                            )
+
+                          const spec = specs.find((s) => {
+                            return s.multimodal_projectors.includes(projector)
+                          })
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.multimodal_projectors.indexOf(projector)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedProjector = cached
+                            ? projector + ' ' + t('launchModel.cached')
+                            : projector
+
+                          return (
+                            <MenuItem key={projector} value={projector}>
+                              {displayedProjector}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat || !modelSize}
+                    >
+                      <InputLabel id="quantization-label">
+                        {t('launchModel.quantization')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="quantization-label"
+                        value={quantization}
+                        onChange={(e) => setQuantization(e.target.value)}
+                        label={t('launchModel.quantization')}
+                      >
+                        {quantizationOptions.map((quant) => {
+                          const specs = modelData.model_specs
+                            .filter((spec) => spec.model_format === modelFormat)
+                            .filter(
+                              (spec) =>
+                                spec.model_size_in_billions ===
+                                convertModelSize(modelSize)
+                            )
+
+                          const spec = specs.find((s) => {
+                            return s.quantizations === quant
+                          })
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.quantizations.indexOf(quant)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedQuant = cached
+                            ? quant + ' ' + t('launchModel.cached')
+                            : quant
+
+                          return (
+                            <MenuItem key={quant} value={quant}>
+                              {displayedQuant}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
                 <Grid item xs={12}>
                   <FormControl
                     variant="outlined"
@@ -1614,22 +1809,39 @@ const ModelCard = ({
                     />
                   </FormControl>
                 </Grid>
-                {modelData.model_ability?.includes('reasoning') && (
+                {modelData.model_ability?.includes('hybrid') && (
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <div>
                         <FormControlLabel
-                          label={t('launchModel.parsingReasoningContent')}
+                          label={t('launchModel.enableThinking')}
                           labelPlacement="start"
-                          control={<Switch checked={reasoningContent} />}
+                          control={<Switch checked={enableThinking} />}
                           onChange={(e) => {
-                            setReasoningContent(e.target.checked)
+                            setEnableThinking(e.target.checked)
                           }}
                         />
                       </div>
                     </FormControl>
                   </Grid>
                 )}
+                {modelData.model_ability?.includes('reasoning') &&
+                  enableThinking && (
+                    <Grid item xs={12}>
+                      <FormControl variant="outlined" margin="normal" fullWidth>
+                        <div>
+                          <FormControlLabel
+                            label={t('launchModel.parsingReasoningContent')}
+                            labelPlacement="start"
+                            control={<Switch checked={reasoningContent} />}
+                            onChange={(e) => {
+                              setReasoningContent(e.target.checked)
+                            }}
+                          />
+                        </div>
+                      </FormControl>
+                    </Grid>
+                  )}
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <ListItemText
@@ -1862,6 +2074,123 @@ const ModelCard = ({
               mx="auto"
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
+                {['embedding'].includes(modelType) && (
+                  <>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <InputLabel id="modelEngine-label">
+                        {t('launchModel.modelEngine')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="modelEngine-label"
+                        value={modelEngine}
+                        onChange={(e) => setModelEngine(e.target.value)}
+                        label={t('launchModel.modelEngine')}
+                      >
+                        {engineOptions.map((engine) => {
+                          const subArr = []
+                          enginesObj[engine].forEach((item) => {
+                            subArr.push(item.model_format)
+                          })
+                          const arr = [...new Set(subArr)]
+                          const specs = modelData.model_specs.filter((spec) =>
+                            arr.includes(spec.model_format)
+                          )
+
+                          const cached = specs.some((spec) => isCached(spec))
+
+                          const displayedEngine = cached
+                            ? engine + ' ' + t('launchModel.cached')
+                            : engine
+
+                          return (
+                            <MenuItem key={engine} value={engine}>
+                              {displayedEngine}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelEngine}
+                    >
+                      <InputLabel id="modelFormat-label">
+                        {t('launchModel.modelFormat')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="modelFormat-label"
+                        value={modelFormat}
+                        onChange={(e) => setModelFormat(e.target.value)}
+                        label={t('launchModel.modelFormat')}
+                      >
+                        {formatOptions.map((format) => {
+                          const specs = modelData.model_specs.filter(
+                            (spec) => spec.model_format === format
+                          )
+
+                          const cached = specs.some((spec) => isCached(spec))
+
+                          const displayedFormat = cached
+                            ? format + ' ' + t('launchModel.cached')
+                            : format
+
+                          return (
+                            <MenuItem key={format} value={format}>
+                              {displayedFormat}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                      disabled={!modelFormat}
+                    >
+                      <InputLabel id="quantization-label">
+                        {t('launchModel.quantization')}
+                      </InputLabel>
+                      <Select
+                        className="textHighlight"
+                        labelId="quantization-label"
+                        value={quantization}
+                        onChange={(e) => setQuantization(e.target.value)}
+                        label={t('launchModel.quantization')}
+                      >
+                        {quantizationOptions.map((quant) => {
+                          const specs = modelData.model_specs.filter(
+                            (spec) => spec.model_format === modelFormat
+                          )
+
+                          const spec = specs.find((s) => {
+                            return s.quantization === quant
+                          })
+
+                          const cached = Array.isArray(spec?.cache_status)
+                            ? spec?.cache_status[
+                                spec?.quantizations.indexOf(quant)
+                              ]
+                            : spec?.cache_status
+
+                          const displayedQuant = cached
+                            ? quant + ' ' + t('launchModel.cached')
+                            : quant
+
+                          return (
+                            <MenuItem key={quant} value={quant}>
+                              {displayedQuant}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </>
+                )}
                 <TextField
                   className="textHighlight"
                   variant="outlined"
@@ -1883,15 +2212,15 @@ const ModelCard = ({
                   onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                 />
                 <FormControl variant="outlined" margin="normal" fullWidth>
-                  <InputLabel id="n-gpu-label">
+                  <InputLabel id="device-label">
                     {t('launchModel.device')}
                   </InputLabel>
                   <Select
                     className="textHighlight"
-                    labelId="n-gpu-label"
+                    labelId="device-label"
                     value={nGpu}
                     onChange={(e) => setNGpu(e.target.value)}
-                    label={t('launchModel.nGPU')}
+                    label={t('launchModel.device')}
                   >
                     {getNewNGPURange().map((v) => {
                       return (
@@ -2008,7 +2337,7 @@ const ModelCard = ({
                     />
                   </FormControl>
                 )}
-                {modelType === 'image' && (
+                {['image', 'video'].includes(modelType) && (
                   <>
                     <div
                       style={{

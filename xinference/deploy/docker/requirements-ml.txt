@@ -1,5 +1,5 @@
 uv
-transformers>=4.51.3
+transformers==4.52.4
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
@@ -9,7 +9,7 @@ einops
 tiktoken>=0.6.0
 sentence-transformers>=3.1.0
 controlnet_aux
-autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
+autoawq!=0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
@@ -27,6 +27,7 @@ pyarrow  # For CosyVoice, matcha
 HyperPyYAML  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+pyworld>=0.3.4  # For CosyVoice
 boto3>=1.28.55,<1.28.65 # For tensorizer
 tensorizer~=2.9.0
 eva-decord  # For video in VL
@@ -35,7 +36,6 @@ loralib  # For Fish Speech
 vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
 torchdiffeq  # For F5-TTS
 x_transformers>=1.31.14  # For F5-TTS
-gguf
 vllm==0.8.5
 
 # sglang
@@ -53,5 +53,5 @@ torchao>=0.7.0
 uvloop
 xgrammar>=0.1.10
 cuda-python
-sgl-kernel>=0.0.3.post3
+sgl-kernel>=0.0.3.post3,<=0.1.4
 IPython

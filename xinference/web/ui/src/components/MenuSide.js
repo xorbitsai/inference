@@ -1,8 +1,10 @@
 import {
   AddBoxOutlined,
   ChevronRightOutlined,
+  DescriptionOutlined,
   DnsOutlined,
   GitHub,
+  OpenInNew,
   RocketLaunchOutlined,
   SmartToyOutlined,
 } from '@mui/icons-material'
@@ -24,6 +26,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import icon from '../media/icon.webp'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
+import VersionLabel from './versionLabel'
 
 const MenuSide = () => {
   const theme = useTheme()
@@ -33,7 +36,7 @@ const MenuSide = () => {
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
 
   const navItems = [
     {
@@ -55,6 +58,11 @@ const MenuSide = () => {
       text: 'cluster_information',
       label: t('menu.clusterInfo'),
       icon: <DnsOutlined />,
+    },
+    {
+      text: 'documentation',
+      label: t('menu.documentation'),
+      icon: <DescriptionOutlined />,
     },
     {
       text: 'contact_us',
@@ -156,6 +164,13 @@ const MenuSide = () => {
                           '_blank',
                           'noreferrer'
                         )
+                      } else if (text === 'documentation') {
+                        window.open(
+                          'https://inference.readthedocs.io/' +
+                            (i18n.language === 'zh' ? 'zh-cn' : ''),
+                          '_blank',
+                          'noreferrer'
+                        )
                       } else if (text === 'launch_model') {
                         sessionStorage.setItem('modelType', '/launch_model/llm')
                         navigate('/launch_model/llm')
@@ -198,7 +213,13 @@ const MenuSide = () => {
                       {icon}
                     </ListItemIcon>
                     <ListItemText primary={label} />
-                    <ChevronRightOutlined sx={{ ml: 'auto' }} />
+                    {text === 'contact_us' || text === 'documentation' ? (
+                      <OpenInNew
+                        sx={{ ml: 'auto', mr: '0.5rem', fontSize: 'small' }}
+                      />
+                    ) : (
+                      <ChevronRightOutlined sx={{ ml: 'auto' }} />
+                    )}
                   </ListItemButton>
                 </ListItem>
               )
@@ -207,9 +228,10 @@ const MenuSide = () => {
         </Box>
       </Box>
 
-      <Box display="flex" alignItems="center" marginLeft={'3rem'}>
+      <Box display="flex" alignItems="center" marginX={'3rem'}>
         <ThemeButton sx={{ m: '1rem' }} />
         <TranslateButton />
+        <VersionLabel sx={{ ml: 'auto' }} />
       </Box>
     </Drawer>
   )

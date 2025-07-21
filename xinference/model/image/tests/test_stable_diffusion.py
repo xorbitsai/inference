@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import base64
 import io
@@ -29,10 +30,11 @@ import xoscar as xo
 from PIL import Image
 
 from ....core.progress_tracker import Progressor, ProgressTrackerActor
-from ..core import ImageModelFamilyV1, cache
+from ..cache_manager import ImageCacheManager as CacheManager
+from ..core import ImageModelFamilyV2
 from ..stable_diffusion.core import DiffusionModel
 
-TEST_MODEL_SPEC = ImageModelFamilyV1(
+TEST_MODEL_SPEC = ImageModelFamilyV2(
     model_family="stable_diffusion",
     model_name="small-stable-diffusion-v0",
     model_id="OFA-Sys/small-stable-diffusion-v0",
@@ -46,7 +48,7 @@ logger = logging.getLogger(__name__)
 def test_model():
     model_path = None
     try:
-        model_path = cache(TEST_MODEL_SPEC)
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
         model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
         # input is a string
         input_text = "an apple"
@@ -70,7 +72,7 @@ async def test_progressor():
     def _run_model(**kwargs):
         model_path = None
         try:
-            model_path = cache(TEST_MODEL_SPEC)
+            model_path = CacheManager(TEST_MODEL_SPEC).cache()
             model = DiffusionModel("mock", model_path, model_spec=TEST_MODEL_SPEC)
             # input is a string
             input_text = "an apple"
@@ -375,13 +377,12 @@ def test_restful_api_for_sd_inpainting(setup):
 
 
 def test_get_cache_status():
-    from ..core import get_cache_status
-
     model_path = None
+    cache_manager = CacheManager(TEST_MODEL_SPEC)
     try:
-        assert get_cache_status(TEST_MODEL_SPEC) is False
-        model_path = cache(TEST_MODEL_SPEC)
-        assert get_cache_status(TEST_MODEL_SPEC) is True
+        assert cache_manager.get_cache_status() is False
+        model_path = cache_manager.cache()
+        assert cache_manager.get_cache_status() is True
     finally:
         if model_path is not None:
             shutil.rmtree(model_path)
@@ -389,16 +390,16 @@ def test_get_cache_status():
 
 def test_register_custom_image():
     from ..custom import (
-        CustomImageModelFamilyV1,
+        CustomImageModelFamilyV2,
         get_user_defined_images,
         register_image,
         unregister_image,
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        model_spec = CustomImageModelFamilyV1(
+        model_spec = CustomImageModelFamilyV2(
             model_family="stable_diffusion",
-            model_name="my-custom-image",
+            model_name=f"my-custom-image-{uuid.uuid4().hex[:8]}",
             model_id="my-custom-image",
             model_uri=os.path.abspath(tmp_dir),
         )
@@ -413,7 +414,7 @@ def test_register_custom_image():
 def test_persist_custom_image():
     from ....constants import XINFERENCE_MODEL_DIR
     from ..custom import (
-        CustomImageModelFamilyV1,
+        CustomImageModelFamilyV2,
         get_user_defined_images,
         register_image,
         unregister_image,
@@ -422,9 +423,9 @@ def test_persist_custom_image():
     tmp_dir = tempfile.mktemp()
     os.makedirs(tmp_dir)
 
-    model_spec = CustomImageModelFamilyV1(
+    model_spec = CustomImageModelFamilyV2(
         model_family="stable_diffusion",
-        model_name="my-custom-image",
+        model_name=f"my-custom-image-{uuid.uuid4().hex[:8]}",
         model_id="my-custom-image",
         model_uri=f"file://{os.path.abspath(tmp_dir)}",
     )
@@ -432,13 +433,13 @@ def test_persist_custom_image():
     register_image(model_spec, persist=True)
     assert model_spec in get_user_defined_images()
     assert f"{model_spec.model_name}.json" in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "image")
+        os.path.join(XINFERENCE_MODEL_DIR, "v2", "image")
     )
 
     unregister_image(model_spec.model_name)
     assert model_spec not in get_user_defined_images()
     assert f"{model_spec.model_name}.json" not in os.listdir(
-        os.path.join(XINFERENCE_MODEL_DIR, "image")
+        os.path.join(XINFERENCE_MODEL_DIR, "v2", "image")
     )
 
 

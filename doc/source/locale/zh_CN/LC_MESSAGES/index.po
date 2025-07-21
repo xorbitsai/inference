@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-26 11:51+0800\n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -144,42 +144,50 @@ msgid "Learn how to generate video with Xinference."
 msgstr "学习如何使用Xinference生成视频。"
 
 #: ../../source/index.rst:214
+msgid "Flexible"
+msgstr "灵活模型"
+
+#: ../../source/index.rst:218
+msgid "Learn how to inference traditional ML models with Xinference."
+msgstr "了解如何使用 Xinference 推理传统机器学习模型。"
+
+#: ../../source/index.rst:222
 msgid "Getting Involved"
 msgstr "参与我们"
 
-#: ../../source/index.rst:223
+#: ../../source/index.rst:231
 msgid "Get Latest News"
 msgstr "最新资讯"
 
-#: ../../source/index.rst:231
+#: ../../source/index.rst:239
 msgid ":fab:`twitter` Follow us on Twitter"
 msgstr ":fab:`twitter` 在 Twitter 上关注我们"
 
-#: ../../source/index.rst:236
+#: ../../source/index.rst:244
 msgid ":fab:`zhihu` Read our blogs"
 msgstr ":fab:`zhihu` 阅读知乎博客"
 
-#: ../../source/index.rst:243
+#: ../../source/index.rst:251
 msgid "Get Support"
 msgstr "寻求帮助"
 
-#: ../../source/index.rst:251
+#: ../../source/index.rst:259
 msgid ":fab:`weixin` Find community on WeChat"
 msgstr ":fab:`weixin` 微信社区"
 
-#: ../../source/index.rst:256
+#: ../../source/index.rst:264
 msgid ":fab:`discord` Find community on Discord"
 msgstr ":fab:`discord` Discord 社区"
 
-#: ../../source/index.rst:261
+#: ../../source/index.rst:269
 msgid ":fab:`github` Open an issue"
 msgstr ":fab:`github` 在 Github 上提 issue"
 
-#: ../../source/index.rst:268
+#: ../../source/index.rst:276
 msgid "Contribute to Xinference"
 msgstr "贡献"
 
-#: ../../source/index.rst:276
+#: ../../source/index.rst:284
 msgid ":fab:`github` Create a pull request"
 msgstr ":fab:`github` 在 Github 上提 PR"
 

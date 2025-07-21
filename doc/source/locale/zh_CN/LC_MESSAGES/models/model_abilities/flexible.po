@@ -1,0 +1,270 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/models/model_abilities/flexible.rst:5
+msgid "Traditional ML models (Experimental)"
+msgstr "传统机器学习模型（实验性质）"
+
+#: ../../source/models/model_abilities/flexible.rst:7
+msgid ""
+"Learn how to inference traditional machine learning models with "
+"Xinference. These flexibly extensible models are referred to as "
+"**Flexible Models** within Xinference."
+msgstr ""
+"了解如何使用 Xinference 推理传统机器学习模型。在 Xinference 中，这些灵活可扩展的模型被称为 **灵活模型**。"
+
+#: ../../source/models/model_abilities/flexible.rst:10
+msgid ""
+"This ability is public since v1.7.1, now the API is not stable and may "
+"change during evolving."
+msgstr ""
+"该功能自 v1.7.1 版本起公开，目前 API 尚不稳定，可能会在后续迭代中发生变化。"
+
+#: ../../source/models/model_abilities/flexible.rst:15
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/flexible.rst:17
+msgid ""
+"Traditional machine learning models can still play a significant role "
+"within an LLM-centric ecosystem."
+msgstr ""
+"传统机器学习模型在以大模型为核心的生态系统中仍然能发挥重要作用。"
+
+#: ../../source/models/model_abilities/flexible.rst:19
+msgid ""
+"Xinference provides flexible extensibility for performing inference with "
+"traditional machine learning models. It includes built-in support for "
+"loading and running the following types of models:"
+msgstr ""
+"Xinference 提供了灵活的扩展能力，用于推理传统机器学习模型。它内置支持加载和运行以下类型的模型："
+
+#: ../../source/models/model_abilities/flexible.rst:22
+msgid ""
+"HuggingFace Pipelines for tasks such as classification using models "
+"hosted on HuggingFace."
+msgstr ""
+"使用 HuggingFace 托管模型的 HuggingFace Pipeline，可用于分类等任务。"
+
+#: ../../source/models/model_abilities/flexible.rst:23
+msgid ""
+"ModelScope Pipelines for tasks such as classification using models from "
+"ModelScope."
+msgstr ""
+"使用 ModelScope 上模型的 ModelScope Pipeline，可用于分类等任务。"
+
+#: ../../source/models/model_abilities/flexible.rst:24
+msgid "YOLO for image detection and related computer vision tasks."
+msgstr ""
+"YOLO 用于图像检测及相关计算机视觉任务。"
+
+#: ../../source/models/model_abilities/flexible.rst:26
+msgid ""
+"A wide range of traditional machine learning models can be used with "
+"Xinference. For each of the categories above, we will walk through a "
+"representative example to demonstrate how to perform inference step by "
+"step on the Xinference platform."
+msgstr ""
+"Xinference 支持多种传统机器学习模型。针对上述每个类别，我们将通过一个代表性示例，"
+"逐步演示如何在 Xinference 平台上进行推理。"
+
+#: ../../source/models/model_abilities/flexible.rst:31
+msgid "Built-in Model Support Examples"
+msgstr "内置模型支持案例"
+
+#: ../../source/models/model_abilities/flexible.rst:34
+msgid "HuggingFace Pipeline Model"
+msgstr "HuggingFace Pipeline 模型"
+
+#: ../../source/models/model_abilities/flexible.rst:36
+msgid ""
+"First, we use `FacebookAI/roberta-large-mnli "
+"<https://huggingface.co/FacebookAI/roberta-large-mnli>`_ as an example. "
+"This is a zero-shot classification model. For other types of models, "
+"simply specify the corresponding task (which is also a parameter of the "
+"Pipeline) when registering the model."
+msgstr ""
+"首先，我们以 `FacebookAI/roberta-large-mnli <https://huggingface.co/FacebookAI/roberta-large-mnli>`_ 为例。"
+"该模型属于零样本分类模型。对于其他类型的模型，注册时只需指定对应的任务（也是 Pipeline 的参数）。"
+
+#: ../../source/models/model_abilities/flexible.rst:41
+msgid "Download the model to the following path::"
+msgstr "将模型下载到以下路径::"
+
+#: ../../source/models/model_abilities/flexible.rst:45
+msgid ""
+"Next, we demonstrate how to register this flexible model in the "
+"Xinference Web UI. For the following examples, unless we have to, we will"
+" skip the UI steps and focus on the core logic."
+msgstr "接下来，我们演示如何在 Xinference Web UI 中注册该灵活模型。后续示例中，除非必要，我们将跳过界面操作，专注于核心逻辑。"
+
+#: ../../source/models/model_abilities/flexible.rst:52
+msgid "The corresponding custom model JSON file is as follows:"
+msgstr "对应的自定义模型 JSON 文件如下："
+
+#: ../../source/models/model_abilities/flexible.rst:77
+msgid ""
+"Refer to the section :ref:`register_custom_model` for instructions on "
+"registering the model using either code or the command line."
+msgstr ""
+"请参见章节 :ref:`register_custom_model`，了解如何通过代码或命令行注册模型。"
+
+#: ../../source/models/model_abilities/flexible.rst:79
+msgid ""
+"Next, load the model by selecting **Launch Model** / **Custom Model** / "
+"**Flexible Model** in the Web UI. The loading procedure is the same as "
+"for other model types."
+msgstr ""
+"接下来，在 Web UI 中选择 **启动模型** / **自定义模型** / **灵活模型** 来加载模型。"
+"加载流程与其他模型类型相同。"
+
+#: ../../source/models/model_abilities/flexible.rst:82
+msgid ""
+"When using the command line, remember to specify the option ``--model-"
+"type flexible``."
+msgstr ""
+"使用命令行时，请记得指定参数 ``--model-type flexible``。"
+
+#: ../../source/models/model_abilities/flexible.rst:84
+msgid ""
+"After the model is successfully loaded, we can perform inference using "
+"the following method."
+msgstr "模型成功加载后，我们可以通过以下方式进行推理。"
+
+#: ../../source/models/model_abilities/flexible.rst:120
+msgid "ModelScope Pipeline Model"
+msgstr "ModelScope Pipeline 模型"
+
+#: ../../source/models/model_abilities/flexible.rst:122
+msgid ""
+"ModelScope Pipeline models are very similar to Huggingface ones. The only"
+" difference lies in the launcher used."
+msgstr ""
+"ModelScope Pipeline 模型与 Huggingface 模型非常相似，唯一的区别在于使用的 launcher 不同。"
+
+#: ../../source/models/model_abilities/flexible.rst:125
+msgid ""
+"We take a zero-shot classification model from ModelScope as an example. "
+"The model is `iic/nlp_structbert_zero-shot-classification_chinese-base "
+"<https://modelscope.cn/models/iic/nlp_structbert_zero-shot-"
+"classification_chinese-base>`_."
+msgstr ""
+"我们以 ModelScope 上的一个零样本分类模型为例。模型为 `iic/nlp_structbert_zero-shot-classification_chinese-base "
+"<https://modelscope.cn/models/iic/nlp_structbert_zero-shot-classification_chinese-base>`_。"
+
+#: ../../source/models/model_abilities/flexible.rst:128
+msgid ""
+"Here, we make use of Xinference's model virtual environment feature. This"
+" is because the model used in this example requires "
+"``transformers==4.50.3`` to run properly. To isolate the environment, we "
+"use a :ref:`virtual env <model_virtual_env>` when registering the model."
+msgstr ""
+"这里我们使用了 Xinference 的模型虚拟环境功能。因为本示例中使用的模型需要 ``transformers==4.50.3`` 才能正常运行。"
+"为了隔离运行环境，我们在注册模型时使用了 :ref:`虚拟环境 <model_virtual_env>`。"
+
+#: ../../source/models/model_abilities/flexible.rst:132
+msgid ""
+"When specifying custom packages during registration, the syntax is the "
+"same as for regular packages, with a few special cases. Since the virtual"
+" environment is still based on the site packages of the Python runtime "
+"where Xinference is running, we need to explicitly include "
+"``#system_numpy#``. Packages wrapped in ``#system_xx#`` ensure consistency "
+"with the base environment during virtual environment creation; otherwise,"
+" it may easily result in runtime errors."
+msgstr ""
+"注册模型时指定自定义包的语法与普通包相同，但有一些特殊情况。由于虚拟环境仍基于 Xinference 运行的 Python 解释器的"
+" site-packages，我们需要显式包含 ``#system_numpy#``。包名用 ``#system_xx#`` 包裹，"
+"确保虚拟环境创建时与基础环境一致，否则很容易导致运行时错误。"
+
+#: ../../source/models/model_abilities/flexible.rst:136
+msgid "Registering via Web UI:"
+msgstr "注册方式（Web UI）："
+
+#: ../../source/models/model_abilities/flexible.rst:142
+msgid "Corresponding json file:"
+msgstr "对应的 JSON 文件："
+
+#: ../../source/models/model_abilities/flexible.rst:170
+#: ../../source/models/model_abilities/flexible.rst:241
+msgid "Inference the model:"
+msgstr "模型推理："
+
+#: ../../source/models/model_abilities/flexible.rst:206
+msgid "YOLO"
+msgstr ""
+
+#: ../../source/models/model_abilities/flexible.rst:208
+msgid ""
+"YOLO is a popular real-time object detection model, widely used in image "
+"detection and video analysis scenarios."
+msgstr "YOLO 是一种流行的实时目标检测模型，广泛应用于图像检测和视频分析场景。"
+
+#: ../../source/models/model_abilities/flexible.rst:210
+msgid ""
+"First, download the YOLO weights. Here, we use the `yolov11s.pt "
+"<https://huggingface.co/Ultralytics/YOLO11>`_ file as an example."
+msgstr ""
+"首先，下载 YOLO 权重。这里我们以 `yolov11s.pt <https://huggingface.co/Ultralytics/YOLO11>`_ 文件为例。"
+
+#: ../../source/models/model_abilities/flexible.rst:213
+msgid "JSON file of model definition:"
+msgstr ""
+"模型定义的 JSON 文件："
+
+#: ../../source/models/model_abilities/flexible.rst:300
+msgid "Writing a Custom Flexible Model"
+msgstr "编写自定义灵活模型"
+
+#: ../../source/models/model_abilities/flexible.rst:302
+msgid ""
+"First, we implement a custom launcher with a simple model for sentiment "
+"scoring. In this example, we do not use any actual model weights, so the "
+"``load`` function does not perform any model loading."
+msgstr "首先，我们实现了一个用于情感评分的简单自定义 launcher。在此示例中，我们未使用任何实际模型权重，"
+"因此 ``load`` 函数不执行任何模型加载操作。"
+
+#: ../../source/models/model_abilities/flexible.rst:334
+msgid "The model JSON definition is as follows:"
+msgstr "模型 JSON 定义如下："
+
+#: ../../source/models/model_abilities/flexible.rst:359
+msgid "Here, we extend the model by passing in a custom-defined ``pos`` value."
+msgstr "这里我们通过传入自定义的 ``pos`` 值扩展了模型。"
+
+#: ../../source/models/model_abilities/flexible.rst:361
+msgid "Finally, let's verify the result:"
+msgstr "最后，我们验证下结果："
+
+#: ../../source/models/model_abilities/flexible.rst:380
+msgid "Conclusion"
+msgstr "结论"
+
+#: ../../source/models/model_abilities/flexible.rst:382
+msgid ""
+"The built-in Flexible Model launchers in Xinference can be found at "
+"`Github "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_."
+" Contributions are welcome to support more traditional machine learning "
+"models!"
+msgstr "Xinference 内置的灵活模型 launcher 可以在  "
+"`Github <https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_ 找到，"
+"欢迎贡献更多传统机器学习模型的支持！"
+

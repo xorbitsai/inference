@@ -13,13 +13,12 @@
 # limitations under the License.
 import io
 import logging
-from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
 from ..utils import set_all_random_seed
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +28,11 @@ class CosyVoiceModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec
@@ -55,10 +55,12 @@ class CosyVoiceModel:
         thirdparty_dir = os.path.join(os.path.dirname(__file__), "../../thirdparty")
         sys.path.insert(0, thirdparty_dir)
 
+        kwargs = {}
         if "CosyVoice2" in self._model_spec.model_name:
             from cosyvoice.cli.cosyvoice import CosyVoice2 as CosyVoice
 
             self._is_cosyvoice2 = True
+            kwargs = {"use_flow_cache": self._kwargs.get("use_flow_cache", False)}
         else:
             from cosyvoice.cli.cosyvoice import CosyVoice
 
@@ -69,7 +71,7 @@ class CosyVoiceModel:
             "compile", False
         )
         logger.info("Loading CosyVoice model, compile=%s...", load_jit)
-        self._model = CosyVoice(self._model_path, load_jit=load_jit)
+        self._model = CosyVoice(self._model_path, load_jit=load_jit, **kwargs)
         if self._is_cosyvoice2:
             spk2info_file = os.path.join(thirdparty_dir, "cosyvoice/bin/spk2info.pt")
             self._model.frontend.spk2info = torch.load(
@@ -112,7 +114,7 @@ class CosyVoiceModel:
                     input, prompt_speech_16k, stream=stream
                 )
         else:
-            available_speakers = self._model.list_avaliable_spks()
+            available_speakers = self._model.list_available_spks()
             if not voice:
                 voice = available_speakers[0]
                 logger.info("Auto select speaker: %s", voice)
@@ -130,36 +132,25 @@ class CosyVoiceModel:
                 output = self._model.inference_sft(input, voice, stream=stream)
 
         import torch
-        import torchaudio
 
-        def _generator_stream():
-            with BytesIO() as out:
-                writer = torchaudio.io.StreamWriter(out, format=response_format)
-                writer.add_audio_stream(
-                    sample_rate=self._model.sample_rate, num_channels=1
-                )
-                i = 0
-                last_pos = 0
-                with writer.open():
-                    for chunk in output:
-                        chunk = chunk["tts_speech"]
-                        trans_chunk = torch.transpose(chunk, 0, 1)
-                        writer.write_audio_chunk(i, trans_chunk)
-                        new_last_pos = out.tell()
-                        if new_last_pos != last_pos:
-                            out.seek(last_pos)
-                            encoded_bytes = out.read()
-                            yield encoded_bytes
-                            last_pos = new_last_pos
+        from .utils import audio_stream_generator, audio_to_bytes
 
-        def _generator_block():
-            chunks = [o["tts_speech"] for o in output]
-            t = torch.cat(chunks, dim=1)
-            with BytesIO() as out:
-                torchaudio.save(out, t, self._model.sample_rate, format=response_format)
-                return out.getvalue()
-
-        return _generator_stream() if stream else _generator_block()
+        return (
+            audio_stream_generator(
+                response_format=response_format,
+                sample_rate=self._model.sample_rate,
+                output_generator=output,
+                output_chunk_transformer=lambda c: torch.transpose(
+                    c["tts_speech"], 0, 1
+                ),
+            )
+            if stream
+            else audio_to_bytes(
+                response_format=response_format,
+                sample_rate=self._model.sample_rate,
+                tensor=torch.cat([o["tts_speech"] for o in output], dim=1),
+            )
+        )
 
     def speech(
         self,

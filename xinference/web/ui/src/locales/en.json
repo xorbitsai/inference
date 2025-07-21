@@ -4,7 +4,8 @@
     "runningModels": "Running Models",
     "registerModel": "Register Model",
     "clusterInfo": "Cluster Information",
-    "contactUs": "Contact Us"
+    "contactUs": "Contact Us",
+    "documentation": "Documentation"
   },
 
   "model": {
@@ -20,13 +21,23 @@
 
   "launchModel": {
     "modelAbility": "Model Ability",
-    "generate": "generate",
-    "chat": "chat",
-    "vision": "vl-chat",
-    "reasoning": "reasoning",
-    "text-to-audio": "text-to-audio",
-    "audio-to-text": "audio-to-text",
-    "audio-to-audio": "audio-to-audio",
+    "generate": "Text Generation",
+    "chat": "Conversation",
+    "vision": "Vision",
+    "reasoning": "Reasoning",
+    "tools": "Tool Use",
+    "audio": "Audio Processing",
+    "omni": "Multimodal (Omni)",
+    "hybrid": "Hybrid Capability",
+    "text2image": "Text to Image",
+    "image2image": "Image to Image",
+    "inpainting": "Image Inpainting",
+    "ocr": "Optical Character Recognition (OCR)",
+    "audio2text": "Audio to Text",
+    "text2audio": "Text to Audio",
+    "text2video": "Text to Video",
+    "image2video": "Image to Video",
+    "firstlastframe2video": "First & Last Frame to Video",
     "status": "Status",
     "cached": "Cached",
     "manageCachedModels": "Manage Cached Models",
@@ -52,6 +63,7 @@
     "modelFormat": "Model Format",
     "modelSize": "Model Size",
     "quantization": "Quantization",
+    "multimodelProjector": "Multimodel Projector",
     "nGPU": "GPU Count per Replica",
     "nGPUPerWorker": "GPU Count per Worker",
     "nGpuLayers": "N GPU Layers",
@@ -68,6 +80,7 @@
     "modelPath.optional": "(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path.",
     "GGUFQuantization.optional": "(Optional) GGUF quantization format, quantizing the Transformer part.",
     "GGUFModelPath.optional": "(Optional) GGUF model path, should be a file ending with .gguf.",
+    "enableThinking": "Enable Thinking",
     "parsingReasoningContent": "Parsing Reasoning Content",
     "CPUOffload": "CPU Offload",
     "CPUOffload.tip": "Unload the model to the CPU. Recommend to enable this when resources are limited or when using the GGUF option.",
@@ -137,6 +150,8 @@
     "noTestResults": "No test results...",
     "stopTokenIds": "Stop Token Ids",
     "stop": "Stop",
+    "reasoningStartTag": "Reasoning Start Tag",
+    "reasoningEndTag": "Reasoning End Tag",
     "launcher": "Launcher",
     "launcherArguments": "Launcher Arguments (Optional)",
     "edit": "Edit",
@@ -150,6 +165,7 @@
     "quantizationOptional": "Quantization (Optional)",
     "delete": "Delete",
     "controlnet": "Controlnet",
+    "packages": "Packages in Virtual Env",
     "more": "more",
     "modelFormat": "Model Format",
     "enterNumberGreaterThanZero": "Please enter a number greater than 0.",
@@ -204,6 +220,7 @@
   },
 
   "components": {
-    "copySuccess": "Copied to clipboard!"
+    "copySuccess": "Copied to clipboard!",
+    "suggestsCommonParameters": "Suggests common parameters; others allowed."
   }
 }

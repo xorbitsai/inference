@@ -3,12 +3,11 @@
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-10-25 15:13+0800\n"
+"POT-Creation-Date: 2025-07-07 16:58+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -33,13 +32,11 @@ msgid ""
 "be slow on chips like 310p3. We provide an enterprise version that "
 "supports the MindIE engine, offering better performance and compatibility"
 " for Ascend NPU. Refer to `Xinference Enterprise "
-"<https://github.com/xorbitsai/enterprise-"
-"docs/blob/main/README_zh_CN.md>`_"
+"<https://xinference.io>`_"
 msgstr ""
 "开源版本依赖 Transformers 进行推理，在 310p3 等芯片上会存在运行慢的问题。"
 "我们提供了支持 MindIE 引擎，性能更为强大，兼容性更好的企业版本来支持 "
-"Ascend NPU。详细参考 `Xinference 企业版 <https://github.com/xorbitsai/"
-"enterprise-docs/blob/main/README_zh_CN.md>`_"
+"Ascend NPU。详细参考 `Xinference 企业版 <https://xinference.cn>`_"
 
 #: ../../source/getting_started/installation_npu.rst:18
 msgid "Installing PyTorch and Ascend extension for PyTorch"
@@ -83,10 +80,8 @@ msgstr "企业支持"
 #: ../../source/getting_started/installation_npu.rst:53
 msgid ""
 "If you encounter any performance or other issues for Ascend NPU, please "
-"reach out to us via `link <https://xorbits.io/community>`_."
+"reach out to us via `link <https://xinference.io>`_."
 msgstr ""
 "如果你在昇腾 NPU 遇到任何性能和其他问题，欢迎垂询 Xinference 企业版，在 `"
-"这里 <https://xorbits.cn/community>`_ 可以找到我们，亦可以 `填写表单 <"
-"https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh>"
-"`_ 申请企业版试用。"
+"这里 <https://xinference.cn/contact>`_ 联系我们"
 

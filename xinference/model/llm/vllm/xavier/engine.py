@@ -39,9 +39,11 @@ class XavierInternalEngine(_AsyncLLMEngine):
                 self.cache_config,
                 self.lora_config,
                 self.parallel_config.pipeline_parallel_size,
-                self.async_callbacks[v_id]
-                if self.model_config.use_async_output_proc
-                else None,
+                (
+                    self.async_callbacks[v_id]
+                    if self.model_config.use_async_output_proc
+                    else None
+                ),
                 xavier_config=self._xavier_config,
                 virtual_engine=v_id,
             )

@@ -17,9 +17,6 @@ import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
-const modelAbilityArr = ['generate', 'chat', 'vision', 'reasoning']
-const audioModelTypeArr = ['audio-to-text', 'text-to-audio', 'audio-to-audio']
-
 const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -29,7 +26,6 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const [registrationData, setRegistrationData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
-  const [LLMModelAbility, setLLMModelAbility] = useState('')
   const [status, setStatus] = useState('')
   const [statusArr, setStatusArr] = useState([])
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
@@ -37,7 +33,11 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const [filterArr, setFilterArr] = useState([])
   const { t } = useTranslation()
   const [modelListType, setModelListType] = useState('featured')
-  const [audioModelAbility, setAudioModelAbility] = useState('')
+  const [modelAbilityData, setModelAbilityData] = useState({
+    type: modelType,
+    modelAbility: '',
+    options: [],
+  })
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -67,25 +67,17 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     }
 
     if (
-      LLMModelAbility &&
+      modelAbilityData.modelAbility &&
       ((Array.isArray(registration.model_ability) &&
-        registration.model_ability.indexOf(LLMModelAbility) < 0) ||
+        registration.model_ability.indexOf(modelAbilityData.modelAbility) <
+          0) ||
         (typeof registration.model_ability === 'string' &&
-          registration.model_ability !== LLMModelAbility))
-    )
-      return false
-
-    if (
-      audioModelAbility &&
-      ((Array.isArray(registration.model_ability) &&
-        registration.model_ability.indexOf(audioModelAbility) < 0) ||
-        (typeof registration.model_ability === 'string' &&
-          registration.model_ability !== audioModelAbility))
+          registration.model_ability !== modelAbilityData.modelAbility))
     )
       return false
 
     if (completeDeleteArr.includes(registration.model_name)) {
-      registration.model_specs.forEach((item) => {
+      registration.model_specs?.forEach((item) => {
         item.cache_status = Array.isArray(item) ? [false] : false
       })
     }
@@ -125,6 +117,20 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     setCompleteDeleteArr([...completeDeleteArr, model_name])
   }
 
+  function getUniqueModelAbilities(arr) {
+    const uniqueAbilities = new Set()
+
+    arr.forEach((item) => {
+      if (Array.isArray(item.model_ability)) {
+        item.model_ability.forEach((ability) => {
+          uniqueAbilities.add(ability)
+        })
+      }
+    })
+
+    return Array.from(uniqueAbilities)
+  }
+
   const update = () => {
     if (
       isCallingApi ||
@@ -140,6 +146,10 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         .get(`/v1/model_registrations/${modelType}?detailed=true`)
         .then((data) => {
           const builtinRegistrations = data.filter((v) => v.is_builtin)
+          setModelAbilityData({
+            ...modelAbilityData,
+            options: getUniqueModelAbilities(builtinRegistrations),
+          })
           setRegistrationData(builtinRegistrations)
           const collectionData = JSON.parse(
             localStorage.getItem('collectionArr')
@@ -169,13 +179,14 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
 
   const handleChangeFilter = (type, value) => {
     const typeMap = {
-      LLMModelAbility: {
-        setter: setLLMModelAbility,
-        filterArr: modelAbilityArr,
-      },
-      audioModelAbility: {
-        setter: setAudioModelAbility,
-        filterArr: audioModelTypeArr,
+      modelAbility: {
+        setter: (value) => {
+          setModelAbilityData({
+            ...modelAbilityData,
+            modelAbility: value,
+          })
+        },
+        filterArr: modelAbilityData.options,
       },
       status: { setter: setStatus, filterArr: [] },
     }
@@ -195,7 +206,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     if (type === 'status') {
       setStatusArr(
         updatedFilterArr.filter(
-          (item) => ![...modelAbilityArr, ...audioModelTypeArr].includes(item)
+          (item) => ![...modelAbilityData.options].includes(item)
         )
       )
     }
@@ -207,10 +218,11 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         return subItem !== item
       })
     )
-    if (item === LLMModelAbility) {
-      setLLMModelAbility('')
-    } else if (item === audioModelAbility) {
-      setAudioModelAbility('')
+    if (item === modelAbilityData.modelAbility) {
+      setModelAbilityData({
+        ...modelAbilityData,
+        modelAbility: '',
+      })
     } else {
       setStatusArr(
         statusArr.filter((subItem) => {
@@ -227,15 +239,21 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     }
   }
 
+  function getLabel(item) {
+    const translation = t(`launchModel.${item}`)
+    return translation === `launchModel.${item}` ? item : translation
+  }
+
   return (
     <Box m="20px">
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: (() => {
-            const baseColumns = ['LLM', 'audio'].includes(modelType)
-              ? ['150px', '150px']
-              : ['150px']
+            const baseColumns =
+              modelAbilityData.options.length > 0
+                ? ['150px', '150px']
+                : ['150px']
             return featureModels.length
               ? [...baseColumns, '150px', '1fr'].join(' ')
               : [...baseColumns, '1fr'].join(' ')
@@ -267,7 +285,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
             </ButtonGroup>
           </FormControl>
         )}
-        {modelType === 'LLM' && (
+        {modelAbilityData.options.length > 0 && (
           <FormControl sx={{ minWidth: 120 }} size="small">
             <InputLabel id="ability-select-label">
               {t('launchModel.modelAbility')}
@@ -277,39 +295,15 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
               labelId="ability-select-label"
               label="Model Ability"
               onChange={(e) =>
-                handleChangeFilter('LLMModelAbility', e.target.value)
+                handleChangeFilter('modelAbility', e.target.value)
               }
-              value={LLMModelAbility}
+              value={modelAbilityData.modelAbility}
               size="small"
               sx={{ width: '150px' }}
             >
-              {modelAbilityArr.map((item) => (
+              {modelAbilityData.options.map((item) => (
                 <MenuItem key={item} value={item}>
-                  {t(`launchModel.${item}`)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-        {modelType === 'audio' && (
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel id="ability-select-label">
-              {t('launchModel.modelAbility')}
-            </InputLabel>
-            <Select
-              id="ability"
-              labelId="ability-select-label"
-              label="Model Ability"
-              onChange={(e) =>
-                handleChangeFilter('audioModelAbility', e.target.value)
-              }
-              value={audioModelAbility}
-              size="small"
-              sx={{ width: '150px' }}
-            >
-              {audioModelTypeArr.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
+                  {getLabel(item)}
                 </MenuItem>
               ))}
             </Select>
@@ -348,7 +342,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         {filterArr.map((item, index) => (
           <Chip
             key={index}
-            label={t(`launchModel.${item}`)}
+            label={getLabel(item)}
             variant="outlined"
             size="small"
             color="primary"

@@ -113,7 +113,7 @@ Note
 
 * Currently, for ``image`` models, this feature only supports the ``text_to_image`` tasks. Only ``FLUX.1`` series models are supported.
 
-* For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are supported. More models will be supported in the future. Please let us know your requirements.
+* For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are supported. More models will be supported in the future. Please let us know your requirements.
 
 * If using GPU inference, this method will consume more GPU memory. Please be cautious when increasing the number of concurrent requests to the same model.
   The ``launch_model`` interface provides the ``max_num_seqs`` parameter to adjust the concurrency level, with a default value of ``16``.

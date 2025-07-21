@@ -30,23 +30,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-3-1b-it --size-in-billions 1 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (ggufv2, 1 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** ggufv2
-- **Model Size (in billions):** 1
-- **Quantizations:** IQ2_M, IQ3_M, IQ3_XS, IQ3_XXS, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_L, Q4_K_M, Q4_K_S, Q5_K_L, Q5_K_M, Q5_K_S, Q6_K, Q6_K_L, Q8_0, bf16
-- **Engines**: vLLM, llama.cpp
-- **Model ID:** bartowski/google_gemma-3-1b-it-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF>`__, `ModelScope <https://modelscope.cn/models/bartowski/google_gemma-3-1b-it-GGUF>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name gemma-3-1b-it --size-in-billions 1 --model-format ggufv2 --quantization ${quantization}
-
-
-Model Spec 3 (mlx, 1 Billion)
+Model Spec 2 (mlx, 1 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -60,4 +44,20 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name gemma-3-1b-it --size-in-billions 1 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 3 (ggufv2, 1 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 1
+- **Quantizations:** IQ2_M, IQ3_M, IQ3_XS, IQ3_XXS, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_L, Q4_K_M, Q4_K_S, Q5_K_L, Q5_K_M, Q5_K_S, Q6_K, Q6_K_L, Q8_0, bf16
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** bartowski/google_gemma-3-1b-it-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF>`__, `ModelScope <https://modelscope.cn/models/bartowski/google_gemma-3-1b-it-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name gemma-3-1b-it --size-in-billions 1 --model-format ggufv2 --quantization ${quantization}
 

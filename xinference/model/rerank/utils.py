@@ -11,8 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from .core import RerankModelSpec
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .core import RerankModelFamilyV2
 
 
-def get_model_version(rerank_model: RerankModelSpec) -> str:
+def get_model_version(rerank_model: "RerankModelFamilyV2") -> str:
     return rerank_model.model_name
+
+
+instruction_cfg = {
+    "minicpm-reranker": "Query: ",
+}
+
+
+def preprocess_sentence(query: str, instruction: Any, model_name: str) -> str:
+    if instruction and isinstance(instruction, str):
+        return f"{instruction}{query}"
+    if instruction is None:
+        for k, v in instruction_cfg.items():
+            if k.lower() in model_name.lower():
+                return f"{v}{query}"
+    return query

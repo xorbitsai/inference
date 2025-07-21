@@ -71,7 +71,7 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="LLM"
             customData={{
-              version: 1,
+              version: 2,
               model_name: 'custom-llm',
               model_description: 'This is a custom model description.',
               context_length: 2048,
@@ -82,10 +82,13 @@ const RegisterModel = () => {
                   model_uri: '/path/to/llama-1',
                   model_size_in_billions: 7,
                   model_format: 'pytorch',
-                  quantizations: ['none'],
+                  quantization: 'none',
                 },
               ],
               model_family: 'your_custom_model',
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -93,11 +96,21 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="embedding"
             customData={{
+              version: 2,
               model_name: 'custom-embedding',
               dimensions: 768,
               max_tokens: 512,
-              model_uri: '/path/to/embedding-model',
               language: ['en'],
+              model_specs: [
+                {
+                  model_uri: '/path/to/llama-1',
+                  model_format: 'pytorch',
+                  quantization: 'none',
+                },
+              ],
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -105,9 +118,14 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="rerank"
             customData={{
+              version: 2,
               model_name: 'custom-rerank',
               model_uri: '/path/to/rerank-model',
               language: ['en'],
+              max_tokens: 512,
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -115,10 +133,14 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="image"
             customData={{
+              version: 2,
               model_name: 'custom-image',
               model_uri: '/path/to/image-model',
               model_family: 'stable_diffusion',
               controlnet: [],
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -126,10 +148,15 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="audio"
             customData={{
+              version: 2,
               model_name: 'custom-audio',
               model_uri: '/path/to/audio-model',
               multilingual: false,
               model_family: 'whisper',
+              model_ability: ['text2audio'],
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>
@@ -137,11 +164,15 @@ const RegisterModel = () => {
           <RegisterModelComponent
             modelType="flexible"
             customData={{
+              version: 2,
               model_name: 'flexible-model',
               model_description: 'This is a model description.',
               model_uri: '/path/to/model',
               launcher: 'xinference.model.flexible.launchers.transformers',
               launcher_args: '{}',
+              virtualenv: {
+                packages: [],
+              },
             }}
           />
         </TabPanel>

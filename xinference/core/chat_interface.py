@@ -292,9 +292,11 @@ class GradioInterface:
                         max_tokens = gr.Slider(
                             minimum=1,
                             maximum=self.context_length,
-                            value=512
-                            if "reasoning" not in self.model_ability
-                            else self.context_length // 2,
+                            value=(
+                                512
+                                if "reasoning" not in self.model_ability
+                                else self.context_length // 2
+                            ),
                             step=1,
                             label="Max Tokens",
                         )
@@ -357,7 +359,7 @@ class GradioInterface:
                     if "content" not in delta:
                         continue
                     else:
-                        response_content += delta["content"]
+                        response_content += html.escape(delta["content"])
                         bot[-1][1] = response_content
                         yield history, bot
                 history.append(

@@ -15,50 +15,36 @@
 import codecs
 import json
 import os
-from itertools import chain
 
+from ..utils import flatten_model_src
 from .core import (
     BUILTIN_VIDEO_MODELS,
-    MODEL_NAME_TO_REVISION,
-    MODELSCOPE_VIDEO_MODELS,
     VIDEO_MODEL_DESCRIPTIONS,
-    VideoModelFamilyV1,
+    VideoModelFamilyV2,
     generate_video_description,
-    get_cache_status,
     get_video_model_descriptions,
 )
 
 
 def _install():
-    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-    _model_spec_modelscope_json = os.path.join(
-        os.path.dirname(__file__), "model_spec_modelscope.json"
-    )
-    BUILTIN_VIDEO_MODELS.update(
-        dict(
-            (spec["model_name"], VideoModelFamilyV1(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
-        )
-    )
-    for model_name, model_spec in BUILTIN_VIDEO_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-
-    MODELSCOPE_VIDEO_MODELS.update(
-        dict(
-            (spec["model_name"], VideoModelFamilyV1(**spec))
-            for spec in json.load(
-                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
-            )
-        )
-    )
-    for model_name, model_spec in MODELSCOPE_VIDEO_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    load_model_family_from_json("model_spec.json", BUILTIN_VIDEO_MODELS)
 
     # register model description
-    for model_name, model_spec in chain(
-        MODELSCOPE_VIDEO_MODELS.items(), BUILTIN_VIDEO_MODELS.items()
-    ):
+    for model_name, model_specs in BUILTIN_VIDEO_MODELS.items():
+        model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
         VIDEO_MODEL_DESCRIPTIONS.update(generate_video_description(model_spec))
 
-    del _model_spec_json
-    del _model_spec_modelscope_json
+
+def load_model_family_from_json(json_filename, target_families):
+    json_path = os.path.join(os.path.dirname(__file__), json_filename)
+    flattened_model_specs = []
+    for spec in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+        flattened_model_specs.extend(flatten_model_src(spec))
+
+    for spec in flattened_model_specs:
+        if spec["model_name"] not in target_families:
+            target_families[spec["model_name"]] = [VideoModelFamilyV2(**spec)]
+        else:
+            target_families[spec["model_name"]].append(VideoModelFamilyV2(**spec))
+
+    del json_path

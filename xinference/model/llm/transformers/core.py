@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import torch
 
@@ -37,44 +37,25 @@ from ....types import (
     PytorchModelConfig,
 )
 from ...utils import select_device
-from ..core import LLM
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..core import LLM, chat_context_var
+from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
 )
-from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
+from .utils import (
+    _get_pad_param,
+    get_context_length,
+    get_max_src_len,
+    pad_prefill_tokens,
+)
 
 logger = logging.getLogger(__name__)
 
-NON_DEFAULT_MODEL_LIST: List[str] = [
-    "opt",
-    "glm4-chat",
-    "glm4-chat-1m",
-    "qwen-vl-chat",
-    "OmniLMM",
-    "deepseek-vl-chat",
-    "cogvlm2",
-    "cogvlm2-video-llama3-chat",
-    "MiniCPM-Llama3-V-2_5",
-    "MiniCPM-V-2.6",
-    "glm-4v",
-    "qwen2-audio",
-    "qwen2-audio-instruct",
-    "deepseek-v2",
-    "deepseek-v2-chat",
-    "deepseek-v2.5",
-    "deepseek-v2-chat-0628",
-    "glm-edge-v",
-    "QvQ-72B-Preview",
-    "cogagent",
-    "gemma-3-1b-it",
-    "gemma-3-it",
-    "Ovis2",
-    "deepseek-vl2",
-]
+# !!!!! Do not add model_name to this list, use `register_non_default_model` below instead!
+NON_DEFAULT_MODEL_LIST: List[str] = []
 
 
 # Define the decorator to support multiple names registration
@@ -111,14 +92,12 @@ class PytorchModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._use_fast_tokenizer = True
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
@@ -339,7 +318,10 @@ class PytorchModel(LLM):
             is_device_map_auto = True
 
         reasoning_content = self._pytorch_model_config.pop("reasoning_content")
-        self.prepare_parse_reasoning_content(reasoning_content)
+        enable_thinking = self._pytorch_model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer(**kwargs)
@@ -361,7 +343,7 @@ class PytorchModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
@@ -383,14 +365,26 @@ class PytorchModel(LLM):
         data = []
         for r in reqs:
             real_len = seq_length - r.padding_len
-            x = torch.cat(
-                [
-                    torch.full((r.padding_len,), 0, dtype=torch.long),
-                    torch.ones((real_len,), dtype=torch.long),
-                ]
-            )
-            data.append(x)
             r.extra_kwargs["attention_mask_seq_len"] = real_len
+
+            if self._tokenizer.padding_side == "left":
+                # [PAD][PAD]...[TOKEN]
+                x = torch.cat(
+                    [
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                        torch.ones((real_len,), dtype=torch.long),
+                    ]
+                )
+            else:  # right padding
+                # [TOKEN]...[PAD][PAD]
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                    ]
+                )
+            data.append(x)
+
         return torch.stack(data).to(self._device)
 
     def build_decode_attention_mask(
@@ -404,14 +398,30 @@ class PytorchModel(LLM):
         data = []
         for r in reqs:
             r.extra_kwargs["attention_mask_seq_len"] += 1
-            attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
-            pad_len = seq_length - attention_mask_seq_len
-            x = torch.cat(
-                [
-                    torch.full((pad_len,), 0, dtype=torch.long),
-                    torch.ones((attention_mask_seq_len,), dtype=torch.long),
-                ]
-            )
+            if self._tokenizer.padding_side == "left":
+                attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
+                pad_len = seq_length - attention_mask_seq_len
+                assert pad_len > 0, (
+                    f"pad_len must be greater than 0, got {pad_len} = "
+                    f"seq_length({seq_length}) - attention_mask_seq_len({attention_mask_seq_len})"
+                )
+                x = torch.cat(
+                    [
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                        torch.ones((attention_mask_seq_len,), dtype=torch.long),
+                    ]
+                )
+            else:
+                max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs)
+                real_len = r.extra_kwargs["attention_mask_seq_len"]
+                pad_len = max_len - real_len
+
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                    ]
+                )
             data.append(x)
         return torch.stack(data).to(self._device)
 
@@ -548,6 +558,36 @@ class PytorchModel(LLM):
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         return self._sanitize_generate_config(req.generate_config)
 
+    def merge_kv_cache(self, past_cache, new_cache):
+        from torch.nn.functional import pad
+        from transformers import DynamicCache
+
+        _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
+        past_seq_len = past_cache[0][0].shape[seq_len_idx]
+        new_seq_len = new_cache[0][0].shape[seq_len_idx]
+        if past_seq_len != new_seq_len:
+            padding_target = new_cache if past_seq_len > new_seq_len else past_cache
+            padding_len = abs(past_seq_len - new_seq_len)
+            pad_param = _get_pad_param(seq_len_idx, padding_len)
+            for idx in range(len(padding_target)):
+                k = padding_target.key_cache[idx]
+                v = padding_target.value_cache[idx]
+                _k = pad(k, pad_param)
+                _v = pad(v, pad_param)
+                padding_target.key_cache[idx] = _k
+                padding_target.value_cache[idx] = _v
+
+        ret_kv = DynamicCache()
+        for idx in range(len(past_cache)):
+            k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
+            v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
+            ret_kv.update(
+                torch.cat((k1, k2), 0).contiguous(),
+                torch.cat((v1, v2), 0).contiguous(),
+                idx,
+            )
+        return ret_kv
+
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         # check some parameters
         for r in req_list:
@@ -639,14 +679,22 @@ class PytorchModel(LLM):
         )
         self.handle_batch_inference_results(req_list)
 
+    def build_reduced_kv_cache(self, cache, skipped_indexes: Set[int]):
+        batch_size = cache.key_cache[0].shape[0]
+        batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
+        for idx in range(len(cache)):
+            cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
+            cache.value_cache[idx] = cache.value_cache[idx][
+                batch_slices, ::
+            ].contiguous()
+        return cache
+
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -654,8 +702,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().__init__(
             model_uid,
             model_family,
-            model_spec,
-            quantization,
             model_path,
             pytorch_model_config,
             peft_model,
@@ -678,7 +724,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
@@ -701,9 +747,14 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(generate_config) or {}
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if (
             tools
             and model_family in QWEN_TOOL_CALL_FAMILY
@@ -753,7 +804,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         results = []
         for i, c in enumerate(req.completion):
             if c == "<bos_stream>":
-                results.append(
+                results.extend(
                     self._get_first_chat_completion_chunk(
                         req.completion[i + 1], self.reasoning_parser
                     )

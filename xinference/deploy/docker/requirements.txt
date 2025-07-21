@@ -1,5 +1,5 @@
 # required
-xoscar>=0.6.1
+xoscar>=0.7.2
 gradio==5.22.0
 pillow
 click
@@ -38,7 +38,7 @@ sentence-transformers>=3.1.0
 controlnet_aux
 orjson
 gptqmodel
-autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
+autoawq!=0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
@@ -63,6 +63,7 @@ pyarrow  # For CosyVoice, matcha
 HyperPyYAML  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+pyworld>=0.3.4  # For CosyVoice
 boto3>=1.28.55,<1.28.65 # For tensorizer
 tensorizer~=2.9.0
 imageio-ffmpeg  # For video
@@ -104,9 +105,9 @@ datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 deepcache # for sd
 verovio>=4.3.1  # For got_ocr2
-gguf
 langdetect  # MegaTTS3
 pyloudnorm  # MegaTTS3
+gguf  # For flux and sd3.5 series
 
 # sglang
 decord

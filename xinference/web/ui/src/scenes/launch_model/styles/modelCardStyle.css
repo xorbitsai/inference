@@ -28,6 +28,7 @@
   padding: 20px 80px 0;
   min-height: 100%;
   width: 60vw;
+  min-width: 350px;
 }
 .p {
   display: -webkit-box;

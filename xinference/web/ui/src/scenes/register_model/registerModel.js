@@ -41,9 +41,28 @@ import { isValidBearerToken } from '../../components/utils'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import AddStop from './components/addStop'
+import AddVirtualenv from './components/addVirtualenv'
 import languages from './data/languages'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
-const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision', 'Tools']
+const model_ability_options = [
+  {
+    type: 'LLM',
+    options: [
+      'Generate',
+      'Chat',
+      'Vision',
+      'Tools',
+      'Reasoning',
+      'Audio',
+      'Omni',
+      'Hybrid',
+    ],
+  },
+  {
+    type: 'audio',
+    options: ['text2audio', 'audio2text'],
+  },
+]
 const messages = [
   {
     role: 'assistant',
@@ -52,6 +71,27 @@ const messages = [
   {
     role: 'user',
     content: 'This is the message content sent by the user currently',
+  },
+]
+const model_family_options = [
+  {
+    type: 'image',
+    options: ['stable_diffusion'],
+  },
+  {
+    type: 'audio',
+    options: [
+      'whisper',
+      'ChatTTS',
+      'CosyVoice',
+      'F5-TTS',
+      'F5-TTS-MLX',
+      'FishAudio',
+      'Kokoro',
+      'MegaTTS',
+      'MeloTTS',
+      'funasr',
+    ],
   },
 ]
 
@@ -120,7 +160,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template,
           stop_token_ids,
           stop,
+          reasoning_start_tag = '',
+          reasoning_end_tag = '',
         } = data
+        const virtualenv = data.virtualenv ?? { packages: [] }
         const specsDataArr = model_specs.map((item) => {
           const {
             model_uri,
@@ -149,6 +192,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template,
           stop_token_ids,
           stop,
+          ...(model_ability.includes('reasoning') && {
+            reasoning_start_tag,
+            reasoning_end_tag,
+          }),
+          virtualenv,
         }
         setFormData(llmData)
         setContrastObj(llmData)
@@ -160,14 +208,23 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { model_name, dimensions, max_tokens, model_uri, language } =
-            data
-          const embeddingData = {
+          const {
+            version,
             model_name,
             dimensions,
             max_tokens,
             model_uri,
             language,
+          } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
+          const embeddingData = {
+            version,
+            model_name,
+            dimensions,
+            max_tokens,
+            model_uri,
+            language,
+            virtualenv,
           }
           setFormData(embeddingData)
           setContrastObj(embeddingData)
@@ -177,16 +234,28 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )
           setLanguagesArr(lagArr)
 
-          const { model_name, model_uri, language } = data
-          const rerankData = {
+          const {
+            version,
             model_name,
+            max_tokens = 512,
             model_uri,
             language,
+          } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
+          const rerankData = {
+            version,
+            model_name,
+            max_tokens,
+            model_uri,
+            language,
+            virtualenv,
           }
           setFormData(rerankData)
           setContrastObj(rerankData)
         } else if (modelType === 'image') {
-          const { model_name, model_uri, model_family, controlnet } = data
+          const { version, model_name, model_uri, model_family, controlnet } =
+            data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const controlnetArr = controlnet.map((item) => {
             const { model_name, model_uri, model_family } = item
             return {
@@ -196,38 +265,55 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             }
           })
           const imageData = {
+            version,
             model_name,
             model_uri,
             model_family,
             controlnet: controlnetArr,
+            virtualenv,
           }
           setFormData(imageData)
           setContrastObj(imageData)
           setControlnetArr(controlnetArr)
         } else if (modelType === 'audio') {
-          const { model_name, model_uri, multilingual, model_family } = data
-          const audioData = {
+          const {
+            version,
             model_name,
             model_uri,
             multilingual,
+            model_ability = [],
             model_family,
+          } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
+          const audioData = {
+            version,
+            model_name,
+            model_uri,
+            multilingual,
+            model_ability,
+            model_family,
+            virtualenv,
           }
           setFormData(audioData)
           setContrastObj(audioData)
         } else if (modelType === 'flexible') {
           const {
+            version,
             model_name,
             model_uri,
             model_description,
             launcher,
             launcher_args,
           } = data
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const flexibleData = {
+            version,
             model_name,
             model_uri,
             model_description,
             launcher,
             launcher_args,
+            virtualenv,
           }
           setFormData(flexibleData)
           setContrastObj(flexibleData)
@@ -454,89 +540,115 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const toggleAbility = (ability) => {
     const obj = JSON.parse(JSON.stringify(formData))
-    if (formData.model_ability.includes(ability)) {
-      delete obj.chat_template
-      delete obj.stop_token_ids
-      delete obj.stop
-      setFormData({
-        ...obj,
-        model_ability: formData.model_ability.filter((item) => {
-          if (ability === 'chat') {
-            return item !== 'chat' && item !== 'vision' && item !== 'tools'
-          }
-          return item !== ability
-        }),
-        model_family: '',
-      })
-    } else {
-      let model_ability = []
-      if (
-        ability === 'chat' ||
-        (['vision', 'tools'].includes(ability) &&
-          !formData.model_ability.includes('chat'))
-      ) {
-        if (
-          formData.model_family !== '' &&
-          family?.chat?.includes(formData.model_family)
-        ) {
-          const data = promptStyles.filter(
-            (item) => item.name === formData.model_family
-          )
-          obj.chat_template = data[0]?.chat_template || null
-          obj.stop_token_ids = data[0]?.stop_token_ids || []
-          obj.stop = data[0]?.stop || []
-        } else {
-          obj.chat_template = ''
-          obj.stop_token_ids = []
-          obj.stop = []
-        }
-        ability === 'chat'
-          ? (model_ability = [...formData.model_ability, ability])
-          : (model_ability = [...formData.model_ability, 'chat', ability])
-      } else {
-        if (ability === 'vision' && formData.model_ability.includes('tools')) {
-          model_ability = [
-            ...formData.model_ability.filter((item) => item !== 'tools'),
-            'chat',
-            ability,
-          ]
-        } else if (
-          ability === 'tools' &&
-          formData.model_ability.includes('vision')
-        ) {
-          model_ability = [
-            ...formData.model_ability.filter((item) => item !== 'vision'),
-            'chat',
-            ability,
-          ]
-        } else {
-          model_ability = [...formData.model_ability, ability]
-        }
-      }
-      delete obj.chat_template
-      delete obj.stop_token_ids
-      delete obj.stop
-      setFormData({
-        ...obj,
-        model_family: '',
-        model_ability: model_ability,
-      })
+    const fieldsToDelete = [
+      'chat_template',
+      'stop_token_ids',
+      'stop',
+      'reasoning_start_tag',
+      'reasoning_end_tag',
+    ]
+    fieldsToDelete.forEach((key) => delete obj[key])
+
+    const currentAbilities = formData.model_ability
+    const isRemoving = currentAbilities.includes(ability)
+    const chatRelatedAbilities = [
+      'chat',
+      'vision',
+      'tools',
+      'reasoning',
+      'audio',
+      'omni',
+      'hybrid',
+    ]
+    const isChatRelated = chatRelatedAbilities.includes(ability)
+    const mutuallyExclusive = { vision: 'tools', tools: 'vision' }
+
+    if (currentAbilities.includes('chat') && ability !== 'chat') {
+      obj.chat_template = ''
+      obj.stop_token_ids = []
+      obj.stop = []
     }
+
+    if (
+      currentAbilities.includes('reasoning') &&
+      ability !== 'reasoning' &&
+      ability !== 'chat'
+    ) {
+      obj.reasoning_start_tag = ''
+      obj.reasoning_end_tag = ''
+    }
+
+    if (isRemoving) {
+      const updatedAbilities =
+        ability === 'chat'
+          ? currentAbilities.filter(
+              (item) => !chatRelatedAbilities.includes(item)
+            )
+          : currentAbilities.filter((item) => item !== ability)
+
+      setFormData({
+        ...obj,
+        model_family: '',
+        model_ability: updatedAbilities,
+      })
+      return
+    }
+
+    let model_ability = [...currentAbilities]
+
+    if (ability === 'reasoning') {
+      obj.reasoning_start_tag = ''
+      obj.reasoning_end_tag = ''
+    }
+
+    if (
+      ability === 'chat' ||
+      (isChatRelated && !currentAbilities.includes('chat'))
+    ) {
+      obj.chat_template = ''
+      obj.stop_token_ids = []
+      obj.stop = []
+
+      if (ability !== 'chat' && !model_ability.includes('chat')) {
+        model_ability.push('chat')
+      }
+      model_ability.push(ability)
+    } else {
+      const conflict = mutuallyExclusive[ability]
+      if (conflict && model_ability.includes(conflict)) {
+        model_ability = model_ability.filter((item) => item !== conflict)
+      }
+      model_ability.push(ability)
+    }
+
+    setFormData({
+      ...obj,
+      model_family: '',
+      model_ability,
+    })
   }
 
   const handleFamily = (value) => {
     if (formData.model_ability.includes('chat')) {
       if (family?.chat?.includes(value)) {
-        const data = promptStyles.filter((item) => {
+        const data = promptStyles.find((item) => {
           return item.name === value
         })
-        setFormData({
+
+        const form_data = {
           ...formData,
           model_family: value,
-          chat_template: data[0]?.chat_template || null,
-          stop_token_ids: data[0]?.stop_token_ids || [],
-          stop: data[0]?.stop || [],
-        })
+          chat_template: data?.chat_template || null,
+          stop_token_ids: data?.stop_token_ids || [],
+          stop: data?.stop || [],
+        }
+
+        if (formData.model_ability.includes('reasoning')) {
+          form_data.reasoning_start_tag = data?.reasoning_start_tag || ''
+          form_data.reasoning_end_tag = data?.reasoning_end_tag || ''
+        }
+
+        setFormData(form_data)
       } else {
         setFormData({
           ...formData,
@@ -713,49 +825,107 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleFamilyOptions = (model_ability) => {
-    if (model_ability.includes('vision')) {
+    const abilityMap = {
+      reasoning: { editable: false, source: family?.reasoning },
+      audio: { editable: false, source: family?.audio },
+      omni: { editable: false, source: family?.omni },
+      hybrid: { editable: false, source: family?.hybrid },
+      vision: { editable: false, source: family?.vision },
+      tools: { editable: false, source: family?.tools },
+      chat: { editable: true, source: family?.chat },
+      generate: { editable: true, source: family?.generate },
+    }
+
+    const nonEditableGroup = [
+      'reasoning',
+      'audio',
+      'omni',
+      'hybrid',
+      'vision',
+      'tools',
+    ]
+
+    const matchedAbilities = Object.keys(abilityMap).filter((key) =>
+      model_ability.includes(key)
+    )
+
+    const matchedNonEditable = matchedAbilities.filter((key) =>
+      nonEditableGroup.includes(key)
+    )
+
+    if (matchedNonEditable.length > 1) {
+      const baseSource = abilityMap[matchedNonEditable[0]]?.source || []
+      let intersection = new Set(baseSource)
+
+      for (let i = 1; i < matchedNonEditable.length; i++) {
+        const currentSource = new Set(
+          abilityMap[matchedNonEditable[i]]?.source || []
+        )
+        intersection = new Set(
+          [...intersection].filter((item) => currentSource.has(item))
+        )
+      }
+
       setIsEditableFamily(false)
       setFamilyOptions(
-        family?.vision?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
+        Array.from(intersection).map((item) => ({
+          id: item,
+          label: item,
+        }))
       )
-    } else if (model_ability.includes('tools')) {
-      setIsEditableFamily(false)
+      return
+    }
+
+    const matched = matchedAbilities[0]
+    if (matched) {
+      const { editable, source } = abilityMap[matched]
+      setIsEditableFamily(editable)
       setFamilyOptions(
-        family?.tools?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
-      )
-    } else if (model_ability.includes('chat')) {
-      setIsEditableFamily(true)
-      setFamilyOptions(
-        family?.chat?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
-      )
-    } else if (model_ability.includes('generate')) {
-      setIsEditableFamily(true)
-      setFamilyOptions(
-        family?.generate?.map((item) => {
-          return {
-            id: item,
-            label: item,
-          }
-        })
+        (source || []).map((item) => ({ id: item, label: item }))
       )
     } else {
       setIsEditableFamily(true)
       setFamilyOptions([])
+    }
+  }
+
+  const changeVirtualenv = (type, index, value) => {
+    if (type === 'add') {
+      setFormData((prev) => {
+        return {
+          ...prev,
+          virtualenv: {
+            ...prev.virtualenv,
+            packages: [...prev.virtualenv.packages, ''],
+          },
+        }
+      })
+    } else if (type === 'delete') {
+      setFormData((prev) => {
+        const newPackages = [...prev.virtualenv.packages]
+        newPackages.splice(index, 1)
+
+        return {
+          ...prev,
+          virtualenv: {
+            ...prev.virtualenv,
+            packages: newPackages,
+          },
+        }
+      })
+    } else if (type === 'change') {
+      setFormData((prev) => {
+        const newPackages = [...prev.virtualenv.packages]
+        newPackages[index] = value
+
+        return {
+          ...prev,
+          virtualenv: {
+            ...prev.virtualenv,
+            packages: newPackages,
+          },
+        }
+      })
     }
   }
 
@@ -1011,25 +1181,60 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 {t('registerModel.modelAbilities')}
               </label>
               <Box className="checkboxWrapper">
-                {SUPPORTED_FEATURES.map((ability) => (
-                  <Box key={ability} sx={{ marginRight: '10px' }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={formData.model_ability.includes(
-                            ability.toLowerCase()
-                          )}
-                          onChange={() => toggleAbility(ability.toLowerCase())}
-                          name={ability}
-                        />
-                      }
-                      label={ability}
-                      style={{
-                        paddingLeft: 10,
-                      }}
-                    />
-                  </Box>
-                ))}
+                {modelType === 'LLM' ? (
+                  <>
+                    {model_ability_options
+                      .find((item) => item.type === modelType)
+                      .options.map((ability) => (
+                        <Box key={ability} sx={{ marginRight: '10px' }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formData.model_ability.includes(
+                                  ability.toLowerCase()
+                                )}
+                                onChange={() =>
+                                  toggleAbility(ability.toLowerCase())
+                                }
+                                name={ability}
+                              />
+                            }
+                            label={ability}
+                            style={{
+                              paddingLeft: 10,
+                            }}
+                          />
+                        </Box>
+                      ))}
+                  </>
+                ) : (
+                  <RadioGroup
+                    value={formData.model_ability}
+                    style={{ display: 'flex' }}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        model_ability: [e.target.value],
+                      })
+                    }}
+                  >
+                    <Box
+                      className="checkboxWrapper"
+                      sx={{ paddingLeft: '10px' }}
+                    >
+                      {model_ability_options
+                        .find((item) => item.type === modelType)
+                        .options.map((subItem) => (
+                          <FormControlLabel
+                            key={subItem}
+                            value={subItem}
+                            control={<Radio />}
+                            label={subItem}
+                          />
+                        ))}
+                    </Box>
+                  </RadioGroup>
+                )}
               </Box>
               <Box padding="15px"></Box>
             </>
@@ -1084,17 +1289,30 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     >
                       {t('registerModel.modelFamily')}
                     </label>
-                    <RadioGroup value={formData.model_family}>
+                    <RadioGroup
+                      value={formData.model_family}
+                      style={{ display: 'flex' }}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          model_family: e.target.value,
+                        })
+                      }}
+                    >
                       <Box
                         className="checkboxWrapper"
-                        style={{ paddingLeft: '10px' }}
+                        sx={{ paddingLeft: '10px' }}
                       >
-                        <FormControlLabel
-                          value={formData.model_family}
-                          checked
-                          control={<Radio />}
-                          label={formData.model_family}
-                        />
+                        {model_family_options
+                          .find((item) => item.type === modelType)
+                          .options.map((subItem) => (
+                            <FormControlLabel
+                              key={subItem}
+                              value={subItem}
+                              control={<Radio />}
+                              label={subItem}
+                            />
+                          ))}
                       </Box>
                     </RadioGroup>
                   </FormControl>
@@ -1234,6 +1452,42 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             </>
           )}
 
+          {/* reasoning_start_tag */}
+          {formData.model_ability?.includes('reasoning') && (
+            <>
+              <TextField
+                label={t('registerModel.reasoningStartTag')}
+                value={formData.reasoning_start_tag}
+                size="small"
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    reasoning_start_tag: event.target.value,
+                  })
+                }
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* reasoning_end_tag */}
+          {formData.model_ability?.includes('reasoning') && (
+            <>
+              <TextField
+                label={t('registerModel.reasoningEndTag')}
+                value={formData.reasoning_end_tag}
+                size="small"
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    reasoning_end_tag: event.target.value,
+                  })
+                }
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
           {/* specs */}
           {customData.model_specs && (
             <>
@@ -1243,6 +1497,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
+                modelType={modelType}
               />
               <Box padding="15px"></Box>
             </>
@@ -1305,6 +1560,18 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   {t('registerModel.enterJsonFormattedDictionary')}
                 </Alert>
               )}
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* virtualenv */}
+          {customData.virtualenv && (
+            <>
+              <AddVirtualenv
+                virtualenv={formData.virtualenv}
+                onChangeVirtualenv={changeVirtualenv}
+                scrollRef={scrollRef}
+              />
               <Box padding="15px"></Box>
             </>
           )}
