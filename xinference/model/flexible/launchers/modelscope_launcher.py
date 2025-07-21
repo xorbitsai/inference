@@ -43,5 +43,9 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
         raise ValueError("model_path required")
 
     return ModelScopePipelineModel(
-        model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+        model_uid=model_uid,
+        model_path=model_path,
+        model_family=model_spec,
+        device=device,
+        config=kwargs,
     )

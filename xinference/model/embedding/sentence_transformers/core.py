@@ -14,20 +14,16 @@
 
 import importlib.util
 import logging
-from collections import defaultdict
 from typing import List, Optional, Union, no_type_check
 
 import numpy as np
 import torch
 
-from ....types import Dict, Embedding, EmbeddingData, EmbeddingUsage
-from ..core import EmbeddingModel, EmbeddingModelSpec
+from ....device_utils import is_device_available
+from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
-
-# Used for check whether the model is cached.
-# Init when registering all the builtin models.
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
@@ -76,8 +72,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 torch_dtype = torch.float32
 
         if (
-            "gte" in self._model_spec.model_name.lower()
-            and "qwen2" in self._model_spec.model_name.lower()
+            "gte" in self.model_family.model_name.lower()
+            and "qwen2" in self.model_family.model_name.lower()
         ):
             model_kwargs = {"device_map": "auto"}
             if torch_dtype:
@@ -87,10 +83,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
             )
-        elif "qwen3" in self._model_spec.model_name.lower():
+        elif "qwen3" in self.model_family.model_name.lower():
             # qwen3 embedding
             flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
-            flash_attn_enabled = self._kwargs.get("enable_flash_attn", True)
+            flash_attn_enabled = self._kwargs.get(
+                "enable_flash_attn", is_device_available("cuda")
+            )
             model_kwargs = {"device_map": "auto"}
             tokenizer_kwargs = {}
             if flash_attn_installed and flash_attn_enabled:
@@ -119,7 +117,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 trust_remote_code=True,
             )
 
-        self._tokenizer = self._model.tokenizer
+        if hasattr(self._model, "tokenizer"):
+            self._tokenizer = self._model.tokenizer
 
     def create_embedding(
         self,
@@ -227,8 +226,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device = model._target_device
 
             if (
-                "gte" in self._model_spec.model_name.lower()
-                and "qwen2" in self._model_spec.model_name.lower()
+                "gte" in self.model_family.model_name.lower()
+                and "qwen2" in self.model_family.model_name.lower()
             ):
                 model.to(device)
 
@@ -254,7 +253,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 features.update(extra_features)
                 # when batching, the attention mask 1 means there is a token
                 # thus we just sum up it to get the total number of tokens
-                if "clip" in self._model_spec.model_name.lower():
+                if (
+                    "clip" in self.model_family.model_name.lower()
+                    or "jina-embeddings-v4" in self.model_family.model_name.lower()
+                ):
                     if "input_ids" in features and hasattr(
                         features["input_ids"], "numel"
                     ):
@@ -322,8 +324,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
 
         # seems already support prompt in embedding model
         if (
-            "gte" in self._model_spec.model_name.lower()
-            and "qwen2" in self._model_spec.model_name.lower()
+            "gte" in self.model_family.model_name.lower()
+            and "qwen2" in self.model_family.model_name.lower()
         ):
             all_embeddings, all_token_nums = encode(
                 self._model,
@@ -332,7 +334,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 convert_to_numpy=False,
                 **kwargs,
             )
-        elif "clip" in self._model_spec.model_name.lower():
+        elif (
+            "clip" in self.model_family.model_name.lower()
+            or "jina-embeddings-v4" in self.model_family.model_name.lower()
+        ):
             import base64
             import re
             from io import BytesIO
@@ -409,6 +414,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         return importlib.util.find_spec("sentence_transformers") is not None
 
     @classmethod
-    def match_json(cls, model_spec: EmbeddingModelSpec) -> bool:
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV2,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> bool:
         # As default embedding engine, sentence-transformer support all models
-        return True
+        return model_spec.model_format in ["pytorch"]

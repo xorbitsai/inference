@@ -50,9 +50,9 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
-from .. import LLM, LLMFamilyV1, LLMSpecV1
+from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
-from ..llm_family import CustomLLMFamilyV1, cache_model_tokenizer_and_config
+from ..llm_family import CustomLLMFamilyV2, cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -116,6 +116,11 @@ class VLLMGenerateConfig(TypedDict, total=False):
 
 try:
     import vllm  # noqa: F401
+
+    if not getattr(vllm, "__version__", None):
+        raise ImportError(
+            "vllm not installed properly, or wrongly be found in sys.path"
+        )
 
     VLLM_INSTALLED = True
 except ImportError:
@@ -261,14 +266,16 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
 if VLLM_INSTALLED and vllm.__version__ >= "0.9.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.9.2":
+    VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
+
 
 class VLLMModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
@@ -283,7 +290,7 @@ class VLLMModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
         self.lora_modules = peft_model
@@ -353,7 +360,7 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        from ..llm_family import LlamaCppLLMSpecV1
+        from ..llm_family import LlamaCppLLMSpecV2
 
         if "0.3.1" <= vllm.__version__ <= "0.3.3":
             # from vllm v0.3.1 to v0.3.3, it uses cupy as NCCL backend
@@ -372,7 +379,7 @@ class VLLMModel(LLM):
         )
 
         if (
-            isinstance(self.model_spec, LlamaCppLLMSpecV1)
+            isinstance(self.model_spec, LlamaCppLLMSpecV2)
             and self.model_spec.model_format == "ggufv2"
         ):
             # gguf
@@ -596,20 +603,25 @@ class VLLMModel(LLM):
 
         if "tokenizer" not in self._model_config:
             # find pytorch format without quantization
+            family = next(
+                family
+                for family in BUILTIN_LLM_FAMILIES
+                if family.model_name == self.model_family.model_name
+            ).copy()
             non_quant_spec = next(
                 spec
-                for spec in self.model_family.model_specs
-                if spec.model_format == "pytorch"
-                and "none" in spec.quantizations
+                for spec in family.model_specs
+                if spec.quantization == "none"
                 and spec.model_size_in_billions
                 == self.model_spec.model_size_in_billions
+                and spec.model_hub == self.model_spec.model_hub
             )
-
-            path = cache_model_tokenizer_and_config(self.model_family, non_quant_spec)
+            family.model_specs = [non_quant_spec]
+            path = cache_model_tokenizer_and_config(family)
             # other than gguf file, vllm requires to provide tokenizer and hf_config_path
-            self._model_config["tokenizer"] = self._model_config[
-                "hf_config_path"
-            ] = path
+            self._model_config["tokenizer"] = self._model_config["hf_config_path"] = (
+                path
+            )
 
         if not os.path.isfile(self.model_path):
             self.model_path = os.path.realpath(
@@ -795,7 +807,7 @@ class VLLMModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -817,7 +829,7 @@ class VLLMModel(LLM):
             else:
                 if "4" not in quantization:
                     return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
                 return False
         else:
@@ -1094,7 +1106,7 @@ class VLLMModel(LLM):
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "ggufv2"]:
             return False
@@ -1115,7 +1127,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
         else:
@@ -1141,9 +1153,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 not generate_config.get("stop_token_ids")
                 and self.model_family.stop_token_ids
             ):
-                generate_config[
-                    "stop_token_ids"
-                ] = self.model_family.stop_token_ids.copy()
+                generate_config["stop_token_ids"] = (
+                    self.model_family.stop_token_ids.copy()
+                )
         return generate_config
 
     @staticmethod
@@ -1154,17 +1166,50 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
+    @staticmethod
+    def prefill_messages(messages: List[Dict]) -> List[Dict]:
+        """
+        Preprocess messages to ensure content is not None
+
+        Args:
+            messages: Original message list
+
+        Returns:
+            Processed message list, where content is not None
+        """
+        processed_messages = []
+
+        for msg in messages:
+            if isinstance(msg, dict):
+                if msg.get("content") is None:
+                    msg_copy = msg.copy()
+                    msg_copy["content"] = ""  # Replace None with empty string
+                    processed_messages.append(msg_copy)
+                else:
+                    processed_messages.append(msg)
+            else:
+                processed_messages.append(msg)
+
+        return processed_messages
+
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
+        ctx: Optional[Dict[str, Any]] = {},
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
         i = 0
         previous_texts = [""]
         tool_call = False
         tool_call_texts = [""]
         if self.reasoning_parser:
+            set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
+            set_context()
             if i == 0:
                 for first_chunk in self._get_first_chat_completion_chunk(
                     chunk, self.reasoning_parser
@@ -1204,6 +1249,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        # Preprocess messages to ensure content is not None
+        messages = self.prefill_messages(messages)
+
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
@@ -1234,8 +1282,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             assert isinstance(agen, AsyncGenerator)
             if tools:
-                return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
+                return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
+            return self._async_to_chat_completion_chunks(
+                agen, self.reasoning_parser, chat_template_kwargs
+            )
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, request_id=request_id
@@ -1251,7 +1301,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -1273,7 +1323,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
                 return False
         else:

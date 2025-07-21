@@ -901,7 +901,7 @@ class RESTfulAPI(CancelMixin):
             package_file_path = __import__("xinference").__file__
             assert package_file_path is not None
             lib_location = os.path.abspath(os.path.dirname(package_file_path))
-            ui_location = os.path.join(lib_location, "web/ui/build/")
+            ui_location = os.path.join(lib_location, "ui/web/ui/build/")
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
 
@@ -920,7 +920,7 @@ class RESTfulAPI(CancelMixin):
             warnings.warn(
                 f"""
             Xinference ui is not built at expected directory: {ui_location}
-            To resolve this warning, navigate to {os.path.join(lib_location, "web/ui/")}
+            To resolve this warning, navigate to {os.path.join(lib_location, "ui/web/ui/")}
             And build the Xinference ui by running "npm run build"
             """
             )
@@ -1208,7 +1208,7 @@ class RESTfulAPI(CancelMixin):
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from ..core.chat_interface import GradioInterface
+        from ..ui.gradio.chat_interface import GradioInterface
 
         try:
             access_token = request.headers.get("Authorization")
@@ -1261,7 +1261,7 @@ class RESTfulAPI(CancelMixin):
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from ..core.media_interface import MediaInterface
+        from ..ui.gradio.media_interface import MediaInterface
 
         try:
             access_token = request.headers.get("Authorization")

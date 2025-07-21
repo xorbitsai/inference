@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 671 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-V3-0324
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V3-0324>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V3-0324>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 671 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 671
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** cognitivecomputations/DeepSeek-V3-0324-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/cognitivecomputations/DeepSeek-V3-0324-AWQ>`__, `ModelScope <https://modelscope.cn/models/cognitivecomputations/DeepSeek-V3-0324-AWQ>`__
 

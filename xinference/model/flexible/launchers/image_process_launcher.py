@@ -63,6 +63,7 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
         return ImageRemoveBackgroundModel(
             model_uid=model_uid,
             model_path=model_spec.model_uri,  # type: ignore
+            model_family=model_spec,
             device=device,
             config=kwargs,
         )

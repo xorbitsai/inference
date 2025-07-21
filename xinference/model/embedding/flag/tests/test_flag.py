@@ -14,15 +14,27 @@
 
 import shutil
 
-from ...core import EmbeddingModelSpec, cache, create_embedding_model_instance
+from ...cache_manager import EmbeddingCacheManager as CacheManager
+from ...core import (
+    EmbeddingModelFamilyV2,
+    TransformersEmbeddingSpecV1,
+    create_embedding_model_instance,
+)
 
-TEST_MODEL_SPEC = EmbeddingModelSpec(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
+    version=2,
     model_name="bge-small-en-v1.5",
     dimensions=384,
     max_tokens=512,
     language=["en"],
-    model_id="BAAI/bge-small-en-v1.5",
-    model_hub="modelscope",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="pytorch",
+            model_id="BAAI/bge-small-en-v1.5",
+            quantization="none",
+            model_hub="modelscope",
+        )
+    ],
 )
 
 
@@ -30,10 +42,10 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 def test_embedding_model_with_flag():
     model_path = None
     try:
-        model_path = cache(TEST_MODEL_SPEC)
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
-            "mook", "cuda", "mock", "bge-small-en-v1.5", "flag", model_path
+        model = create_embedding_model_instance(
+            "mook", "bge-small-en-v1.5", "flag", model_path=model_path
         )
         model.load()
 

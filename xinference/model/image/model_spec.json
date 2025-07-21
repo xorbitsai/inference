@@ -1,9 +1,8 @@
 [
   {
+    "version": 2,
     "model_name": "FLUX.1-schnell",
     "model_family": "stable_diffusion",
-    "model_id": "black-forest-labs/FLUX.1-schnell",
-    "model_revision": "768d12a373ed5cc9ef9a9dea7504dc09fcc14842",
     "model_ability": [
       "text2image",
       "image2image",
@@ -14,27 +13,51 @@
       "quantize_text_encoder": "text_encoder_2",
       "torch_dtype": "bfloat16"
     },
-    "gguf_model_id": "city96/FLUX.1-schnell-gguf",
-    "gguf_quantizations": [
-      "F16",
-      "Q2_K",
-      "Q3_K_S",
-      "Q4_0",
-      "Q4_1",
-      "Q4_K_S",
-      "Q5_0",
-      "Q5_1",
-      "Q5_K_S",
-      "Q6_K",
-      "Q8_0"
-    ],
-    "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.1-schnell",
+        "model_revision": "768d12a373ed5cc9ef9a9dea7504dc09fcc14842",
+        "gguf_model_id": "city96/FLUX.1-schnell-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/FLUX.1-schnell",
+        "model_revision": "master",
+        "gguf_model_id": "Xorbits/FLUX.1-schnell-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "FLUX.1-dev",
     "model_family": "stable_diffusion",
-    "model_id": "black-forest-labs/FLUX.1-dev",
-    "model_revision": "01aa605f2c300568dd6515476f04565a954fcb59",
     "model_ability": [
       "text2image",
       "image2image",
@@ -45,27 +68,117 @@
       "quantize_text_encoder": "text_encoder_2",
       "torch_dtype": "bfloat16"
     },
-    "gguf_model_id": "city96/FLUX.1-dev-gguf",
-    "gguf_quantizations": [
-      "F16",
-      "Q2_K",
-      "Q3_K_S",
-      "Q4_0",
-      "Q4_1",
-      "Q4_K_S",
-      "Q5_0",
-      "Q5_1",
-      "Q5_K_S",
-      "Q6_K",
-      "Q8_0"
-    ],
-    "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.1-dev",
+        "model_revision": "01aa605f2c300568dd6515476f04565a954fcb59",
+        "gguf_model_id": "city96/FLUX.1-dev-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/FLUX.1-dev",
+        "model_revision": "master",
+        "gguf_model_id": "AI-ModelScope/FLUX.1-dev-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
+      }
+    }
   },
   {
+    "version": 2,
+    "model_name": "FLUX.1-Kontext-dev",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_2",
+      "torch_dtype": "bfloat16"
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "ae.safetensors",
+        "flux1-kontext-dev.safetensors"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.1-Kontext-dev",
+        "model_revision": "5f6b5b0f9b24f61c714603ae90c01343563bc3dd",
+        "gguf_model_id": "bullerwins/FLUX.1-Kontext-dev-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-kontext-dev-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.1-Kontext-dev",
+        "model_revision": "master",
+        "gguf_model_id": "bullerwins/FLUX.1-Kontext-dev-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux1-kontext-dev-{quantization}.gguf"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers.git",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  },
+  {
+    "version": 2,
     "model_name": "sd3-medium",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/stable-diffusion-3-medium-diffusers",
-    "model_revision": "ea42f8cef0f178587cf766dc8129abd379c90671",
     "model_ability": [
       "text2image",
       "image2image",
@@ -74,13 +187,22 @@
     "default_model_config": {
       "quantize": true,
       "quantize_text_encoder": "text_encoder_3"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-3-medium-diffusers",
+        "model_revision": "ea42f8cef0f178587cf766dc8129abd379c90671"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-3-medium-diffusers",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "sd3.5-medium",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/stable-diffusion-3.5-medium",
-    "model_revision": "94b13ccbe959c51e8159d91f562c58f29fac971a",
     "model_ability": [
       "text2image",
       "image2image",
@@ -91,29 +213,55 @@
       "quantize_text_encoder": "text_encoder_3",
       "torch_dtype": "bfloat16"
     },
-    "gguf_model_id": "city96/stable-diffusion-3.5-medium-gguf",
-    "gguf_quantizations": [
-      "F16",
-      "Q3_K_M",
-      "Q3_K_S",
-      "Q4_0",
-      "Q4_1",
-      "Q4_K_M",
-      "Q4_K_S",
-      "Q5_0",
-      "Q5_1",
-      "Q5_K_M",
-      "Q5_K_S",
-      "Q6_K",
-      "Q8_0"
-    ],
-    "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-3.5-medium",
+        "model_revision": "94b13ccbe959c51e8159d91f562c58f29fac971a",
+        "gguf_model_id": "city96/stable-diffusion-3.5-medium-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-3.5-medium",
+        "model_revision": "master",
+        "gguf_model_id": "Xorbits/stable-diffusion-3.5-medium-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "sd3.5-large",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/stable-diffusion-3.5-large",
-    "model_revision": "ceddf0a7fdf2064ea28e2213e3b84e4afa170a0f",
     "model_ability": [
       "text2image",
       "image2image",
@@ -125,22 +273,41 @@
       "torch_dtype": "bfloat16",
       "transformer_quantization": "nf4"
     },
-    "gguf_model_id": "city96/stable-diffusion-3.5-large-gguf",
-    "gguf_quantizations": [
-      "F16",
-      "Q4_0",
-      "Q4_1",
-      "Q5_0",
-      "Q5_1",
-      "Q8_0"
-    ],
-    "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-3.5-large",
+        "model_revision": "ceddf0a7fdf2064ea28e2213e3b84e4afa170a0f",
+        "gguf_model_id": "city96/stable-diffusion-3.5-large-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q4_0",
+          "Q4_1",
+          "Q5_0",
+          "Q5_1",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-3.5-large",
+        "model_revision": "master",
+        "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q4_0",
+          "Q4_1",
+          "Q5_0",
+          "Q5_1",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "sd3.5-large-turbo",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/stable-diffusion-3.5-large-turbo",
-    "model_revision": "ec07796fc06b096cc56de9762974a28f4c632eda",
     "model_ability": [
       "text2image",
       "image2image",
@@ -156,150 +323,223 @@
       "guidance_scale": 1.0,
       "num_inference_steps": 4
     },
-    "gguf_model_id": "city96/stable-diffusion-3.5-large-turbo-gguf",
-    "gguf_quantizations": [
-      "F16",
-      "Q4_0",
-      "Q4_1",
-      "Q5_0",
-      "Q5_1",
-      "Q8_0"
-    ],
-    "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-3.5-large-turbo",
+        "model_revision": "ec07796fc06b096cc56de9762974a28f4c632eda",
+        "gguf_model_id": "city96/stable-diffusion-3.5-large-turbo-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q4_0",
+          "Q4_1",
+          "Q5_0",
+          "Q5_1",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-3.5-large-turbo",
+        "model_revision": "master",
+        "gguf_model_id": "Xorbits/stable-diffusion-3.5-large-turbo-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q4_0",
+          "Q4_1",
+          "Q5_0",
+          "Q5_1",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "HunyuanDiT-v1.2",
     "model_family": "stable_diffusion",
-    "model_id": "Tencent-Hunyuan/HunyuanDiT-v1.2-Diffusers",
-    "model_revision": "5e96094e0ad19e7f475de8711f03634ca0ccc40c",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Tencent-Hunyuan/HunyuanDiT-v1.2-Diffusers",
+        "model_revision": "5e96094e0ad19e7f475de8711f03634ca0ccc40c"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "HunyuanDiT-v1.2-Distilled",
     "model_family": "stable_diffusion",
-    "model_id": "Tencent-Hunyuan/HunyuanDiT-v1.2-Diffusers-Distilled",
-    "model_revision": "ba991d1546d8c50936c4c16398ed0a87b9b99fb1",
     "model_ability": [
       "text2image"
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Tencent-Hunyuan/HunyuanDiT-v1.2-Diffusers-Distilled",
+        "model_revision": "ba991d1546d8c50936c4c16398ed0a87b9b99fb1"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers-Distilled",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "sd-turbo",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/sd-turbo",
-    "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c",
     "model_ability": [
       "text2image"
     ],
     "default_generate_config": {
       "guidance_scale": 0.0,
       "num_inference_steps": 1
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/sd-turbo",
+        "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/sd-turbo",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "sdxl-turbo",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/sdxl-turbo",
-    "model_revision": "f4b0486b498f84668e828044de1d0c8ba486e05b",
     "model_ability": [
       "text2image"
     ],
     "default_generate_config": {
       "guidance_scale": 0.0,
       "num_inference_steps": 1
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/sdxl-turbo",
+        "model_revision": "f4b0486b498f84668e828044de1d0c8ba486e05b"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/sdxl-turbo",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "stable-diffusion-v1.5",
     "model_family": "stable_diffusion",
-    "model_id": "runwayml/stable-diffusion-v1-5",
-    "model_revision": "1d0c4ebf6ff58a5caecab40fa1406526bca4b5b9",
     "model_ability": [
       "text2image",
       "image2image"
     ],
     "controlnet": [
       {
-        "model_name":"canny",
+        "model_name": "canny",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-canny",
         "model_revision": "7f2f69197050967007f6bbd23ab5e52f0384162a"
       },
       {
-        "model_name":"mlsd",
+        "model_name": "mlsd",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-mlsd",
         "model_revision": "456fc1af4dc8f7d5fa6c949c5040d3828a24e3ad"
       },
       {
-        "model_name":"hed",
+        "model_name": "hed",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-hed",
         "model_revision": "04473d9334ab44908daa66107bbfb6f710aa056d"
       },
       {
-        "model_name":"scribble",
+        "model_name": "scribble",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-scribble",
         "model_revision": "864edcd5ccc6ee2695eeebea5b4512100c83e7b3"
       },
       {
-        "model_name":"openpose",
+        "model_name": "openpose",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-openpose",
         "model_revision": "df796456519d1ac5dbe674caa0653fcc9673bca8"
       },
       {
-        "model_name":"normal",
+        "model_name": "normal",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-normal",
         "model_revision": "1cbed9b3ca84422e4a2f23c14b9f5a114742b31d"
       },
       {
-        "model_name":"seg",
+        "model_name": "seg",
         "model_family": "controlnet",
         "model_id": "lllyasviel/sd-controlnet-seg",
         "model_revision": "ecdcb5645b5099c9a7500a504fb9ab3f743c4d96"
       }
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "runwayml/stable-diffusion-v1-5",
+        "model_revision": "1d0c4ebf6ff58a5caecab40fa1406526bca4b5b9"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-v1-5",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "stable-diffusion-xl-base-1.0",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
-    "model_revision": "f898a3e026e802f68796b95e9702464bac78d76f",
     "model_ability": [
       "text2image",
       "image2image"
     ],
     "controlnet": [
       {
-        "model_name":"canny",
+        "model_name": "canny",
         "model_family": "controlnet",
         "model_id": "diffusers/controlnet-canny-sdxl-1.0",
         "model_revision": "eb115a19a10d14909256db740ed109532ab1483c"
       },
       {
-        "model_name":"depth",
+        "model_name": "depth",
         "model_family": "controlnet",
         "model_id": "diffusers/controlnet-depth-sdxl-1.0",
         "model_revision": "cb2e660019b26f7d2379e26922b5b2c87253dcf7"
       },
       {
-        "model_name":"zoe-depth",
+        "model_name": "zoe-depth",
         "model_family": "controlnet",
         "model_id": "diffusers/controlnet-zoe-depth-sdxl-1.0",
         "model_revision": "62134b9d8e703b5d6f74f1534457287a8bba77ef"
       }
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+        "model_revision": "f898a3e026e802f68796b95e9702464bac78d76f"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-xl-base-1.0",
+        "model_revision": "master"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "kolors",
     "model_family": "stable_diffusion",
-    "model_id": "Kwai-Kolors/Kolors-diffusers",
-    "model_revision": "7e091c75199e910a26cd1b51ed52c28de5db3711",
     "model_ability": [
       "text2image",
       "image2image"
@@ -312,13 +552,22 @@
         "diffusers>=0.30.0",
         "#system_numpy#"
       ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Kwai-Kolors/Kolors-diffusers",
+        "model_revision": "7e091c75199e910a26cd1b51ed52c28de5db3711"
+      },
+      "modelscope": {
+        "model_id": "JunHowie/Kolors-diffusers",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "cogview4",
     "model_family": "stable_diffusion",
-    "model_id": "THUDM/CogView4-6B",
-    "model_revision": "63a52b7f6dace7033380cd6da14d0915eab3e6b5",
     "model_ability": [
       "text2image"
     ],
@@ -330,40 +579,64 @@
         "diffusers>=0.33.0",
         "#system_numpy#"
       ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "THUDM/CogView4-6B",
+        "model_revision": "63a52b7f6dace7033380cd6da14d0915eab3e6b5"
+      },
+      "modelscope": {
+        "model_id": "ZhipuAI/CogView4-6B",
+        "model_revision": "master"
+      }
     }
   },
   {
+    "version": 2,
     "model_name": "stable-diffusion-inpainting",
     "model_family": "stable_diffusion",
-    "model_id": "runwayml/stable-diffusion-inpainting",
-    "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d",
     "model_ability": [
       "inpainting"
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "runwayml/stable-diffusion-inpainting",
+        "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "stable-diffusion-2-inpainting",
     "model_family": "stable_diffusion",
-    "model_id": "stabilityai/stable-diffusion-2-inpainting",
-    "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590",
     "model_ability": [
       "inpainting"
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-2-inpainting",
+        "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "stable-diffusion-xl-inpainting",
     "model_family": "stable_diffusion",
-    "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
-    "model_revision": "115134f363124c53c7d878647567d04daf26e41e",
     "model_ability": [
       "inpainting"
-    ]
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+        "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
+      }
+    }
   },
   {
+    "version": 2,
     "model_name": "GOT-OCR2_0",
     "model_family": "ocr",
-    "model_id": "stepfun-ai/GOT-OCR2_0",
-    "model_revision": "cf6b7386bc89a54f09785612ba74cb12de6fa17c",
     "model_ability": [
       "ocr"
     ],
@@ -382,6 +655,16 @@
         "timm==0.6.13",
         "numpy==1.26.4"
       ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "stepfun-ai/GOT-OCR2_0",
+        "model_revision": "cf6b7386bc89a54f09785612ba74cb12de6fa17c"
+      },
+      "modelscope": {
+        "model_id": "stepfun-ai/GOT-OCR2_0",
+        "model_revision": "master"
+      }
     }
   }
 ]

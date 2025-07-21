@@ -57,6 +57,8 @@ The following is a list of built-in embedding models in Xinference:
   
    jina-embeddings-v3
   
+   jina-embeddings-v4
+  
    m3e-base
   
    m3e-large

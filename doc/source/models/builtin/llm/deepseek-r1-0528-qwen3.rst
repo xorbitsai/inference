@@ -38,7 +38,7 @@ Model Spec 2 (gptq, 8 Billion)
 - **Quantizations:** Int4-W4A16, Int8-W8A16
 - **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** QuantTrio/DeepSeek-R1-0528-Qwen3-8B-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-R1-0528-Qwen3-8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/tclf90/DeepSeek-R1-0528-Qwen3-8B-GPTQ-Int4-Int8Mix>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-R1-0528-Qwen3-8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/okwinds/DeepSeek-R1-0528-Qwen3-8B-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

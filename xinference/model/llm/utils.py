@@ -16,7 +16,6 @@ import base64
 import functools
 import json
 import logging
-import os
 import re
 import time
 import typing
@@ -50,13 +49,7 @@ from ...types import (
     CompletionChunk,
     CompletionUsage,
 )
-from .llm_family import (
-    LlamaCppLLMSpecV1,
-    LLMFamilyV1,
-    LLMSpecV1,
-    _get_cache_dir,
-    get_cache_status,
-)
+from .core import chat_context_var
 from .reasoning_parser import ReasoningParser
 
 logger = logging.getLogger(__name__)
@@ -319,9 +312,7 @@ class ChatModelMixin:
         for i, choice in enumerate(choices):  # type: ignore
             delta = ChatCompletionChunkDelta()
             if "text" in choice and choice["finish_reason"] is None:
-                if not reasoning_parser or not reasoning_parser.check_content_parser():
-                    delta["content"] = choice["text"]
-                else:
+                if reasoning_parser and reasoning_parser.check_content_parser():
                     assert previous_texts is not None
                     current_text = previous_texts[-1] + choice["text"]
                     delta = reasoning_parser.extract_reasoning_content_streaming(
@@ -330,6 +321,8 @@ class ChatModelMixin:
                         delta_text=choice["text"],
                     )
                     previous_texts[-1] = current_text
+                else:
+                    delta["content"] = choice["text"]
             elif "text" in choice and choice["finish_reason"] is not None:
                 delta["content"] = choice["text"]
                 if reasoning_parser and reasoning_parser.check_content_parser():
@@ -463,12 +456,19 @@ class ChatModelMixin:
         cls,
         chunks: AsyncGenerator[CompletionChunk, None],
         reasoning_parser: Optional[ReasoningParser] = None,
+        ctx: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
         previous_texts = [""]
         # Process chunks
         if reasoning_parser:
+            set_context()
             chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
+            set_context()
             choices = chunk.get("choices")
             if not choices:
                 # usage
@@ -560,23 +560,33 @@ class ChatModelMixin:
         def split_into_blocks(text: str) -> list[str]:
             # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
             pattern = r"(<(think|tool_call)>.*?</\2>)"
-            blocks = re.findall(pattern, text, re.DOTALL)
-            return [match[0] for match in blocks]
+            parts = []
+            last_end = 0
+            # Find all label blocks and record their positions
+            for m in re.finditer(pattern, text, re.DOTALL):
+                # Text before adding tags
+                if m.start() > last_end:
+                    parts.append(text[last_end : m.start()])
+                # Add label block
+                parts.append(m.group(0))
+                last_end = m.end()
+            # Text after adding the last tag
+            if last_end < len(text):
+                parts.append(text[last_end:])
+            return parts
 
         contents = split_into_blocks(text)
         results: List[Tuple] = []
         for content in contents:
-            content = content.strip()
-            if content:
+            if content.strip():
                 pos1 = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
                 if pos1 != -1:
                     content = content[pos1 + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
                 pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
                 if pos2 != -1:
                     content = content[:pos2]
-                content = content.strip()
                 try:
-                    res = json.loads(content)
+                    res = json.loads(content, strict=False)
                     results.append((None, res["name"], res["arguments"]))
                 except Exception as e:
                     logger.error(
@@ -724,7 +734,7 @@ class ChatModelMixin:
                 failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 
-        content = ". ".join(failed_contents) if failed_contents else None
+        content = "".join(failed_contents) if failed_contents else None
 
         # fix: qwen tool_call content field return null
         family = model_family.model_family or model_family.model_name
@@ -802,7 +812,7 @@ class ChatModelMixin:
                     failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 
-        content = ". ".join(failed_contents) if failed_contents else None
+        content = "".join(failed_contents) if failed_contents else None
 
         # fix: qwen tool_call content field return null
         family = model_family.model_family or model_family.model_name
@@ -880,38 +890,13 @@ class ChatModelMixin:
         return transformed_messages
 
 
-def get_file_location(
-    llm_family: LLMFamilyV1, spec: LLMSpecV1, quantization: str
-) -> Tuple[str, bool]:
-    cache_dir = _get_cache_dir(
-        llm_family, spec, quantization, create_if_not_exist=False
-    )
-    cache_status = get_cache_status(llm_family, spec, quantization)
-    if isinstance(cache_status, list):
-        is_cached = None
-        for q, cs in zip(spec.quantizations, cache_status):
-            if q == quantization:
-                is_cached = cs
-                break
-    else:
-        is_cached = cache_status
-    assert isinstance(is_cached, bool)
-
-    if spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
-        return cache_dir, is_cached
-    elif spec.model_format in ["ggufv2"]:
-        assert isinstance(spec, LlamaCppLLMSpecV1)
-        filename = spec.model_file_name_template.format(quantization=quantization)
-        model_path = os.path.join(cache_dir, filename)
-        return model_path, is_cached
-    else:
-        raise ValueError(f"Not supported model format {spec.model_format}")
-
-
 def get_model_version(
-    llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+    model_name: str,
+    model_format: str,
+    model_size_in_billions: Union[str, int],
+    quantization: str,
 ) -> str:
-    return f"{llm_family.model_name}--{llm_spec.model_size_in_billions}B--{llm_spec.model_format}--{quantization}"
+    return f"{model_name}--{model_size_in_billions}B--{model_format}--{quantization}"
 
 
 def _decode_image(_url):

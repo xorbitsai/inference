@@ -24,11 +24,11 @@ from ...constants import XINFERENCE_IMAGE_DIR
 from ...types import Image, ImageList
 
 if TYPE_CHECKING:
-    from .core import ImageModelFamilyV1
+    from .core import ImageModelFamilyV2
 
 
 def get_model_version(
-    image_model: "ImageModelFamilyV1", controlnet: Optional["ImageModelFamilyV1"]
+    image_model: "ImageModelFamilyV2", controlnet: Optional["ImageModelFamilyV2"]
 ) -> str:
     return (
         image_model.model_name

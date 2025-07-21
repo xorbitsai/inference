@@ -15,7 +15,7 @@ import logging
 from typing import Dict, List, Set
 
 from ....core.scheduler import InferenceRequest
-from ..llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class Gemma3TextChatModel(PytorchChatModel):
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False

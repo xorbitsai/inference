@@ -72,3 +72,69 @@ By default, the model’s virtual environment is stored under path:
 
 * Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_name}
 * Since v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v2 / {model_name}
+
+Experimental Feature
+####################
+
+.. note::
+
+   This feature requires ``xoscar >= 0.7.12``.
+
+``xinference`` uses the ``uv`` tool to create virtual environments, with the current Python **system site-packages** set as the base environment.
+By default, ``uv`` **does not check for existing packages in the system environment** and reinstalls all dependencies in the virtual environment.
+This ensures better isolation from system packages but can result in redundant installations, longer setup times, and increased disk usage.
+
+Starting from ``xoscar >= 0.7.12``, an **experimental feature** is available:
+by setting the environment variable ``XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages already available in system site-packages**.
+
+.. note::
+
+    The feature is currently disabled but will be enabled by default in ``v2.0.0``.
+
+Advantages
+----------
+
+- Avoid redundant installations of large dependencies (e.g., ``torch`` + ``CUDA``).
+- Speed up virtual environment creation.
+- Reduce disk usage.
+
+Usage
+-----
+
+.. code-block:: bash
+
+   # Enable experimental feature
+
+   # For command line
+   XINFERENCE_ENABLE_VIRTUAL_ENV=1 XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1 xinference-local ...
+   # For docker
+   docker run -e XINFERENCE_ENABLE_VIRTUAL_ENV=1 -e XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1 ...
+
+Performance Comparison
+----------------------
+
+Using the ``CosyVoice 0.5B`` model as an example:
+
+**Without this feature enabled**::
+
+    Installed 98 packages in 187ms
+     + aiohappyeyeballs==2.6.1
+     + aiohttp==3.12.13
+     ...
+     + torch==2.7.1
+     ...
+     + yarl==1.20.1
+     + zipp==3.23.0
+
+**With this feature enabled**::
+
+    Installed 7 packages in 12ms
+     + diffusers==0.29.0
+     + hf-xet==1.1.5
+     + huggingface-hub==0.33.2
+     + importlib-metadata==8.7.0
+     + pillow==11.3.0
+     + typing-extensions==4.14.0
+     + urllib3==2.5.0
+
+

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 671 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-Prover-V2-671B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-Prover-V2-671B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-Prover-V2-671B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-Prover-V2-7B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-Prover-V2-7B>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-Prover-V2-7B>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 7 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 7
 - **Quantizations:** 4bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/DeepSeek-Prover-V2-7B-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/DeepSeek-Prover-V2-7B-4bit>`__, `ModelScope <https://modelscope.cn/models/mlx-community/DeepSeek-Prover-V2-7B-4bit>`__
 
