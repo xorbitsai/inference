@@ -11,29 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import importlib.util
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Iterator, List, Optional, Tuple
-from io import BytesIO
-from PIL import Image
 
-from .....core.model import register_batching_multimodal_models
-from .....core.scheduler import InferenceRequest
-from .....device_utils import is_npu_available
+import torch
+
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
+from ...utils import _decode_image
 from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
 
 logger = logging.getLogger(__name__)
 
-
-@register_batching_multimodal_models("mistral-small-3.2-instruct")
 @register_transformer
 @register_non_default_model("mistral-small-3.2-instruct")
-class MistralAWQMultimodalModel(PytorchMultiModalModel):
+class MistralMultimodalModel(PytorchMultiModalModel):
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
     ) -> PytorchModelConfig:
@@ -53,15 +48,12 @@ class MistralAWQMultimodalModel(PytorchMultiModalModel):
         return False
 
     def decide_device(self):
-        device = self._pytorch_model_config.get("device", "auto")
-        device = select_device(device)
-        self._device = device
+        device = self._pytorch_model_config.get("device", "cuda")
+        self._device = select_device(device)
 
     def load_processor(self):
         from transformers import AutoProcessor
         from transformers import AutoTokenizer
-
-        
         min_pixels = self._pytorch_model_config.get("min_pixels")
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
@@ -70,39 +62,113 @@ class MistralAWQMultimodalModel(PytorchMultiModalModel):
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
-        # 加载 tokenizer
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, trust_remote_code=True, use_fast=False
+        )
+        
 
     def load_multimodal_model(self):
+        from transformers import BitsAndBytesConfig
         from transformers import Mistral3ForConditionalGeneration
-
-        kwargs = self.apply_bnb_quantization()
-        device = "auto" if self._device == "cuda" else self._device
+        kwargs = {"device_map": self._device}
+        kwargs = self.apply_bnb_quantization(kwargs)
         
+        if '4bit' in self.model_path:
+            quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+            kwargs["quantization_config"] = quantization_config
+        elif '8bit' in self.model_path:
+            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+            kwargs["quantization_config"] = quantization_config
+
         self._model = Mistral3ForConditionalGeneration.from_pretrained(
             self.model_path, 
-            device_map="cuda",
-            torch_dtype="bfloat16",
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+            torch_dtype=torch.float16,
             **kwargs
         ).eval()
+        # if self._device == 'cuda':
+        #     self._model.cuda()
 
+                
+    @staticmethod
+    def _get_processed_msgs(messages: List[Dict]) -> List[Dict]:
+        res = []
+        texts = []
+        images = []
+        for message in messages:
+            role = message["role"]
+            content = message["content"]
+            if isinstance(content, str):
+                res.append({"role": role, "content": [{"type": "text", "text": content}]})
+                texts.append(content)
+            else:
+                texts = []
+                image_urls = []
+                for c in content:
+                    c_type = c.get("type")
+                    if c_type == "text":
+                        texts.append(c["text"])
+                    else:
+                        assert (
+                            c_type == "image_url"
+                        ), "Please follow the image input of the OpenAI API."
+                        image_urls.append(c["image_url"]["url"])
+                if len(image_urls) > 1:
+                    raise RuntimeError("Only one image per message is supported")
+                image_futures = []
+                with ThreadPoolExecutor() as executor:
+                    for image_url in image_urls:
+                        fut = executor.submit(_decode_image, image_url)
+                        image_futures.append(fut)
+                images = [fut.result() for fut in image_futures]
+                assert len(images) <= 1
+                text = " ".join(texts)
+                if images:
+                    res.append({"role": role, "content":  [{"type": "image", "image": images[0]}, {"type": "text", "text": text}] })
+                    texts.append(text)
+                    images.append(images[0])
+                else:
+                    texts.append(text)
+                    res.append({"role": role, "content": [{"type": "text", "text": text}]})
+        return res,texts,images
+    
+    @staticmethod
+    def flatten_content(msg):
+        if isinstance(msg["content"], list):
+            parts = []
+            for part in msg["content"]:
+                if part["type"] == "image":
+                    parts.append("<image>")  # 或者其他占位符
+                elif part["type"] == "text":
+                    parts.append(part["text"])
+            msg["content"] = "".join(parts)
+        return msg
+    
     def build_inputs_from_messages(
         self, messages: List[Dict], generate_config: Dict
     ):
-        messages = self._transform_messages(messages)
-        inputs = self._processor.apply_chat_template(
-            messages,
+        rst, text, images = self._get_processed_msgs(messages)
+        flattened_messages = [self.flatten_content(m.copy()) for m in rst]
+        inputs = self._tokenizer.apply_chat_template(
+            conversation=flattened_messages,
+            # text=text,
+            images=images,
             add_generation_prompt=True,
             tokenize=True,
-            return_dict=True,
             return_tensors="pt",
-        ).to(self._device)
+            return_dict=True,
+        )
+        inputs = inputs.to(self._device)
         return inputs
 
     def build_generate_kwargs(self, generate_config: Dict) -> Dict[str, Any]:
         return dict(
-            max_new_tokens=generate_config.get("max_tokens", 512),
+            max_new_tokens=generate_config.get("max_tokens", 1000),
             temperature=generate_config.get("temperature", 1),
+            eos_token_id=generate_config.get("eos_token_id", 2),
+            do_sample=generate_config.get("do_sample", True),
+            bos_token_id=generate_config.get("bos_token_id", 1),
         )
 
     def build_streaming_iter(
@@ -118,53 +184,13 @@ class MistralAWQMultimodalModel(PytorchMultiModalModel):
 
         tokenizer = self._tokenizer
         streamer = TextIteratorStreamer(
-            tokenizer, timeout=60.0, skip_prompt=True, skip_special_tokens=True
+            tokenizer, 
+            timeout=60.0,
+            skip_prompt=True,
+            skip_special_tokens=True
         )
 
         gen_kwargs = {"streamer": streamer, **inputs, **configs}
         t = Thread(target=self._model.generate, kwargs=gen_kwargs)
         t.start()
-        return streamer, len(inputs.input_ids[0])
-
-    def prepare_sanitize_generate_config(self, req: InferenceRequest):
-        from transformers import GenerationConfig
-
-        gen_config = GenerationConfig.from_pretrained(self.model_path).to_dict()
-        raw_config = req.inference_kwargs.get("raw_params", {})
-        gen_config.update(raw_config)
-        return gen_config
-
-    def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
-        return messages
-
-    def build_prefill_kwargs(self, prompts: List, req_list: List[InferenceRequest]):
-        import torch
-
-        texts = []
-        for p in prompts:
-            if hasattr(self._tokenizer, "apply_chat_template"):
-                text = self._tokenizer.apply_chat_template(
-                    [
-                        {"role": "user", "content": p.get("content", "")}
-                    ], tokenize=False, add_generation_prompt=True
-                )
-            else:
-                text = p.get("content", "")
-            texts.append(text)
-
-        inputs = self._tokenizer(
-            texts,
-            return_tensors="pt",
-            padding=True,
-            padding_side="left"
-        ).to(self._device)
-
-        for r, ids, attn_mask in zip(req_list, inputs.input_ids, inputs.attention_mask):
-            r.prompt_tokens = ids.tolist()
-            real_len = torch.sum(attn_mask).item()
-            r.padding_len = attn_mask.numel() - real_len
-            r.extra_kwargs["attention_mask_seq_len"] = real_len
-
-        batch_size, seq_len = inputs.input_ids.shape
-        position_ids = self.build_prefill_position_ids(batch_size, seq_len, req_list)
-        return {**inputs, "position_ids": position_ids}
+        return streamer, len(inputs["input_ids"][0])
