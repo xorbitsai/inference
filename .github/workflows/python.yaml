@@ -54,11 +54,11 @@ jobs:
           node-version: 16
       # ESLint and Prettier must be in `package.json`
       - name: Install Node.js dependencies
-        run: cd xinference/web/ui && npm ci
+        run: cd xinference/ui/web/ui && npm ci
       - name: ESLint Check
-        run: cd xinference/web/ui && npx eslint .
+        run: cd xinference/ui/web/ui && npx eslint .
       - name: Prettier Check
-        run: cd xinference/web/ui && ./node_modules/.bin/prettier --check .
+        run: cd xinference/ui/web/ui && ./node_modules/.bin/prettier --check .
 
   build_test_job:
     runs-on: ${{ matrix.os }}
