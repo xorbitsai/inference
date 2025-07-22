@@ -20,8 +20,8 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 
 import torch
 
-from ....core.scheduler import InferenceRequest
 from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerateConfig
+from ...scheduler.request import InferenceRequest
 from ..core import chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..utils import (
@@ -345,7 +345,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             kwargs["repetition_penalty"] = repetition_penalty
         return kwargs
 
-    def chat(
+    def chat(  # type: ignore
         self,
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,

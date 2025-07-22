@@ -14,7 +14,7 @@
 import logging
 from typing import Dict, List, Set
 
-from ....core.scheduler import InferenceRequest
+from ...scheduler.request import InferenceRequest
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
 
