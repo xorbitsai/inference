@@ -70,6 +70,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     ignore_eos: bool
     stream: bool
     stream_options: Optional[Union[dict, None]]
+    json_schema: Optional[dict]
 
 
 try:
@@ -313,6 +314,9 @@ class SGLANGModel(LLM):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
+        json_schema = generate_config.pop("response_format", {}).pop("json_schema", {}).pop("schema", {})
+        if json_schema:
+            generate_config.setdefault("json_schema", json.dumps(json_schema))
 
         return generate_config
 
