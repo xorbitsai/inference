@@ -86,6 +86,7 @@ Text to audio
 For Mac M-series chips only:
 
 * :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
+* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 
 Quickstart
 ===================
