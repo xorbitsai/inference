@@ -21,7 +21,7 @@ import pytest
 import requests
 
 from ...client.restful.restful_client import Client as RESTfulClient
-from ..scheduler import AbortRequestMessage
+from ...model.scheduler.core import AbortRequestMessage
 
 
 class BaseThread(threading.Thread):

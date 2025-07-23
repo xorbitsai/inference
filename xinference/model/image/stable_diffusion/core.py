@@ -277,6 +277,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
                 )
 
+        # Initialize batch scheduler if batching is enabled
+        self._image_batch_scheduler = None
+        if self._should_use_batching():
+            from ..scheduler.flux import FluxBatchScheduler
+
+            self._image_batch_scheduler = FluxBatchScheduler(self)
+            # Note: scheduler will be started when first request comes in
+
+    def _should_use_batching(self) -> bool:
+        """Check if this model should use batch scheduling for images"""
+        from ....constants import XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
+
+        return XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None
+
     def _get_quantize_config(self, method: str, quantization: str, module: str):
         if method == "bnb":
             try:
@@ -633,7 +647,40 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 logger.warning(f"{type(model)} cannot accept `{key}`, will ignore it")
                 kwargs.pop(key)
 
-    def text_to_image(
+    async def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        """Text to image method that handles both batching and non-batching"""
+        if self._image_batch_scheduler:
+            await self._ensure_scheduler_started()
+            # Use batching path
+            from concurrent.futures import Future as ConcurrentFuture
+
+            future: ConcurrentFuture = ConcurrentFuture()
+            await self._image_batch_scheduler.add_request(
+                prompt, future, n, size, response_format, **kwargs
+            )
+            import asyncio
+
+            fut = asyncio.wrap_future(future)
+            return await fut
+        else:
+            # Use direct path
+            return await self._direct_text_to_image(
+                prompt, n, size, response_format, **kwargs
+            )
+
+    async def _ensure_scheduler_started(self):
+        """Ensure the image batch scheduler is started"""
+        if self._image_batch_scheduler and not self._image_batch_scheduler._running:
+            await self._image_batch_scheduler.start()
+
+    async def _direct_text_to_image(
         self,
         prompt: str,
         n: int = 1,

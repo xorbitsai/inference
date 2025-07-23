@@ -19,9 +19,9 @@ import torch
 from PIL import Image
 
 from .....core.model import register_batching_multimodal_models
-from .....core.scheduler import InferenceRequest
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
+from ....scheduler.request import InferenceRequest
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model

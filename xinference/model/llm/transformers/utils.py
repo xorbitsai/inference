@@ -29,7 +29,6 @@ from transformers.generation.logits_process import (
     TopPLogitsWarper,
 )
 
-from ....core.scheduler import InferenceRequest
 from ....device_utils import empty_cache
 from ....types import (
     Completion,
@@ -38,6 +37,7 @@ from ....types import (
     CompletionUsage,
     max_tokens_field,
 )
+from ...scheduler.request import InferenceRequest
 
 if TYPE_CHECKING:
     from ...llm.transformers.core import PytorchModel

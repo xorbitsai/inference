@@ -16,10 +16,10 @@ import logging
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from .....core.model import register_batching_multimodal_models
-from .....core.scheduler import InferenceRequest
 from .....device_utils import is_npu_available
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
+from ....scheduler.request import InferenceRequest
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel

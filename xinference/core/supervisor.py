@@ -1674,7 +1674,7 @@ class SupervisorActor(xo.StatelessActor):
         request_id: str,
         block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     ) -> Dict:
-        from .scheduler import AbortRequestMessage
+        from ..model.scheduler.core import AbortRequestMessage
 
         res = {"msg": AbortRequestMessage.NO_OP.name}
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)

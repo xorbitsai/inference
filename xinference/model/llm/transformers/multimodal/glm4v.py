@@ -20,8 +20,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import torch
 
 from .....core.model import register_batching_multimodal_models
-from .....core.scheduler import InferenceRequest
 from .....model.utils import select_device
+from ....scheduler.request import InferenceRequest
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image
 from ..core import register_non_default_model

@@ -14,8 +14,8 @@
 from builtins import classmethod
 from typing import List, Optional
 
-from ....core.scheduler import InferenceRequest
 from ....types import LoRA
+from ...scheduler.request import InferenceRequest
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchModel, PytorchModelConfig, register_non_default_model
 
