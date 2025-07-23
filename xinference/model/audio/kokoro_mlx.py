@@ -74,26 +74,23 @@ class KokoroMLXModel:
         stream: bool = False,
         **kwargs,
     ):
-        if not voice:
-            voice = "af_alloy"
-            logger.info("Auto select speaker: %s", voice)
-        if not voice.endswith(".pt"):
-            # mlx-audio will try to download if not endswith .pt
-            # we just convert the internal voice to its path
-            voice = os.path.join(self._model_path, "voices", f"{voice}.pt")
-
         import soundfile
 
         if stream:
             raise Exception("Kokoro does not support stream mode.")
         assert self._model is not None
+
         if not voice:
             voice = "af_alloy"
             logger.info("Auto select speaker: %s", voice)
-        elif voice.endswith(".pt"):
+        elif not voice.endswith(".pt"):
+            # mlx-audio will try to download if not endswith .pt
+            # we just convert the internal voice to its path
             logger.info("Using custom voice pt: %s", voice)
+            voice = os.path.join(self._model_path, "voices", f"{voice}.pt")
         else:
             logger.info("Using voice: %s", voice)
+
         logger.info("Speech kwargs: %s", kwargs)
         generator = self._model(text=input, voice=voice, speed=speed, **kwargs)
         results = list(generator)
