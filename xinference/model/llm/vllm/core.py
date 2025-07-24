@@ -342,7 +342,6 @@ class VLLMModel(LLM):
         try:
             import vllm
             from vllm import envs
-            from vllm.config import VllmConfig
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.executor.executor_base import ExecutorBase
@@ -424,6 +423,8 @@ class VLLMModel(LLM):
         elif self._n_worker > 1 or (
             self._device_count > 1 and vllm.__version__ >= "0.7.0"
         ):
+            from vllm.config import VllmConfig
+
             # model across multiple workers or GPUs
             engine_args = AsyncEngineArgs(
                 model=self.model_path,
