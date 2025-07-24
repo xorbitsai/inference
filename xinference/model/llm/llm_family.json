@@ -18620,13 +18620,13 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "dengcao/GLM-4.1V-9B-Thinking-AWQ"
+            "model_id": "QuantTrio/GLM-4.1V-9B-Thinking-AWQ"
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "dengcao/GLM-4.1V-9B-Thinking-AWQ",
+            "model_id": "tclf90/GLM-4.1V-9B-Thinking-AWQ",
             "model_revision": "master"
           }
         }
@@ -18639,13 +18639,13 @@
             "quantizations": [
               "Int4-Int8Mix"
             ],
-            "model_id": "dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix"
+            "model_id": "QuantTrio/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix"
           },
           "modelscope": {
             "quantizations": [
               "Int4-Int8Mix"
             ],
-            "model_id": "dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix",
+            "model_id": "tclf90/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix",
             "model_revision": "master"
           }
         }
