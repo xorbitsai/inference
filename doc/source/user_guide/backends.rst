@@ -155,6 +155,7 @@ Currently, supported model includes:
 - ``qwen3``
 - ``minicpm4``
 - ``Ernie4.5``
+- ``Qwen3-Instruct``
 .. vllm_end
 
 .. _sglang_backend:

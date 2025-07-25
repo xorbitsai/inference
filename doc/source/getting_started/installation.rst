@@ -92,6 +92,7 @@ Currently, supported models include:
 - ``qwen3``
 - ``minicpm4``
 - ``Ernie4.5``
+- ``Qwen3-Instruct``
 .. vllm_end
 
 To install Xinference and vLLM::
