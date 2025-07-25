@@ -807,7 +807,7 @@ class VLLMModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not cls._has_cuda_device():
+        if not cls._has_cuda_device() and not cls._has_mlu_device():
             return False
         if not cls._is_linux():
             return False
@@ -1301,7 +1301,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not cls._has_cuda_device():
+        if not cls._has_cuda_device() and not cls._has_mlu_device():
             return False
         if not cls._is_linux():
             return False

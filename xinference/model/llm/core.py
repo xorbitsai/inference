@@ -102,6 +102,23 @@ class LLM(abc.ABC):
 
     @staticmethod
     @lru_cache
+    def _has_mlu_device():
+        """
+        Use cnmon command to detect MLU devices.
+        DO NOT USE torch to impl this, which will lead to some unexpected errors.
+        """
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["cnmon", "info"], capture_output=True, text=True, timeout=5
+            )
+            return "Card 0" in result.stdout
+        except:
+            return False
+
+    @staticmethod
+    @lru_cache
     def _get_cuda_count():
         from ...device_utils import get_available_device_env_name
         from ...utils import cuda_count
