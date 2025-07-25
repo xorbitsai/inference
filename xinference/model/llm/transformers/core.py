@@ -20,7 +20,6 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
-from ....core.scheduler import InferenceRequest
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -36,9 +35,10 @@ from ....types import (
     PytorchGenerateConfig,
     PytorchModelConfig,
 )
+from ...scheduler.request import InferenceRequest
 from ...utils import select_device
-from ..core import LLM
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..core import LLM, chat_context_var
+from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
@@ -92,14 +92,12 @@ class PytorchModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._use_fast_tokenizer = True
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
@@ -339,13 +337,147 @@ class PytorchModel(LLM):
 
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
+        # Initialize batch scheduler if batching is enabled
+        self._batch_scheduler = None
+        if self._should_use_batching():
+            from ...scheduler.batch import BatchScheduler
+
+            self._batch_scheduler = BatchScheduler(self)
+            # Note: scheduler will be started when first request comes in
+
+    def _should_use_batching(self) -> bool:
+        """Check if this model should use batch scheduling"""
+        # Apply the original allow_batching logic
+        model_ability = getattr(self.model_family, "model_ability", [])
+
+        # For multimodal models, check if they're in the allowed list
+        if "vision" in model_ability or "audio" in model_ability:
+            from ....core.model import XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+
+            if (
+                self.model_family.model_name
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+                or getattr(self.model_family, "model_family", None)
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+            ):
+                max_num_seqs = self._pytorch_model_config.get("max_num_seqs", 16)
+                return max_num_seqs > 1
+            else:
+                logger.warning(
+                    f"Currently for multimodal models, "
+                    f"xinference only supports {', '.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
+                    f"Your model {self.model_family.model_name} with model family {getattr(self.model_family, 'model_family', None)} is disqualified."
+                )
+                return False
+
+        # For regular PytorchModel (non-multimodal), enable batching by default
+        max_num_seqs = self._pytorch_model_config.get("max_num_seqs", 16)
+        return max_num_seqs > 1
+
+    async def _ensure_scheduler_started(self):
+        """Ensure the batch scheduler is started"""
+        if self._batch_scheduler and not self._batch_scheduler._running:
+            await self._batch_scheduler.start()
+
+    async def generate(self, prompt: str, generate_config: Optional[dict] = None):
+        """Generate method that handles both batching and non-batching"""
+        if self._batch_scheduler:
+            await self._ensure_scheduler_started()
+            # Use batching path
+            from asyncio import Queue
+            from concurrent.futures import Future as ConcurrentFuture
+
+            # Check if streaming
+            stream = generate_config and generate_config.get("stream", False)
+
+            if stream:
+                queue: Queue = Queue()
+                await self._batch_scheduler.add_request(
+                    prompt, queue, "generate", generate_config
+                )
+                # Return async generator for streaming
+                return self._queue_to_async_generator(queue)
+            else:
+                future: ConcurrentFuture = ConcurrentFuture()
+                await self._batch_scheduler.add_request(
+                    prompt, future, "generate", generate_config
+                )
+                import asyncio
+
+                fut = asyncio.wrap_future(future)
+                return await fut
+        else:
+            # Use direct path - subclasses should implement this
+            return await self._direct_generate(prompt, generate_config)
+
+    async def _direct_generate(
+        self, prompt: str, generate_config: Optional[dict] = None
+    ):
+        """Direct generate implementation - to be implemented by subclasses"""
+        raise NotImplementedError("Subclasses must implement _direct_generate")
+
+    async def _queue_to_async_generator(self, queue):
+        """Convert queue to async generator for streaming"""
+        from ...scheduler.core import (
+            XINFERENCE_STREAMING_ABORT_FLAG,
+            XINFERENCE_STREAMING_DONE_FLAG,
+            XINFERENCE_STREAMING_ERROR_FLAG,
+        )
+
+        while True:
+            item = await queue.get()
+            if item == XINFERENCE_STREAMING_DONE_FLAG:
+                break
+            elif isinstance(item, str) and item.startswith(
+                XINFERENCE_STREAMING_ERROR_FLAG
+            ):
+                raise ValueError(item[len(XINFERENCE_STREAMING_ERROR_FLAG) :])
+            elif item == XINFERENCE_STREAMING_ABORT_FLAG:
+                raise RuntimeError("Request was aborted")
+            else:
+                yield item
+
+    async def abort_request(self, request_id: str) -> Optional[str]:
+        """Abort a request - delegate to batch scheduler if available"""
+        if self._batch_scheduler:
+            return await self._batch_scheduler.abort_request(request_id)
+        else:
+            # For non-batching models, indicate that model doesn't handle abort
+            return None
+
+    async def stop_scheduler(self):
+        """Stop the batch scheduler"""
+        if self._batch_scheduler:
+            await self._batch_scheduler.stop()
+
+    def stop(self):
+        """Stop the model and clean up resources"""
+        import asyncio
+
+        if self._batch_scheduler:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If in async context, create a task
+                    asyncio.create_task(self.stop_scheduler())
+                else:
+                    # If not in async context, run sync
+                    asyncio.run(self.stop_scheduler())
+            except Exception as e:
+                logger.warning(f"Failed to stop scheduler: {e}")
+        # Clean up model resources if needed
+        if hasattr(self, "_model"):
+            del self._model
+        if hasattr(self, "_tokenizer"):
+            del self._tokenizer
+
     @classmethod
     def check_lib(cls) -> bool:
         return importlib.util.find_spec("transformers") is not None
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
@@ -367,14 +499,26 @@ class PytorchModel(LLM):
         data = []
         for r in reqs:
             real_len = seq_length - r.padding_len
-            x = torch.cat(
-                [
-                    torch.full((r.padding_len,), 0, dtype=torch.long),
-                    torch.ones((real_len,), dtype=torch.long),
-                ]
-            )
-            data.append(x)
             r.extra_kwargs["attention_mask_seq_len"] = real_len
+
+            if self._tokenizer.padding_side == "left":
+                # [PAD][PAD]...[TOKEN]
+                x = torch.cat(
+                    [
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                        torch.ones((real_len,), dtype=torch.long),
+                    ]
+                )
+            else:  # right padding
+                # [TOKEN]...[PAD][PAD]
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                    ]
+                )
+            data.append(x)
+
         return torch.stack(data).to(self._device)
 
     def build_decode_attention_mask(
@@ -388,14 +532,30 @@ class PytorchModel(LLM):
         data = []
         for r in reqs:
             r.extra_kwargs["attention_mask_seq_len"] += 1
-            attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
-            pad_len = seq_length - attention_mask_seq_len
-            x = torch.cat(
-                [
-                    torch.full((pad_len,), 0, dtype=torch.long),
-                    torch.ones((attention_mask_seq_len,), dtype=torch.long),
-                ]
-            )
+            if self._tokenizer.padding_side == "left":
+                attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
+                pad_len = seq_length - attention_mask_seq_len
+                assert pad_len > 0, (
+                    f"pad_len must be greater than 0, got {pad_len} = "
+                    f"seq_length({seq_length}) - attention_mask_seq_len({attention_mask_seq_len})"
+                )
+                x = torch.cat(
+                    [
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                        torch.ones((attention_mask_seq_len,), dtype=torch.long),
+                    ]
+                )
+            else:
+                max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs)
+                real_len = r.extra_kwargs["attention_mask_seq_len"]
+                pad_len = max_len - real_len
+
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                    ]
+                )
             data.append(x)
         return torch.stack(data).to(self._device)
 
@@ -668,9 +828,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -678,8 +836,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().__init__(
             model_uid,
             model_family,
-            model_spec,
-            quantization,
             model_path,
             pytorch_model_config,
             peft_model,
@@ -702,7 +858,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
@@ -713,24 +869,62 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             return False
         return True
 
-    def chat(
+    async def chat(
         self,
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        raise NotImplementedError
+        """Chat method that handles both batching and non-batching"""
+        if self._batch_scheduler:
+            await self._ensure_scheduler_started()
+            # Use batching path
+            from asyncio import Queue
+            from concurrent.futures import Future as ConcurrentFuture
+
+            # Check if streaming
+            stream = generate_config and generate_config.get("stream", False)
+
+            if stream:
+                queue: Queue = Queue()
+                await self._batch_scheduler.add_request(
+                    messages, queue, "chat", generate_config
+                )
+                # Return async generator for streaming
+                return self._queue_to_async_generator(queue)
+            else:
+                future: ConcurrentFuture = ConcurrentFuture()
+                await self._batch_scheduler.add_request(
+                    messages, future, "chat", generate_config
+                )
+                import asyncio
+
+                fut = asyncio.wrap_future(future)
+                return await fut
+        else:
+            # Use direct path - call the original implementation
+            return await self._direct_chat(messages, generate_config)
+
+    async def _direct_chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[PytorchGenerateConfig] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        """Direct chat implementation - to be implemented by subclasses"""
+        raise NotImplementedError("Subclasses must implement _direct_chat")
 
     def load(self):
         super().load()
 
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         model_family = self.model_family.model_family or self.model_family.model_name
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         if (
             tools
             and model_family in QWEN_TOOL_CALL_FAMILY

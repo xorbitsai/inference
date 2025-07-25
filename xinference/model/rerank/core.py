@@ -21,24 +21,22 @@ import threading
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from ...constants import XINFERENCE_CACHE_DIR
-from ...device_utils import empty_cache
+from ...device_utils import empty_cache, is_device_available
 from ...types import Document, DocumentObj, Rerank, RerankTokens
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import is_model_cached
+from ..core import CacheableModelSpec, VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
 from .utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 RERANK_EMPTY_CACHE_COUNT = int(os.getenv("XINFERENCE_RERANK_EMPTY_CACHE_COUNT", "10"))
 assert RERANK_EMPTY_CACHE_COUNT > 0
@@ -50,7 +48,8 @@ def get_rerank_model_descriptions():
     return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
-class RerankModelSpec(CacheableModelSpec):
+class RerankModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_name: str
     language: List[str]
     type: Optional[str] = "unknown"
@@ -60,56 +59,37 @@ class RerankModelSpec(CacheableModelSpec):
     model_hub: str = "huggingface"
     virtualenv: Optional[VirtualEnvSettings]
 
+    class Config:
+        extra = "allow"
 
-class RerankModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_spec: RerankModelSpec,
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_spec = model_spec
-
-    @property
-    def spec(self):
-        return self._model_spec
-
-    def to_dict(self):
+    def to_description(self):
         return {
             "model_type": "rerank",
-            "address": self.address,
-            "accelerators": self.devices,
-            "type": self._model_spec.type,
-            "model_name": self._model_spec.model_name,
-            "language": self._model_spec.language,
-            "model_revision": self._model_spec.model_revision,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "type": self.type,
+            "model_name": self.model_name,
+            "language": self.language,
+            "model_revision": self.model_revision,
         }
 
     def to_version_info(self):
-        from .utils import get_model_version
+        from ..cache_manager import CacheManager
 
-        if self._model_path is None:
-            is_cached = get_cache_status(self._model_spec)
-            file_location = get_cache_dir(self._model_spec)
-        else:
-            is_cached = True
-            file_location = self._model_path
-
+        cache_manager = CacheManager(self)
         return {
-            "model_version": get_model_version(self._model_spec),
-            "model_file_location": file_location,
-            "cache_status": is_cached,
-            "language": self._model_spec.language,
+            "model_version": self.model_name,
+            "model_file_location": cache_manager.get_cache_dir(),
+            "cache_status": cache_manager.get_cache_status(),
+            "language": self.language,
         }
 
 
-def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[Dict]]:
+def generate_rerank_description(
+    model_spec: RerankModelFamilyV2,
+) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[model_spec.model_name].append(
-        RerankModelDescription(None, None, model_spec).to_version_info()
-    )
+    res[model_spec.model_name].append(model_spec.to_version_info())
     return res
 
 
@@ -145,13 +125,14 @@ class _ModelWrapper(nn.Module):
 class RerankModel:
     def __init__(
         self,
-        model_spec: RerankModelSpec,
+        model_spec: RerankModelFamilyV2,
         model_uid: str,
         model_path: Optional[str] = None,
         device: Optional[str] = None,
         use_fp16: bool = False,
         model_config: Optional[Dict] = None,
     ):
+        self.model_family = model_spec
         self._model_spec = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
@@ -252,7 +233,9 @@ class RerankModel:
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            enable_flash_attn = self._model_config.get("enable_flash_attn", True)
+            enable_flash_attn = self._model_config.pop(
+                "enable_flash_attn", is_device_available("cuda")
+            )
             model_kwargs = {"device_map": "auto"}
             if flash_attn_installed and enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
@@ -448,25 +431,7 @@ class RerankModel:
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
 
-def get_cache_dir(model_spec: RerankModelSpec):
-    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
-
-
-def get_cache_status(
-    model_spec: RerankModelSpec,
-) -> bool:
-    return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)
-
-
-def cache(model_spec: RerankModelSpec):
-    from ..utils import cache
-
-    return cache(model_spec, RerankModelDescription)
-
-
 def create_rerank_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_name: str,
     download_hub: Optional[
@@ -474,9 +439,10 @@ def create_rerank_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[RerankModel, RerankModelDescription]:
+) -> RerankModel:
+    from ..cache_manager import CacheManager
     from ..utils import download_from_modelscope
-    from . import BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS
+    from . import BUILTIN_RERANK_MODELS
     from .custom import get_user_defined_reranks
 
     model_spec = None
@@ -486,31 +452,25 @@ def create_rerank_model_instance(
             break
 
     if model_spec is None:
-        if download_hub == "huggingface" and model_name in BUILTIN_RERANK_MODELS:
-            logger.debug(f"Rerank model {model_name} found in Huggingface.")
-            model_spec = BUILTIN_RERANK_MODELS[model_name]
-        elif download_hub == "modelscope" and model_name in MODELSCOPE_RERANK_MODELS:
-            logger.debug(f"Rerank model {model_name} found in ModelScope.")
-            model_spec = MODELSCOPE_RERANK_MODELS[model_name]
-        elif download_from_modelscope() and model_name in MODELSCOPE_RERANK_MODELS:
-            logger.debug(f"Rerank model {model_name} found in ModelScope.")
-            model_spec = MODELSCOPE_RERANK_MODELS[model_name]
-        elif model_name in BUILTIN_RERANK_MODELS:
-            logger.debug(f"Rerank model {model_name} found in Huggingface.")
-            model_spec = BUILTIN_RERANK_MODELS[model_name]
+        if model_name in BUILTIN_RERANK_MODELS:
+            model_specs = BUILTIN_RERANK_MODELS[model_name]
+            if download_hub == "modelscope" or download_from_modelscope():
+                model_spec = (
+                    [x for x in model_specs if x.model_hub == "modelscope"]
+                    + [x for x in model_specs if x.model_hub == "huggingface"]
+                )[0]
+            else:
+                model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
         else:
             raise ValueError(
-                f"Rerank model {model_name} not found, available"
-                f"Huggingface: {BUILTIN_RERANK_MODELS.keys()}"
-                f"ModelScope: {MODELSCOPE_RERANK_MODELS.keys()}"
+                f"Rerank model {model_name} not found, available "
+                f"model: {BUILTIN_RERANK_MODELS.keys()}"
             )
     if not model_path:
-        model_path = cache(model_spec)
+        cache_manager = CacheManager(model_spec)
+        model_path = cache_manager.cache()
     use_fp16 = kwargs.pop("use_fp16", False)
     model = RerankModel(
         model_spec, model_uid, model_path, use_fp16=use_fp16, model_config=kwargs
     )
-    model_description = RerankModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
-    )
-    return model, model_description
+    return model

@@ -23,7 +23,8 @@ import xoscar as xo
 from xoscar.utils import lazy_import
 
 from .....device_utils import gpu_count
-from ...llm_family import BUILTIN_MODELSCOPE_LLM_FAMILIES, cache
+from ...cache_manager import LLMCacheManager as CacheManager
+from ...llm_family import BUILTIN_LLM_FAMILIES
 
 vllm = lazy_import("vllm")
 
@@ -65,14 +66,16 @@ async def test_distributed_executor(actor_pool_context):
     loop = asyncio.get_running_loop()
 
     llm_family = next(
-        f for f in BUILTIN_MODELSCOPE_LLM_FAMILIES if f.model_name == "qwen2.5-instruct"
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen2.5-instruct"
     )
+    llm_family = llm_family.copy()
     spec = next(
         s
         for s in llm_family.model_specs
         if s.model_size_in_billions == 7 and s.model_format == "pytorch"
     )
-    model_path = cache(llm_family, spec)
+    llm_family.model_specs = [spec]
+    model_path = CacheManager(llm_family).cache()
 
     def load(tp: bool = True):
         if tp:

@@ -165,7 +165,9 @@ class ReasoningParser:
         Returns:
             bool: True if reasoning content should be extracted, False otherwise
         """
-        return self.reasoning_content
+        if self.is_enable_thinking():
+            return self.reasoning_content
+        return False
 
     def _create_chat_completion_chunk(
         self, chunk: Union[Dict[str, Any], CompletionChunk], content: str
@@ -222,6 +224,12 @@ class ReasoningParser:
             ],
         )
 
+    def is_enable_thinking(self):
+        from .core import chat_context_var
+
+        context = chat_context_var.get({})
+        return context.get("enable_thinking", self.enable_thinking)
+
     async def prepare_reasoning_content_streaming(
         self, chunks: AsyncGenerator[CompletionChunk, None]
     ):
@@ -237,7 +245,7 @@ class ReasoningParser:
 
         # If reasoning_start_tag is not set, or disable thinking for hybrid model like qwen3,
         # yield chunks as is
-        if not self.reasoning_start_tag or not self.enable_thinking:
+        if not self.reasoning_start_tag or not self.is_enable_thinking():
             async for chunk in chunks:
                 yield chunk
             return
@@ -266,7 +274,7 @@ class ReasoningParser:
                         continue
                     assert isinstance(delta, dict)
                     text = delta.get("content")
-                    if text is None:
+                    if not text:
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
@@ -277,7 +285,7 @@ class ReasoningParser:
                 else:
                     # For standard completion chunks
                     text = choices[0].get("text")
-                    if text is None:
+                    if not text:
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
@@ -304,7 +312,7 @@ class ReasoningParser:
         """
         # If reasoning_start_tag is not set, or disable thinking for hybrid model like qwen3,
         # yield chunks as is
-        if not self.reasoning_start_tag or not self.enable_thinking:
+        if not self.reasoning_start_tag or not self.is_enable_thinking():
             for chunk in chunks:
                 yield chunk
             return
@@ -365,7 +373,7 @@ class ReasoningParser:
             completion: The completion object containing model output,
                 which can be either a chat completion or a standard completion.
         """
-        if not self.reasoning_start_tag or not self.enable_thinking:
+        if not self.reasoning_start_tag or not self.is_enable_thinking():
             return completion
 
         if completion.get("object") == "chat.completion" and completion.get("choices"):
@@ -399,7 +407,7 @@ class ReasoningParser:
                 or an empty list if no modification is needed
         """
         chunks: List[ChatCompletionChunk] = []
-        if not self.reasoning_start_tag or not self.enable_thinking:
+        if not self.reasoning_start_tag or not self.is_enable_thinking():
             return chunks
 
         choices = chunk.get("choices")

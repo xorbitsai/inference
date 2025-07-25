@@ -14,10 +14,10 @@
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .core import RerankModelSpec
+    from .core import RerankModelFamilyV2
 
 
-def get_model_version(rerank_model: "RerankModelSpec") -> str:
+def get_model_version(rerank_model: "RerankModelFamilyV2") -> str:
     return rerank_model.model_name
 
 

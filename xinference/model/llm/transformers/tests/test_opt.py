@@ -11,23 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
-import os
+
 from concurrent.futures import ThreadPoolExecutor
-from typing import Union
 
 import pytest
 
 from .....client import Client
 from .....client.restful.restful_client import RESTfulGenerateModelHandle
-from ... import BUILTIN_LLM_FAMILIES
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["none"])
 async def test_opt_pytorch_model(setup, quantization):
-    from .....constants import XINFERENCE_CACHE_DIR
-
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
@@ -74,20 +69,3 @@ async def test_opt_pytorch_model(setup, quantization):
 
         client.terminate_model(model_uid=model_uid)
         assert len(client.list_models()) == 0
-
-        # check for cached revision
-        valid_file = os.path.join(
-            XINFERENCE_CACHE_DIR, "opt-pytorch-1b", "__valid_download"
-        )
-        with open(valid_file, "r") as f:
-            actual_revision = json.load(f)["revision"]
-        model_name = "opt"
-        expected_revision: Union[str, None] = ""  # type: ignore
-
-        for family in BUILTIN_LLM_FAMILIES:
-            if model_name != family.model_name:
-                continue
-            for spec in family.model_specs:
-                expected_revision = spec.model_revision
-
-        assert expected_revision == actual_revision

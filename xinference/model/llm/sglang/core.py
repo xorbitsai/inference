@@ -32,9 +32,15 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
 )
-from .. import LLM, LLMFamilyV1, LLMSpecV1
-from ..llm_family import CustomLLMFamilyV1
-from ..utils import ChatModelMixin, generate_completion_chunk
+from .. import LLM, LLMFamilyV2, LLMSpecV1
+from ..core import chat_context_var
+from ..llm_family import CustomLLMFamilyV2
+from ..utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
+    ChatModelMixin,
+    generate_completion_chunk,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +70,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     ignore_eos: bool
     stream: bool
     stream_options: Optional[Union[dict, None]]
+    json_schema: Optional[dict]
 
 
 try:
@@ -130,13 +137,11 @@ class SGLANGModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         model_config: Optional[SGLANGModelConfig],
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -309,6 +314,13 @@ class SGLANGModel(LLM):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
+        json_schema = (
+            generate_config.pop("response_format", {})  # type: ignore
+            .pop("json_schema", {})
+            .pop("schema", {})
+        )
+        if json_schema:
+            generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
 
         return generate_config
 
@@ -318,7 +330,7 @@ class SGLANGModel(LLM):
 
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -329,7 +341,7 @@ class SGLANGModel(LLM):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
                 return False
         else:
@@ -546,14 +558,14 @@ class SGLANGModel(LLM):
 class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
                 return False
         else:
@@ -582,32 +594,48 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
-        full_context_kwargs = (
+        # fix: Object of type list_iterator is not JSON serializable
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
+        model_family = self.model_family.model_family or self.model_family.model_name
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
+        if tools:
+            if (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            ):
+                full_context_kwargs["tools"] = tools
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
         )
-
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
             agen = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
+            return self._async_to_chat_completion_chunks(
+                agen, self.reasoning_parser, chat_template_kwargs
+            )
         else:
             c = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
+            if tools:
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c, self.reasoning_parser
+                )
             return self._to_chat_completion(c, self.reasoning_parser)
 
 
 class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if not cls._has_cuda_device():
             return False
@@ -618,7 +646,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if isinstance(llm_family, CustomLLMFamilyV1):
+        if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
                 return False
         else:
@@ -656,14 +684,16 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
-
-        full_context_kwargs = (
+        chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
             )
             or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs = chat_template_kwargs.copy()
         prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
+
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
             raise ValueError("Not support video input now.")

@@ -20,7 +20,8 @@ from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 import torch
 
 from .....model.utils import select_device
-from ...llm_family import LLMFamilyV1, LLMSpecV1, register_transformer
+from ...core import chat_context_var
+from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -33,8 +34,8 @@ logger = logging.getLogger(__name__)
 class CogAgentChatModel(PytorchMultiModalModel):
     def __init__(self, *args, **kws):
         super().__init__(*args, **kws)
-        self._platform: Optional[Literal["Mac", "WIN", "Mobile"]] = "Mac"
-        self._format: Optional[
+        self._platform: Optional[Literal["Mac", "WIN", "Mobile"]] = "Mac"  # type: ignore
+        self._format: Optional[  # type: ignore
             Literal[
                 "(Answer in Action-Operation-Sensitive format.)",
                 "(Answer in Status-Plan-Action-Operation format.)",
@@ -46,7 +47,7 @@ class CogAgentChatModel(PytorchMultiModalModel):
 
     @classmethod
     def match_json(
-        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
         if "cogagent" in family.lower():
@@ -187,9 +188,14 @@ class CogAgentChatModel(PytorchMultiModalModel):
             "return_tensors": "pt",
             "return_dict": True,
         }
-        full_context_kwargs.update(
-            self._get_chat_template_kwargs_from_generate_config(generate_config, self.reasoning_parser) or {}  # type: ignore
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
         )
+        chat_context_var.set(chat_template_kwargs)
+        full_context_kwargs.update(chat_template_kwargs)
         assert self.model_family.chat_template is not None
         inputs = self.get_full_context(
             [{"role": "user", "image": image, "content": query}],

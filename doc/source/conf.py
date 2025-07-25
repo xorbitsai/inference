@@ -18,7 +18,7 @@ import os
 # -- Project information -----------------------------------------------------
 
 project = 'Xinference'
-copyright = '2023, Xorbits Inc.'
+copyright = '2025, Xorbits Inc.'
 author = 'xorbitsai'
 
 
@@ -125,7 +125,7 @@ else:
         "type": "fontawesome",
     }])
     html_theme_options["external_links"] = [
-        {"name": "产品官网", "url": "https://xorbits.cn"},
+        {"name": "产品官网", "url": "https://xinference.cn"},
     ]
 
 html_favicon = "_static/favicon.svg"

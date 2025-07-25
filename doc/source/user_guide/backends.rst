@@ -151,7 +151,10 @@ Currently, supported model includes:
 - ``minicpm3-4b``
 - ``internlm3-instruct``
 - ``moonlight-16b-a3b-instruct``
+- ``qwenLong-l1``
 - ``qwen3``
+- ``minicpm4``
+- ``Ernie4.5``
 .. vllm_end
 
 .. _sglang_backend:

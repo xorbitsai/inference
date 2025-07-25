@@ -19,35 +19,56 @@ import tempfile
 
 import pytest
 
-from ...utils import valid_model_revision
-from ..core import EmbeddingModelSpec, cache, create_embedding_model_instance
+from ..cache_manager import EmbeddingCacheManager as CacheManager
+from ..core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
 
-TEST_MODEL_SPEC = EmbeddingModelSpec(
+TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
+    version=2,
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
     language=["en"],
-    model_id="thenlper/gte-small",
-    model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="pytorch",
+            model_id="thenlper/gte-small",
+            model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
+            quantization="none",
+        )
+    ],
 )
 
-TEST_MODEL_SPEC2 = EmbeddingModelSpec(
+TEST_MODEL_SPEC2 = EmbeddingModelFamilyV2(
+    version=2,
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
     language=["en"],
-    model_id="thenlper/gte-small",
-    model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="pytorch",
+            model_id="thenlper/gte-small",
+            model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
+            quantization="none",
+        )
+    ],
 )
 
-TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
+TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV2(
+    version=2,
     model_name="bge-small-zh-v1.5",
     dimensions=512,
     max_tokens=512,
     language=["zh"],
-    model_id="Xorbits/bge-small-zh-v1.5",
-    model_revision="v0.0.2",
-    model_hub="modelscope",
+    model_specs=[
+        TransformersEmbeddingSpecV1(
+            model_format="pytorch",
+            model_id="Xorbits/bge-small-zh-v1.5",
+            model_revision="v0.0.2",
+            quantization="none",
+            model_hub="modelscope",
+        )
+    ],
 )
 from ..embed_family import EMBEDDING_ENGINES
 
@@ -62,9 +83,12 @@ def test_engine_supported():
 def test_model_from_modelscope():
     from ..core import create_embedding_model_instance
 
-    model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model, _ = create_embedding_model_instance(
-        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+    model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
+    model = create_embedding_model_instance(
+        "mock",
+        "bge-small-zh-v1.5",
+        "sentence_transformers",
+        model_path=model_path,
     )
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
@@ -76,79 +100,50 @@ def test_model_from_modelscope():
     shutil.rmtree(model_path, ignore_errors=True)
 
 
-def test_meta_file():
-    cache_dir = None
-    try:
-        cache_dir = cache(TEST_MODEL_SPEC)
-        meta_path = os.path.join(cache_dir, "__valid_download")
-        assert valid_model_revision(meta_path, TEST_MODEL_SPEC.model_revision)
-
-        # test another version of the same model
-        assert not valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
-        cache_dir = cache(TEST_MODEL_SPEC2)
-        meta_path = os.path.join(cache_dir, "__valid_download")
-        assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
-
-        # test functionality of the new version model
-
-        model, _ = create_embedding_model_instance(
-            "mock",
-            None,
-            "mock",
-            "bge-small-en-v1.5",
-            "sentence_transformers",
-            cache_dir,
-        )
-        input_text = "I can do this all day."
-        model.load()
-        r = model.create_embedding(input_text)
-        assert len(r["data"]) == 1
-        for d in r["data"]:
-            assert len(d["embedding"]) == 384
-    finally:
-        shutil.rmtree(cache_dir, ignore_errors=True)
-
-
 def test_get_cache_status():
-    from ..core import get_cache_status
-
     model_path = None
     try:
-        assert get_cache_status(TEST_MODEL_SPEC) is False
-        model_path = cache(TEST_MODEL_SPEC)
-        assert get_cache_status(TEST_MODEL_SPEC) is True
+        cache_manager = CacheManager(TEST_MODEL_SPEC)
+        assert cache_manager.get_cache_status() is False
+        model_path = cache_manager.cache()
+        assert cache_manager.get_cache_status() is True
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
 
 
 def test_from_local_uri():
-    from ...utils import cache_from_uri
-    from ..custom import CustomEmbeddingModelSpec
+    from ..custom import CustomEmbeddingModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomEmbeddingModelSpec(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_a",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_a",
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_a",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
 
-    cache_dir = cache_from_uri(model_spec=model_spec)
+    cache_dir = CacheManager(model_family).cache()
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
+    assert os.path.samefile(os.path.realpath(cache_dir), tmp_dir)
     os.remove(cache_dir)
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ...utils import cache_from_uri
     from ..custom import (
-        CustomEmbeddingModelSpec,
+        CustomEmbeddingModelFamilyV2,
         register_embedding,
         unregister_embedding,
     )
@@ -156,46 +151,66 @@ def test_register_custom_embedding():
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomEmbeddingModelSpec(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_b",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_b",
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
 
-    register_embedding(model_spec, False)
-    cache_from_uri(model_spec)
-    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    register_embedding(model_family, False)
+    CacheManager(model_family).cache()
+    model_cache_path = os.path.join(
+        XINFERENCE_CACHE_DIR, "v2", f"{model_family.model_name}-pytorch-none"
+    )
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomEmbeddingModelSpec(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_b-v15",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_b",
-        model_uri="file:///c/d",
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri="file:///c/d",
+                quantization="none",
+            )
+        ],
     )
     with pytest.raises(ValueError):
-        register_embedding(model_spec, False)
+        register_embedding(model_family, False)
 
     # name conflict
-    model_spec = CustomEmbeddingModelSpec(
+    model_family = CustomEmbeddingModelFamilyV2(
         model_name="custom_test_c",
         dimensions=1024,
         max_tokens=2048,
         language=["zh"],
-        model_id="test/custom_test_c",
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            TransformersEmbeddingSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_c",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
-    register_embedding(model_spec, False)
+    register_embedding(model_family, False)
     with pytest.raises(ValueError):
-        register_embedding(model_spec, False)
+        register_embedding(model_family, False)
 
     # unregister
     unregister_embedding("custom_test_b")
@@ -210,17 +225,23 @@ def test_register_fault_embedding():
     from ....constants import XINFERENCE_MODEL_DIR
     from .. import _install
 
-    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "embedding"), exist_ok=True)
-    file_path = os.path.join(XINFERENCE_MODEL_DIR, "embedding/GTE.json")
+    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding"), exist_ok=True)
+    file_path = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding/GTE.json")
     data = {
         "model_name": "GTE",
-        "model_id": None,
-        "model_revision": None,
         "model_hub": "huggingface",
         "dimensions": 768,
         "max_tokens": 512,
         "language": ["en", "zh"],
-        "model_uri": "/new_data/cache/gte-Qwen2",
+        "model_specs": [
+            {
+                "model_format": "pytorch",
+                "model_id": None,
+                "model_revision": None,
+                "model_uri": "/new_data/cache/gte-Qwen2",
+                "quantization": "none",
+            }
+        ],
     }
 
     with open(file_path, "w") as f:
@@ -236,9 +257,12 @@ def test_register_fault_embedding():
 def test_convert_ids_to_tokens():
     from ..core import create_embedding_model_instance
 
-    model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model, _ = create_embedding_model_instance(
-        "mock", None, "mock", "bge-small-zh-v1.5", "sentence_transformers", model_path
+    model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
+    model = create_embedding_model_instance(
+        "mock",
+        "bge-small-zh-v1.5",
+        "sentence_transformers",
+        model_path=model_path,
     )
     model.load()
 

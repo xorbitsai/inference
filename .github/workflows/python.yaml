@@ -39,7 +39,7 @@ jobs:
         with:
           src: "xinference"
           options: "--check"
-          version: "23.12.0"
+          version: "25.1.0"
       - uses: isort/isort-action@master
         with:
           sortPaths: "xinference"
@@ -54,11 +54,11 @@ jobs:
           node-version: 16
       # ESLint and Prettier must be in `package.json`
       - name: Install Node.js dependencies
-        run: cd xinference/web/ui && npm ci
+        run: cd xinference/ui/web/ui && npm ci
       - name: ESLint Check
-        run: cd xinference/web/ui && npx eslint .
+        run: cd xinference/ui/web/ui && npx eslint .
       - name: Prettier Check
-        run: cd xinference/web/ui && ./node_modules/.bin/prettier --check .
+        run: cd xinference/ui/web/ui && ./node_modules/.bin/prettier --check .
 
   build_test_job:
     runs-on: ${{ matrix.os }}
@@ -125,12 +125,12 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install "xllamacpp>=0.1.18" gguf
+          pip install "xllamacpp>=0.1.23"
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
             pip install mlx-lm
-            pip install mlx-vlm
+            pip install "mlx-vlm<0.2.0"
             pip install mlx-whisper
             pip install f5-tts-mlx
             pip install qwen-vl-utils!=0.0.9
@@ -174,7 +174,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers<4.49"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers>=4.51.0"
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr<1.1.17"
@@ -212,6 +212,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft>=0.15.0"
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
@@ -257,6 +258,9 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/tests/test_llm_model.py
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
@@ -266,13 +270,16 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper_mlx.py && \
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts_mlx.py && \
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_distributed_model.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests --ignore xinference/model/embedding/tests/test_integrated_embedding.py xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests --ignore xinference/model/embedding/tests/test_integrated_embedding.py --ignore xinference/model/llm/tests/test_llm_model.py xinference
           fi
         working-directory: .

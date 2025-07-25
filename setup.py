@@ -77,8 +77,8 @@ class BuildWeb(Command):
     """build_web command"""
 
     user_options = []
-    _web_src_path = "xinference/web/ui"
-    _web_dest_path = "xinference/web/ui/build/index.html"
+    _web_src_path = "xinference/ui/web/ui"
+    _web_dest_path = "xinference/ui/web/ui/build/index.html"
     _commands = [
         ["npm", "install"],
         ["npm", "run", "build"],

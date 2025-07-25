@@ -86,12 +86,8 @@ class AsyncRESTfulModelHandle:
 
     def __del__(self):
         if self.session:
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.close())
+            loop = asyncio.get_event_loop()
+            loop.create_task(self.close())
 
 
 class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
@@ -418,7 +414,10 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
         files.append(
-            ("mask_image", ("mask_image", mask_image, "application/octet-stream"))
+            (
+                "mask_image",
+                ("mask_image", mask_image, "application/octet-stream"),
+            )
         )
         response = await self.session.post(url, files=files, headers=self.auth_headers)
         if response.status != 200:
@@ -952,7 +951,7 @@ class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
             The inference result.
         """
         url = f"{self._base_url}/v1/flexible/infers"
-        params: Dict = {
+        params: Dict = {  # type: ignore
             "model": self._model_uid,
         }
         params.update(kwargs)
@@ -986,12 +985,8 @@ class AsyncClient:
 
     def __del__(self):
         if self.session:
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.close())
+            loop = asyncio.get_event_loop()
+            loop.create_task(self.close())
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:

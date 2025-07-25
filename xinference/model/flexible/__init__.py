@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import codecs
 import json
 import logging
@@ -25,6 +24,8 @@ from .core import (
     FlexibleModelSpec,
     generate_flexible_model_description,
     get_flexible_model_descriptions,
+)
+from .custom import (
     get_flexible_models,
     register_flexible_model,
     unregister_flexible_model,
@@ -34,7 +35,12 @@ logger = logging.getLogger(__name__)
 
 
 def register_custom_model():
-    model_dir = os.path.join(XINFERENCE_MODEL_DIR, "flexible")
+    from ..custom import migrate_from_v1_to_v2
+
+    # migrate from v1 to v2 first
+    migrate_from_v1_to_v2("flexible", FlexibleModelSpec)
+
+    model_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "flexible")
     if os.path.isdir(model_dir):
         for f in os.listdir(model_dir):
             try:

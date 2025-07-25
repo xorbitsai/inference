@@ -70,6 +70,15 @@ The following ``MODEL_TYPE`` is supported by Xinference:
 
       Video models
 
+.. grid:: 2
+
+    .. grid-item-card::  flexible
+      :link: flexible
+      :link-type: ref
+
+      Flexible models (Traditional ML Models)
+
+
 
 
 You can see all the built-in models supported by xinference :ref:`here <models_builtin_index>`. If the model 
@@ -225,6 +234,14 @@ Model Usage
       :link-type: ref
 
       Learn how to generate video with Xinference.
+
+.. grid:: 2
+
+    .. grid-item-card::  flexible
+      :link: flexible
+      :link-type: ref
+
+      Learn how to inference traditional ML models with Xinference.
 
 
 .. toctree::

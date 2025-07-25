@@ -12,23 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import abc
 import gc
 import logging
 import os
+from abc import abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
-from ..._compat import ROOT_KEY, ErrorWrapper, ValidationError
+from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
 from ...device_utils import empty_cache
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import get_cache_dir, is_model_cached
+from ..core import VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 EMBEDDING_EMPTY_CACHE_COUNT = int(
     os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_COUNT", "10")
@@ -46,88 +47,91 @@ def get_embedding_model_descriptions():
     return copy.deepcopy(EMBEDDING_MODEL_DESCRIPTIONS)
 
 
+class TransformersEmbeddingSpecV1(BaseModel):
+    model_format: Literal["pytorch"]
+    model_hub: str = "huggingface"
+    model_id: Optional[str]
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+    quantization: str
+
+
+class LlamaCppEmbeddingSpecV1(BaseModel):
+    model_format: Literal["ggufv2"]
+    model_hub: str = "huggingface"
+    model_id: Optional[str]
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+    quantization: str
+    model_file_name_template: str
+    model_file_name_split_template: Optional[str]
+    quantization_parts: Optional[Dict[str, List[str]]]
+
+
+EmbeddingSpecV1 = Annotated[
+    Union[TransformersEmbeddingSpecV1, LlamaCppEmbeddingSpecV1],
+    Field(discriminator="model_format"),
+]
+
+
 # this class define the basic info of embedding model
-class EmbeddingModelSpec(CacheableModelSpec):
+class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_name: str
     dimensions: int
     max_tokens: int
     language: List[str]
-    model_id: str
-    model_revision: Optional[str]
-    model_hub: str = "huggingface"
+    model_specs: List["EmbeddingSpecV1"]
+    cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
 
+    class Config:
+        extra = "allow"
 
-class EmbeddingModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_spec: EmbeddingModelSpec,
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_spec = model_spec
-
-    @property
-    def spec(self):
-        return self._model_spec
-
-    def to_dict(self):
+    def to_description(self):
+        spec = self.model_specs[0]
         return {
             "model_type": "embedding",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._model_spec.model_name,
-            "dimensions": self._model_spec.dimensions,
-            "max_tokens": self._model_spec.max_tokens,
-            "language": self._model_spec.language,
-            "model_revision": self._model_spec.model_revision,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "model_name": self.model_name,
+            "dimensions": self.dimensions,
+            "max_tokens": self.max_tokens,
+            "language": self.language,
+            "model_hub": spec.model_hub,
+            "model_revision": spec.model_revision,
+            "quantization": spec.quantization,
         }
 
     def to_version_info(self):
-        from .utils import get_model_version
+        from .cache_manager import EmbeddingCacheManager
 
-        if self._model_path is None:
-            is_cached = get_cache_status(self._model_spec)
-            file_location = get_cache_dir(self._model_spec)
-        else:
-            is_cached = True
-            file_location = self._model_path
+        cache_manager = EmbeddingCacheManager(self)
 
         return {
-            "model_version": get_model_version(self._model_spec),
-            "model_file_location": file_location,
-            "cache_status": is_cached,
-            "dimensions": self._model_spec.dimensions,
-            "max_tokens": self._model_spec.max_tokens,
+            "model_version": get_model_version(self),
+            "model_file_location": cache_manager.get_cache_dir(),
+            "cache_status": cache_manager.get_cache_status(),
+            "dimensions": self.dimensions,
+            "max_tokens": self.max_tokens,
         }
 
 
+def get_model_version(embedding_model: EmbeddingModelFamilyV2) -> str:
+    spec = embedding_model.model_specs[0]
+    return f"{embedding_model.model_name}--{embedding_model.max_tokens}--{embedding_model.dimensions}--{spec.model_format}--{spec.quantization}"
+
+
 def generate_embedding_description(
-    model_spec: EmbeddingModelSpec,
+    model_family: EmbeddingModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[model_spec.model_name].append(
-        EmbeddingModelDescription(None, None, model_spec).to_version_info()
-    )
+    specs = [x for x in model_family.model_specs if x.model_hub == "huggingface"]
+    for spec in specs:
+        family = model_family.copy()
+        family.model_specs = [spec]
+        res[model_family.model_name].append(family.to_version_info())
     return res
-
-
-def cache(model_spec: EmbeddingModelSpec):
-    from ..utils import cache
-
-    return cache(model_spec, EmbeddingModelDescription)
-
-
-def get_cache_status(
-    model_spec: EmbeddingModelSpec,
-) -> bool:
-    return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)
-
-
-import abc
-from abc import abstractmethod
 
 
 class EmbeddingModel(abc.ABC):
@@ -135,7 +139,8 @@ class EmbeddingModel(abc.ABC):
         self,
         model_uid: str,
         model_path: str,
-        model_spec: EmbeddingModelSpec,
+        model_family: EmbeddingModelFamilyV2,
+        quantization: Optional[str] = None,
         device: Optional[str] = None,
         **kwargs,
     ):
@@ -145,8 +150,10 @@ class EmbeddingModel(abc.ABC):
         self._model = None
         self._tokenizer = None
         self._counter = 0
-        self._model_spec = model_spec
-        self._model_name = self._model_spec.model_name
+        self.model_family = model_family
+        self._model_spec = model_family.model_specs[0]
+        self._quantization = quantization
+        self._model_name = self.model_family.model_name
         self._kwargs = kwargs
 
     @classmethod
@@ -156,17 +163,27 @@ class EmbeddingModel(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def match_json(cls, model_spec: EmbeddingModelSpec) -> bool:
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV2,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> bool:
         pass
 
     @classmethod
-    def match(cls, model_spec: EmbeddingModelSpec):
+    def match(
+        cls,
+        model_family: EmbeddingModelFamilyV2,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ):
         """
         Return if the model_spec can be matched.
         """
         if not cls.check_lib():
             return False
-        return cls.match_json(model_spec)
+        return cls.match_json(model_family, model_spec, quantization)
 
     @abstractmethod
     def load(self):
@@ -290,36 +307,39 @@ class EmbeddingModel(abc.ABC):
 
 
 def create_embedding_model_instance(
-    subpool_addr: str,
-    devices: Optional[List[str]],
     model_uid: str,
     model_name: str,
     model_engine: Optional[str],
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
-    model_spec = match_embedding(model_name, download_hub)
+) -> EmbeddingModel:
+    from .cache_manager import EmbeddingCacheManager
+
+    model_family = match_embedding(model_name, model_format, quantization, download_hub)
     if model_path is None:
-        model_path = cache(model_spec)
+        cache_manager = EmbeddingCacheManager(model_family)
+        model_path = cache_manager.cache()
 
     if model_engine is None:
-        # unlike LLM and for compatibility
+        # unlike LLM and for compatibility,
         # we use sentence_transformers as the default engine for all models
         model_engine = "sentence_transformers"
 
     from .embed_family import check_engine_by_model_name_and_engine
 
     embedding_cls = check_engine_by_model_name_and_engine(
-        model_name,
-        model_engine,
+        model_engine, model_name, model_format, quantization
     )
-    devices = devices or ["cpu"]
-    # model class should be one of flag, fastembed, sentence_transformers
-    model = embedding_cls(model_uid, model_path, model_spec, **kwargs)
-    model_description = EmbeddingModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
+    model = embedding_cls(
+        model_uid,
+        model_path,
+        model_family,
+        quantization,
+        **kwargs,
     )
-    return model, model_description
+    return model

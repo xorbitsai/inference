@@ -13,56 +13,98 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Type, Union
 
 if TYPE_CHECKING:
-    from .core import EmbeddingModel, EmbeddingModelSpec
+    from .core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_CLASSES: List[Type["EmbeddingModel"]] = []
 SENTENCE_TRANSFORMER_CLASSES: List[Type["EmbeddingModel"]] = []
 VLLM_CLASSES: List[Type["EmbeddingModel"]] = []
+LLAMA_CPP_CLASSES: List[Type["EmbeddingModel"]] = []
 
-BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
-MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
+BUILTIN_EMBEDDING_MODELS: Dict[str, "EmbeddingModelFamilyV2"] = {}
 
 logger = logging.getLogger(__name__)
 
 
-# Desc: this file used to manage embedding models information.
 def match_embedding(
     model_name: str,
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> "EmbeddingModelSpec":
+) -> "EmbeddingModelFamilyV2":
     from ..utils import download_from_modelscope
-
-    # The model info has benn init by __init__.py with model_spec.json file
     from .custom import get_user_defined_embeddings
 
-    # first, check whether it is a user-defined embedding model
-    for model_spec in get_user_defined_embeddings():
-        if model_name == model_spec.model_name:
-            return model_spec
+    target_family = None
 
-    if download_hub == "modelscope" and model_name in MODELSCOPE_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in ModelScope.")
-        return MODELSCOPE_EMBEDDING_MODELS[model_name]
-    elif download_hub == "huggingface" and model_name in BUILTIN_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in Huggingface.")
-        return BUILTIN_EMBEDDING_MODELS[model_name]
-    elif download_from_modelscope() and model_name in MODELSCOPE_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in ModelScope.")
-        return MODELSCOPE_EMBEDDING_MODELS[model_name]
-    elif model_name in BUILTIN_EMBEDDING_MODELS:
-        logger.debug(f"Embedding model {model_name} found in Huggingface.")
-        return BUILTIN_EMBEDDING_MODELS[model_name]
+    if model_name in BUILTIN_EMBEDDING_MODELS:
+        target_family = BUILTIN_EMBEDDING_MODELS[model_name]
     else:
+        for model_family in get_user_defined_embeddings():
+            if model_name == model_family.model_name:
+                target_family = model_family
+                break
+
+    if target_family is None:
         raise ValueError(
-            f"Embedding model {model_name} not found, available"
-            f"Huggingface: {BUILTIN_EMBEDDING_MODELS.keys()}"
-            f"ModelScope: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
+            f"Embedding model {model_name} not found, available "
+            f"models: {BUILTIN_EMBEDDING_MODELS.keys()}"
         )
+
+    if download_hub == "modelscope" or download_from_modelscope():
+        specs = [
+            x for x in target_family.model_specs if x.model_hub == "modelscope"
+        ] + [x for x in target_family.model_specs if x.model_hub == "huggingface"]
+    else:
+        specs = [x for x in target_family.model_specs if x.model_hub == "huggingface"]
+
+    def _match_quantization(q: Union[str, None], _quantization: str):
+        # Currently, the quantization name could include both uppercase and lowercase letters,
+        # so it is necessary to ensure that the case sensitivity does not
+        # affect the matching results.
+        if q is None:
+            return None
+        return _quantization if q.lower() == _quantization.lower() else None
+
+    def _apply_format_to_model_id(
+        _spec: "EmbeddingSpecV1", q: str
+    ) -> "EmbeddingSpecV1":
+        # Different quantized versions of some models use different model ids,
+        # Here we check the `{}` in the model id to format the id.
+        if _spec.model_id and "{" in _spec.model_id:
+            _spec.model_id = _spec.model_id.format(quantization=q)
+        return _spec
+
+    for spec in specs:
+        matched_quantization = _match_quantization(quantization, spec.quantization)
+        if (
+            model_format
+            and model_format != spec.model_format
+            or quantization
+            and matched_quantization is None
+        ):
+            continue
+        # Copy spec to avoid _apply_format_to_model_id modify the original spec.
+        spec = spec.copy()
+        _family = target_family.copy()
+        if quantization:
+            _family.model_specs = [
+                _apply_format_to_model_id(spec, matched_quantization)
+            ]
+            return _family
+        else:
+            # TODO: If user does not specify quantization, just use the first one
+            _q = "none" if spec.model_format == "pytorch" else spec.quantization
+            _family.model_specs = [_apply_format_to_model_id(spec, _q)]
+            return _family
+
+    raise ValueError(
+        f"Embedding model {model_name} with format {model_format} and quantization {quantization} not found."
+    )
 
 
 # { embedding model name -> { engine name -> engine params } }
@@ -71,8 +113,10 @@ SUPPORTED_ENGINES: Dict[str, List[Type["EmbeddingModel"]]] = {}
 
 
 def check_engine_by_model_name_and_engine(
-    model_name: str,
     model_engine: str,
+    model_name: str,
+    model_format: Optional[str],
+    quantization: Optional[str],
 ) -> Type["EmbeddingModel"]:
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in EMBEDDING_ENGINES[model_name].keys():
@@ -87,6 +131,11 @@ def check_engine_by_model_name_and_engine(
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
     match_params = EMBEDDING_ENGINES[model_name][model_engine]
     for param in match_params:
-        if model_name == param["model_name"]:
-            return param["embedding_class"]
+        if model_name != param["model_name"]:
+            continue
+        if (model_format and model_format != param["model_format"]) or (
+            quantization and quantization != param["quantization"]
+        ):
+            continue
+        return param["embedding_class"]
     raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** FreedomIntelligence/HuatuoGPT-o1-8B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/FreedomIntelligence/HuatuoGPT-o1-8B>`__, `ModelScope <https://modelscope.cn/models/FreedomIntelligence/HuatuoGPT-o1-8B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** FreedomIntelligence/HuatuoGPT-o1-70B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/FreedomIntelligence/HuatuoGPT-o1-70B>`__, `ModelScope <https://modelscope.cn/models/FreedomIntelligence/HuatuoGPT-o1-70B>`__
 
