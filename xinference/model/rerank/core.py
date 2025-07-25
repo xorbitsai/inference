@@ -276,6 +276,7 @@ class RerankModel:
             token_false_id = tokenizer.convert_tokens_to_ids("no")
             token_true_id = tokenizer.convert_tokens_to_ids("yes")
 
+            @torch.no_grad()
             def compute_logits(inputs, **kwargs):
                 batch_scores = model(**inputs).logits[:, -1, :]
                 true_vector = batch_scores[:, token_true_id]
