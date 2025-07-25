@@ -267,6 +267,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.9.2":
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
 
+
 class VLLMModel(LLM):
     def __init__(
         self,
