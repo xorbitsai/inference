@@ -839,6 +839,27 @@ def remove_cache(
     help="Api-Key for access xinference api with authorization.",
 )
 @click.option("--model-path", "-mp", default=None, type=str, help="Model path to run.")
+@click.option(
+    "--enable-virtual-env",
+    is_flag=True,
+    default=None,
+    flag_value=True,
+    help="Enable virtual environment when launching the model. If not set, defaults to None.",
+)
+@click.option(
+    "--virtual-env-package",
+    "-vp",
+    multiple=True,
+    type=str,
+    help="Packages to install in the virtual environment. Can be used multiple times.",
+)
+@click.option(
+    "--env",
+    "-ev",
+    multiple=True,
+    type=(str, str),
+    help="Environment variables in KEY VALUE format. Can be used multiple times.",
+)
 @click.pass_context
 def model_launch(
     ctx,
@@ -862,6 +883,9 @@ def model_launch(
     api_key: Optional[str],
     model_path: Optional[str],
     quantization_config: Optional[Tuple],
+    enable_virtual_env: Optional[bool],
+    virtual_env_package: Optional[Tuple[str]],
+    env: Optional[Tuple[Tuple[str, str]]],
 ):
     kwargs = {}
     for i in range(0, len(ctx.args), 2):
@@ -963,6 +987,9 @@ def model_launch(
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
         model_path=model_path,
+        enable_virtual_env=enable_virtual_env,
+        virtual_env_package=list(virtual_env_package) if virtual_env_package else None,
+        envs=dict(env) if env else None,
         **kwargs,
     )
     try:

@@ -50,6 +50,7 @@ from ..constants import (
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_VIRTUAL_ENV_DIR,
+    XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
@@ -816,7 +817,10 @@ class WorkerActor(xo.StatelessActor):
             # we specify python_path explicitly
             # sometimes uv would find other versions.
             python_path = pathlib.Path(sys.executable)
-        virtual_env_manager.create_env(python_path=python_path)
+        kw = {}
+        if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
+            kw["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        virtual_env_manager.create_env(python_path=python_path, **kw)
         return virtual_env_manager
 
     @classmethod
@@ -824,6 +828,7 @@ class WorkerActor(xo.StatelessActor):
         cls,
         virtual_env_manager: "VirtualEnvManager",
         settings: Optional[VirtualEnvSettings],
+        virtual_env_packages: Optional[List[str]],
     ):
         if not settings or not settings.packages:
             # no settings or no packages
@@ -837,7 +842,9 @@ class WorkerActor(xo.StatelessActor):
                     setattr(settings, k, v)
 
         conf = dict(settings)
-        packages = settings.packages
+        packages = settings.packages.copy() if settings.packages else {}
+        if virtual_env_packages:
+            packages.extend(virtual_env_packages)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
 
@@ -899,6 +906,9 @@ class WorkerActor(xo.StatelessActor):
             Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
         ] = None,
         model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -973,7 +983,6 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
 
             # virtualenv
-            enable_virtual_env = kwargs.pop("enable_virtual_env", None)
             virtual_env_name = kwargs.pop("virtual_env_name", None)
             virtual_env_path = os.path.join(
                 XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
@@ -995,6 +1004,7 @@ class WorkerActor(xo.StatelessActor):
                 n_gpu=n_gpu,
                 gpu_idx=gpu_idx,
                 start_python=subpool_python_path,
+                env=envs,
             )
             all_subpool_addresses = [subpool_address]
             try:
@@ -1068,6 +1078,7 @@ class WorkerActor(xo.StatelessActor):
                         self._prepare_virtual_env,
                         virtual_env_manager,
                         model.model_family.virtualenv,
+                        virtual_env_packages,
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
