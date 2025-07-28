@@ -842,7 +842,7 @@ class WorkerActor(xo.StatelessActor):
                     setattr(settings, k, v)
 
         conf = dict(settings)
-        packages = settings.packages.copy() if settings.packages else {}
+        packages = settings.packages.copy() if settings.packages else []
         if virtual_env_packages:
             packages.extend(virtual_env_packages)
         conf.pop("packages", None)

@@ -847,6 +847,13 @@ def remove_cache(
     help="Enable virtual environment when launching the model. If not set, defaults to None.",
 )
 @click.option(
+    "--disable-virtual-env",
+    "enable_virtual_env",
+    default=None,
+    flag_value=False,
+    help="Disable virtual environment.",
+)
+@click.option(
     "--virtual-env-package",
     "-vp",
     multiple=True,
@@ -988,7 +995,7 @@ def model_launch(
         trust_remote_code=trust_remote_code,
         model_path=model_path,
         enable_virtual_env=enable_virtual_env,
-        virtual_env_package=list(virtual_env_package) if virtual_env_package else None,
+        virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
         envs=dict(env) if env else None,
         **kwargs,
     )
