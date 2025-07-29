@@ -9,6 +9,10 @@ If you aim to serve all supported models, you can install all the necessary depe
 
    pip install "xinference[all]"
 
+.. versionchanged:: v1.8.1
+
+   Due to irreconcilable package dependency conflicts between vLLM and sglang, we have removed sglang from the all extra. If you want to use sglang, please install it separately via ``pip install 'xinference[sglang]'``.
+
 
 Several usage scenarios require special attention.
 
