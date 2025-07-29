@@ -729,6 +729,46 @@
             ]
           }
         }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "lm-kit/bge-m3-gguf",
+            "model_revision": "9379ce497e8814b200f2dc0d18eb4045426dcb8c",
+            "quantizations": [
+              "F16",
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_file_name_template": "bge-m3-{quantization}.gguf"
+          },
+          "modelscope": {
+            "model_id": "Xorbits/bge-m3-gguf",
+            "quantizations": [
+              "F16",
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_file_name_template": "bge-m3-{quantization}.gguf"
+          }
+        }
       }
     ]
   },
