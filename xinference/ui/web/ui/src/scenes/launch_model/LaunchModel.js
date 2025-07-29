@@ -60,7 +60,8 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     if (modelListType === 'featured') {
       if (
         featureModels.length &&
-        !featureModels.includes(registration.model_name)
+        !featureModels.includes(registration.model_name) &&
+        !collectionArr?.includes(registration.model_name)
       ) {
         return false
       }
