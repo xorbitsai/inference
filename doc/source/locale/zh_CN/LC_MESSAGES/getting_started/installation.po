@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-05-25 21:01+0800\n"
+"POT-Creation-Date: 2025-07-29 17:34+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -176,7 +176,8 @@ msgid ""
 "``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
 "instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, "
 "``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, "
-"``deepseek-r1``, ``deepseek-r1-distill-llama``"
+"``deepseek-v3-0324``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-"
+"prover-v2``, ``deepseek-r1-0528-qwen3``, ``deepseek-r1-distill-llama``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:64
@@ -234,106 +235,127 @@ msgid "``qwen2-instruct``, ``qwen2-moe-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:77
-msgid "``QwQ-32B-Preview``, ``QwQ-32B``"
+msgid "``XiYanSQL-QwenCoder-2504``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:78
-msgid "``marco-o1``"
+msgid "``QwQ-32B-Preview``, ``QwQ-32B``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:79
-msgid "``fin-r1``"
+msgid "``marco-o1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:80
-msgid "``seallms-v3``"
+msgid "``fin-r1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:81
-msgid "``skywork-or1-preview``"
+msgid "``seallms-v3``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:82
-msgid "``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``"
+msgid "``skywork-or1-preview``, ``skywork-or1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:83
-msgid "``orion-chat``, ``orion-chat-rag``"
+msgid "``HuatuoGPT-o1-Qwen2.5``, ``HuatuoGPT-o1-LLaMA-3.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:84
-msgid "``c4ai-command-r-v01``"
+msgid "``DianJin-R1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:85
-msgid "``minicpm3-4b``"
+msgid "``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:86
-msgid "``internlm3-instruct``"
+msgid "``orion-chat``, ``orion-chat-rag``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:87
-msgid "``moonlight-16b-a3b-instruct``"
+msgid "``c4ai-command-r-v01``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:88
-msgid "``qwen3``"
+msgid "``minicpm3-4b``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:89
+msgid "``internlm3-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:90
+msgid "``moonlight-16b-a3b-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:91
+msgid "``qwenLong-l1``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:92
+msgid "``qwen3``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:93
+msgid "``minicpm4``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:94
+msgid "``Ernie4.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:95
+msgid "``Qwen3-Instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:98
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:104
+#: ../../source/getting_started/installation.rst:111
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:105
+#: ../../source/getting_started/installation.rst:112
 msgid ""
 "Xinference supports models in ``gguf`` format via ``xllamacpp``. "
 "`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
 "Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
-"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`"
-"xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队"
-"开发，并从 v1.6.0 开始成为 llama.cpp 的唯一后端。"
+"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`xllamacpp <https://"
+"github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，并从 v1.6.0 "
+"开始成为 llama.cpp 的唯一后端。"
 
-#: ../../source/getting_started/installation.rst:111
+#: ../../source/getting_started/installation.rst:118
 msgid ""
 "Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
 "Xinference v1.6.0, ``llama-cpp-python`` has been removed."
 msgstr ""
-"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference "
-"从 v1.6.0 开始，该后端已被移除。"
+"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference 从 "
+"v1.6.0 开始，该后端已被移除。"
 
-#: ../../source/getting_started/installation.rst:114
-#: ../../source/getting_started/installation.rst:137
-#: ../../source/getting_started/installation.rst:150
+#: ../../source/getting_started/installation.rst:121
+#: ../../source/getting_started/installation.rst:131
+#: ../../source/getting_started/installation.rst:144
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:118
-msgid "Installation instructions for ``xllamacpp``:"
-msgstr "``xllamacpp`` 的安装说明："
-
-#: ../../source/getting_started/installation.rst:120
-msgid "CPU or Mac Metal::"
-msgstr "CPU 或 Mac Metal："
-
-#: ../../source/getting_started/installation.rst:124
-msgid "CUDA::"
+#: ../../source/getting_started/installation.rst:125
+#, fuzzy
+msgid ""
+"For more installation instructions for ``xllamacpp`` to enable GPU "
+"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
 msgstr ""
+"更多的 ``xllamacpp`` 安装说明以便开启 GPU加速，请参考：https://github.com"
+"/xorbitsai/xllamacpp"
 
 #: ../../source/getting_started/installation.rst:128
-msgid "HIP::"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:134
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:135
+#: ../../source/getting_started/installation.rst:129
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -344,19 +366,19 @@ msgstr ""
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:147
+#: ../../source/getting_started/installation.rst:141
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:148
+#: ../../source/getting_started/installation.rst:142
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:155
+#: ../../source/getting_started/installation.rst:149
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:157
+#: ../../source/getting_started/installation.rst:151
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
 

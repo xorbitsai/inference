@@ -22,6 +22,12 @@ the LLaMA series models and their variants.
     Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
 
 
+For all configurable llama.cpp parameters, please refer to the definition of the ``common_params`` structure in ``llama.cpp`` `common.h <https://github.com/ggml-org/llama.cpp/blob/master/common/common.h>`_
+
+There may be some nested parameters. For example, ``sampling.top_k``. Just use the ``.`` to separate nested parameters.
+
+Here is an example of setting nested sampling parameters in WebUI: https://github.com/xorbitsai/inference/issues/3093#issuecomment-2866252669
+
 Auto NGL
 -------------
 

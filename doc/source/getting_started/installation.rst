@@ -120,22 +120,9 @@ and is the sole backend for llama.cpp since v1.6.0.
 
 Initial setup::
 
-   pip install xinference
+   pip install "xinference[llama_cpp]"
 
-Installation instructions for ``xllamacpp``:
-
-- CPU or Mac Metal::
-
-   pip install -U xllamacpp
-
-- CUDA::
-
-   pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124
-
-- HIP::
-
-   pip install xllamacpp --force-reinstall --index-url https://xorbitsai.github.io/xllamacpp/whl/rocm-6.0.2
-
+For more installation instructions for ``xllamacpp`` to enable GPU acceleration, please refer to: https://github.com/xorbitsai/xllamacpp
 
 SGLang Backend
 ~~~~~~~~~~~~~~
