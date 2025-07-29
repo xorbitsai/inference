@@ -251,13 +251,17 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         style={{
           display: 'grid',
           gridTemplateColumns: (() => {
-            const baseColumns =
-              modelAbilityData.options.length > 0
-                ? ['150px', '150px']
-                : ['150px']
-            return featureModels.length
-              ? [...baseColumns, '150px', '1fr'].join(' ')
-              : [...baseColumns, '1fr'].join(' ')
+            const hasAbility = modelAbilityData.options.length > 0
+            const hasFeature = featureModels.length > 0
+
+            const baseColumns = hasAbility ? ['200px', '150px'] : ['200px']
+            const altColumns = hasAbility ? ['150px', '150px'] : ['150px']
+
+            const columns = hasFeature
+              ? [...baseColumns, '150px', '1fr']
+              : [...altColumns, '1fr']
+
+            return columns.join(' ')
           })(),
           columnGap: '20px',
           margin: '30px 2rem',
