@@ -149,10 +149,6 @@ Initial setup::
 
    pip install "xinference[sglang]"
 
-   # For CUDA 12.4 & torch 2.4 to support sliding window attention for gemma 2 and llama 3.1 style rope
-   pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4
-   # For other CUDA & torch versions, please check https://docs.flashinfer.ai/installation.html
-
 
 MLX Backend
 ~~~~~~~~~~~
