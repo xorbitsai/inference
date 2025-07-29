@@ -9,6 +9,10 @@ If you aim to serve all supported models, you can install all the necessary depe
 
    pip install "xinference[all]"
 
+.. versionchanged:: v1.8.1
+
+   Due to irreconcilable package dependency conflicts between vLLM and sglang, we have removed sglang from the all extra. If you want to use sglang, please install it separately via ``pip install 'xinference[sglang]'``.
+
 
 Several usage scenarios require special attention.
 
@@ -144,10 +148,6 @@ SGLang has a high-performance inference runtime with RadixAttention. It signific
 Initial setup::
 
    pip install "xinference[sglang]"
-
-   # For CUDA 12.4 & torch 2.4 to support sliding window attention for gemma 2 and llama 3.1 style rope
-   pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4
-   # For other CUDA & torch versions, please check https://docs.flashinfer.ai/installation.html
 
 
 MLX Backend
