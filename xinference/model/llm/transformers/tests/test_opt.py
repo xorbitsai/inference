@@ -54,7 +54,8 @@ async def test_opt_pytorch_model(setup, quantization):
         # Test concurrent generate is OK.
         def _check():
             completion = model.generate(
-                "Once upon a time, there was a very old computer"
+                "Once upon a time, there was a very old computer",
+                generate_config={"max_tokens": 100},
             )
             assert isinstance(completion, dict)
             assert "text" in completion["choices"][0]
