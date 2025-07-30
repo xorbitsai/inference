@@ -45,3 +45,17 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name deepseek-v3-0324 --size-in-billions 671 --model-format awq --quantization ${quantization}
 
+Model Spec 3 (mlx, 671 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 671
+- **Quantizations:** 4bit, 5bit, 8bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/DeepSeek-V3-0324-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/DeepSeek-V3-0324-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name deepseek-v3-0324 --size-in-billions 671 --model-format mlx --quantization ${quantization}

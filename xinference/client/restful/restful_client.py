@@ -1026,6 +1026,9 @@ class Client:
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -1067,6 +1070,13 @@ class Client:
             Specify the GPU index where the model is located.
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
+        enable_virtual_env: Optional[bool]
+            If enable virtual env.
+        virtual_env_packages: Optional[List[str]]
+            Packages to specify in virtual env, can be used to override builtin packages in virtual env.
+        envs: Optional[Dict[str, str]]
+            Environment variables to pass when launching model.
+
         **kwargs:
             Any other parameters been specified. e.g. multimodal_projector for multimodal inference with the llama.cpp backend.
 
@@ -1099,6 +1109,9 @@ class Client:
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
             "model_path": model_path,
+            "enable_virtual_env": enable_virtual_env,
+            "virtual_env_packages": virtual_env_packages,
+            "envs": envs,
         }
 
         wait_ready = kwargs.pop("wait_ready", True)

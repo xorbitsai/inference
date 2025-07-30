@@ -112,7 +112,7 @@
     "noCacheForNow": "現在キャッシュはありません！",
     "confirmDeleteCacheFiles": "キャッシュファイルを削除しますか？この操作は元に戻せません。",
     "commandLineTip": "モデル名が一致しているか確認してください。",
-    "featured": "注目",
+    "featured": "おすすめとお気に入り",
     "all": "すべて",
     "cancelledSuccessfully": "正常にキャンセルされました！"
   },

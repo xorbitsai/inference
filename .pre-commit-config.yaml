@@ -25,7 +25,7 @@ repos:
         args: [--sp, setup.cfg]
         exclude: thirdparty
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
+    rev: v1.15.0
     hooks:
       - id: mypy
         additional_dependencies: ["tokenize-rt==3.2.0", "types-requests", "types-tabulate"]

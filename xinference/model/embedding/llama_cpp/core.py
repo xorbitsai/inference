@@ -187,6 +187,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
 
         def _handle_embedding():
             data = {"input": sentences}
+            model_uid: Optional[str] = kwargs.pop("model_uid", None)
+            if model_uid:
+                data["model"] = model_uid
             prompt_json = orjson.dumps(data)
 
             def _error_callback(err):
