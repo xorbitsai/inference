@@ -3697,7 +3697,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/codegeex4-all-9b",
+            "model_id": "zai-org/codegeex4-all-9b",
             "model_revision": "8c4ec1d2f2888412640825a7aa23355939a8f4c6"
           },
           "modelscope": {
@@ -3723,7 +3723,7 @@
               "Q8_0"
             ],
             "model_file_name_template": "codegeex4-all-9b-{quantization}.gguf",
-            "model_id": "THUDM/codegeex4-all-9b-GGUF",
+            "model_id": "zai-org/codegeex4-all-9b-GGUF",
             "model_revision": "6a04071c54c943949826d4815ee00717ed8cf153"
           },
           "modelscope": {
@@ -3995,7 +3995,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/cogagent-9b-20241220"
+            "model_id": "zai-org/cogagent-9b-20241220"
           },
           "modelscope": {
             "quantizations": [
@@ -7225,7 +7225,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-4v-9b",
+            "model_id": "zai-org/glm-4v-9b",
             "model_revision": "01328faefe122fe605c1c127b62e6031d3ffebf7"
           },
           "modelscope": {
@@ -7277,7 +7277,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-edge-1.5b-chat"
+            "model_id": "zai-org/glm-edge-1.5b-chat"
           },
           "modelscope": {
             "quantizations": [
@@ -7295,7 +7295,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-edge-4b-chat"
+            "model_id": "zai-org/glm-edge-4b-chat"
           },
           "modelscope": {
             "quantizations": [
@@ -7325,7 +7325,7 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-1.5b-chat-gguf"
+            "model_id": "zai-org/glm-edge-1.5b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7356,7 +7356,7 @@
               "F16"
             ],
             "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-1.5b-chat-gguf"
+            "model_id": "zai-org/glm-edge-1.5b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7387,7 +7387,7 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-4b-chat-gguf"
+            "model_id": "zai-org/glm-edge-4b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7418,7 +7418,7 @@
               "F16"
             ],
             "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-4b-chat-gguf"
+            "model_id": "zai-org/glm-edge-4b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7464,7 +7464,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/GLM-4-9B-0414"
+            "model_id": "zai-org/GLM-4-9B-0414"
           },
           "modelscope": {
             "quantizations": [
@@ -7482,7 +7482,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/GLM-4-32B-0414"
+            "model_id": "zai-org/GLM-4-32B-0414"
           },
           "modelscope": {
             "quantizations": [
@@ -7567,8 +7567,8 @@
               "Q8_0",
               "bf16"
             ],
-            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7597,8 +7597,8 @@
               "Q8_0",
               "bf16"
             ],
-            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
           }
         }
       },
@@ -7634,8 +7634,8 @@
               "Q6_K_L",
               "Q8_0"
             ],
-            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7665,8 +7665,8 @@
               "Q6_K_L",
               "Q8_0"
             ],
-            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
           }
         }
       }
@@ -7712,7 +7712,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-4-9b-chat-hf",
+            "model_id": "zai-org/glm-4-9b-chat-hf",
             "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd"
           },
           "modelscope": {
@@ -7819,7 +7819,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-4-9b-chat-1m-hf",
+            "model_id": "zai-org/glm-4-9b-chat-1m-hf",
             "model_revision": "0588cb62942f0f0a5545c695e5c1b019d64eabdc"
           },
           "modelscope": {
@@ -19026,7 +19026,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/GLM-4.1V-9B-Thinking",
+            "model_id": "zai-org/GLM-4.1V-9B-Thinking",
             "model_revision": "b627c82cd8fc9175ff2b82b33fb439eba260055f"
           },
           "modelscope": {
