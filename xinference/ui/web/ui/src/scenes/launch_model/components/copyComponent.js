@@ -4,6 +4,13 @@ import ClipboardJS from 'clipboard'
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+const keyMap = {
+  model_size_in_billions: '--size-in-billions',
+  download_hub: '--download_hub',
+  enable_thinking: '--enable_thinking',
+  reasoning_content: '--reasoning_content',
+}
+
 function CopyComponent({ modelData, predefinedKeys }) {
   const { t } = useTranslation()
   const [isCopySuccess, setIsCopySuccess] = useState(false)
@@ -18,11 +25,11 @@ function CopyComponent({ modelData, predefinedKeys }) {
             value !== undefined) ||
           !predefinedKeys.includes(key)
       )
-      .map(([key, value]) => {
+      .flatMap(([key, value]) => {
         if (key === 'gpu_idx' && Array.isArray(value)) {
           return `--gpu-idx ${value.join(',')}`
         } else if (key === 'peft_model_config' && typeof value === 'object') {
-          let peftArgs = []
+          const peftArgs = []
           if (value.lora_list) {
             peftArgs.push(
               ...value.lora_list.map(
@@ -44,25 +51,21 @@ function CopyComponent({ modelData, predefinedKeys }) {
               )
             )
           }
-          return peftArgs.join(' ')
+          return peftArgs
         } else if (key === 'quantization_config' && typeof value === 'object') {
-          let peftArgs = []
-          peftArgs.push(
-            ...Object.entries(value).map(
-              ([k, v]) =>
-                `--quantization-config ${k} ${v === null ? 'none' : v}`
-            )
+          return Object.entries(value).map(
+            ([k, v]) => `--quantization-config ${k} ${v === null ? 'none' : v}`
           )
-          return peftArgs.join(' ')
+        } else if (key === 'envs' && typeof value === 'object') {
+          return Object.entries(value).map(([k, v]) => `--env ${k} ${v}`)
+        } else if (key === 'virtual_env_packages' && Array.isArray(value)) {
+          return value.map((pkg) => `--virtual-env-package ${pkg}`)
+        } else if (key === 'enable_virtual_env') {
+          if (value === true) return `--enable-virtual-env`
+          if (value === false) return `--disable-virtual-env`
+          return []
         } else if (predefinedKeys.includes(key)) {
-          let newKey
-          if (key === 'model_size_in_billions') {
-            newKey = '--size-in-billions'
-          } else if (key === 'download_hub') {
-            newKey = `--download_hub`
-          } else {
-            newKey = `--${key.replace(/_/g, '-')}`
-          }
+          const newKey = keyMap[key] ?? `--${key.replace(/_/g, '-')}`
           return `${newKey} ${
             value === false ? 'false' : value === null ? 'none' : value
           }`

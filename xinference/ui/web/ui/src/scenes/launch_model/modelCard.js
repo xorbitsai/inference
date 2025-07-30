@@ -34,6 +34,8 @@ import {
   ListItemText,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Select,
   Snackbar,
   Stack,
@@ -60,6 +62,7 @@ import DeleteDialog from '../../components/deleteDialog'
 import fetchWrapper from '../../components/fetchWrapper'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
+import AddValue from './components/addValue'
 import CopyToCommandLine from './components/copyComponent'
 import Drawer from './components/drawer'
 import PasteDialog from './components/pasteDialog'
@@ -89,6 +92,8 @@ const ModelCard = ({
   const [GPUIdxAlert, setGPUIdxAlert] = useState(false)
   const [isOther, setIsOther] = useState(false)
   const [isPeftModelConfig, setIsPeftModelConfig] = useState(false)
+  const [isVirtualEnvConfig, setIsVirtualEnvConfig] = useState(false)
+  const [isEnvsConfig, setIsEnvsConfig] = useState(false)
   const [openSnackbar, setOpenSnackbar] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -114,6 +119,7 @@ const ModelCard = ({
   const [modelPath, setModelPath] = useState('')
   const [enableThinking, setEnableThinking] = useState(true)
   const [reasoningContent, setReasoningContent] = useState(false)
+  const [enableVirtualEnv, setEnableVirtualEnv] = useState('unset')
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
   const [cpuOffload, setCpuOffload] = useState(false)
@@ -146,6 +152,11 @@ const ModelCard = ({
   const [loraArr, setLoraArr] = useState([])
   const [imageLoraLoadArr, setImageLoraLoadArr] = useState([])
   const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
+  const [virtualEnvPackagesArr, setVirtualEnvPackagesArr] = useState([])
+  const [virtualEnvPackagesHistoryArr, setVirtualEnvPackagesHistoryArr] =
+    useState([])
+  const [envsArr, setEnvsArr] = useState([])
+  const [envsHistoryArr, setEnvsHistoryArr] = useState([])
   const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
   const [isOpenPasteDialog, setIsOpenPasteDialog] = useState(false)
   const [isShowProgress, setIsShowProgress] = useState(false)
@@ -469,6 +480,26 @@ const ModelCard = ({
       modelDataWithID['quantization_config'] = quantizationConfig
     }
 
+    if (enableVirtualEnv !== 'unset') {
+      modelDataWithID['enable_virtual_env'] = handleValueType(enableVirtualEnv)
+    }
+
+    if (envsArr.length) {
+      const arr = {}
+      envsArr.forEach((item) => {
+        arr[item.key] = item.value
+      })
+      modelDataWithID['envs'] = arr
+    }
+
+    if (virtualEnvPackagesArr.length) {
+      const arr = []
+      virtualEnvPackagesArr.forEach((item) => {
+        arr.push(item.value)
+      })
+      modelDataWithID['virtual_env_packages'] = arr
+    }
+
     return modelDataWithID
   }
 
@@ -718,6 +749,9 @@ const ModelCard = ({
       reasoning_content,
       peft_model_config,
       quantization_config,
+      enable_virtual_env,
+      virtual_env_packages,
+      envs,
     } = data
 
     if (!engineOptions.includes(model_engine)) {
@@ -745,6 +779,8 @@ const ModelCard = ({
     setModelPath(model_path || '')
     setEnableThinking(enable_thinking !== false)
     setReasoningContent(reasoning_content || false)
+    setEnableVirtualEnv(enable_virtual_env ?? 'unset')
+    setVirtualEnvPackagesHistoryArr(virtual_env_packages || [])
 
     let loraData = []
     peft_model_config?.lora_list?.forEach((item) => {
@@ -754,6 +790,16 @@ const ModelCard = ({
       })
     })
     setLoraArr(loraData)
+
+    let envsData = []
+    for (let key in envs) {
+      envsData.push({
+        key: key,
+        value:
+          envs[key] === null ? 'none' : envs[key] === false ? false : envs[key],
+      })
+    }
+    setEnvsHistoryArr(envsData)
 
     let customData = []
     for (let key in data) {
@@ -790,14 +836,23 @@ const ModelCard = ({
       worker_ip ||
       gpu_idx?.join(',') ||
       download_hub ||
-      model_path ||
-      reasoning_content
+      model_path
     )
       setIsOther(true)
 
     if (loraData.length) {
       setIsOther(true)
       setIsPeftModelConfig(true)
+    }
+
+    if (virtual_env_packages?.length || enable_virtual_env !== undefined) {
+      setIsOther(true)
+      setIsVirtualEnvConfig(true)
+    }
+
+    if (envsData.length) {
+      setIsOther(true)
+      setIsEnvsConfig(true)
     }
   }
 
@@ -818,6 +873,9 @@ const ModelCard = ({
       cpu_offload,
       model_type,
       peft_model_config,
+      enable_virtual_env,
+      virtual_env_packages,
+      envs,
     } = data
 
     if (!engineOptions.includes(model_engine)) {
@@ -837,6 +895,18 @@ const ModelCard = ({
     setGgufQuantizations(gguf_quantization || '')
     setGgufModelPath(gguf_model_path || '')
     setCpuOffload(cpu_offload || false)
+    setEnableVirtualEnv(enable_virtual_env ?? 'unset')
+    setVirtualEnvPackagesHistoryArr(virtual_env_packages || [])
+
+    let envsData = []
+    for (let key in envs) {
+      envsData.push({
+        key: key,
+        value:
+          envs[key] === null ? 'none' : envs[key] === false ? false : envs[key],
+      })
+    }
+    setEnvsHistoryArr(envsData)
 
     if (model_type === 'image') {
       let loraData = []
@@ -873,6 +943,14 @@ const ModelCard = ({
       ) {
         setIsPeftModelConfig(true)
       }
+    }
+
+    if (virtual_env_packages?.length || enable_virtual_env !== undefined) {
+      setIsVirtualEnvConfig(true)
+    }
+
+    if (envsData.length) {
+      setIsEnvsConfig(true)
     }
 
     let customData = []
@@ -926,8 +1004,13 @@ const ModelCard = ({
       setLoraArr([])
       setCustomArr([])
       setQuantizationConfigArr([])
+      setEnableVirtualEnv('unset')
+      setVirtualEnvPackagesHistoryArr([])
+      setEnvsHistoryArr([])
       setIsOther(false)
       setIsPeftModelConfig(false)
+      setIsVirtualEnvConfig(false)
+      setIsEnvsConfig(false)
     } else {
       setModelEngine('')
       setModelFormat('')
@@ -946,7 +1029,12 @@ const ModelCard = ({
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
       setCustomArr([])
+      setEnableVirtualEnv('unset')
+      setVirtualEnvPackagesHistoryArr([])
+      setEnvsHistoryArr([])
       setIsPeftModelConfig(false)
+      setIsVirtualEnvConfig(false)
+      setIsEnvsConfig(false)
     }
   }
 
@@ -2027,6 +2115,99 @@ const ModelCard = ({
                       pairData={loraArr}
                     />
                   </Collapse>
+                  <ListItemButton
+                    onClick={() => setIsVirtualEnvConfig(!isVirtualEnvConfig)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <ListItemText
+                        primary={t('launchModel.virtualEnvConfig')}
+                        style={{ marginRight: 10 }}
+                      />
+                      {isVirtualEnvConfig ? <ExpandLess /> : <ExpandMore />}
+                    </div>
+                  </ListItemButton>
+                  <Collapse
+                    in={isVirtualEnvConfig}
+                    timeout="auto"
+                    unmountOnExit
+                    style={{ marginLeft: '30px' }}
+                  >
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          marginLeft: 15,
+                        }}
+                      >
+                        <span>{t('launchModel.modelVirtualEnv')}</span>
+                        <RadioGroup
+                          row
+                          name="row-radio-buttons-group"
+                          value={enableVirtualEnv}
+                          onChange={(e) => setEnableVirtualEnv(e.target.value)}
+                        >
+                          <FormControlLabel
+                            value="unset"
+                            control={<Radio />}
+                            label="Unset"
+                          />
+                          <FormControlLabel
+                            value={false}
+                            control={<Radio />}
+                            label="False"
+                          />
+                          <FormControlLabel
+                            value={true}
+                            control={<Radio />}
+                            label="True"
+                          />
+                        </RadioGroup>
+                      </div>
+                      <AddValue
+                        customData={{
+                          title: t('launchModel.virtualEnvPackage'),
+                          value: 'value',
+                        }}
+                        onGetArr={(arr) => {
+                          setVirtualEnvPackagesArr(arr)
+                        }}
+                        onJudgeArr={judgeArr}
+                        pairData={virtualEnvPackagesHistoryArr}
+                      />
+                    </FormControl>
+                  </Collapse>
+                  <ListItemButton
+                    onClick={() => setIsEnvsConfig(!isEnvsConfig)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <ListItemText
+                        primary={t('launchModel.envVariableConfig')}
+                        style={{ marginRight: 10 }}
+                      />
+                      {isEnvsConfig ? <ExpandLess /> : <ExpandMore />}
+                    </div>
+                  </ListItemButton>
+                  <Collapse
+                    in={isEnvsConfig}
+                    timeout="auto"
+                    unmountOnExit
+                    style={{ marginLeft: '30px' }}
+                  >
+                    <AddPair
+                      customData={{
+                        title: t('launchModel.envVariable'),
+                        key: 'key',
+                        value: 'value',
+                      }}
+                      onGetArr={(arr) => {
+                        setEnvsArr(arr)
+                      }}
+                      onJudgeArr={judgeArr}
+                      pairData={envsHistoryArr}
+                    />
+                  </Collapse>
                 </Collapse>
                 {modelEngine === 'Transformers' && (
                   <AddPair
@@ -2421,6 +2602,97 @@ const ModelCard = ({
                     </Collapse>
                   </>
                 )}
+                <ListItemButton
+                  onClick={() => setIsVirtualEnvConfig(!isVirtualEnvConfig)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemText
+                      primary={t('launchModel.virtualEnvConfig')}
+                      style={{ marginRight: 10 }}
+                    />
+                    {isVirtualEnvConfig ? <ExpandLess /> : <ExpandMore />}
+                  </div>
+                </ListItemButton>
+                <Collapse
+                  in={isVirtualEnvConfig}
+                  timeout="auto"
+                  unmountOnExit
+                  style={{ marginLeft: '30px' }}
+                >
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginLeft: 15,
+                      }}
+                    >
+                      <span>{t('launchModel.modelVirtualEnv')}</span>
+                      <RadioGroup
+                        row
+                        name="row-radio-buttons-group"
+                        value={enableVirtualEnv}
+                        onChange={(e) => setEnableVirtualEnv(e.target.value)}
+                      >
+                        <FormControlLabel
+                          value="unset"
+                          control={<Radio />}
+                          label="Unset"
+                        />
+                        <FormControlLabel
+                          value={false}
+                          control={<Radio />}
+                          label="False"
+                        />
+                        <FormControlLabel
+                          value={true}
+                          control={<Radio />}
+                          label="True"
+                        />
+                      </RadioGroup>
+                    </div>
+                    <AddValue
+                      customData={{
+                        title: t('launchModel.virtualEnvPackage'),
+                        value: 'value',
+                      }}
+                      onGetArr={(arr) => {
+                        setVirtualEnvPackagesArr(arr)
+                      }}
+                      onJudgeArr={judgeArr}
+                      pairData={virtualEnvPackagesHistoryArr}
+                    />
+                  </FormControl>
+                </Collapse>
+                <ListItemButton onClick={() => setIsEnvsConfig(!isEnvsConfig)}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemText
+                      primary={t('launchModel.envVariableConfig')}
+                      style={{ marginRight: 10 }}
+                    />
+                    {isEnvsConfig ? <ExpandLess /> : <ExpandMore />}
+                  </div>
+                </ListItemButton>
+                <Collapse
+                  in={isEnvsConfig}
+                  timeout="auto"
+                  unmountOnExit
+                  style={{ marginLeft: '30px' }}
+                >
+                  <AddPair
+                    customData={{
+                      title: t('launchModel.envVariable'),
+                      key: 'key',
+                      value: 'value',
+                    }}
+                    onGetArr={(arr) => {
+                      setEnvsArr(arr)
+                    }}
+                    onJudgeArr={judgeArr}
+                    pairData={envsHistoryArr}
+                  />
+                </Collapse>
                 <AddPair
                   customData={{
                     title: t(
