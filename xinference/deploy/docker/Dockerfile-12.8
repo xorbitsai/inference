@@ -7,8 +7,7 @@ ENV NVM_DIR=/usr/local/nvm
 ENV NODE_VERSION=14.21.1
 
 # Install system dependencies and Node.js (libfst-dev should be able to solve the errors of pyini)
-RUN rm -f /etc/apt/sources.list.d/cuda* /etc/apt/sources.list.d/nvidia* \
-  && apt-get -y update \
+RUN apt-get -y update \
   && apt install -y wget curl procps git libgl1 libfst-dev cmake libssl-dev \
   && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
   && apt-get -y update \
@@ -52,6 +51,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
+    pip install -i "$PIP_INDEX" transformers>=4.51.3 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.4.6.post5 && \
     pip install  https://github.com/sgl-project/whl/releases/download/v0.2.6/sgl_kernel-0.2.6+cu128-cp39-abi3-manylinux2014_x86_64.whl && \
     pip install WeTextProcessing==1.0.4.1 --no-deps && \
@@ -62,7 +62,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
+    pip install "xllamacpp>=0.1.23" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 && \
     # clean packages
     pip cache purge
 
@@ -79,7 +79,7 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     # Clear the Conda cache
     /opt/conda/bin/conda clean --all -y
 
-RUN pip3 install --pre torch==2.8.0.dev20250529+cu128 torchvision==0.22.0.dev20250530+cu128 torchaudio==2.6.0.dev20250529+cu128 --index-url https://download.pytorch.org/whl/nightly/cu128 \
+RUN pip3 install --pre torch==2.8.0.dev20250531+cu128 torchvision==0.23.0.dev20250631+cu128 torchaudio==2.6.0.dev20250531+cu128 --index-url https://download.pytorch.org/whl/nightly/cu128 \
     --no-deps
 
 # Override the default entrypoint of the vllm base image
