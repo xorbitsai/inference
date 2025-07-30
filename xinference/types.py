@@ -247,56 +247,6 @@ class LogitsProcessorList(List[LogitsProcessor]):
         return scores
 
 
-class LlamaCppGenerateConfig(TypedDict, total=False):
-    suffix: Optional[str]
-    max_tokens: int
-    temperature: float
-    top_p: float
-    logprobs: Optional[int]
-    echo: bool
-    stop: Optional[Union[str, List[str]]]
-    frequency_penalty: float
-    presence_penalty: float
-    repetition_penalty: float
-    top_k: int
-    stream: bool
-    stream_options: Optional[Union[dict, None]]
-    tfs_z: float
-    mirostat_mode: int
-    mirostat_tau: float
-    mirostat_eta: float
-    model: Optional[str]
-    grammar: Optional[Any]
-    stopping_criteria: Optional["StoppingCriteriaList"]
-    logits_processor: Optional["LogitsProcessorList"]
-    tools: Optional[List[Dict]]
-
-
-class LlamaCppModelConfig(TypedDict, total=False):
-    n_ctx: int
-    n_parts: int
-    n_gpu_layers: int
-    split_mode: int
-    main_gpu: int
-    seed: int
-    f16_kv: bool
-    logits_all: bool
-    vocab_only: bool
-    use_mmap: bool
-    use_mlock: bool
-    n_threads: Optional[int]
-    n_parallel: Optional[int]
-    n_batch: int
-    last_n_tokens_size: int
-    lora_base: Optional[str]
-    lora_path: Optional[str]
-    low_vram: bool
-    n_gqa: Optional[int]  # (TEMPORARY) must be 8 for llama2 70b
-    rms_norm_eps: Optional[float]  # (TEMPORARY)
-    verbose: bool
-    reasoning_content: bool
-
-
 class PytorchGenerateConfig(TypedDict, total=False):
     temperature: float
     repetition_penalty: float
@@ -344,6 +294,7 @@ class PytorchModelConfig(TypedDict, total=False):
     reasoning_content: bool
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
+    quantization_config: NotRequired[Dict]
 
 
 def get_pydantic_model_from_method(
@@ -411,24 +362,7 @@ class CreateCompletionTorch(BaseModel):
     top_k: int = top_k_field
     lora_name: Optional[str]
     request_id: Optional[str]
-
-
-CreateCompletionLlamaCpp: BaseModel
-try:
-    from llama_cpp import Llama
-
-    CreateCompletionLlamaCpp = get_pydantic_model_from_method(
-        Llama.create_completion,
-        exclude_fields=["model", "prompt", "grammar", "max_tokens"],
-        include_fields={
-            "grammar": (Optional[Any], None),
-            "max_tokens": (Optional[int], max_tokens_field),
-            "lora_name": (Optional[str], None),
-            "stream_options": (Optional[Union[dict, None]], None),
-        },
-    )
-except ImportError:
-    CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
+    chat_template_kwargs: Optional[Union[str, Dict[str, Any]]]
 
 
 # This type is for openai API compatibility
@@ -446,7 +380,6 @@ CreateCompletionOpenAI = fix_forward_ref(CreateCompletionOpenAI)
 class CreateCompletion(
     ModelAndPrompt,
     CreateCompletionTorch,
-    CreateCompletionLlamaCpp,
     CreateCompletionOpenAI,
 ):
     pass
@@ -458,7 +391,6 @@ class CreateChatModel(BaseModel):
 
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
-CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
 
 
 from ._compat import CreateChatCompletionOpenAI
@@ -467,7 +399,6 @@ from ._compat import CreateChatCompletionOpenAI
 class CreateChatCompletion(  # type: ignore
     CreateChatModel,
     CreateChatCompletionTorch,
-    CreateChatCompletionLlamaCpp,
     CreateChatCompletionOpenAI,
 ):
     pass
@@ -505,9 +436,11 @@ class PeftModelConfig:
 
     def to_dict(self):
         return {
-            "lora_list": [lora.to_dict() for lora in self.peft_model]
-            if self.peft_model
-            else None,
+            "lora_list": (
+                [lora.to_dict() for lora in self.peft_model]
+                if self.peft_model
+                else None
+            ),
             "image_lora_load_kwargs": self.image_lora_load_kwargs,
             "image_lora_fuse_kwargs": self.image_lora_fuse_kwargs,
         }

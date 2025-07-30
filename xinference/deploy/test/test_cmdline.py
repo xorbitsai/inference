@@ -185,7 +185,7 @@ def test_cmdline_of_custom_model(setup):
 
     # register custom model
     custom_model_desc = """{
-  "version": 1,
+  "version": 2,
   "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
@@ -200,11 +200,7 @@ def test_cmdline_of_custom_model(setup):
     {
       "model_format": "pytorch",
       "model_size_in_billions": 7,
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
+      "quantization": "none",
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],

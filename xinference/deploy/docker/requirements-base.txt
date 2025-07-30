@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 xoscar>=0.4.4
+=======
+xoscar>=0.7.2
+>>>>>>> origin/main
 gradio==5.22.0
 pillow
 click
@@ -22,7 +26,4 @@ async-timeout
 peft
 opencv-contrib-python-headless
 setproctitle
-
-
-
-
+gguf

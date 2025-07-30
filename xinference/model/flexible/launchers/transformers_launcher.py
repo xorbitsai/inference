@@ -18,7 +18,7 @@ from ..core import FlexibleModel, FlexibleModelSpec
 
 
 class MockModel(FlexibleModel):
-    def infer(self, **kwargs):
+    def infer(self, *args, **kwargs):
         return kwargs
 
 
@@ -27,8 +27,8 @@ class AutoModel(FlexibleModel):
         config = self.config or {}
         self._pipeline = pipeline(model=self.model_path, device=self.device, **config)
 
-    def infer(self, **kwargs):
-        return self._pipeline(**kwargs)
+    def infer(self, *args, **kwargs):
+        return self._pipeline(*args, **kwargs)
 
 
 class TransformersTextClassificationModel(FlexibleModel):
@@ -37,8 +37,8 @@ class TransformersTextClassificationModel(FlexibleModel):
 
         self._pipeline = pipeline(model=self._model_path, device=self._device, **config)
 
-    def infer(self, **kwargs):
-        return self._pipeline(**kwargs)
+    def infer(self, *args, **kwargs):
+        return self._pipeline(*args, **kwargs)
 
 
 def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> FlexibleModel:
@@ -51,13 +51,25 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
 
     if task == "text-classification":
         return TransformersTextClassificationModel(
-            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+            model_uid=model_uid,
+            model_path=model_path,
+            model_family=model_spec,
+            device=device,
+            config=kwargs,
         )
     elif task == "mock":
         return MockModel(
-            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+            model_uid=model_uid,
+            model_path=model_path,
+            model_family=model_spec,
+            device=device,
+            config=kwargs,
         )
     else:
         return AutoModel(
-            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+            model_uid=model_uid,
+            model_path=model_path,
+            model_family=model_spec,
+            device=device,
+            config=kwargs,
         )

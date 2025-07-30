@@ -21,14 +21,9 @@ import queue
 import time
 import types
 import uuid
-from asyncio.queues import Queue
-from asyncio.tasks import wait_for
-from concurrent.futures import Future as ConcurrentFuture
 from typing import (
     TYPE_CHECKING,
-    Any,
     AsyncGenerator,
-    AsyncIterator,
     Callable,
     Dict,
     Generator,
@@ -44,14 +39,12 @@ import xoscar as xo
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LAUNCH_MODEL_RETRY,
-    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE,
 )
 
 if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
     from ..model.llm.core import LLM
-    from ..model.core import ModelDescription
     import PIL
 
 import logging
@@ -71,17 +64,23 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
-XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = [
-    "qwen-vl-chat",
-    "cogvlm2",
-    "glm-4v",
-    "MiniCPM-V-2.6",
-]
+# !!!!! DO NOT add model_name to this list, using `register_batching_multimodal_models` below instead.
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
+
+
+def register_batching_multimodal_models(*model_names: str):
+    def decorator(cls):
+        for name in model_names:
+            if name not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS:
+                XINFERENCE_BATCHING_ALLOWED_VISION_MODELS.append(name)
+        return cls
+
+    return decorator
 
 
 def request_limit(fn):
@@ -154,35 +153,11 @@ def oom_check(fn):
 class ModelActor(xo.StatelessActor, CancelMixin):
     _replica_model_uid: Optional[str]
 
-    @classmethod
-    def gen_uid(cls, model: "LLM"):
-        return f"{model.__class__}-model-actor"
-
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
         from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
-
-        if self.allow_batching():
-            try:
-                assert self._scheduler_ref is not None
-                await xo.destroy_actor(self._scheduler_ref)
-                del self._scheduler_ref
-            except Exception as e:
-                logger.debug(
-                    f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
-                )
-
-        if self.allow_batching_for_text_to_image():
-            try:
-                assert self._text_to_image_scheduler_ref is not None
-                await xo.destroy_actor(self._text_to_image_scheduler_ref)
-                del self._text_to_image_scheduler_ref
-            except Exception as e:
-                logger.debug(
-                    f"Destroy text_to_image scheduler actor failed, address: {self.address}, error: {e}"
-                )
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
@@ -223,7 +198,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         worker_address: str,
         model: "LLM",
         replica_model_uid: str,
-        model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
         xavier_config: Optional[Dict] = None,
         n_worker: Optional[int] = 1,
@@ -242,9 +216,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._worker_address = worker_address
         self._replica_model_uid = replica_model_uid
         self._model = model
-        self._model_description = (
-            model_description.to_dict() if model_description else {}
-        )
+        self._model_description = self._model.model_family.to_description()
         self._request_limits = (
             float("inf") if request_limits is None else request_limits
         )
@@ -274,9 +246,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._shard = shard
         self._driver_info = driver_info
 
-        self._scheduler_ref = None
-        self._text_to_image_scheduler_ref = None
-
         if isinstance(self._model, VLLMModel):
             self._xavier_config = xavier_config
             self._model.set_xavier_config(xavier_config)
@@ -291,26 +260,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             self._handle_pending_requests()
         )
 
-        if self.allow_batching():
-            from .scheduler import SchedulerActor
-
-            self._scheduler_ref = await xo.create_actor(
-                SchedulerActor,
-                address=self.address,
-                uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
-            )
-
-        if self.allow_batching_for_text_to_image():
-            from ..model.image.scheduler.flux import FluxBatchSchedulerActor
-
-            self._text_to_image_scheduler_ref = await xo.create_actor(
-                FluxBatchSchedulerActor,
-                address=self.address,
-                uid=FluxBatchSchedulerActor.gen_uid(self.model_uid()),
-            )
-
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
+
+    def __getattr__(self, attr: str):
+        return getattr(self._model, attr)
 
     def decrease_serve_count(self):
         self._serve_count -= 1
@@ -411,49 +365,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         return isinstance(self._model, VLLMModel)
 
-    def allow_batching(self) -> bool:
-        from ..model.llm.transformers.core import PytorchModel
-
-        model_ability = self._model_description.get("model_ability", [])
-
-        condition = isinstance(self._model, PytorchModel)
-        if condition and ("vision" in model_ability or "audio" in model_ability):
-            if (
-                self._model.model_family.model_name
-                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
-                or self._model.model_family.model_family
-                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
-            ):
-                return True
-            else:
-                logger.warning(
-                    f"Currently for multimodal models, "
-                    f"xinference only supports {', '.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
-                    f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
-                )
-                return False
-        return condition
-
-    def allow_batching_for_text_to_image(self) -> bool:
-        from ..model.image.stable_diffusion.core import DiffusionModel
-
-        condition = XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None and isinstance(
-            self._model, DiffusionModel
-        )
-
-        if condition:
-            model_name = self._model._model_spec.model_name  # type: ignore
-            if model_name in XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS:
-                return True
-            else:
-                logger.warning(
-                    f"Currently for image models with text_to_image ability, "
-                    f"xinference only supports {', '.join(XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS)} for batching. "
-                    f"Your model {model_name} is disqualified."
-                )
-                return False
-        return condition
-
     async def load(self):
         try:
             # Change process title for model
@@ -481,16 +392,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     logger.warning("Retry to load model {model_uid}: %d times", i)
                     continue
                 raise
-        if self.allow_batching():
-            await self._scheduler_ref.set_model(self._model)
-            logger.debug(
-                f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
-            )
-        if self.allow_batching_for_text_to_image():
-            await self._text_to_image_scheduler_ref.set_model(self._model)
-            logger.debug(
-                f"Batching enabled for model: {self.model_uid()}, max_num_images: {self._model.get_max_num_images_for_batching()}"
-            )
         logger.info(f"{self} loaded")
 
     async def wait_for_load(self):
@@ -632,6 +533,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return await _gen.__anext__()  # noqa: F821
                 except StopAsyncIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             def _wrapper(_gen):
                 # Avoid issue: https://github.com/python/cpython/issues/112182
@@ -639,6 +542,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     return next(_gen)
                 except StopIteration:
                     return stop
+                except Exception as e:
+                    return e
 
             while True:
                 try:
@@ -699,6 +604,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -715,6 +622,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                             o = await stream_out.get()
                             if o is stop:
                                 break
+                            elif isinstance(o, Exception):
+                                raise o
                             else:
                                 yield o
 
@@ -730,99 +639,27 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @xo.generator
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
-        if self.allow_batching():
-            # not support request_id
+        # Directly delegate to model, let model decide how to handle (batching or not)
+        kwargs.pop("raw_params", None)
+        if hasattr(self._model, "generate"):
+            # not support request_id for generate
             kwargs.pop("request_id", None)
-            return await self.handle_batching_request(
-                prompt, "generate", *args, **kwargs
+            return await self._call_wrapper_json(
+                self._model.generate, prompt, *args, **kwargs
             )
-        else:
-            kwargs.pop("raw_params", None)
-            if hasattr(self._model, "generate"):
-                # not support request_id
-                kwargs.pop("request_id", None)
-                return await self._call_wrapper_json(
-                    self._model.generate, prompt, *args, **kwargs
-                )
-            if hasattr(self._model, "async_generate"):
-                if "request_id" not in kwargs:
-                    kwargs["request_id"] = str(uuid.uuid1())
-                else:
-                    # model only accept string
-                    kwargs["request_id"] = str(kwargs["request_id"])
-                return await self._call_wrapper_json(
-                    self._model.async_generate,
-                    prompt,
-                    *args,
-                    **kwargs,
-                )
-            raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
-
-    @staticmethod
-    async def _queue_consumer(
-        queue: Queue, timeout: Optional[float] = None
-    ) -> AsyncIterator[Any]:
-        from .scheduler import (
-            XINFERENCE_STREAMING_ABORT_FLAG,
-            XINFERENCE_STREAMING_DONE_FLAG,
-            XINFERENCE_STREAMING_ERROR_FLAG,
-        )
-
-        while True:
-            # TODO: timeout setting
-            res = await wait_for(queue.get(), timeout)
-            if res == XINFERENCE_STREAMING_DONE_FLAG:
-                break
-            elif res == XINFERENCE_STREAMING_ABORT_FLAG:
-                raise RuntimeError(
-                    f"This request has been cancelled by another `abort_request` request."
-                )
-            elif isinstance(res, str) and res.startswith(
-                XINFERENCE_STREAMING_ERROR_FLAG
-            ):
-                raise RuntimeError(res[len(XINFERENCE_STREAMING_ERROR_FLAG) :])
+        if hasattr(self._model, "async_generate"):
+            if "request_id" not in kwargs:
+                kwargs["request_id"] = str(uuid.uuid1())
             else:
-                yield res
-
-    @staticmethod
-    def _get_stream_from_args(*args) -> bool:
-        assert args[0] is None or isinstance(args[0], dict)
-        return False if args[0] is None else args[0].get("stream", False)
-
-    async def handle_batching_request(
-        self, prompt_or_messages: Union[str, List[Dict]], call_ability, *args, **kwargs
-    ):
-        """
-        The input parameter `prompt_or_messages`:
-        - when the model_ability is `generate`, it's `prompt`, which is str type.
-        - when the model_ability is `chat`, it's `messages`, which is List[Dict] type.
-        """
-        stream = self._get_stream_from_args(*args)
-        assert self._scheduler_ref is not None
-        if stream:
-            assert self._scheduler_ref is not None
-            queue: Queue[Any] = Queue()
-            ret = self._queue_consumer(queue)
-            await self._scheduler_ref.add_request(
-                prompt_or_messages, queue, call_ability, *args, **kwargs
+                # model only accept string
+                kwargs["request_id"] = str(kwargs["request_id"])
+            return await self._call_wrapper_json(
+                self._model.async_generate,
+                prompt,
+                *args,
+                **kwargs,
             )
-            gen = self._to_async_gen("json", ret)
-            return gen
-        else:
-            from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
-
-            assert self._loop is not None
-            future = ConcurrentFuture()
-            await self._scheduler_ref.add_request(
-                prompt_or_messages, future, call_ability, *args, **kwargs
-            )
-            fut = asyncio.wrap_future(future, loop=self._loop)
-            result = await fut
-            if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
-                raise RuntimeError(
-                    f"This request has been cancelled by another `abort_request` request."
-                )
-            return await asyncio.to_thread(json_dumps, result)
+        raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
     @request_limit
     @xo.generator
@@ -831,32 +668,30 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         start_time = time.time()
         response = None
         try:
-            if self.allow_batching():
-                # not support request_id
-                kwargs.pop("request_id", None)
-                return await self.handle_batching_request(
-                    messages, "chat", *args, **kwargs
-                )
-            else:
-                kwargs.pop("raw_params", None)
-                if hasattr(self._model, "chat"):
-                    # not support request_id
+            # Directly delegate to model, let model decide how to handle (batching or not)
+            kwargs.pop("raw_params", None)
+            if hasattr(self._model, "chat"):
+                # Only remove request_id if model doesn't have batch scheduler
+                if not (
+                    hasattr(self._model, "_batch_scheduler")
+                    and self._model._batch_scheduler
+                ):
                     kwargs.pop("request_id", None)
-                    response = await self._call_wrapper_json(
-                        self._model.chat, messages, *args, **kwargs
-                    )
-                    return response
-                if hasattr(self._model, "async_chat"):
-                    if "request_id" not in kwargs:
-                        kwargs["request_id"] = str(uuid.uuid1())
-                    else:
-                        # model only accept string
-                        kwargs["request_id"] = str(kwargs["request_id"])
-                    response = await self._call_wrapper_json(
-                        self._model.async_chat, messages, *args, **kwargs
-                    )
-                    return response
-                raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+                response = await self._call_wrapper_json(
+                    self._model.chat, messages, *args, **kwargs
+                )
+                return response
+            if hasattr(self._model, "async_chat"):
+                if "request_id" not in kwargs:
+                    kwargs["request_id"] = str(uuid.uuid1())
+                else:
+                    # model only accept string
+                    kwargs["request_id"] = str(kwargs["request_id"])
+                response = await self._call_wrapper_json(
+                    self._model.async_chat, messages, *args, **kwargs
+                )
+                return response
+            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
         finally:
             # For the non stream result.
             record = None
@@ -880,17 +715,18 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         request_id: str,
         block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     ) -> str:
-        from .utils import AbortRequestMessage
+        from ..model.scheduler.core import AbortRequestMessage
 
+        # Always cancel the running task first
         self._cancel_running_task(request_id, block_duration)
-        if self.allow_batching():
-            if self._scheduler_ref is None:
-                return AbortRequestMessage.NOT_FOUND.name
-            return await self._scheduler_ref.abort_request(request_id)
-        elif self.allow_batching_for_text_to_image():
-            if self._text_to_image_scheduler_ref is None:
-                return AbortRequestMessage.NOT_FOUND.name
-            return await self._text_to_image_scheduler_ref.abort_request(request_id)
+
+        # If model has abort_request method, delegate to it
+        if hasattr(self._model, "abort_request"):
+            result = await self._model.abort_request(request_id)
+            if result is not None:
+                return result
+
+        # Otherwise return NO_OP for legacy models or when model doesn't handle abort
         return AbortRequestMessage.NO_OP.name
 
     @request_limit
@@ -969,6 +805,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 response_format,
                 temperature,
                 timestamp_granularities,
+                **kwargs,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
@@ -1028,22 +865,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating speech."
         )
 
-    async def handle_image_batching_request(self, unique_id, *args, **kwargs):
-        size = args[2]
-        if XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE != size:
-            raise RuntimeError(
-                f"The image size: {size} of text_to_image for batching "
-                f"must be the same as the environment variable: {XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE} you set."
-            )
-        assert self._loop is not None
-        future = ConcurrentFuture()
-        await self._text_to_image_scheduler_ref.add_request(
-            unique_id, future, *args, **kwargs
-        )
-        fut = asyncio.wrap_future(future, loop=self._loop)
-        result = await fut
-        return await asyncio.to_thread(json_dumps, result)
-
     @request_limit
     @log_async(logger=logger)
     async def text_to_image(
@@ -1056,25 +877,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         **kwargs,
     ):
         if hasattr(self._model, "text_to_image"):
-            if self.allow_batching_for_text_to_image():
-                unique_id = kwargs.pop("request_id", None)
-                return await self.handle_image_batching_request(
-                    unique_id, prompt, n, size, response_format, *args, **kwargs
+            # Directly delegate to model, let model decide how to handle (batching or not)
+            progressor = kwargs["progressor"] = await self._get_progressor(
+                kwargs.pop("request_id", None)
+            )
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.text_to_image,
+                    prompt,
+                    n,
+                    size,
+                    response_format,
+                    *args,
+                    **kwargs,
                 )
-            else:
-                progressor = kwargs["progressor"] = await self._get_progressor(
-                    kwargs.pop("request_id", None)
-                )
-                with progressor:
-                    return await self._call_wrapper_json(
-                        self._model.text_to_image,
-                        prompt,
-                        n,
-                        size,
-                        response_format,
-                        *args,
-                        **kwargs,
-                    )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
         )
@@ -1208,12 +1024,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(
         self,
+        *args,
         **kwargs,
     ):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
                 self._model.infer,
+                *args,
                 **kwargs,
             )
         raise AttributeError(
@@ -1229,17 +1047,80 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
-        kwargs.pop("request_id", None)
-        if hasattr(self._model, "text_to_video"):
-            return await self._call_wrapper_json(
-                self._model.text_to_video,
-                prompt,
-                n,
-                *args,
-                **kwargs,
-            )
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "text_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.text_to_video,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def image_to_video(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "image_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.image_to_video,
+                    image,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from image."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def flf_to_video(
+        self,
+        first_frame: "PIL.Image.Image",
+        last_frame: "PIL.Image.Image",
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        kwargs["negative_prompt"] = negative_prompt
+        progressor = kwargs["progressor"] = await self._get_progressor(
+            kwargs.pop("request_id", None)
+        )
+        with progressor:
+            if hasattr(self._model, "firstlastframe_to_video"):
+                return await self._call_wrapper_json(
+                    self._model.firstlastframe_to_video,
+                    first_frame,
+                    last_frame,
+                    prompt,
+                    n,
+                    *args,
+                    **kwargs,
+                )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video from first-last-frame."
         )
 
     async def record_metrics(self, name, op, kwargs):

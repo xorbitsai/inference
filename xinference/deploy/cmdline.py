@@ -806,6 +806,14 @@ def remove_cache(
     multiple=True,
 )
 @click.option(
+    "--quantization-config",
+    "-qc",
+    "quantization_config",
+    type=(str, str),
+    multiple=True,
+    help="bnb quantization config for `transformers` engine.",
+)
+@click.option(
     "--worker-ip",
     default=None,
     type=str,
@@ -831,6 +839,34 @@ def remove_cache(
     help="Api-Key for access xinference api with authorization.",
 )
 @click.option("--model-path", "-mp", default=None, type=str, help="Model path to run.")
+@click.option(
+    "--enable-virtual-env",
+    is_flag=True,
+    default=None,
+    flag_value=True,
+    help="Enable virtual environment when launching the model. If not set, defaults to None.",
+)
+@click.option(
+    "--disable-virtual-env",
+    "enable_virtual_env",
+    default=None,
+    flag_value=False,
+    help="Disable virtual environment.",
+)
+@click.option(
+    "--virtual-env-package",
+    "-vp",
+    multiple=True,
+    type=str,
+    help="Packages to install in the virtual environment. Can be used multiple times.",
+)
+@click.option(
+    "--env",
+    "-ev",
+    multiple=True,
+    type=(str, str),
+    help="Environment variables in KEY VALUE format. Can be used multiple times.",
+)
 @click.pass_context
 def model_launch(
     ctx,
@@ -853,6 +889,10 @@ def model_launch(
     trust_remote_code: bool,
     api_key: Optional[str],
     model_path: Optional[str],
+    quantization_config: Optional[Tuple],
+    enable_virtual_env: Optional[bool],
+    virtual_env_package: Optional[Tuple[str]],
+    env: Optional[Tuple[Tuple[str, str]]],
 ):
     kwargs = {}
     for i in range(0, len(ctx.args), 2):
@@ -883,6 +923,12 @@ def model_launch(
         _n_gpu = n_gpu
     else:
         _n_gpu = int(n_gpu)
+
+    bnb_quantization_config = (
+        {k: handle_click_args_type(v) for k, v in dict(quantization_config).items()}
+        if quantization_config
+        else None
+    )
 
     image_lora_load_params = (
         {k: handle_click_args_type(v) for k, v in dict(image_lora_load_kwargs).items()}
@@ -929,6 +975,8 @@ def model_launch(
 
     # do not wait for launching.
     kwargs["wait_ready"] = False
+    if bnb_quantization_config:
+        kwargs["quantization_config"] = {**bnb_quantization_config}
 
     model_uid = client.launch_model(
         model_name=model_name,
@@ -946,6 +994,9 @@ def model_launch(
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
         model_path=model_path,
+        enable_virtual_env=enable_virtual_env,
+        virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
+        envs=dict(env) if env else None,
         **kwargs,
     )
     try:
@@ -1298,8 +1349,12 @@ def model_chat(
                     if "content" not in delta:
                         continue
                     else:
-                        response_content += delta["content"]
-                        print(delta["content"], end="", flush=True, file=sys.stdout)
+                        # The first chunk of stream output may have no content (None). Related PRs:
+                        # https://github.com/ggml-org/llama.cpp/pull/13634
+                        # https://github.com/ggml-org/llama.cpp/pull/12379
+                        content = delta["content"] or ""
+                        response_content += content
+                        print(content, end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
                 messages.append(dict(role="assistant", content=response_content))
 

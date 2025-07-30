@@ -6,13 +6,13 @@ CosyVoice2-0.5B
 
 - **Model Name:** CosyVoice2-0.5B
 - **Model Family:** CosyVoice
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** True
 
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** mrfakename/CosyVoice2-0.5B
+- **Model ID:** JunHowie/CosyVoice2-0.5B
 
 Execute the following command to launch the model::
 

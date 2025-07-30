@@ -16,38 +16,47 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict
+from typing import Any, Dict, List
 
+from ..utils import flatten_quantizations
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
-    MODEL_NAME_TO_REVISION,
-    EmbeddingModelSpec,
+    EmbeddingModelFamilyV2,
     generate_embedding_description,
-    get_cache_status,
     get_embedding_model_descriptions,
 )
 from .custom import (
-    CustomEmbeddingModelSpec,
+    CustomEmbeddingModelFamilyV2,
     get_user_defined_embeddings,
     register_embedding,
     unregister_embedding,
 )
-
-BUILTIN_EMBEDDING_MODELS: Dict[str, Any] = {}
-MODELSCOPE_EMBEDDING_MODELS: Dict[str, Any] = {}
+from .embed_family import (
+    BUILTIN_EMBEDDING_MODELS,
+    EMBEDDING_ENGINES,
+    FLAG_EMBEDDER_CLASSES,
+    LLAMA_CPP_CLASSES,
+    SENTENCE_TRANSFORMER_CLASSES,
+    SUPPORTED_ENGINES,
+    VLLM_CLASSES,
+)
 
 
 def register_custom_model():
     from ...constants import XINFERENCE_MODEL_DIR
+    from ..custom import migrate_from_v1_to_v2
 
-    user_defined_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
+    # migrate from v1 to v2 first
+    migrate_from_v1_to_v2("embedding", CustomEmbeddingModelFamilyV2)
+
+    user_defined_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding")
     if os.path.isdir(user_defined_embedding_dir):
         for f in os.listdir(user_defined_embedding_dir):
             try:
                 with codecs.open(
                     os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
                 ) as fd:
-                    user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(
+                    user_defined_llm_family = CustomEmbeddingModelFamilyV2.parse_obj(
                         json.load(fd)
                     )
                     register_embedding(user_defined_llm_family, persist=False)
@@ -55,38 +64,89 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
+def check_format_with_engine(model_format, engine):
+    if model_format in ["ggufv2"] and engine not in ["llama.cpp"]:
+        return False
+    if model_format not in ["ggufv2"] and engine == "llama.cpp":
+        return False
+    return True
+
+
+def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2"):
+    model_name = model_family.model_name
+    engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
+        model_name, {}
+    )  # structure for engine query
+    for spec in [x for x in model_family.model_specs if x.model_hub == "huggingface"]:
+        model_format = spec.model_format
+        quantization = spec.quantization
+        for engine in SUPPORTED_ENGINES:
+            if not check_format_with_engine(model_format, engine):
+                continue
+            CLASSES = SUPPORTED_ENGINES[engine]
+            for cls in CLASSES:
+                # Every engine needs to implement match method
+                if cls.match(model_family, spec, quantization):
+                    # we only match the first class for an engine
+                    if engine not in engines:
+                        engines[engine] = [
+                            {
+                                "model_name": model_name,
+                                "model_format": model_format,
+                                "quantization": quantization,
+                                "embedding_class": cls,
+                            }
+                        ]
+                    else:
+                        engines[engine].append(
+                            {
+                                "model_name": model_name,
+                                "model_format": model_format,
+                                "quantization": quantization,
+                                "embedding_class": cls,
+                            }
+                        )
+                    break
+    EMBEDDING_ENGINES[model_name] = engines
+
+
+# will be called in xinference/model/__init__.py
 def _install():
     _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-    _model_spec_modelscope_json = os.path.join(
-        os.path.dirname(__file__), "model_spec_modelscope.json"
-    )
-    BUILTIN_EMBEDDING_MODELS.update(
-        dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
-            for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+
+    for json_obj in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8")):
+        flattened = []
+        for spec in json_obj["model_specs"]:
+            flattened.extend(flatten_quantizations(spec))
+        json_obj["model_specs"] = flattened
+        BUILTIN_EMBEDDING_MODELS[json_obj["model_name"]] = EmbeddingModelFamilyV2(
+            **json_obj
         )
-    )
+
     for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-
-    MODELSCOPE_EMBEDDING_MODELS.update(
-        dict(
-            (spec["model_name"], EmbeddingModelSpec(**spec))
-            for spec in json.load(
-                codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+        if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
+            EMBEDDING_MODEL_DESCRIPTIONS.update(
+                generate_embedding_description(model_spec)
             )
-        )
-    )
-    for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
-        MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
-    # register model description after recording model revision
-    for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
-        for model_name, model_spec in model_spec_info.items():
-            if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
-                EMBEDDING_MODEL_DESCRIPTIONS.update(
-                    generate_embedding_description(model_spec)
-                )
+    from .flag.core import FlagEmbeddingModel
+    from .llama_cpp.core import XllamaCppEmbeddingModel
+    from .sentence_transformers.core import SentenceTransformerEmbeddingModel
+    from .vllm.core import VLLMEmbeddingModel
+
+    SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
+    FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
+    VLLM_CLASSES.extend([VLLMEmbeddingModel])
+    LLAMA_CPP_CLASSES.extend([XllamaCppEmbeddingModel])
+
+    SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
+    SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
+    SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
+    SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
+
+    # Init embedding engine
+    for model_spec in BUILTIN_EMBEDDING_MODELS.values():
+        generate_engine_config_by_model_name(model_spec)
 
     register_custom_model()
 
@@ -97,4 +157,3 @@ def _install():
         )
 
     del _model_spec_json
-    del _model_spec_modelscope_json

@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** TheBloke/CodeLlama-7B-Python-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-7B-Python-fp16>`__, `ModelScope <https://modelscope.cn/models/Xorbits/CodeLlama-7B-Python-fp16>`__
 
@@ -35,10 +35,10 @@ Model Spec 2 (pytorch, 13 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** TheBloke/CodeLlama-13B-Python-fp16
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-13B-Python-fp16>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/CodeLlama-13b-Python-hf>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-13B-Python-fp16>`__, `ModelScope <https://modelscope.cn/models/Xorbits/CodeLlama-13B-Python-fp16>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -51,8 +51,8 @@ Model Spec 3 (pytorch, 34 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
 - **Model ID:** TheBloke/CodeLlama-34B-Python-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-34B-Python-fp16>`__
 

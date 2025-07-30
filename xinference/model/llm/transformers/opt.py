@@ -14,19 +14,19 @@
 from builtins import classmethod
 from typing import List, Optional
 
-from ....core.scheduler import InferenceRequest
 from ....types import LoRA
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from .core import PytorchModel, PytorchModelConfig
+from ...scheduler.request import InferenceRequest
+from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
+from .core import PytorchModel, PytorchModelConfig, register_non_default_model
 
 
+@register_transformer
+@register_non_default_model("opt")
 class OptPytorchModel(PytorchModel):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
@@ -34,16 +34,14 @@ class OptPytorchModel(PytorchModel):
         super().__init__(
             model_uid,
             model_family,
-            model_spec,
-            quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
             peft_model=peft_model,
         )
 
     @classmethod
-    def match(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    def match_json(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False

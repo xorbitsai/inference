@@ -29,7 +29,6 @@ from transformers.generation.logits_process import (
     TopPLogitsWarper,
 )
 
-from ....core.scheduler import InferenceRequest
 from ....device_utils import empty_cache
 from ....types import (
     Completion,
@@ -38,6 +37,7 @@ from ....types import (
     CompletionUsage,
     max_tokens_field,
 )
+from ...scheduler.request import InferenceRequest
 
 if TYPE_CHECKING:
     from ...llm.transformers.core import PytorchModel
@@ -191,42 +191,13 @@ def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
     return tuple(dimensions)
 
 
-def _merge_kv_cache(
-    xinf_model_obj: "PytorchModel",
-    past_cache: DynamicCache,
-    new_cache: DynamicCache,
-) -> DynamicCache:
-    from torch.nn.functional import pad
-
-    _, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
-    past_seq_len = past_cache[0][0].shape[seq_len_idx]
-    new_seq_len = new_cache[0][0].shape[seq_len_idx]
-    if past_seq_len != new_seq_len:
-        padding_target = new_cache if past_seq_len > new_seq_len else past_cache
-        padding_len = abs(past_seq_len - new_seq_len)
-        pad_param = _get_pad_param(seq_len_idx, padding_len)
-        for idx in range(len(padding_target)):
-            k = padding_target.key_cache[idx]
-            v = padding_target.value_cache[idx]
-            _k = pad(k, pad_param)
-            _v = pad(v, pad_param)
-            padding_target.key_cache[idx] = _k
-            padding_target.value_cache[idx] = _v
-
-    ret_kv = DynamicCache()
-    for idx in range(len(past_cache)):
-        k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
-        v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
-        ret_kv.update(
-            torch.cat((k1, k2), 0).contiguous(),
-            torch.cat((v1, v2), 0).contiguous(),
-            idx,
-        )
-    return ret_kv
-
-
 def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel"):
+    from transformers import HybridCache
+
     bs_idx, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
+
+    if isinstance(kv, HybridCache):
+        return kv.key_cache[0].shape[bs_idx], kv.get_seq_length()
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
 
@@ -304,9 +275,7 @@ def _batch_inference_one_step_internal(
         if decode_reqs:
             decode_kv = decode_reqs[0].kv_cache
             # prefill and decode kv cache need to be merged at `batch_size` and `seq_len` dimensions.
-            merged_kv_cache = _merge_kv_cache(
-                xinf_model_obj, decode_kv, past_key_values
-            )
+            merged_kv_cache = xinf_model_obj.merge_kv_cache(decode_kv, past_key_values)
             for r in valid_req_list:
                 r.kv_cache = merged_kv_cache
             empty_cache()

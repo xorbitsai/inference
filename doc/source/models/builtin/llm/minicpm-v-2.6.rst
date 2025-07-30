@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 8 Billion)
 - **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** openbmb/MiniCPM-V-2_6
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-2_6>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-2_6-int4>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-2_6>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-2_6>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -35,10 +35,10 @@ Model Spec 2 (pytorch, 8 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
-- **Quantizations:** 4-bit
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** openbmb/MiniCPM-V-2_6-int4
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-2_6-int4>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-2_6-int4>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-2_6-int4>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-2_6>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

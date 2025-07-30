@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import importlib.util
 import logging
 import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
@@ -19,7 +20,7 @@ import torch
 
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
 from ..core import LLM
-from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, generate_chat_completion, generate_completion_chunk
 
 logger = logging.getLogger(__name__)
@@ -75,14 +76,12 @@ class LMDeployModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
+        model_family: "LLMFamilyV2",
         model_path: str,
         model_config: Optional[LMDeployModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
+        super().__init__(model_uid, model_family, model_path)
         self._model_config: LMDeployModelConfig = self._sanitize_model_config(
             model_config
         )
@@ -113,8 +112,12 @@ class LMDeployModel(LLM):
         raise ValueError("LMDEPLOY engine has not supported generate yet.")
 
     @classmethod
-    def match(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("lmdeploy") is not None
+
+    @classmethod
+    def match_json(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         return False
 
@@ -166,8 +169,8 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         )
 
     @classmethod
-    def match(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    def match_json(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if llm_spec.model_format == "awq":
             # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.

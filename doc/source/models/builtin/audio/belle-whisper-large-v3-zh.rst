@@ -6,7 +6,7 @@ Belle-whisper-large-v3-zh
 
 - **Model Name:** Belle-whisper-large-v3-zh
 - **Model Family:** whisper
-- **Abilities:** audio-to-text
+- **Abilities:** ['audio2text']
 - **Multilingual:** False
 
 Specifications

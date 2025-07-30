@@ -18,9 +18,22 @@ import logging
 import os
 import random
 import threading
+from abc import ABC, abstractmethod
+from copy import deepcopy
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import huggingface_hub
 import numpy as np
@@ -34,6 +47,10 @@ from ..constants import (
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
+
+if TYPE_CHECKING:
+    from .embedding.core import LlamaCppEmbeddingSpecV1
+    from .llm.llm_family import LlamaCppLLMSpecV2
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
@@ -261,59 +278,6 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
-def cache(model_spec: CacheableModelSpec, model_description_type: type):
-    if (
-        hasattr(model_spec, "model_uri")
-        and getattr(model_spec, "model_uri", None) is not None
-    ):
-        logger.info(f"Model caching from URI: {model_spec.model_uri}")
-        return cache_from_uri(model_spec=model_spec)
-
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    if valid_model_revision(meta_path, model_spec.model_revision, model_spec.model_hub):
-        return cache_dir
-
-    from_modelscope: bool = model_spec.model_hub == "modelscope"
-    if from_modelscope:
-        from modelscope.hub.snapshot_download import snapshot_download as ms_download
-
-        download_dir = retry_download(
-            ms_download,
-            model_spec.model_name,
-            None,
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-        )
-        create_symlink(download_dir, cache_dir)
-    else:
-        from huggingface_hub import snapshot_download as hf_download
-
-        use_symlinks = {}
-        if not IS_NEW_HUGGINGFACE_HUB:
-            use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
-        download_dir = retry_download(
-            hf_download,
-            model_spec.model_name,
-            None,
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-            **use_symlinks,
-        )
-        if IS_NEW_HUGGINGFACE_HUB:
-            create_symlink(download_dir, cache_dir)
-    with open(meta_path, "w") as f:
-        import json
-
-        desc = model_description_type(None, None, model_spec)
-        json.dump(desc.to_dict(), f)
-    return cache_dir
-
-
 def select_device(device):
     try:
         import torch  # noqa: F401
@@ -460,3 +424,137 @@ class CancellableDownloader:
         self.unpatch_tqdm()
         self._done_event.set()
         self.reset()
+
+
+def get_engine_params_by_name(
+    model_type: Optional[str], model_name: str
+) -> Optional[Dict[str, List[dict]]]:
+    if model_type == "LLM":
+        from .llm.llm_family import LLM_ENGINES
+
+        if model_name not in LLM_ENGINES:
+            return None
+
+        # filter llm_class
+        engine_params = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in engine_params.items():
+            for param in params:
+                del param["llm_class"]
+
+        return engine_params
+    elif model_type == "embedding":
+        from .embedding.embed_family import EMBEDDING_ENGINES
+
+        if model_name not in EMBEDDING_ENGINES:
+            return None
+
+        # filter embedding_class
+        engine_params = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in engine_params.items():
+            for param in params:
+                del param["embedding_class"]
+
+        return engine_params
+    else:
+        raise ValueError(
+            f"Cannot support model_engine for {model_type}, "
+            f"only available for LLM, embedding"
+        )
+
+
+def generate_model_file_names_with_quantization_parts(
+    model_spec: Union["LlamaCppLLMSpecV2", "LlamaCppEmbeddingSpecV1"],
+    multimodal_projector: Optional[str] = None,
+) -> Tuple[List[str], str, bool]:
+    file_names = []
+    final_file_name = model_spec.model_file_name_template.format(
+        quantization=model_spec.quantization
+    )
+    need_merge = False
+
+    if (
+        model_spec.quantization_parts is None
+        or model_spec.quantization not in model_spec.quantization_parts
+    ):
+        file_names.append(final_file_name)
+    elif (
+        model_spec.quantization is not None
+        and model_spec.quantization in model_spec.quantization_parts
+    ):
+        parts = model_spec.quantization_parts[model_spec.quantization]
+        need_merge = True
+
+        logger.info(
+            f"Model {model_spec.model_id} {model_spec.model_format} {model_spec.quantization} has {len(parts)} parts."
+        )
+
+        if model_spec.model_file_name_split_template is None:
+            raise ValueError(
+                f"No model_file_name_split_template for model spec {model_spec.model_id}"
+            )
+
+        for part in parts:
+            file_name = model_spec.model_file_name_split_template.format(
+                quantization=model_spec.quantization, part=part
+            )
+            file_names.append(file_name)
+    if multimodal_projector:
+        file_names.append(multimodal_projector)
+
+    return file_names, final_file_name, need_merge
+
+
+def merge_cached_files(
+    cache_dir: str, input_file_names: List[str], output_file_name: str
+):
+    # now llama.cpp can find the gguf parts automatically
+    # we only need to provide the first part
+    # thus we create the symlink to the first part
+    symlink_local_file(
+        os.path.join(cache_dir, input_file_names[0]), cache_dir, output_file_name
+    )
+
+    logger.info(f"Merge complete.")
+
+
+def flatten_model_src(input_json: dict):
+    flattened = []
+    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+    for model_hub, hub_info in input_json["model_src"].items():
+        record = base_info.copy()
+        hub_info.pop("model_hub", None)
+        record.update(hub_info)
+        record["model_hub"] = model_hub
+        flattened.append(record)
+    return flattened
+
+
+def flatten_quantizations(input_json: dict):
+    flattened = []
+
+    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+
+    for model_hub, hub_info in input_json["model_src"].items():
+        quantizations = hub_info["quantizations"]
+
+        for quant in quantizations:
+            record = base_info.copy()
+            record["model_hub"] = model_hub
+            record["quantization"] = quant
+
+            for key, value in hub_info.items():
+                if key != "quantizations":
+                    record[key] = value
+
+            flattened.append(record)
+    return flattened
+
+
+class ModelInstanceInfoMixin(ABC):
+    @abstractmethod
+    def to_description(self):
+        """"""
+
+    @abstractmethod
+    def to_version_info(self):
+        """"""

@@ -23,7 +23,7 @@ from ..core import FlexibleModel, FlexibleModelSpec
 
 
 class ImageRemoveBackgroundModel(FlexibleModel):
-    def infer(self, **kwargs):
+    def infer(self, *args, **kwargs):
         invert = kwargs.get("invert", False)
         b64_image: str = kwargs.get("image")  # type: ignore
         only_mask = kwargs.pop("only_mask", True)
@@ -63,6 +63,7 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
         return ImageRemoveBackgroundModel(
             model_uid=model_uid,
             model_path=model_spec.model_uri,  # type: ignore
+            model_family=model_spec,
             device=device,
             config=kwargs,
         )

@@ -20,9 +20,9 @@ Model Spec 1 (pytorch, 11 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 11
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
-- **Model ID:** meta-llama/Meta-Llama-3.2-11B-Vision-Instruct
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3.2-11B-Vision-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.2-11B-Vision-Instruct>`__
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** meta-llama/Llama-3.2-11B-Vision-Instruct
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Llama-3.2-11B-Vision-Instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,9 +36,9 @@ Model Spec 2 (pytorch, 90 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 90
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
-- **Model ID:** meta-llama/Meta-Llama-3.2-90B-Vision-Instruct
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3.2-90B-Vision-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.2-90B-Vision-Instruct>`__
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** meta-llama/Llama-3.2-90B-Vision-Instruct
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-3.2-90B-Vision-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Llama-3.2-90B-Vision-Instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

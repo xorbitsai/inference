@@ -165,7 +165,7 @@ class FluxBatchSchedulerActor(xo.StatelessActor):
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
         """
-        from ....core.utils import AbortRequestMessage
+        from ...scheduler.core import AbortRequestMessage
 
         if req_id not in self._id_to_req:
             logger.info(f"Request id: {req_id} not found. No-op for xinference.")

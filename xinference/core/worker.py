@@ -15,10 +15,12 @@
 import asyncio
 import logging
 import os
+import pathlib
 import platform
 import queue
 import shutil
 import signal
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -48,12 +50,13 @@ from ..constants import (
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_VIRTUAL_ENV_DIR,
+    XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
-from ..model.core import ModelDescription, VirtualEnvSettings, create_model_instance
-from ..model.utils import CancellableDownloader
+from ..model.core import VirtualEnvSettings, create_model_instance
+from ..model.utils import CancellableDownloader, get_engine_params_by_name
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
@@ -129,14 +132,14 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
         # attributes maintained after model launched:
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
-        self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
+        self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
         self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
-        self._user_specified_gpu_to_model_uids: Dict[
-            int, Set[Tuple[str, str]]
-        ] = defaultdict(set)
+        self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
+            defaultdict(set)
+        )
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
@@ -148,7 +151,7 @@ class WorkerActor(xo.StatelessActor):
         elif metrics_exporter_host is not None or metrics_exporter_port is not None:
             # metrics export server.
             logger.info(
-                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
+                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"  # noqa: E231
             )
             q: queue.Queue = queue.Queue()
             self._metrics_thread = threading.Thread(
@@ -162,7 +165,9 @@ class WorkerActor(xo.StatelessActor):
             while self._metrics_thread.is_alive():
                 try:
                     host, port = q.get(block=False)[:2]
-                    logger.info(f"Metrics server is started at: http://{host}:{port}")
+                    logger.info(
+                        f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
+                    )
                     break
                 except queue.Empty:
                     pass
@@ -232,13 +237,13 @@ class WorkerActor(xo.StatelessActor):
 
     async def __post_create__(self):
         from ..model.audio import (
-            CustomAudioModelFamilyV1,
+            CustomAudioModelFamilyV2,
             generate_audio_description,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
-            CustomEmbeddingModelSpec,
+            CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
             register_embedding,
             unregister_embedding,
@@ -250,19 +255,19 @@ class WorkerActor(xo.StatelessActor):
             unregister_flexible_model,
         )
         from ..model.image import (
-            CustomImageModelFamilyV1,
+            CustomImageModelFamilyV2,
             generate_image_description,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
-            CustomLLMFamilyV1,
-            generate_llm_description,
+            CustomLLMFamilyV2,
+            generate_llm_version_info,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
-            CustomRerankModelSpec,
+            CustomRerankModelFamilyV2,
             generate_rerank_description,
             register_rerank,
             unregister_rerank,
@@ -270,31 +275,31 @@ class WorkerActor(xo.StatelessActor):
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
-                CustomLLMFamilyV1,
+                CustomLLMFamilyV2,
                 register_llm,
                 unregister_llm,
-                generate_llm_description,
+                generate_llm_version_info,
             ),
             "embedding": (
-                CustomEmbeddingModelSpec,
+                CustomEmbeddingModelFamilyV2,
                 register_embedding,
                 unregister_embedding,
                 generate_embedding_description,
             ),
             "rerank": (
-                CustomRerankModelSpec,
+                CustomRerankModelFamilyV2,
                 register_rerank,
                 unregister_rerank,
                 generate_rerank_description,
             ),
             "image": (
-                CustomImageModelFamilyV1,
+                CustomImageModelFamilyV2,
                 register_image,
                 unregister_image,
                 generate_image_description,
             ),
             "audio": (
-                CustomAudioModelFamilyV1,
+                CustomAudioModelFamilyV2,
                 register_audio,
                 unregister_audio,
                 generate_audio_description,
@@ -392,16 +397,18 @@ class WorkerActor(xo.StatelessActor):
         from ..model.embedding import get_embedding_model_descriptions
         from ..model.flexible import get_flexible_model_descriptions
         from ..model.image import get_image_model_descriptions
-        from ..model.llm import get_llm_model_descriptions
+        from ..model.llm import get_llm_version_infos
         from ..model.rerank import get_rerank_model_descriptions
+        from ..model.video import get_video_model_descriptions
 
         # record model version
         model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_model_descriptions())
+        model_version_infos.update(get_llm_version_infos())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_video_model_descriptions())
         model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
@@ -531,16 +538,6 @@ class WorkerActor(xo.StatelessActor):
                 existing_model_uids.append(rep_uid)
             if idx in self._gpu_to_embedding_model_uids:
                 existing_model_uids.extend(self._gpu_to_embedding_model_uids[idx])
-            # If user has run the vLLM model on the GPU that was forced to be specified,
-            # it is not possible to force this GPU to be allocated again
-            if idx in self._user_specified_gpu_to_model_uids:
-                for rep_uid, _ in self._user_specified_gpu_to_model_uids[idx]:
-                    is_vllm_model = await self.is_model_vllm_backend(rep_uid)
-                    if is_vllm_model:
-                        raise RuntimeError(
-                            f"User specified GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
-                            f"therefore cannot allocate GPU memory for a new model."
-                        )
 
             if existing_model_uids:
                 logger.warning(
@@ -584,6 +581,7 @@ class WorkerActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
+        start_python: Optional[str] = None,
     ) -> Tuple[str, List[str]]:
         env = {} if env is None else env
         devices = []
@@ -609,14 +607,8 @@ class WorkerActor(xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        if os.name != "nt" and platform.system() != "Darwin":
-            # Linux
-            start_method = "forkserver"
-        else:
-            # Windows and macOS
-            start_method = "spawn"
         subpool_address = await self._main_pool.append_sub_pool(
-            env=env, start_method=start_method
+            env=env, start_python=start_python
         )
         return subpool_address, [str(dev) for dev in devices]
 
@@ -760,22 +752,10 @@ class WorkerActor(xo.StatelessActor):
         return None
 
     @log_async(logger=logger)
-    async def query_engines_by_model_name(self, model_name: str):
-        from copy import deepcopy
-
-        from ..model.llm.llm_family import LLM_ENGINES
-
-        if model_name not in LLM_ENGINES:
-            return None
-
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine in engine_params:
-            params = engine_params[engine]
-            for param in params:
-                del param["llm_class"]
-
-        return engine_params
+    async def query_engines_by_model_name(
+        self, model_name: str, model_type: Optional[str] = None
+    ):
+        return get_engine_params_by_name(model_type, model_name)
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
@@ -787,9 +767,9 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "image":
             return model.model_ability
         elif model_type == "audio":
-            return [model.model_ability]
+            return model.model_ability
         elif model_type == "video":
-            return ["text_to_video"]
+            return model.model_ability
         elif model_type == "flexible":
             return ["flexible"]
         else:
@@ -797,10 +777,7 @@ class WorkerActor(xo.StatelessActor):
             assert isinstance(model, LLM)
             return model.model_family.model_ability  # type: ignore
 
-    async def update_cache_status(
-        self, model_name: str, model_description: ModelDescription
-    ):
-        version_info = model_description.to_version_info()
+    async def update_cache_status(self, model_name: str, version_info: Any):
         if isinstance(version_info, list):  # image model
             model_path = version_info[0]["model_file_location"]
             await self._cache_tracker_ref.update_cache_status(
@@ -833,6 +810,17 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
             virtual_env_name or "uv", env_path
         )
+        # create env
+        python_path = None
+        if not hasattr(sys, "_MEIPASS"):
+            # not in pyinstaller
+            # we specify python_path explicitly
+            # sometimes uv would find other versions.
+            python_path = pathlib.Path(sys.executable)
+        kw = {}
+        if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
+            kw["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        virtual_env_manager.create_env(python_path=python_path, **kw)
         return virtual_env_manager
 
     @classmethod
@@ -840,13 +828,11 @@ class WorkerActor(xo.StatelessActor):
         cls,
         virtual_env_manager: "VirtualEnvManager",
         settings: Optional[VirtualEnvSettings],
+        virtual_env_packages: Optional[List[str]],
     ):
         if not settings or not settings.packages:
             # no settings or no packages
             return
-
-        # create env
-        virtual_env_manager.create_env()
 
         if settings.inherit_pip_config:
             # inherit pip config
@@ -855,25 +841,20 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
-        packages = settings.packages
-        index_url = settings.index_url
-        extra_index_url = settings.extra_index_url
-        find_links = settings.find_links
-        trusted_host = settings.trusted_host
+        conf = dict(settings)
+        packages = settings.packages.copy() if settings.packages else []
+        if virtual_env_packages:
+            packages.extend(virtual_env_packages)
+        conf.pop("packages", None)
+        conf.pop("inherit_pip_config", None)
 
         logger.info(
-            "Installing packages %s in virtual env %s, with settings(index_url=%s)",
+            "Installing packages %s in virtual env %s, with settings(%s)",
             packages,
             virtual_env_manager.env_path,
-            index_url,
+            ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        virtual_env_manager.install_packages(
-            packages,
-            index_url=index_url,
-            extra_index_url=extra_index_url,
-            find_links=find_links,
-            trusted_host=trusted_host,
-        )
+        virtual_env_manager.install_packages(packages, **conf)
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -925,6 +906,9 @@ class WorkerActor(xo.StatelessActor):
             Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
         ] = None,
         model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -999,24 +983,28 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
 
             # virtualenv
-            enable_virtual_env = kwargs.pop("enable_virtual_env", None)
             virtual_env_name = kwargs.pop("virtual_env_name", None)
-            virtual_env_path = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, model_name)
+            virtual_env_path = os.path.join(
+                XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
+            )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
                 enable_virtual_env,
                 virtual_env_name,
                 virtual_env_path,
             )
-            # setting os.environ if virtualenv created
-            env = (
-                {"PYTHONPATH": virtual_env_manager.get_lib_path()}
-                if virtual_env_manager
-                else None
+            subpool_python_path = (
+                None
+                if virtual_env_manager is None
+                else virtual_env_manager.get_python_path()
             )
-
             subpool_address, devices = await self._create_subpool(
-                model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx, env=env
+                model_uid,
+                model_type,
+                n_gpu=n_gpu,
+                gpu_idx=gpu_idx,
+                start_python=subpool_python_path,
+                env=envs,
             )
             all_subpool_addresses = [subpool_address]
             try:
@@ -1049,10 +1037,8 @@ class WorkerActor(xo.StatelessActor):
                                 self._upload_download_progress, progressor, downloader
                             )
                         )
-                        model, model_description = await asyncio.to_thread(
+                        model = await asyncio.to_thread(
                             create_model_instance,
-                            subpool_address,
-                            devices,
                             model_uid,
                             model_type,
                             model_name,
@@ -1065,7 +1051,14 @@ class WorkerActor(xo.StatelessActor):
                             model_path,
                             **model_kwargs,
                         )
-                    await self.update_cache_status(model_name, model_description)
+                    model.model_family.address = subpool_address
+                    model.model_family.accelerators = devices
+                    model.model_family.multimodal_projector = model_kwargs.get(
+                        "multimodal_projector", None
+                    )
+                    await self.update_cache_status(
+                        model_name, model.model_family.to_version_info()
+                    )
 
                 def check_cancel():
                     # check downloader first, sometimes download finished
@@ -1084,7 +1077,8 @@ class WorkerActor(xo.StatelessActor):
                     await asyncio.to_thread(
                         self._prepare_virtual_env,
                         virtual_env_manager,
-                        model_description.spec.virtualenv,
+                        model.model_family.virtualenv,
+                        virtual_env_packages,
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
@@ -1099,7 +1093,6 @@ class WorkerActor(xo.StatelessActor):
                     worker_address=self.address,
                     replica_model_uid=model_uid,
                     model=model,
-                    model_description=model_description,
                     request_limits=request_limits,
                     xavier_config=xavier_config,
                     n_worker=n_worker,
@@ -1116,7 +1109,7 @@ class WorkerActor(xo.StatelessActor):
                         coros.append(
                             self._main_pool.append_sub_pool(
                                 env={env_name: env_value},
-                                start_method=self._get_start_method(),
+                                start_python=subpool_python_path,
                             )
                         )
                     pool_addresses = await asyncio.gather(*coros)
@@ -1146,7 +1139,9 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
-            self._model_uid_to_model_spec[model_uid] = model_description
+            self._model_uid_to_model_spec[model_uid] = (
+                model.model_family.to_description()
+            )
             self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
@@ -1255,7 +1250,14 @@ class WorkerActor(xo.StatelessActor):
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
             coro = xo.destroy_actor(model_ref)
-            await asyncio.wait_for(coro, timeout=5)
+            # see https://github.com/xorbitsai/xoscar/pull/140
+            # asyncio.wait_for cannot work for Xoscar actor call,
+            # because when time out, the coroutine will be cancelled via raise CancelledEror,
+            # inside actor call, the error will be caught and
+            # a CancelMessage will be sent to dest actor pool,
+            # however the actor pool may be stuck already,
+            # thus the timeout will never be raised
+            await xo.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
@@ -1315,12 +1317,7 @@ class WorkerActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
-        ret = {}
-
-        items = list(self._model_uid_to_model_spec.items())
-        for k, v in items:
-            ret[k] = v.to_dict()
-        return ret
+        return {k: v for k, v in self._model_uid_to_model_spec.items()}
 
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -1337,7 +1334,7 @@ class WorkerActor(xo.StatelessActor):
         model_desc = self._model_uid_to_model_spec.get(model_uid, None)
         if model_desc is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        return model_desc.to_dict()
+        return model_desc
 
     async def report_status(self):
         status = dict()
@@ -1423,7 +1420,9 @@ class WorkerActor(xo.StatelessActor):
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
         paths = await self.list_deletable_models(model_version)
+        dir_paths = set()
         for path in paths:
+            dir_paths.add(os.path.dirname(path))
             try:
                 if os.path.islink(path):
                     os.unlink(path)
@@ -1434,8 +1433,18 @@ class WorkerActor(xo.StatelessActor):
                 else:
                     logger.debug(f"{path} is not a valid path.")
             except Exception as e:
-                logger.error(f"Fail to delete {path} with error:{e}.")
+                logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
                 return False
+
+        for _dir in dir_paths:
+            try:
+                shutil.rmtree(_dir)
+            except Exception as e:
+                logger.error(
+                    f"Fail to delete parent dir {_dir} with error:{e}."
+                )  # noqa: E231
+                return False
+
         await self._cache_tracker_ref.confirm_and_remove_model(
             model_version, self.address
         )
@@ -1467,26 +1476,13 @@ class WorkerActor(xo.StatelessActor):
         model_ref = self._model_uid_to_model[rep_model_uid]
         await model_ref.start_transfer_for_vllm(rank_addresses)
 
-    @staticmethod
-    def _get_start_method():
-        if os.name != "nt" and platform.system() != "Darwin":
-            # Linux
-            start_method = "forkserver"
-        else:
-            # Windows and macOS
-            start_method = "spawn"
-        return start_method
-
     @log_async(logger=logger, level=logging.INFO)
     async def launch_rank0_model(
         self, rep_model_uid: str, xavier_config: Dict[str, Any]
     ) -> Tuple[str, int]:
         from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
 
-        start_method = self._get_start_method()
-        subpool_address = await self._main_pool.append_sub_pool(
-            start_method=start_method
-        )
+        subpool_address = await self._main_pool.append_sub_pool()
 
         store_address = subpool_address.split(":")[0]
         # Note that `store_port` needs to be generated on the worker,

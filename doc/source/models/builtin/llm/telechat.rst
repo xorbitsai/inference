@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** Tele-AI/telechat-7B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/telechat-7B>`__, `ModelScope <https://modelscope.cn/models/TeleAI/telechat-7B>`__
@@ -51,7 +51,7 @@ Model Spec 3 (pytorch, 12 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** Tele-AI/TeleChat-12B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-12B>`__, `ModelScope <https://modelscope.cn/models/TeleAI/TeleChat-12B>`__
@@ -83,7 +83,7 @@ Model Spec 5 (pytorch, 52 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 52
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Engines**: Transformers
 - **Model ID:** Tele-AI/TeleChat-52B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-52B>`__, `ModelScope <https://modelscope.cn/models/TeleAI/TeleChat-52B>`__

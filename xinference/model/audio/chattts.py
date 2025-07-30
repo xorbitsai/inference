@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Optional
 from ..utils import set_all_random_seed
 
 if TYPE_CHECKING:
-    from .core import AudioModelFamilyV1
+    from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,11 @@ class ChatTTSModel:
         self,
         model_uid: str,
         model_path: str,
-        model_spec: "AudioModelFamilyV1",
+        model_spec: "AudioModelFamilyV2",
         device: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec
@@ -71,8 +72,9 @@ class ChatTTSModel:
         import ChatTTS
         import numpy as np
         import torch
-        import torchaudio
         import xxhash
+
+        from .utils import audio_stream_generator, audio_to_bytes
 
         rnd_spk_emb = None
 
@@ -105,44 +107,28 @@ class ChatTTSModel:
         )
 
         assert self._model is not None
+
+        output = self._model.infer(
+            [input], params_infer_code=params_infer_code, stream=stream
+        )
         if stream:
-            iter = self._model.infer(
-                [input], params_infer_code=params_infer_code, stream=True
+
+            def _gen_chunk():
+                for it in output:
+                    for chunk in it:
+                        yield chunk
+
+            return audio_stream_generator(
+                response_format=response_format,
+                sample_rate=24000,
+                output_generator=_gen_chunk(),
+                output_chunk_transformer=lambda c: torch.from_numpy(
+                    np.array([c]).transpose()
+                ),
             )
-
-            def _generator():
-                with BytesIO() as out:
-                    writer = torchaudio.io.StreamWriter(out, format=response_format)
-                    writer.add_audio_stream(sample_rate=24000, num_channels=1)
-                    i = 0
-                    last_pos = 0
-                    with writer.open():
-                        for it in iter:
-                            for chunk in it:
-                                chunk = np.array([chunk]).transpose()
-                                writer.write_audio_chunk(i, torch.from_numpy(chunk))
-                                new_last_pos = out.tell()
-                                if new_last_pos != last_pos:
-                                    out.seek(last_pos)
-                                    encoded_bytes = out.read()
-                                    yield encoded_bytes
-                                    last_pos = new_last_pos
-
-            return _generator()
         else:
-            wavs = self._model.infer([input], params_infer_code=params_infer_code)
-
-            # Save the generated audio
-            with BytesIO() as out:
-                try:
-                    torchaudio.save(
-                        out,
-                        torch.from_numpy(wavs[0]).unsqueeze(0),
-                        24000,
-                        format=response_format,
-                    )
-                except:
-                    torchaudio.save(
-                        out, torch.from_numpy(wavs[0]), 24000, format=response_format
-                    )
-                return out.getvalue()
+            return audio_to_bytes(
+                response_format=response_format,
+                sample_rate=24000,
+                tensor=torch.from_numpy(output[0]).unsqueeze(0),
+            )

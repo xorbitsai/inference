@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
 import os
 import shutil
@@ -19,9 +20,11 @@ import tempfile
 import pytest
 
 from ....client import Client
-from ..core import RerankModel, RerankModelSpec, cache
+from ...cache_manager import CacheManager
+from ..core import RerankModel, RerankModelFamilyV2
 
-TEST_MODEL_SPEC = RerankModelSpec(
+TEST_MODEL_SPEC = RerankModelFamilyV2(
+    version=2,
     model_name="bge-reranker-base",
     type="normal",
     max_tokens=512,
@@ -34,7 +37,7 @@ TEST_MODEL_SPEC = RerankModelSpec(
 def test_model():
     model_path = None
     try:
-        model_path = cache(TEST_MODEL_SPEC)
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
         model = RerankModel(TEST_MODEL_SPEC, "mock", model_path)
 
         query = "A man is eating pasta."
@@ -124,11 +127,11 @@ def test_restful_api(model_name, setup):
 
 def test_from_local_uri():
     from ...utils import cache_from_uri
-    from ..custom import CustomRerankModelSpec
+    from ..custom import CustomRerankModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_rerank_a",
         language=["zh"],
         model_uri=os.path.abspath(tmp_dir),
@@ -144,12 +147,12 @@ def test_from_local_uri():
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
     from ...utils import cache_from_uri
-    from ..custom import CustomRerankModelSpec, register_rerank, unregister_rerank
+    from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
 
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_b",
         language=["zh"],
         model_uri=os.path.abspath(tmp_dir),
@@ -163,7 +166,7 @@ def test_register_custom_rerank():
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_b-v15",
         language=["zh"],
         model_uri="file:///c/d",
@@ -172,7 +175,7 @@ def test_register_custom_rerank():
         register_rerank(model_spec, False)
 
     # name conflict
-    model_spec = CustomRerankModelSpec(
+    model_spec = CustomRerankModelFamilyV2(
         model_name="custom_test_c",
         language=["zh"],
         model_uri=os.path.abspath(tmp_dir),
@@ -201,7 +204,9 @@ def test_auto_detect_type():
             # TODO: we need to fix the auto detect type
             continue
         try:
-            assert m["type"] == RerankModel._auto_detect_type(m["model_id"])
+            assert m["type"] == RerankModel._auto_detect_type(
+                m["model_src"]["huggingface"]["model_id"]
+            )
         except EnvironmentError:
             # gated repo, ignore
             continue

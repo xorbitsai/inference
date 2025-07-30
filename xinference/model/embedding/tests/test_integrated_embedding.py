@@ -27,7 +27,7 @@ def test_sparse_embedding(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="bge-m3", model_type="embedding", hybrid_mode=True
+        model_name="bge-m3", model_type="embedding", model_engine="flag"
     )
     assert len(client.list_models()) == 1
 
@@ -78,3 +78,24 @@ def test_clip_embedding(setup):
     for i in range(len(response["data"])):
         embedding = np.array([item for item in response["data"][i]["embedding"]])
         assert embedding.shape == (1024,)
+
+
+def test_llama_cpp_embedding(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="Qwen3-Embedding-0.6B",
+        model_type="embedding",
+        model_engine="llama.cpp",
+        model_format="ggufv2",
+        quantization="Q8_0",
+        download_hub="huggingface",
+    )
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid)
+
+    result = model.create_embedding("What is BGE M3?")
+    emb = result["data"][0]["embedding"]
+    assert len(emb) == 1024

@@ -6,7 +6,7 @@ MeloTTS-English-v3
 
 - **Model Name:** MeloTTS-English-v3
 - **Model Family:** MeloTTS
-- **Abilities:** text-to-audio
+- **Abilities:** ['text2audio']
 - **Multilingual:** False
 
 Specifications

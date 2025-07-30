@@ -17,10 +17,11 @@ from typing import Dict, Literal, Union
 
 import torch
 
-DeviceType = Literal["cuda", "mps", "xpu", "npu", "cpu"]
+DeviceType = Literal["cuda", "mps", "xpu", "npu", "mlu", "cpu"]
 DEVICE_TO_ENV_NAME = {
     "cuda": "CUDA_VISIBLE_DEVICES",
     "npu": "ASCEND_RT_VISIBLE_DEVICES",
+    "mlu": "MLU_VISIBLE_DEVICES",
 }
 
 
@@ -38,6 +39,16 @@ def is_npu_available() -> bool:
         return False
 
 
+def is_mlu_available() -> bool:
+    try:
+        import torch
+        import torch_mlu  # noqa: F401
+
+        return torch.mlu.is_available()
+    except ImportError:
+        return False
+
+
 def get_available_device() -> DeviceType:
     if torch.cuda.is_available():
         return "cuda"
@@ -47,6 +58,8 @@ def get_available_device() -> DeviceType:
         return "xpu"
     elif is_npu_available():
         return "npu"
+    elif is_mlu_available():
+        return "mlu"
     return "cpu"
 
 
@@ -59,6 +72,8 @@ def is_device_available(device: str) -> bool:
         return is_xpu_available()
     elif device == "npu":
         return is_npu_available()
+    elif device == "mlu":
+        return is_mlu_available()
     elif device == "cpu":
         return True
 
@@ -77,7 +92,7 @@ def move_model_to_available_device(model):
 def get_device_preferred_dtype(device: str) -> Union[torch.dtype, None]:
     if device == "cpu":
         return torch.float32
-    elif device == "cuda" or device == "mps" or device == "npu":
+    elif device == "cuda" or device == "mps" or device == "npu" or device == "mlu":
         return torch.float16
     elif device == "xpu":
         return torch.bfloat16
@@ -86,7 +101,7 @@ def get_device_preferred_dtype(device: str) -> Union[torch.dtype, None]:
 
 
 def is_hf_accelerate_supported(device: str) -> bool:
-    return device == "cuda" or device == "xpu" or device == "npu"
+    return device == "cuda" or device == "xpu" or device == "npu" or device == "mlu"
 
 
 def empty_cache():
@@ -98,6 +113,8 @@ def empty_cache():
         torch.xpu.empty_cache()
     if is_npu_available():
         torch.npu.empty_cache()
+    if is_mlu_available():
+        torch.mlu.empty_cache()
 
 
 def get_available_device_env_name():
@@ -120,6 +137,8 @@ def gpu_count():
         return torch.xpu.device_count()
     elif is_npu_available():
         return torch.npu.device_count()
+    elif is_mlu_available():
+        return torch.mlu.device_count()
     else:
         return 0
 

@@ -4,10 +4,10 @@
 QwQ-32B
 ========================================
 
-- **Context Length:** 32768
+- **Context Length:** 131072
 - **Model Name:** QwQ-32B
 - **Languages:** en, zh
-- **Abilities:** chat, reasoning
+- **Abilities:** chat, reasoning, tools
 - **Description:** QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.
 
 Specifications
@@ -19,8 +19,8 @@ Model Spec 1 (pytorch, 32 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/QwQ-32B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/QwQ-32B>`__, `ModelScope <https://modelscope.cn/models/Qwen/QwQ-32B>`__
 
@@ -67,10 +67,10 @@ Model Spec 4 (ggufv2, 32 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 32
-- **Quantizations:** fp16, Q2_k, Q3_K_M, Q4_0, Q4_K_M, Q5_0, Q5_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
-- **Model ID:** Qwen/QwQ-32B-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/QwQ-32B-GGUF>`__, `ModelScope <https://modelscope.cn/models/Qwen/QwQ-32B-GGUF>`__
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q2_K, Q2_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q5_K_M, Q6_K, UD-IQ1_M, UD-IQ1_S, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL, Q8_0
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** unsloth/QwQ-32B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/QwQ-32B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/QwQ-32B-GGUF>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

@@ -63,8 +63,8 @@ def test_chattts(setup):
 
     client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
     with client.audio.speech.with_streaming_response.create(
-        model=model_uid, input=input_string, voice="echo"
+        model=model_uid, input=input_string, voice="echo", response_format="pcm"
     ) as response:
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        with tempfile.NamedTemporaryFile(suffix=".pcm", delete=True) as f:
             response.stream_to_file(f.name)
             assert os.stat(f.name).st_size > 0

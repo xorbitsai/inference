@@ -1,4 +1,4 @@
-xoscar>=0.6.1
+xoscar>=0.7.13
 gradio==5.22.0
 pillow
 click
@@ -33,7 +33,7 @@ FlagEmbedding
 controlnet_aux
 orjson
 gptqmodel
-autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
+autoawq!=0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft
 timm
@@ -59,6 +59,7 @@ pyarrow  # For CosyVoice, matcha
 HyperPyYAML  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+pyworld>=0.3.4  # For CosyVoice
 imageio-ffmpeg  # For video
 eva-decord  # For video in VL
 jj-pytorchvideo # For CogVLM2-video
@@ -96,6 +97,6 @@ qwen_omni_utils  # For qwen2.5-omni
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
 verovio>=4.3.1  # For got_ocr2
-gguf
 langdetect  # MegaTTS3
 pyloudnorm  # MegaTTS3
+gguf  # For flux and sd3.5 series

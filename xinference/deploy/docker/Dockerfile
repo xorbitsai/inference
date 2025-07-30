@@ -45,7 +45,8 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip cache purge
 
 # Install Miniforge3 (only for FFmpeg, do not replace system Python)
-RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" && \
+RUN apt-get install -y wget && \
+    wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" && \
     bash Miniforge3.sh -b -p /opt/conda && \
     rm Miniforge3.sh
 

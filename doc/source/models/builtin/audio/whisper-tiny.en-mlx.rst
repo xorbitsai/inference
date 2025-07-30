@@ -6,7 +6,7 @@ whisper-tiny.en-mlx
 
 - **Model Name:** whisper-tiny.en-mlx
 - **Model Family:** whisper
-- **Abilities:** audio-to-text
+- **Abilities:** ['audio2text']
 - **Multilingual:** False
 
 Specifications

@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import sys
+import warnings
 from glob import glob
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -36,7 +37,7 @@ from ..utils import handle_image_result
 
 if TYPE_CHECKING:
     from ....core.progress_tracker import Progressor
-    from ..core import ImageModelFamilyV1
+    from ..core import ImageModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +87,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
-        model_spec: Optional["ImageModelFamilyV1"] = None,
+        model_spec: Optional["ImageModelFamilyV2"] = None,
         gguf_model_path: Optional[str] = None,
         **kwargs,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
@@ -197,8 +199,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return getattr(module, class_name)
 
     def load(self):
-        from transformers import BitsAndBytesConfig, T5EncoderModel
-
         if "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
         elif "inpainting" in self._abilities:
@@ -227,66 +227,35 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     self._get_controlnet_model(*cn) for cn in controlnet
                 ]
 
+        # quantizations
+        # text_encoder
         quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
-        if quantize_text_encoder and not self._gguf_model_path:
-            try:
-                import bitsandbytes  # noqa: F401
-            except ImportError:
-                error_message = "Failed to import module 'bitsandbytes'"
-                installation_guide = [
-                    "Please make sure 'bitsandbytes' is installed. ",
-                    "You can install it by `pip install bitsandbytes`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-            for text_encoder_name in quantize_text_encoder.split(","):
-                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-                quantization_kwargs = {}
-                if torch_dtype:
-                    quantization_kwargs["torch_dtype"] = torch_dtype
-                text_encoder = T5EncoderModel.from_pretrained(
-                    self._model_path,
-                    subfolder=text_encoder_name,
-                    quantization_config=quantization_config,
-                    **quantization_kwargs,
-                )
-                self._kwargs[text_encoder_name] = text_encoder
-                self._kwargs["device_map"] = "balanced"
-
+        self._quantize_text_encoder(quantize_text_encoder)
+        # transformer
         if self._gguf_model_path:
-            from diffusers import GGUFQuantizationConfig
-
-            # GGUF transformer
-            self._kwargs["transformer"] = self._get_layer_cls(
-                "transformer"
-            ).from_single_file(
-                self._gguf_model_path,
-                quantization_config=GGUFQuantizationConfig(compute_dtype=torch_dtype),
-                torch_dtype=torch_dtype,
-                config=os.path.join(self._model_path, "transformer"),
-            )
-        elif self._kwargs.get("transformer_nf4"):
-            nf4_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch_dtype,
-            )
-            model_nf4 = self._get_layer_cls("transformer").from_pretrained(
-                self._model_path,
-                subfolder="transformer",
-                quantization_config=nf4_config,
-                torch_dtype=torch_dtype,
-            )
-            self._kwargs["transformer"] = model_nf4
+            self._quantize_transformer_gguf()
+        else:
+            self._quantize_transformer()
 
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
         )
-        self._model = AutoPipelineModel.from_pretrained(
-            self._model_path,
-            **self._kwargs,
-        )
+        try:
+            self._model = AutoPipelineModel.from_pretrained(
+                self._model_path,
+                **self._kwargs,
+            )
+        except ValueError:
+            if "kontext" in self._model_spec.model_name.lower():
+                # TODO: remove this branch when auto pipeline supports
+                # flux.1-kontext-dev
+                from diffusers import FluxKontextPipeline
+
+                self._model = FluxKontextPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            else:
+                raise
         self._load_to_device(self._model)
         self._apply_lora()
 
@@ -308,6 +277,147 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
                 )
 
+        # Initialize batch scheduler if batching is enabled
+        self._image_batch_scheduler = None
+        if self._should_use_batching():
+            from ..scheduler.flux import FluxBatchScheduler
+
+            self._image_batch_scheduler = FluxBatchScheduler(self)
+            # Note: scheduler will be started when first request comes in
+
+    def _should_use_batching(self) -> bool:
+        """Check if this model should use batch scheduling for images"""
+        from ....constants import XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
+
+        return XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None
+
+    def _get_quantize_config(self, method: str, quantization: str, module: str):
+        if method == "bnb":
+            try:
+                import bitsandbytes  # noqa: F401
+            except ImportError:
+                error_message = "Failed to import module 'bitsandbytes'"
+                installation_guide = [
+                    "Please make sure 'bitsandbytes' is installed. ",
+                    "You can install it by `pip install bitsandbytes`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            if module.startswith("diffusers."):
+                from diffusers import BitsAndBytesConfig
+            else:
+                assert module.startswith("transformers.")
+                from transformers import BitsAndBytesConfig
+
+            if quantization == "4-bit":
+                return BitsAndBytesConfig(load_in_4bit=True)
+            elif quantization == "8-bit":
+                return BitsAndBytesConfig(load_in_8bit=True)
+            elif quantization == "nf4":
+                return BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=self._torch_dtype,
+                )
+        elif method == "torchao":
+            try:
+                import torchao  # noqa: F401
+            except ImportError:
+                error_message = "Failed to import module 'torchao'"
+                installation_guide = [
+                    "Please make sure 'torchao' is installed. ",
+                    "You can install it by `pip install torchao`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            if module.startswith("diffusers."):
+                from diffusers import TorchAoConfig
+            else:
+                assert module.startswith("transformers.")
+                from transformers import TorchAoConfig
+
+            return TorchAoConfig(quantization)
+        else:
+            raise ValueError(f"Unknown quantization method for image model: {method}")
+
+    def _quantize_text_encoder(self, quantize_text_encoder: Optional[str]):
+        if self._gguf_model_path:
+            # skip quantization when gguf applied to transformer
+            return
+
+        if not quantize_text_encoder:
+            return
+
+        quantization_method = self._kwargs.pop("text_encoder_quantize_method", "bnb")
+        quantization = self._kwargs.pop("text_encoder_quantization", "8-bit")
+
+        torch_dtype = self._torch_dtype
+        for text_encoder_name in quantize_text_encoder.split(","):
+            quantization_kwargs: Dict[str, Any] = {}
+            if torch_dtype:
+                quantization_kwargs["torch_dtype"] = torch_dtype
+            text_encoder_cls = self._get_layer_cls(text_encoder_name)
+            quantization_config = self._get_quantize_config(
+                quantization_method, quantization, text_encoder_cls.__module__
+            )
+            text_encoder = text_encoder_cls.from_pretrained(
+                self._model_path,
+                subfolder=text_encoder_name,
+                quantization_config=quantization_config,
+                **quantization_kwargs,
+            )
+            self._kwargs[text_encoder_name] = text_encoder
+        else:
+            if not self._kwargs.get("device_map"):
+                self._kwargs["device_map"] = "balanced"
+
+    def _quantize_transformer(self):
+        quantization = None
+        nf4 = self._kwargs.pop("transformer_nf4", None)
+        if nf4:
+            warnings.warn(
+                "`transformer_nf4` is deprecated, please use `transformer_quantization=nf4`",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            quantization = "nf4"
+        method = self._kwargs.pop("transformer_quantize_method", "bnb")
+        if not quantization:
+            quantization = self._kwargs.pop("transformer_quantization", None)
+
+        if not quantization:
+            # skip if no quantization specified
+            return
+
+        torch_dtype = self._torch_dtype
+        transformer_cls = self._get_layer_cls("transformer")
+        quantization_config = self._get_quantize_config(
+            method, quantization, transformer_cls.__module__
+        )
+        transformer_model = transformer_cls.from_pretrained(
+            self._model_path,
+            subfolder="transformer",
+            quantization_config=quantization_config,
+            torch_dtype=torch_dtype,
+        )
+        self._kwargs["transformer"] = transformer_model
+
+    def _quantize_transformer_gguf(self):
+        from diffusers import GGUFQuantizationConfig
+
+        # GGUF transformer
+        torch_dtype = self._torch_dtype
+        self._kwargs["transformer"] = self._get_layer_cls(
+            "transformer"
+        ).from_single_file(
+            self._gguf_model_path,
+            quantization_config=GGUFQuantizationConfig(compute_dtype=torch_dtype),
+            torch_dtype=torch_dtype,
+            config=os.path.join(self._model_path, "transformer"),
+        )
+
     def _load_to_device(self, model):
         if self._kwargs.get("cpu_offload", False):
             logger.debug("CPU offloading model")
@@ -321,7 +431,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if self._kwargs.get("attention_slicing", False):
             model.enable_attention_slicing()
         if self._kwargs.get("vae_tiling", False):
-            model.enable_vae_tiling()
+            try:
+                model.enable_vae_tiling()
+            except AttributeError:
+                model.vae.enable_tiling()
+        if self._kwargs.get("vae_slicing", False):
+            try:
+                model.enable_vae_slicing()
+            except AttributeError:
+                model.vae.enable_slicing()
 
     def get_max_num_images_for_batching(self):
         return self._kwargs.get("max_num_images", 16)
@@ -529,7 +647,40 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 logger.warning(f"{type(model)} cannot accept `{key}`, will ignore it")
                 kwargs.pop(key)
 
-    def text_to_image(
+    async def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        """Text to image method that handles both batching and non-batching"""
+        if self._image_batch_scheduler:
+            await self._ensure_scheduler_started()
+            # Use batching path
+            from concurrent.futures import Future as ConcurrentFuture
+
+            future: ConcurrentFuture = ConcurrentFuture()
+            await self._image_batch_scheduler.add_request(
+                prompt, future, n, size, response_format, **kwargs
+            )
+            import asyncio
+
+            fut = asyncio.wrap_future(future)
+            return await fut
+        else:
+            # Use direct path
+            return await self._direct_text_to_image(
+                prompt, n, size, response_format, **kwargs
+            )
+
+    async def _ensure_scheduler_started(self):
+        """Ensure the image batch scheduler is started"""
+        if self._image_batch_scheduler and not self._image_batch_scheduler._running:
+            await self._image_batch_scheduler.start()
+
+    async def _direct_text_to_image(
         self,
         prompt: str,
         n: int = 1,
@@ -566,7 +717,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        if self._kwargs.get("controlnet"):
+        if self._kwargs.get("controlnet") or self._model_spec.model_ability == [  # type: ignore
+            "image2image"
+        ]:
             model = self._model
         else:
             ability = "image2image"

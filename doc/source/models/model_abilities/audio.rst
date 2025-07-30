@@ -1,8 +1,8 @@
 .. _audio:
 
-=====================
-Audio (Experimental)
-=====================
+=====
+Audio
+=====
 
 Learn how to turn audio into text or text into audio with Xinference.
 
@@ -44,27 +44,49 @@ The audio API is supported with the following models in Xinference:
 Audio to text
 ~~~~~~~~~~~~~
 
-* whisper-tiny
-* whisper-tiny.en
-* whisper-base
-* whisper-base.en
-* whisper-medium
-* whisper-medium.en
-* whisper-large-v3
-* whisper-large-v3-turbo
-* Belle-distilwhisper-large-v2-zh
-* Belle-whisper-large-v2-zh
-* Belle-whisper-large-v3-zh
-* SenseVoiceSmall
+* :ref:`whisper-tiny <models_builtin_whisper-tiny>`
+* :ref:`whisper-tiny.en <models_builtin_whisper-tiny.en>`
+* :ref:`whisper-base <models_builtin_whisper-base>`
+* :ref:`whisper-base.en <models_builtin_whisper-base.en>`
+* :ref:`whisper-medium <models_builtin_whisper-medium>`
+* :ref:`whisper-medium.en <models_builtin_whisper-medium.en>`
+* :ref:`whisper-large-v3 <models_builtin_whisper-large-v3>`
+* :ref:`whisper-large-v3-turbo <models_builtin_whisper-large-v3-turbo>`
+* :ref:`Belle-distilwhisper-large-v2-zh <models_builtin_belle-distilwhisper-large-v2-zh>`
+* :ref:`Belle-whisper-large-v2-zh <models_builtin_belle-whisper-large-v2-zh>`
+* :ref:`Belle-whisper-large-v3-zh <models_builtin_belle-whisper-large-v3-zh>`
+* :ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`
+* :ref:`Paraformer-zh <models_builtin_paraformer-zh>`
+
+For Mac M-series chips only:
+
+* :ref:`whisper-tiny-mlx <models_builtin_whisper-tiny-mlx>`
+* :ref:`whisper-tiny.en-mlx <models_builtin_whisper-tiny.en-mlx>`
+* :ref:`whisper-base-mlx <models_builtin_whisper-base-mlx>`
+* :ref:`whisper-base.en-mlx <models_builtin_whisper-base.en-mlx>`
+* :ref:`whisper-medium-mlx <models_builtin_whisper-medium-mlx>`
+* :ref:`whisper-medium.en-mlx <models_builtin_whisper-medium.en-mlx>`
+* :ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`
+* :ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-mlx>`
 
 
 Text to audio
 ~~~~~~~~~~~~~
 
-* ChatTTS
-* CosyVoice
-* FishSpeech-1.5
-* F5-TTS
+* :ref:`ChatTTS <models_builtin_chattts>`
+* :ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`
+* :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
+* :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`
+* :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
+* :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
+* :ref:`F5-TTS <models_builtin_f5-tts>`
+* :ref:`MegaTTS3 <models_builtin_megatts3>`
+* MeloTTS series
+
+For Mac M-series chips only:
+
+* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
+* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 
 Quickstart
 ===================
@@ -272,6 +294,12 @@ Use the fixed tone color of ``seed_2155`` to generate speech.
 CosyVoice Usage
 ~~~~~~~~~~~~~~~
 
+CosyVoice has two versions: CosyVoice 1.0 and CosyVoice 2.0. CosyVoice 1.0 has three different models:
+
+- **CosyVoice-300M-SFT**: Choose this model if you just want to convert text to audio. There are pretrained voices available: ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+- **CosyVoice-300M**: Choose this model if you want to clone voice or convert text to audio in different languages. The ``prompt_speech`` is always required and should be a WAV file. For optimal performance, use a sample rate of 16,000 Hz.
+- **CosyVoice-300M-Instruct**: Choose this model If you need precise control over the tone and pitch.
+
 Basic usage, launch model ``CosyVoice-300M-SFT``.
 
 .. tabs::
@@ -331,9 +359,16 @@ Clone voice, launch model ``CosyVoice-300M``.
 
     model = client.get_model("<MODEL_UID>")
 
-    zero_shot_prompt_text = ""
-    # The zero shot prompt file is the voice file
-    # the words said in the file should be identical to zero_shot_prompt_text
+    zero_shot_prompt_text = ("<the words in the text exactly match "
+                             "the audio file of the zero-shot prompt>")
+    # The words said in the audio file should be identical
+    # to zero_shot_prompt_text.
+    #
+    # The audio input file must be in WAV format.
+    # For optimal performance, use a 16,000 Hz sample rate.
+    #
+    # Files with different sample rates will be resampled to 16,000 Hz,
+    # which may increase processing time.
     with open(zero_shot_prompt_file, "rb") as f:
         zero_shot_prompt = f.read()
 
@@ -354,7 +389,11 @@ Cross lingual usage, launch model ``CosyVoice-300M``.
 
     model = client.get_model("<MODEL_UID>")
 
-    # the file that reads in some language
+    # The audio input file must be in WAV format.
+    # For optimal performance, use a 16,000 Hz sample rate.
+    #
+    # Files with different sample rates will be resampled to 16,000 Hz,
+    # which may increase processing time.
     with open(cross_lingual_prompt_file, "rb") as f:
         cross_lingual_prompt = f.read()
 
@@ -379,6 +418,50 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
         instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
         "Fights with fervor for justice, but struggles with impulsiveness.",
     )
+
+CosyVoice 2.0 only has one model, it provides all the capabilities of the three CosyVoice models. The usage is the same as CosyVoice, with the only difference being that CosyVoice 2.0 requires ``use_flow_cache=True`` when launching the model for stream generation.
+
+CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
+
+.. note::
+
+    Please note that the latest CosyVoice 2.0 requires `use_flow_cache=True` for stream generation.
+
+.. code-block::
+
+    # Launch model
+    from xinference.client import Client
+
+    model_uid = client.launch_model(
+        model_name=model_name,
+        model_type="audio",
+        download_hub="modelscope",
+        use_flow_cache=True,
+    )
+
+    endpoint = "http://127.0.0.1:9997"
+    input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
+
+    # Stream request by openai client
+    import openai
+    import tempfile
+
+    openai_client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
+    response = openai_client.audio.speech.with_streaming_response.create(
+        model=model_uid, input=input_string, voice="英文女"
+    )
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        response.stream_to_file(f.name)
+        assert os.stat(f.name).st_size > 0
+
+    # Stream request by xinference client
+    response = model.speech(input_string, stream=True)
+    assert inspect.isgenerator(response)
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        for chunk in response:
+            f.write(chunk)
+
 
 More instructions and examples, could be found at https://fun-audio-llm.github.io/ .
 
@@ -411,6 +494,74 @@ This arguments is aligned to voice cloning of CosyVoice.
         prompt_speech=reference_audio,
         prompt_text=reference_text
     )
+
+
+
+Paraformer Usage
+~~~~~~~~~~~~~~~~
+
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| model                                                 | vad | punc | timestamp  | speaker | hotword |
++=======================================================+=====+======+============+=========+=========+
+| :ref:`models_builtin_paraformer-zh`                   | yes | yes  | no         | no      | no      |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_paraformer-zh-hotword`           | yes | yes  | no         | no      | yes     |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_paraformer-zh-spk`               | yes | yes  | yes        | yes     | no      |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_paraformer-zh-long`              | yes | yes  | yes        | yes     | no      |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+| :ref:`models_builtin_seaco-paraformer-zh` (recommend) | yes | yes  | yes        | yes     | yes     |
++-------------------------------------------------------+-----+------+------------+---------+---------+
+
+1. **VAD & Punctuation Usage**
+
+   All Paraformer models support VAD and punctuation.
+
+2. **Timestamp & Speaker Usage**
+
+   Only the following models support `timestamp` and `speaker`:
+   
+   - `paraformer-zh-spk`
+   - `paraformer-zh-long`
+   - `seaco-paraformer-zh`
+
+   Among them, only `paraformer-zh-spk` enables **speaker info by default**.
+
+   If you need speaker info when using `paraformer-zh-long` or `seaco-paraformer-zh`:
+
+   - In Web UI: add an extra parameter with key ``spk_model`` and value ``cam++``
+   - In command line: add the option ``--spk_model cam++``
+
+   Example:
+
+   .. code-block:: python
+
+      from xinference.client import Client
+      client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+      model = client.get_model("seaco-paraformer-zh")
+      with open("asr_example.wav", "rb") as audio_file:
+          audio = audio_file.read()
+          model.transcriptions(audio, response_format="verbose_json")
+
+3. **Hotword Usage**
+
+   Only the following models support `hotword`:
+   
+   - `paraformer-zh-hotword`
+   - `seaco-paraformer-zh`
+
+   Example:
+
+   .. code-block:: python
+
+      from xinference.client import Client
+      client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+      model = client.get_model("seaco-paraformer-zh")
+      with open("asr_example.wav", "rb") as audio_file:
+          audio = audio_file.read()
+          model.transcriptions(audio, hotword="小艾 魔搭")
+
 
 
 SenseVoiceSmall Offline Usage

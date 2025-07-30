@@ -12,21 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import os
 from collections import defaultdict
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional
 
-from ...constants import XINFERENCE_CACHE_DIR
-from ..core import CacheableModelSpec, ModelDescription, VirtualEnvSettings
-from ..utils import valid_model_revision
-from .diffusers import DiffUsersVideoModel
+from ..core import CacheableModelSpec, VirtualEnvSettings
+from ..utils import ModelInstanceInfoMixin
+from .diffusers import DiffusersVideoModel
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 VIDEO_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
-BUILTIN_VIDEO_MODELS: Dict[str, "VideoModelFamilyV1"] = {}
-MODELSCOPE_VIDEO_MODELS: Dict[str, "VideoModelFamilyV1"] = {}
+BUILTIN_VIDEO_MODELS: Dict[str, List["VideoModelFamilyV2"]] = {}
 
 
 def get_video_model_descriptions():
@@ -35,7 +31,8 @@ def get_video_model_descriptions():
     return copy.deepcopy(VIDEO_MODEL_DESCRIPTIONS)
 
 
-class VideoModelFamilyV1(CacheableModelSpec):
+class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
+    version: Literal[2]
     model_family: str
     model_name: str
     model_id: str
@@ -46,57 +43,37 @@ class VideoModelFamilyV1(CacheableModelSpec):
     default_generate_config: Optional[Dict[str, Any]]
     virtualenv: Optional[VirtualEnvSettings]
 
+    class Config:
+        extra = "allow"
 
-class VideoModelDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        model_spec: VideoModelFamilyV1,
-        model_path: Optional[str] = None,
-    ):
-        super().__init__(address, devices, model_path=model_path)
-        self._model_spec = model_spec
-
-    @property
-    def spec(self):
-        return self._model_spec
-
-    def to_dict(self):
+    def to_description(self):
         return {
             "model_type": "video",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._model_spec.model_name,
-            "model_family": self._model_spec.model_family,
-            "model_revision": self._model_spec.model_revision,
-            "model_ability": self._model_spec.model_ability,
+            "address": getattr(self, "address", None),
+            "accelerators": getattr(self, "accelerators", None),
+            "model_name": self.model_name,
+            "model_family": self.model_family,
+            "model_revision": self.model_revision,
+            "model_ability": self.model_ability,
         }
 
     def to_version_info(self):
-        if self._model_path is None:
-            is_cached = get_cache_status(self._model_spec)
-            file_location = get_cache_dir(self._model_spec)
-        else:
-            is_cached = True
-            file_location = self._model_path
+        from ..cache_manager import CacheManager
 
-        return [
-            {
-                "model_version": self._model_spec.model_name,
-                "model_file_location": file_location,
-                "cache_status": is_cached,
-            }
-        ]
+        cache_manager = CacheManager(self)
+
+        return {
+            "model_version": self.model_name,
+            "model_file_location": cache_manager.get_cache_dir(),
+            "cache_status": cache_manager.get_cache_status(),
+        }
 
 
 def generate_video_description(
-    video_model: VideoModelFamilyV1,
+    video_model: VideoModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[video_model.model_name].extend(
-        VideoModelDescription(None, None, video_model).to_version_info()
-    )
+    res[video_model.model_name].append(video_model.to_version_info())
     return res
 
 
@@ -105,22 +82,19 @@ def match_diffusion(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
-) -> VideoModelFamilyV1:
+) -> VideoModelFamilyV2:
     from ..utils import download_from_modelscope
-    from . import BUILTIN_VIDEO_MODELS, MODELSCOPE_VIDEO_MODELS
+    from . import BUILTIN_VIDEO_MODELS
 
-    if download_hub == "modelscope" and model_name in MODELSCOPE_VIDEO_MODELS:
-        logger.debug(f"Video model {model_name} found in ModelScope.")
-        return MODELSCOPE_VIDEO_MODELS[model_name]
-    elif download_hub == "huggingface" and model_name in BUILTIN_VIDEO_MODELS:
-        logger.debug(f"Video model {model_name} found in Huggingface.")
-        return BUILTIN_VIDEO_MODELS[model_name]
-    elif download_from_modelscope() and model_name in MODELSCOPE_VIDEO_MODELS:
-        logger.debug(f"Video model {model_name} found in ModelScope.")
-        return MODELSCOPE_VIDEO_MODELS[model_name]
-    elif model_name in BUILTIN_VIDEO_MODELS:
-        logger.debug(f"Video model {model_name} found in Huggingface.")
-        return BUILTIN_VIDEO_MODELS[model_name]
+    if model_name in BUILTIN_VIDEO_MODELS:
+        model_families = BUILTIN_VIDEO_MODELS[model_name]
+        if download_hub == "modelscope" or download_from_modelscope():
+            return (
+                [x for x in model_families if x.model_hub == "modelscope"]
+                + [x for x in model_families if x.model_hub == "huggingface"]
+            )[0]
+        else:
+            return [x for x in model_families if x.model_hub == "huggingface"][0]
     else:
         raise ValueError(
             f"Video model {model_name} not found, available"
@@ -128,40 +102,7 @@ def match_diffusion(
         )
 
 
-def cache(model_spec: VideoModelFamilyV1):
-    from ..utils import cache
-
-    return cache(model_spec, VideoModelDescription)
-
-
-def get_cache_dir(model_spec: VideoModelFamilyV1):
-    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
-
-
-def get_cache_status(
-    model_spec: VideoModelFamilyV1,
-) -> bool:
-    cache_dir = get_cache_dir(model_spec)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-
-    model_name = model_spec.model_name
-    if model_name in BUILTIN_VIDEO_MODELS and model_name in MODELSCOPE_VIDEO_MODELS:
-        hf_spec = BUILTIN_VIDEO_MODELS[model_name]
-        ms_spec = MODELSCOPE_VIDEO_MODELS[model_name]
-
-        return any(
-            [
-                valid_model_revision(meta_path, hf_spec.model_revision),
-                valid_model_revision(meta_path, ms_spec.model_revision),
-            ]
-        )
-    else:  # Usually for UT
-        return valid_model_revision(meta_path, model_spec.model_revision)
-
-
 def create_video_model_instance(
-    subpool_addr: str,
-    devices: List[str],
     model_uid: str,
     model_name: str,
     download_hub: Optional[
@@ -169,19 +110,20 @@ def create_video_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[DiffUsersVideoModel, VideoModelDescription]:
+) -> DiffusersVideoModel:
+    from ..cache_manager import CacheManager
+
     model_spec = match_diffusion(model_name, download_hub)
+
     if not model_path:
-        model_path = cache(model_spec)
+        cache_manager = CacheManager(model_spec)
+        model_path = cache_manager.cache()
     assert model_path is not None
 
-    model = DiffUsersVideoModel(
+    model = DiffusersVideoModel(
         model_uid,
         model_path,
         model_spec,
         **kwargs,
     )
-    model_description = VideoModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
-    )
-    return model, model_description
+    return model

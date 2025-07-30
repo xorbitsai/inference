@@ -14,61 +14,13 @@ Specifications
 ^^^^^^^^^^^^^^
 
 
-Model Spec 1 (ggufv2, 7 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** ggufv2
-- **Model Size (in billions):** 7
-- **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
-- **Model ID:** TheBloke/Llama-2-7B-Chat-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Llama-2-7b-Chat-GGUF>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
-
-
-Model Spec 2 (ggufv2, 13 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** ggufv2
-- **Model Size (in billions):** 13
-- **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
-- **Model ID:** TheBloke/Llama-2-13B-chat-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Llama-2-13b-Chat-GGUF>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 13 --model-format ggufv2 --quantization ${quantization}
-
-
-Model Spec 3 (ggufv2, 70 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** ggufv2
-- **Model Size (in billions):** 70
-- **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M
-- **Engines**: llama.cpp
-- **Model ID:** TheBloke/Llama-2-70B-Chat-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-Chat-GGUF>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 70 --model-format ggufv2 --quantization ${quantization}
-
-
-Model Spec 4 (pytorch, 7 Billion)
+Model Spec 1 (pytorch, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** meta-llama/Llama-2-7b-chat-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-7b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-7b-chat-ms>`__
 
@@ -78,7 +30,87 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (gptq, 7 Billion)
+Model Spec 2 (pytorch, 13 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 13
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** meta-llama/Llama-2-13b-chat-hf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-13b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-13b-chat-ms>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 3 (pytorch, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 70
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** meta-llama/Llama-2-70b-chat-hf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-70b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-70b-chat-ms>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 70 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 4 (ggufv2, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 7
+- **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M, Q6_K, Q8_0
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** TheBloke/Llama-2-7B-Chat-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Llama-2-7b-Chat-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 5 (ggufv2, 13 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 13
+- **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M, Q6_K, Q8_0
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** TheBloke/Llama-2-13B-chat-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Llama-2-13b-Chat-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 13 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 6 (ggufv2, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 70
+- **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** TheBloke/Llama-2-70B-Chat-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-Chat-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 70 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 7 (gptq, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -94,7 +126,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 7 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 6 (gptq, 70 Billion)
+Model Spec 8 (gptq, 70 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -110,7 +142,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 70 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 7 (awq, 70 Billion)
+Model Spec 9 (awq, 70 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -126,7 +158,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 70 --model-format awq --quantization ${quantization}
 
 
-Model Spec 8 (awq, 7 Billion)
+Model Spec 10 (awq, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -142,23 +174,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 7 --model-format awq --quantization ${quantization}
 
 
-Model Spec 9 (pytorch, 13 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** pytorch
-- **Model Size (in billions):** 13
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
-- **Model ID:** meta-llama/Llama-2-13b-chat-hf
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-13b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-13b-chat-ms>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}
-
-
-Model Spec 10 (gptq, 13 Billion)
+Model Spec 11 (gptq, 13 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -174,7 +190,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 13 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 11 (awq, 13 Billion)
+Model Spec 12 (awq, 13 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -188,20 +204,4 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 13 --model-format awq --quantization ${quantization}
-
-
-Model Spec 12 (pytorch, 70 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** pytorch
-- **Model Size (in billions):** 70
-- **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
-- **Model ID:** meta-llama/Llama-2-70b-chat-hf
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-70b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-70b-chat-ms>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name llama-2-chat --size-in-billions 70 --model-format pytorch --quantization ${quantization}
 
