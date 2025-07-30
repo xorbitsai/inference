@@ -145,7 +145,7 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
         return [stop_str]
 
     def build_generate_kwargs(self, generate_config: Dict):
-        max_new_tokens = generate_config.get("max_tokens", 512)
+        max_new_tokens = generate_config.get("max_tokens") or 512
         return {"max_new_tokens": max_new_tokens}
 
     def build_inputs_from_messages(

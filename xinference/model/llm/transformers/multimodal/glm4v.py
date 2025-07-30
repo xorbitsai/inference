@@ -129,7 +129,7 @@ class Glm4VModel(PytorchMultiModalModel):
         return {
             "eos_token_id": [151329, 151336, 151338],
             "do_sample": True,
-            "max_length": generate_config.get("max_tokens", 2048),
+            "max_length": generate_config.get("max_tokens") or 2048,
             "temperature": generate_config.get("temperature", 0.7),
         }
 

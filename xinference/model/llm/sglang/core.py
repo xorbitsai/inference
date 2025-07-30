@@ -23,6 +23,7 @@ from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
 from xoscar.utils import get_next_port
 
+from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -304,11 +305,11 @@ class SGLANGModel(LLM):
         generate_config.setdefault("temperature", 1.0)
         generate_config.setdefault("top_p", 1.0)
         generate_config.setdefault("top_k", -1)
-        # See https://github.com/sgl-project/sglang/blob/main/python/sglang/lang/ir.py#L120
-        # 16 is too less, so here set 256 by default
-        generate_config.setdefault(
-            "max_new_tokens", generate_config.pop("max_tokens", 256)  # type: ignore
+        max_tokens = (
+            generate_config.pop("max_tokens", XINFERENCE_MAX_TOKENS)  # type: ignore
+            or XINFERENCE_MAX_TOKENS
         )
+        generate_config.setdefault("max_new_tokens", max_tokens)  # type: ignore
         generate_config.setdefault("stop", [])
         generate_config.setdefault("stream", False)
         stream_options = generate_config.get("stream_options")

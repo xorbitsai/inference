@@ -29,8 +29,9 @@ logprobs_field = Field(
     description="The number of logprobs to generate. If None, no logprobs are generated.",
 )
 
+# Note: changed from 1024 to None to let the model output maximum content which has better user experience
 max_tokens_field = Field(
-    default=1024,
+    default=None,
     ge=1,
     description="The maximum number of tokens to generate.",
 )

@@ -40,6 +40,7 @@ from typing import (
 import xoscar as xo
 from typing_extensions import NotRequired
 
+from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -293,6 +294,7 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
+        self._context_length: Optional[int] = None
         # distributed inference
         self._device_count = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -547,6 +549,23 @@ class VLLMModel(LLM):
                 _, err, tb = self._loading_error
                 raise err.with_traceback(tb)
 
+        # set context length after engine inited
+        self._set_context_length()
+
+    def _set_context_length(self):
+        from vllm import envs
+
+        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+            # v0
+            self._context_length = (
+                self._engine.engine.vllm_config.model_config.max_model_len
+            )
+        else:
+            # v1
+            self._context_length = self._engine.model_config.max_model_len
+        assert self._context_length is not None
+        logger.debug("Model context length: %s", self._context_length)
+
     def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
         from vllm import __version__ as vllm_version
 
@@ -762,7 +781,11 @@ class VLLMModel(LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
-        sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 1024))
+        sanitized.setdefault(  # type: ignore
+            "max_tokens",
+            generate_config.get("max_tokens", XINFERENCE_MAX_TOKENS)  # type: ignore
+            or XINFERENCE_MAX_TOKENS,
+        )
         sanitized.setdefault("stop", generate_config.get("stop", None))
         sanitized.setdefault(
             "stop_token_ids", generate_config.get("stop_token_ids", None)
@@ -897,6 +920,46 @@ class VLLMModel(LLM):
             usage=usage,
         )
 
+    async def _get_tokenizer(self, lora_request: Any) -> Any:
+        try:
+            return await self._engine.get_tokenizer(lora_request)  # type: ignore
+        except AttributeError:
+            return await self._engine.get_tokenizer_async(lora_request)  # type: ignore
+
+    def _tokenize(self, tokenizer: Any, prompt: str, config: dict) -> List[int]:
+        truncate_prompt_tokens = config.get("truncate_prompt_tokens")
+        add_special_tokens = config.get("add_special_tokens", True)
+
+        if truncate_prompt_tokens is None:
+            encoded = tokenizer(prompt, add_special_tokens=add_special_tokens)
+        elif truncate_prompt_tokens < 0:
+            # Negative means we cap at the model's max length
+            encoded = tokenizer(
+                prompt,
+                add_special_tokens=add_special_tokens,
+                truncation=True,
+                max_length=self._context_length,
+            )
+        else:
+            encoded = tokenizer(
+                prompt,
+                add_special_tokens=add_special_tokens,
+                truncation=True,
+                max_length=truncate_prompt_tokens,
+            )
+
+        return encoded.input_ids
+
+    async def _gen_tokens_prompt(
+        self, tokenizer, prompt: Union[str, dict], config: dict
+    ):
+        from vllm import TokensPrompt
+
+        token_ids = await asyncio.to_thread(
+            self._tokenize, tokenizer, prompt, config  # type: ignore
+        )
+        return TokensPrompt(prompt_token_ids=token_ids)
+
     @vllm_check
     async def async_generate(
         self,
@@ -968,12 +1031,25 @@ class VLLMModel(LLM):
             sanitized_generate_config.pop("guided_whitespace_pattern", None)
             sampling_params = SamplingParams(**sanitized_generate_config)
 
+        prompt_or_token_ids: Union[str, Dict[str, Any], List[int]] = prompt
+        if sampling_params.max_tokens is None:
+            # no max_tokens set, try to get the max tokens
+            # this requires tokenizing
+            tokenizer = await self._get_tokenizer(lora_request)
+            prompt_or_token_ids = await self._gen_tokens_prompt(
+                tokenizer, prompt, sanitized_generate_config  # type: ignore
+            )
+            sampling_params.max_tokens = max_tokens = self._context_length - len(  # type: ignore
+                prompt_or_token_ids["prompt_token_ids"]  # type: ignore
+            )
+            logger.debug("No max_tokens set, setting to: %s", max_tokens)
+
         if not request_id:
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
         results_generator = self._engine.generate(
-            prompt,
+            prompt_or_token_ids,
             sampling_params,
             request_id,
             lora_request,
@@ -1363,6 +1439,24 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                         "stop_token_ids", self.model_family.stop_token_ids.copy()
                     )
         return generate_config
+
+    async def _gen_tokens_prompt(
+        self, tokenizer, prompt: Union[str, dict], config: dict
+    ):
+        from vllm import TokensPrompt
+
+        if isinstance(prompt, str):
+            return super()._gen_tokens_prompt(tokenizer, prompt, config)
+
+        prompt_str = prompt["prompt"]
+        multi_modal_data = prompt.get("multi_modal_data")
+
+        token_ids = await asyncio.to_thread(
+            self._tokenize, tokenizer, prompt_str, config  # type: ignore
+        )
+        return TokensPrompt(
+            prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
+        )
 
     @vllm_check
     async def async_chat(
