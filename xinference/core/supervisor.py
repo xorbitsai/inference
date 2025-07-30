@@ -977,6 +977,9 @@ class SupervisorActor(xo.StatelessActor):
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> str:
         if self.is_local_deployment() and n_worker > 1:  # type: ignore
@@ -1005,6 +1008,9 @@ class SupervisorActor(xo.StatelessActor):
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
                 model_path=model_path,
+                enable_virtual_env=enable_virtual_env,
+                virtual_env_packages=virtual_env_packages,
+                envs=envs,
                 **kwargs,
             )
 
@@ -1144,6 +1150,9 @@ class SupervisorActor(xo.StatelessActor):
                 gpu_idx=replica_gpu_idx,
                 download_hub=download_hub,
                 model_path=model_path,
+                enable_virtual_env=enable_virtual_env,
+                virtual_env_packages=virtual_env_packages,
+                envs=envs,
                 xavier_config=xavier_config,
                 **kwargs,
             )
@@ -1268,6 +1277,9 @@ class SupervisorActor(xo.StatelessActor):
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         available_workers = []
@@ -1336,6 +1348,9 @@ class SupervisorActor(xo.StatelessActor):
                             gpu_idx=replica_gpu_idx,
                             download_hub=download_hub,
                             model_path=model_path,
+                            enable_virtual_env=enable_virtual_env,
+                            virtual_env_packages=virtual_env_packages,
+                            envs=envs,
                             shard=i_worker,
                             n_worker=n_worker,
                             driver_info=driver_info,

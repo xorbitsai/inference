@@ -1025,6 +1025,9 @@ class RESTfulAPI(CancelMixin):
         gpu_idx = payload.get("gpu_idx", None)
         download_hub = payload.get("download_hub", None)
         model_path = payload.get("model_path", None)
+        enable_virtual_env = payload.get("enable_virtual_env", None)
+        virtual_env_packages = payload.get("virtual_env_packages", None)
+        envs = payload.get("envs", None)
 
         exclude_keys = {
             "model_uid",
@@ -1042,6 +1045,9 @@ class RESTfulAPI(CancelMixin):
             "gpu_idx",
             "download_hub",
             "model_path",
+            "enable_virtual_env",
+            "virtual_env_packages",
+            "envs",
         }
 
         kwargs = {
@@ -1091,6 +1097,9 @@ class RESTfulAPI(CancelMixin):
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
                 model_path=model_path,
+                enable_virtual_env=enable_virtual_env,
+                virtual_env_packages=virtual_env_packages,
+                envs=envs,
                 **kwargs,
             )
         except ValueError as ve:
