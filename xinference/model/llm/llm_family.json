@@ -7567,8 +7567,8 @@
               "Q8_0",
               "bf16"
             ],
-            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7597,8 +7597,8 @@
               "Q8_0",
               "bf16"
             ],
-            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
           }
         }
       },
@@ -7634,8 +7634,8 @@
               "Q6_K_L",
               "Q8_0"
             ],
-            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7665,8 +7665,8 @@
               "Q6_K_L",
               "Q8_0"
             ],
-            "model_id": "bartowski/zai-org_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "zai-org_GLM-4-9B-0414-{quantization}.gguf"
+            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
+            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf"
           }
         }
       }
