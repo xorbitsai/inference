@@ -487,7 +487,7 @@ const ModelCard = ({
     if (envsArr.length) {
       const arr = {}
       envsArr.forEach((item) => {
-        arr[item.key] = handleValueType(item.value)
+        arr[item.key] = item.value
       })
       modelDataWithID['envs'] = arr
     }
