@@ -1,30 +1,12 @@
 import { AddCircle } from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  IconButton,
-  Snackbar,
-  TextField,
-} from '@mui/material'
+import { Box, IconButton, Snackbar, TextField } from '@mui/material'
 import React, { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
-const AddPair = ({
-  customData,
-  pairData,
-  tipOptions = [],
-  onGetArr,
-  onJudgeArr,
-}) => {
+const AddValue = ({ customData, pairData, onGetArr, onJudgeArr }) => {
   const [openSnackbar, setOpenSnackbar] = useState(false)
   const [arr, setArr] = useState([])
   const [arrId, setArrId] = useState(0)
-  const [defaultIndex, setDefaultIndex] = useState(-1)
-  const [isNotUniqueKey, setIsNotUniqueKey] = useState(false)
-
-  const { t } = useTranslation()
 
   useEffect(() => {
     onGetArr(arr)
@@ -36,8 +18,7 @@ const AddPair = ({
     pairData.forEach((item, index) => {
       dataArr.push({
         id: index,
-        [customData.key]: item[customData.key],
-        [customData.value]: item[customData.value],
+        [customData.value]: item,
       })
     })
     setArrId(pairData.length)
@@ -53,20 +34,9 @@ const AddPair = ({
         return pair
       })
     )
-    if (type === customData.key) {
-      setDefaultIndex(-1)
-      setIsNotUniqueKey(false)
-      arr.forEach((pair) => {
-        if (pair[customData.key] === newValue) {
-          setDefaultIndex(index)
-          setIsNotUniqueKey(true)
-        }
-      })
-    }
   }
 
   const handleDeleteArr = (index) => {
-    setDefaultIndex(-1)
     setArr(
       arr.filter((_, subIndex) => {
         return index !== subIndex
@@ -91,9 +61,8 @@ const AddPair = ({
             onClick={() => {
               setArrId(arrId + 1)
               let obj = { id: arrId }
-              obj[customData.key] = ''
               obj[customData.value] = ''
-              onJudgeArr(arr, [customData.key, customData.value])
+              onJudgeArr(arr, [customData.value])
                 ? setArr([...arr, obj])
                 : setOpenSnackbar(true)
             }}
@@ -114,36 +83,6 @@ const AddPair = ({
                     marginLeft: '10px',
                   }}
                 >
-                  {tipOptions.length ? (
-                    <Autocomplete
-                      style={{ width: '44%' }}
-                      disablePortal
-                      options={tipOptions}
-                      groupBy={() => t('components.suggestsCommonParameters')}
-                      value={item[customData.key]}
-                      inputValue={item[customData.key]}
-                      onInputChange={(_, newValue) => {
-                        updateArr(index, customData.key, newValue)
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          className="textHighlight"
-                          {...params}
-                          label={customData.key}
-                        />
-                      )}
-                    />
-                  ) : (
-                    <TextField
-                      className="textHighlight"
-                      label={customData.key}
-                      value={item[customData.key]}
-                      onChange={(e) => {
-                        updateArr(index, customData.key, e.target.value)
-                      }}
-                      style={{ width: '44%' }}
-                    />
-                  )}
                   <TextField
                     className="textHighlight"
                     label={customData.value}
@@ -151,7 +90,7 @@ const AddPair = ({
                     onChange={(e) => {
                       updateArr(index, customData.value, e.target.value)
                     }}
-                    style={{ width: '44%' }}
+                    fullWidth
                   />
                   <IconButton
                     aria-label="delete"
@@ -161,11 +100,6 @@ const AddPair = ({
                     <DeleteIcon />
                   </IconButton>
                 </div>
-                {isNotUniqueKey && defaultIndex === index && (
-                  <Alert severity="error">
-                    {customData.key} must be unique
-                  </Alert>
-                )}
               </Box>
             )
           })}
@@ -182,4 +116,4 @@ const AddPair = ({
   )
 }
 
-export default AddPair
+export default AddValue

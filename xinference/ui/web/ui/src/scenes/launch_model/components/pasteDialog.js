@@ -26,6 +26,9 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
       image_lora_fuse_kwargs: {},
     }
     const quantizationConfig = {}
+    const virtualEnvPackages = []
+    const envs = {}
+
     let newcommand = command.replace('xinference launch', '').trim()
     const args =
       newcommand.match(
@@ -35,7 +38,7 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
     for (const arg of args) {
       const match = arg
         .trim()
-        .match(/^--([\w-]+)\s+(?:"([^"]+)"|'([^']+)'|(.+))?$/)
+        .match(/^--([\w-]+)(?:\s+(?:"([^"]+)"|'([^']+)'|(.+)))?$/)
       if (!match) continue
 
       const key = match[1]
@@ -60,13 +63,22 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
         const [fuse_param, fuse_value] = value.split(/\s+/)
         peftModelConfig.image_lora_fuse_kwargs[fuse_param] = fuse_value
       } else if (normalizedKey === 'quantization_config') {
-        const quantizationConfigPairs = value.split(/\s+/)
-        const k = quantizationConfigPairs[0]
-        const v = quantizationConfigPairs[1]
+        const [k, v] = value.split(/\s+/)
         quantizationConfig[k] = v
+      } else if (key === 'enable-virtual-env') {
+        params.enable_virtual_env = true
+      } else if (key === 'disable-virtual-env') {
+        params.enable_virtual_env = false
+      } else if (normalizedKey === 'virtual_env_package') {
+        virtualEnvPackages.push(value)
+      } else if (normalizedKey === 'env') {
+        const [envKey, envVal] = value.split(/\s+/)
+        if (envKey && envVal !== undefined) {
+          envs[envKey] = envVal
+        }
       } else {
         if (['cpu_offload', 'reasoning_content'].includes(normalizedKey)) {
-          params[normalizedKey] = value === 'true' ? true : false
+          params[normalizedKey] = value === 'true'
         } else if (normalizedKey === 'size_in_billions') {
           params['model_size_in_billions'] = value
         } else {
@@ -83,8 +95,16 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
       params.peft_model_config = peftModelConfig
     }
 
-    if (quantizationConfig && Object.keys(quantizationConfig).length > 0) {
+    if (Object.keys(quantizationConfig).length > 0) {
       params.quantization_config = quantizationConfig
+    }
+
+    if (virtualEnvPackages.length > 0) {
+      params.virtual_env_packages = virtualEnvPackages
+    }
+
+    if (Object.keys(envs).length > 0) {
+      params.envs = envs
     }
 
     onHandleCommandLine(params)

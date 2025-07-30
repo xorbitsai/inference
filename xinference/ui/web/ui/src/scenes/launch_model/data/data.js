@@ -23,6 +23,9 @@ export const llmAllDataKey = [
   'quantization_config',
   'enable_thinking',
   'multimodal_projectors',
+  'enable_virtual_env',
+  'virtual_env_packages',
+  'envs',
 ]
 
 export const additionalParameterTipList = {
