@@ -26,7 +26,11 @@ For all configurable llama.cpp parameters, please refer to the definition of the
 
 There may be some nested parameters. For example, ``sampling.top_k``. Just use the ``.`` to separate nested parameters.
 
-Here is an example of setting nested sampling parameters in WebUI: https://github.com/xorbitsai/inference/issues/3093#issuecomment-2866252669
+Here is an example of setting nested sampling parameters in WebUI:
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../_static/xllamacpp_param.png" style="background-color: transparent", width="95%">
 
 Auto NGL
 -------------
