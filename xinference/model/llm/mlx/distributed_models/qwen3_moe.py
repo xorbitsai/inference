@@ -34,7 +34,7 @@ class Qwen3MoeModel(_Qwen3MoeModel, DistributedModelMixin):
     def __call__(
         self,
         inputs: mx.array,
-        mask: mx.array = None,
+        mask: mx.array = None,  # type: ignore
         cache=None,
     ):
         h = self.embed_tokens(inputs)

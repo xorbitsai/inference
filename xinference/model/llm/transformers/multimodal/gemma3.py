@@ -92,7 +92,7 @@ class Gemma3ChatModel(PytorchMultiModalModel):
         generate_config: Dict,
     ) -> Dict[str, Any]:
         return dict(
-            max_new_tokens=generate_config.get("max_tokens", 512),
+            max_new_tokens=generate_config.get("max_tokens") or 512,
             temperature=generate_config.get("temperature", 1),
         )
 

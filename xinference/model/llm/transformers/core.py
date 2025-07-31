@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
+from ....constants import XINFERENCE_MAX_TOKENS
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -102,6 +103,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
+        self._context_length: Optional[int] = None
         self._peft_model = peft_model
 
     def _sanitize_model_config(
@@ -133,6 +135,8 @@ class PytorchModel(LLM):
             generate_config = PytorchGenerateConfig(
                 **CreateCompletionTorch(**generate_config).dict()
             )
+        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
+            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS  # type: ignore
         generate_config["model"] = self.model_uid
         return generate_config
 
@@ -334,6 +338,11 @@ class PytorchModel(LLM):
             self._model.to(self._device)
 
         self._save_tensorizer(**kwargs)
+
+        # set context length
+        self._context_length = self._pytorch_model_config.get(
+            "context_length", get_context_length(self._model.config)
+        )
 
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
@@ -684,7 +693,8 @@ class PytorchModel(LLM):
 
     @lru_cache
     def get_context_len(self):
-        return get_context_length(self._model.config)
+        assert self._context_length is not None
+        return self._context_length
 
     def get_max_num_seqs(self) -> int:
         return self._pytorch_model_config.get("max_num_seqs")  # type: ignore

@@ -109,6 +109,14 @@ class GradioInterface:
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulChatModelHandle)
 
+            generate_config = {
+                "temperature": temperature,
+                "stream": stream,
+                "lora_name": lora_name,
+            }
+            if max_tokens > 0:
+                generate_config["max_tokens"] = max_tokens
+
             # Convert history to messages format
             messages = []
             for msg in history:
@@ -124,12 +132,7 @@ class GradioInterface:
                 is_first_content = True
                 for chunk in model.chat(
                     messages=messages,
-                    generate_config={
-                        "max_tokens": int(max_tokens),
-                        "temperature": temperature,
-                        "stream": True,
-                        "lora_name": lora_name,
-                    },
+                    generate_config=generate_config,  # type: ignore
                 ):
                     assert isinstance(chunk, dict)
                     delta = chunk["choices"][0]["delta"]
@@ -178,11 +181,7 @@ class GradioInterface:
             else:
                 result = model.chat(
                     messages=messages,
-                    generate_config={
-                        "max_tokens": int(max_tokens),
-                        "temperature": temperature,
-                        "lora_name": lora_name,
-                    },
+                    generate_config=generate_config,  # type: ignore
                 )
                 assert isinstance(result, dict)
                 mg = result["choices"][0]["message"]
@@ -290,13 +289,9 @@ class GradioInterface:
 
                     with gr.Accordion("Additional Inputs", open=False):
                         max_tokens = gr.Slider(
-                            minimum=1,
+                            minimum=0,
                             maximum=self.context_length,
-                            value=(
-                                512
-                                if "reasoning" not in self.model_ability
-                                else self.context_length // 2
-                            ),
+                            value=0,
                             step=1,
                             label="Max Tokens",
                         )
@@ -339,6 +334,13 @@ class GradioInterface:
         def predict(history, bot, max_tokens, temperature, stream):
             from ...client import RESTfulClient
 
+            generate_config = {
+                "temperature": temperature,
+                "stream": stream,
+            }
+            if max_tokens > 0:
+                generate_config["max_tokens"] = max_tokens
+
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
@@ -348,11 +350,7 @@ class GradioInterface:
                 response_content = ""
                 for chunk in model.chat(
                     messages=history,
-                    generate_config={
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "stream": stream,
-                    },
+                    generate_config=generate_config,
                 ):
                     assert isinstance(chunk, dict)
                     delta = chunk["choices"][0]["delta"]
@@ -373,11 +371,7 @@ class GradioInterface:
             else:
                 response = model.chat(
                     messages=history,
-                    generate_config={
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "stream": stream,
-                    },
+                    generate_config=generate_config,
                 )
                 history.append(response["choices"][0]["message"])
                 if "audio" in history[-1]:
@@ -591,11 +585,11 @@ class GradioInterface:
 
             with gr.Accordion("Additional Inputs", open=False):
                 max_tokens = gr.Slider(
-                    minimum=1,
+                    minimum=0,
                     maximum=self.context_length,
-                    value=512,
+                    value=0,
                     step=1,
-                    label="Max Tokens",
+                    label="Max Tokens (0 stands for maximum possible tokens)",
                 )
                 temperature = gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
@@ -672,15 +666,18 @@ class GradioInterface:
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
 
+            generate_config = {
+                "temperature": temperature,
+                "stream": True,
+                "lora_name": lora_name,
+            }
+            if max_tokens > 0:
+                generate_config["max_tokens"] = max_tokens
+
             response_content = text
             for chunk in model.generate(
                 prompt=text,
-                generate_config={
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
-                    "stream": True,
-                    "lora_name": lora_name,
-                },
+                generate_config=generate_config,  # type: ignore
             ):
                 assert isinstance(chunk, dict)
                 choice = chunk["choices"][0]
@@ -702,6 +699,14 @@ class GradioInterface:
         def retry(text, hist, max_tokens, temperature, lora_name) -> Generator:
             from ...client import RESTfulClient
 
+            generate_config = {
+                "temperature": temperature,
+                "stream": True,
+                "lora_name": lora_name,
+            }
+            if max_tokens > 0:
+                generate_config["max_tokens"] = max_tokens
+
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
@@ -712,15 +717,7 @@ class GradioInterface:
             text = hist[-2] if len(hist) > 1 else ""
 
             response_content = text
-            for chunk in model.generate(
-                prompt=text,
-                generate_config={
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
-                    "stream": True,
-                    "lora_name": lora_name,
-                },
-            ):
+            for chunk in model.generate(prompt=text, generate_config=generate_config):  # type: ignore
                 assert isinstance(chunk, dict)
                 choice = chunk["choices"][0]
                 if "text" not in choice:
@@ -793,11 +790,11 @@ class GradioInterface:
                     btn_clear = gr.Button("🗑️  Clear")
                 with Accordion("Additional Inputs", open=False):
                     length = gr.Slider(
-                        minimum=1,
+                        minimum=0,
                         maximum=self.context_length,
-                        value=1024,
+                        value=0,
                         step=1,
-                        label="Max Tokens",
+                        label="Max Tokens (0 stands for maximum possible tokens)",
                     )
                     temperature = gr.Slider(
                         minimum=0, maximum=2, value=1, step=0.01, label="Temperature"

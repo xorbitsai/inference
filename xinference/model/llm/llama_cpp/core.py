@@ -21,6 +21,7 @@ from typing import Iterator, List, Optional, Union
 
 import orjson
 
+from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
 from ..core import LLM
 from ..llm_family import LLMFamilyV2, LLMSpecV1
@@ -226,6 +227,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self, prompt: str, generate_config: Optional[dict] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         generate_config = generate_config or {}
+        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
+            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
 
@@ -290,6 +293,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config: Optional[dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         generate_config = generate_config or {}
+        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
+            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
         stream = generate_config.get("stream", False)
         tools = generate_config.pop("tools", []) if generate_config else None
         q: queue.Queue = queue.Queue()
