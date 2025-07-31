@@ -38,6 +38,7 @@ from typing import (
 )
 
 import xoscar as xo
+from packaging import version
 from typing_extensions import NotRequired
 
 from ....types import (
@@ -123,8 +124,10 @@ try:
         )
 
     VLLM_INSTALLED = True
+    VLLM_VERSION = version.parse(vllm.__version__)
 except ImportError:
     VLLM_INSTALLED = False
+    VLLM_VERSION = None
 
 VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
@@ -167,7 +170,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "deepseek-coder-instruct",
     "yi-coder-chat",
 ]
-if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
     VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
@@ -188,19 +191,19 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat-rag")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.4.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.1"):
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
@@ -211,58 +214,58 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-prover-v2")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528-qwen3")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
 
-if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
+if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.5.3"):
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-llama")
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
     VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.7.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("moonlight-16b-a3b-instruct")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwenLong-l1")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.5"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.9.1":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.9.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
