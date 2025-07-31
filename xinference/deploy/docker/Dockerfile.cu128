@@ -56,9 +56,14 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install  https://github.com/sgl-project/whl/releases/download/v0.2.6/sgl_kernel-0.2.6+cu128-cp39-abi3-manylinux2014_x86_64.whl && \
     pip install WeTextProcessing==1.0.4.1 --no-deps && \
     pip uninstall flashinfer -y && \
+<<<<<<< HEAD:xinference/deploy/docker/Dockerfile.cu128
     pip install flashinfer-python && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
     pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.18/flash_attn-2.7.4+cu124torch2.7-cp312-cp312-linux_x86_64.whl && \
+=======
+    pip install flashinfer-python -i https://flashinfer.ai/whl/cu128/torch2.8 && \
+    pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
+>>>>>>> fcf4f67c (cu12.8版本支持5090的Dockerfile):xinference/deploy/docker/Dockerfile-12.8
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
