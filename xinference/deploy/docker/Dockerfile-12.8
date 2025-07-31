@@ -57,6 +57,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install WeTextProcessing==1.0.4.1 --no-deps && \
     pip uninstall flashinfer -y && \
     pip install flashinfer-python -i https://flashinfer.ai/whl/cu128/torch2.8 && \
+    pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
@@ -79,6 +80,7 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     # Clear the Conda cache
     /opt/conda/bin/conda clean --all -y
 
+# The pre-release version used should be noted for date changes
 RUN pip3 install --pre torch==2.8.0.dev20250601+cu128 torchvision==0.23.0.dev20250602+cu128 torchaudio==2.6.0.dev20250601+cu128 --index-url https://download.pytorch.org/whl/nightly/cu128 \
     --no-deps
 
