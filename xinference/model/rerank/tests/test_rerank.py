@@ -114,7 +114,7 @@ def test_restful_api(model_name, setup):
     )
 
     scores = model.rerank(corpus, query)
-    assert scores["meta"]["tokens"] == None
+    assert scores["meta"]["tokens"] is None
 
     # testing long input
     corpus2 = corpus.copy()
