@@ -66,7 +66,9 @@ class VLLMRerankModel(RerankModel):
         reranked_docs = list(
             map(
                 lambda doc: DocumentObj(
-                    index=doc[0], relevance_score=doc[1], document=doc[2]
+                    index=doc[0],
+                    relevance_score=doc[1],
+                    document=doc[2] if return_documents else None,
                 ),
                 documents,
             )
@@ -75,7 +77,9 @@ class VLLMRerankModel(RerankModel):
         metadata = Meta(
             api_version=None,
             billed_units=None,
-            tokens=RerankTokens(input_tokens=tokens, output_tokens=tokens),
+            tokens=RerankTokens(input_tokens=tokens, output_tokens=tokens)
+            if return_len
+            else None,
             warnings=None,
         )
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
