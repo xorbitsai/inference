@@ -19107,7 +19107,8 @@
     ],
     "model_ability": [
       "chat",
-      "reasoning"
+      "reasoning",
+      "hybrid"
     ],
     "model_description": "The GLM-4.5 series models are foundation models designed for intelligent agents. ",
     "model_specs": [
@@ -19245,6 +19246,8 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
         "transformers>=4.54.0",
