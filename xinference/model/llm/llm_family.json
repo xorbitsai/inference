@@ -6560,7 +6560,7 @@
 	      "8bit"
             ],
             "model_id": "mlx-community/DeepSeek-V3-0324-{quantization}"
-          } 
+          }
 	}
       }
     ],
@@ -19096,5 +19096,154 @@
         "#system_numpy#"
       ]
     }
+  },
+  {
+    "version": 2,
+    "context_length": 65536,
+    "model_name": "glm-4.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning"
+    ],
+    "model_description": "The GLM-4.5 series models are foundation models designed for intelligent agents. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.5"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.5-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.5-Air"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5-Air"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.5-Air-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5-Air-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "2bit",
+              "3bit",
+              "4bit",
+              "5bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-Air-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "2bit",
+              "3bit",
+              "4bit",
+              "5bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-Air-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": " = loop.index0 -%}{%- endif %}{%- endfor %}{% for m in messages %}{%- if m.role == 'user' -%}<|user|>{{ visible_text(m.content) }}{{- '/nothink' if (enable_thinking is defined and not enable_thinking and not visible_text(m.content).endswith("/nothink")) else '' -}}{%- elif m.role == 'assistant' -%}<|assistant|>{%- set reasoning_content = '' %}{%- set content = visible_text(m.content) %}{%- if m.reasoning_content is string %}{%- set reasoning_content = m.reasoning_content %}{%- else %}{%- if '</think>' in content %}{%- set reasoning_content = content.split('</think>')[0].rstrip('\n').split('<think>')[-1].lstrip('\n') %}{%- set content = content.split('</think>')[-1].lstrip('\n') %}{%- endif %}{%- endif %}{%- if loop.index0 > ns.last_user_index and reasoning_content -%}{{ '\n<think>' + reasoning_content.strip() +  '</think>'}}{%- else -%}{{ '\n<think></think>' }}{%- endif %}{{ '\n' + content.strip() if content.strip() }}{% if m.tool_calls %}{% for tc in m.tool_calls %}{%- if tc.function %}{%- set tc = tc.function %}{%- endif %}{{ '\n<tool_call>' + tc.name }}{% set _args = tc.arguments %}{% for k, v in _args.items() %}<arg_key>{{ k }}</arg_key><arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>{% endfor %}</tool_call>{% endfor %}{% endif %}{%- elif m.role == 'tool' -%}{%- if m.content is string -%}{%- if loop.first or (messages[loop.index0 - 1].role != "tool") %}{{- '<|observation|>' }}{%- endif %}{{- '\n<tool_response>\n' }}{{- m.content }}{{- '\n</tool_response>' }}{%- else -%}<|observation|>{% for tr in m.content %}<tool_response>{{ tr.output if tr.output is defined else tr }}</tool_response>{% endfor -%}{% endif -%}{%- elif m.role == 'system' -%}<|system|>{{ visible_text(m.content) }}{%- endif -%}{%- endfor %}{%- if add_generation_prompt -%}<|assistant|>{{- '\n<think></think>' if (enable_thinking is defined and not enable_thinking) else '' -}}{%- endif -%}“,
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ]
   }
 ]

@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
-- **Model ID:** THUDM/codegeex4-all-9b
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/codegeex4-all-9b>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b>`__
+- **Model ID:** zai-org/codegeex4-all-9b
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/codegeex4-all-9b>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -37,8 +37,8 @@ Model Spec 2 (ggufv2, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** IQ2_M, IQ3_M, Q4_K_M, Q5_K_M, Q6_K_L, Q8_0
 - **Engines**: vLLM, llama.cpp
-- **Model ID:** THUDM/codegeex4-all-9b-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/codegeex4-all-9b-GGUF>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b-GGUF>`__
+- **Model ID:** zai-org/codegeex4-all-9b-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/codegeex4-all-9b-GGUF>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b-GGUF>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
