@@ -100,6 +100,7 @@ def test_embedding_model_with_vllm_long_text():
             model_path=model_path,
         )
         model.load()
+        model.wait_for_load()
 
         # Create a long text that exceeds 512 tokens
         # Each word is roughly 1-2 tokens, so we create a text with ~600 words to ensure >512 tokens
