@@ -19256,9 +19256,9 @@
                 "00002-of-00002"
               ]
             },
-            "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
-            "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf"
+            "model_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+            "model_file_name_template": "Qwen3-Coder-30B-A3B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -19296,9 +19296,9 @@
                 "00002-of-00002"
               ]
             },
-            "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
-            "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf"
+            "model_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+            "model_file_name_template": "Qwen3-Coder-30B-A3B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf"
           }
         },
     ],
