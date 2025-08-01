@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-01 16:12+0800\n"
+"POT-Creation-Date: 2025-08-01 17:08+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -41,43 +41,47 @@ msgid ""
 "Meanwhile, users see it as a single model, which greatly improves overall"
 " resource utilization."
 msgstr ""
-"副本用来指定模型加载的实例份数。比如，你有两张 GPU，每张卡可以放下模型的一个副本，你可以设置副本数为 2。"
-"这样，两个完全相同的模型实例将分布在这两张 GPU 上。Xinference 会自动进行负载均衡，"
-"确保请求均匀分配到多张卡上。用户看到的仍是一个模型，这大大提升了整体资源利用率。"
+"副本用来指定模型加载的实例份数。比如，你有两张 GPU，每张卡可以放下模型的"
+"一个副本，你可以设置副本数为 2。这样，两个完全相同的模型实例将分布在这"
+"两张 GPU 上。Xinference 会自动进行负载均衡，确保请求均匀分配到多张卡上。"
+"用户看到的仍是一个模型，这大大提升了整体资源利用率。"
 
 #: ../../source/user_guide/launch.rst:18
 msgid "Set Environment Variables"
 msgstr "设置环境变量"
 
-#: ../../source/user_guide/launch.rst:20
+#: ../../source/user_guide/launch.rst:22
 msgid ""
 "Sometimes, we want to specify environment variables for a particular "
-"model at runtime. Xinference provides the capability to configure these "
-"individually without needing to set them before starting Xinference."
+"model at runtime. Since v1.8.1, Xinference provides the capability to "
+"configure these individually without needing to set them before starting "
+"Xinference."
 msgstr ""
-"有时我们希望在运行时为特定模型指定环境变量。Xinference 提供了单独配置环境变量的功能，"
-"无需在启动 Xinference 前设置。"
+"有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference 提供了单独配置"
+"环境变量的功能，无需在启动 Xinference 前设置。"
 
-#: ../../source/user_guide/launch.rst:23
+#: ../../source/user_guide/launch.rst:25
 msgid "For Web UI."
 msgstr "针对 Web UI。"
 
-#: ../../source/user_guide/launch.rst:29
+#: ../../source/user_guide/launch.rst:31
 msgid ""
 "When using the command line, use ``--env`` to specify an environment "
 "variable."
 msgstr "命令行使用时，使用 ``--env`` 指定环境变量。"
 
-#: ../../source/user_guide/launch.rst:31
+#: ../../source/user_guide/launch.rst:33
 msgid "Example usage:"
 msgstr "示例用法："
 
-#: ../../source/user_guide/launch.rst:37
+#: ../../source/user_guide/launch.rst:39
 msgid ""
 "Take vLLM as an example: it has versions V1 and V0, and by default, it "
 "automatically determines which version to use. If you want to force the "
 "use of V0 by setting ``VLLM_USE_V1=0`` when loading a model, you can "
 "specify this during model loading."
-msgstr "以 vLLM 为例，它有 V1 和 V0 两个版本，默认会自动判定使用哪个版本。"
-"如果想在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量。"
+msgstr ""
+"以 vLLM 为例，它有 V1 和 V0 两个版本，默认会自动判定使用哪个版本。如果想"
+"在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
+"。"
 

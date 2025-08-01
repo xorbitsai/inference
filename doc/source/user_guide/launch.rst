@@ -17,8 +17,10 @@ Meanwhile, users see it as a single model, which greatly improves overall resour
 Set Environment Variables
 =========================
 
+.. versionadded:: v1.8.1
+
 Sometimes, we want to specify environment variables for a particular model at runtime.
-Xinference provides the capability to configure these individually without needing to set them before starting Xinference.
+Since v1.8.1, Xinference provides the capability to configure these individually without needing to set them before starting Xinference.
 
 For Web UI.
 
