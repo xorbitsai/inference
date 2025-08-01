@@ -1,4 +1,4 @@
-import importlib
+import importlib.util
 import uuid
 from typing import Optional, List
 
@@ -77,9 +77,7 @@ class VLLMRerankModel(RerankModel):
         metadata = Meta(
             api_version=None,
             billed_units=None,
-            tokens=RerankTokens(input_tokens=tokens, output_tokens=tokens)
-            if return_len
-            else None,
+            tokens=RerankTokens(input_tokens=tokens, output_tokens=tokens) if return_len else None,
             warnings=None,
         )
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
