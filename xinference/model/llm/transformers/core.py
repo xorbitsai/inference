@@ -769,7 +769,11 @@ class PytorchModel(LLM):
     def get_builtin_stop_token_ids(self) -> Tuple:
         from ..utils import get_stop_token_ids_from_config_file
 
-        stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+        try:
+            stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+        except OSError:
+            # some model lacks of generation_config.json
+            stop_token_ids = None
         if stop_token_ids is not None:
             return tuple(stop_token_ids)
         else:

@@ -19244,6 +19244,12 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.54.0",
+        "#system_numpy#"
+      ]
+    }
   }
 ]
