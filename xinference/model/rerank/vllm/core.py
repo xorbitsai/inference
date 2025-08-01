@@ -70,7 +70,7 @@ class VLLMRerankModel(RerankModel):
                     relevance_score=doc[1],
                     document=doc[2] if return_documents else None,
                 ),
-                documents,
+                document_parts,
             )
         )
         tokens = sum(map(lambda x: len(x.prompt_token_ids), outputs))
