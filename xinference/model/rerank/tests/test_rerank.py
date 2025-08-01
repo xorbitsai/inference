@@ -20,8 +20,9 @@ import tempfile
 import pytest
 
 from ....client import Client
-from ...cache_manager import CacheManager
-from ..core import RerankModel, RerankModelFamilyV2
+from ..cache_manager import RerankCacheManager
+from ..core import RerankModelFamilyV2, RerankSpecV1
+from ..sentence_transformers.core import SentenceTransformerRerankModel
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
@@ -29,16 +30,21 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
     type="normal",
     max_tokens=512,
     language=["en", "zh"],
-    model_id="BAAI/bge-reranker-base",
-    model_revision="465b4b7ddf2be0a020c8ad6e525b9bb1dbb708ae",
+    model_specs=[
+        RerankSpecV1(
+            model_id="bge-reranker-base",
+            model_revision="465b4b7ddf2be0a020c8ad6e525b9bb1dbb708ae",
+            model_format="pytorch",
+        )
+    ],
 )
 
 
 def test_model():
     model_path = None
     try:
-        model_path = CacheManager(TEST_MODEL_SPEC).cache()
-        model = RerankModel(TEST_MODEL_SPEC, "mock", model_path)
+        model_path = RerankCacheManager(TEST_MODEL_SPEC).cache()
+        model = SentenceTransformerRerankModel("mock", model_path, TEST_MODEL_SPEC)
 
         query = "A man is eating pasta."
         # With all sentences in the corpus
