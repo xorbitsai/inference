@@ -45,6 +45,7 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name deepseek-v3-0324 --size-in-billions 671 --model-format awq --quantization ${quantization}
 
+
 Model Spec 3 (mlx, 671 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
@@ -59,3 +60,4 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name deepseek-v3-0324 --size-in-billions 671 --model-format mlx --quantization ${quantization}
+

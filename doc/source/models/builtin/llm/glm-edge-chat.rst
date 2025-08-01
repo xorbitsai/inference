@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 1_5 Billion)
 - **Model Size (in billions):** 1_5
 - **Quantizations:** none
 - **Engines**: Transformers
-- **Model ID:** THUDM/glm-edge-1.5b-chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-1.5b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat>`__
+- **Model ID:** zai-org/glm-edge-1.5b-chat
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-1.5b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -37,8 +37,8 @@ Model Spec 2 (pytorch, 4 Billion)
 - **Model Size (in billions):** 4
 - **Quantizations:** none
 - **Engines**: Transformers
-- **Model ID:** THUDM/glm-edge-4b-chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-4b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat>`__
+- **Model ID:** zai-org/glm-edge-4b-chat
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-4b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -53,8 +53,8 @@ Model Spec 3 (ggufv2, 1_5 Billion)
 - **Model Size (in billions):** 1_5
 - **Quantizations:** Q4_0, Q4_1, Q4_K, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Engines**: llama.cpp
-- **Model ID:** THUDM/glm-edge-1.5b-chat-gguf
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-1.5b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf>`__
+- **Model ID:** zai-org/glm-edge-1.5b-chat-gguf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-1.5b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -69,8 +69,8 @@ Model Spec 4 (ggufv2, 1_5 Billion)
 - **Model Size (in billions):** 1_5
 - **Quantizations:** F16
 - **Engines**: llama.cpp
-- **Model ID:** THUDM/glm-edge-1.5b-chat-gguf
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-1.5b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf>`__
+- **Model ID:** zai-org/glm-edge-1.5b-chat-gguf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-1.5b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -85,8 +85,8 @@ Model Spec 5 (ggufv2, 4 Billion)
 - **Model Size (in billions):** 4
 - **Quantizations:** Q4_0, Q4_1, Q4_K, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Engines**: llama.cpp
-- **Model ID:** THUDM/glm-edge-4b-chat-gguf
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-4b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf>`__
+- **Model ID:** zai-org/glm-edge-4b-chat-gguf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-4b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -101,8 +101,8 @@ Model Spec 6 (ggufv2, 4 Billion)
 - **Model Size (in billions):** 4
 - **Quantizations:** F16
 - **Engines**: llama.cpp
-- **Model ID:** THUDM/glm-edge-4b-chat-gguf
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-edge-4b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf>`__
+- **Model ID:** zai-org/glm-edge-4b-chat-gguf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-4b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

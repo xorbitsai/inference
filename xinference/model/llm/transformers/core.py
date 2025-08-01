@@ -544,13 +544,17 @@ class PytorchModel(LLM):
             if self._tokenizer.padding_side == "left":
                 attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
                 pad_len = seq_length - attention_mask_seq_len
-                assert pad_len > 0, (
-                    f"pad_len must be greater than 0, got {pad_len} = "
+                assert pad_len >= 0, (
+                    f"pad_len must be greater equal 0, got {pad_len} = "
                     f"seq_length({seq_length}) - attention_mask_seq_len({attention_mask_seq_len})"
                 )
                 x = torch.cat(
                     [
-                        torch.full((pad_len,), 0, dtype=torch.long),
+                        (
+                            torch.full((pad_len,), 0, dtype=torch.long)
+                            if pad_len > 0
+                            else torch.tensor([], dtype=torch.long)
+                        ),
                         torch.ones((attention_mask_seq_len,), dtype=torch.long),
                     ]
                 )
@@ -769,7 +773,11 @@ class PytorchModel(LLM):
     def get_builtin_stop_token_ids(self) -> Tuple:
         from ..utils import get_stop_token_ids_from_config_file
 
-        stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+        try:
+            stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+        except OSError:
+            # some model lacks of generation_config.json
+            stop_token_ids = None
         if stop_token_ids is not None:
             return tuple(stop_token_ids)
         else:

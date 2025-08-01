@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
-- **Model ID:** THUDM/GLM-4-9B-0414
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/GLM-4-9B-0414>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4-9B-0414>`__
+- **Model ID:** zai-org/GLM-4-9B-0414
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4-9B-0414>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4-9B-0414>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -37,8 +37,8 @@ Model Spec 2 (pytorch, 32 Billion)
 - **Model Size (in billions):** 32
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
-- **Model ID:** THUDM/GLM-4-32B-0414
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/GLM-4-32B-0414>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4-32B-0414>`__
+- **Model ID:** zai-org/GLM-4-32B-0414
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4-32B-0414>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4-32B-0414>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
