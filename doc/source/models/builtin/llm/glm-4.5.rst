@@ -7,7 +7,7 @@ glm-4.5
 - **Context Length:** 65536
 - **Model Name:** glm-4.5
 - **Languages:** en, zh
-- **Abilities:** chat, reasoning
+- **Abilities:** chat, reasoning, hybrid
 - **Description:** The GLM-4.5 series models are foundation models designed for intelligent agents. 
 
 Specifications
@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 355 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 355
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** zai-org/GLM-4.5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4.5>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.5>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 355 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 355
 - **Quantizations:** FP8
-- **Engines**: 
+- **Engines**: vLLM
 - **Model ID:** zai-org/GLM-4.5-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4.5-FP8>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.5-FP8>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 106 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 106
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** zai-org/GLM-4.5-Air
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4.5-Air>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.5-Air>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (fp8, 106 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 106
 - **Quantizations:** FP8
-- **Engines**: 
+- **Engines**: vLLM
 - **Model ID:** zai-org/GLM-4.5-Air-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4.5-Air-FP8>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.5-Air-FP8>`__
 
