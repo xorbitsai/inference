@@ -96,7 +96,7 @@ Currently, supported models include:
 - ``qwen3``
 - ``minicpm4``
 - ``Ernie4.5``
-- ``Qwen3-Instruct``
+- ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``
 - ``glm-4.5``
 .. vllm_end
 

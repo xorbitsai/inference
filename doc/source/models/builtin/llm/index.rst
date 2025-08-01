@@ -506,10 +506,20 @@ The following is a list of built-in LLM in Xinference:
      - 40960
      - Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support
 
+   * - :ref:`qwen3-coder <models_llm_qwen3-coder>`
+     - chat
+     - 262144
+     - we're announcing Qwen3-Coder, our most agentic code model to date
+
    * - :ref:`qwen3-instruct <models_llm_qwen3-instruct>`
      - chat
      - 262144
      - We introduce the updated version of the Qwen3-235B-A22B non-thinking mode, named Qwen3-235B-A22B-Instruct-2507
+
+   * - :ref:`qwen3-thinking <models_llm_qwen3-thinking>`
+     - chat, reasoning, tools
+     - 262144
+     - we have continued to scale the thinking capability of Qwen3-235B-A22B, improving both the quality and depth of reasoning
 
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
@@ -827,7 +837,11 @@ The following is a list of built-in LLM in Xinference:
   
    qwen3
   
+   qwen3-coder
+  
    qwen3-instruct
+  
+   qwen3-thinking
   
    qwenlong-l1
   

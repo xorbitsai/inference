@@ -271,6 +271,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
