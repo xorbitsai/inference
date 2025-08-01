@@ -20,7 +20,6 @@ from typing import List, Optional, Sequence
 
 import numpy as np
 import torch
-from xinference.device_utils import is_device_available
 import torch.nn as nn
 from ..core import (
     RerankModel,
@@ -30,7 +29,7 @@ from ..core import (
 )
 from ..utils import preprocess_sentence
 from ....device_utils import empty_cache, is_device_available
-from ....types import Rerank, RerankTokens, DocumentObj, Document
+from ....types import Rerank, RerankTokens, DocumentObj, Document, Meta
 
 logger = logging.getLogger(__name__)
 
@@ -303,16 +302,16 @@ class SentenceTransformerRerankModel(RerankModel):
 
         # api_version, billed_units, warnings
         # is for Cohere API compatibility, set to None
-        metadata = {
-            "api_version": None,
-            "billed_units": None,
-            "tokens": (
+        metadata = Meta(
+            api_version=None,
+            billed_units=None,
+            tokens=(
                 RerankTokens(input_tokens=input_len, output_tokens=output_len)
                 if return_len
                 else None
             ),
-            "warnings": None,
-        }
+            warnings=None,
+        )
 
         del similarity_scores
         # clear cache if possible
