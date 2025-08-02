@@ -52,15 +52,15 @@ class VLLMRerankModel(RerankModel):
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         documents_size = len(documents)
-        model = self._model
         query_list = [query] * documents_size
-        outputs = model.score(
+        assert self._model is not None
+        outputs = self._model.score(
             documents,
             query_list,
             use_tqdm=False,
         )
-        scores = map(lambda x: x.outputs.score, outputs)
-        documents = map(lambda x: Document(text=x), documents)
+        scores = map(lambda scoreoutput: scoreoutput.outputs.score, outputs)
+        documents = list(map(lambda doc: Document(text=doc), documents))
         document_parts = list(zip(range(documents_size), scores, documents))
         document_parts.sort(key=lambda x: x[1], reverse=True)
         if top_n is not None:
