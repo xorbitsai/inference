@@ -1,4 +1,4 @@
-FROM vllm/vllm-openai:v0.6.0
+FROM vllm/vllm-openai:v0.8.5
 
 COPY . /opt/inference
 WORKDIR /opt/inference
@@ -26,7 +26,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_install
     rm -f cuda_12.4.0_550.54.14_linux.run
 
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib:LD_LIBRARY_PATH="/usr/local/lib/python3.12/dist-packages/torch/lib:$LD_LIBRARY_PATH"
 ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
 
 ARG PIP_INDEX=https://pypi.org/simple
