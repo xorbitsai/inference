@@ -22,9 +22,11 @@ import pytest
 from ....client import Client
 
 
-@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
+@pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
 @pytest.mark.parametrize("model_engine", ["sentence_transformers", "vllm"])
 def test_restful_api(model_name, model_engine, setup):
+    if model_name == "bge-reranker-base" and model_engine == "vllm":
+        pytest.skip("bge-reranker-base exceeds the max_model_len( 560 > 512 ) of vllm")
     endpoint, _ = setup
     client = Client(endpoint)
 
@@ -163,7 +165,7 @@ def test_register_custom_rerank():
 
     # name conflict
     model_family = CustomRerankModelFamilyV2(
-        model_name="custom_test_rerank_d",
+        model_name="custom_test_rerank_c",
         max_tokens=2048,
         language=["zh"],
         model_specs=[
@@ -180,10 +182,10 @@ def test_register_custom_rerank():
         register_rerank(model_family, False)
 
     # unregister
-    unregister_rerank("custom_test_b")
-    unregister_rerank("custom_test_c")
+    unregister_rerank("custom_test_rerank_b")
+    unregister_rerank("custom_test_rerank_c")
     with pytest.raises(ValueError):
-        unregister_rerank("custom_test_d")
+        unregister_rerank("custom_test_rerank_d")
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -200,7 +202,7 @@ def test_auto_detect_type():
             continue
         try:
             assert m["type"] == RerankModel._auto_detect_type(
-                m["model_spec"]["model_src"]["huggingface"]["model_id"]
+                m["model_specs"][0]["model_src"]["huggingface"]["model_id"]
             )
         except EnvironmentError:
             # gated repo, ignore
