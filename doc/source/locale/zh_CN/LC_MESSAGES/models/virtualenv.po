@@ -228,15 +228,15 @@ msgid "**With this feature enabled**::"
 msgstr "**开启该功能后**::"
 
 #: ../../source/models/virtualenv.rst:147
-msgid "Model Loading: Toggle Virtual Environments and Customize Dependencies"
-msgstr "模型加载：切换虚拟环境并自定义依赖"
+msgid "Model Launching: Toggle Virtual Environments and Customize Dependencies"
+msgstr "模型加载：开关虚拟环境并自定义依赖"
 
 #: ../../source/models/virtualenv.rst:151
 msgid ""
 "Starting from v1.8.1, we support toggling the virtual environment for "
-"individual model loading, as well as overriding the model's default "
+"individual model launching, as well as overriding the model's default "
 "settings with custom package dependencies."
-msgstr "从 v1.8.1 开始，我们支持对单个模型加载切换虚拟环境，并用自定义包依赖覆盖模型的默认设置。"
+msgstr "从 v1.8.1 开始，我们支持对单个模型加载开关虚拟环境，并用自定义包依赖覆盖模型的默认设置。"
 
 #: ../../source/models/virtualenv.rst:155
 msgid "Toggle Virtual Environment"

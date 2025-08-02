@@ -1,10 +1,10 @@
 .. _launch:
 
-==========================
-Model Loading Instructions
-==========================
+============================
+Model Launching Instructions
+============================
 
-This document aims to provide a functional overview of model loading.
+This document aims to provide a functional overview of model launching.
 
 Replica
 =======
@@ -37,4 +37,11 @@ Example usage:
   xinference launch xxx --env A 0 --env B 1
 
 Take vLLM as an example: it has versions V1 and V0, and by default, it automatically determines which version to use.
-If you want to force the use of V0 by setting ``VLLM_USE_V1=0`` when loading a model, you can specify this during model loading.
+If you want to force the use of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify this during model launching.
+
+Configuring Model Virtual Environment
+=====================================
+
+.. versionadded:: v1.8.1
+
+For this part, please refer to :ref:`toggling virtual environments and customizing dependencies <model_launching_virtualenv>`.
