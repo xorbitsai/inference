@@ -77,8 +77,8 @@ class SentenceTransformerRerankModel(RerankModel):
             self._use_fp16 = True
 
         if (
-            self._model_spec.type == "normal"
-            and "qwen3" not in self._model_spec.model_name.lower()
+            self.model_family.type == "normal"
+            and "qwen3" not in self.model_family.model_name.lower()
         ):
             try:
                 import sentence_transformers
@@ -102,12 +102,12 @@ class SentenceTransformerRerankModel(RerankModel):
                 self._model_path,
                 device=self._device,
                 trust_remote_code=True,
-                max_length=getattr(self._model_spec, "max_tokens"),
+                max_length=getattr(self.model_family, "max_tokens"),
                 **self._model_config,
             )
             if self._use_fp16:
                 self._model.model.half()
-        elif "qwen3" in self._model_spec.model_name.lower():
+        elif "qwen3" in self.model_family.model_name.lower():
             # qwen3-reranker
             # now we use transformers
             # TODO: support engines for rerank models
@@ -137,7 +137,7 @@ class SentenceTransformerRerankModel(RerankModel):
             model = self._model = AutoModelForCausalLM.from_pretrained(
                 self._model_path, **model_kwargs
             ).eval()
-            max_length = getattr(self._model_spec, "max_tokens")
+            max_length = getattr(self.model_family, "max_tokens")
 
             prefix = (
                 "<|im_start|>system\nJudge whether the Document meets the requirements based on the Query "
@@ -182,13 +182,13 @@ class SentenceTransformerRerankModel(RerankModel):
             self.compute_logits = compute_logits
         else:
             try:
-                if self._model_spec.type == "LLM-based":
+                if self.model_family.type == "LLM-based":
                     from FlagEmbedding import FlagLLMReranker as FlagReranker
-                elif self._model_spec.type == "LLM-based layerwise":
+                elif self.model_family.type == "LLM-based layerwise":
                     from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
                 else:
                     raise RuntimeError(
-                        f"Unsupported Rank model type: {self._model_spec.type}"
+                        f"Unsupported Rank model type: {self.model_family.type}"
                     )
             except ImportError:
                 error_message = "Failed to import module 'FlagEmbedding'"
@@ -218,14 +218,14 @@ class SentenceTransformerRerankModel(RerankModel):
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
 
         pre_query = preprocess_sentence(
-            query, kwargs.get("instruction", None), self._model_spec.model_name
+            query, kwargs.get("instruction", None), self.model_family.model_name
         )
         sentence_combinations = [[pre_query, doc] for doc in documents]
         # reset n tokens
         self._model.model.n_tokens = 0
         if (
-            self._model_spec.type == "normal"
-            and "qwen3" not in self._model_spec.model_name.lower()
+            self.model_family.type == "normal"
+            and "qwen3" not in self.model_family.model_name.lower()
         ):
             logger.debug("Passing processed sentences: %s", sentence_combinations)
             similarity_scores = self._model.predict(
@@ -236,7 +236,7 @@ class SentenceTransformerRerankModel(RerankModel):
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
-        elif "qwen3" in self._model_spec.model_name.lower():
+        elif "qwen3" in self.model_family.model_name.lower():
 
             def format_instruction(instruction, query, doc):
                 if instruction is None:
