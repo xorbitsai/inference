@@ -351,7 +351,6 @@ class VLLMModel(LLM):
 
     def load(self):
         try:
-            import vllm
             from vllm import envs
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -368,7 +367,7 @@ class VLLMModel(LLM):
 
         from ..llm_family import LlamaCppLLMSpecV2
 
-        if "0.3.1" <= vllm.__version__ <= "0.3.3":
+        if version.parse("0.3.1") <= VLLM_VERSION <= version.parse("0.3.3"):
             # from vllm v0.3.1 to v0.3.3, it uses cupy as NCCL backend
             # in which cupy will fork a process
             # only for xoscar >= 0.3.0, new process is allowed in subpool
@@ -432,7 +431,7 @@ class VLLMModel(LLM):
                 engine_args, xavier_config=self._xavier_config
             )
         elif self._n_worker > 1 or (
-            self._device_count > 1 and vllm.__version__ >= "0.7.0"
+            self._device_count > 1 and VLLM_VERSION >= version.parse("0.7.0")
         ):
             from vllm.config import VllmConfig
 
@@ -575,8 +574,6 @@ class VLLMModel(LLM):
         logger.debug("Model context length: %s", self._context_length)
 
     def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
-        from vllm import __version__ as vllm_version
-
         if os.getenv("VLLM_USE_V1") is not None:
             logger.debug(
                 "Setting vLLM v1 via environment variable already, skip checking"
@@ -590,7 +587,7 @@ class VLLMModel(LLM):
                 "Cannot get `EngineArgs._is_v1_supported_oracle` "
                 "to decide enabling vLLM v1, perhaps vllm version is too old, "
                 "version: %s",
-                vllm_version,
+                VLLM_VERSION,
             )
             return
 
@@ -724,7 +721,7 @@ class VLLMModel(LLM):
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
         # Add scheduling policy if vLLM version is 0.6.3 or higher
-        if vllm.__version__ >= "0.6.3":
+        if VLLM_VERSION >= version.parse("0.6.3"):
             model_config.setdefault("scheduling_policy", "fcfs")
             # init mm_processor_kwargs params
             mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
@@ -852,7 +849,7 @@ class VLLMModel(LLM):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
                     return False
             else:
@@ -1009,7 +1006,7 @@ class VLLMModel(LLM):
             else False
         )
 
-        if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+        if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
             # guided decoding only available for vllm >= 0.6.3
             from vllm.sampling_params import GuidedDecodingParams
 
@@ -1200,14 +1197,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
                     return False
             else:
                 if "4" not in quantization:
                     return False
         if llm_spec.model_format == "ggufv2":
-            if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
+            if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
@@ -1399,7 +1396,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
                     return False
             else:
@@ -1419,7 +1416,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
         model_config = super()._sanitize_model_config(model_config)
-        if vllm.__version__ >= "0.5.5":
+        if VLLM_VERSION >= version.parse("0.5.5"):
             model_config["limit_mm_per_prompt"] = (
                 json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
                 if model_config.get("limit_mm_per_prompt")

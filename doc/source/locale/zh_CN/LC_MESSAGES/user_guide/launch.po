@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-01 17:08+0800\n"
+"POT-Creation-Date: 2025-08-02 23:15+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -20,11 +20,11 @@ msgstr ""
 "Generated-By: Babel 2.14.0\n"
 
 #: ../../source/user_guide/launch.rst:5
-msgid "Model Loading Instructions"
+msgid "Model Launching Instructions"
 msgstr "模型加载指南"
 
 #: ../../source/user_guide/launch.rst:7
-msgid "This document aims to provide a functional overview of model loading."
+msgid "This document aims to provide a functional overview of model launching."
 msgstr "本文档旨在提供模型加载的功能说明。"
 
 #: ../../source/user_guide/launch.rst:10
@@ -57,8 +57,8 @@ msgid ""
 "configure these individually without needing to set them before starting "
 "Xinference."
 msgstr ""
-"有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference 提供了单独配置"
-"环境变量的功能，无需在启动 Xinference 前设置。"
+"有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference "
+"提供了单独配置环境变量的功能，无需在启动 Xinference 前设置。"
 
 #: ../../source/user_guide/launch.rst:25
 msgid "For Web UI."
@@ -78,10 +78,20 @@ msgstr "示例用法："
 msgid ""
 "Take vLLM as an example: it has versions V1 and V0, and by default, it "
 "automatically determines which version to use. If you want to force the "
-"use of V0 by setting ``VLLM_USE_V1=0`` when loading a model, you can "
-"specify this during model loading."
+"use of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can "
+"specify this during model launching."
 msgstr ""
 "以 vLLM 为例，它有 V1 和 V0 两个版本，默认会自动判定使用哪个版本。如果想"
 "在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
 "。"
+
+#: ../../source/user_guide/launch.rst:43
+msgid "Configuring Model Virtual Environment"
+msgstr "配置模型虚拟空间"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr "对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_virtualenv>`。"
 

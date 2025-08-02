@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-21 14:27+0800\n"
+"POT-Creation-Date: 2025-08-02 23:32+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -216,8 +216,7 @@ msgstr ""
 
 #: ../../source/getting_started/using_xinference.rst:158
 msgid "Here are some recommendations on when to use which engine:"
-msgstr ""
-"关于何时使用什么引擎，以下是一些建议："
+msgstr "关于何时使用什么引擎，以下是一些建议："
 
 #: ../../source/getting_started/using_xinference.rst:160
 msgid "**Linux**"
@@ -227,22 +226,19 @@ msgstr ""
 msgid ""
 "When possible, prioritize using **vLLM** or **SGLang** for better "
 "performance."
-msgstr ""
-"在能使用的情况下，优先使用 **vLLM** 或 **SGLang**，因为他们有更好的性能。"
+msgstr "在能使用的情况下，优先使用 **vLLM** 或 **SGLang**，因为他们有更好的性能。"
 
 #: ../../source/getting_started/using_xinference.rst:163
 msgid ""
 "If resources are limited, consider using **llama.cpp**, as it offers more"
 " quantization options."
-msgstr ""
-"如果资源有限，可以考虑使用 **llama.cpp**，因为他提供了更多的量化选项。"
+msgstr "如果资源有限，可以考虑使用 **llama.cpp**，因为他提供了更多的量化选项。"
 
 #: ../../source/getting_started/using_xinference.rst:164
 msgid ""
 "For other cases, consider using **Transformers**, which supports nearly "
 "all models."
-msgstr ""
-"其他使用考虑使用 **Transformers**，它几乎支持所有的模型。"
+msgstr "其他使用考虑使用 **Transformers**，它几乎支持所有的模型。"
 
 #: ../../source/getting_started/using_xinference.rst:166
 msgid "**Windows**"
@@ -252,15 +248,15 @@ msgstr ""
 msgid ""
 "It is recommended to use **WSL**, and in this case, follow the same "
 "choices as Linux."
-msgstr ""
-"推荐使用 **WSL**，这个时候选择和 Linux 一致。"
+msgstr "推荐使用 **WSL**，这个时候选择和 Linux 一致。"
 
 #: ../../source/getting_started/using_xinference.rst:169
 msgid ""
 "Otherwise, prefer **llama.cpp**, and for unsupported models, opt for "
 "**Transformers**."
 msgstr ""
-"其他时候推荐使用 **llama.cpp**，对于不支持的模型，选择使用 **Transformers**。"
+"其他时候推荐使用 **llama.cpp**，对于不支持的模型，选择使用 **Transformers"
+"**。"
 
 #: ../../source/getting_started/using_xinference.rst:171
 msgid "**Mac**"
@@ -270,15 +266,15 @@ msgstr ""
 msgid ""
 "If supported by the model, use the **MLX engine**, as it delivers the "
 "best performance."
-msgstr ""
-"在模型支持的情况下，推荐使用 **MLX 引擎**，它有着最好的性能"
+msgstr "在模型支持的情况下，推荐使用 **MLX 引擎**，它有着最好的性能"
 
 #: ../../source/getting_started/using_xinference.rst:174
 msgid ""
 "For other cases, prefer **llama.cpp**, and for unsupported models, choose"
 " **Transformers**."
 msgstr ""
-"其他时候推荐使用 **llama.cpp**，对于不支持的模型，选择使用 **Transformers**。"
+"其他时候推荐使用 **llama.cpp**，对于不支持的模型，选择使用 **Transformers"
+"**。"
 
 #: ../../source/getting_started/using_xinference.rst:178
 msgid "Run qwen2.5-instruct"
@@ -292,10 +288,10 @@ msgid ""
 "the size of the model weights. We cache the model files locally, so "
 "there's no need to redownload them for subsequent starts."
 msgstr ""
-"让我们来运行一个内置的 ``qwen2.5-instruct`` 模型。当你需要运行一个模型时，"
-"第一次运行是要从HuggingFace 下载模型参数，一般来说需要根据模型大小下载10"
-"到30分钟不等。当下载完成后，Xinference本地会有缓存的处理，以后再运行相同"
-"的模型不需要重新下载。"
+"让我们来运行一个内置的 ``qwen2.5-instruct`` 模型。当你需要运行一个模型时"
+"，第一次运行是要从HuggingFace 下载模型参数，一般来说需要根据模型大小下载"
+"10到30分钟不等。当下载完成后，Xinference本地会有缓存的处理，以后再运行"
+"相同的模型不需要重新下载。"
 
 #: ../../source/getting_started/using_xinference.rst:185
 msgid ""
@@ -314,8 +310,7 @@ msgid ""
 "unique ID will be identical to the model name."
 msgstr ""
 "可以使用 ``--model-uid`` 或者 ``-u`` 参数指定模型的 UID，如果没有指定，"
-"Xinference 会随机生成一个 ID。默认的 ID 和模型名保持一致。"
-"``:"
+"Xinference 会随机生成一个 ID。默认的 ID 和模型名保持一致。``:"
 
 #: ../../source/getting_started/using_xinference.rst:232
 msgid ""
@@ -330,17 +325,21 @@ msgstr ""
 msgid "`gpu_memory_utilization=0.9` will pass to vllm when launching model."
 msgstr "在运行模型时，`gpu_memory_utilization=0.9` 会传到 vllm 后端。"
 
-#: ../../source/getting_started/using_xinference.rst:242
+#: ../../source/getting_started/using_xinference.rst:243
+msgid "For more tips on model launching, refer to :ref:`launch`."
+msgstr "关于模型加载更多技巧，参考 :ref:`launch`。"
+
+#: ../../source/getting_started/using_xinference.rst:245
 msgid ""
 "Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once "
 "the model is running, we can try it out either via cURL, or via "
 "Xinference's python client:"
 msgstr ""
-"到这一步，恭喜你已经成功通过 Xinference 将 ``qwen2.5-instruct`` 运行起来了。"
-"一旦这个模型在运行中，我们可以通过命令行、cURL 或者是 Python 代码来预支"
-"交互："
+"到这一步，恭喜你已经成功通过 Xinference 将 ``qwen2.5-instruct`` 运行起来"
+"了。一旦这个模型在运行中，我们可以通过命令行、cURL 或者是 Python 代码来"
+"预支交互："
 
-#: ../../source/getting_started/using_xinference.rst:302
+#: ../../source/getting_started/using_xinference.rst:305
 msgid ""
 "Xinference provides OpenAI-compatible APIs for its supported models, so "
 "you can use Xinference as a local drop-in replacement for OpenAI APIs. "
@@ -349,11 +348,11 @@ msgstr ""
 "Xinference 提供了与 OpenAI 兼容的 API，所以可以将 Xinference 运行的模型"
 "当成 OpenAI的本地替代。比如："
 
-#: ../../source/getting_started/using_xinference.rst:318
+#: ../../source/getting_started/using_xinference.rst:321
 msgid "The following OpenAI APIs are supported:"
 msgstr "以下是支持的 OpenAI 的 API："
 
-#: ../../source/getting_started/using_xinference.rst:320
+#: ../../source/getting_started/using_xinference.rst:323
 msgid ""
 "Chat Completions: `https://platform.openai.com/docs/api-reference/chat "
 "<https://platform.openai.com/docs/api-reference/chat>`_"
@@ -361,7 +360,7 @@ msgstr ""
 "对话生成：`https://platform.openai.com/docs/api-reference/chat <https://"
 "platform.openai.com/docs/api-reference/chat>`_"
 
-#: ../../source/getting_started/using_xinference.rst:322
+#: ../../source/getting_started/using_xinference.rst:325
 msgid ""
 "Completions: `https://platform.openai.com/docs/api-reference/completions "
 "<https://platform.openai.com/docs/api-reference/completions>`_"
@@ -369,7 +368,7 @@ msgstr ""
 "生成: `https://platform.openai.com/docs/api-reference/completions <https:"
 "//platform.openai.com/docs/api-reference/completions>`_"
 
-#: ../../source/getting_started/using_xinference.rst:324
+#: ../../source/getting_started/using_xinference.rst:327
 msgid ""
 "Embeddings: `https://platform.openai.com/docs/api-reference/embeddings "
 "<https://platform.openai.com/docs/api-reference/embeddings>`_"
@@ -377,11 +376,11 @@ msgstr ""
 "向量生成：`https://platform.openai.com/docs/api-reference/embeddings <"
 "https://platform.openai.com/docs/api-reference/embeddings>`_"
 
-#: ../../source/getting_started/using_xinference.rst:327
+#: ../../source/getting_started/using_xinference.rst:330
 msgid "Manage Models"
 msgstr "管理模型"
 
-#: ../../source/getting_started/using_xinference.rst:329
+#: ../../source/getting_started/using_xinference.rst:332
 msgid ""
 "In addition to launching models, Xinference offers various ways to manage"
 " the entire lifecycle of models. You can manage models in Xinference "
@@ -390,29 +389,29 @@ msgstr ""
 "除了启动模型，Xinference 提供了管理模型整个生命周期的能力。同样的，你可以"
 "使用命令行、cURL 以及 Python 代码来管理："
 
-#: ../../source/getting_started/using_xinference.rst:332
+#: ../../source/getting_started/using_xinference.rst:335
 msgid ""
 "You can list all models of a certain type that are available to launch in"
 " Xinference:"
 msgstr "可以列出所有 Xinference 支持的指定类型的模型："
 
-#: ../../source/getting_started/using_xinference.rst:350
+#: ../../source/getting_started/using_xinference.rst:353
 msgid ""
 "The following command gives you the currently running models in "
 "Xinference:"
 msgstr "接下来的命令可以列出所有在运行的模型："
 
-#: ../../source/getting_started/using_xinference.rst:368
+#: ../../source/getting_started/using_xinference.rst:371
 msgid ""
 "When you no longer need a model that is currently running, you can remove"
 " it in the following way to free up the resources it occupies:"
 msgstr "当你不需要某个正在运行的模型，可以通过以下的方式来停止它并释放资源："
 
-#: ../../source/getting_started/using_xinference.rst:387
+#: ../../source/getting_started/using_xinference.rst:392
 msgid "Deploy Xinference In a Cluster"
 msgstr "集群中部署 Xinference"
 
-#: ../../source/getting_started/using_xinference.rst:389
+#: ../../source/getting_started/using_xinference.rst:394
 msgid ""
 "To deploy Xinference in a cluster, you need to start a Xinference "
 "supervisor on one server and Xinference workers on the other servers."
@@ -420,7 +419,7 @@ msgstr ""
 "若要在集群环境中部署 Xinference，需要在一台机器中启动 supervisor 节点，并"
 "在当前或者其他节点启动 worker 节点"
 
-#: ../../source/getting_started/using_xinference.rst:392
+#: ../../source/getting_started/using_xinference.rst:397
 msgid ""
 "First, make sure you have already installed Xinference on each of the "
 "servers according to the instructions provided :ref:`here "
@@ -429,23 +428,23 @@ msgstr ""
 "首先，根据 :ref:`文档 <installation>` 确保所有的服务器上都安装了 "
 "Xinference。接下来按照步骤："
 
-#: ../../source/getting_started/using_xinference.rst:396
+#: ../../source/getting_started/using_xinference.rst:401
 msgid "Start the Supervisor"
 msgstr "启动 Supervisor"
 
-#: ../../source/getting_started/using_xinference.rst:397
+#: ../../source/getting_started/using_xinference.rst:402
 msgid ""
 "On the server where you want to run the Xinference supervisor, run the "
 "following command:"
 msgstr "在服务器上执行以下命令来启动 Supervisor 节点："
 
-#: ../../source/getting_started/using_xinference.rst:403
+#: ../../source/getting_started/using_xinference.rst:408
 msgid ""
 "Replace ``${supervisor_host}`` with the actual host of your supervisor "
 "server."
 msgstr "用当前节点的 IP 来替换 ``${supervisor_host}``。"
 
-#: ../../source/getting_started/using_xinference.rst:406
+#: ../../source/getting_started/using_xinference.rst:411
 msgid ""
 "You can the supervisor's web UI at `http://${supervisor_host}:9997/ui "
 "<http://${supervisor_host}:9997/ui>`_ and visit "
@@ -456,23 +455,23 @@ msgstr ""
 "/ui>`_ 访问 web UI，在 `http://${supervisor_host}:9997/docs <http://${"
 "supervisor_host}:9997/docs>`_ 访问 API 文档。"
 
-#: ../../source/getting_started/using_xinference.rst:410
+#: ../../source/getting_started/using_xinference.rst:415
 msgid "Start the Workers"
 msgstr "启动 Worker"
 
-#: ../../source/getting_started/using_xinference.rst:412
+#: ../../source/getting_started/using_xinference.rst:417
 msgid ""
 "On each of the other servers where you want to run Xinference workers, "
 "run the following command:"
 msgstr "在需要启动 Xinference worker 的机器上执行以下命令："
 
-#: ../../source/getting_started/using_xinference.rst:419
+#: ../../source/getting_started/using_xinference.rst:424
 msgid ""
 "Note that you must replace ``${worker_host}``  with the actual host of "
 "your worker server."
 msgstr "需要注意的是，必须使用当前Worker节点的 IP 来替换 ``${worker_host}``。"
 
-#: ../../source/getting_started/using_xinference.rst:422
+#: ../../source/getting_started/using_xinference.rst:427
 msgid ""
 "Note that if you need to interact with the Xinference in a cluster via "
 "the command line, you should include the ``-e`` or ``--endpoint`` flag to"
@@ -481,23 +480,23 @@ msgstr ""
 "需要注意的是，如果你需要通过命令行与集群交互，应该通过 ``-e`` 或者 ``--"
 "endpoint`` 参数来指定 supervisor 的地址，比如："
 
-#: ../../source/getting_started/using_xinference.rst:430
+#: ../../source/getting_started/using_xinference.rst:435
 msgid "Using Xinference With Docker"
 msgstr "使用 Docker 部署 Xinference"
 
-#: ../../source/getting_started/using_xinference.rst:432
+#: ../../source/getting_started/using_xinference.rst:437
 msgid "To start Xinference in a Docker container, run the following command:"
 msgstr "用以下命令在容器中运行 Xinference："
 
-#: ../../source/getting_started/using_xinference.rst:435
+#: ../../source/getting_started/using_xinference.rst:440
 msgid "Run On Nvidia GPU Host"
 msgstr "在拥有英伟达显卡的机器上运行"
 
-#: ../../source/getting_started/using_xinference.rst:442
+#: ../../source/getting_started/using_xinference.rst:447
 msgid "Run On CPU Only Host"
 msgstr "在只有 CPU 的机器上运行"
 
-#: ../../source/getting_started/using_xinference.rst:448
+#: ../../source/getting_started/using_xinference.rst:453
 msgid ""
 "Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
 "``latest`` can be used for the latest version."
@@ -505,17 +504,17 @@ msgstr ""
 "将 ``<your_version>`` 替换为 Xinference 的版本，比如 ``v0.10.3``，可以用 "
 "``latest`` 来用于最新版本。"
 
-#: ../../source/getting_started/using_xinference.rst:450
+#: ../../source/getting_started/using_xinference.rst:455
 msgid ""
 "For more docker usage, refer to :ref:`Using Docker Image "
 "<using_docker_image>`."
 msgstr "更多 docker 使用，请参考 :ref:`使用 docker 镜像 <using_docker_image>`。"
 
-#: ../../source/getting_started/using_xinference.rst:454
+#: ../../source/getting_started/using_xinference.rst:459
 msgid "What's Next?"
 msgstr "更多"
 
-#: ../../source/getting_started/using_xinference.rst:456
+#: ../../source/getting_started/using_xinference.rst:461
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
@@ -524,13 +523,13 @@ msgstr ""
 "恭喜你，已经初步掌握了 Xinference 的用法！为了帮助你更好地使用工具，下面"
 "是其他的一些文档和指导资源："
 
-#: ../../source/getting_started/using_xinference.rst:459
+#: ../../source/getting_started/using_xinference.rst:464
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ":ref:`如何使用 Python 创建不同类型的模型 <user_guide_client_api>`"
 
-#: ../../source/getting_started/using_xinference.rst:461
+#: ../../source/getting_started/using_xinference.rst:466
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
 
