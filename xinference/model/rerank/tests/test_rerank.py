@@ -27,6 +27,8 @@ from ....client import Client
 def test_restful_api(model_name, model_engine, setup):
     if model_name == "bge-reranker-base" and model_engine == "vllm":
         pytest.skip("bge-reranker-base exceeds the max_model_len( 560 > 512 ) of vllm")
+    if model_engine == "vllm":
+        pytest.importorskip("vllm", reason="vllm is not installed")
     endpoint, _ = setup
     client = Client(endpoint)
 
