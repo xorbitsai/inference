@@ -103,7 +103,7 @@ class SentenceTransformerRerankModel(RerankModel):
                 device=self._device,
                 trust_remote_code=True,
                 max_length=getattr(self.model_family, "max_tokens"),
-                **self._model_config,
+                **self._kwargs,
             )
             if self._use_fp16:
                 self._model.model.half()
@@ -125,14 +125,14 @@ class SentenceTransformerRerankModel(RerankModel):
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            enable_flash_attn = self._model_config.pop(
+            enable_flash_attn = self._kwargs.pop(
                 "enable_flash_attn", is_device_available("cuda")
             )
             model_kwargs = {"device_map": "auto"}
             if flash_attn_installed and enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = torch.float16
-            model_kwargs.update(self._model_config)
+            model_kwargs.update(self._kwargs)
             logger.debug("Loading qwen3 rerank with kwargs %s", model_kwargs)
             model = self._model = AutoModelForCausalLM.from_pretrained(
                 self._model_path, **model_kwargs
