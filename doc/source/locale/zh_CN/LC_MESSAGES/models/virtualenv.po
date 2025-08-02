@@ -229,7 +229,7 @@ msgstr "**开启该功能后**::"
 
 #: ../../source/models/virtualenv.rst:147
 msgid "Model Loading: Toggle Virtual Environments and Customize Dependencies"
-msgstr "模型加载：切换虚拟环境并自定义依赖"
+msgstr "模型加载：开关虚拟环境并自定义依赖"
 
 #: ../../source/models/virtualenv.rst:151
 msgid ""
