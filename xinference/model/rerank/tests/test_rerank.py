@@ -80,18 +80,27 @@ def test_restful_api(model_name, setup):
 
 
 def test_from_local_uri():
-    from ...utils import cache_from_uri
+    from ..cache_manager import RerankCacheManager
     from ..custom import CustomRerankModelFamilyV2
+    from ..core import RerankSpecV1
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomRerankModelFamilyV2(
+    model_family = CustomRerankModelFamilyV2(
         model_name="custom_test_rerank_a",
+        max_tokens=2048,
         language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_a",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
 
-    cache_dir = cache_from_uri(model_spec=model_spec)
+    cache_dir = RerankCacheManager(model_family=model_family).cache()
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
     os.remove(cache_dir)
@@ -100,43 +109,68 @@ def test_from_local_uri():
 
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ...utils import cache_from_uri
     from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
+    from ..core import RerankSpecV1
+    from ..cache_manager import RerankCacheManager
 
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomRerankModelFamilyV2(
-        model_name="custom_test_b",
+    model_family = CustomRerankModelFamilyV2(
+        model_name="custom_test_rerank_b",
+        max_tokens=2048,
         language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
 
-    register_rerank(model_spec, False)
-    cache_from_uri(model_spec)
-    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    register_rerank(model_family, False)
+    RerankCacheManager(model_family=model_family).cache()
+    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_family.model_name)
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomRerankModelFamilyV2(
-        model_name="custom_test_b-v15",
+    model_family = CustomRerankModelFamilyV2(
+        model_name="custom_test_rerank_c",
+        max_tokens=2048,
         language=["zh"],
-        model_uri="file:///c/d",
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri="file:///sssad/faf",
+                quantization="none",
+            )
+        ],
     )
     with pytest.raises(ValueError):
-        register_rerank(model_spec, False)
+        register_rerank(model_family, False)
 
     # name conflict
-    model_spec = CustomRerankModelFamilyV2(
-        model_name="custom_test_c",
+    model_family = CustomRerankModelFamilyV2(
+        model_name="custom_test_rerank_d",
+        max_tokens=2048,
         language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
-    register_rerank(model_spec, False)
+    register_rerank(model_family, False)
     with pytest.raises(ValueError):
-        register_rerank(model_spec, False)
+        register_rerank(model_family, False)
 
     # unregister
     unregister_rerank("custom_test_b")
@@ -159,7 +193,7 @@ def test_auto_detect_type():
             continue
         try:
             assert m["type"] == RerankModel._auto_detect_type(
-                m["model_src"]["huggingface"]["model_id"]
+                m["model_spec"]["model_src"]["huggingface"]["model_id"]
             )
         except EnvironmentError:
             # gated repo, ignore
