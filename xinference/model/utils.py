@@ -455,6 +455,19 @@ def get_engine_params_by_name(
                 del param["embedding_class"]
 
         return engine_params
+    elif model_type == "rerank":
+        from .rerank.rerank_family import RERANK_ENGINES
+
+        if model_name not in RERANK_ENGINES:
+            return None
+
+        # filter rerank_class
+        engine_params = deepcopy(RERANK_ENGINES[model_name])
+        for engine, params in engine_params.items():
+            for param in params:
+                del param["rerank_class"]
+
+        return engine_params
     else:
         raise ValueError(
             f"Cannot support model_engine for {model_type}, "
