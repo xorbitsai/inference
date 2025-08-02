@@ -22,7 +22,7 @@ class VLLMRerankModel(RerankModel):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        self._model = LLM(model=self._model_path, task="score")
+        self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     def rerank(
@@ -77,9 +77,11 @@ class VLLMRerankModel(RerankModel):
         metadata = Meta(
             api_version=None,
             billed_units=None,
-            tokens=RerankTokens(input_tokens=tokens, output_tokens=tokens)
-            if return_len
-            else None,
+            tokens=(
+                RerankTokens(input_tokens=tokens, output_tokens=tokens)
+                if return_len
+                else None
+            ),
             warnings=None,
         )
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
