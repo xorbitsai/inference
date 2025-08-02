@@ -36,6 +36,7 @@ loralib  # For Fish Speech
 vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
 torchdiffeq  # For F5-TTS
 x_transformers>=1.31.14  # For F5-TTS
+#vllm==0.8.5   # The Dockerfile for version cu12.8 supports 5090. Just comment this out
 
 # sglang
 decord
