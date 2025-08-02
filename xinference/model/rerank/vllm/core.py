@@ -1,8 +1,8 @@
 import importlib.util
 import uuid
-from typing import Optional, List
+from typing import List, Optional
 
-from ....types import Rerank, DocumentObj, Document, Meta, RerankTokens
+from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]

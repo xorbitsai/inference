@@ -13,18 +13,15 @@
 
 import logging
 import os
-
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional
 
-
 from pydantic import BaseModel
 
-from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
 from ...types import Rerank
-
 from ..utils import ModelInstanceInfoMixin
+from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
 
 logger = logging.getLogger(__name__)
 

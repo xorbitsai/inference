@@ -21,15 +21,16 @@ from typing import List, Optional, Sequence
 import numpy as np
 import torch
 import torch.nn as nn
+
+from ....device_utils import empty_cache, is_device_available
+from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ..core import (
-    RerankModel,
     RERANK_EMPTY_CACHE_COUNT,
+    RerankModel,
     RerankModelFamilyV2,
     RerankSpecV1,
 )
 from ..utils import preprocess_sentence
-from ....device_utils import empty_cache, is_device_available
-from ....types import Rerank, RerankTokens, DocumentObj, Document, Meta
 
 logger = logging.getLogger(__name__)
 
