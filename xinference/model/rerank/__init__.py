@@ -23,6 +23,7 @@ from .rerank_family import (
     VLLM_CLASSES,
     SUPPORTED_ENGINES,
     RERANK_ENGINES,
+    BUILTIN_RERANK_MODELS,
 )
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_quantizations
@@ -38,8 +39,6 @@ from .custom import (
     register_rerank,
     unregister_rerank,
 )
-
-BUILTIN_RERANK_MODELS: Dict[str, "RerankModelFamilyV2"] = {}
 
 
 def register_custom_model():
