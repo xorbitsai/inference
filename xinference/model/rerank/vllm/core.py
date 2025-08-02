@@ -49,6 +49,8 @@ class VLLMRerankModel(RerankModel):
         Returns:
             Rerank: The reranked results.
         """
+        if kwargs:
+            raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         documents_size = len(documents)
         model = self._model
         query_list = [query] * documents_size
