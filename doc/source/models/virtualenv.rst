@@ -143,12 +143,14 @@ Using the ``CosyVoice 0.5B`` model as an example:
      + urllib3==2.5.0
 
 
-Model Loading: Toggle Virtual Environments and Customize Dependencies
----------------------------------------------------------------------
+.. _model_launching_virtualenv:
+
+Model Launching: Toggle Virtual Environments and Customize Dependencies
+-----------------------------------------------------------------------
 
 .. versionadded:: v1.8.1
 
-Starting from v1.8.1, we support toggling the virtual environment for individual model loading,
+Starting from v1.8.1, we support toggling the virtual environment for individual model launching,
 as well as overriding the model's default settings with custom package dependencies.
 
 Toggle Virtual Environment
