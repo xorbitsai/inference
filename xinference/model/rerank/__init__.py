@@ -25,7 +25,7 @@ from .rerank_family import (
     RERANK_ENGINES,
 )
 from ...constants import XINFERENCE_MODEL_DIR
-from ..utils import flatten_model_src, flatten_quantizations
+from ..utils import flatten_quantizations
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
