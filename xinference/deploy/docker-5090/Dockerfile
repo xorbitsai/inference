@@ -48,15 +48,16 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
         pip install "llama-cpp-python>=0.2.82" -i "$PIP_INDEX";  \
     fi && \
     pip install flash-attn==2.7.4.post1 --no-build-isolation && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-base.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker-5090/requirements-base.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker-5090/requirements-ml.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker-5090/requirements-ml.txt && \
     pip install -i "$PIP_INDEX" transformers>=4.51.3 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.4.6.post5 && \
     pip install  https://github.com/sgl-project/whl/releases/download/v0.2.6/sgl_kernel-0.2.6+cu128-cp39-abi3-manylinux2014_x86_64.whl && \
     pip install WeTextProcessing==1.0.4.1 --no-deps && \
     pip uninstall flashinfer -y && \
-    pip install flashinfer-python -i https://flashinfer.ai/whl/cu128/torch2.8 && \
+    
+    pip install flashinfer-python && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
     cd /opt/inference && \
     python3 setup.py build_web && \
@@ -81,7 +82,7 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     /opt/conda/bin/conda clean --all -y
 
 # The pre-release version used should be noted for date changes
-RUN pip3 install --pre torch==2.8.0.dev20250601+cu128 torchvision==0.23.0.dev20250602+cu128 torchaudio==2.6.0.dev20250601+cu128 --index-url https://download.pytorch.org/whl/nightly/cu128 \
+RUN pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 \
     --no-deps
 
 # Override the default entrypoint of the vllm base image

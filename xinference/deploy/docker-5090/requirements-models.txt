@@ -1,7 +1,7 @@
 funasr<1.1.17
 omegaconf~=2.3.0  # For ChatTTS
-nemo_text_processing<1.1.0  
-WeTextProcessing<1.0.4  
+nemo_text_processing<1.1.0  # 1.1.0 requires pynini==2.1.6.post1
+WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6
 librosa  # For ChatTTS
 ChatTTS>=0.2.1
 xxhash  # For ChatTTS
@@ -40,3 +40,4 @@ natsort  # For Fish Speech
 ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 silero-vad  # For Fish Speech
+qwen_omni_utils  # For qwen2.5-omni

@@ -62,6 +62,8 @@ jobs:
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
             docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --progress=plain -f xinference/deploy/docker/cpu.Dockerfile .
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu"
+            docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}" --progress=plain -f xinference/deploy/docker-5090/Dockerfile .
+            docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-5090"
             echo "XINFERENCE_IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
           done
           
@@ -70,6 +72,7 @@ jobs:
             docker push "$DOCKER_ORG/xinference:latest"
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
             docker push "$DOCKER_ORG/xinference:latest-cpu"
+            docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-5090" "$DOCKER_ORG/xinference:latest-5090"
             echo "XINFERENCE_GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
           fi
 
