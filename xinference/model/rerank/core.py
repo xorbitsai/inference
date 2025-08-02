@@ -102,17 +102,17 @@ class RerankModel:
         model_family: RerankModelFamilyV2,
         device: Optional[str] = None,
         use_fp16: bool = False,
-        model_config: Optional[Dict] = None,
+        **kwargs,
     ):
         self.model_family = model_family
         self._model_spec = model_family.model_specs[0]
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
-        self._model_config = model_config or dict()
         self._use_fp16 = use_fp16
         self._model = None
         self._counter = 0
+        self._kwargs = kwargs
         if model_family.type == "unknown":
             model_family.type = self._auto_detect_type(model_path)
 

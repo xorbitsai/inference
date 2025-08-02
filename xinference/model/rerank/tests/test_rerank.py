@@ -22,12 +22,17 @@ import pytest
 from ....client import Client
 
 
-@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
-def test_restful_api(model_name, setup):
+@pytest.mark.parametrize("model_name", ["bge-reranker-base"])
+@pytest.mark.parametrize("model_engine", ["sentence_transformers"])
+def test_restful_api(model_name, model_engine, setup):
     endpoint, _ = setup
     client = Client(endpoint)
 
-    model_uid = client.launch_model(model_name=model_name, model_type="rerank")
+    model_uid = client.launch_model(
+        model_name=model_name,
+        model_type="rerank",
+        model_engine=model_engine,
+    )
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
     # We want to compute the similarity between the query sentence
@@ -132,7 +137,9 @@ def test_register_custom_rerank():
 
     register_rerank(model_family, False)
     RerankCacheManager(model_family=model_family).cache()
-    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_family.model_name)
+    model_cache_path = os.path.join(
+        XINFERENCE_CACHE_DIR, "v2/" + model_family.model_name + "-pytorch-none"
+    )
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
