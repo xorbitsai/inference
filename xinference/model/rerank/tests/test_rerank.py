@@ -22,8 +22,8 @@ import pytest
 from ....client import Client
 
 
-@pytest.mark.parametrize("model_name", ["bge-reranker-base"])
-@pytest.mark.parametrize("model_engine", ["sentence_transformers"])
+@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
+@pytest.mark.parametrize("model_engine", ["sentence_transformers", "vllm"])
 def test_restful_api(model_name, model_engine, setup):
     endpoint, _ = setup
     client = Client(endpoint)
