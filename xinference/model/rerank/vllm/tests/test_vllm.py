@@ -1,5 +1,7 @@
 import shutil
 
+import pytest
+
 from ...cache_manager import RerankCacheManager
 from ...core import RerankModelFamilyV2, RerankSpecV1
 from ..core import VLLMRerankModel
@@ -20,6 +22,7 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
 )
 
 
+@pytest.mark.skipif(not VLLMRerankModel.check_lib(), reason="vllm not installed")
 def test_model():
     model_path = None
     try:
