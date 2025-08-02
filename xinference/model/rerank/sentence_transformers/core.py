@@ -66,6 +66,7 @@ class _ModelWrapper(nn.Module):
 
 class SentenceTransformerRerankModel(RerankModel):
     def load(self):
+        # TODO: Split FlagReranker and sentence_transformers into different model_engines like FlagRerankModel
         logger.info("Loading rerank model: %s", self._model_path)
         flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
         if (
