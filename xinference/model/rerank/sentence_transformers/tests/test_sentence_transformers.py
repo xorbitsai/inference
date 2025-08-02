@@ -1,4 +1,5 @@
 import shutil
+
 from ...cache_manager import RerankCacheManager
 from ...core import RerankModelFamilyV2, RerankSpecV1
 from ..core import SentenceTransformerRerankModel

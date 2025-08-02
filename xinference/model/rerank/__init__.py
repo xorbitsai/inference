@@ -16,15 +16,8 @@ import codecs
 import json
 import os
 import warnings
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-from .rerank_family import (
-    SENTENCE_TRANSFORMER_CLASSES,
-    VLLM_CLASSES,
-    SUPPORTED_ENGINES,
-    RERANK_ENGINES,
-    BUILTIN_RERANK_MODELS,
-)
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_quantizations
 from .core import (
@@ -38,6 +31,13 @@ from .custom import (
     get_user_defined_reranks,
     register_rerank,
     unregister_rerank,
+)
+from .rerank_family import (
+    BUILTIN_RERANK_MODELS,
+    RERANK_ENGINES,
+    SENTENCE_TRANSFORMER_CLASSES,
+    SUPPORTED_ENGINES,
+    VLLM_CLASSES,
 )
 
 

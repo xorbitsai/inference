@@ -86,8 +86,8 @@ def test_restful_api(model_name, model_engine, setup):
 
 def test_from_local_uri():
     from ..cache_manager import RerankCacheManager
-    from ..custom import CustomRerankModelFamilyV2
     from ..core import RerankSpecV1
+    from ..custom import CustomRerankModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
 
@@ -114,9 +114,9 @@ def test_from_local_uri():
 
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
-    from ..core import RerankSpecV1
     from ..cache_manager import RerankCacheManager
+    from ..core import RerankSpecV1
+    from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
 
     tmp_dir = tempfile.mkdtemp()
 
