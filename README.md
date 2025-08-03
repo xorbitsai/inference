@@ -46,6 +46,7 @@ potential of cutting-edge AI models.
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### New Models
+- Built-in support for [GLM-4.5](https://github.com/zai-org/GLM-4.5): [#3882](https://github.com/xorbitsai/inference/pull/3882)
 - Built-in support for [ERNIE 4.5](https://yiyan.baidu.com/blog/posts/ernie4.5/): [#3812](https://github.com/xorbitsai/inference/pull/3812)
 - Built-in support for [GLM-4.1V-Thinking](https://github.com/THUDM/GLM-4.1V-Thinking/tree/main): [#3756](https://github.com/xorbitsai/inference/pull/3756)
 - Built-in support for [jina-embeddings-v4](https://jina.ai/news/jina-embeddings-v4-universal-embeddings-for-multimodal-multilingual-retrieval/): [#3814](https://github.com/xorbitsai/inference/pull/3814)
@@ -53,7 +54,6 @@ potential of cutting-edge AI models.
 - Built-in support for [Qwen3-Embedding](https://github.com/QwenLM/Qwen3-Embedding): [#3627](https://github.com/xorbitsai/inference/pull/3627)
 - Built-in support for [Minicpm4](https://github.com/OpenBMB/MiniCPM): [#3609](https://github.com/xorbitsai/inference/pull/3609)
 - Built-in support for [CogView4](https://github.com/THUDM/CogView4): [#3557](https://github.com/xorbitsai/inference/pull/3557)
-- Built-in support for [Deepseek-R1-0528](https://huggingface.co/deepseek-ai/DeepSeek-R1-0528): [#3539](https://github.com/xorbitsai/inference/pull/3539)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.

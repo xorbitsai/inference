@@ -239,6 +239,9 @@ The default unique ID will be identical to the model name.
 
   `gpu_memory_utilization=0.9` will pass to vllm when launching model.
 
+.. note::
+  For more tips on model launching, refer to :ref:`launch`.
+
 Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once the model is running, we can try it out either via cURL,
 or via Xinference's python client:
 

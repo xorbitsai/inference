@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** none
 - **Engines**: Transformers
-- **Model ID:** THUDM/cogagent-9b-20241220
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/cogagent-9b-20241220>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogagent-9b-20241220>`__
+- **Model ID:** zai-org/cogagent-9b-20241220
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/cogagent-9b-20241220>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogagent-9b-20241220>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

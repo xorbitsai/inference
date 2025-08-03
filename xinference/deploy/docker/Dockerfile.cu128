@@ -58,7 +58,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip uninstall flashinfer -y && \
     pip install flashinfer-python && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
-    pip install flash-attn==2.7.4.post1 --no-build-isolation && \
+    pip install flash-attn==2.8.0.post2 --no-build-isolation && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \

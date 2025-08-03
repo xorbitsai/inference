@@ -3697,7 +3697,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/codegeex4-all-9b",
+            "model_id": "zai-org/codegeex4-all-9b",
             "model_revision": "8c4ec1d2f2888412640825a7aa23355939a8f4c6"
           },
           "modelscope": {
@@ -3723,7 +3723,7 @@
               "Q8_0"
             ],
             "model_file_name_template": "codegeex4-all-9b-{quantization}.gguf",
-            "model_id": "THUDM/codegeex4-all-9b-GGUF",
+            "model_id": "zai-org/codegeex4-all-9b-GGUF",
             "model_revision": "6a04071c54c943949826d4815ee00717ed8cf153"
           },
           "modelscope": {
@@ -3995,7 +3995,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/cogagent-9b-20241220"
+            "model_id": "zai-org/cogagent-9b-20241220"
           },
           "modelscope": {
             "quantizations": [
@@ -6560,7 +6560,7 @@
 	      "8bit"
             ],
             "model_id": "mlx-community/DeepSeek-V3-0324-{quantization}"
-          } 
+          }
 	}
       }
     ],
@@ -7225,7 +7225,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-4v-9b",
+            "model_id": "zai-org/glm-4v-9b",
             "model_revision": "01328faefe122fe605c1c127b62e6031d3ffebf7"
           },
           "modelscope": {
@@ -7277,7 +7277,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-edge-1.5b-chat"
+            "model_id": "zai-org/glm-edge-1.5b-chat"
           },
           "modelscope": {
             "quantizations": [
@@ -7295,7 +7295,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-edge-4b-chat"
+            "model_id": "zai-org/glm-edge-4b-chat"
           },
           "modelscope": {
             "quantizations": [
@@ -7325,7 +7325,7 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-1.5b-chat-gguf"
+            "model_id": "zai-org/glm-edge-1.5b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7356,7 +7356,7 @@
               "F16"
             ],
             "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-1.5b-chat-gguf"
+            "model_id": "zai-org/glm-edge-1.5b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7387,7 +7387,7 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-4b-chat-gguf"
+            "model_id": "zai-org/glm-edge-4b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7418,7 +7418,7 @@
               "F16"
             ],
             "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
-            "model_id": "THUDM/glm-edge-4b-chat-gguf"
+            "model_id": "zai-org/glm-edge-4b-chat-gguf"
           },
           "modelscope": {
             "quantizations": [
@@ -7464,7 +7464,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/GLM-4-9B-0414"
+            "model_id": "zai-org/GLM-4-9B-0414"
           },
           "modelscope": {
             "quantizations": [
@@ -7482,7 +7482,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/GLM-4-32B-0414"
+            "model_id": "zai-org/GLM-4-32B-0414"
           },
           "modelscope": {
             "quantizations": [
@@ -7712,7 +7712,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-4-9b-chat-hf",
+            "model_id": "zai-org/glm-4-9b-chat-hf",
             "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd"
           },
           "modelscope": {
@@ -7819,7 +7819,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/glm-4-9b-chat-1m-hf",
+            "model_id": "zai-org/glm-4-9b-chat-1m-hf",
             "model_revision": "0588cb62942f0f0a5545c695e5c1b019d64eabdc"
           },
           "modelscope": {
@@ -17338,6 +17338,25 @@
         }
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507"
+          }
+        }
+      },
+      {
         "model_format": "fp8",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -17353,6 +17372,25 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"
           }
         }
       },
@@ -17376,6 +17414,25 @@
         }
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "QuantTrio/Qwen3-30B-A3B-Instruct-2507-GPTQ-Int8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "tclf90/Qwen3-30B-A3B-Instruct-2507-GPTQ-Int8"
+          }
+        }
+      },
+      {
         "model_format": "awq",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -17391,6 +17448,25 @@
               "Int4"
             ],
             "model_id": "tclf90/Qwen3-235B-A22B-Instruct-2507-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/Qwen3-30B-A3B-Instruct-2507-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-30B-A3B-Instruct-2507-AWQ"
           }
         }
       },
@@ -17422,6 +17498,31 @@
         }
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-30B-A3B-Instruct-2507-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-30B-A3B-Instruct-2507-{quantization}"
+          }
+        }
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -17445,6 +17546,7 @@
               "UD-Q2_K_XL",
               "UD-Q3_K_XL",
               "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
@@ -17543,6 +17645,12 @@
                 "00001-of-00003",
                 "00002-of-00003",
                 "00003-of-00003"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
               ],
               "UD-Q6_K_XL": [
                 "00001-of-00005",
@@ -17583,6 +17691,7 @@
               "UD-Q2_K_XL",
               "UD-Q3_K_XL",
               "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
@@ -17682,6 +17791,12 @@
                 "00002-of-00003",
                 "00003-of-00003"
               ],
+              "UD-Q5_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
               "UD-Q6_K_XL": [
                 "00001-of-00005",
                 "00002-of-00005",
@@ -17703,9 +17818,1492 @@
             "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-Instruct-2507-{quantization}-{part}.gguf"
           }
         }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
+            "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
+            "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf"
+          }
+        }
       }
     ],
     "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-Thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "tools"
+    ],
+    "model_description": "we have continued to scale the thinking capability of Qwen3-235B-A22B, improving both the quality and depth of reasoning",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-235B-A22B-Thinking-2507"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-235B-A22B-Thinking-2507"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Thinking-2507"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Thinking-2507"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/Qwen3-235B-A22B-Thinking-2507-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/Qwen3-235B-A22B-Thinking-2507-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "QuantTrio/Qwen3-30B-A3B-Thinking-2507-GPTQ-Int8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "tclf90/Qwen3-30B-A3B-Thinking-2507-GPTQ-Int8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Qwen3-235B-A22B-Thinking-2507-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Qwen3-235B-A22B-Thinking-2507-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Qwen3-30B-A3B-Thinking-2507-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Qwen3-30B-A3B-Thinking-2507-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-235B-A22B-Thinking-2507-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-235B-A22B-Thinking-2507-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-30B-A3B-Thinking-2507-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-30B-A3B-Thinking-2507-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00010",
+                "00002-of-00010",
+                "00003-of-00010",
+                "00004-of-00010",
+                "00005-of-00010",
+                "00006-of-00010",
+                "00007-of-00010",
+                "00008-of-00010",
+                "00009-of-00010",
+                "00010-of-00010"
+              ],
+              "IQ4_XS": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q2_K": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q2_K_L": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q3_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_0": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_1": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q5_K_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q5_K_S": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q6_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q8_0": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF",
+            "model_file_name_template": "Qwen3-235B-A22B-Thinking-2507-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-Thinking-2507-{quantization}-{part}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00010",
+                "00002-of-00010",
+                "00003-of-00010",
+                "00004-of-00010",
+                "00005-of-00010",
+                "00006-of-00010",
+                "00007-of-00010",
+                "00008-of-00010",
+                "00009-of-00010",
+                "00010-of-00010"
+              ],
+              "IQ4_XS": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q2_K": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q2_K_L": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q3_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_0": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_1": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q5_K_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q5_K_S": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q6_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q8_0": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF",
+            "model_file_name_template": "Qwen3-235B-A22B-Thinking-2507-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-Thinking-2507-{quantization}-{part}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+            "model_file_name_template": "Qwen3-30B-A3B-Thinking-2507-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Thinking-2507-{quantization}-{part}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+            "model_file_name_template": "Qwen3-30B-A3B-Thinking-2507-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Thinking-2507-{quantization}-{part}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n<think>\\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>"
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-Coder",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "we're announcing Qwen3-Coder, our most agentic code model to date",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 480,
+        "activated_size_in_billions": 35,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 480,
+        "activated_size_in_billions": 35,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 480,
+        "activated_size_in_billions": 35,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "tclf90/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 480,
+        "activated_size_in_billions": 35,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Qwen3-Coder-480B-A35B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Qwen3-Coder-480B-A35B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 480,
+        "activated_size_in_billions": 35,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Coder-480B-A35B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Coder-480B-A35B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 480,
+        "activated_size_in_billions": 35,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00021",
+                "00002-of-00021",
+                "00003-of-00021",
+                "00004-of-00021",
+                "00005-of-00021",
+                "00006-of-00021",
+                "00007-of-00021",
+                "00008-of-00021",
+                "00009-of-00021",
+                "00010-of-00021",
+                "00011-of-00021",
+                "00012-of-00021",
+                "00013-of-00021",
+                "00014-of-00021",
+                "00015-of-00021",
+                "00016-of-00021",
+                "00017-of-00021",
+                "00018-of-00021",
+                "00019-of-00021",
+                "00020-of-00021",
+                "00021-of-00021"
+              ],
+              "IQ4_NL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "IQ4_XS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q2_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q2_K_L": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q3_K_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q3_K_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q4_0": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_1": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q4_K_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_K_S": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q5_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q5_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q6_K": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "Q8_0": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00012",
+                "00002-of-00012",
+                "00003-of-00012",
+                "00004-of-00012",
+                "00005-of-00012",
+                "00006-of-00012",
+                "00007-of-00012",
+                "00008-of-00012",
+                "00009-of-00012",
+                "00010-of-00012",
+                "00011-of-00012",
+                "00012-of-00012"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-Coder-480B-A35B-Instruct-GGUF",
+            "model_file_name_template": "Qwen3-Coder-480B-A35B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-480B-A35B-Instruct-{quantization}-{part}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00021",
+                "00002-of-00021",
+                "00003-of-00021",
+                "00004-of-00021",
+                "00005-of-00021",
+                "00006-of-00021",
+                "00007-of-00021",
+                "00008-of-00021",
+                "00009-of-00021",
+                "00010-of-00021",
+                "00011-of-00021",
+                "00012-of-00021",
+                "00013-of-00021",
+                "00014-of-00021",
+                "00015-of-00021",
+                "00016-of-00021",
+                "00017-of-00021",
+                "00018-of-00021",
+                "00019-of-00021",
+                "00020-of-00021",
+                "00021-of-00021"
+              ],
+              "IQ4_NL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "IQ4_XS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q2_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q2_K_L": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q3_K_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q3_K_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q4_0": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_1": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q4_K_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_K_S": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q5_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q5_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q6_K": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "Q8_0": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00012",
+                "00002-of-00012",
+                "00003-of-00012",
+                "00004-of-00012",
+                "00005-of-00012",
+                "00006-of-00012",
+                "00007-of-00012",
+                "00008-of-00012",
+                "00009-of-00012",
+                "00010-of-00012",
+                "00011-of-00012",
+                "00012-of-00012"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-Coder-480B-A35B-Instruct-GGUF",
+            "model_file_name_template": "Qwen3-Coder-480B-A35B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-480B-A35B-Instruct-{quantization}-{part}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+            "model_file_name_template": "Qwen3-Coder-30B-A3B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+            "model_file_name_template": "Qwen3-Coder-30B-A3B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% macro render_item_list(item_list, tag_name='required') %}\n    {%- if item_list is defined and item_list is iterable and item_list | length > 0 %}\n        {%- if tag_name %}{{- '\\n<' ~ tag_name ~ '>' -}}{% endif %}\n            {{- '[' }}\n                {%- for item in item_list -%}\n                    {%- if loop.index > 1 %}{{- \", \"}}{% endif -%}\n                    {%- if item is string -%}\n                        {{ \"`\" ~ item ~ \"`\" }}\n                    {%- else -%}\n                        {{ item }}\n                    {%- endif -%}\n                {%- endfor -%}\n            {{- ']' }}\n        {%- if tag_name %}{{- '</' ~ tag_name ~ '>' -}}{% endif %}\n    {%- endif %}\n{% endmacro %}\n\n{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n\n{%- if not tools is defined %}\n    {%- set tools = [] %}\n{%- endif %}\n\n{%- if system_message is defined %}\n    {{- \"<|im_start|>system\\n\" + system_message }}\n{%- else %}\n    {%- if tools is iterable and tools | length > 0 %}\n        {{- \"<|im_start|>system\\nYou are Qwen, a helpful AI assistant that can interact with a computer to solve tasks.\" }}\n    {%- endif %}\n{%- endif %}\n{%- if tools is iterable and tools | length > 0 %}\n    {{- \"\\n\\nYou have access to the following functions:\\n\\n\" }}\n    {{- \"<tools>\" }}\n    {%- for tool in tools %}\n        {%- if tool.function is defined %}\n            {%- set tool = tool.function %}\n        {%- endif %}\n        {{- \"\\n<function>\\n<name>\" ~ tool.name ~ \"</name>\" }}\n        {{- '\\n<description>' ~ (tool.description | trim) ~ '</description>' }}\n        {{- '\\n<parameters>' }}\n        {%- for param_name, param_fields in tool.parameters.properties|items %}\n            {{- '\\n<parameter>' }}\n            {{- '\\n<name>' ~ param_name ~ '</name>' }}\n            {%- if param_fields.type is defined %}\n                {{- '\\n<type>' ~ (param_fields.type | string) ~ '</type>' }}\n            {%- endif %}\n            {%- if param_fields.description is defined %}\n                {{- '\\n<description>' ~ (param_fields.description | trim) ~ '</description>' }}\n            {%- endif %}\n            {{- render_item_list(param_fields.enum, 'enum') }}\n            {%- set handled_keys = ['type', 'description', 'enum', 'required'] %}\n            {%- for json_key in param_fields.keys() | reject(\"in\", handled_keys) %}\n                {%- set normed_json_key = json_key | replace(\"-\", \"_\") | replace(\" \", \"_\") | replace(\"$\", \"\") %}\n                {%- if param_fields[json_key] is mapping %}\n                    {{- '\\n<' ~ normed_json_key ~ '>' ~ (param_fields[json_key] | tojson | safe) ~ '</' ~ normed_json_key ~ '>' }}\n                {%- else %}\n                    {{-'\\n<' ~ normed_json_key ~ '>' ~ (param_fields[json_key] | string) ~ '</' ~ normed_json_key ~ '>' }}\n                {%- endif %}\n            {%- endfor %}\n            {{- render_item_list(param_fields.required, 'required') }}\n            {{- '\\n</parameter>' }}\n        {%- endfor %}\n        {{- render_item_list(tool.parameters.required, 'required') }}\n        {{- '\\n</parameters>' }}\n        {%- if tool.return is defined %}\n            {%- if tool.return is mapping %}\n                {{- '\\n<return>' ~ (tool.return | tojson | safe) ~ '</return>' }}\n            {%- else %}\n                {{- '\\n<return>' ~ (tool.return | string) ~ '</return>' }}\n            {%- endif %}\n        {%- endif %}\n        {{- '\\n</function>' }}\n    {%- endfor %}\n    {{- \"\\n</tools>\" }}\n    {{- '\\n\\nIf you choose to call a function ONLY reply in the following format with NO suffix:\\n\\n<tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>\\nvalue_1\\n</parameter>\\n<parameter=example_parameter_2>\\nThis is the value for the second parameter\\nthat can span\\nmultiple lines\\n</parameter>\\n</function>\\n</tool_call>\\n\\n<IMPORTANT>\\nReminder:\\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\\n- Required parameters MUST be specified\\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\\n</IMPORTANT>' }}\n{%- endif %}\n{%- if system_message is defined %}\n    {{- '<|im_end|>\\n' }}\n{%- else %}\n    {%- if tools is iterable and tools | length > 0 %}\n        {{- '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in loop_messages %}\n    {%- if message.role == \"assistant\" and message.tool_calls is defined and message.tool_calls is iterable and message.tool_calls | length > 0 %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content is defined and message.content is string and message.content | trim | length > 0 %}\n            {{- '\\n' + message.content | trim + '\\n' }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n            {%- if tool_call.arguments is defined %}\n                {%- for args_name, args_value in tool_call.arguments|items %}\n                    {{- '<parameter=' + args_name + '>\\n' }}\n                    {%- set args_value = args_value if args_value is string else args_value | string %}\n                    {{- args_value }}\n                    {{- '\\n</parameter>\\n' }}\n                {%- endfor %}\n            {%- endif %}\n            {{- '</function>\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"user\" or message.role == \"system\" or message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.previtem and loop.previtem.role != \"tool\" %}\n            {{- '<|im_start|>user\\n' }}\n        {%- endif %}\n        {{- '<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>\\n' }}\n        {%- if not loop.last and loop.nextitem.role != \"tool\" %}\n            {{- '<|im_end|>\\n' }}\n        {%- elif loop.last %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- else %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
     "stop_token_ids": [
       151643,
       151644,
@@ -19026,7 +20624,7 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "THUDM/GLM-4.1V-9B-Thinking",
+            "model_id": "zai-org/GLM-4.1V-9B-Thinking",
             "model_revision": "b627c82cd8fc9175ff2b82b33fb439eba260055f"
           },
           "modelscope": {
@@ -19093,6 +20691,164 @@
     "virtualenv": {
       "packages": [
         "transformers>=4.53.2",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 65536,
+    "model_name": "glm-4.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid"
+    ],
+    "model_description": "The GLM-4.5 series models are foundation models designed for intelligent agents. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.5"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.5-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.5-Air"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5-Air"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.5-Air-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5-Air-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "2bit",
+              "3bit",
+              "4bit",
+              "5bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-Air-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "2bit",
+              "3bit",
+              "4bit",
+              "5bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5-Air-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "[gMASK]<sop>{%- if tools -%}<|system|># Tools You may call one or more functions to assist with the user query. You are provided with function signatures within <tools></tools> XML tags:<tools>{% for tool in tools %}{{ tool | tojson(ensure_ascii=False) }}{% endfor %}</tools>For each function call, output the function name and arguments within the following XML format:<tool_call>{function-name}<arg_key>{arg-key-1}</arg_key><arg_value>{arg-value-1}</arg_value><arg_key>{arg-key-2}</arg_key><arg_value>{arg-value-2}</arg_value>...</tool_call>{%- endif -%}{%- macro visible_text(content) -%}{%- if content is string -%}{{- content }}{%- elif content is iterable and content is not mapping -%}{%- for item in content -%}{%- if item is mapping and item.type == 'text' -%}{{- item.text }}{%- elif item is string -%}{{- item }}{%- endif -%}{%- endfor -%}{%- else -%}{{- content }}{%- endif -%}{%- endmacro -%}{%- set ns = namespace(last_user_index=-1) %}{% for m in messages %}{%- if m.role == 'user' %}{% set ns.last_user_index = loop.index0 -%}{%- endif %}{%- endfor %}{% for m in messages %}{%- if m.role == 'user' -%}<|user|>{{ visible_text(m.content) }}{{- '/nothink' if (enable_thinking is defined and not enable_thinking and not visible_text(m.content).endswith(\"/nothink\")) else '' -}}{%- elif m.role == 'assistant' -%}<|assistant|>{%- set reasoning_content = '' %}{%- set content = visible_text(m.content) %}{%- if m.reasoning_content is string %}{%- set reasoning_content = m.reasoning_content %}{%- else %}{%- if '</think>' in content %}{%- set reasoning_content = content.split('</think>')[0].rstrip('\n').split('<think>')[-1].lstrip('\n') %}{%- set content = content.split('</think>')[-1].lstrip('\n') %}{%- endif %}{%- endif %}{%- if loop.index0 > ns.last_user_index and reasoning_content -%}{{ '\n<think>' + reasoning_content.strip() +  '</think>'}}{%- else -%}{{ '\n<think></think>' }}{%- endif %}{{ '\n' + content.strip() if content.strip() }}{% if m.tool_calls %}{% for tc in m.tool_calls %}{%- if tc.function %}{%- set tc = tc.function %}{%- endif %}{{ '\n<tool_call>' + tc.name }}{% set _args = tc.arguments %}{% for k, v in _args.items() %}<arg_key>{{ k }}</arg_key><arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>{% endfor %}</tool_call>{% endfor %}{% endif %}{%- elif m.role == 'tool' -%}{%- if m.content is string -%}{%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}{{- '<|observation|>' }}{%- endif %}{{- '\n<tool_response>\n' }}{{- m.content }}{{- '\n</tool_response>' }}{%- else -%}<|observation|>{% for tr in m.content %}<tool_response>{{ tr.output if tr.output is defined else tr }}</tool_response>{% endfor -%}{% endif -%}{%- elif m.role == 'system' -%}<|system|>{{ visible_text(m.content) }}{%- endif -%}{%- endfor %}{%- if add_generation_prompt -%}<|assistant|>{{- '\n<think></think>' if (enable_thinking is defined and not enable_thinking) else '' -}}{%- endif -%}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.54.0",
         "#system_numpy#"
       ]
     }

@@ -131,8 +131,9 @@ def _pad_seqs_inplace(seqs: List[List[int]], reqs: List[InferenceRequest], pad: 
 
 
 def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
+    # if max_tokens not set, we just treat max_src_len = context_len - 8
     max_new_tokens = int(
-        r.sanitized_generate_config.get("max_tokens") or max_tokens_field.default
+        r.sanitized_generate_config.get("max_tokens") or max_tokens_field.default or 0
     )
     return context_len - max_new_tokens - 8
 
@@ -265,6 +266,14 @@ def _batch_inference_one_step_internal(
                 top_p,
                 top_k,
             ) = generate_config_mapping[r]
+
+            if max_new_tokens == 0:
+                # max_tokens not set, we change it to the possible maximum
+                max_new_tokens = xinf_model_obj.get_context_len() - len(r.prompt_tokens)
+                new_gen_conf = list(generate_config_mapping[r])
+                new_gen_conf[0] = max_new_tokens
+                generate_config_mapping[r] = tuple(new_gen_conf)
+                logger.debug("No max_tokens set, setting to: %s", max_new_tokens)
 
             token = _get_token_from_logits(
                 r, i, logits, temperature, repetition_penalty, top_p, top_k

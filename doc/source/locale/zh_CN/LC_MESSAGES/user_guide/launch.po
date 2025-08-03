@@ -1,0 +1,97 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-02 23:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/user_guide/launch.rst:5
+msgid "Model Launching Instructions"
+msgstr "模型加载指南"
+
+#: ../../source/user_guide/launch.rst:7
+msgid "This document aims to provide a functional overview of model launching."
+msgstr "本文档旨在提供模型加载的功能说明。"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "Replica"
+msgstr "副本"
+
+#: ../../source/user_guide/launch.rst:12
+msgid ""
+"Replicas specify the number of model instances to load. For example, if "
+"you have two GPUs and each can host one replica of the model, you can set"
+" the replica count to 2. This way, two identical instances of the model "
+"will be distributed across the two GPUs. Xinference automatically load-"
+"balances requests to ensure even distribution across multiple GPUs. "
+"Meanwhile, users see it as a single model, which greatly improves overall"
+" resource utilization."
+msgstr ""
+"副本用来指定模型加载的实例份数。比如，你有两张 GPU，每张卡可以放下模型的"
+"一个副本，你可以设置副本数为 2。这样，两个完全相同的模型实例将分布在这"
+"两张 GPU 上。Xinference 会自动进行负载均衡，确保请求均匀分配到多张卡上。"
+"用户看到的仍是一个模型，这大大提升了整体资源利用率。"
+
+#: ../../source/user_guide/launch.rst:18
+msgid "Set Environment Variables"
+msgstr "设置环境变量"
+
+#: ../../source/user_guide/launch.rst:22
+msgid ""
+"Sometimes, we want to specify environment variables for a particular "
+"model at runtime. Since v1.8.1, Xinference provides the capability to "
+"configure these individually without needing to set them before starting "
+"Xinference."
+msgstr ""
+"有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference "
+"提供了单独配置环境变量的功能，无需在启动 Xinference 前设置。"
+
+#: ../../source/user_guide/launch.rst:25
+msgid "For Web UI."
+msgstr "针对 Web UI。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid ""
+"When using the command line, use ``--env`` to specify an environment "
+"variable."
+msgstr "命令行使用时，使用 ``--env`` 指定环境变量。"
+
+#: ../../source/user_guide/launch.rst:33
+msgid "Example usage:"
+msgstr "示例用法："
+
+#: ../../source/user_guide/launch.rst:39
+msgid ""
+"Take vLLM as an example: it has versions V1 and V0, and by default, it "
+"automatically determines which version to use. If you want to force the "
+"use of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can "
+"specify this during model launching."
+msgstr ""
+"以 vLLM 为例，它有 V1 和 V0 两个版本，默认会自动判定使用哪个版本。如果想"
+"在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
+"。"
+
+#: ../../source/user_guide/launch.rst:43
+msgid "Configuring Model Virtual Environment"
+msgstr "配置模型虚拟空间"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr "对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_virtualenv>`。"
+

@@ -24,6 +24,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -38,6 +39,7 @@ from typing import (
 
 import xoscar as xo
 
+from ....constants import XINFERENCE_MAX_TOKENS
 from ....fields import max_tokens_field
 from ....types import (
     ChatCompletion,
@@ -92,6 +94,23 @@ class PromptCache:
     tokens: List[int] = field(default_factory=list)
 
 
+def get_context_length(config: dict) -> int:
+    """Get the context length of a model from model config."""
+    if config.get("max_sequence_length") is not None:
+        max_sequence_length = config["max_sequence_length"]
+    else:
+        max_sequence_length = 2048
+    if config.get("seq_length") is not None:
+        seq_length = config["seq_length"]
+    else:
+        seq_length = 2048
+    if config.get("max_position_embeddings") is not None:
+        max_position_embeddings = config["max_position_embeddings"]
+    else:
+        max_position_embeddings = 2048
+    return max(max_sequence_length, seq_length, max_position_embeddings)
+
+
 class MLXModel(LLM):
     _rank_to_addresses: Optional[Dict[int, str]]
 
@@ -106,6 +125,7 @@ class MLXModel(LLM):
         super().__init__(model_uid, model_family, model_path)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
+        self._context_length: Optional[int] = None
         # for distributed
         assert model_config is not None
         self._address = model_config.pop("address", None)
@@ -161,7 +181,6 @@ class MLXModel(LLM):
         if generate_config is None:
             generate_config = MLXGenerateConfig()
 
-        generate_config.setdefault("max_tokens", max_tokens_field.default)
         # default config is adapted from
         # https://github.com/ml-explore/mlx-examples/blob/f212b770d8b5143e23102eda20400ae43340f844/llms/mlx_lm/utils.py#L129
         generate_config.setdefault("temperature", 0.0)
@@ -169,6 +188,10 @@ class MLXModel(LLM):
         generate_config.setdefault("repetition_penalty", None)
         generate_config.setdefault("repetition_context_size", 20)
         generate_config.setdefault("top_p", 1.0)
+
+        max_tokens = max_tokens_field.default or XINFERENCE_MAX_TOKENS
+        if not generate_config.get("max_tokens") and max_tokens:
+            generate_config["max_tokens"] = max_tokens  # type: ignore
         return generate_config
 
     def _load_model(self, **kwargs):
@@ -356,11 +379,18 @@ class MLXModel(LLM):
             self._loading_thread.start()
 
     def wait_for_load(self):
+        from mlx_lm.utils import load_config
+
         if self._loading_thread:
             self._loading_thread.join()
             if self._loading_error:
                 _, err, tb = self._loading_error
                 raise err.with_traceback(tb)
+
+        # get context length
+        config = load_config(Path(self.model_path))
+        config.update(self._model_config)
+        self._context_length = get_context_length(config)
 
     @classmethod
     def check_lib(cls) -> bool:
@@ -463,6 +493,11 @@ class MLXModel(LLM):
         )
 
         prompt_token_ids, input_echo_len = self._prepare_inputs(prompt, kwargs)
+
+        if max_tokens is None:
+            # not set max_tokens
+            max_tokens = self._context_length - input_echo_len
+            logger.debug("No max_tokens set, setting to: %s", max_tokens)
 
         i = 0
         start = time.time()

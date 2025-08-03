@@ -76,42 +76,47 @@ By default, the model’s virtual environment is stored under path:
 Experimental Feature
 ####################
 
-.. note::
+.. _skip_installed_libraries:
 
-   This feature requires ``xoscar >= 0.7.12``.
+Skip Installed Libraries
+------------------------
+
+.. versionadded:: v1.8.1
+
+   This feature requires ``xoscar >= 0.7.12``, which is the minimum Xoscar version required for Xinference v1.8.1.
 
 ``xinference`` uses the ``uv`` tool to create virtual environments, with the current Python **system site-packages** set as the base environment.
 By default, ``uv`` **does not check for existing packages in the system environment** and reinstalls all dependencies in the virtual environment.
 This ensures better isolation from system packages but can result in redundant installations, longer setup times, and increased disk usage.
 
-Starting from ``xoscar >= 0.7.12``, an **experimental feature** is available:
-by setting the environment variable ``XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages already available in system site-packages**.
+Starting from ``v1.8.1``, an **experimental feature** is available:
+by setting the environment variable ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages already available in system site-packages**.
 
 .. note::
 
     The feature is currently disabled but will be enabled by default in ``v2.0.0``.
 
 Advantages
-----------
+~~~~~~~~~~
 
 - Avoid redundant installations of large dependencies (e.g., ``torch`` + ``CUDA``).
 - Speed up virtual environment creation.
 - Reduce disk usage.
 
 Usage
------
+~~~~~
 
 .. code-block:: bash
 
    # Enable experimental feature
 
    # For command line
-   XINFERENCE_ENABLE_VIRTUAL_ENV=1 XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1 xinference-local ...
+   XINFERENCE_ENABLE_VIRTUAL_ENV=1 XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1 xinference-local ...
    # For docker
-   docker run -e XINFERENCE_ENABLE_VIRTUAL_ENV=1 -e XOSCAR_VIRTUAL_ENV_SKIP_INSTALLED=1 ...
+   docker run -e XINFERENCE_ENABLE_VIRTUAL_ENV=1 -e XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1 ...
 
 Performance Comparison
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 Using the ``CosyVoice 0.5B`` model as an example:
 
@@ -136,5 +141,59 @@ Using the ``CosyVoice 0.5B`` model as an example:
      + pillow==11.3.0
      + typing-extensions==4.14.0
      + urllib3==2.5.0
+
+
+.. _model_launching_virtualenv:
+
+Model Launching: Toggle Virtual Environments and Customize Dependencies
+-----------------------------------------------------------------------
+
+.. versionadded:: v1.8.1
+
+Starting from v1.8.1, we support toggling the virtual environment for individual model launching,
+as well as overriding the model's default settings with custom package dependencies.
+
+Toggle Virtual Environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When loading a model, you can specify whether to enable the model's virtual environment.
+If not specified, the setting will follow the environment variable configuration.
+
+For the Web UI, this can be toggled on or off through the optional settings switch.
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../_static/model_virtual_env.png" style="background-color: transparent", width="95%">
+
+For command-line loading, use the ``--enable-virtual-env`` option to enable the virtual environment, or ``--disable-virtual-env`` to disable it.
+
+Example usage:
+
+.. code-block:: bash
+
+  xinference launch xxx --enable-virtual-env
+
+Set Virtual Environment Package Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For supported models, Xinference has already defined the package dependencies and version requirements within the virtual environment.
+However, if you need to specify particular versions or install additional dependencies, you can manually provide them during model loading.
+
+In the Web UI, you can add custom dependencies by clicking the plus icon in the same location as the virtual environment toggle.
+
+For the command line, use ``--virtual-env-package`` or ``-vp`` to specify a single package version.
+
+Example usage:
+
+.. code-block:: bash
+
+  xinference launch xxx --virtual-env-package transformers==4.54.0
+
+In addition to the standard way of specifying package dependencies, such as ``transformers==xxx``, Xinference also supports some extended syntax.
+
+* ``#system_xxx#``: Using the same version as the system site packages, such as ``#system_numpy#``,
+  ensures that the installed package matches the system site package version of numpy. This helps prevent dependency conflicts.
+
+
 
 

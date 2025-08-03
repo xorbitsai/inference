@@ -229,6 +229,7 @@ class InferenceRequest:
 
         max_new_tokens = int(
             self.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+            or 0
         )
         stream_interval = self.sanitized_generate_config.get("stream_interval", 2)
         include_usage = self.include_usage

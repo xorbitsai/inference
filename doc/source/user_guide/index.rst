@@ -10,6 +10,7 @@ User Guide
    backends
    client_api
    auth_system
+   launch
    metrics
    distributed_inference
    continuous_batching

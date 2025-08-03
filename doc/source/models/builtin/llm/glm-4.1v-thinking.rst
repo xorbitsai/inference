@@ -21,8 +21,8 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
-- **Model ID:** THUDM/GLM-4.1V-9B-Thinking
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/GLM-4.1V-9B-Thinking>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.1V-9B-Thinking>`__
+- **Model ID:** zai-org/GLM-4.1V-9B-Thinking
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.1V-9B-Thinking>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -37,8 +37,8 @@ Model Spec 2 (awq, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** Int4
 - **Engines**: vLLM, Transformers
-- **Model ID:** dengcao/GLM-4.1V-9B-Thinking-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/dengcao/GLM-4.1V-9B-Thinking-AWQ>`__, `ModelScope <https://modelscope.cn/models/dengcao/GLM-4.1V-9B-Thinking-AWQ>`__
+- **Model ID:** QuantTrio/GLM-4.1V-9B-Thinking-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/GLM-4.1V-9B-Thinking-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/GLM-4.1V-9B-Thinking-AWQ>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -53,8 +53,8 @@ Model Spec 3 (gptq, 9 Billion)
 - **Model Size (in billions):** 9
 - **Quantizations:** Int4-Int8Mix
 - **Engines**: vLLM, Transformers
-- **Model ID:** dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix>`__, `ModelScope <https://modelscope.cn/models/dengcao/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix>`__
+- **Model ID:** QuantTrio/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix>`__, `ModelScope <https://modelscope.cn/models/tclf90/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

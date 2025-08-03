@@ -38,8 +38,10 @@ from typing import (
 )
 
 import xoscar as xo
+from packaging import version
 from typing_extensions import NotRequired
 
+from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -123,8 +125,10 @@ try:
         )
 
     VLLM_INSTALLED = True
+    VLLM_VERSION = version.parse(vllm.__version__)
 except ImportError:
     VLLM_INSTALLED = False
+    VLLM_VERSION = None
 
 VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
@@ -167,7 +171,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "deepseek-coder-instruct",
     "yi-coder-chat",
 ]
-if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
     VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
@@ -188,19 +192,19 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat-rag")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.4.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.1"):
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
@@ -211,61 +215,66 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.1":
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-prover-v2")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528-qwen3")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
 
-if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
+if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.5.3"):
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-llama")
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.6.1":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.6.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
     VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.7.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.7.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("moonlight-16b-a3b-instruct")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.7.3":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwenLong-l1")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.8.0":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.8.4":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.8.5":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.5"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.9.1":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
 
-if VLLM_INSTALLED and vllm.__version__ >= "0.9.2":
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
+
+if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
 
 
 class VLLMModel(LLM):
@@ -293,6 +302,7 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
         self._xavier_config = None
+        self._context_length: Optional[int] = None
         # distributed inference
         self._device_count = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -341,7 +351,6 @@ class VLLMModel(LLM):
 
     def load(self):
         try:
-            import vllm
             from vllm import envs
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -358,7 +367,7 @@ class VLLMModel(LLM):
 
         from ..llm_family import LlamaCppLLMSpecV2
 
-        if "0.3.1" <= vllm.__version__ <= "0.3.3":
+        if version.parse("0.3.1") <= VLLM_VERSION <= version.parse("0.3.3"):
             # from vllm v0.3.1 to v0.3.3, it uses cupy as NCCL backend
             # in which cupy will fork a process
             # only for xoscar >= 0.3.0, new process is allowed in subpool
@@ -422,7 +431,7 @@ class VLLMModel(LLM):
                 engine_args, xavier_config=self._xavier_config
             )
         elif self._n_worker > 1 or (
-            self._device_count > 1 and vllm.__version__ >= "0.7.0"
+            self._device_count > 1 and VLLM_VERSION >= version.parse("0.7.0")
         ):
             from vllm.config import VllmConfig
 
@@ -547,9 +556,24 @@ class VLLMModel(LLM):
                 _, err, tb = self._loading_error
                 raise err.with_traceback(tb)
 
-    def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
-        from vllm import __version__ as vllm_version
+        # set context length after engine inited
+        self._set_context_length()
 
+    def _set_context_length(self):
+        from vllm import envs
+
+        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+            # v0
+            self._context_length = (
+                self._engine.engine.vllm_config.model_config.max_model_len
+            )
+        else:
+            # v1
+            self._context_length = self._engine.model_config.max_model_len
+        assert self._context_length is not None
+        logger.debug("Model context length: %s", self._context_length)
+
+    def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
         if os.getenv("VLLM_USE_V1") is not None:
             logger.debug(
                 "Setting vLLM v1 via environment variable already, skip checking"
@@ -563,7 +587,7 @@ class VLLMModel(LLM):
                 "Cannot get `EngineArgs._is_v1_supported_oracle` "
                 "to decide enabling vLLM v1, perhaps vllm version is too old, "
                 "version: %s",
-                vllm_version,
+                VLLM_VERSION,
             )
             return
 
@@ -697,7 +721,7 @@ class VLLMModel(LLM):
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
         # Add scheduling policy if vLLM version is 0.6.3 or higher
-        if vllm.__version__ >= "0.6.3":
+        if VLLM_VERSION >= version.parse("0.6.3"):
             model_config.setdefault("scheduling_policy", "fcfs")
             # init mm_processor_kwargs params
             mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
@@ -762,7 +786,11 @@ class VLLMModel(LLM):
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("top_k", generate_config.get("top_k", -1))
-        sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 1024))
+        sanitized.setdefault(  # type: ignore
+            "max_tokens",
+            generate_config.get("max_tokens", XINFERENCE_MAX_TOKENS)  # type: ignore
+            or XINFERENCE_MAX_TOKENS,
+        )
         sanitized.setdefault("stop", generate_config.get("stop", None))
         sanitized.setdefault(
             "stop_token_ids", generate_config.get("stop_token_ids", None)
@@ -821,7 +849,7 @@ class VLLMModel(LLM):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
                     return False
             else:
@@ -897,6 +925,46 @@ class VLLMModel(LLM):
             usage=usage,
         )
 
+    async def _get_tokenizer(self, lora_request: Any) -> Any:
+        try:
+            return await self._engine.get_tokenizer(lora_request)  # type: ignore
+        except AttributeError:
+            return await self._engine.get_tokenizer_async(lora_request)  # type: ignore
+
+    def _tokenize(self, tokenizer: Any, prompt: str, config: dict) -> List[int]:
+        truncate_prompt_tokens = config.get("truncate_prompt_tokens")
+        add_special_tokens = config.get("add_special_tokens", True)
+
+        if truncate_prompt_tokens is None:
+            encoded = tokenizer(prompt, add_special_tokens=add_special_tokens)
+        elif truncate_prompt_tokens < 0:
+            # Negative means we cap at the model's max length
+            encoded = tokenizer(
+                prompt,
+                add_special_tokens=add_special_tokens,
+                truncation=True,
+                max_length=self._context_length,
+            )
+        else:
+            encoded = tokenizer(
+                prompt,
+                add_special_tokens=add_special_tokens,
+                truncation=True,
+                max_length=truncate_prompt_tokens,
+            )
+
+        return encoded.input_ids
+
+    async def _gen_tokens_prompt(
+        self, tokenizer, prompt: Union[str, dict], config: dict
+    ):
+        from vllm import TokensPrompt
+
+        token_ids = await asyncio.to_thread(
+            self._tokenize, tokenizer, prompt, config  # type: ignore
+        )
+        return TokensPrompt(prompt_token_ids=token_ids)
+
     @vllm_check
     async def async_generate(
         self,
@@ -938,7 +1006,7 @@ class VLLMModel(LLM):
             else False
         )
 
-        if VLLM_INSTALLED and vllm.__version__ >= "0.6.3":
+        if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
             # guided decoding only available for vllm >= 0.6.3
             from vllm.sampling_params import GuidedDecodingParams
 
@@ -968,12 +1036,25 @@ class VLLMModel(LLM):
             sanitized_generate_config.pop("guided_whitespace_pattern", None)
             sampling_params = SamplingParams(**sanitized_generate_config)
 
+        prompt_or_token_ids: Union[str, Dict[str, Any], List[int]] = prompt
+        if sampling_params.max_tokens is None:
+            # no max_tokens set, try to get the max tokens
+            # this requires tokenizing
+            tokenizer = await self._get_tokenizer(lora_request)
+            prompt_or_token_ids = await self._gen_tokens_prompt(
+                tokenizer, prompt, sanitized_generate_config  # type: ignore
+            )
+            sampling_params.max_tokens = max_tokens = self._context_length - len(  # type: ignore
+                prompt_or_token_ids["prompt_token_ids"]  # type: ignore
+            )
+            logger.debug("No max_tokens set, setting to: %s", max_tokens)
+
         if not request_id:
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
         results_generator = self._engine.generate(
-            prompt,
+            prompt_or_token_ids,
             sampling_params,
             request_id,
             lora_request,
@@ -1116,14 +1197,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
                     return False
             else:
                 if "4" not in quantization:
                     return False
         if llm_spec.model_format == "ggufv2":
-            if not (VLLM_INSTALLED and vllm.__version__ >= "0.8.2"):
+            if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
@@ -1315,7 +1396,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
                     return False
             else:
@@ -1335,7 +1416,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
         model_config = super()._sanitize_model_config(model_config)
-        if vllm.__version__ >= "0.5.5":
+        if VLLM_VERSION >= version.parse("0.5.5"):
             model_config["limit_mm_per_prompt"] = (
                 json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
                 if model_config.get("limit_mm_per_prompt")
@@ -1363,6 +1444,24 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                         "stop_token_ids", self.model_family.stop_token_ids.copy()
                     )
         return generate_config
+
+    async def _gen_tokens_prompt(
+        self, tokenizer, prompt: Union[str, dict], config: dict
+    ):
+        from vllm import TokensPrompt
+
+        if isinstance(prompt, str):
+            return super()._gen_tokens_prompt(tokenizer, prompt, config)
+
+        prompt_str = prompt["prompt"]
+        multi_modal_data = prompt.get("multi_modal_data")
+
+        token_ids = await asyncio.to_thread(
+            self._tokenize, tokenizer, prompt_str, config  # type: ignore
+        )
+        return TokensPrompt(
+            prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
+        )
 
     @vllm_check
     async def async_chat(

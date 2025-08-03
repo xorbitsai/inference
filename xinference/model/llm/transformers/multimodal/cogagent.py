@@ -215,7 +215,7 @@ class CogAgentChatModel(PytorchMultiModalModel):
         self._platform = generate_config.pop("platform", self._platform)
         self._format = generate_config.pop("format", self._format)
         return {
-            "max_length": generate_config.get("max_tokens", 512),
+            "max_length": generate_config.get("max_tokens") or 512,
             "top_k": generate_config.get("top_k", 1),
             "do_sample": True,
         }

@@ -86,7 +86,7 @@ is to compile the frontend.
 Frontend Compilation
 --------------------
 
-Navigate to the ``inference/xinference/web/ui`` directory. Then, execute the following command
+Navigate to the ``inference/xinference/ui/web/ui`` directory. Then, execute the following command
 to clear the cache:
 
 ::

@@ -379,7 +379,7 @@ class InternVLChatModel(PytorchMultiModalModel):
         generate_config: Dict,
     ) -> Dict[str, Any]:
         return {
-            "max_new_tokens": generate_config.get("max_tokens", 1024),
+            "max_new_tokens": generate_config.get("max_tokens") or 1024,
             "do_sample": False,
             "temperature": generate_config.get("temperature", None),
         }

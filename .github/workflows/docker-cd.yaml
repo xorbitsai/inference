@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    timeout-minutes: 120
+    timeout-minutes: 240
     runs-on: self-hosted
     strategy:
       matrix:

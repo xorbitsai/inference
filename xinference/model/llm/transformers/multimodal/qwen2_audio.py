@@ -108,7 +108,7 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
         self,
         generate_config: Dict,
     ) -> Dict[str, Any]:
-        return dict(max_length=generate_config.get("max_tokens", 512))
+        return dict(max_length=generate_config.get("max_tokens") or 512)
 
     def build_streaming_iter(
         self,

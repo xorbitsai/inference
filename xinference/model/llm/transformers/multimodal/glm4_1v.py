@@ -138,7 +138,7 @@ class Glm4_1VModel(PytorchMultiModalModel):
             top_p=generate_config.get("top_p", 1e-5),
             repetition_penalty=generate_config.get("repetition_penalty", 1.1),
             top_k=generate_config.get("top_k", 2),
-            max_new_tokens=generate_config.get("max_tokens", 512),
+            max_new_tokens=generate_config.get("max_tokens") or 512,
         )
 
     def build_streaming_iter(

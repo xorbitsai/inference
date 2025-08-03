@@ -43,6 +43,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### 新模型
+- 内置 [GLM-4.5](https://github.com/zai-org/GLM-4.5): [#3882](https://github.com/xorbitsai/inference/pull/3882)
 - 内置 [ERNIE 4.5](https://yiyan.baidu.com/blog/posts/ernie4.5/): [#3812](https://github.com/xorbitsai/inference/pull/3812)
 - 内置 [GLM-4.1V-Thinking](https://github.com/THUDM/GLM-4.1V-Thinking/tree/main): [#3756](https://github.com/xorbitsai/inference/pull/3756)
 - 内置 [jina-embeddings-v4](https://jina.ai/news/jina-embeddings-v4-universal-embeddings-for-multimodal-multilingual-retrieval/): [#3814](https://github.com/xorbitsai/inference/pull/3814)
@@ -50,7 +51,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 内置 [Qwen3-Embedding](https://github.com/QwenLM/Qwen3-Embedding): [#3627](https://github.com/xorbitsai/inference/pull/3627)
 - 内置 [Minicpm4](https://github.com/OpenBMB/MiniCPM): [#3609](https://github.com/xorbitsai/inference/pull/3609)
 - 内置 [CogView4](https://github.com/THUDM/CogView4): [#3557](https://github.com/xorbitsai/inference/pull/3557)
-- 内置 [Deepseek-R1-0528](https://huggingface.co/deepseek-ai/DeepSeek-R1-0528): [#3539](https://github.com/xorbitsai/inference/pull/3539)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。

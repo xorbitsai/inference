@@ -147,7 +147,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         return inputs
 
     def build_generate_kwargs(self, generate_config: Dict) -> Dict[str, Any]:
-        max_new_tokens = generate_config.get("max_tokens", 512)
+        max_new_tokens = generate_config.get("max_tokens") or 512
         temperature = generate_config.get("temperature", 1)
         return {"max_new_tokens": max_new_tokens, "temperature": temperature}
 
