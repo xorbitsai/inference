@@ -72,7 +72,7 @@ jobs:
             docker push "$DOCKER_ORG/xinference:latest"
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
             docker push "$DOCKER_ORG/xinference:latest-cpu"
-            docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cu128" "$DOCKER_ORG/xinference:latest-5090"
+            docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cu128" "$DOCKER_ORG/xinference:latest-cu128"
             echo "XINFERENCE_GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
           fi
 
