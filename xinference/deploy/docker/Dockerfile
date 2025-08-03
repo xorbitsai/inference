@@ -11,7 +11,7 @@ RUN apt-get -y update \
   # upgrade libstdc++ and libc for llama-cpp-python
   && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
   && apt-get -y update \
-  && apt-get install -y --only-upgrade libstdc++6 && apt install -y libc6 \
+  && apt-get install -y --only-upgrade libstdc++6 && apt install -y libc6 libnuma1 \
   && mkdir -p $NVM_DIR \
   && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
   && . $NVM_DIR/nvm.sh \
@@ -20,6 +20,11 @@ RUN apt-get -y update \
   && nvm use default \
   && apt-get -yq clean
 
+RUN wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda_12.4.0_550.54.14_linux.run && \
+    chmod +x cuda_12.4.0_550.54.14_linux.run && \
+    ./cuda_12.4.0_550.54.14_linux.run --silent --toolkit --override && \
+    rm -f cuda_12.4.0_550.54.14_linux.run
+
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
 ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
@@ -27,15 +32,16 @@ ENV FLASH_ATTENTION_SKIP_CUDA_BUILD TRUE
 ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
-    pip install flash-attn==2.7.4.post1 --no-build-isolation && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-base.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-ml.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements-models.txt && \
-    pip install -i "$PIP_INDEX" transformers>=4.51.3 && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-base.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-ml.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-models.txt && \
+    pip install -i "$PIP_INDEX" transformers==4.53.2 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.4.6.post5 && \
-    pip install torch==2.6.0 && \
+    pip install -i "$PIP_INDEX" sgl-kernel==0.1.8 && \
+    pip install torch==2.7.1 && \
     pip uninstall flashinfer -y && \
-    pip install flashinfer-python==0.2.5+cu124torch2.6 -i https://flashinfer.ai/whl/cu124/torch2.6 && \
+    pip install flashinfer-python==0.2.9rc2 && \
+    pip install flash-attn==2.8.0.post2 --no-build-isolation && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
