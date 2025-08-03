@@ -1,7 +1,11 @@
 funasr==1.2.6
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing==1.1.0  # 1.1.0 requires pynini==2.1.6.post1
+<<<<<<<< HEAD:xinference/deploy/docker/requirements_12.8/requirements-cu128-models.txt
 WeTextProcessing<1.0.4.1  # 1.0.4 requires pynini==2.1.6
+========
+WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6
+>>>>>>>> 2e361fcd (Update the Dockerfile to support version cu12.4 of vllm0.9.2 and add support for the cuda12.8 version):xinference/deploy/docker/requirements/requirements-models.txt
 librosa  # For ChatTTS
 ChatTTS>=0.2.1
 xxhash  # For ChatTTS
