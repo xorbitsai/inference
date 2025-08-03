@@ -47,7 +47,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
         echo "⚙️ Using CPU version llama-cpp-python..." && \
         pip install "llama-cpp-python>=0.2.82" -i "$PIP_INDEX";  \
     fi && \
-    pip install flash-attn==2.7.4.post1 --no-build-isolation && \
+    # pip install flash-attn==2.7.4.post1 --no-build-isolation && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-ml.txt && \
