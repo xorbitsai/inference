@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-05-25 20:40+0800\n"
+"POT-Creation-Date: 2025-08-04 12:08+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -48,36 +48,46 @@ msgstr "保证 CUDA 在机器上正确安装。可以使用 ``nvidia-smi`` 检�
 
 #: ../../source/getting_started/using_docker_image.rst:14
 msgid ""
-"The CUDA version in the docker image is ``12.4``, and the CUDA version on"
-" the host machine should be ``12.4`` or above, and the NVIDIA driver "
-"version should be ``550`` or above."
+"For CUDA version < 12.8, CUDA version in the docker image is ``12.4``, "
+"and the CUDA version on the host machine should be ``12.4`` or above, and"
+" the NVIDIA driver version should be ``550`` or above."
 msgstr ""
-"镜像中的 CUDA 版本为 ``12.4`` 。为了不出现预期之外的问题，请将宿主机的 "
+"对于 CUDA 版本小于 12.8，镜像中的 CUDA 版本为 ``12.4`` 。为了不出现预期之外的问题，请将宿主机的 "
 "CUDA 版本和 NVIDIA Driver 版本分别升级到 ``12.4`` 和 ``550`` 以上。"
 
 #: ../../source/getting_started/using_docker_image.rst:15
 msgid ""
+"For CUDA version >= 12.8, CUDA version in the docker image is ``12.8``, "
+"and the CUDA version on the host machine should be ``12.8`` or above, and"
+" the NVIDIA driver version should be ``570`` or above."
+msgstr ""
+"对于 CUDA 版本至少 12.8，镜像中的 CUDA 版本为 ``12.8`` 。为了不出现预期之外的问题，请将宿主机的 "
+"CUDA 版本和 NVIDIA Driver 版本分别升级到 ``12.8`` 和 ``570`` 以上。"
+
+#: ../../source/getting_started/using_docker_image.rst:16
+msgid ""
 "Ensure `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter"
 "/cloud-native/container-toolkit/latest/install-guide.html>`_ installed."
-msgstr "请确保已安装 `NVIDIA Container Toolkit <https://docs.nvidia.com/"
+msgstr ""
+"请确保已安装 `NVIDIA Container Toolkit <https://docs.nvidia.com/"
 "datacenter/cloud-native/container-toolkit/latest/install-guide.html>`_ 。"
 
-#: ../../source/getting_started/using_docker_image.rst:19
+#: ../../source/getting_started/using_docker_image.rst:20
 msgid "Docker Image"
 msgstr "Docker 镜像"
 
-#: ../../source/getting_started/using_docker_image.rst:20
+#: ../../source/getting_started/using_docker_image.rst:21
 msgid ""
 "The official image of Xinference is available on DockerHub in the "
 "repository ``xprobe/xinference``. Available tags include:"
 msgstr ""
 "当前，可以通过两个渠道拉取 Xinference 的官方镜像。1. 在 Dockerhub 的 ``"
 "xprobe/xinference`` 仓库里。2. Dockerhub 中的镜像会同步上传一份到阿里云"
-"公共镜像仓库中（自 v1.7.0 起），供访问 Dockerhub 有困难的用户拉取。拉取命令：``docker "
-"pull crpi-49yei0hvmhr144pw.cn-hangzhou.personal.cr.aliyuncs.com/xprobe_xinference2/xinference:<tag>"
-"`` 。目前可用的标签包括："
+"公共镜像仓库中（自 v1.7.0 起），供访问 Dockerhub 有困难的用户拉取。拉取"
+"命令：``docker pull crpi-49yei0hvmhr144pw.cn-hangzhou.personal.cr."
+"aliyuncs.com/xprobe_xinference2/xinference:<tag>`` 。目前可用的标签包括："
 
-#: ../../source/getting_started/using_docker_image.rst:23
+#: ../../source/getting_started/using_docker_image.rst:24
 msgid ""
 "``nightly-main``: This image is built daily from the `GitHub main branch "
 "<https://github.com/xorbitsai/inference>`_ and generally does not "
@@ -86,7 +96,7 @@ msgstr ""
 "``nightly-main``: 这个镜像会每天从 GitHub main 分支更新制作，不保证稳定"
 "可靠。"
 
-#: ../../source/getting_started/using_docker_image.rst:24
+#: ../../source/getting_started/using_docker_image.rst:25
 msgid ""
 "``v<release version>``: This image is built each time a Xinference "
 "release version is published, and it is typically more stable."
@@ -94,21 +104,28 @@ msgstr ""
 "``v<release version>``: 这个镜像会在 Xinference 每次发布的时候制作，通常"
 "可以认为是稳定可靠的。"
 
-#: ../../source/getting_started/using_docker_image.rst:25
+#: ../../source/getting_started/using_docker_image.rst:26
 msgid ""
 "``latest``: This image is built with the latest Xinference release "
 "version."
 msgstr "``latest``: 这个镜像会在 Xinference 发布时指向最新的发布版本"
 
-#: ../../source/getting_started/using_docker_image.rst:26
+#: ../../source/getting_started/using_docker_image.rst:27
 msgid "For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``."
 msgstr "对于 CPU 版本，增加 ``-cpu`` 后缀，如 ``nightly-main-cpu``。"
 
-#: ../../source/getting_started/using_docker_image.rst:30
+#: ../../source/getting_started/using_docker_image.rst:28
+msgid ""
+"For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. "
+"(Xinference version should be v1.8.1 at least)"
+msgstr "对于 CUDA 12.8 版本，增加 ``-cu128`` 后缀，如 ``nightly-main-cu128`` 。"
+"（Xinference 版本需要至少 v1.8.1）"
+
+#: ../../source/getting_started/using_docker_image.rst:32
 msgid "Dockerfile for custom build"
 msgstr "自定义镜像"
 
-#: ../../source/getting_started/using_docker_image.rst:31
+#: ../../source/getting_started/using_docker_image.rst:33
 msgid ""
 "If you need to build the Xinference image according to your own "
 "requirements, the source code for the Dockerfile is located at "
@@ -122,11 +139,11 @@ msgstr ""
 "/Dockerfile>`_ 。请确保使用 Dockerfile 制作镜像时在 Xinference 项目的"
 "根目录下。比如："
 
-#: ../../source/getting_started/using_docker_image.rst:42
+#: ../../source/getting_started/using_docker_image.rst:44
 msgid "Image usage"
 msgstr "使用镜像"
 
-#: ../../source/getting_started/using_docker_image.rst:43
+#: ../../source/getting_started/using_docker_image.rst:45
 msgid ""
 "You can start Xinference in the container like this, simultaneously "
 "mapping port 9997 in the container to port 9998 on the host, enabling "
@@ -135,7 +152,7 @@ msgstr ""
 "你可以使用如下方式在容器内启动 Xinference，同时将 9997 端口映射到宿主机的"
 " 9998 端口，并且指定日志级别为 DEBUG，也可以指定需要的环境变量。"
 
-#: ../../source/getting_started/using_docker_image.rst:51
+#: ../../source/getting_started/using_docker_image.rst:53
 msgid ""
 "The option ``--gpus`` is essential and cannot be omitted, because as "
 "mentioned earlier, the image requires the host machine to have a GPU. "
@@ -144,36 +161,36 @@ msgstr ""
 "``--gpus`` 必须指定，正如前文描述，镜像必须运行在有 GPU 的机器上，否则会"
 "出现错误。"
 
-#: ../../source/getting_started/using_docker_image.rst:52
+#: ../../source/getting_started/using_docker_image.rst:54
 msgid ""
 "The ``-H 0.0.0.0`` parameter after the ``xinference-local`` command "
 "cannot be omitted. Otherwise, the host machine may not be able to access "
 "the port inside the container."
 msgstr "``-H 0.0.0.0`` 也是必须指定的，否则在容器外无法连接到 Xinference 服务。"
 
-#: ../../source/getting_started/using_docker_image.rst:53
+#: ../../source/getting_started/using_docker_image.rst:55
 msgid ""
 "You can add multiple ``-e`` options to introduce multiple environment "
 "variables."
 msgstr "可以指定多个 ``-e`` 选项赋值多个环境变量。"
 
-#: ../../source/getting_started/using_docker_image.rst:56
+#: ../../source/getting_started/using_docker_image.rst:58
 msgid ""
 "Certainly, if you prefer, you can also manually enter the docker "
 "container and start Xinference in any desired way."
 msgstr "当然，也可以运行容器后，进入容器内手动拉起 Xinference。"
 
-#: ../../source/getting_started/using_docker_image.rst:60
+#: ../../source/getting_started/using_docker_image.rst:62
 msgid ""
 "For multiple GPUs, make sure to set the shared memory size, for example: "
 "`docker run --shm-size=128g ...`"
 msgstr "对于多张 GPU，确保设置共享内存大小，例如：`docker run --shm-size=128g ...`"
 
-#: ../../source/getting_started/using_docker_image.rst:64
+#: ../../source/getting_started/using_docker_image.rst:66
 msgid "Mount your volume for loading and saving models"
 msgstr "挂载模型目录"
 
-#: ../../source/getting_started/using_docker_image.rst:65
+#: ../../source/getting_started/using_docker_image.rst:67
 msgid ""
 "The image does not contain any model files by default, and it downloads "
 "the models into the container. Typically, you would need to mount a "
@@ -186,7 +203,7 @@ msgstr ""
 "需要使用已经下载好的模型，需要将宿主机的目录挂载到容器内。这种情况下，"
 "需要在运行容器时指定本地卷，并且为 Xinference 配置环境变量。"
 
-#: ../../source/getting_started/using_docker_image.rst:74
+#: ../../source/getting_started/using_docker_image.rst:76
 msgid ""
 "The principle behind the above command is to mount the specified "
 "directory from the host machine into the container, and then set the "
@@ -202,7 +219,7 @@ msgstr ""
 "指定的目录中。您无需担心在 Docker 容器停止时丢失这些文件，下次运行容器时"
 "，您可以直接使用现有的模型，无需重复下载。"
 
-#: ../../source/getting_started/using_docker_image.rst:78
+#: ../../source/getting_started/using_docker_image.rst:80
 msgid ""
 "If you downloaded the model using the default path on the host machine, "
 "and since the xinference cache directory stores the model using symbolic "

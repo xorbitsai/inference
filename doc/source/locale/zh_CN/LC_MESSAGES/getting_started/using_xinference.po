@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-02 23:32+0800\n"
+"POT-Creation-Date: 2025-08-04 12:08+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -492,11 +492,26 @@ msgstr "用以下命令在容器中运行 Xinference："
 msgid "Run On Nvidia GPU Host"
 msgstr "在拥有英伟达显卡的机器上运行"
 
-#: ../../source/getting_started/using_xinference.rst:447
+#: ../../source/getting_started/using_xinference.rst:442
+msgid "For cuda 12.4:"
+msgstr "对于 cuda 12.4："
+
+#: ../../source/getting_started/using_xinference.rst:448
+msgid "For cuda 12.8:"
+msgstr "对于 cuda 12.8："
+
+#: ../../source/getting_started/using_xinference.rst:450
+msgid ""
+"CUDA 12.8 version is experimental, welcome to give us feedbacks to help "
+"us to improve."
+msgstr ""
+"CUDA 12.8 版本是实验性质，欢迎给我们反馈以改进。"
+
+#: ../../source/getting_started/using_xinference.rst:458
 msgid "Run On CPU Only Host"
 msgstr "在只有 CPU 的机器上运行"
 
-#: ../../source/getting_started/using_xinference.rst:453
+#: ../../source/getting_started/using_xinference.rst:464
 msgid ""
 "Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
 "``latest`` can be used for the latest version."
@@ -504,17 +519,17 @@ msgstr ""
 "将 ``<your_version>`` 替换为 Xinference 的版本，比如 ``v0.10.3``，可以用 "
 "``latest`` 来用于最新版本。"
 
-#: ../../source/getting_started/using_xinference.rst:455
+#: ../../source/getting_started/using_xinference.rst:466
 msgid ""
 "For more docker usage, refer to :ref:`Using Docker Image "
 "<using_docker_image>`."
 msgstr "更多 docker 使用，请参考 :ref:`使用 docker 镜像 <using_docker_image>`。"
 
-#: ../../source/getting_started/using_xinference.rst:459
+#: ../../source/getting_started/using_xinference.rst:470
 msgid "What's Next?"
 msgstr "更多"
 
-#: ../../source/getting_started/using_xinference.rst:461
+#: ../../source/getting_started/using_xinference.rst:472
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
@@ -523,15 +538,12 @@ msgstr ""
 "恭喜你，已经初步掌握了 Xinference 的用法！为了帮助你更好地使用工具，下面"
 "是其他的一些文档和指导资源："
 
-#: ../../source/getting_started/using_xinference.rst:464
+#: ../../source/getting_started/using_xinference.rst:475
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ":ref:`如何使用 Python 创建不同类型的模型 <user_guide_client_api>`"
 
-#: ../../source/getting_started/using_xinference.rst:466
+#: ../../source/getting_started/using_xinference.rst:477
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
-
-#~ msgid "Run Llama-2"
-#~ msgstr "运行 Llama-2"

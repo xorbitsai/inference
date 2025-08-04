@@ -439,9 +439,20 @@ To start Xinference in a Docker container, run the following command:
 Run On Nvidia GPU Host
 -----------------------
 
+For cuda 12.4:
+
 .. code-block:: bash
 
   docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version> xinference-local -H 0.0.0.0 --log-level debug
+
+For cuda 12.8:
+
+.. versionadded:: v1.8.1
+  CUDA 12.8 version is experimental, welcome to give us feedbacks to help us to improve.
+
+.. code-block:: bash
+
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version>-cu128 xinference-local -H 0.0.0.0 --log-level debug
 
 Run On CPU Only Host
 -----------------------
