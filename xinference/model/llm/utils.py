@@ -67,6 +67,9 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen3",
     "HuatuoGPT-o1-Qwen2.5",
     "DianJin-R1",
+    "Qwen3-Thinking",
+    "Qwen3-Instruct",
+    "Qwen3-Coder",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -167,8 +170,7 @@ class ChatModelMixin:
                     return json.loads(kwargs)
                 except json.JSONDecodeError:
                     raise TypeError(
-                        f"`chat_template_kwargs` should be json parsable, "
-                        f"got: {kwargs}"
+                        f"`chat_template_kwargs` should be json parsable, got: {kwargs}"
                     )
             elif isinstance(kwargs, dict):
                 return kwargs
@@ -254,7 +256,7 @@ class ChatModelMixin:
                         ret += role + "\n" + text + intra_message_sep + "\n"
                     else:
                         placeholders = "\n".join(
-                            f"Image-{i+1}: <image>\n"
+                            f"Image-{i + 1}: <image>\n"
                             for i in range(
                                 len(images) - len(image_futures), len(images)
                             )
