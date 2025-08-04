@@ -11,7 +11,8 @@ Prerequisites
 =============
 * The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
-* The CUDA version in the docker image is ``12.4``, and the CUDA version on the host machine should be ``12.4`` or above, and the NVIDIA driver version should be ``550`` or above.
+* For CUDA version < 12.8, CUDA version in the docker image is ``12.4``, and the CUDA version on the host machine should be ``12.4`` or above, and the NVIDIA driver version should be ``550`` or above.
+* For CUDA version >= 12.8, CUDA version in the docker image is ``12.8``, and the CUDA version on the host machine should be ``12.8`` or above, and the NVIDIA driver version should be ``570`` or above.
 * Ensure `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>`_ installed.
 
 
@@ -24,6 +25,7 @@ Available tags include:
 * ``v<release version>``: This image is built each time a Xinference release version is published, and it is typically more stable.
 * ``latest``: This image is built with the latest Xinference release version.
 * For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
+* For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. (Xinference version should be v1.8.1 at least)
 
 
 Dockerfile for custom build
