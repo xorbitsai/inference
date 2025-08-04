@@ -17314,7 +17314,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "We introduce the updated version of the Qwen3-235B-A22B non-thinking mode, named Qwen3-235B-A22B-Instruct-2507",
     "model_specs": [
@@ -18540,7 +18541,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "we're announcing Qwen3-Coder, our most agentic code model to date",
     "model_specs": [
