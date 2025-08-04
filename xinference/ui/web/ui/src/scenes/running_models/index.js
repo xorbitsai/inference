@@ -516,6 +516,11 @@ const RunningModels = () => {
       flex: 1,
     },
     {
+      field: 'replica',
+      headerName: t('runningModels.replica'),
+      flex: 1,
+    },
+    {
       field: 'url',
       headerName: t('runningModels.actions'),
       flex: 1,
@@ -526,7 +531,6 @@ const RunningModels = () => {
       renderCell: ({ row }) => {
         // this URL means model_uid
         const url = row.url
-        console.log('url: ' + url)
         const openUrl = `${endPoint}/` + url
         const closeUrl = `${endPoint}/v1/models/` + url
         let pathType
