@@ -192,6 +192,11 @@
         "model_revision": "master"
       }
     },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers.git",

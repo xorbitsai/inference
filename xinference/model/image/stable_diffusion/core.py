@@ -254,6 +254,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 self._model = FluxKontextPipeline.from_pretrained(
                     self._model_path, **self._kwargs
                 )
+            elif "qwen" in self._model_spec.model_name.lower():
+                # TODO: remove this branch when auto pipeline supports
+                # Qwen-Image
+                from diffusers import DiffusionPipeline
+
+                self._model = DiffusionPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
             else:
                 raise
         self._load_to_device(self._model)
