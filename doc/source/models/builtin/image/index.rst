@@ -27,6 +27,8 @@ The following is a list of built-in image models in Xinference:
   
    kolors
   
+   qwen-image
+  
    sd-turbo
   
    sd3-medium
