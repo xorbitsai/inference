@@ -477,12 +477,12 @@ class ChatModelMixin:
                 # usage
                 chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
+                if choices[0].get("text"):
+                    full_text += choices[0]["text"]  # type: ignore
+
                 chat_chunk = cls._to_chat_completion_chunk(
                     chunk, reasoning_parser, previous_texts
                 )
-                delta = chat_chunk["choices"][0].get("delta")
-                if delta and delta.get("content"):
-                    full_text += delta["content"]  # type: ignore
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)
 
