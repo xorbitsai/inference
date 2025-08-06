@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-29 21:39+0800\n"
+"POT-Creation-Date: 2025-07-30 11:01+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -44,8 +44,8 @@ msgid ""
 "sglang, please install it separately via ``pip install "
 "'xinference[sglang]'``."
 msgstr ""
-"由于 vllm 和 sglang 在包依赖上无法调和，因此，我们从 all 里移除了 sglang，"
-"如果要使用 sglang，请使用 ``pip install 'xinference[sglang]'`` 。"
+"由于 vllm 和 sglang 在包依赖上无法调和，因此，我们从 all 里移除了 sglang"
+"，如果要使用 sglang，请使用 ``pip install 'xinference[sglang]'`` 。"
 
 #: ../../source/getting_started/installation.rst:17
 msgid "Several usage scenarios require special attention."
@@ -347,32 +347,24 @@ msgstr ""
 "v1.6.0 开始，该后端已被移除。"
 
 #: ../../source/getting_started/installation.rst:125
-#: ../../source/getting_started/installation.rst:148
-#: ../../source/getting_started/installation.rst:161
+#: ../../source/getting_started/installation.rst:135
+#: ../../source/getting_started/installation.rst:144
 msgid "Initial setup::"
 msgstr "初始步骤："
 
 #: ../../source/getting_started/installation.rst:129
-msgid "Installation instructions for ``xllamacpp``:"
-msgstr "``xllamacpp`` 的安装说明："
-
-#: ../../source/getting_started/installation.rst:131
-msgid "CPU or Mac Metal::"
-msgstr "CPU 或 Mac Metal："
-
-#: ../../source/getting_started/installation.rst:135
-msgid "CUDA::"
+msgid ""
+"For more installation instructions for ``xllamacpp`` to enable GPU "
+"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
 msgstr ""
+"更多的 ``xllamacpp`` 安装说明以便开启 GPU 加速，请参考：https://github.com"
+"/xorbitsai/xllamacpp"
 
-#: ../../source/getting_started/installation.rst:139
-msgid "HIP::"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:145
+#: ../../source/getting_started/installation.rst:132
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:146
+#: ../../source/getting_started/installation.rst:133
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -383,18 +375,18 @@ msgstr ""
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:158
+#: ../../source/getting_started/installation.rst:141
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:159
+#: ../../source/getting_started/installation.rst:142
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:166
+#: ../../source/getting_started/installation.rst:149
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:168
+#: ../../source/getting_started/installation.rst:151
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
