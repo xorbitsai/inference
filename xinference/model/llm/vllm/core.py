@@ -1349,12 +1349,25 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
-        full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, **full_context_kwargs
-        )
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
+
+        lora_request = None
+        lora_model = generate_config.pop("lora_name")
+        if lora_model is not None:
+            for lora in self.lora_requests:
+                if lora_model == lora.lora_name:
+                    lora_request = lora
+                    break
+        tokenizer = await self._get_tokenizer(lora_request)
+
+        full_prompt = self.get_full_context(
+            messages,
+            self.model_family.chat_template,
+            tokenizer=tokenizer,
+            **full_context_kwargs,
+        )
 
         if stream:
             agen = await self.async_generate(
