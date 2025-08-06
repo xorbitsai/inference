@@ -1285,6 +1285,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         previous_texts = [""]
         tool_call = False
         tool_call_texts = [""]
+        full_text = ""
         if self.reasoning_parser:
             set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
@@ -1300,6 +1301,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if not choices:
                 yield self._get_final_chat_completion_chunk(chunk)
             else:
+                full_text += chunk["choices"][0]["text"]
                 if self.is_tool_call_chunk_start(chunk):
                     tool_call = True
                 if tool_call:
@@ -1321,7 +1323,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                         chunk, self.reasoning_parser, previous_texts
                     )
             i += 1
-        logger.debug("Stream output text: %s", previous_texts[-1])
+        logger.debug("Chat finished, output: %s", full_text)
 
     @vllm_check
     async def async_chat(
