@@ -1321,6 +1321,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                         chunk, self.reasoning_parser, previous_texts
                     )
             i += 1
+        logger.debug("Stream output text: %s", previous_texts[-1])
 
     @vllm_check
     async def async_chat(
