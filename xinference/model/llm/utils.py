@@ -480,6 +480,7 @@ class ChatModelMixin:
                     chunk, reasoning_parser, previous_texts
                 )
             yield chat_chunk
+        logger.debug("Stream output text: %s", previous_texts[-1])
 
     @staticmethod
     def _to_chat_completion(
