@@ -197,6 +197,9 @@
       "quantize_text_encoder": "text_encoder",
       "torch_dtype": "bfloat16"
     },
+    "default_generate_config": {
+      "guidance_scale": 1.0
+    },
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers.git",
