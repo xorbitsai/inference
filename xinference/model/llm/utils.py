@@ -82,9 +82,7 @@ LLAMA3_TOOL_CALL_FAMILY = [
     "HuatuoGPT-o1-LLaMA-3.1",
 ]
 
-DEEPSEEK_TOOL_CALL_FAMILY = [
-    "deepseek-v3",
-]
+DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528"]
 
 TOOL_CALL_FAMILY = (
     QWEN_TOOL_CALL_FAMILY
