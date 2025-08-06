@@ -288,7 +288,7 @@ class PytorchModel(LLM):
 
         torch_dtype = self._pytorch_model_config.get("torch_dtype")
         if torch_dtype is not None:
-            if isinstance(torch_dtype, str):
+            if isinstance(torch_dtype, str) and torch_dtype != "auto":
                 torch_dtype = getattr(torch, torch_dtype)
             kwargs["torch_dtype"] = torch_dtype
         else:
@@ -332,6 +332,8 @@ class PytorchModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+
+        logger.debug("Loading Transformers model with kwargs: %s", kwargs)
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer(**kwargs)
