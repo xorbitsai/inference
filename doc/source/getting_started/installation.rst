@@ -98,6 +98,7 @@ Currently, supported models include:
 - ``Ernie4.5``
 - ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``
 - ``glm-4.5``
+- ``gpt-oss``
 .. vllm_end
 
 To install Xinference and vLLM::

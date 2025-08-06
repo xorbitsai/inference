@@ -167,6 +167,7 @@ Currently, supported model includes:
 - ``Ernie4.5``
 - ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``
 - ``glm-4.5``
+- ``gpt-oss``
 .. vllm_end
 
 .. _sglang_backend:
