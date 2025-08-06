@@ -1357,7 +1357,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         stream = generate_config.get("stream", None)
 
         lora_request = None
-        lora_model = generate_config.pop("lora_name")
+        lora_model = generate_config.get("lora_name")
         if lora_model is not None:
             for lora in self.lora_requests:
                 if lora_model == lora.lora_name:
