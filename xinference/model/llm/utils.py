@@ -482,7 +482,7 @@ class ChatModelMixin:
                 )
                 delta = chat_chunk["choices"][0].get("delta")
                 if delta and delta.get("content"):
-                    full_text += delta["content"]
+                    full_text += delta["content"]  # type: ignore
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)
 
