@@ -817,10 +817,7 @@ class WorkerActor(xo.StatelessActor):
             # we specify python_path explicitly
             # sometimes uv would find other versions.
             python_path = pathlib.Path(sys.executable)
-        kw = {}
-        if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
-            kw["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
-        virtual_env_manager.create_env(python_path=python_path, **kw)
+        virtual_env_manager.create_env(python_path=python_path)
         return virtual_env_manager
 
     @classmethod
@@ -847,6 +844,8 @@ class WorkerActor(xo.StatelessActor):
             packages.extend(virtual_env_packages)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
+        if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
+            conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
 
         logger.info(
             "Installing packages %s in virtual env %s, with settings(%s)",

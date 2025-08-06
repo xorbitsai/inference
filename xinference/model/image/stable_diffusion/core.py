@@ -254,6 +254,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 self._model = FluxKontextPipeline.from_pretrained(
                     self._model_path, **self._kwargs
                 )
+            elif "qwen" in self._model_spec.model_name.lower():
+                # TODO: remove this branch when auto pipeline supports
+                # Qwen-Image
+                from diffusers import DiffusionPipeline
+
+                self._model = DiffusionPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
             else:
                 raise
         self._load_to_device(self._model)
@@ -348,10 +356,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return
 
         if not quantize_text_encoder:
+            logger.debug("No text encoder quantization")
             return
 
         quantization_method = self._kwargs.pop("text_encoder_quantize_method", "bnb")
         quantization = self._kwargs.pop("text_encoder_quantization", "8-bit")
+
+        logger.debug(
+            "Quantize text encoder %s with method %s, quantization %s",
+            quantize_text_encoder,
+            quantization_method,
+            quantization,
+        )
 
         torch_dtype = self._torch_dtype
         for text_encoder_name in quantize_text_encoder.split(","):
@@ -389,7 +405,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         if not quantization:
             # skip if no quantization specified
+            logger.debug("No transformer quantization")
             return
+
+        logger.debug(
+            "Quantize transformer with %s, quantization %s", method, quantization
+        )
 
         torch_dtype = self._torch_dtype
         transformer_cls = self._get_layer_cls("transformer")
@@ -409,6 +430,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         # GGUF transformer
         torch_dtype = self._torch_dtype
+        logger.debug("Quantize transformer with gguf file %s", self._gguf_model_path)
         self._kwargs["transformer"] = self._get_layer_cls(
             "transformer"
         ).from_single_file(

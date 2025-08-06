@@ -46,9 +46,12 @@ The Text-to-image API is supported with the following models in Xinference:
 * sd3.5-large-turbo
 * FLUX.1-schnell
 * FLUX.1-dev
+* Flux.1-Kontext-dev
 * Kolors
 * hunyuandit-v1.2
 * hunyuandit-v1.2-distilled
+* cogview4
+* Qwen-Image
 
 
 Quickstart
@@ -210,6 +213,8 @@ Below list default options that used from v0.16.1.
 | sd3.5-large       | text_encoder_3        | N/A                  | True             |
 +-------------------+-----------------------+----------------------+------------------+
 | sd3.5-large-turbo | text_encoder_3        | N/A                  | True             |
++-------------------+-----------------------+----------------------+------------------+
+| Qwen-Image        | text_encoder          | N/A                  | False            |
 +-------------------+-----------------------+----------------------+------------------+
 
 .. note::
