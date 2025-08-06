@@ -20918,6 +20918,7 @@
     "virtualenv": {
       "packages": [
         "transformers>=4.55.0,<4.56.0",
+        "kernels==0.9.0",
         "#system_numpy#"
       ]
     }

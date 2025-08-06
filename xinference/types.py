@@ -296,6 +296,7 @@ class PytorchModelConfig(TypedDict, total=False):
     max_pixels: NotRequired[int]
     quantization_config: NotRequired[Dict]
     context_length: NotRequired[int]
+    torch_dtype: NotRequired[str]
 
 
 def get_pydantic_model_from_method(
