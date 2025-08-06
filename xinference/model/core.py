@@ -82,6 +82,8 @@ def create_model_instance(
             model_uid,
             model_name,
             model_engine,
+            model_format,
+            quantization,
             download_hub,
             model_path,
             **kwargs,
