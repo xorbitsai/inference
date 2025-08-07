@@ -557,7 +557,9 @@ class VLLMModel(LLM):
                 raise err.with_traceback(tb)
 
         # set context length after engine inited
-        self._set_context_length()
+        # if shard > 0, the engine will be inited in another process
+        if self._engine:
+            self._set_context_length()
 
     def _set_context_length(self):
         from vllm import envs
