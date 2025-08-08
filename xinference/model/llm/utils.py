@@ -465,6 +465,7 @@ class ChatModelMixin:
                 chat_context_var.set(ctx)
 
         previous_texts = [""]
+        full_text = ""
         # Process chunks
         if reasoning_parser:
             set_context()
@@ -476,10 +477,14 @@ class ChatModelMixin:
                 # usage
                 chat_chunk = cls._get_final_chat_completion_chunk(chunk)
             else:
+                if choices[0].get("text"):
+                    full_text += choices[0]["text"]  # type: ignore
+
                 chat_chunk = cls._to_chat_completion_chunk(
                     chunk, reasoning_parser, previous_texts
                 )
             yield chat_chunk
+        logger.debug("Chat finished, output: %s", full_text)
 
     @staticmethod
     def _to_chat_completion(

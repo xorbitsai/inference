@@ -275,6 +275,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
+    VLLM_SUPPORTED_CHAT_MODELS.append("gpt-oss")
 
 
 class VLLMModel(LLM):
@@ -1284,6 +1285,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         previous_texts = [""]
         tool_call = False
         tool_call_texts = [""]
+        full_text = ""
         if self.reasoning_parser:
             set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
@@ -1299,6 +1301,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if not choices:
                 yield self._get_final_chat_completion_chunk(chunk)
             else:
+                full_text += chunk["choices"][0]["text"]
                 if self.is_tool_call_chunk_start(chunk):
                     tool_call = True
                 if tool_call:
@@ -1320,6 +1323,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                         chunk, self.reasoning_parser, previous_texts
                     )
             i += 1
+        logger.debug("Chat finished, output: %s", full_text)
 
     @vllm_check
     async def async_chat(
@@ -1348,12 +1352,25 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
-        full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, **full_context_kwargs
-        )
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
+
+        lora_request = None
+        lora_model = generate_config.get("lora_name")
+        if lora_model is not None:
+            for lora in self.lora_requests:
+                if lora_model == lora.lora_name:
+                    lora_request = lora
+                    break
+        tokenizer = await self._get_tokenizer(lora_request)
+
+        full_prompt = self.get_full_context(
+            messages,
+            self.model_family.chat_template,
+            tokenizer=tokenizer,
+            **full_context_kwargs,
+        )
 
         if stream:
             agen = await self.async_generate(
