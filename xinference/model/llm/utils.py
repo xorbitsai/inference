@@ -82,9 +82,7 @@ LLAMA3_TOOL_CALL_FAMILY = [
     "HuatuoGPT-o1-LLaMA-3.1",
 ]
 
-DEEPSEEK_TOOL_CALL_FAMILY = [
-    "deepseek-v3",
-]
+DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528"]
 
 TOOL_CALL_FAMILY = (
     QWEN_TOOL_CALL_FAMILY
@@ -691,6 +689,52 @@ class ChatModelMixin:
         return results
 
     @classmethod
+    def _eval_deepseek_r1_arguments(cls, c) -> List[Tuple]:
+        """
+        Parses tool calls from deepseek-r1 (0528) chat template format.
+        Returns:
+            List of (None, function_name, arguments_dict)
+            or (raw_content, None, None) if parsing fails.
+        """
+        text = c["choices"][0]["text"]
+        pattern = (
+            r"<\｜tool▁call▁begin｜>function<\｜tool▁sep｜>([^\n]+)\n"
+            r"```json\n(.*?)\n```<\｜tool▁call▁end｜>"
+        )
+
+        matches = re.findall(pattern, text, re.DOTALL)
+        if not matches:
+            return [(text, None, None)]
+
+        tool_calls = set()
+        results = []
+
+        for func_name, raw_json in matches:
+            func_and_args = None
+            try:
+                func_and_args = json.loads(raw_json)
+                arguments_hashable = frozenset(func_and_args.items())
+                tool_call_tuple = (
+                    None,
+                    func_name,
+                    func_and_args,
+                )
+            except Exception:
+                tool_call_tuple = (raw_json, None, None)
+                arguments_hashable = None
+
+            dedup_key = (
+                (func_name, arguments_hashable)
+                if func_and_args is not None
+                else raw_json
+            )
+            if dedup_key not in tool_calls:
+                tool_calls.add(dedup_key)
+                results.append(tool_call_tuple)
+
+        return results
+
+    @classmethod
     def _eval_tool_arguments(
         cls, model_family, c, tool_call_text: Optional[str] = None
     ):
@@ -702,7 +746,10 @@ class ChatModelMixin:
         elif family in LLAMA3_TOOL_CALL_FAMILY:
             result = cls._eval_llama3_chat_arguments(c)
         elif family in DEEPSEEK_TOOL_CALL_FAMILY:
-            result = cls._eval_deepseek_chat_arguments(c)
+            if family == "deepseek-r1-0528":
+                result = cls._eval_deepseek_r1_arguments(c)
+            else:
+                result = cls._eval_deepseek_chat_arguments(c)
         else:
             raise Exception(
                 f"Model {model_family.model_name} is not support tool calls."

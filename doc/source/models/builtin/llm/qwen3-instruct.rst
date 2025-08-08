@@ -7,7 +7,7 @@ Qwen3-Instruct
 - **Context Length:** 262144
 - **Model Name:** Qwen3-Instruct
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** We introduce the updated version of the Qwen3-235B-A22B non-thinking mode, named Qwen3-235B-A22B-Instruct-2507
 
 Specifications

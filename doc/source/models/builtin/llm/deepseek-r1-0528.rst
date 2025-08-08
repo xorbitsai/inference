@@ -7,7 +7,7 @@ deepseek-r1-0528
 - **Context Length:** 163840
 - **Model Name:** deepseek-r1-0528
 - **Languages:** en, zh
-- **Abilities:** chat, reasoning
+- **Abilities:** chat, reasoning, tools
 - **Description:** DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
 
 Specifications

@@ -107,7 +107,7 @@ The following is a list of built-in LLM in Xinference:
      - DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
 
    * - :ref:`deepseek-r1-0528 <models_llm_deepseek-r1-0528>`
-     - chat, reasoning
+     - chat, reasoning, tools
      - 163840
      - DeepSeek-R1, which incorporates cold-start data before RL. DeepSeek-R1 achieves performance comparable to OpenAI-o1 across math, code, and reasoning tasks.
 
@@ -507,12 +507,12 @@ The following is a list of built-in LLM in Xinference:
      - Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support
 
    * - :ref:`qwen3-coder <models_llm_qwen3-coder>`
-     - chat
+     - chat, tools
      - 262144
      - we're announcing Qwen3-Coder, our most agentic code model to date
 
    * - :ref:`qwen3-instruct <models_llm_qwen3-instruct>`
-     - chat
+     - chat, tools
      - 262144
      - We introduce the updated version of the Qwen3-235B-A22B non-thinking mode, named Qwen3-235B-A22B-Instruct-2507
 

@@ -44,7 +44,10 @@ The ``tools`` ability is supported with the following models in Xinference:
 * :ref:`models_llm_qwen2.5-coder-instruct`
 * :ref:`models_llm_qwq-32b`
 * :ref:`models_llm_qwen3`
+* :ref:`models_llm_qwen3-instruct`
+* :ref:`models_llm_qwen3-coder`
 * :ref:`models_llm_deepseek-v3`
+* :ref:`models_llm_deepseek-r1-0528`
 
 Quickstart
 ==============
