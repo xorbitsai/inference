@@ -7,7 +7,7 @@ Qwen3-Coder
 - **Context Length:** 262144
 - **Model Name:** Qwen3-Coder
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** we're announcing Qwen3-Coder, our most agentic code model to date
 
 Specifications
