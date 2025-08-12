@@ -39,6 +39,7 @@ from ..llm_family import CustomLLMFamilyV2
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
     generate_completion_chunk,
 )
@@ -471,6 +472,7 @@ class SGLANGModel(LLM):
         *,
         image_data: Optional[Union[List[str], str]] = None,
         generate_config: Optional[SGLANGGenerateConfig] = None,
+        tools: Optional[List[Dict]] = None,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
@@ -501,6 +503,10 @@ class SGLANGModel(LLM):
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+                complete_response = ""
+                match_tool_call_tmp_results: List[CompletionChunk] = []
+                is_match_tool_call = False
+                chunk = None
                 finish_reason = None
                 async for meta_info, out in self._stream_generate(
                     prompt, image_data, **sanitized_generate_config
@@ -508,6 +514,7 @@ class SGLANGModel(LLM):
                     chunk = self._convert_state_to_completion_chunk(
                         request_id, self.model_uid, output_text=out
                     )
+                    complete_response += out
                     finish_reason = meta_info["finish_reason"]
                     prompt_tokens = meta_info["prompt_tokens"]
                     completion_tokens = meta_info["completion_tokens"]
@@ -517,6 +524,49 @@ class SGLANGModel(LLM):
                         completion_tokens=completion_tokens,
                         total_tokens=total_tokens,
                     )
+                    if tools:
+                        """
+                        The qwen2 tool call returns format like this:
+                        <tool_call>
+                        {...}
+                        </tool_call>
+                        Here is to match this.
+                        """
+                        if (
+                            len(QWEN_TOOL_CALL_SYMBOLS[0]) > len(complete_response)
+                        ) and (
+                            not QWEN_TOOL_CALL_SYMBOLS[0].startswith(complete_response)
+                        ):
+                            for c in match_tool_call_tmp_results:
+                                yield c
+                            match_tool_call_tmp_results.clear()
+                            yield chunk
+                        elif (
+                            len(QWEN_TOOL_CALL_SYMBOLS[0]) > len(complete_response)
+                        ) and (QWEN_TOOL_CALL_SYMBOLS[0].startswith(complete_response)):
+                            match_tool_call_tmp_results.append(chunk)
+                        else:
+                            assert len(QWEN_TOOL_CALL_SYMBOLS[0]) <= len(
+                                complete_response
+                            )
+                            if not is_match_tool_call and complete_response.startswith(
+                                QWEN_TOOL_CALL_SYMBOLS[0]
+                            ):
+                                is_match_tool_call = True
+                                match_tool_call_tmp_results.clear()
+
+                            if not is_match_tool_call:
+                                for c in match_tool_call_tmp_results:
+                                    yield c
+                                match_tool_call_tmp_results.clear()
+                                yield chunk
+                            else:
+                                chunk["choices"][0]["text"] = complete_response
+                    else:
+                        yield chunk
+
+                if is_match_tool_call:
+                    assert chunk is not None
                     yield chunk
 
                 finish_reason = (
@@ -588,6 +638,57 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config.pop("chat_template_kwargs", None)
         return generate_config
 
+    @staticmethod
+    def is_tool_call_chunk_start(chunk):
+        return chunk["choices"][0]["text"].startswith(QWEN_TOOL_CALL_SYMBOLS[0])
+
+    @staticmethod
+    def is_tool_call_chunk_end(chunk):
+        return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
+
+    async def _async_to_tool_completion_chunks(
+        self,
+        chunks: AsyncGenerator[CompletionChunk, None],
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        i = 0
+        previous_texts = [""]
+        tool_call = False
+        tool_call_texts = [""]
+        if self.reasoning_parser:
+            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
+        async for chunk in chunks:
+            if i == 0:
+                for first_chunk in self._get_first_chat_completion_chunk(
+                    chunk, self.reasoning_parser
+                ):
+                    yield first_chunk
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield self._get_final_chat_completion_chunk(chunk)
+            else:
+                if self.is_tool_call_chunk_start(chunk):
+                    tool_call = True
+                if tool_call:
+                    tool_call_text = tool_call_texts[-1]
+                    tool_call_text += chunk["choices"][0]["text"]
+                    tool_call_texts.append(tool_call_text)
+                    if self.is_tool_call_chunk_end(chunk):
+                        yield self._post_process_completion_chunk(
+                            self.model_family,
+                            self.model_uid,
+                            chunk,
+                            reasoning_parser=self.reasoning_parser,
+                            tool_call_text=tool_call_text,
+                        )
+                        tool_call = False
+                        tool_call_texts = [""]
+                else:
+                    yield self._to_chat_completion_chunk(
+                        chunk, self.reasoning_parser, previous_texts
+                    )
+            i += 1
+
     async def async_chat(
         self,
         messages: List[Dict],
@@ -618,13 +719,15 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
+            agen = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
+            if tools:
+                return self._async_to_tool_completion_chunks(agen)
             return self._async_to_chat_completion_chunks(
                 agen, self.reasoning_parser, chat_template_kwargs
             )
         else:
-            c = await self.async_generate(full_prompt, generate_config=generate_config)  # type: ignore
+            c = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._post_process_completion(

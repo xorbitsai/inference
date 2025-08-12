@@ -365,6 +365,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         return isinstance(self._model, VLLMModel)
 
+    def is_sglang_backend(self) -> bool:
+        from ..model.llm.sglang.core import SGLANGModel
+
+        return isinstance(self._model, SGLANGModel)
+
     async def load(self):
         try:
             # Change process title for model
