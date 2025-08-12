@@ -121,7 +121,8 @@
     "commandLineTip": "モデル名が一致しているか確認してください。",
     "featured": "おすすめとお気に入り",
     "all": "すべて",
-    "cancelledSuccessfully": "正常にキャンセルされました！"
+    "cancelledSuccessfully": "正常にキャンセルされました！",
+    "mustBeUnique": "{{key}} は一意でなければなりません"
   },
 
   "runningModels": {
@@ -227,7 +228,9 @@
   },
 
   "components": {
-    "copySuccess": "クリップボードにコピーしました！",
-    "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。"
+    "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。",
+    "warning": "警告",
+    "ok": "確認",
+    "cancel": "キャンセル"
   }
 }

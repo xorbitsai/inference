@@ -24,7 +24,7 @@ export const llmAllDataKey = [
   'peft_model_config',
   'quantization_config',
   'enable_thinking',
-  'multimodal_projectors',
+  'multimodal_projector',
   'enable_virtual_env',
   'virtual_env_packages',
   'envs',

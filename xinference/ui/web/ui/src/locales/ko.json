@@ -121,7 +121,8 @@
     "commandLineTip": "모델 이름이 일치하는지 확인하세요.",
     "featured": "추천 및 즐겨찾기",
     "all": "모두",
-    "cancelledSuccessfully": "성공적으로 취소되었습니다!"
+    "cancelledSuccessfully": "성공적으로 취소되었습니다!",
+    "mustBeUnique": "{{key}} 는 고유해야 합니다"
   },
 
   "runningModels": {
@@ -227,7 +228,9 @@
   },
 
   "components": {
-    "copySuccess": "클립보드에 복사되었습니다!",
-    "suggestsCommonParameters": "일반적인 매개변수를 제안합니다. 다른 매개변수도 사용 가능합니다."
+    "suggestsCommonParameters": "일반적인 매개변수를 제안합니다. 다른 매개변수도 사용 가능합니다.",
+    "warning": "경고",
+    "ok": "확인",
+    "cancel": "취소"
   }
 }

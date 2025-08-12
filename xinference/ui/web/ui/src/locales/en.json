@@ -121,7 +121,8 @@
     "commandLineTip": "Please confirm whether the model names are consistent.",
     "featured": "featured",
     "all": "all",
-    "cancelledSuccessfully": "Cancelled Successfully!"
+    "cancelledSuccessfully": "Cancelled Successfully!",
+    "mustBeUnique": "{{key}} must be unique"
   },
 
   "runningModels": {
@@ -227,7 +228,9 @@
   },
 
   "components": {
-    "copySuccess": "Copied to clipboard!",
-    "suggestsCommonParameters": "Suggests common parameters; others allowed."
+    "suggestsCommonParameters": "Suggests common parameters; others allowed.",
+    "warning": "Warning",
+    "ok": "OK",
+    "cancel": "Cancel"
   }
 }
