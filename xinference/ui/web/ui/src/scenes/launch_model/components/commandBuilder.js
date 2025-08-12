@@ -1,7 +1,6 @@
-import FilterNoneIcon from '@mui/icons-material/FilterNone'
-import { Alert, Snackbar, Tooltip } from '@mui/material'
-import ClipboardJS from 'clipboard'
-import React, { useEffect, useRef, useState } from 'react'
+import { Clear, Done, FilterNone } from '@mui/icons-material'
+import { Tooltip } from '@mui/material'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const keyMap = {
@@ -13,10 +12,9 @@ const keyMap = {
   lightning_model_path: '--lightning_model_path',
 }
 
-function CopyComponent({ modelData, predefinedKeys }) {
+const CopyComponent = ({ getData, predefinedKeys }) => {
   const { t } = useTranslation()
-  const [isCopySuccess, setIsCopySuccess] = useState(false)
-  const copyRef = useRef(null)
+  const [copyStatus, setCopyStatus] = useState('pending')
 
   const generateCommandLineStatement = (params) => {
     const args = Object.entries(params)
@@ -82,49 +80,61 @@ function CopyComponent({ modelData, predefinedKeys }) {
     return `xinference launch ${args}`
   }
 
-  useEffect(() => {
-    const text = generateCommandLineStatement(modelData)
-    const clipboard = new ClipboardJS(copyRef.current, {
-      text: () => text,
-    })
+  const handleCopy = (event) => {
+    const text = generateCommandLineStatement(getData())
+    event.stopPropagation()
+    const textToCopy = String(text ?? '')
 
-    clipboard.on('success', (e) => {
-      e.clearSelection()
-      setIsCopySuccess(true)
-    })
-
-    const handleClick = (event) => {
-      event.stopPropagation()
-      copyRef.current.focus()
+    const showTooltipTemporarily = (status) => {
+      setCopyStatus(status)
+      setTimeout(() => {
+        setCopyStatus('pending')
+      }, 1500)
     }
 
-    const copy = copyRef.current
-    copy.addEventListener('click', handleClick)
+    if (navigator.clipboard && window.isSecureContext) {
+      // for HTTPS
+      navigator.clipboard
+        .writeText(textToCopy)
+        .then(() => showTooltipTemporarily('success'))
+        .catch(() => showTooltipTemporarily('failed'))
+    } else {
+      // for HTTP
+      const textArea = document.createElement('textarea')
+      textArea.value = textToCopy
+      textArea.style.position = 'absolute'
+      textArea.style.left = '-9999px'
+      document.body.appendChild(textArea)
+      textArea.select()
+      textArea.setSelectionRange(0, textArea.value.length)
 
-    return () => {
-      clipboard.destroy()
-      copy.removeEventListener('click', handleClick)
+      try {
+        const success = document.execCommand('copy')
+        if (success) {
+          showTooltipTemporarily('success')
+        } else {
+          showTooltipTemporarily('failed')
+        }
+      } catch (err) {
+        showTooltipTemporarily('failed')
+      }
+
+      document.body.removeChild(textArea)
     }
-  }, [modelData])
+  }
 
   return (
-    <div style={{ marginInline: '10px', lineHeight: '14px' }}>
-      <Tooltip title={t('launchModel.copyToCommandLine')} placement="top">
-        <div ref={copyRef}>
-          <FilterNoneIcon className="copyToCommandLine" />
-        </div>
-      </Tooltip>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCopySuccess}
-        autoHideDuration={1500}
-        onClose={() => setIsCopySuccess(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          {t('components.copySuccess')}
-        </Alert>
-      </Snackbar>
-    </div>
+    <>
+      {copyStatus === 'pending' ? (
+        <Tooltip title={t('launchModel.copyToCommandLine')} placement="top">
+          <FilterNone className="copyToCommandLine" onClick={handleCopy} />
+        </Tooltip>
+      ) : copyStatus === 'success' ? (
+        <Done fontSize="small" color="success" />
+      ) : (
+        <Clear fontSize="small" color="error" />
+      )}
+    </>
   )
 }
 
