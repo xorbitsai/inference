@@ -20750,6 +20750,44 @@
         }
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/GLM-4.5-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/GLM-4.5-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/GLM-4.5-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/GLM-4.5-AWQ"
+          }
+        }
+      },
+      {
         "model_format": "mlx",
         "model_size_in_billions": 355,
         "activated_size_in_billions": 32,
@@ -20803,6 +20841,44 @@
               "FP8"
             ],
             "model_id": "ZhipuAI/GLM-4.5-Air-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/GLM-4.5-Air-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/GLM-4.5-Air-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "AWQ-FP16Mix"
+            ],
+            "model_id": "QuantTrio/GLM-4.5-Air-AWQ-FP16Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "AWQ-FP16Mix"
+            ],
+            "model_id": "tclf90/GLM-4.5-Air-AWQ-FP16Mix"
           }
         }
       },
