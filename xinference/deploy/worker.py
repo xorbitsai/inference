@@ -14,6 +14,7 @@
 
 import asyncio
 import logging
+import multiprocessing
 import os
 from typing import Any, Optional
 
@@ -81,6 +82,11 @@ def main(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[dict] = None,
 ):
+    # force to set spawn,
+    # cuda may be inited in xoscar virtualenv
+    # which will raise error after sub pool is created
+    multiprocessing.set_start_method("spawn")
+
     loop = asyncio.get_event_loop()
     task = loop.create_task(
         _start_worker(

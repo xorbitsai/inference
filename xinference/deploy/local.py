@@ -152,6 +152,11 @@ def main(
     logging_conf: Optional[Dict] = None,
     auth_config_file: Optional[str] = None,
 ):
+    # force to set spawn,
+    # cuda may be inited in xoscar virtualenv
+    # which will raise error after sub pool is created
+    multiprocessing.set_start_method("spawn")
+
     supervisor_address = f"{host}:{get_next_port()}"
     local_cluster = run_in_subprocess(
         supervisor_address, metrics_exporter_host, metrics_exporter_port, logging_conf
