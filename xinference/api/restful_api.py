@@ -2249,8 +2249,9 @@ class RESTfulAPI(CancelMixin):
                 )
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
+            is_sglang = await model.is_sglang_backend()
             if not (
-                (is_vllm and model_family in QWEN_TOOL_CALL_FAMILY)
+                ((is_vllm or is_sglang) and model_family in QWEN_TOOL_CALL_FAMILY)
                 or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
             ):
                 raise HTTPException(
