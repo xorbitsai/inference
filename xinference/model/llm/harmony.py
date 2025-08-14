@@ -169,7 +169,7 @@ async def async_stream_harmony_chat_completion(
 
             # Clean up reasoning_content: set to None if no reasoning content was parsed
             if not msg["reasoning_content"] and not original_reasoning:
-                msg["reasoning_content"] = None
+                msg["reasoning_content"] = None  # type: ignore
 
         yield out_data
 
