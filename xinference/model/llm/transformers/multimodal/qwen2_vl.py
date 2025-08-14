@@ -11,15 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib.util
 import logging
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from .....core.model import register_batching_multimodal_models
 from .....device_utils import is_npu_available
-from .....model.utils import select_device
 from .....types import PytorchModelConfig
 from ....scheduler.request import InferenceRequest
+from ....utils import is_flash_attn_available, select_device
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -87,7 +86,6 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             Qwen2_5_VLForConditionalGeneration = None
 
         kwargs = self.apply_bnb_quantization()
-        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
         llm_family = self.model_family.model_family or self.model_family.model_name
         model_cls = (
             Qwen2_5_VLForConditionalGeneration
@@ -97,12 +95,17 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         if model_cls is None:
             raise ImportError("`transformers` version is too old, please upgrade it")
         device = "auto" if self._device == "cuda" else self._device
-        if flash_attn_installed:
+
+        enable_flash_attn = self._pytorch_model_config.get(
+            "enable_flash_attn", is_flash_attn_available()
+        )
+
+        if enable_flash_attn:
             self._model = model_cls.from_pretrained(
                 self.model_path,
                 torch_dtype="bfloat16",
-                device_map=device,
                 attn_implementation="flash_attention_2",
+                device_map=device,
                 trust_remote_code=True,
                 **kwargs,
             ).eval()

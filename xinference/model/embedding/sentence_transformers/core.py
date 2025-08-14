@@ -19,8 +19,8 @@ from typing import List, Optional, Union, no_type_check
 import numpy as np
 import torch
 
-from ....device_utils import is_device_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...utils import is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -85,13 +85,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
             )
         elif "qwen3" in self.model_family.model_name.lower():
             # qwen3 embedding
-            flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
             flash_attn_enabled = self._kwargs.get(
-                "enable_flash_attn", is_device_available("cuda")
+                "enable_flash_attn", is_flash_attn_available()
             )
             model_kwargs = {"device_map": "auto"}
             tokenizer_kwargs = {}
-            if flash_attn_installed and flash_attn_enabled:
+            if flash_attn_enabled:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = "bfloat16"
                 tokenizer_kwargs["padding_side"] = "left"

@@ -29,7 +29,7 @@ export const llmAllDataKey = [
 ]
 
 export const additionalParameterTipList = {
-  'transformers': ['torch_dtype', 'device'],
+  'transformers': ['torch_dtype', 'device', 'enable_flash_attn'],
   'llama.cpp': ['n_ctx', 'use_mmap', 'use_mlock'],
   'vllm': [
     'block_size',

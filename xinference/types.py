@@ -297,6 +297,7 @@ class PytorchModelConfig(TypedDict, total=False):
     quantization_config: NotRequired[Dict]
     context_length: NotRequired[int]
     torch_dtype: NotRequired[str]
+    enable_flash_attn: NotRequired[bool]
 
 
 def get_pydantic_model_from_method(

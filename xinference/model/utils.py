@@ -558,3 +558,67 @@ class ModelInstanceInfoMixin(ABC):
     @abstractmethod
     def to_version_info(self):
         """"""
+
+
+def is_flash_attn_available() -> bool:
+    """
+    Check if flash_attention can be enabled in the current environment.
+
+    Checks the following conditions:
+    1. Whether the flash_attn package is installed
+    2. Whether CUDA GPU is available
+    3. Whether PyTorch supports CUDA
+    4. Whether GPU compute capability meets requirements (>= 8.0)
+
+    Returns:
+        bool: True if flash_attention can be enabled, False otherwise
+    """
+    import importlib.util
+
+    # Check if flash_attn is installed
+    if importlib.util.find_spec("flash_attn") is None:
+        logger.debug("flash_attn package not found")
+        return False
+
+    try:
+        import torch
+
+        # Check if CUDA is available
+        if not torch.cuda.is_available():
+            logger.debug("CUDA not available")
+            return False
+
+        # Check GPU count
+        if torch.cuda.device_count() == 0:
+            logger.debug("No CUDA devices found")
+            return False
+
+        # Check current GPU compute capability
+        # Flash Attention typically requires compute capability >= 8.0 (A100, H100, etc.)
+        current_device = torch.cuda.current_device()
+        capability = torch.cuda.get_device_capability(current_device)
+        major, minor = capability
+        compute_capability = major + minor * 0.1
+
+        if compute_capability < 8.0:
+            logger.debug(
+                f"GPU compute capability {compute_capability} < 8.0, "
+                "flash_attn may not work optimally"
+            )
+            # Note: Some older GPUs may also support flash_attn, so this is just a warning
+            # This threshold can be adjusted based on actual requirements
+
+        # Try to import flash_attn core module to verify correct installation
+        try:
+            import flash_attn
+
+            logger.debug(
+                f"flash_attn version: {getattr(flash_attn, '__version__', 'unknown')}"
+            )
+            return True
+        except ImportError as e:
+            logger.debug(f"Failed to import flash_attn: {e}")
+            return False
+    except Exception as e:
+        logger.debug(f"Error checking flash_attn availability: {e}")
+        return False
