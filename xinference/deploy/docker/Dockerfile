@@ -37,11 +37,13 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-models.txt && \
     pip install -i "$PIP_INDEX" transformers==4.53.2 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.4.6.post5 && \
+    pip install WeTextProcessing==1.0.4.1 --no-deps && \
+    pip install importlib_resources && \
     pip install -i "$PIP_INDEX" sgl-kernel==0.1.8 && \
     pip install torch==2.7.1 && \
     pip uninstall flashinfer -y && \
     pip install flashinfer-python==0.2.9rc2 && \
-    pip install flash-attn==2.8.0.post2 --no-build-isolation && \
+    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.18/flash_attn-2.7.4+cu124torch2.7-cp310-cp310-linux_x86_64.whl && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
