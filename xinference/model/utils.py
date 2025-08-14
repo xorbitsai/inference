@@ -558,3 +558,67 @@ class ModelInstanceInfoMixin(ABC):
     @abstractmethod
     def to_version_info(self):
         """"""
+
+
+def is_flash_attn_available() -> bool:
+    """
+    判断当前环境是否能启用 flash_attention。
+
+    检查以下条件：
+    1. flash_attn 包是否已安装
+    2. 是否有可用的 CUDA GPU
+    3. PyTorch 是否支持 CUDA
+    4. GPU 计算能力是否满足要求（>= 8.0）
+
+    Returns:
+        bool: 如果可以启用 flash_attention 则返回 True，否则返回 False
+    """
+    import importlib.util
+
+    # 检查 flash_attn 是否安装
+    if importlib.util.find_spec("flash_attn") is None:
+        logger.debug("flash_attn package not found")
+        return False
+
+    try:
+        import torch
+
+        # 检查是否有可用的 CUDA
+        if not torch.cuda.is_available():
+            logger.debug("CUDA not available")
+            return False
+
+        # 检查 GPU 数量
+        if torch.cuda.device_count() == 0:
+            logger.debug("No CUDA devices found")
+            return False
+
+        # 检查当前 GPU 的计算能力
+        # Flash Attention 通常需要计算能力 >= 8.0 (A100, H100 等)
+        current_device = torch.cuda.current_device()
+        capability = torch.cuda.get_device_capability(current_device)
+        major, minor = capability
+        compute_capability = major + minor * 0.1
+
+        if compute_capability < 8.0:
+            logger.debug(
+                f"GPU compute capability {compute_capability} < 8.0, "
+                "flash_attn may not work optimally"
+            )
+            # 注意：某些较老的 GPU 也可能支持 flash_attn，所以这里只是警告
+            # 可以根据实际需求调整这个阈值
+
+        # 尝试导入 flash_attn 的核心模块来验证安装是否正确
+        try:
+            import flash_attn
+
+            logger.debug(
+                f"flash_attn version: {getattr(flash_attn, '__version__', 'unknown')}"
+            )
+            return True
+        except ImportError as e:
+            logger.debug(f"Failed to import flash_attn: {e}")
+            return False
+    except Exception as e:
+        logger.debug(f"Error checking flash_attn availability: {e}")
+        return False

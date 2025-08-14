@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
-import importlib.util
 import io
 import logging
 import time
@@ -20,13 +19,13 @@ import uuid
 from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from .....model.utils import select_device
 from .....types import (
     ChatCompletion,
     ChatCompletionAudio,
     ChatCompletionChoice,
     CompletionUsage,
 )
+from ....utils import is_flash_attn_available, select_device
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import PytorchGenerateConfig, register_non_default_model
 from .core import PytorchMultiModalModel
@@ -71,12 +70,12 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
 
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if self._device == "cuda" else self._device
-        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
-        kwargs = (
-            {}
-            if not flash_attn_installed
-            else {"attn_implementation": "flash_attention_2"}
+        kwargs = {}
+        enable_flash_attn = self._pytorch_model_config.get(
+            "enable_flash_attn", is_flash_attn_available()
         )
+        if enable_flash_attn:
+            kwargs["attn_implementation"] = "flash_attention_2"
         kwargs = self.apply_bnb_quantization(kwargs)
         logger.debug("Loading model with extra kwargs: %s", kwargs)
 

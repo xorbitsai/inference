@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import gc
-import importlib
-import importlib.util
 import logging
 import os
 import threading
@@ -27,10 +25,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from ...device_utils import empty_cache, is_device_available
+from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, VirtualEnvSettings
-from ..utils import ModelInstanceInfoMixin
+from ..utils import ModelInstanceInfoMixin, is_flash_attn_available
 from .utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
@@ -173,11 +171,10 @@ class RerankModel:
 
     def load(self):
         logger.info("Loading rerank model: %s", self._model_path)
-        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
-        if (
-            self._auto_detect_type(self._model_path) != "normal"
-            and flash_attn_installed
-        ):
+        enable_flash_attn = self._model_config.pop(
+            "enable_flash_attn", is_flash_attn_available()
+        )
+        if self._auto_detect_type(self._model_path) != "normal" and enable_flash_attn:
             logger.warning(
                 "flash_attn can only support fp16 and bf16, "
                 "will force set `use_fp16` to True"
@@ -233,11 +230,8 @@ class RerankModel:
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            enable_flash_attn = self._model_config.pop(
-                "enable_flash_attn", is_device_available("cuda")
-            )
             model_kwargs = {"device_map": "auto"}
-            if flash_attn_installed and enable_flash_attn:
+            if enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = torch.float16
             model_kwargs.update(self._model_config)
