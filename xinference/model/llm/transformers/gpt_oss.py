@@ -87,5 +87,5 @@ class GPTOSSPytorchChatModel(PytorchChatModel):
 
         else:
             # Non-streaming sync - handle single result
-            async for parsed_completion in async_stream_harmony_chat_completion(gen):
+            async for parsed_completion in async_stream_harmony_chat_completion(gen):  # type: ignore
                 return parsed_completion

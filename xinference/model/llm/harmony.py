@@ -177,8 +177,8 @@ async def async_stream_harmony_chat_completion(
         # Streaming: handle async generator
         parsers_per_choice = {}
 
-        async for chunk in chunks:
-            out_chunk = {
+        async for chunk in chunks:  # type: ignore
+            out_chunk = {  # type: ignore
                 "id": chunk["id"],
                 "model": chunk["model"],
                 "object": chunk["object"],
@@ -188,7 +188,7 @@ async def async_stream_harmony_chat_completion(
 
             for i, choice in enumerate(chunk["choices"]):
                 delta = choice.get("delta", {})
-                text = delta.get("content") or ""
+                text = delta.get("content") or ""  # type: ignore
 
                 if i not in parsers_per_choice:
                     parsers_per_choice[i] = HarmonyStreamParser()
@@ -226,7 +226,7 @@ async def async_stream_harmony_chat_completion(
                     # don't include empty reasoning_content to avoid clearing existing state
                     curr_delta["reasoning_content"] = None
 
-                out_chunk["choices"].append(
+                out_chunk["choices"].append(  # type: ignore
                     {
                         "index": i,
                         "delta": curr_delta,
@@ -236,10 +236,10 @@ async def async_stream_harmony_chat_completion(
 
             # Only yield if we have either content or reasoning_content
             has_content = any(
-                choice["delta"].get("content")
-                or choice["delta"].get("reasoning_content")
-                or choice.get("finish_reason") is not None
-                for choice in out_chunk["choices"]
+                choice["delta"].get("content")  # type: ignore
+                or choice["delta"].get("reasoning_content")  # type: ignore
+                or choice.get("finish_reason") is not None  # type: ignore
+                for choice in out_chunk["choices"]  # type: ignore
             )
             if has_content:
-                yield out_chunk
+                yield out_chunk  # type: ignore
