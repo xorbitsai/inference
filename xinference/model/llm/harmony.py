@@ -210,13 +210,17 @@ async def async_stream_harmony_chat_completion(
                     elif ch == "tool":
                         curr_delta["tool_calls"].append(c)  # type: ignore
 
-                # Special handling: ensure content and reasoning_content are mutually exclusive
-                if curr_delta["content"] and curr_delta["reasoning_content"] == "":
-                    # When there's content but no reasoning content, set reasoning_content to None
-                    curr_delta["reasoning_content"] = None
+                if curr_delta["reasoning_content"]:
+                    if not curr_delta["content"]:
+                        curr_delta["content"] = None
+
+                elif curr_delta["content"]:
+                    if not curr_delta["reasoning_content"]:
+                        curr_delta["reasoning_content"] = None
+
                 elif (
-                    delta.get("finish_reason") is not None
-                    and curr_delta["reasoning_content"] == ""
+                    choice.get("finish_reason") is not None
+                    and not curr_delta["reasoning_content"]
                 ):
                     # For the final chunk, if there's no new reasoning content,
                     # don't include empty reasoning_content to avoid clearing existing state
@@ -230,4 +234,12 @@ async def async_stream_harmony_chat_completion(
                     }
                 )
 
-            yield out_chunk
+            # Only yield if we have either content or reasoning_content
+            has_content = any(
+                choice["delta"].get("content")
+                or choice["delta"].get("reasoning_content")
+                or choice.get("finish_reason") is not None
+                for choice in out_chunk["choices"]
+            )
+            if has_content:
+                yield out_chunk
