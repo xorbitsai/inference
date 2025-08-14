@@ -238,6 +238,7 @@
       "packages": [
         "git+https://github.com/huggingface/diffusers.git",
         "peft>=0.17.0",
+        "system_torch",
         "#system_numpy#"
       ],
       "no_build_isolation": true
