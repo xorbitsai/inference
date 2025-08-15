@@ -17,8 +17,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel
-
+from ..._compat import BaseModel
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -55,7 +54,7 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     language: List[str]
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]
-    virtualenv: Optional[VirtualEnvSettings] = None
+    virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
         extra = "allow"
