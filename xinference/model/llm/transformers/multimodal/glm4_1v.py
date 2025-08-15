@@ -28,14 +28,14 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("glm-4.1v-thinking")
+@register_non_default_model("glm-4.1v-thinking","glm-4.5v")
 class Glm4_1VModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
-        if "glm-4.1v" in family.lower():
+        if "glm-4.1v" in family_lower or "glm-4.5v" in family_lower:
             return True
         return False
 

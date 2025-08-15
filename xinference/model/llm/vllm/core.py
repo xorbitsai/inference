@@ -89,6 +89,7 @@ class VLLMModelConfig(TypedDict, total=False):
     mm_processor_kwargs: NotRequired[dict[str, Any]]
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
+    enable_expert_parallel: bool
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
