@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gc
-import importlib
+import importlib.util
 import logging
 import threading
 import uuid
@@ -22,8 +22,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from ....device_utils import empty_cache, is_device_available
+from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ...utils import is_flash_attn_available
 from ..core import (
     RERANK_EMPTY_CACHE_COUNT,
     RerankModel,
@@ -68,11 +69,10 @@ class SentenceTransformerRerankModel(RerankModel):
     def load(self):
         # TODO: Split FlagReranker and sentence_transformers into different model_engines like FlagRerankModel
         logger.info("Loading rerank model: %s", self._model_path)
-        flash_attn_installed = importlib.util.find_spec("flash_attn") is not None
-        if (
-            self._auto_detect_type(self._model_path) != "normal"
-            and flash_attn_installed
-        ):
+        enable_flash_attn = self._model_config.pop(
+            "enable_flash_attn", is_flash_attn_available()
+        )
+        if self._auto_detect_type(self._model_path) != "normal" and enable_flash_attn:
             logger.warning(
                 "flash_attn can only support fp16 and bf16, will force set `use_fp16` to True"
             )
@@ -127,11 +127,8 @@ class SentenceTransformerRerankModel(RerankModel):
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
-            enable_flash_attn = self._kwargs.pop(
-                "enable_flash_attn", is_device_available("cuda")
-            )
             model_kwargs = {"device_map": "auto"}
-            if flash_attn_installed and enable_flash_attn:
+            if enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = torch.float16
             model_kwargs.update(self._kwargs)
