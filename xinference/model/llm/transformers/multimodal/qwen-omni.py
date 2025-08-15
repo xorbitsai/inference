@@ -45,7 +45,7 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
             return False
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2.5-omni".lower() in llm_family.lower():

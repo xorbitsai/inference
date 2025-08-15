@@ -78,7 +78,7 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
-    model_format: Literal["pytorch", "gptq", "awq", "fp8"]
+    model_format: Literal["pytorch", "gptq", "awq", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantization: str

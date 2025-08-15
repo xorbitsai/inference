@@ -496,7 +496,7 @@ class PytorchModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
             return False
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
@@ -886,7 +886,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
             return False
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
