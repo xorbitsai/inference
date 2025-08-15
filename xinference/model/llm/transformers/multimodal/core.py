@@ -21,9 +21,9 @@ from .....types import (
     CompletionChunk,
     PytorchGenerateConfig,
 )
+from ....utils import cache_clean
 from ...utils import generate_chat_completion, generate_completion_chunk
 from ..core import PytorchChatModel
-from ..utils import cache_clean
 
 
 class PytorchMultiModalModel(PytorchChatModel):

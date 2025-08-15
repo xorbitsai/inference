@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import json
 import logging
 import os
@@ -622,3 +623,34 @@ def is_flash_attn_available() -> bool:
     except Exception as e:
         logger.debug(f"Error checking flash_attn availability: {e}")
         return False
+
+
+def cache_clean(fn):
+    @functools.wraps(fn)
+    async def _async_wrapper(self, *args, **kwargs):
+        import gc
+
+        from ..device_utils import empty_cache
+
+        result = await fn(self, *args, **kwargs)
+
+        gc.collect()
+        empty_cache()
+        return result
+
+    @functools.wraps(fn)
+    def _wrapper(self, *args, **kwargs):
+        import gc
+
+        from ..device_utils import empty_cache
+
+        result = fn(self, *args, **kwargs)
+
+        gc.collect()
+        empty_cache()
+        return result
+
+    if asyncio.iscoroutinefunction(fn):
+        return _async_wrapper
+    else:
+        return _wrapper
