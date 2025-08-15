@@ -20933,6 +20933,126 @@
   {
     "version": 2,
     "context_length": 131072,
+    "model_name": "glm-4.5v",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid"
+    ],
+    "model_description": "GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.5V"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5V"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.5V-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.5V-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/GLM-4.5V-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/GLM-4.5V-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5V-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.5V-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "[gMASK]<sop>\n{%- if tools -%}\n<|system|>\n# Tools\nYou may call one or more functions to assist with the user query.\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{% for tool in tools %}\n{{ tool | tojson(ensure_ascii=False) }}\n{% endfor %}\n</tools>\nFor each function call, output the function name and arguments within the following XML format:\n<tool_call>{function-name}\n<arg_key>{arg-key-1}</arg_key>\n<arg_value>{arg-value-1}</arg_value>\n<arg_key>{arg-key-2}</arg_key>\n<arg_value>{arg-value-2}</arg_value>\n...\n</tool_call>{%- endif -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is mapping and (item.type == 'image' or 'image' in item) -%}\n                <|begin_of_image|><|image|><|end_of_image|>\n            {%- elif item is mapping and (item.type == 'video' or 'video' in item) -%}\n                <|begin_of_video|><|video|><|end_of_video|>\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{%- set ns = namespace(last_user_index=-1) %}\n{%- for m in messages %}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{% for m in messages %}\n{%- if m.role == 'user' -%}<|user|>\n{% if m.content is string %}\n{{ m.content }}\n{%- else %}\n{%- for item in m.content %}\n{% if item.type == 'video' or 'video' in item %}\n<|begin_of_video|><|video|><|end_of_video|>{% elif item.type == 'image' or 'image' in item %}\n<|begin_of_image|><|image|><|end_of_image|>{% elif item.type == 'text' %}\n{{ item.text }}\n{%- endif %}\n{%- endfor %}\n{%- endif %}\n{{- '/nothink' if (enable_thinking is defined and not enable_thinking and not visible_text(m.content).endswith(\"/nothink\")) else '' -}}\n{%- elif m.role == 'assistant' -%}\n<|assistant|>\n{%- set reasoning_content = '' %}\n{%- set content = visible_text(m.content) %}\n{%- if m.reasoning_content is string %}\n    {%- set reasoning_content = m.reasoning_content %}\n{%- else %}\n    {%- if '</think>' in content %}\n        {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n        {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n    {%- endif %}\n{%- endif %}\n{%- if loop.index0 > ns.last_user_index and reasoning_content -%}\n{{ '\\n<think>' + reasoning_content.strip() +  '</think>'}}\n{%- else -%}\n{{ '\\n<think></think>' }}\n{%- endif -%}\n{%- if content.strip() -%}\n{{ '\\n' + content.strip() }}\n{%- endif -%}\n{% if m.tool_calls %}\n{% for tc in m.tool_calls %}\n{%- if tc.function %}\n    {%- set tc = tc.function %}\n{%- endif %}\n{{ '\\n<tool_call>' + tc.name }}\n{% set _args = tc.arguments %}\n{% for k, v in _args.items() %}\n<arg_key>{{ k }}</arg_key>\n<arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>\n{% endfor %}\n</tool_call>{% endfor %}\n{% endif %}\n{%- elif m.role == 'tool' -%}\n{%- if m.content is string -%}\n{%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n    {{- '<|observation|>' }}\n{%- endif %}\n{{- '\\n<tool_response>\\n' }}\n{{- m.content }}\n{{- '\\n</tool_response>' }}\n{%- else -%}\n<|observation|>{% for tr in m.content %}\n<tool_response>\n{{ tr.output if tr.output is defined else tr }}\n</tool_response>{% endfor -%}\n{% endif -%}\n{%- elif m.role == 'system' -%}\n<|system|>\n{{ visible_text(m.content) }}\n{%- endif -%}\n{%- endfor -%}\n{%- if add_generation_prompt -%}\n<|assistant|>\n{{'<think></think>\\n' if (enable_thinking is defined and not enable_thinking) else ''}}\n{%- endif -%}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.55.0",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
     "model_name": "gpt-oss",
     "model_lang": [
       "en"
