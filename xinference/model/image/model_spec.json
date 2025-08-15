@@ -185,11 +185,45 @@
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen-Image",
-        "model_revision": "4516c4d3058302ff35cd86c62ffa645d039fefad"
+        "model_revision": "4516c4d3058302ff35cd86c62ffa645d039fefad",
+        "gguf_model_id": "city96/Qwen-Image-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-{quantization}.gguf"
       },
       "modelscope": {
         "model_id": "Qwen/Qwen-Image",
-        "model_revision": "master"
+        "model_revision": "master",
+        "gguf_model_id": "city96/Qwen-Image-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-{quantization}.gguf"
       }
     },
     "default_model_config": {
@@ -203,6 +237,8 @@
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers.git",
+        "peft>=0.17.0",
+        "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
