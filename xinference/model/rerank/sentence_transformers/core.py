@@ -69,7 +69,7 @@ class SentenceTransformerRerankModel(RerankModel):
     def load(self):
         # TODO: Split FlagReranker and sentence_transformers into different model_engines like FlagRerankModel
         logger.info("Loading rerank model: %s", self._model_path)
-        enable_flash_attn = self._model_config.pop(
+        enable_flash_attn = self._kwargs.pop(
             "enable_flash_attn", is_flash_attn_available()
         )
         if self._auto_detect_type(self._model_path) != "normal" and enable_flash_attn:

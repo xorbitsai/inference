@@ -712,9 +712,8 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            for model_name, families in BUILTIN_RERANK_MODELS.items():
+            for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
                     ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})

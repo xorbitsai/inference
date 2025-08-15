@@ -20,6 +20,7 @@ from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel
 
 from ...types import Rerank
+from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
 
@@ -54,7 +55,7 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     language: List[str]
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]
-    # virtualenv: Optional[VirtualEnvSettings] = None
+    virtualenv: Optional[VirtualEnvSettings] = None
 
     class Config:
         extra = "allow"
