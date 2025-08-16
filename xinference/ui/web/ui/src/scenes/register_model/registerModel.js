@@ -216,14 +216,21 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             model_uri,
             language,
           } = data
+          const model_specs = data.model_specs ?? [
+            {
+              model_uri: model_uri,
+              model_format: 'pytorch',
+              quantization: 'none',
+            },
+          ]
           const virtualenv = data.virtualenv ?? { packages: [] }
           const embeddingData = {
             version,
             model_name,
             dimensions,
             max_tokens,
-            model_uri,
             language,
+            model_specs,
             virtualenv,
           }
           setFormData(embeddingData)
@@ -241,13 +248,22 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             model_uri,
             language,
           } = data
-          const virtualenv = data.virtualenv ?? { packages: [] }
+          const model_specs = data.model_specs ?? [
+            {
+              model_uri: model_uri,
+              model_format: 'pytorch',
+              quantization: 'none',
+            },
+          ]
+          const virtualenv = { packages: data.virtualenv.packages } ?? {
+            packages: [],
+          }
           const rerankData = {
             version,
             model_name,
             max_tokens,
-            model_uri,
             language,
+            model_specs,
             virtualenv,
           }
           setFormData(rerankData)

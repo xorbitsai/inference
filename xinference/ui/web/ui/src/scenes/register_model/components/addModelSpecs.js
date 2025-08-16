@@ -41,6 +41,12 @@ const modelFormatData = [
   },
 ]
 
+const modelUriDefault = {
+  LLM: '/path/to/llama',
+  embedding: '/path/to/embedding',
+  rerank: '/path/to/rerank',
+}
+
 const AddModelSpecs = ({
   isJump,
   formData,
@@ -152,14 +158,14 @@ const AddModelSpecs = ({
     setCount(count + 1)
     const item = {
       id: count,
-      model_uri: '/path/to/llama-1',
+      model_uri: modelUriDefault[modelType],
       model_size_in_billions: 7,
       model_format: 'pytorch',
       quantization: '',
     }
     setSpecsArr([...specsArr, item])
     setIsAdd(true)
-    setPathArr([...pathArr, '/path/to/llama-1'])
+    setPathArr([...pathArr, modelUriDefault[modelType]])
   }
 
   const handleUpdateSpecsArr = (index, type, newValue) => {
