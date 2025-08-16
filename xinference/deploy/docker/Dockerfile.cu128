@@ -29,7 +29,8 @@ ARG LLAMA_CPP_USE_CUDA=true
 ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     apt-get -y update && \
-    wget https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.7.2.tar.gz && \
+    ( wget -O openfst-1.7.2.tar.gz http://www.openslr.org/resources/2/openfst-1.7.2.tar.gz \
+      || wget -O openfst-1.7.2.tar.gz https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.7.2.tar.gz ) && \
     tar zxvf openfst-1.7.2.tar.gz && cd openfst-1.7.2 && \
     ./configure --enable-shared --enable-static && make -j$(nproc) && make install && ldconfig && \
     CPLUS_INCLUDE_PATH=/usr/local/include LIBRARY_PATH=/usr/local/lib LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH \
