@@ -32,6 +32,13 @@ const modelFormatData = [
       { value: 'ggufv2', label: 'GGUF' },
     ],
   },
+  {
+    type: 'rerank',
+    options: [
+      { value: 'pytorch', label: 'PyTorch' },
+      { value: 'ggufv2', label: 'GGUF' },
+    ],
+  },
 ]
 
 const AddModelSpecs = ({
