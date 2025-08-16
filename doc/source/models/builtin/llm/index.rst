@@ -188,8 +188,13 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`glm-4.5 <models_llm_glm-4.5>`
      - chat, reasoning, hybrid
-     - 65536
+     - 131072
      - The GLM-4.5 series models are foundation models designed for intelligent agents. 
+
+   * - :ref:`glm-4.5v <models_llm_glm-4.5v>`
+     - chat, vision, reasoning
+     - 131072
+     - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
@@ -225,6 +230,11 @@ The following is a list of built-in LLM in Xinference:
      - generate
      - 1024
      - GPT-2 is a Transformer-based LLM that is trained on WebTest, a 40 GB dataset of Reddit posts with 3+ upvotes.
+
+   * - :ref:`gpt-oss <models_llm_gpt-oss>`
+     - chat, reasoning
+     - 131072
+     - gpt-oss series, OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.
 
    * - :ref:`huatuogpt-o1-llama-3.1 <models_llm_huatuogpt-o1-llama-3.1>`
      - chat, tools
@@ -711,6 +721,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-4.5
   
+   glm-4.5v
+  
    glm-4v
   
    glm-edge-chat
@@ -724,6 +736,8 @@ The following is a list of built-in LLM in Xinference:
    gorilla-openfunctions-v2
   
    gpt-2
+  
+   gpt-oss
   
    huatuogpt-o1-llama-3.1
   

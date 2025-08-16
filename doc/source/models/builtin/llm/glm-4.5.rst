@@ -4,7 +4,7 @@
 glm-4.5
 ========================================
 
-- **Context Length:** 65536
+- **Context Length:** 131072
 - **Model Name:** glm-4.5
 - **Languages:** en, zh
 - **Abilities:** chat, reasoning, hybrid
@@ -46,7 +46,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 355 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 3 (mlx, 355 Billion)
+Model Spec 3 (gptq, 355 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 355
+- **Quantizations:** Int4-Int8Mix
+- **Engines**: vLLM, Transformers
+- **Model ID:** QuantTrio/GLM-4.5-GPTQ-Int4-Int8Mix
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/GLM-4.5-GPTQ-Int4-Int8Mix>`__, `ModelScope <https://modelscope.cn/models/tclf90/GLM-4.5-GPTQ-Int4-Int8Mix>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 355 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 4 (awq, 355 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 355
+- **Quantizations:** Int4
+- **Engines**: vLLM, Transformers
+- **Model ID:** QuantTrio/GLM-4.5-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/GLM-4.5-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/GLM-4.5-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 355 --model-format awq --quantization ${quantization}
+
+
+Model Spec 5 (mlx, 355 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -62,7 +94,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 355 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 4 (pytorch, 106 Billion)
+Model Spec 6 (pytorch, 106 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -78,7 +110,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 106 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (fp8, 106 Billion)
+Model Spec 7 (fp8, 106 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -94,7 +126,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 106 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 6 (mlx, 106 Billion)
+Model Spec 8 (gptq, 106 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 106
+- **Quantizations:** Int4-Int8Mix
+- **Engines**: vLLM, Transformers
+- **Model ID:** QuantTrio/GLM-4.5-Air-GPTQ-Int4-Int8Mix
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/GLM-4.5-Air-GPTQ-Int4-Int8Mix>`__, `ModelScope <https://modelscope.cn/models/tclf90/GLM-4.5-Air-GPTQ-Int4-Int8Mix>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 106 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 9 (awq, 106 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 106
+- **Quantizations:** AWQ-FP16Mix
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/GLM-4.5-Air-AWQ-FP16Mix
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/GLM-4.5-Air-AWQ-FP16Mix>`__, `ModelScope <https://modelscope.cn/models/tclf90/GLM-4.5-Air-AWQ-FP16Mix>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 106 --model-format awq --quantization ${quantization}
+
+
+Model Spec 10 (mlx, 106 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx

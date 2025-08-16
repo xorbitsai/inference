@@ -7,7 +7,7 @@ gpt-oss
 - **Context Length:** 131072
 - **Model Name:** gpt-oss
 - **Languages:** en
-- **Abilities:** chat
+- **Abilities:** chat, reasoning
 - **Description:** gpt-oss series, OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.
 
 Specifications
@@ -30,7 +30,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gpt-oss --size-in-billions 20 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (pytorch, 120 Billion)
+Model Spec 2 (bnb, 20 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** bnb
+- **Model Size (in billions):** 20
+- **Quantizations:** 4-bit
+- **Engines**: vLLM, Transformers
+- **Model ID:** unsloth/gpt-oss-20b-bnb-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/gpt-oss-20b-bnb-4bit>`__, `ModelScope <https://modelscope.cn/models/unsloth/gpt-oss-20b-bnb-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name gpt-oss --size-in-billions 20 --model-format bnb --quantization ${quantization}
+
+
+Model Spec 3 (pytorch, 120 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
