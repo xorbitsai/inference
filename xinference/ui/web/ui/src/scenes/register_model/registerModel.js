@@ -255,9 +255,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               quantization: 'none',
             },
           ]
-          const virtualenv = { packages: data.virtualenv.packages } ?? {
-            packages: [],
-          }
+          const virtualenv = data.virtualenv ?? { packages: [] }
           const rerankData = {
             version,
             model_name,
