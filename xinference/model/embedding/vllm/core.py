@@ -17,6 +17,7 @@ import logging
 from typing import List, Union
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...utils import cache_clean
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
     def _get_detailed_instruct(task_description: str, query: str) -> str:
         return f"Instruct: {task_description}\nQuery:{query}"
 
+    @cache_clean
     def create_embedding(
         self,
         sentences: Union[str, List[str]],
