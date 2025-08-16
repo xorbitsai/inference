@@ -476,7 +476,7 @@ class SupervisorActor(xo.StatelessActor):
     async def _to_rerank_model_reg(
         self, model_spec: "RerankModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.cache_manager import CacheManager
+        from ..model.rerank.cache_manager import RerankCacheManager as CacheManager
 
         instance_cnt = await self.get_instance_count(model_spec.model_name)
         version_cnt = await self.get_model_version_count(model_spec.model_name)
