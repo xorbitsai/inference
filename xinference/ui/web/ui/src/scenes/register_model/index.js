@@ -120,7 +120,6 @@ const RegisterModel = () => {
             customData={{
               version: 2,
               model_name: 'custom-rerank',
-              model_uri: '/path/to/rerank-model',
               language: ['en'],
               max_tokens: 512,
               model_specs: [
