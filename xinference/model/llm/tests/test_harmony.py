@@ -151,7 +151,7 @@ async def test_harmony_streaming_and_nonstreaming():
 
     for chunk in incremental_results:
         delta = chunk["choices"][0]["delta"]
-        accum_content += delta.get("content", "")
+        accum_content += delta.get("content", "") or ""
         reasoning_content = delta.get("reasoning_content", "")
         if reasoning_content is not None:
             accum_reasoning += reasoning_content
