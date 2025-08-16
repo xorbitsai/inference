@@ -89,6 +89,7 @@ class VLLMModelConfig(TypedDict, total=False):
     mm_processor_kwargs: NotRequired[dict[str, Any]]
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
+    enable_expert_parallel: bool
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -275,6 +276,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.5v")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gpt-oss")
