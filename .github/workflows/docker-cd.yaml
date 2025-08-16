@@ -42,7 +42,9 @@ jobs:
           if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
             export GIT_TAG=$(echo "$GITHUB_REF" | sed -e "s/refs\/tags\///g")
           fi
-          
+
+          docker system prune -f -a
+
           if [[ -n "$GIT_TAG" ]]; then
             BRANCHES="$GIT_TAG"
             echo "Will handle tag $BRANCHES"
