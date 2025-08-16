@@ -43,7 +43,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        self._model = LLM(model=self._model_path, task="embed")
+        self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     @staticmethod
@@ -62,8 +62,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
         normalize_embedding = kwargs.get("normalize_embedding", True)
         if not normalize_embedding:
             raise ValueError(
-                "vllm embedding engine does not support "
-                "setting `normalize_embedding=False`"
+                "vllm embedding engine does not support setting `normalize_embedding=False`"
             )
 
         assert self._model is not None

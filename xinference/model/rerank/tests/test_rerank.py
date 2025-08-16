@@ -20,60 +20,23 @@ import tempfile
 import pytest
 
 from ....client import Client
-from ...cache_manager import CacheManager
-from ..core import RerankModel, RerankModelFamilyV2
-
-TEST_MODEL_SPEC = RerankModelFamilyV2(
-    version=2,
-    model_name="bge-reranker-base",
-    type="normal",
-    max_tokens=512,
-    language=["en", "zh"],
-    model_id="BAAI/bge-reranker-base",
-    model_revision="465b4b7ddf2be0a020c8ad6e525b9bb1dbb708ae",
-)
 
 
-def test_model():
-    model_path = None
-    try:
-        model_path = CacheManager(TEST_MODEL_SPEC).cache()
-        model = RerankModel(TEST_MODEL_SPEC, "mock", model_path)
-
-        query = "A man is eating pasta."
-        # With all sentences in the corpus
-        corpus = [
-            "A man is eating food.",
-            "A man is eating a piece of bread.",
-            "The girl is carrying a baby.",
-            "A man is riding a horse.",
-            "A woman is playing violin.",
-            "Two men pushed carts through the woods.",
-            "A man is riding a white horse on an enclosed ground.",
-            "A monkey is playing drums.",
-            "A cheetah is running behind its prey.",
-        ]
-        model.load()
-        scores = model.rerank(corpus, query, None, None, True, True)
-        assert scores["results"][0]["index"] == 0
-        assert scores["results"][0]["document"]["text"] == corpus[0]
-
-        n_tokens = scores["meta"]["tokens"]["input_tokens"]
-        tokenizer = model._model.tokenizer
-        expect_n_tokens = sum(len(tokenizer.tokenize([query, d])) for d in corpus)
-        assert n_tokens >= expect_n_tokens
-
-    finally:
-        if model_path is not None:
-            shutil.rmtree(model_path, ignore_errors=True)
-
-
-@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
-def test_restful_api(model_name, setup):
+@pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
+@pytest.mark.parametrize("model_engine", ["sentence_transformers", "vllm"])
+def test_restful_api(model_name, model_engine, setup):
+    if model_name == "bge-reranker-base" and model_engine == "vllm":
+        pytest.skip("bge-reranker-base exceeds the max_model_len( 560 > 512 ) of vllm")
+    if model_engine == "vllm":
+        pytest.importorskip("vllm", reason="vllm is not installed")
     endpoint, _ = setup
     client = Client(endpoint)
 
-    model_uid = client.launch_model(model_name=model_name, model_type="rerank")
+    model_uid = client.launch_model(
+        model_name=model_name,
+        model_type="rerank",
+        model_engine=model_engine,
+    )
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
     # We want to compute the similarity between the query sentence
@@ -108,7 +71,7 @@ def test_restful_api(model_name, setup):
     )
 
     scores = model.rerank(corpus, query)
-    assert scores["meta"]["tokens"] == None
+    assert scores["meta"]["tokens"] is None
 
     # testing long input
     corpus2 = corpus.copy()
@@ -126,18 +89,27 @@ def test_restful_api(model_name, setup):
 
 
 def test_from_local_uri():
-    from ...utils import cache_from_uri
+    from ..cache_manager import RerankCacheManager
+    from ..core import RerankSpecV1
     from ..custom import CustomRerankModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
 
-    model_spec = CustomRerankModelFamilyV2(
+    model_family = CustomRerankModelFamilyV2(
         model_name="custom_test_rerank_a",
+        max_tokens=2048,
         language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_a",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
 
-    cache_dir = cache_from_uri(model_spec=model_spec)
+    cache_dir = RerankCacheManager(model_family=model_family).cache()
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
     os.remove(cache_dir)
@@ -146,49 +118,76 @@ def test_from_local_uri():
 
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ...utils import cache_from_uri
+    from ..cache_manager import RerankCacheManager
+    from ..core import RerankSpecV1
     from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
 
     tmp_dir = tempfile.mkdtemp()
 
     # correct
-    model_spec = CustomRerankModelFamilyV2(
-        model_name="custom_test_b",
+    model_family = CustomRerankModelFamilyV2(
+        model_name="custom_test_rerank_b",
+        max_tokens=2048,
         language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
 
-    register_rerank(model_spec, False)
-    cache_from_uri(model_spec)
-    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    register_rerank(model_family, False)
+    RerankCacheManager(model_family=model_family).cache()
+    model_cache_path = os.path.join(
+        XINFERENCE_CACHE_DIR, "v2/" + model_family.model_name + "-pytorch-none"
+    )
     assert os.path.exists(model_cache_path)
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
     # Invalid path
-    model_spec = CustomRerankModelFamilyV2(
-        model_name="custom_test_b-v15",
+    model_family = CustomRerankModelFamilyV2(
+        model_name="custom_test_rerank_c",
+        max_tokens=2048,
         language=["zh"],
-        model_uri="file:///c/d",
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri="file:///sssad/faf",
+                quantization="none",
+            )
+        ],
     )
     with pytest.raises(ValueError):
-        register_rerank(model_spec, False)
+        register_rerank(model_family, False)
 
     # name conflict
-    model_spec = CustomRerankModelFamilyV2(
-        model_name="custom_test_c",
+    model_family = CustomRerankModelFamilyV2(
+        model_name="custom_test_rerank_c",
+        max_tokens=2048,
         language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
+        model_specs=[
+            RerankSpecV1(
+                model_format="pytorch",
+                model_id="test/custom_test_b",
+                model_uri=os.path.abspath(tmp_dir),
+                quantization="none",
+            )
+        ],
     )
-    register_rerank(model_spec, False)
+    register_rerank(model_family, False)
     with pytest.raises(ValueError):
-        register_rerank(model_spec, False)
+        register_rerank(model_family, False)
 
     # unregister
-    unregister_rerank("custom_test_b")
-    unregister_rerank("custom_test_c")
+    unregister_rerank("custom_test_rerank_b")
+    unregister_rerank("custom_test_rerank_c")
     with pytest.raises(ValueError):
-        unregister_rerank("custom_test_d")
+        unregister_rerank("custom_test_rerank_d")
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -205,7 +204,7 @@ def test_auto_detect_type():
             continue
         try:
             assert m["type"] == RerankModel._auto_detect_type(
-                m["model_src"]["huggingface"]["model_id"]
+                m["model_specs"][0]["model_src"]["huggingface"]["model_id"]
             )
         except EnvironmentError:
             # gated repo, ignore

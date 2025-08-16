@@ -103,7 +103,7 @@ const RegisterModel = () => {
               language: ['en'],
               model_specs: [
                 {
-                  model_uri: '/path/to/llama-1',
+                  model_uri: '/path/to/embedding-1',
                   model_format: 'pytorch',
                   quantization: 'none',
                 },
@@ -120,9 +120,15 @@ const RegisterModel = () => {
             customData={{
               version: 2,
               model_name: 'custom-rerank',
-              model_uri: '/path/to/rerank-model',
               language: ['en'],
               max_tokens: 512,
+              model_specs: [
+                {
+                  model_uri: '/path/to/rerank-1',
+                  model_format: 'pytorch',
+                  quantization: 'none',
+                },
+              ],
               virtualenv: {
                 packages: [],
               },

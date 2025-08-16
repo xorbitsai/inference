@@ -202,7 +202,7 @@ const ModelCard = ({
   }, [enginesObj])
 
   useEffect(() => {
-    if (modelEngine && ['LLM', 'embedding'].includes(modelType)) {
+    if (modelEngine && ['LLM', 'embedding', 'rerank'].includes(modelType)) {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
@@ -238,7 +238,7 @@ const ModelCard = ({
     } else if (
       modelEngine &&
       modelFormat &&
-      ['embedding'].includes(modelType)
+      ['embedding', 'rerank'].includes(modelType)
     ) {
       const quants = [
         ...new Set(
@@ -427,7 +427,7 @@ const ModelCard = ({
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
     if (['image', 'video'].includes(modelType))
       modelDataWithID_other.cpu_offload = cpuOffload
-    if (['embedding'].includes(modelType)) {
+    if (['embedding', 'rerank'].includes(modelType)) {
       modelDataWithID_other.model_engine = modelEngine
       modelDataWithID_other.model_format = modelFormat
       modelDataWithID_other.quantization = quantization
@@ -1136,7 +1136,7 @@ const ModelCard = ({
             const data = handleGetHistory()
             if (data?.model_name) setIsHistory(true)
             setSelected(true)
-            if (['LLM', 'embedding'].includes(modelType)) {
+            if (['LLM', 'embedding', 'rerank'].includes(modelType)) {
               getModelEngine(modelData.model_name, modelType)
             } else if (data?.model_name) {
               handleOtherHistory(data)
@@ -2255,7 +2255,7 @@ const ModelCard = ({
               mx="auto"
             >
               <FormControl variant="outlined" margin="normal" fullWidth>
-                {['embedding'].includes(modelType) && (
+                {['embedding', 'rerank'].includes(modelType) && (
                   <>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <InputLabel id="modelEngine-label">
