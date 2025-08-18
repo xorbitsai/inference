@@ -114,6 +114,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
                 trust_remote_code=True,
+                truncate_dim=(
+                    self._kwargs.get("truncate_dim")
+                    if self._kwargs.get("truncate_dim")
+                    else None
+                ),
             )
 
         if hasattr(self._model, "tokenizer"):
@@ -269,6 +274,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
 
                 with torch.no_grad():
                     out_features = model.forward(features, **kwargs)
+
+                    from sentence_transformers.util import truncate_embeddings
+
+                    out_features["sentence_embedding"] = truncate_embeddings(
+                        out_features["sentence_embedding"], model.truncate_dim
+                    )
 
                     if output_value == "token_embeddings":
                         embeddings = []
