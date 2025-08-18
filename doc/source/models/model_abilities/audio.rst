@@ -74,6 +74,7 @@ Text to audio (TTS)
 ~~~~~~~~~~~~~~~~~~~~~
 
 **Models supporting zero-shot** (direct synthesis without reference audio):
+
 * :ref:`ChatTTS <models_builtin_chattts>`
 * :ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`
 * :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`
@@ -83,6 +84,7 @@ Text to audio (TTS)
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
 
 **Models supporting voice cloning** (requires reference audio):
+
 * :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
 * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-18 15:51+0800\n"
+"POT-Creation-Date: 2025-08-18 18:36+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -193,48 +193,63 @@ msgid "Text to audio (TTS)"
 msgstr "文本转语音（TTS）"
 
 #: ../../source/models/model_abilities/audio.rst:76
-#, fuzzy
 msgid ""
 "**Models supporting zero-shot** (direct synthesis without reference "
-"audio): * :ref:`ChatTTS <models_builtin_chattts>` * :ref:`CosyVoice-300M-"
-"SFT <models_builtin_cosyvoice-300m-sft>` * :ref:`CosyVoice-300M-Instruct "
-"<models_builtin_cosyvoice-300m-instruct>` * MeloTTS series * :ref"
-":`Kokoro-82M <models_builtin_kokoro-82m>` * :ref:`Kokoro-82M-MLX "
-"<models_builtin_kokoro-82m-mlx>` * :ref:`MegaTTS3 "
-"<models_builtin_megatts3>`"
-msgstr ""
-"**支持zero-shot的模型**（无需参考音频）：* :ref:`ChatTTS <models_"
-"builtin_chattts>` * :ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-"
-"300m-sft>` * :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m"
-"-instruct>` * MeloTTS系列 * :ref:`Kokoro-82M <models_builtin_kokoro-82m>`"
-" * :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>` * :ref:`MegaTTS3"
-" <models_builtin_megatts3>`"
+"audio):"
+msgstr "**支持zero-shot的模型** （无需参考音频）"
 
-#: ../../source/models/model_abilities/audio.rst:85
-#, fuzzy
-msgid ""
-"**Models supporting voice cloning** (requires reference audio): * :ref"
-":`CosyVoice-300M <models_builtin_cosyvoice-300m>` * :ref:`CosyVoice 2.0 "
-"<models_builtin_cosyvoice2-0.5b>` * :ref:`FishSpeech-1.5 "
-"<models_builtin_fishspeech-1.5>` * :ref:`F5-TTS <models_builtin_f5-tts>` "
-"* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`"
-msgstr ""
-"**支持voice cloning的模型**（需要参考音频）：* :ref:`CosyVoice-300M <"
-"models_builtin_cosyvoice-300m>` * :ref:`CosyVoice 2.0 <models_builtin_"
-"cosyvoice2-0.5b>` * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`"
-" * :ref:`F5-TTS <models_builtin_f5-tts>` * :ref:`F5-TTS-MLX <models_"
-"builtin_f5-tts-mlx>`"
-
-#: ../../source/models/model_abilities/audio.rst:92
-msgid "Note: Models that support voice cloning can also perform zero-shot TTS."
-msgstr "注意：支持voice cloning的模型也可以进行zero-shot TTS。"
-
-#: ../../source/models/model_abilities/audio.rst:96
-msgid ":ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`"
+#: ../../source/models/model_abilities/audio.rst:78
+msgid ":ref:`ChatTTS <models_builtin_chattts>`"
 msgstr ""
 
+#: ../../source/models/model_abilities/audio.rst:79
+msgid ":ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:80
+msgid ":ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:81
+msgid "MeloTTS series"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:82
+msgid ":ref:`Kokoro-82M <models_builtin_kokoro-82m>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:83
 #: ../../source/models/model_abilities/audio.rst:97
 msgid ":ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:84
+msgid ":ref:`MegaTTS3 <models_builtin_megatts3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:86
+msgid "**Models supporting voice cloning** (requires reference audio):"
+msgstr "**支持语音克隆的模型** （需要参考音频）"
+
+#: ../../source/models/model_abilities/audio.rst:88
+msgid ":ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:89
+msgid ":ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:90
+msgid ":ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:91
+msgid ":ref:`F5-TTS <models_builtin_f5-tts>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:92
+#: ../../source/models/model_abilities/audio.rst:96
+msgid ":ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:100
@@ -645,41 +660,3 @@ msgstr ""
 "当推理时，需要使用 'z' 开头的 voice，例如：``zf_xiaoyi``。目前支持的 "
 "voices 可以参考 https://huggingface.co/hexgrad/Kokoro-82M/tree/main/"
 "voices。使用方法如下："
-
-#~ msgid ":ref:`ChatTTS <models_builtin_chattts>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`F5-TTS <models_builtin_f5-tts>`"
-#~ msgstr ""
-
-#~ msgid ":ref:`MegaTTS3 <models_builtin_megatts3>`"
-#~ msgstr ""
-
-#~ msgid "MeloTTS series"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "**Voice Cloning TTS** (requires reference "
-#~ "audio): * None currently (models with"
-#~ " this ability can also do zero-"
-#~ "shot)"
-#~ msgstr ""
-#~ "**Voice Cloning TTS**（需要参考"
-#~ "音频）：* 目前暂无（具有此能力的"
-#~ "模型也可以进行zero-shot）"
-
