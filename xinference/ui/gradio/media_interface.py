@@ -830,13 +830,25 @@ class MediaInterface:
                     # Show voice cloning controls if supported
                     if supports_voice_cloning:
                         gr.Markdown("---\n**Voice Cloning Options**")
-                        prompt_speech = gr.Audio(
-                            label="Prompt Speech (for cloning)", type="filepath"
-                        )
-                        prompt_text = gr.Textbox(
-                            label="Prompt Text (for cloning)",
-                            placeholder="Text of the prompt speech",
-                        )
+                        # Make voice cloning required if model doesn't support zero-shot
+                        if supports_zero_shot:
+                            prompt_speech = gr.Audio(
+                                label="Prompt Speech (for cloning, optional)",
+                                type="filepath",
+                            )
+                            prompt_text = gr.Textbox(
+                                label="Prompt Text (for cloning, optional)",
+                                placeholder="Text of the prompt speech",
+                            )
+                        else:
+                            prompt_speech = gr.Audio(
+                                label="Prompt Speech (for cloning, required)",
+                                type="filepath",
+                            )
+                            prompt_text = gr.Textbox(
+                                label="Prompt Text (for cloning, required)",
+                                placeholder="Text of the prompt speech (required)",
+                            )
                     else:
                         # Hidden components for API compatibility
                         prompt_speech = gr.Audio(visible=False)
