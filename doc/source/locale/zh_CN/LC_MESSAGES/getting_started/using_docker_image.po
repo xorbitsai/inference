@@ -81,11 +81,8 @@ msgid ""
 "The official image of Xinference is available on DockerHub in the "
 "repository ``xprobe/xinference``. Available tags include:"
 msgstr ""
-"当前，可以通过两个渠道拉取 Xinference 的官方镜像。1. 在 Dockerhub 的 ``"
-"xprobe/xinference`` 仓库里。2. Dockerhub 中的镜像会同步上传一份到阿里云"
-"公共镜像仓库中（自 v1.7.0 起），供访问 Dockerhub 有困难的用户拉取。拉取"
-"命令：``docker pull crpi-49yei0hvmhr144pw.cn-hangzhou.personal.cr."
-"aliyuncs.com/xprobe_xinference2/xinference:<tag>`` 。目前可用的标签包括："
+"Xinference 官方镜像已发布在 DockerHub 上的 ``xprobe/xinference`` 仓库中。"
+"当前可用的标签包括："
 
 #: ../../source/getting_started/using_docker_image.rst:24
 msgid ""
