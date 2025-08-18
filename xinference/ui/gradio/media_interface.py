@@ -846,8 +846,8 @@ class MediaInterface:
                                 type="filepath",
                             )
                             prompt_text = gr.Textbox(
-                                label="Prompt Text (for cloning, required)",
-                                placeholder="Text of the prompt speech (required)",
+                                label="Prompt Text (for cloning, optional)",
+                                placeholder="Text of the prompt speech (optional)",
                             )
                     else:
                         # Hidden components for API compatibility
