@@ -82,6 +82,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 self._model_path,
                 device=self._device,
                 model_kwargs=model_kwargs,
+                truncate_dim=(
+                    self._kwargs.get("truncate_dim")
+                    if self._kwargs.get("truncate_dim")
+                    else None
+                ),
             )
         elif "qwen3" in self.model_family.model_name.lower():
             # qwen3 embedding
@@ -106,6 +111,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
                 tokenizer_kwargs=tokenizer_kwargs,
+                truncate_dim=(
+                    self._kwargs.get("truncate_dim")
+                    if self._kwargs.get("truncate_dim")
+                    else None
+                ),
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
