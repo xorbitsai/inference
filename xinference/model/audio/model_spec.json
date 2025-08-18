@@ -525,7 +525,8 @@
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": true,
     "virtualenv": {
@@ -551,7 +552,8 @@
     "model_name": "CosyVoice-300M",
     "model_family": "CosyVoice",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_voice_cloning"
     ],
     "multilingual": true,
     "model_src": {
@@ -570,7 +572,8 @@
     "model_name": "CosyVoice-300M-SFT",
     "model_family": "CosyVoice",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": true,
     "model_src": {
@@ -589,7 +592,8 @@
     "model_name": "CosyVoice-300M-Instruct",
     "model_family": "CosyVoice",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": true,
     "model_src": {
@@ -608,7 +612,9 @@
     "model_name": "CosyVoice2-0.5B",
     "model_family": "CosyVoice",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
     ],
     "multilingual": true,
     "virtualenv": {
@@ -646,7 +652,9 @@
     "model_name": "FishSpeech-1.5",
     "model_family": "FishAudio",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
     ],
     "multilingual": true,
     "model_src": {
@@ -665,7 +673,9 @@
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
     ],
     "multilingual": true,
     "model_src": {
@@ -684,7 +694,9 @@
     "model_name": "F5-TTS-MLX",
     "model_family": "F5-TTS-MLX",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
     ],
     "multilingual": true,
     "model_src": {
@@ -699,7 +711,8 @@
     "model_name": "MeloTTS-English",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "EN",
@@ -715,7 +728,8 @@
     "model_name": "MeloTTS-English-v2",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "EN",
@@ -731,7 +745,8 @@
     "model_name": "MeloTTS-English-v3",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "EN",
@@ -747,7 +762,8 @@
     "model_name": "MeloTTS-French",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "FR",
@@ -763,7 +779,8 @@
     "model_name": "MeloTTS-Japanese",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "JP",
@@ -779,7 +796,8 @@
     "model_name": "MeloTTS-Spanish",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "ES",
@@ -795,7 +813,8 @@
     "model_name": "MeloTTS-Chinese",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "ZH",
@@ -811,7 +830,8 @@
     "model_name": "MeloTTS-Korean",
     "model_family": "MeloTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": false,
     "language": "KR",
@@ -827,7 +847,8 @@
     "model_name": "Kokoro-82M",
     "model_family": "Kokoro",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": true,
     "model_src": {
@@ -846,7 +867,8 @@
     "model_name": "Kokoro-82M-MLX",
     "model_family": "Kokoro-MLX",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": true,
     "model_src": {
@@ -874,7 +896,8 @@
     "model_name": "MegaTTS3",
     "model_family": "MegaTTS",
     "model_ability": [
-      "text2audio"
+      "text2audio",
+      "text2audio_zero_shot"
     ],
     "multilingual": true,
     "model_src": {

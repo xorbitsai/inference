@@ -797,8 +797,24 @@ class MediaInterface:
 
             return audio_path
 
+        # Determine model abilities
+        supports_basic_tts = "text2audio" in self.model_ability
+        supports_zero_shot = "text2audio_zero_shot" in self.model_ability
+        supports_voice_cloning = "text2audio_voice_cloning" in self.model_ability
+
+        # Show ability info
+        ability_info = []
+        if supports_basic_tts:
+            ability_info.append("✅ Basic TTS (text-to-speech)")
+        if supports_zero_shot:
+            ability_info.append("✅ Zero-shot TTS (voice selection)")
+        if supports_voice_cloning:
+            ability_info.append("✅ Voice Cloning (requires reference audio)")
+
         # Gradio UI
         with gr.Blocks() as tts_ui:
+            gr.Markdown(f"**Model Abilities:**\n{chr(10).join(ability_info)}")
+
             with gr.Row():
                 with gr.Column():
                     input_text = gr.Textbox(
@@ -811,13 +827,20 @@ class MediaInterface:
                         label="Speed", minimum=0.5, maximum=2.0, value=1.0, step=0.1
                     )
 
-                    prompt_speech = gr.Audio(
-                        label="Prompt Speech (for cloning)", type="filepath"
-                    )
-                    prompt_text = gr.Textbox(
-                        label="Prompt Text (for cloning)",
-                        placeholder="Text of the prompt speech",
-                    )
+                    # Show voice cloning controls if supported
+                    if supports_voice_cloning:
+                        gr.Markdown("---\n**Voice Cloning Options**")
+                        prompt_speech = gr.Audio(
+                            label="Prompt Speech (for cloning)", type="filepath"
+                        )
+                        prompt_text = gr.Textbox(
+                            label="Prompt Text (for cloning)",
+                            placeholder="Text of the prompt speech",
+                        )
+                    else:
+                        # Hidden components for API compatibility
+                        prompt_speech = gr.Audio(visible=False)
+                        prompt_text = gr.Textbox(visible=False)
 
                     generate = gr.Button("Generate")
 

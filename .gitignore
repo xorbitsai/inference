@@ -148,3 +148,8 @@ local_env
 asv/results
 
 .DS_Store
+
+# Exclude markdown files except README files
+*.md
+!README.md
+!README_*.md
