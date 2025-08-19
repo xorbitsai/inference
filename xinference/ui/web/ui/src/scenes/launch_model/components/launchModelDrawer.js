@@ -45,6 +45,7 @@ import Progress from './progress'
 
 const csghubArr = ['qwen2-instruct']
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
+const modelEngineType = ['LLM', 'embedding', 'rerank']
 
 const SelectField = ({
   label,
@@ -405,7 +406,7 @@ const LaunchModelDrawer = ({
       setHasHistory(true)
       const restoredData = restoreFormDataFormat(data)
       setFormData(
-        ['LLM', 'embedding'].includes(modelType)
+        modelEngineType.includes(modelType)
           ? { ...restoredData, __isInitializing: true }
           : restoredData
       )
@@ -415,7 +416,7 @@ const LaunchModelDrawer = ({
   }, [])
 
   useEffect(() => {
-    if (['LLM', 'embedding'].includes(modelType))
+    if (modelEngineType.includes(modelType))
       fetchModelEngine(modelData.model_name, modelType)
   }, [modelData.model_name, modelType])
 
@@ -429,7 +430,7 @@ const LaunchModelDrawer = ({
       return
     }
 
-    if (formData.model_engine && ['LLM', 'embedding'].includes(modelType)) {
+    if (formData.model_engine && modelEngineType.includes(modelType)) {
       const format = [
         ...new Set(
           enginesObj[formData.model_engine]?.map((item) => item.model_format)
@@ -464,6 +465,11 @@ const LaunchModelDrawer = ({
         extractor: (item) => item.model_size_in_billions,
       },
       embedding: {
+        field: 'quantization',
+        optionSetter: setQuantizationOptions,
+        extractor: (item) => item.quantization,
+      },
+      rerank: {
         field: 'quantization',
         optionSetter: setQuantizationOptions,
         extractor: (item) => item.quantization,
@@ -1196,10 +1202,27 @@ const LaunchModelDrawer = ({
     ],
     rerank: [
       {
-        name: 'model_uid',
-        label: t('launchModel.modelUID.optional'),
-        type: 'input',
+        name: 'model_engine',
+        label: t('launchModel.modelEngine'),
+        type: 'select',
+        options: engineItems,
         visible: true,
+      },
+      {
+        name: 'model_format',
+        label: t('launchModel.modelFormat'),
+        type: 'select',
+        options: formatItems,
+        visible: true,
+        disabled: !formData.model_engine,
+      },
+      {
+        name: 'quantization',
+        label: t('launchModel.quantization'),
+        type: 'select',
+        options: quantizationItems,
+        visible: true,
+        disabled: !formData.model_format,
       },
       {
         name: 'replica',
@@ -1228,6 +1251,12 @@ const LaunchModelDrawer = ({
         error: !!formData.gpu_idx && !/^\d+(?:,\d+)*$/.test(formData.gpu_idx),
         helperText: t('launchModel.enterCommaSeparatedNumbers'),
         visible: !!formData.n_gpu && formData.n_gpu === 'GPU',
+      },
+      {
+        name: 'model_uid',
+        label: t('launchModel.modelUID.optional'),
+        type: 'input',
+        visible: true,
       },
       {
         name: 'worker_ip',
