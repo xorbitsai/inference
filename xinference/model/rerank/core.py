@@ -97,7 +97,7 @@ class RerankModel:
         model_uid: str,
         model_path: str,
         model_family: RerankModelFamilyV2,
-        quantization: str,
+        quantization: Optional[str],
         *,
         device: Optional[str] = None,
         use_fp16: bool = False,
