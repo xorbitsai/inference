@@ -97,6 +97,8 @@ class RerankModel:
         model_uid: str,
         model_path: str,
         model_family: RerankModelFamilyV2,
+        quantization: str,
+        *,
         device: Optional[str] = None,
         use_fp16: bool = False,
         **kwargs,
@@ -105,6 +107,8 @@ class RerankModel:
         self._model_spec = model_family.model_specs[0]
         self._model_uid = model_uid
         self._model_path = model_path
+        if quantization and quantization != "none":
+            raise ValueError("Quantization of for rerank model ")
         self._device = device
         self._use_fp16 = use_fp16
         self._model = None
