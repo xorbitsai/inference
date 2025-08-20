@@ -22,7 +22,11 @@ class VLLMRerankModel(RerankModel):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        if self.model_family.model_name in {"Qwen3-Reranker-0.6B", "Qwen3-Reranker-4B", "Qwen3-Reranker-8B"}:
+        if self.model_family.model_name in {
+            "Qwen3-Reranker-0.6B",
+            "Qwen3-Reranker-4B",
+            "Qwen3-Reranker-8B",
+        }:
             if "hf_overrides" not in self._kwargs:
                 self._kwargs["hf_overrides"] = {
                     "architectures": ["Qwen3ForSequenceClassification"],
@@ -68,7 +72,11 @@ class VLLMRerankModel(RerankModel):
         documents_size = len(documents)
         query_list = [query] * documents_size
 
-        if self.model_family.model_name in {"Qwen3-Reranker-0.6B", "Qwen3-Reranker-4B", "Qwen3-Reranker-8B"}:
+        if self.model_family.model_name in {
+            "Qwen3-Reranker-0.6B",
+            "Qwen3-Reranker-4B",
+            "Qwen3-Reranker-8B",
+        }:
             instruction = "Given a web search query, retrieve relevant passages that answer the query"
             prefix = (
                 "<|im_start|>system\nJudge whether the Document meets the requirements based on"
@@ -79,9 +87,14 @@ class VLLMRerankModel(RerankModel):
             query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
             document_template = "<Document>: {doc}{suffix}"
             processed_queries = [
-                query_template.format(prefix=prefix, instruction=instruction, query=query) for query in query_list
+                query_template.format(
+                    prefix=prefix, instruction=instruction, query=query
+                )
+                for query in query_list
             ]
-            processed_documents = [document_template.format(doc=doc, suffix=suffix) for doc in documents]
+            processed_documents = [
+                document_template.format(doc=doc, suffix=suffix) for doc in documents
+            ]
             outputs = self._model.score(
                 processed_documents,
                 processed_queries,
@@ -114,7 +127,11 @@ class VLLMRerankModel(RerankModel):
         metadata = Meta(
             api_version=None,
             billed_units=None,
-            tokens=(RerankTokens(input_tokens=tokens, output_tokens=tokens) if return_len else None),
+            tokens=(
+                RerankTokens(input_tokens=tokens, output_tokens=tokens)
+                if return_len
+                else None
+            ),
             warnings=None,
         )
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
