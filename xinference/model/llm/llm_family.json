@@ -7687,7 +7687,7 @@
       "packages": [
         "transformers>=4.51.3",
         "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
@@ -15521,7 +15521,7 @@
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview",
-        "numpy==1.26.4",
+        "#system_numpy#",
         "qwen_omni_utils",
         "soundfile"
       ]
@@ -17302,7 +17302,7 @@
       "packages": [
         "transformers>=4.51.0",
         "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
