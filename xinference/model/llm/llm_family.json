@@ -20707,7 +20707,8 @@
     "model_ability": [
       "chat",
       "reasoning",
-      "hybrid"
+      "hybrid",
+      "tools"
     ],
     "model_description": "The GLM-4.5 series models are foundation models designed for intelligent agents. ",
     "model_specs": [
@@ -20941,7 +20942,8 @@
     "model_ability": [
       "chat",
       "vision",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.",
     "model_specs": [

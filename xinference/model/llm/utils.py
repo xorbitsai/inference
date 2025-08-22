@@ -75,6 +75,8 @@ QWEN_TOOL_CALL_FAMILY = [
 GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat",
     "glm4-chat-1m",
+    "glm-4.5v",
+    "glm-4.5",
 ]
 
 LLAMA3_TOOL_CALL_FAMILY = [
@@ -174,8 +176,7 @@ class ChatModelMixin:
                 return kwargs
             else:
                 raise TypeError(
-                    f"`chat_template_kwargs` but be a JSON parsable str "
-                    f"or dict, got: {kwargs}"
+                    f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
                 )
         elif reasoning_parser and not reasoning_parser.enable_thinking:
             # hybrid model like qwen3,
