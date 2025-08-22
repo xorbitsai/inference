@@ -632,8 +632,11 @@
         "onnxruntime>=1.16.0",
         "pyworld>=0.3.4",
         "WeTextProcessing<1.0.4",
-        "#system_numpy#",
-        "#system_torch#"
+        "torch==2.8.0",
+        "torchaudio==2.8.0",
+        "torchvision==0.23.0",
+        "xformers==0.0.32.post2",
+        "transformers==4.51.3"
       ]
     },
     "model_src": {
