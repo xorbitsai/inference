@@ -20933,7 +20933,7 @@
   },
   {
     "version": 2,
-    "context_length": 131072,
+    "context_length": 65536,
     "model_name": "glm-4.5v",
     "model_lang": [
       "en",
