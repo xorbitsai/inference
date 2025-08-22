@@ -269,6 +269,34 @@ For those models gguf options are not supported internally, or you want to downl
 you can specify additional option ``gguf_model_path`` for web UI or spcecify
 ``--gguf_model_path /path/to/model_quant.gguf`` for command line.
 
+Lightning LORA Support
+~~~~~~~~~~~~~~~~~~~~~~
+
+Lightning LORA performs distillation on models in the form of LoRA,
+reducing the number of inference steps while maintaining model performance,
+and significantly speeding up inference. The following models currently support this LoRA:
+
++-------------------+------------------------------------------------------------------------------------------+
+| Model             | Supported lightning version                                                              |
++===================+==============================================+===========================================+
+| Qwen-Image        | 4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1                |
++-------------------+------------------------------------------------------------------------------------------+
+
+4 steps or 8 steps refer to the inference steps (``num_inference_steps``).
+When ``lightning_version`` is specified, Xinference will automatically set the number of inference steps.
+
+When using it, select the lightning version in the interface, or specify it via the command line.
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../../_static/qwen-image-lightning.png" style="background-color: transparent", width="95%">
+
+Use the command line with ``--lightning_version <version>``.
+
+For those who have downloaded the lightning LoRA files themselves, you can specify them via the Lightning
+Model Path in the interface or by using the command line option ``--lightning_model_path``.
+
+For example, using ``4steps-V1.0``, the inference time is reduced from the original 34s to 3s.
 
 OCR
 --------------------
