@@ -46,12 +46,16 @@ The Text-to-image API is supported with the following models in Xinference:
 * sd3.5-large-turbo
 * FLUX.1-schnell
 * FLUX.1-dev
-* Flux.1-Kontext-dev
 * Kolors
 * hunyuandit-v1.2
 * hunyuandit-v1.2-distilled
 * cogview4
 * Qwen-Image
+
+Image-to-image supported models:
+
+* Flux.1-Kontext-dev
+* Qwen-Image-Edit
 
 
 Quickstart
@@ -250,6 +254,8 @@ internally by Xinference. Below is the mode list.
 | sd3.5-large-turbo | F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0                                                        |
 +-------------------+------------------------------------------------------------------------------------------+
 | Qwen-Image        | F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S, Q6_K, Q8_0  |
++-------------------+------------------------------------------------------------------------------------------+
+| Qwen-Image-Edit   | Q2_K, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S, Q6_K, Q8_0 |
 +-------------------+------------------------------------------------------------------------------------------+
 
 .. note::

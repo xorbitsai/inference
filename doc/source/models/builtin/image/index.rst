@@ -29,6 +29,8 @@ The following is a list of built-in image models in Xinference:
   
    qwen-image
   
+   qwen-image-edit
+  
    sd-turbo
   
    sd3-medium

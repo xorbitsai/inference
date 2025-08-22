@@ -24,7 +24,9 @@ def test_model():
     model_path = None
     try:
         model_path = RerankCacheManager(TEST_MODEL_SPEC).cache()
-        model = SentenceTransformerRerankModel("mock", model_path, TEST_MODEL_SPEC)
+        model = SentenceTransformerRerankModel(
+            "mock", model_path, TEST_MODEL_SPEC, "none"
+        )
 
         query = "A man is eating pasta."
         # With all sentences in the corpus
