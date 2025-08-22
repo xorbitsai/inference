@@ -54,7 +54,7 @@ def test_cosyvoice_sft(setup, model_name):
         model_uid = client.launch_model(
             model_name=model_name,
             model_type="audio",
-            download_hub="modelscope"
+            download_hub="modelscope",
         )
         model = client.get_model(model_uid)
 
