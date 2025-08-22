@@ -20942,6 +20942,7 @@
     "model_ability": [
       "chat",
       "vision",
+      "hybrid",
       "reasoning",
       "tools"
     ],
