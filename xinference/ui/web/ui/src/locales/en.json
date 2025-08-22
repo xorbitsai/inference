@@ -80,6 +80,8 @@
     "modelPath.optional": "(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path.",
     "GGUFQuantization.optional": "(Optional) GGUF quantization format, quantizing the Transformer part.",
     "GGUFModelPath.optional": "(Optional) GGUF model path, should be a file ending with .gguf.",
+    "lightningVersions.optional": "(Optional) Lightning Versions",
+    "lightningModelPath.optional": "(Optional) Lightning Model Path",
     "enableThinking": "Enable Thinking",
     "parsingReasoningContent": "Parsing Reasoning Content",
     "CPUOffload": "CPU Offload",

@@ -18,6 +18,8 @@ export const llmAllDataKey = [
   'reasoning_content',
   'gguf_quantization',
   'gguf_model_path',
+  'lightning_version',
+  'lightning_model_path',
   'cpu_offload',
   'peft_model_config',
   'quantization_config',
