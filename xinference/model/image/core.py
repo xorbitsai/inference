@@ -51,6 +51,10 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     gguf_model_id: Optional[str]
     gguf_quantizations: Optional[List[str]]
     gguf_model_file_name_template: Optional[str]
+    lightning_model_id: Optional[str]
+    lightning_versions: Optional[List[str]]
+    lightning_model_file_name_template: Optional[str]
+
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
@@ -180,6 +184,8 @@ def create_image_model_instance(
     model_path: Optional[str] = None,
     gguf_quantization: Optional[str] = None,
     gguf_model_path: Optional[str] = None,
+    lightning_version: Optional[str] = None,
+    lightning_model_path: Optional[str] = None,
     **kwargs,
 ) -> Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model]:
     from .cache_manager import ImageCacheManager
@@ -235,6 +241,8 @@ def create_image_model_instance(
         model_path = cache_manager.cache()
     if not gguf_model_path and gguf_quantization:
         gguf_model_path = cache_manager.cache_gguf(gguf_quantization)
+    if not lightning_model_path and lightning_version:
+        lightning_model_path = cache_manager.cache_lightning(lightning_version)
     if peft_model_config is not None:
         lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs
@@ -262,6 +270,7 @@ def create_image_model_instance(
         lora_fuse_kwargs=lora_fuse_kwargs,
         model_spec=model_spec,
         gguf_model_path=gguf_model_path,
+        lightning_model_path=lightning_model_path,
         **kwargs,
     )
     return model
