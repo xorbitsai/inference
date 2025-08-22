@@ -745,6 +745,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if self._image_batch_scheduler and not self._image_batch_scheduler._running:
             await self._image_batch_scheduler.start()
 
+    def _gen_config_for_lightning(self, kwargs):
+        if (
+            "num_inference_steps" not in kwargs
+            and self._lightning_model_path is not None
+        ):
+            is_4_steps = "4steps" in self._lightning_model_path
+            if is_4_steps:
+                kwargs["num_inference_steps"] = 4
+            else:
+                assert "8steps" in self._lightning_model_path
+                kwargs["num_inference_steps"] = 8
+
     async def _direct_text_to_image(
         self,
         prompt: str,
@@ -757,6 +769,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
         generate_kwargs["width"], generate_kwargs["height"] = width, height
+        self._gen_config_for_lightning(generate_kwargs)
 
         return self._call_model(
             prompt=prompt,
