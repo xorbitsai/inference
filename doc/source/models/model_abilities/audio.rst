@@ -427,13 +427,9 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
         "Fights with fervor for justice, but struggles with impulsiveness.",
     )
 
-CosyVoice 2.0 only has one model, it provides all the capabilities of the three CosyVoice models. The usage is the same as CosyVoice, with the only difference being that CosyVoice 2.0 requires ``use_flow_cache=True`` when launching the model for stream generation.
+CosyVoice 2.0 only has one model, it provides all the capabilities of the three CosyVoice models. The usage is the same as CosyVoice.
 
 CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
-
-.. note::
-
-    Please note that the latest CosyVoice 2.0 requires `use_flow_cache=True` for stream generation.
 
 .. code-block::
 
@@ -444,7 +440,6 @@ CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
         model_name=model_name,
         model_type="audio",
         download_hub="modelscope",
-        use_flow_cache=True,
     )
 
     endpoint = "http://127.0.0.1:9997"

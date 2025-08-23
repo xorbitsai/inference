@@ -55,7 +55,6 @@ def test_cosyvoice_sft(setup, model_name):
             model_name=model_name,
             model_type="audio",
             download_hub="modelscope",
-            use_flow_cache=True,
         )
         model = client.get_model(model_uid)
 

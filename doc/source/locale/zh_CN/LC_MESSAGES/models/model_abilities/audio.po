@@ -407,37 +407,27 @@ msgstr "基于指令的声音合成，加载模型 ``CosyVoice-300M-Instruct``�
 #: ../../source/models/model_abilities/audio.rst:430
 msgid ""
 "CosyVoice 2.0 only has one model, it provides all the capabilities of the"
-" three CosyVoice models. The usage is the same as CosyVoice, with the "
-"only difference being that CosyVoice 2.0 requires ``use_flow_cache=True``"
-" when launching the model for stream generation."
+" three CosyVoice models. The usage is the same as CosyVoice."
 msgstr ""
 "CosyVoice 2.0 只有一个模型，但它包含了 CosyVoice 三个模型的所有能力。使用"
-"方法与 CosyVoice 一样，唯一需要注意的是在 CosyVoice 2.0 模型启动时设置 ``"
-"use_flow_cache=True`` 启动参数以使用流式生成。"
+"方法与 CosyVoice 一样。"
 
 #: ../../source/models/model_abilities/audio.rst:432
 msgid "CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``."
 msgstr "CosyVoice 2.0 流式使用，加载模型 ``CosyVoice2-0.5B``。"
 
-#: ../../source/models/model_abilities/audio.rst:436
-msgid ""
-"Please note that the latest CosyVoice 2.0 requires `use_flow_cache=True` "
-"for stream generation."
-msgstr ""
-"请注意，最新版本的 CosyVoice 2.0 在进行流式生成时需要设置 `use_flow_cache"
-"=True`。"
 
-#: ../../source/models/model_abilities/audio.rst:474
+#: ../../source/models/model_abilities/audio.rst:469
 msgid ""
 "More instructions and examples, could be found at https://fun-audio-"
 "llm.github.io/ ."
 msgstr "更多指令和例子，可以参考 https://fun-audio-llm.github.io/ 。"
 
-#: ../../source/models/model_abilities/audio.rst:478
+#: ../../source/models/model_abilities/audio.rst:472
 msgid "FishSpeech Usage"
 msgstr "FishSpeech 模型使用"
 
-#: ../../source/models/model_abilities/audio.rst:482
+#: ../../source/models/model_abilities/audio.rst:477
 msgid ""
 "Clone voice, launch model ``FishSpeech-1.5``. Please use `prompt_speech` "
 "instead of `reference_audio` and `prompt_text` instead of "
@@ -449,103 +439,103 @@ msgstr ""
 "reference_audio` 以及 `prompt_text` 而不是 `reference_text` 来为 "
 "FishSpeech 模型提供参考音频。这个参数和 CosyVoice 的语音克隆保持一致。"
 
-#: ../../source/models/model_abilities/audio.rst:509
+#: ../../source/models/model_abilities/audio.rst:504
 msgid "Paraformer Usage"
 msgstr "Paraformer 使用说明"
 
-#: ../../source/models/model_abilities/audio.rst:512
+#: ../../source/models/model_abilities/audio.rst:507
 msgid "model"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:512
+#: ../../source/models/model_abilities/audio.rst:507
 msgid "vad"
 msgstr "语音活动检测（vad）"
 
-#: ../../source/models/model_abilities/audio.rst:512
+#: ../../source/models/model_abilities/audio.rst:507
 msgid "punc"
 msgstr "标点恢复（punc）"
 
-#: ../../source/models/model_abilities/audio.rst:512
+#: ../../source/models/model_abilities/audio.rst:507
 msgid "timestamp"
 msgstr "时间戳"
 
-#: ../../source/models/model_abilities/audio.rst:512
+#: ../../source/models/model_abilities/audio.rst:507
 msgid "speaker"
 msgstr "说话人"
 
-#: ../../source/models/model_abilities/audio.rst:512
+#: ../../source/models/model_abilities/audio.rst:507
 msgid "hotword"
 msgstr "热词"
 
-#: ../../source/models/model_abilities/audio.rst:514
+#: ../../source/models/model_abilities/audio.rst:509
 msgid ":ref:`models_builtin_paraformer-zh`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:514
-#: ../../source/models/model_abilities/audio.rst:516
-#: ../../source/models/model_abilities/audio.rst:518
-#: ../../source/models/model_abilities/audio.rst:520
-#: ../../source/models/model_abilities/audio.rst:522
+#: ../../source/models/model_abilities/audio.rst:509
+#: ../../source/models/model_abilities/audio.rst:511
+#: ../../source/models/model_abilities/audio.rst:513
+#: ../../source/models/model_abilities/audio.rst:515
+#: ../../source/models/model_abilities/audio.rst:517
 msgid "yes"
 msgstr "是"
 
-#: ../../source/models/model_abilities/audio.rst:514
-#: ../../source/models/model_abilities/audio.rst:516
-#: ../../source/models/model_abilities/audio.rst:518
-#: ../../source/models/model_abilities/audio.rst:520
+#: ../../source/models/model_abilities/audio.rst:509
+#: ../../source/models/model_abilities/audio.rst:511
+#: ../../source/models/model_abilities/audio.rst:513
+#: ../../source/models/model_abilities/audio.rst:515
 msgid "no"
 msgstr "否"
 
-#: ../../source/models/model_abilities/audio.rst:516
+#: ../../source/models/model_abilities/audio.rst:511
 msgid ":ref:`models_builtin_paraformer-zh-hotword`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:518
+#: ../../source/models/model_abilities/audio.rst:513
 msgid ":ref:`models_builtin_paraformer-zh-spk`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:520
+#: ../../source/models/model_abilities/audio.rst:515
 msgid ":ref:`models_builtin_paraformer-zh-long`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:522
+#: ../../source/models/model_abilities/audio.rst:517
 msgid ":ref:`models_builtin_seaco-paraformer-zh` (recommend)"
 msgstr ":ref:`models_builtin_seaco-paraformer-zh` （推荐）"
 
-#: ../../source/models/model_abilities/audio.rst:525
+#: ../../source/models/model_abilities/audio.rst:520
 msgid "**VAD & Punctuation Usage**"
 msgstr "**VAD 与标点符号的使用**"
 
-#: ../../source/models/model_abilities/audio.rst:527
+#: ../../source/models/model_abilities/audio.rst:522
 msgid "All Paraformer models support VAD and punctuation."
 msgstr "所有 Paraformer 模型均支持 VAD 和标点功能。"
 
-#: ../../source/models/model_abilities/audio.rst:529
+#: ../../source/models/model_abilities/audio.rst:524
 msgid "**Timestamp & Speaker Usage**"
 msgstr "**时间戳和说话人识别使用说明**"
 
-#: ../../source/models/model_abilities/audio.rst:531
+#: ../../source/models/model_abilities/audio.rst:526
 msgid "Only the following models support `timestamp` and `speaker`:"
 msgstr "仅以下模型支持 `时间戳` 和 `说话人` 识别："
 
-#: ../../source/models/model_abilities/audio.rst:533
+#: ../../source/models/model_abilities/audio.rst:528
 msgid "`paraformer-zh-spk`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:534
+#: ../../source/models/model_abilities/audio.rst:529
 msgid "`paraformer-zh-long`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:535
-#: ../../source/models/model_abilities/audio.rst:560
+#: ../../source/models/model_abilities/audio.rst:530
+#: ../../source/models/model_abilities/audio.rst:555
 msgid "`seaco-paraformer-zh`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:537
+#: ../../source/models/model_abilities/audio.rst:532
 msgid "Among them, only `paraformer-zh-spk` enables **speaker info by default**."
 msgstr "其中，仅 `paraformer-zh-spk` 默认启用说话人识别功能。"
 
-#: ../../source/models/model_abilities/audio.rst:539
+#: ../../source/models/model_abilities/audio.rst:534
 msgid ""
 "If you need speaker info when using `paraformer-zh-long` or `seaco-"
 "paraformer-zh`:"
@@ -553,38 +543,38 @@ msgstr ""
 "如果你使用的是 `paraformer-zh-long` 或 `seaco-paraformer-zh`，且需要启用"
 "说话人识别功能："
 
-#: ../../source/models/model_abilities/audio.rst:541
+#: ../../source/models/model_abilities/audio.rst:536
 msgid ""
 "In Web UI: add an extra parameter with key ``spk_model`` and value "
 "``cam++``"
 msgstr "在 Web UI 中：添加名为 ``spk_model``、值为 ``cam++`` 的参数"
 
-#: ../../source/models/model_abilities/audio.rst:542
+#: ../../source/models/model_abilities/audio.rst:537
 msgid "In command line: add the option ``--spk_model cam++``"
 msgstr "在命令行中：添加参数 ``--spk_model cam++``"
 
-#: ../../source/models/model_abilities/audio.rst:544
-#: ../../source/models/model_abilities/audio.rst:562
+#: ../../source/models/model_abilities/audio.rst:539
+#: ../../source/models/model_abilities/audio.rst:557
 msgid "Example:"
 msgstr "示例："
 
-#: ../../source/models/model_abilities/audio.rst:555
+#: ../../source/models/model_abilities/audio.rst:550
 msgid "**Hotword Usage**"
 msgstr "**热词功能使用说明**"
 
-#: ../../source/models/model_abilities/audio.rst:557
+#: ../../source/models/model_abilities/audio.rst:552
 msgid "Only the following models support `hotword`:"
 msgstr "仅以下模型支持 `hotword` （热词功能）："
 
-#: ../../source/models/model_abilities/audio.rst:559
+#: ../../source/models/model_abilities/audio.rst:554
 msgid "`paraformer-zh-hotword`"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:576
+#: ../../source/models/model_abilities/audio.rst:571
 msgid "SenseVoiceSmall Offline Usage"
 msgstr "SenseVoiceSmall 离线使用"
 
-#: ../../source/models/model_abilities/audio.rst:578
+#: ../../source/models/model_abilities/audio.rst:573
 msgid ""
 "Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be "
 "downloaded thus network required."
@@ -592,11 +582,11 @@ msgstr ""
 "现在 SenseVoiceSmall 使用一个小的 VAD 模型 ``fsmn-vad``，因此它需要网络来"
 "下载。"
 
-#: ../../source/models/model_abilities/audio.rst:580
+#: ../../source/models/model_abilities/audio.rst:575
 msgid "For offline environment, you can download the vad model in advance."
 msgstr "对于离线环境，你可以提前下载这个 VAD 模型。"
 
-#: ../../source/models/model_abilities/audio.rst:582
+#: ../../source/models/model_abilities/audio.rst:577
 msgid ""
 "Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or "
 "`modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-"
@@ -606,7 +596,7 @@ msgstr ""
 "modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-"
 "common-pytorch/files>`_ 下载。假设下载到 ``/path/to/fsmn-vad``。"
 
-#: ../../source/models/model_abilities/audio.rst:585
+#: ../../source/models/model_abilities/audio.rst:580
 msgid ""
 "Then when launching SenseVoiceSmall with Web UI, you can add an "
 "additional parameter with key ``vad_model`` and value ``/path/to/fsmn-"
@@ -617,11 +607,11 @@ msgstr ""
 "``，值是之前的下载路径 ``/path/to/fsmn-vad``。用命令行加载时，增加选项 ``"
 "--vad_model /path/to/fsmn-vad``。"
 
-#: ../../source/models/model_abilities/audio.rst:590
+#: ../../source/models/model_abilities/audio.rst:585
 msgid "Kokoro Usage"
 msgstr "Kokoro 模型使用"
 
-#: ../../source/models/model_abilities/audio.rst:592
+#: ../../source/models/model_abilities/audio.rst:587
 msgid ""
 "The Kokoro model supports multiple languages, but the default language is"
 " English. If you want to use other languages, such as Chinese, you need "
@@ -631,11 +621,11 @@ msgstr ""
 "Kokoro模型支持多语言，默认是英文。如果你想使用非默认语言，例如中文，则"
 "需要安装额外依赖包并且在模型启动时增加对应参数。"
 
-#: ../../source/models/model_abilities/audio.rst:596
+#: ../../source/models/model_abilities/audio.rst:591
 msgid "pip install misaki[zh]"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:598
+#: ../../source/models/model_abilities/audio.rst:593
 msgid ""
 "Initialize the model with the parameter lang_code='z', For all available "
 "``lang_code`` options, please refer to `kokoro source code "
@@ -651,7 +641,7 @@ msgstr ""
 "是 ``lang_code``，value是 ``z``。如果你是通过 xinference client启动的模型"
 "，则可以参考如下代码传递参数："
 
-#: ../../source/models/model_abilities/audio.rst:615
+#: ../../source/models/model_abilities/audio.rst:610
 msgid ""
 "When inferring, the voice must start with 'z', for example: "
 "``zf_xiaoyi``. The currently supported voices are: "
