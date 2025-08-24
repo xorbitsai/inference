@@ -3,6 +3,7 @@ import uuid
 from typing import List, Optional
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
@@ -42,6 +43,7 @@ class VLLMRerankModel(RerankModel):
         self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
+    @cache_clean
     def rerank(
         self,
         documents: List[str],
@@ -87,14 +89,9 @@ class VLLMRerankModel(RerankModel):
             query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
             document_template = "<Document>: {doc}{suffix}"
             processed_queries = [
-                query_template.format(
-                    prefix=prefix, instruction=instruction, query=query
-                )
-                for query in query_list
+                query_template.format(prefix=prefix, instruction=instruction, query=query) for query in query_list
             ]
-            processed_documents = [
-                document_template.format(doc=doc, suffix=suffix) for doc in documents
-            ]
+            processed_documents = [document_template.format(doc=doc, suffix=suffix) for doc in documents]
             outputs = self._model.score(
                 processed_documents,
                 processed_queries,
@@ -127,11 +124,7 @@ class VLLMRerankModel(RerankModel):
         metadata = Meta(
             api_version=None,
             billed_units=None,
-            tokens=(
-                RerankTokens(input_tokens=tokens, output_tokens=tokens)
-                if return_len
-                else None
-            ),
+            tokens=(RerankTokens(input_tokens=tokens, output_tokens=tokens) if return_len else None),
             warnings=None,
         )
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
