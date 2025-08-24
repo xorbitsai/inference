@@ -16,8 +16,6 @@ import importlib.util
 import logging
 from typing import List, Union
 
-from vllm import PoolingParams
-
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...utils import cache_clean
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -70,6 +68,8 @@ class VLLMEmbeddingModel(EmbeddingModel):
         sentences: Union[str, List[str]],
         **kwargs,
     ):
+        from vllm import PoolingParams
+
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
 
