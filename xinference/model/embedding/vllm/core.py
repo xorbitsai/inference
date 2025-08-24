@@ -16,6 +16,8 @@ import importlib.util
 import logging
 from typing import List, Union
 
+from vllm import PoolingParams
+
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...utils import cache_clean
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -25,7 +27,6 @@ SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
 
 class VLLMEmbeddingModel(EmbeddingModel):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._context_length = None
@@ -42,6 +43,19 @@ class VLLMEmbeddingModel(EmbeddingModel):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+        if self.model_family.model_name in {
+            "Qwen3-Embedding-0.6B",
+            "Qwen3-Embedding-4B",
+            "Qwen3-Embedding-8B",
+        }:
+            if "hf_overrides" not in self._kwargs:
+                self._kwargs["hf_overrides"] = {
+                    "is_matryoshka": True,
+                }
+            elif isinstance(self._kwargs["hf_overrides"], dict):
+                self._kwargs["hf_overrides"].update(
+                    is_matryoshka=True,
+                )
 
         self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
@@ -60,10 +74,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
         model_uid = kwargs.pop("model_uid", None)
 
         normalize_embedding = kwargs.get("normalize_embedding", True)
-        if not normalize_embedding:
-            raise ValueError(
-                "vllm embedding engine does not support setting `normalize_embedding=False`"
-            )
+        dimensions = kwargs.get("dimensions", None)
 
         assert self._model is not None
 
@@ -92,8 +103,12 @@ class VLLMEmbeddingModel(EmbeddingModel):
                 sentences = truncated_sentences[0]
             else:
                 sentences = truncated_sentences
-
-        outputs = self._model.embed(sentences, use_tqdm=False)
+        pool_params = PoolingParams(
+            dimensions=dimensions, normalize=normalize_embedding
+        )
+        outputs = self._model.embed(
+            sentences, use_tqdm=False, pooling_params=pool_params
+        )
         embedding_list = []
         all_token_nums = 0
         for index, output in enumerate(outputs):
