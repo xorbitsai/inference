@@ -3,8 +3,8 @@ import uuid
 from typing import List, Optional
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 from ...utils import cache_clean
+from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
