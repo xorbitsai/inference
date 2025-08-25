@@ -162,7 +162,8 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
                         )
                         logger.info("Estimate num gpu layers: %s", estimate)
                         if estimate.tensor_split:
-                            params.tensor_split = estimate.tensor_split
+                            for i in range(len(estimate.tensor_split)):
+                                params.tensor_split[i] = estimate.tensor_split[i]
                         else:
                             params.n_gpu_layers = estimate.layers
                 except Exception as e:
@@ -190,24 +191,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
             model_uid: Optional[str] = kwargs.pop("model_uid", None)
             if model_uid:
                 data["model"] = model_uid
-            prompt_json = orjson.dumps(data)
-
-            def _error_callback(err):
-                try:
-                    msg = orjson.loads(err)
-                    q.put(_Error(msg))
-                except Exception as e:
-                    q.put(_Error(str(e)))
-
-            def _ok_callback(ok):
-                try:
-                    res = orjson.loads(ok)
-                    q.put(res)
-                except Exception as e:
-                    q.put(_Error(str(e)))
-
             try:
-                self._llm.handle_embeddings(prompt_json, _error_callback, _ok_callback)
+                res = self._llm.handle_embeddings(data)
+                q.put(res)
             except Exception as ex:
                 q.put(_Error(str(ex)))
             q.put(_Done)
