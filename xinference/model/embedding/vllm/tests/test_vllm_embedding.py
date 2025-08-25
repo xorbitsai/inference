@@ -48,10 +48,8 @@ def test_embedding_model_with_vllm():
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
+        model = create_embedding_model_instance(
             "mook",
-            None,
-            "mock",
             "bge-small-en-v1.5",
             "vllm",
             model_path=model_path,
