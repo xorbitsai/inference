@@ -68,7 +68,9 @@ class VLLMEmbeddingModel(EmbeddingModel):
         sentences: Union[str, List[str]],
         **kwargs,
     ):
+        from packaging.version import Version
         from vllm import PoolingParams
+        from vllm import __version__ as vllm_version
 
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
@@ -103,9 +105,18 @@ class VLLMEmbeddingModel(EmbeddingModel):
                 sentences = truncated_sentences[0]
             else:
                 sentences = truncated_sentences
-        pool_params = PoolingParams(
-            dimensions=dimensions, normalize=normalize_embedding
-        )
+        if Version(vllm_version) > Version("0.10.1"):
+            pool_params = PoolingParams(
+                dimensions=dimensions, normalize=normalize_embedding
+            )
+        else:
+            if not normalize_embedding:
+                raise ValueError(
+                    f"vLLM version {vllm_version} does not support "
+                    f"unnormalized embeddings. "
+                    f"Please upgrade to v0.10.1 or later."
+                )
+            pool_params = PoolingParams(dimensions=dimensions)
         outputs = self._model.embed(
             sentences, use_tqdm=False, pooling_params=pool_params
         )
