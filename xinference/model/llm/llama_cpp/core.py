@@ -160,6 +160,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             params.mmproj.path = mmproj
             if self.model_family.chat_template:
                 params.chat_template = self.model_family.chat_template
+            params.use_jinja = True
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
             for k, v in self._llamacpp_model_config.items():
@@ -208,7 +209,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         )
                         logger.info("Estimate num gpu layers: %s", estimate)
                         if estimate.tensor_split:
-                            params.tensor_split = estimate.tensor_split
+                            for i in range(len(estimate.tensor_split)):
+                                params.tensor_split[i] = estimate.tensor_split[i]
                         else:
                             params.n_gpu_layers = estimate.layers
                 except Exception as e:
@@ -242,28 +244,18 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 {
                     "prompt": prompt,
                     "stream": stream,
+                    "model": self.model_uid,
                 }
             )
-            prompt_json = orjson.dumps(data)
-
-            def _error_callback(err):
-                try:
-                    msg = orjson.loads(err)
-                    q.put(_Error(msg))
-                except Exception as e:
-                    q.put(_Error(str(e)))
-
-            def _ok_callback(ok):
-                try:
-                    res = orjson.loads(ok)
-                    res["model"] = self.model_uid
-                    q.put(res)
-                except Exception as e:
-                    logger.exception("handle_completions callback failed: %s", e)
-                    q.put(_Error(str(e)))
-
             try:
-                self._llm.handle_completions(prompt_json, _error_callback, _ok_callback)
+
+                def _callback(res):
+                    if res.get("code"):
+                        q.put(_Error(res))
+                    else:
+                        q.put(res)
+
+                self._llm.handle_completions(data, _callback)
             except Exception as ex:
                 logger.exception("handle_completions failed: %s", ex)
                 q.put(_Error(str(ex)))
@@ -310,30 +302,18 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     "messages": messages,
                     "stream": stream,
                     "tools": tools,
+                    "model": self.model_uid,
                 }
             )
-            prompt_json = orjson.dumps(data)
-
-            def _error_callback(err):
-                try:
-                    msg = orjson.loads(err)
-                    q.put(_Error(msg))
-                except Exception as e:
-                    q.put(_Error(str(e)))
-
-            def _ok_callback(ok):
-                try:
-                    res = orjson.loads(ok)
-                    res["model"] = self.model_uid
-                    q.put(res)
-                except Exception as e:
-                    logger.exception("handle_chat_completions callback failed: %s", e)
-                    q.put(_Error(str(e)))
-
             try:
-                self._llm.handle_chat_completions(
-                    prompt_json, _error_callback, _ok_callback
-                )
+
+                def _callback(res):
+                    if res.get("code"):
+                        q.put(_Error(res))
+                    else:
+                        q.put(res)
+
+                self._llm.handle_chat_completions(data, _callback)
             except Exception as ex:
                 logger.exception("handle_chat_completions failed: %s", ex)
                 q.put(_Error(str(ex)))
