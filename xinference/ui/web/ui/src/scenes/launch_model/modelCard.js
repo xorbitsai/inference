@@ -123,6 +123,8 @@ const ModelCard = ({
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
   const [cpuOffload, setCpuOffload] = useState(false)
+  const [lightningVersions, setLightningVersions] = useState('')
+  const [lightningModelPath, setLightningModelPath] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -425,6 +427,10 @@ const ModelCard = ({
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
+    if (lightningVersions)
+      modelDataWithID_other.lightning_version = lightningVersions
+    if (lightningModelPath)
+      modelDataWithID_other.lightning_model_path = lightningModelPath
     if (['image', 'video'].includes(modelType))
       modelDataWithID_other.cpu_offload = cpuOffload
     if (['embedding', 'rerank'].includes(modelType)) {
@@ -870,6 +876,8 @@ const ModelCard = ({
       model_path,
       gguf_quantization,
       gguf_model_path,
+      lightning_version,
+      lightning_model_path,
       cpu_offload,
       model_type,
       peft_model_config,
@@ -894,6 +902,8 @@ const ModelCard = ({
     setModelPath(model_path || '')
     setGgufQuantizations(gguf_quantization || '')
     setGgufModelPath(gguf_model_path || '')
+    setLightningVersions(lightning_version || '')
+    setLightningModelPath(lightning_model_path || '')
     setCpuOffload(cpu_offload || false)
     setEnableVirtualEnv(enable_virtual_env ?? 'unset')
     setVirtualEnvPackagesHistoryArr(virtual_env_packages || [])
@@ -2515,6 +2525,43 @@ const ModelCard = ({
                       value={ggufModelPath}
                       label={t('launchModel.GGUFModelPath.optional')}
                       onChange={(e) => setGgufModelPath(e.target.value)}
+                    />
+                  </FormControl>
+                )}
+                {modelData.lightning_versions && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="quantization-label">
+                      {t('launchModel.lightningVersions.optional')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="lightning-versions-label"
+                      value={lightningVersions}
+                      onChange={(e) => {
+                        e.target.value === 'none'
+                          ? setLightningVersions('')
+                          : setLightningVersions(e.target.value)
+                      }}
+                      label={t('launchModel.lightningVersions.optional')}
+                    >
+                      {['none', ...modelData.lightning_versions].map((item) => {
+                        return (
+                          <MenuItem key={item} value={item}>
+                            {item}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                )}
+                {modelData.lightning_versions && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <TextField
+                      className="textHighlight"
+                      variant="outlined"
+                      value={lightningModelPath}
+                      label={t('launchModel.lightningModelPath.optional')}
+                      onChange={(e) => setLightningModelPath(e.target.value)}
                     />
                   </FormControl>
                 )}

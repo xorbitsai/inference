@@ -19,6 +19,7 @@ import inspect
 import itertools
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -89,6 +90,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         lora_fuse_kwargs: Optional[Dict] = None,
         model_spec: Optional["ImageModelFamilyV2"] = None,
         gguf_model_path: Optional[str] = None,
+        lightning_model_path: Optional[str] = None,
         **kwargs,
     ):
         self.model_family = model_spec
@@ -115,6 +117,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._kwargs = kwargs
         # gguf
         self._gguf_model_path = gguf_model_path
+        # lightning
+        self._lightning_model_path = lightning_model_path
 
     @property
     def model_ability(self):
@@ -240,32 +244,33 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
         )
-        try:
-            self._model = AutoPipelineModel.from_pretrained(
-                self._model_path,
-                **self._kwargs,
-            )
-        except ValueError:
-            if "kontext" in self._model_spec.model_name.lower():
-                # TODO: remove this branch when auto pipeline supports
-                # flux.1-kontext-dev
-                from diffusers import FluxKontextPipeline
-
-                self._model = FluxKontextPipeline.from_pretrained(
-                    self._model_path, **self._kwargs
+        with self._process_lightning(self._kwargs):
+            try:
+                self._model = AutoPipelineModel.from_pretrained(
+                    self._model_path,
+                    **self._kwargs,
                 )
-            elif "qwen" in self._model_spec.model_name.lower():
-                # TODO: remove this branch when auto pipeline supports
-                # Qwen-Image
-                from diffusers import DiffusionPipeline
+            except ValueError:
+                if "kontext" in self._model_spec.model_name.lower():
+                    # TODO: remove this branch when auto pipeline supports
+                    # flux.1-kontext-dev
+                    from diffusers import FluxKontextPipeline
 
-                self._model = DiffusionPipeline.from_pretrained(
-                    self._model_path, **self._kwargs
-                )
-            else:
-                raise
-        self._load_to_device(self._model)
-        self._apply_lora()
+                    self._model = FluxKontextPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "qwen" in self._model_spec.model_name.lower():
+                    # TODO: remove this branch when auto pipeline supports
+                    # Qwen-Image
+                    from diffusers import DiffusionPipeline
+
+                    self._model = DiffusionPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                else:
+                    raise
+            self._load_to_device(self._model)
+            self._apply_lora()
 
         if self._kwargs.get("deepcache", False):
             try:
@@ -439,6 +444,44 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             torch_dtype=torch_dtype,
             config=os.path.join(self._model_path, "transformer"),
         )
+
+    @contextlib.contextmanager
+    def _process_lightning(self, kwargs):
+        lightning_model_path = self._lightning_model_path
+        if not lightning_model_path:
+            yield
+            return
+
+        from diffusers import FlowMatchEulerDiscreteScheduler
+
+        if "qwen" in self._model_spec.model_name.lower():
+            scheduler_config = {
+                "base_image_seq_len": 256,
+                "base_shift": math.log(3),  # We use shift=3 in distillation
+                "invert_sigmas": False,
+                "max_image_seq_len": 8192,
+                "max_shift": math.log(3),  # We use shift=3 in distillation
+                "num_train_timesteps": 1000,
+                "shift": 1.0,
+                "shift_terminal": None,  # set shift_terminal to None
+                "stochastic_sampling": False,
+                "time_shift_type": "exponential",
+                "use_beta_sigmas": False,
+                "use_dynamic_shifting": True,
+                "use_exponential_sigmas": False,
+                "use_karras_sigmas": False,
+            }
+            scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+            kwargs["scheduler"] = scheduler
+
+            yield
+
+            model = self._model
+            logger.debug("Loading lightning lora: %s", self._lightning_model_path)
+            model.load_lora_weights(self._lightning_model_path)
+        else:
+            logger.debug("No lightning applied")
+            yield
 
     def _load_to_device(self, model):
         if self._kwargs.get("cpu_offload", False):
@@ -702,6 +745,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if self._image_batch_scheduler and not self._image_batch_scheduler._running:
             await self._image_batch_scheduler.start()
 
+    def _gen_config_for_lightning(self, kwargs):
+        if (
+            "num_inference_steps" not in kwargs
+            and self._lightning_model_path is not None
+        ):
+            is_4_steps = "4steps" in self._lightning_model_path
+            if is_4_steps:
+                kwargs["num_inference_steps"] = 4
+            else:
+                assert "8steps" in self._lightning_model_path
+                kwargs["num_inference_steps"] = 8
+
     async def _direct_text_to_image(
         self,
         prompt: str,
@@ -714,6 +769,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
         generate_kwargs["width"], generate_kwargs["height"] = width, height
+        self._gen_config_for_lightning(generate_kwargs)
 
         return self._call_model(
             prompt=prompt,
