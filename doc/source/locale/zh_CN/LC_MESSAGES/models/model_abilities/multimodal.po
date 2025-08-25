@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-05-25 20:40+0800\n"
+"POT-Creation-Date: 2025-08-25 03:59+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/models/model_abilities/multimodal.rst:5
 msgid "Multimodal"
@@ -38,11 +38,11 @@ msgid ""
 "certain models are capable of processing image inputs when conducting "
 "dialogues via the Chat API."
 msgstr ""
-"通过 ``vision`` 能力，您可以让模型接收图像并回答有关它们的问题。在 "
-"Xinference 中，这表示某些模型在通过 Chat API 进行对话时能够处理图像输入。"
+"通过 ``vision`` 能力，您可以让模型接收图像并回答有关它们的问题。在 Xinference 中，这表示某些模型在通过 Chat API "
+"进行对话时能够处理图像输入。"
 
 #: ../../source/models/model_abilities/multimodal.rst:19
-#: ../../source/models/model_abilities/multimodal.rst:138
+#: ../../source/models/model_abilities/multimodal.rst:190
 msgid "Supported models"
 msgstr "支持的模型列表"
 
@@ -113,7 +113,7 @@ msgid ":ref:`internvl3 <models_llm_internvl3>`"
 msgstr ""
 
 #: ../../source/models/model_abilities/multimodal.rst:41
-#: ../../source/models/model_abilities/multimodal.rst:145
+#: ../../source/models/model_abilities/multimodal.rst:197
 msgid "Quickstart"
 msgstr "快速入门"
 
@@ -122,9 +122,7 @@ msgid ""
 "Images are made available to the model in two main ways: by passing a "
 "link to the image or by passing the base64 encoded image directly in the "
 "request."
-msgstr ""
-"模型可以通过两种主要方式获取图像：通过传递图像的链接或直接在请求中传递 "
-"base64 编码的图像。"
+msgstr "模型可以通过两种主要方式获取图像：通过传递图像的链接或直接在请求中传递 base64 编码的图像。"
 
 #: ../../source/models/model_abilities/multimodal.rst:47
 msgid "Example using OpenAI Client"
@@ -134,23 +132,74 @@ msgstr "使用 OpenAI 客户端的示例"
 msgid "Uploading base 64 encoded images"
 msgstr "上传 Base64 编码的图片"
 
-#: ../../source/models/model_abilities/multimodal.rst:120
+#: ../../source/models/model_abilities/multimodal.rst:121
+msgid "Limiting Images Per Prompt"
+msgstr "限制每轮对话中的图像数量"
+
+#: ../../source/models/model_abilities/multimodal.rst:123
+msgid ""
+"For vision models using the VLLM backend, you can use the "
+"``limit_mm_per_prompt`` parameter to limit the number of images that can "
+"be processed in each conversation turn. This helps control memory usage "
+"and improve performance."
+msgstr ""
+"对于使用 VLLM 后端的视觉模型，你可以通过 ``limit_mm_per_prompt`` "
+"参数来限制每轮对话中可以处理的图像数量。这有助于控制内存使用和提高性能。"
+
+#: ../../source/models/model_abilities/multimodal.rst:142
+msgid "Alternatively, you can launch the model using the command line:"
+msgstr "或者，你可以使用命令行启动模型："
+
+#: ../../source/models/model_abilities/multimodal.rst:155
+msgid ""
+"For Web UI, you can set the ``limit_mm_per_prompt`` parameter in the "
+"launch form:"
+msgstr "对于 Web UI，你可以在vLLM引擎表单中设置 ``limit_mm_per_prompt`` 参数："
+
+#: ../../source/models/model_abilities/multimodal.rst:161
+msgid "This parameter provides the following benefits:"
+msgstr "此参数提供以下好处："
+
+#: ../../source/models/model_abilities/multimodal.rst:163
+msgid "**image**: Sets the maximum number of images allowed per conversation turn"
+msgstr "**image**: 设置每轮对话中允许的最大图像数量"
+
+#: ../../source/models/model_abilities/multimodal.rst:164
+msgid "Helps prevent memory overflow, especially when processing multiple images"
+msgstr "有助于防止内存溢出，特别是在处理多张图像时"
+
+#: ../../source/models/model_abilities/multimodal.rst:165
+msgid "Improves model inference stability and performance"
+msgstr "提高模型推理的稳定性和性能"
+
+#: ../../source/models/model_abilities/multimodal.rst:166
+msgid "Applies to all VLLM-based vision models"
+msgstr "适用于所有基于 VLLM 的视觉模型"
+
+#: ../../source/models/model_abilities/multimodal.rst:169
+msgid ""
+"The ``limit_mm_per_prompt`` parameter only takes effect when using the "
+"VLLM backend. If your model uses other backends, this parameter will be "
+"ignored."
+msgstr "``limit_mm_per_prompt`` 参数仅在使用 VLLM 后端时生效。如果你的模型使用其他后端，此参数将被忽略。"
+
+#: ../../source/models/model_abilities/multimodal.rst:171
 msgid "You can find more examples of ``vision`` ability in the tutorial notebook:"
 msgstr "你可以在教程笔记本中找到更多关于 ``vision`` 能力的示例。"
 
-#: ../../source/models/model_abilities/multimodal.rst:124
+#: ../../source/models/model_abilities/multimodal.rst:175
 msgid "Qwen VL Chat"
-msgstr ""
+msgstr "Qwen VL Chat"
 
-#: ../../source/models/model_abilities/multimodal.rst:127
+#: ../../source/models/model_abilities/multimodal.rst:178
 msgid "Learn vision ability from a example using qwen-vl-chat"
 msgstr "通过使用 qwen-vl-chat 的示例来学习使用 LLM 的视觉能力"
 
-#: ../../source/models/model_abilities/multimodal.rst:130
+#: ../../source/models/model_abilities/multimodal.rst:182
 msgid "Audio"
 msgstr "音频"
 
-#: ../../source/models/model_abilities/multimodal.rst:132
+#: ../../source/models/model_abilities/multimodal.rst:184
 msgid ""
 "With the ``audio`` ability you can have your model take in audio and "
 "performing audio analysis or direct textual responses with regard to "
@@ -158,29 +207,26 @@ msgid ""
 "models are capable of processing audio inputs when conducting dialogues "
 "via the Chat API."
 msgstr ""
-"通过“音频”功能，您的模型可以接收音频并执行音频分析或根据语音指令直接"
-"生成文本响应。在 Xinference 中，这表示某些模型在通过 Chat API 进行对话时"
-"能够处理音频输入。"
+"通过“音频”功能，您的模型可以接收音频并执行音频分析或根据语音指令直接生成文本响应。在 Xinference 中，这表示某些模型在通过 Chat "
+"API 进行对话时能够处理音频输入。"
 
-#: ../../source/models/model_abilities/multimodal.rst:140
+#: ../../source/models/model_abilities/multimodal.rst:192
 msgid ""
 "The ``audio`` ability is supported with the following models in "
 "Xinference:"
 msgstr "“音频”功能在 Xinference 中支持以下模型："
 
-#: ../../source/models/model_abilities/multimodal.rst:142
+#: ../../source/models/model_abilities/multimodal.rst:194
 msgid ":ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:147
+#: ../../source/models/model_abilities/multimodal.rst:199
 msgid ""
 "Audios are made available to the model in two main ways: by passing a "
 "link to the image or by passing the audio url directly in the request."
-msgstr ""
-"音频可以通过两种主要方式提供给模型：通过传递图像链接或在请求中直接传递"
-"音频 URL。"
+msgstr "音频可以通过两种主要方式提供给模型：通过传递图像链接或在请求中直接传递音频 URL。"
 
-#: ../../source/models/model_abilities/multimodal.rst:152
+#: ../../source/models/model_abilities/multimodal.rst:204
 msgid "Chat with audio"
 msgstr "带有音频的聊天"
 
