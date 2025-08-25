@@ -152,6 +152,12 @@ Alternatively, you can launch the model using the command line:
         --quantization none \
         --limit_mm_per_prompt "{\"image\":4}"
 
+For Web UI, you can set the ``limit_mm_per_prompt`` parameter in the launch form:
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../_static/limit_mm_per_prompt.png" style="background-color: transparent", width="95%">
+
 This parameter provides the following benefits:
 
 * **image**: Sets the maximum number of images allowed per conversation turn
