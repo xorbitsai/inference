@@ -88,10 +88,19 @@ async def test_download_hugginface():
             family.model_specs = [spec]
 
             async def check():
+                last = None
+                stagnant = 0
                 while not done:
                     await asyncio.sleep(1)
                     progress = downloader.get_progress()
                     assert progress >= 0
+                    if progress == last:
+                        stagnant += 1
+                        if stagnant > 60:  # no changes for 1 minute
+                            raise TimeoutError("Download stuck")
+                    else:
+                        stagnant = 0
+                    last = progress
 
             done = False
             check_task = asyncio.create_task(check())
@@ -130,10 +139,19 @@ async def test_download_modelscope():
             family.model_specs = [spec]
 
             async def check():
+                last = None
+                stagnant = 0
                 while not done:
                     await asyncio.sleep(1)
                     progress = downloader.get_progress()
                     assert progress >= 0
+                    if progress == last:
+                        stagnant += 1
+                        if stagnant > 60:  # no changes for 1 minute
+                            raise TimeoutError("Download stuck")
+                    else:
+                        stagnant = 0
+                    last = progress
 
             done = False
             check_task = asyncio.create_task(check())
