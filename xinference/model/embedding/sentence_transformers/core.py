@@ -82,6 +82,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 self._model_path,
                 device=self._device,
                 model_kwargs=model_kwargs,
+                truncate_dim=(
+                    self._kwargs.get("truncate_dim")
+                    if self._kwargs.get("truncate_dim")
+                    else None
+                ),
             )
         elif "qwen3" in self.model_family.model_name.lower():
             # qwen3 embedding
@@ -106,6 +111,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
                 tokenizer_kwargs=tokenizer_kwargs,
+                truncate_dim=(
+                    self._kwargs.get("truncate_dim")
+                    if self._kwargs.get("truncate_dim")
+                    else None
+                ),
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
@@ -114,6 +124,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
                 trust_remote_code=True,
+                truncate_dim=(
+                    self._kwargs.get("truncate_dim")
+                    if self._kwargs.get("truncate_dim")
+                    else None
+                ),
             )
 
         if hasattr(self._model, "tokenizer"):
@@ -269,6 +284,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
 
                 with torch.no_grad():
                     out_features = model.forward(features, **kwargs)
+
+                    from sentence_transformers.util import truncate_embeddings
+
+                    out_features["sentence_embedding"] = truncate_embeddings(
+                        out_features["sentence_embedding"], model.truncate_dim
+                    )
 
                     if output_value == "token_embeddings":
                         embeddings = []
