@@ -193,7 +193,10 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
                 data["model"] = model_uid
             try:
                 res = self._llm.handle_embeddings(data)
-                q.put(res)
+                if res.get("code"):
+                    q.put(_Error(res))
+                else:
+                    q.put(res)
             except Exception as ex:
                 q.put(_Error(str(ex)))
             q.put(_Done)
