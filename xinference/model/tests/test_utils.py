@@ -88,22 +88,29 @@ async def test_download_hugginface():
             family.model_specs = [spec]
 
             async def check():
+                last = None
+                stagnant = 0
                 while not done:
                     await asyncio.sleep(1)
                     progress = downloader.get_progress()
                     assert progress >= 0
+                    if progress == last:
+                        stagnant += 1
+                        if stagnant > 60:  # no changes for 1 minute
+                            raise TimeoutError("Download stuck")
+                    else:
+                        stagnant = 0
+                    last = progress
 
             done = False
             check_task = asyncio.create_task(check())
-            try:
-                # download from huggingface
-                cache_dir = await asyncio.wait_for(
-                    asyncio.to_thread(CacheManager(family).cache_from_huggingface),
-                    timeout=300,
-                )
-            finally:
-                done = True
-                await check_task
+            # download from huggingface
+            cache_dir = await asyncio.to_thread(
+                CacheManager(family).cache_from_huggingface
+            )
+            done = True
+
+            await check_task
             assert downloader.get_progress() == 1.0
     finally:
         if cache_dir:
@@ -132,22 +139,29 @@ async def test_download_modelscope():
             family.model_specs = [spec]
 
             async def check():
+                last = None
+                stagnant = 0
                 while not done:
                     await asyncio.sleep(1)
                     progress = downloader.get_progress()
                     assert progress >= 0
+                    if progress == last:
+                        stagnant += 1
+                        if stagnant > 60:  # no changes for 1 minute
+                            raise TimeoutError("Download stuck")
+                    else:
+                        stagnant = 0
+                    last = progress
 
             done = False
             check_task = asyncio.create_task(check())
-            try:
-                # download from huggingface
-                cache_dir = await asyncio.wait_for(
-                    asyncio.to_thread(CacheManager(family).cache_from_modelscope),
-                    timeout=300,
-                )
-            finally:
-                done = True
-                await check_task
+            # download from huggingface
+            cache_dir = await asyncio.to_thread(
+                CacheManager(family).cache_from_modelscope
+            )
+            done = True
+
+            await check_task
             assert downloader.get_progress() == 1.0
     finally:
         if cache_dir:
