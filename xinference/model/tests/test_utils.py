@@ -95,13 +95,15 @@ async def test_download_hugginface():
 
             done = False
             check_task = asyncio.create_task(check())
-            # download from huggingface
-            cache_dir = await asyncio.to_thread(
-                CacheManager(family).cache_from_huggingface
-            )
-            done = True
-
-            await check_task
+            try:
+                # download from huggingface
+                cache_dir = await asyncio.wait_for(
+                    asyncio.to_thread(CacheManager(family).cache_from_huggingface),
+                    timeout=300,
+                )
+            finally:
+                done = True
+                await check_task
             assert downloader.get_progress() == 1.0
     finally:
         if cache_dir:
@@ -137,13 +139,15 @@ async def test_download_modelscope():
 
             done = False
             check_task = asyncio.create_task(check())
-            # download from huggingface
-            cache_dir = await asyncio.to_thread(
-                CacheManager(family).cache_from_modelscope
-            )
-            done = True
-
-            await check_task
+            try:
+                # download from huggingface
+                cache_dir = await asyncio.wait_for(
+                    asyncio.to_thread(CacheManager(family).cache_from_modelscope),
+                    timeout=300,
+                )
+            finally:
+                done = True
+                await check_task
             assert downloader.get_progress() == 1.0
     finally:
         if cache_dir:
