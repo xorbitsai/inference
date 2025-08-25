@@ -172,11 +172,6 @@ You can find more examples of ``vision`` ability in the tutorial notebook:
       Learn vision ability from a example using qwen-vl-chat
 
 
-Quickstart
-----------------------
-
-limit_mm_per_prompt={"image":4}
-
 Audio
 ============
 

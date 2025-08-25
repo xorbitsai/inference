@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-25 03:44+0000\n"
+"POT-Creation-Date: 2025-08-25 03:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -42,7 +42,7 @@ msgstr ""
 "进行对话时能够处理图像输入。"
 
 #: ../../source/models/model_abilities/multimodal.rst:19
-#: ../../source/models/model_abilities/multimodal.rst:189
+#: ../../source/models/model_abilities/multimodal.rst:184
 msgid "Supported models"
 msgstr "支持的模型列表"
 
@@ -113,8 +113,7 @@ msgid ":ref:`internvl3 <models_llm_internvl3>`"
 msgstr ""
 
 #: ../../source/models/model_abilities/multimodal.rst:41
-#: ../../source/models/model_abilities/multimodal.rst:176
-#: ../../source/models/model_abilities/multimodal.rst:196
+#: ../../source/models/model_abilities/multimodal.rst:191
 msgid "Quickstart"
 msgstr "快速入门"
 
@@ -143,7 +142,9 @@ msgid ""
 "``limit_mm_per_prompt`` parameter to limit the number of images that can "
 "be processed in each conversation turn. This helps control memory usage "
 "and improve performance."
-msgstr "对于使用 VLLM 后端的视觉模型，你可以通过 ``limit_mm_per_prompt`` 参数来限制每轮对话中可以处理的图像数量。这有助于控制内存使用和提高性能。"
+msgstr ""
+"对于使用 VLLM 后端的视觉模型，你可以通过 ``limit_mm_per_prompt`` "
+"参数来限制每轮对话中可以处理的图像数量。这有助于控制内存使用和提高性能。"
 
 #: ../../source/models/model_abilities/multimodal.rst:142
 msgid "Alternatively, you can launch the model using the command line:"
@@ -188,16 +189,11 @@ msgstr "Qwen VL Chat"
 msgid "Learn vision ability from a example using qwen-vl-chat"
 msgstr "通过使用 qwen-vl-chat 的示例来学习使用 LLM 的视觉能力"
 
-#: ../../source/models/model_abilities/multimodal.rst:178
-#, python-brace-format
-msgid "limit_mm_per_prompt={\"image\":4}"
-msgstr ""
-
-#: ../../source/models/model_abilities/multimodal.rst:181
+#: ../../source/models/model_abilities/multimodal.rst:176
 msgid "Audio"
 msgstr "音频"
 
-#: ../../source/models/model_abilities/multimodal.rst:183
+#: ../../source/models/model_abilities/multimodal.rst:178
 msgid ""
 "With the ``audio`` ability you can have your model take in audio and "
 "performing audio analysis or direct textual responses with regard to "
@@ -208,23 +204,23 @@ msgstr ""
 "通过“音频”功能，您的模型可以接收音频并执行音频分析或根据语音指令直接生成文本响应。在 Xinference 中，这表示某些模型在通过 Chat "
 "API 进行对话时能够处理音频输入。"
 
-#: ../../source/models/model_abilities/multimodal.rst:191
+#: ../../source/models/model_abilities/multimodal.rst:186
 msgid ""
 "The ``audio`` ability is supported with the following models in "
 "Xinference:"
 msgstr "“音频”功能在 Xinference 中支持以下模型："
 
-#: ../../source/models/model_abilities/multimodal.rst:193
+#: ../../source/models/model_abilities/multimodal.rst:188
 msgid ":ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/multimodal.rst:198
+#: ../../source/models/model_abilities/multimodal.rst:193
 msgid ""
 "Audios are made available to the model in two main ways: by passing a "
 "link to the image or by passing the audio url directly in the request."
 msgstr "音频可以通过两种主要方式提供给模型：通过传递图像链接或在请求中直接传递音频 URL。"
 
-#: ../../source/models/model_abilities/multimodal.rst:203
+#: ../../source/models/model_abilities/multimodal.rst:198
 msgid "Chat with audio"
 msgstr "带有音频的聊天"
 
@@ -235,5 +231,8 @@ msgstr "带有音频的聊天"
 #~ msgstr ""
 
 #~ msgid ":ref:`internvl2 <models_llm_internvl2>`"
+#~ msgstr ""
+
+#~ msgid "limit_mm_per_prompt={\"image\":4}"
 #~ msgstr ""
 
