@@ -3,6 +3,7 @@ import uuid
 from typing import List, Optional
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
@@ -42,6 +43,7 @@ class VLLMRerankModel(RerankModel):
         self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
+    @cache_clean
     def rerank(
         self,
         documents: List[str],
