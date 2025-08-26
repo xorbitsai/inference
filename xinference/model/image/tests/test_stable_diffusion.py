@@ -45,7 +45,7 @@ TEST_MODEL_SPEC = ImageModelFamilyV2(
 logger = logging.getLogger(__name__)
 
 
-def test_model():
+async def test_model():
     model_path = None
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
@@ -53,10 +53,12 @@ def test_model():
         # input is a string
         input_text = "an apple"
         model.load()
-        r = model.text_to_image(input_text, size="256*256")
+        r = await model.text_to_image(input_text, size="256*256")
         assert len(r["data"]) == 1
         assert os.path.exists(r["data"][0]["url"])
-        r = model.text_to_image(input_text, size="256*256", response_format="b64_json")
+        r = await model.text_to_image(
+            input_text, size="256*256", response_format="b64_json"
+        )
         assert len(r["data"]) == 1
         b64_json = r["data"][0]["b64_json"]
         image_bytes = base64.b64decode(b64_json)
@@ -69,7 +71,7 @@ def test_model():
 
 @pytest.mark.asyncio
 async def test_progressor():
-    def _run_model(**kwargs):
+    async def _run_model(**kwargs):
         model_path = None
         try:
             model_path = CacheManager(TEST_MODEL_SPEC).cache()
@@ -77,7 +79,7 @@ async def test_progressor():
             # input is a string
             input_text = "an apple"
             model.load()
-            r = model.text_to_image(input_text, size="256*256", **kwargs)
+            r = await model.text_to_image(input_text, size="256*256", **kwargs)
             assert len(r["data"]) == 1
             assert os.path.exists(r["data"][0]["url"])
         finally:
@@ -101,7 +103,7 @@ async def test_progressor():
         with progressor:
             progressor.split_stages(2, stage_weight=np.array([0, 0.99, 1]))
             with progressor:
-                await asyncio.to_thread(_run_model, progressor=progressor)
+                await _run_model(progressor=progressor)
                 assert progressor._current_progress == 0.99
             assert await progress_tracker_ref.get_progress(request_id) == 0.99
             with progressor:
