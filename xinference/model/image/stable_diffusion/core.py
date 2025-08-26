@@ -175,7 +175,32 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             model = model_type.from_pipe(self._model, controlnet=controlnet)
         else:
-            model = model_type.from_pipe(self._model)
+            try:
+                from diffusers import (
+                    QwenImageImg2ImgPipeline,
+                    QwenImageInpaintPipeline,
+                    QwenImagePipeline,
+                )
+            except ImportError:
+                QwenImagePipeline = None
+                QwenImageImg2ImgPipeline = None
+                QwenImageInpaintPipeline = None
+
+            if QwenImagePipeline is not None and isinstance(
+                self._model, QwenImagePipeline
+            ):
+                # special process for Qwen-image
+                if ability == "image2image":
+                    model = QwenImageImg2ImgPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+                else:
+                    assert ability == "inpainting"
+                    model = QwenImageInpaintPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+            else:
+                model = model_type.from_pipe(self._model)
         self._load_to_device(model)
 
         self._ability_to_models[ability, controlnet_name] = model
