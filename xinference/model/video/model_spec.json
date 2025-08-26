@@ -224,7 +224,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers==0.35.1",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -255,7 +255,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers==0.35.1",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -286,7 +286,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers==0.35.1",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -318,7 +318,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers==0.35.1",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",

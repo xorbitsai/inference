@@ -169,7 +169,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers.git",
+        "diffusers==0.35.1",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -259,7 +259,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers.git",
+        "diffusers==0.35.1",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -328,7 +328,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers.git",
+        "diffusers==0.35.1",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
