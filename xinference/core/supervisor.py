@@ -77,6 +77,8 @@ logger = getLogger(__name__)
 
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
+RESERVED_MODEL_UIDS = ["prompts", "families", "vllm-supported", "instances"]
+
 
 def callback_for_async_launch(model_uid: str):
     ASYNC_LAUNCH_TASKS.pop(model_uid, None)
@@ -1058,6 +1060,11 @@ class SupervisorActor(xo.StatelessActor):
 
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
+        else:
+            if model_uid in RESERVED_MODEL_UIDS:
+                raise ValueError(
+                    f"Model uid cannot be the reserved name: '{model_uid}'."
+                )
 
         # Xavier-related
         enable_xavier: bool = (
