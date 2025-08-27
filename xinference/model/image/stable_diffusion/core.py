@@ -31,7 +31,11 @@ import PIL.Image
 import torch
 from PIL import ImageOps
 
-from ....device_utils import get_available_device, move_model_to_available_device
+from ....device_utils import (
+    get_available_device,
+    gpu_count,
+    move_model_to_available_device,
+)
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
 from ..utils import handle_image_result
@@ -516,8 +520,16 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             logger.debug("CPU sequential offloading model")
             model.enable_sequential_cpu_offload()
         elif not self._kwargs.get("device_map"):
-            logger.debug("Loading model to available device")
-            model = move_model_to_available_device(model)
+            device_count = gpu_count()
+            if device_count <= 1:
+                logger.debug("Loading model to available device")
+                model = move_model_to_available_device(model)
+            else:
+                logger.debug(
+                    "Force to set device_map: balanced to load model to %d devices",
+                    device_count,
+                )
+                self._kwargs["device_map"] = "balanced"
         if self._kwargs.get("attention_slicing", False):
             model.enable_attention_slicing()
         if self._kwargs.get("vae_tiling", False):
@@ -850,6 +862,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             if allow_width_height:
                 kwargs["width"], kwargs["height"] = image.size
 
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
+
         return self._call_model(
             image=image,
             prompt=prompt,
@@ -899,6 +914,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             )
             # calculate actual image size after padding
             kwargs["width"], kwargs["height"] = image.size
+
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
 
         return self._call_model(
             image=image,
