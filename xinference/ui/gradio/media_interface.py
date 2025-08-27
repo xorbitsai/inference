@@ -331,7 +331,7 @@ class MediaInterface:
                         label="Padding image to multiple", value=-1
                     )
                     strength = gr.Slider(
-                        label="Strength", value=None, step=0.1, minimum=0.0, maximum=1.0
+                        label="Strength", value=0.6, step=0.1, minimum=0.0, maximum=1.0
                     )
                     sampler_name = gr.Dropdown(
                         choices=SAMPLING_METHODS,
@@ -578,7 +578,7 @@ class MediaInterface:
                         label="Padding image to multiple", value=-1
                     )
                     strength = gr.Slider(
-                        label="Strength", value=None, step=0.1, minimum=0.0, maximum=1.0
+                        label="Strength", value=0.6, step=0.1, minimum=0.0, maximum=1.0
                     )
                     sampler_name = gr.Dropdown(
                         choices=SAMPLING_METHODS,
