@@ -882,10 +882,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         **kwargs,
     ):
         if hasattr(self._model, "text_to_image"):
-            # Directly delegate to model, let model decide how to handle (batching or not)
-            progressor = kwargs["progressor"] = await self._get_progressor(
-                kwargs.pop("request_id", None)
-            )
+            # Get progressor (don't pop request_id, let _call_wrapper handle cancellation)
+            request_id = kwargs.get("request_id")
+            progressor = kwargs["progressor"] = await self._get_progressor(request_id)  # type: ignore
             with progressor:
                 return await self._call_wrapper_json(
                     self._model.text_to_image,

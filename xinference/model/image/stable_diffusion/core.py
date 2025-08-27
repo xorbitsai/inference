@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import contextlib
 import gc
 import importlib
@@ -765,7 +766,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             await self._image_batch_scheduler.add_request(
                 prompt, future, n, size, response_format, **kwargs
             )
-            import asyncio
 
             fut = asyncio.wrap_future(future)
             return await fut
@@ -806,12 +806,25 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         generate_kwargs["width"], generate_kwargs["height"] = width, height
         self._gen_config_for_lightning(generate_kwargs)
 
-        return self._call_model(
-            prompt=prompt,
-            num_images_per_prompt=n,
+        return await asyncio.to_thread(
+            self._call_model,
+            prompt=prompt,  # type: ignore
+            num_images_per_prompt=n,  # type: ignore
             response_format=response_format,
             **generate_kwargs,
         )
+
+    async def abort_request(self, request_id: str) -> str:
+        """Abort a running request."""
+        from ....model.scheduler.core import AbortRequestMessage
+
+        # Check if we have a cancel callback for this request
+        if hasattr(self, "_cancel_callbacks") and request_id in self._cancel_callbacks:
+            cancel_callback = self._cancel_callbacks.pop(request_id)
+            cancel_callback()
+            return AbortRequestMessage.DONE.name
+
+        return AbortRequestMessage.NO_OP.name
 
     @staticmethod
     def pad_to_multiple(image, multiple=8):

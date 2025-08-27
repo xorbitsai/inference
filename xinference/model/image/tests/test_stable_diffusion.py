@@ -241,7 +241,9 @@ def test_restful_api_abort(setup, model_name):
     request_id = str(uuid.uuid4())
 
     def _abort():
-        time.sleep(1)
+        time.sleep(
+            0.1
+        )  # Reduce delay to ensure abort_request is called before task completion
         client.abort_request(model_uid, request_id)
 
     t = threading.Thread(target=_abort)
@@ -252,7 +254,7 @@ def test_restful_api_abort(setup, model_name):
         model.text_to_image(
             prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
             size="512*512",
-            num_inference_steps=10,
+            num_inference_steps=20,  # Increase inference steps to make task run longer
             request_id=request_id,
         )
 
@@ -453,7 +455,7 @@ def test_launch_custom_image(setup):
 
     client = Client(endpoint)
 
-    model_path = os.path.join(XINFERENCE_CACHE_DIR, "sd-turbo")
+    model_path = os.path.join(XINFERENCE_CACHE_DIR, "v2", "sd-turbo")
 
     my_model = {
         "model_family": "stable_diffusion",
