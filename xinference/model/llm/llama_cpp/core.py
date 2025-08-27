@@ -19,7 +19,7 @@ import pprint
 import queue
 from typing import Iterator, List, Optional, Union
 
-import orjson
+from packaging import version
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
@@ -98,10 +98,19 @@ class XllamaCppModel(LLM, ChatModelMixin):
             from xllamacpp import (
                 CommonParams,
                 Server,
+                __version__,
                 estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
             )
+
+            try:
+                if version.parse(__version__) < version.parse("0.2.0"):
+                    raise RuntimeError(
+                        "Please update xllamacpp to >= 0.2.0 by `pip install -U xllamacpp`"
+                    )
+            except version.InvalidVersion:
+                pass  # If the version parse failed, we just skip the version check.
         except ImportError:
             error_message = "Failed to import module 'xllamacpp'"
             installation_guide = ["Please make sure 'xllamacpp' is installed. "]

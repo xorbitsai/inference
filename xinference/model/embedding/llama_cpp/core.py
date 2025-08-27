@@ -22,7 +22,7 @@ import queue
 import sys
 from typing import List, Optional, Union
 
-import orjson
+from packaging import version
 
 from ....types import Embedding
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -73,11 +73,20 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
             from xllamacpp import (
                 CommonParams,
                 Server,
+                __version__,
                 estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
                 llama_pooling_type,
             )
+
+            try:
+                if version.parse(__version__) < version.parse("0.2.0"):
+                    raise RuntimeError(
+                        "Please update xllamacpp to >= 0.2.0 by `pip install -U xllamacpp`"
+                    )
+            except version.InvalidVersion:
+                pass  # If the version parse failed, we just skip the version check.
         except ImportError:
             error_message = "Failed to import module 'xllamacpp'"
             installation_guide = ["Please make sure 'xllamacpp' is installed. "]
