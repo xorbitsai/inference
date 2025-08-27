@@ -782,7 +782,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def _gen_config_for_lightning(self, kwargs):
         if (
-            "num_inference_steps" not in kwargs
+            not kwargs.get("num_inference_steps")
             and self._lightning_model_path is not None
         ):
             is_4_steps = "4steps" in self._lightning_model_path
