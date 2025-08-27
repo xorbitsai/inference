@@ -287,6 +287,8 @@ and significantly speeding up inference. The following models currently support 
 +===================+==============================================+===========================================+
 | Qwen-Image        | 4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1                |
 +-------------------+------------------------------------------------------------------------------------------+
+| Qwen-Image-Edit   | 4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0-bf16, 8steps-V1.0                             |
++-------------------+------------------------------------------------------------------------------------------+
 
 4 steps or 8 steps refer to the inference steps (``num_inference_steps``).
 When ``lightning_version`` is specified, Xinference will automatically set the number of inference steps.
