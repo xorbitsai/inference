@@ -270,6 +270,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             self._quantize_transformer()
 
+        if (device_count := gpu_count()) > 1 and "device_map" not in self._kwargs:
+            logger.debug(
+                "Device count (%d) > 1, force to set device_map=balanced", device_count
+            )
+            self._kwargs["device_map"] = "balanced"
+
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
         )
@@ -520,16 +526,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             logger.debug("CPU sequential offloading model")
             model.enable_sequential_cpu_offload()
         elif not self._kwargs.get("device_map"):
-            device_count = gpu_count()
-            if device_count <= 1:
-                logger.debug("Loading model to available device")
-                model = move_model_to_available_device(model)
-            else:
-                logger.debug(
-                    "Force to set device_map: balanced to load model to %d devices",
-                    device_count,
-                )
-                self._kwargs["device_map"] = "balanced"
+            logger.debug("Loading model to available device")
+            model = move_model_to_available_device(model)
         if self._kwargs.get("attention_slicing", False):
             model.enable_attention_slicing()
         if self._kwargs.get("vae_tiling", False):
