@@ -187,7 +187,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y matcha-tts
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U openai-whisper
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "torch==2.7.0" "torchaudio==2.7.0"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loguru"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "natsort"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loralib"
