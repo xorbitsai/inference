@@ -57,39 +57,46 @@ Define a custom LLM model based on the following template:
 .. code-block:: json
 
    {
-     "version": 1,
-     "context_length": 2048,
-     "model_name": "custom-llama-2-chat",
-     "model_lang": [
-       "en"
-     ],
-     "model_ability": [
-       "chat"
-     ],
-     "model_family": "my-llama-2-chat",
-     "model_specs": [
-       {
-         "model_format": "pytorch",
-         "model_size_in_billions": 7,
-         "quantizations": [
-           "none"
-         ],
-         "model_uri": "file:///path/to/llama-2-chat"
-       },
-       {
-         "model_format": "ggufv2",
-         "model_size_in_billions": 7,
-         "quantizations": [
-           "q4_0",
-           "q8_0"
-         ],
-         "model_file_name_template": "llama-2-chat-7b.{quantization}.gguf"
-         "model_uri": "file:///path/to/gguf-file"
-       }
-     ],
-     "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
-     "stop_token_ids": [2],
-     "stop": []
+        "version": 2,
+        "context_length": 32768,
+        "model_name": "custom-qwen-2.5",
+        "model_lang": [
+            "en",
+            "zh"
+        ],
+        "model_ability": [
+            "generate"
+        ],
+        "model_description": "This is a custom model description.",
+        "model_family": "my-custom-qwen-2.5",
+        "model_specs": [
+            {
+                "model_format": "pytorch",
+                "model_size_in_billions": "0_5",
+                "quantization": "none",
+                "model_id": null,
+                "model_hub": "huggingface",
+                "model_uri": "file:///path/to/models--Qwen--Qwen2.5-0.5B",
+                "model_revision": null,
+                "activated_size_in_billions": null
+            }
+        ],
+        "chat_template": null,
+        "stop_token_ids": null,
+        "stop": null,
+        "reasoning_start_tag": null,
+        "reasoning_end_tag": null,
+        "cache_config": null,
+        "virtualenv": {
+            "packages": [],
+            "inherit_pip_config": true,
+            "index_url": null,
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+        },
+        "is_builtin": false
    }
 
 * model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
