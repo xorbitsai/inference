@@ -12,11 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.metadata
+import importlib.util
 import io
 
+import pytest
 from diffusers.utils import load_image
+from packaging import version
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("transformers") is not None
+    and version.parse(importlib.metadata.version("transformers"))
+    >= version.parse("4.48.0"),
+    reason="Skip because transformers >= 4.48.0",
+)
 def test_got_ocr2(setup):
     endpoint, _ = setup
     from ....client import Client
