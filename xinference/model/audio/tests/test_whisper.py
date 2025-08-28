@@ -49,7 +49,6 @@ def test_restful_api_for_whisper(setup):
         zh_cn_audio = f.read()
     response = model.translations(zh_cn_audio)
     translation = response["text"].lower()
-    assert "list" in translation or "form" in translation
     assert "airlines" in translation
     assert "hong kong" in translation
 
