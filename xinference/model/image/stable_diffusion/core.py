@@ -31,7 +31,11 @@ import PIL.Image
 import torch
 from PIL import ImageOps
 
-from ....device_utils import get_available_device, move_model_to_available_device
+from ....device_utils import (
+    get_available_device,
+    gpu_count,
+    move_model_to_available_device,
+)
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
 from ..utils import handle_image_result
@@ -175,7 +179,32 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             model = model_type.from_pipe(self._model, controlnet=controlnet)
         else:
-            model = model_type.from_pipe(self._model)
+            try:
+                from diffusers import (
+                    QwenImageImg2ImgPipeline,
+                    QwenImageInpaintPipeline,
+                    QwenImagePipeline,
+                )
+            except ImportError:
+                QwenImagePipeline = None
+                QwenImageImg2ImgPipeline = None
+                QwenImageInpaintPipeline = None
+
+            if QwenImagePipeline is not None and isinstance(
+                self._model, QwenImagePipeline
+            ):
+                # special process for Qwen-image
+                if ability == "image2image":
+                    model = QwenImageImg2ImgPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+                else:
+                    assert ability == "inpainting"
+                    model = QwenImageInpaintPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+            else:
+                model = model_type.from_pipe(self._model)
         self._load_to_device(model)
 
         self._ability_to_models[ability, controlnet_name] = model
@@ -240,6 +269,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._quantize_transformer_gguf()
         else:
             self._quantize_transformer()
+
+        if (device_count := gpu_count()) > 1 and "device_map" not in self._kwargs:
+            logger.debug(
+                "Device count (%d) > 1, force to set device_map=balanced", device_count
+            )
+            self._kwargs["device_map"] = "balanced"
 
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
@@ -747,7 +782,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def _gen_config_for_lightning(self, kwargs):
         if (
-            "num_inference_steps" not in kwargs
+            not kwargs.get("num_inference_steps")
             and self._lightning_model_path is not None
         ):
             is_4_steps = "4steps" in self._lightning_model_path
@@ -825,6 +860,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             if allow_width_height:
                 kwargs["width"], kwargs["height"] = image.size
 
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
+
         return self._call_model(
             image=image,
             prompt=prompt,
@@ -874,6 +912,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             )
             # calculate actual image size after padding
             kwargs["width"], kwargs["height"] = image.size
+
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
 
         return self._call_model(
             image=image,
