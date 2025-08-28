@@ -83,6 +83,9 @@ def test_RESTful_client(setup):
             generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
+            if not chunk["choices"]:
+                assert chunk["usage"]
+                continue
             assert "finish_reason" in chunk["choices"][0]
             finish_reason = chunk["choices"][0]["finish_reason"]
             if finish_reason is None:
