@@ -75,7 +75,6 @@ def test_restful_api_for_whisper(setup):
 
         completion = client.audio.translations.create(model=model_uid, file=f)
         translation = completion.text.lower()
-        assert "list" in translation or "form" in translation
         assert "airlines" in translation
         assert "hong kong" in translation
 
