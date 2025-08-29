@@ -547,15 +547,13 @@ class PytorchModel(LLM):
         So we need pad `0` on the left again.
         """
         data = []
+        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs) + 1
         for r in reqs:
             r.extra_kwargs["attention_mask_seq_len"] += 1
+            real_len = r.extra_kwargs["attention_mask_seq_len"]
+            pad_len = max_len - real_len
+
             if self._tokenizer.padding_side == "left":
-                attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
-                pad_len = seq_length - attention_mask_seq_len
-                assert pad_len >= 0, (
-                    f"pad_len must be greater equal 0, got {pad_len} = "
-                    f"seq_length({seq_length}) - attention_mask_seq_len({attention_mask_seq_len})"
-                )
                 x = torch.cat(
                     [
                         (
@@ -563,14 +561,10 @@ class PytorchModel(LLM):
                             if pad_len > 0
                             else torch.tensor([], dtype=torch.long)
                         ),
-                        torch.ones((attention_mask_seq_len,), dtype=torch.long),
+                        torch.ones((real_len,), dtype=torch.long),
                     ]
                 )
             else:
-                max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs)
-                real_len = r.extra_kwargs["attention_mask_seq_len"]
-                pad_len = max_len - real_len
-
                 x = torch.cat(
                     [
                         torch.ones((real_len,), dtype=torch.long),
