@@ -364,6 +364,11 @@ def main():
                         model['gguf_model_id'] = hf_src['gguf_model_id']
                     if 'gguf_quantizations' in hf_src:
                         model['gguf_quantizations'] = ", ".join(hf_src['gguf_quantizations'])
+                    # Handle Lightning related fields
+                    if 'lightning_model_id' in hf_src:
+                        model['lightning_model_id'] = hf_src['lightning_model_id']
+                    if 'lightning_versions' in hf_src:
+                        model['lightning_versions'] = ", ".join(hf_src['lightning_versions'])
                 elif 'modelscope' in model['model_src']:
                     model['model_id'] = model['model_src']['modelscope']['model_id']
             

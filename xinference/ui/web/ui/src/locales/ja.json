@@ -80,6 +80,8 @@
     "modelPath.optional": "(オプション) モデルパス、PyTorchの場合はモデルディレクトリ、GGML/GGUFの場合はモデルファイルパスを指定",
     "GGUFQuantization.optional": "(オプション) GGUF量子化フォーマット、Transformer部分を量子化",
     "GGUFModelPath.optional": "(オプション) GGUFモデルパス、.ggufで終わるファイルを指定",
+    "lightningVersions.optional": "(オプション) 軽量化バージョン",
+    "lightningModelPath.optional": "(オプション) 軽量化LoRAモデルパス",
     "enableThinking": "思考を有効化",
     "parsingReasoningContent": "推論内容の解析",
     "CPUOffload": "CPUオフロード",

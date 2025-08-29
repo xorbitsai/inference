@@ -80,6 +80,8 @@
     "modelPath.optional": "(可选) 模型路径，对于 PyTorch，提供模型目录；对于 GGML/GGUF，提供模型文件路径。",
     "GGUFQuantization.optional": "(可选) GGUF量化格式，对Transformer部分进行量化。",
     "GGUFModelPath.optional": "(可选) GGUF模型路径，应为以 .gguf 结尾的文件。",
+    "lightningVersions.optional": "(可选) 蒸馏版本",
+    "lightningModelPath.optional": "(可选) 蒸馏lora路径",
     "enableThinking": "开启思考模式",
     "parsingReasoningContent": "解析推理内容",
     "CPUOffload": "CPU卸载",

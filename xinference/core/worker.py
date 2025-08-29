@@ -827,9 +827,12 @@ class WorkerActor(xo.StatelessActor):
         settings: Optional[VirtualEnvSettings],
         virtual_env_packages: Optional[List[str]],
     ):
-        if not settings or not settings.packages:
+        if (not settings or not settings.packages) and not virtual_env_packages:
             # no settings or no packages
             return
+
+        if settings is None:
+            settings = VirtualEnvSettings(packages=virtual_env_packages)
 
         if settings.inherit_pip_config:
             # inherit pip config

@@ -114,6 +114,7 @@ const LaunchModel = () => {
         <TabPanel value="/launch_model/image" sx={{ padding: 0 }}>
           <LaunchModelComponent
             modelType={'image'}
+            gpuAvailable={gpuAvailable}
             featureModels={
               featureModels.find((item) => item.type === 'image').feature_models
             }
@@ -122,6 +123,7 @@ const LaunchModel = () => {
         <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
           <LaunchModelComponent
             modelType={'audio'}
+            gpuAvailable={gpuAvailable}
             featureModels={
               featureModels.find((item) => item.type === 'audio').feature_models
             }
@@ -130,6 +132,7 @@ const LaunchModel = () => {
         <TabPanel value="/launch_model/video" sx={{ padding: 0 }}>
           <LaunchModelComponent
             modelType={'video'}
+            gpuAvailable={gpuAvailable}
             featureModels={
               featureModels.find((item) => item.type === 'video').feature_models
             }

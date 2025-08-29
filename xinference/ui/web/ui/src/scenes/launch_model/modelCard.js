@@ -123,6 +123,8 @@ const ModelCard = ({
   const [ggufQuantizations, setGgufQuantizations] = useState('')
   const [ggufModelPath, setGgufModelPath] = useState('')
   const [cpuOffload, setCpuOffload] = useState(false)
+  const [lightningVersions, setLightningVersions] = useState('')
+  const [lightningModelPath, setLightningModelPath] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -405,7 +407,16 @@ const ModelCard = ({
       model_name: modelData.model_name,
       model_type: modelType,
       replica: replica,
-      n_gpu: nGpu === 'GPU' ? 'auto' : null,
+      n_gpu:
+        modelType === 'image'
+          ? parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
+            ? null
+            : nGPU === 'auto'
+            ? 'auto'
+            : parseInt(nGPU, 10)
+          : nGpu === 'GPU'
+          ? 'auto'
+          : null,
       worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
       gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
@@ -425,6 +436,10 @@ const ModelCard = ({
     if (ggufQuantizations)
       modelDataWithID_other.gguf_quantization = ggufQuantizations
     if (ggufModelPath) modelDataWithID_other.gguf_model_path = ggufModelPath
+    if (lightningVersions)
+      modelDataWithID_other.lightning_version = lightningVersions
+    if (lightningModelPath)
+      modelDataWithID_other.lightning_model_path = lightningModelPath
     if (['image', 'video'].includes(modelType))
       modelDataWithID_other.cpu_offload = cpuOffload
     if (['embedding', 'rerank'].includes(modelType)) {
@@ -870,6 +885,8 @@ const ModelCard = ({
       model_path,
       gguf_quantization,
       gguf_model_path,
+      lightning_version,
+      lightning_model_path,
       cpu_offload,
       model_type,
       peft_model_config,
@@ -887,13 +904,19 @@ const ModelCard = ({
     setQuantization(quantization || '')
     setModelUID(model_uid || '')
     setReplica(replica || 1)
-    setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
+    if (modelType === 'image') {
+      setNGPU(n_gpu || 'auto')
+    } else {
+      setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
+    }
     setGPUIdx(gpu_idx?.join(',') || '')
     setWorkerIp(worker_ip || '')
     setDownloadHub(download_hub || '')
     setModelPath(model_path || '')
     setGgufQuantizations(gguf_quantization || '')
     setGgufModelPath(gguf_model_path || '')
+    setLightningVersions(lightning_version || '')
+    setLightningModelPath(lightning_model_path || '')
     setCpuOffload(cpu_offload || false)
     setEnableVirtualEnv(enable_virtual_env ?? 'unset')
     setVirtualEnvPackagesHistoryArr(virtual_env_packages || [])
@@ -1017,6 +1040,7 @@ const ModelCard = ({
       setQuantization('')
       setModelUID('')
       setReplica(1)
+      setNGPU('auto')
       setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
       setGPUIdx('')
       setWorkerIp('')
@@ -2392,27 +2416,50 @@ const ModelCard = ({
                   value={replica}
                   onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                 />
-                <FormControl variant="outlined" margin="normal" fullWidth>
-                  <InputLabel id="device-label">
-                    {t('launchModel.device')}
-                  </InputLabel>
-                  <Select
-                    className="textHighlight"
-                    labelId="device-label"
-                    value={nGpu}
-                    onChange={(e) => setNGpu(e.target.value)}
-                    label={t('launchModel.device')}
-                  >
-                    {getNewNGPURange().map((v) => {
-                      return (
-                        <MenuItem key={v} value={v}>
-                          {v}
-                        </MenuItem>
-                      )
-                    })}
-                  </Select>
-                </FormControl>
-                {nGpu === 'GPU' && (
+                {['image'].includes(modelType) ? (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="n-gpu-label">
+                      {t('launchModel.nGPU')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="n-gpu-label"
+                      value={nGPU}
+                      onChange={(e) => setNGPU(e.target.value)}
+                      label={t('launchModel.nGPU')}
+                    >
+                      {getNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="device-label">
+                      {t('launchModel.device')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="device-label"
+                      value={nGpu}
+                      onChange={(e) => setNGpu(e.target.value)}
+                      label={t('launchModel.device')}
+                    >
+                      {getNewNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                )}
+                {(modelType === 'image' ? nGPU !== 'CPU' : nGpu === 'GPU') && (
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
                       className="textHighlight"
@@ -2515,6 +2562,43 @@ const ModelCard = ({
                       value={ggufModelPath}
                       label={t('launchModel.GGUFModelPath.optional')}
                       onChange={(e) => setGgufModelPath(e.target.value)}
+                    />
+                  </FormControl>
+                )}
+                {modelData.lightning_versions && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="quantization-label">
+                      {t('launchModel.lightningVersions.optional')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="lightning-versions-label"
+                      value={lightningVersions}
+                      onChange={(e) => {
+                        e.target.value === 'none'
+                          ? setLightningVersions('')
+                          : setLightningVersions(e.target.value)
+                      }}
+                      label={t('launchModel.lightningVersions.optional')}
+                    >
+                      {['none', ...modelData.lightning_versions].map((item) => {
+                        return (
+                          <MenuItem key={item} value={item}>
+                            {item}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                )}
+                {modelData.lightning_versions && (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <TextField
+                      className="textHighlight"
+                      variant="outlined"
+                      value={lightningModelPath}
+                      label={t('launchModel.lightningModelPath.optional')}
+                      onChange={(e) => setLightningModelPath(e.target.value)}
                     />
                   </FormControl>
                 )}

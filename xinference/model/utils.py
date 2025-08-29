@@ -619,8 +619,7 @@ def is_flash_attn_available() -> bool:
                 f"GPU compute capability {compute_capability} < 8.0, "
                 "flash_attn may not work optimally"
             )
-            # Note: Some older GPUs may also support flash_attn, so this is just a warning
-            # This threshold can be adjusted based on actual requirements
+            return False
 
         # Try to import flash_attn core module to verify correct installation
         try:

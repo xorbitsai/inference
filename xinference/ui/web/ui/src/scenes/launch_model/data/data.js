@@ -18,6 +18,8 @@ export const llmAllDataKey = [
   'reasoning_content',
   'gguf_quantization',
   'gguf_model_path',
+  'lightning_version',
+  'lightning_model_path',
   'cpu_offload',
   'peft_model_config',
   'quantization_config',
@@ -114,6 +116,7 @@ export const featureModels = [
     type: 'image',
     feature_models: [
       'Qwen-Image',
+      'Qwen-Image-Edit',
       'FLUX.1-dev',
       'FLUX.1-Kontext-dev',
       'FLUX.1-schnell',

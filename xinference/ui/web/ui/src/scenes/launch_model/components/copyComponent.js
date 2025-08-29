@@ -9,6 +9,8 @@ const keyMap = {
   download_hub: '--download_hub',
   enable_thinking: '--enable_thinking',
   reasoning_content: '--reasoning_content',
+  lightning_version: '--lightning_version',
+  lightning_model_path: '--lightning_model_path',
 }
 
 function CopyComponent({ modelData, predefinedKeys }) {
