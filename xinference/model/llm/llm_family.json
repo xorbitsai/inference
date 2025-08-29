@@ -4767,6 +4767,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4846,6 +4847,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4866,6 +4868,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4885,6 +4888,7 @@
       {
         "model_format": "ggufv2",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5215,6 +5219,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5263,6 +5268,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5281,6 +5287,7 @@
       {
         "model_format": "gptq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6352,6 +6359,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6372,6 +6380,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6391,6 +6400,7 @@
       {
         "model_format": "ggufv2",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6585,6 +6595,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6627,6 +6638,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6645,6 +6657,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6663,6 +6676,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
