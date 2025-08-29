@@ -282,6 +282,10 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gpt-oss")
+    VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
+
+if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.1.1"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
 
 
 class VLLMModel(LLM):
