@@ -4767,6 +4767,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4846,6 +4847,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4866,6 +4868,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4885,6 +4888,7 @@
       {
         "model_format": "ggufv2",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5215,6 +5219,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5263,6 +5268,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5281,6 +5287,7 @@
       {
         "model_format": "gptq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5310,6 +5317,116 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>"
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "Deepseek-V3.1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/DeepSeek-V3.1-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% if not thinking is defined %}{% set thinking = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\n\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{ bos_token }}{{ ns.system_prompt }}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{%- set ns.is_first = false -%}{%- set ns.is_last_user = true -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}{%- if ns.is_last_user %}{{'<｜Assistant｜></think>'}}{%- endif %}{%- set ns.is_last_user = false -%}{%- set ns.is_first = false %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls'] %}{%- if not ns.is_first %}{%- if message['content'] is none %}{{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- else %}{{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- set ns.is_first = true -%}{%- else %}{{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- endfor %}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}{%- if ns.is_last_user %}{{'<｜Assistant｜>'}}{%- if message['prefix'] is defined and message['prefix'] and thinking %}{{'<think>'}}  {%- else %}{{'</think>'}}{%- endif %}{%- endif %}{%- set ns.is_last_user = false -%}{%- if ns.is_tool %}{{message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{%- set content = message['content'] -%}{%- if '</think>' in content %}{%- set content = content.split('</think>', 1)[1] -%}{%- endif %}{{content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_last_user = false -%}{%- set ns.is_tool = true -%}{{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endfor -%}{%- if add_generation_prompt and ns.is_last_user and not ns.is_tool %}{{'<｜Assistant｜>'}}{%- if not thinking %}{{'</think>'}}{%- else %}{{'<think>'}}{%- endif %}{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers==4.53.0"
+      ]
+    }
   },
   {
     "version": 2,
@@ -6242,6 +6359,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6262,6 +6380,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6281,6 +6400,7 @@
       {
         "model_format": "ggufv2",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6475,6 +6595,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6517,6 +6638,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6535,6 +6657,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6553,6 +6676,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
