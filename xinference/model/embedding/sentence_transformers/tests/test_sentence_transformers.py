@@ -89,7 +89,7 @@ def test_embedding_model_with_sentence_transformer_truncate_dim():
             "bge-small-en-v1.5",
             "sentence_transformers",
             model_path=model_path,
-            truncate_dim=truncate_dim,
+            dimensions=truncate_dim,
         )
         model.load()
 
