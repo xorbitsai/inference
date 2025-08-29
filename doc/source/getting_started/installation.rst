@@ -97,8 +97,11 @@ Currently, supported models include:
 - ``minicpm4``
 - ``Ernie4.5``
 - ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``
+- ``Deepseek-V3.1``
 - ``glm-4.5``
+- ``KAT-V1``
 - ``gpt-oss``
+- ``seed-oss``, ``seed-oss``
 .. vllm_end
 
 To install Xinference and vLLM::

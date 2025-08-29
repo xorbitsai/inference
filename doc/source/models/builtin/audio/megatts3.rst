@@ -6,7 +6,7 @@ MegaTTS3
 
 - **Model Name:** MegaTTS3
 - **Model Family:** MegaTTS
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot']
 - **Multilingual:** True
 
 Specifications
