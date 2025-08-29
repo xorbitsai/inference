@@ -71,6 +71,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 )
                 torch_dtype = torch.float32
 
+        dimensions = self._kwargs.get("dimensions")
+        assert dimensions is None or isinstance(dimensions, int), (
+            "The `dimensions` argument must be an integer, "
+            f"but got {type(dimensions)}: {dimensions}"
+        )
+
         if (
             "gte" in self.model_family.model_name.lower()
             and "qwen2" in self.model_family.model_name.lower()
@@ -82,11 +88,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 self._model_path,
                 device=self._device,
                 model_kwargs=model_kwargs,
-                truncate_dim=(
-                    self._kwargs.get("truncate_dim")
-                    if self._kwargs.get("truncate_dim")
-                    else None
-                ),
+                truncate_dim=dimensions,
             )
         elif "qwen3" in self.model_family.model_name.lower():
             # qwen3 embedding
@@ -111,11 +113,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
                 tokenizer_kwargs=tokenizer_kwargs,
-                truncate_dim=(
-                    self._kwargs.get("truncate_dim")
-                    if self._kwargs.get("truncate_dim")
-                    else None
-                ),
+                truncate_dim=dimensions,
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
@@ -124,11 +122,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                 device=self._device,
                 model_kwargs=model_kwargs,
                 trust_remote_code=True,
-                truncate_dim=(
-                    self._kwargs.get("truncate_dim")
-                    if self._kwargs.get("truncate_dim")
-                    else None
-                ),
+                truncate_dim=dimensions,
             )
 
         if hasattr(self._model, "tokenizer"):
