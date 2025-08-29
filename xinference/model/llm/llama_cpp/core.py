@@ -23,7 +23,7 @@ from packaging import version
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
-from ..core import LLM
+from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin
 
@@ -297,6 +297,15 @@ class XllamaCppModel(LLM, ChatModelMixin):
         if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
             generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
         stream = generate_config.get("stream", False)
+
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
+        chat_context_var.set(chat_template_kwargs)
+
         tools = generate_config.pop("tools", []) if generate_config else None
         q: queue.Queue = queue.Queue()
 
@@ -314,6 +323,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     "model": self.model_uid,
                 }
             )
+            if chat_template_kwargs:
+                data["chat_template_kwargs"] = chat_template_kwargs
+
             try:
 
                 def _callback(res):
