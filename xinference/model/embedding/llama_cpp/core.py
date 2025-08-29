@@ -69,6 +69,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         return sys.platform.startswith("linux")
 
     def load(self):
+        # add truncate_dim args hint
+        if "truncate_dim" in self._kwargs:
+            raise TypeError("LlamaCpp embedder does not support truncate_dim")
         try:
             from xllamacpp import (
                 CommonParams,
