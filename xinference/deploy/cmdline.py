@@ -1345,6 +1345,8 @@ def model_chat(
                     messages,
                     generate_config={"stream": stream, "max_tokens": max_tokens},
                 ):
+                    if not chunk["choices"]:
+                        continue
                     delta = chunk["choices"][0]["delta"]
                     if "content" not in delta:
                         continue

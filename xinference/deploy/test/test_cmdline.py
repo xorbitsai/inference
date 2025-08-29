@@ -87,7 +87,7 @@ def test_cmdline(setup, stream, model_uid):
         ],
     )
     assert result.exit_code == 0
-    assert model_uid in result.stdout
+    assert model_uid in result.output
 
     # model generate
     result = runner.invoke(
