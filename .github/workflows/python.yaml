@@ -283,7 +283,6 @@ jobs:
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
-              -v --tb=short -rfE --maxfail=1 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg \
               --cov-report=xml \
