@@ -71,7 +71,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
     def load(self):
         # add truncate_dim args hint
         if "dimensions" in self._kwargs:
-            raise TypeError(
+            raise NotImplementedError(
                 "LlamaCpp embedder does not support dimensions argument now."
             )
         try:
