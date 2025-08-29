@@ -46,14 +46,14 @@ potential of cutting-edge AI models.
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### New Models
+- Built-in support for [Deepseek-V3.1](https://api-docs.deepseek.com/news/news250821): [#4022](https://github.com/xorbitsai/inference/pull/4022)
+- Built-in support for [Qwen-Image-Edit](https://huggingface.co/Qwen/Qwen-Image-Edit): [#3989](https://github.com/xorbitsai/inference/pull/3989)
+- Built-in support for [Wan2.2](https://github.com/Wan-Video/Wan2.2): [#3996](https://github.com/xorbitsai/inference/pull/3996)
+- Built-in support for [seed-oss](https://github.com/ByteDance-Seed/seed-oss): [#4020](https://github.com/xorbitsai/inference/pull/4020)
 - Built-in support for [gpt-oss](https://openai.com/zh-Hans-CN/index/introducing-gpt-oss/): [#3924](https://github.com/xorbitsai/inference/pull/3924)
 - Built-in support for [GLM-4.5v](https://github.com/zai-org/GLM-V): [#3957](https://github.com/xorbitsai/inference/pull/3957)
 - Built-in support for [Qwen-Image](https://qwenlm.github.io/blog/qwen-image/): [#3916](https://github.com/xorbitsai/inference/pull/3916)
 - Built-in support for [GLM-4.5](https://github.com/zai-org/GLM-4.5): [#3882](https://github.com/xorbitsai/inference/pull/3882)
-- Built-in support for [ERNIE 4.5](https://yiyan.baidu.com/blog/posts/ernie4.5/): [#3812](https://github.com/xorbitsai/inference/pull/3812)
-- Built-in support for [GLM-4.1V-Thinking](https://github.com/THUDM/GLM-4.1V-Thinking/tree/main): [#3756](https://github.com/xorbitsai/inference/pull/3756)
-- Built-in support for [jina-embeddings-v4](https://jina.ai/news/jina-embeddings-v4-universal-embeddings-for-multimodal-multilingual-retrieval/): [#3814](https://github.com/xorbitsai/inference/pull/3814)
-- Built-in support for [FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev): [#3728](https://github.com/xorbitsai/inference/pull/3728)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
