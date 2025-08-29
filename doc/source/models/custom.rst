@@ -49,44 +49,118 @@ The above example demonstrates how to directly launch a qwen1.5-chat model file 
 For distributed scenarios, if your model file is on a specific worker,
 you can directly launch it using the ``worker_ip`` and ``model_path`` parameters with the launch interface.
 
-Define a custom LLM model
+Define a custom model
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Define a custom LLM model based on the following template:
+Define a custom model based on the following templates:
 
-.. code-block:: json
+.. tabs::
 
-   {
+  .. tab:: LLM
+
+    .. code-block:: json
+
+        {
+            "version": 2,
+            "context_length": 32768,
+            "model_name": "custom-qwen-2.5",
+            "model_lang": [
+                "en",
+                "zh"
+            ],
+            "model_ability": [
+                "generate"
+            ],
+            "model_description": "This is a custom model description.",
+            "model_family": "my-custom-qwen-2.5",
+            "model_specs": [
+                {
+                    "model_format": "pytorch",
+                    "model_size_in_billions": "0_5",
+                    "quantization": "none",
+                    "model_id": null,
+                    "model_hub": "huggingface",
+                    "model_uri": "file:///path/to/models--Qwen--Qwen2.5-0.5B",
+                    "model_revision": null,
+                    "activated_size_in_billions": null
+                }
+            ],
+            "chat_template": null,
+            "stop_token_ids": null,
+            "stop": null,
+            "reasoning_start_tag": null,
+            "reasoning_end_tag": null,
+            "cache_config": null,
+            "virtualenv": {
+                "packages": [],
+                "inherit_pip_config": true,
+                "index_url": null,
+                "extra_index_url": null,
+                "find_links": null,
+                "trusted_host": null,
+                "no_build_isolation": null
+            },
+            "is_builtin": false
+        }
+
+  .. tab:: embedding
+
+    .. code-block:: json
+
+      {
+         "version": 2,
+         "model_name": "my-bge-large-zh-v1.5",
+         "dimensions": 1024,
+         "max_tokens": 512,
+         "language": [
+             "zh"
+         ],
+         "model_specs": [
+            {
+                "model_format": "pytorch",
+                "model_hub": "huggingface",
+                "model_id": null,
+                "model_uri": "file:///path/to/my-bge-large-zh-v1.5",
+                "model_revision": null,
+                "quantization": "none"
+            }
+         ],
+         "cache_config": null,
+         "virtualenv": {
+            "packages": [],
+            "inherit_pip_config": true,
+            "index_url": null,
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+         },
+         "is_builtin": false
+      }
+
+  .. tab:: Rerank
+
+    .. code-block:: json
+
+      {
         "version": 2,
-        "context_length": 32768,
-        "model_name": "custom-qwen-2.5",
-        "model_lang": [
-            "en",
-            "zh"
-        ],
-        "model_ability": [
-            "generate"
-        ],
-        "model_description": "This is a custom model description.",
-        "model_family": "my-custom-qwen-2.5",
+        "model_name": "my-bge-reranker-base",
         "model_specs": [
             {
                 "model_format": "pytorch",
-                "model_size_in_billions": "0_5",
-                "quantization": "none",
-                "model_id": null,
                 "model_hub": "huggingface",
-                "model_uri": "file:///path/to/models--Qwen--Qwen2.5-0.5B",
+                "model_id": null,
                 "model_revision": null,
-                "activated_size_in_billions": null
+                "model_uri": "file:///path/to/my-bge-reranker-base",
+                "quantization": "none"
             }
         ],
-        "chat_template": null,
-        "stop_token_ids": null,
-        "stop": null,
-        "reasoning_start_tag": null,
-        "reasoning_end_tag": null,
-        "cache_config": null,
+        "language": [
+            "en",
+            "zh"
+        ],
+        "type": "unknown",
+        "max_tokens": 512,
         "virtualenv": {
             "packages": [],
             "inherit_pip_config": true,
@@ -97,10 +171,107 @@ Define a custom LLM model based on the following template:
             "no_build_isolation": null
         },
         "is_builtin": false
-   }
+      }
+
+  .. tab:: image
+
+    .. code-block:: json
+
+      {
+        "model_name": "my-qwen-image",
+        "model_id": null,
+        "model_revision": null,
+        "model_hub": "huggingface",
+        "cache_config": null,
+        "version": 2,
+        "model_family": "stable_diffusion",
+        "model_ability": null,
+        "controlnet": [],
+        "default_model_config": {},
+        "default_generate_config": {},
+        "gguf_model_id": null,
+        "gguf_quantizations": null,
+        "gguf_model_file_name_template": null,
+        "lightning_model_id": null,
+        "lightning_versions": null,
+        "lightning_model_file_name_template": null,
+        "virtualenv": {
+            "packages": [],
+            "inherit_pip_config": true,
+            "index_url": null,
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+        },
+        "model_uri": "file:///path/to/my-qwen-image",
+        "is_builtin": false
+      }
+
+  .. tab:: audio
+
+    .. code-block:: json
+
+      {
+        "model_name": "my-ChatTTS",
+        "model_id": null,
+        "model_revision": null,
+        "model_hub": "huggingface",
+        "cache_config": null,
+        "version": 2,
+        "model_family": "ChatTTS",
+        "multilingual": false,
+        "language": null,
+        "model_ability": [
+            "text2audio"
+        ],
+        "default_model_config": null,
+        "default_transcription_config": null,
+        "engine": null,
+        "virtualenv": {
+            "packages": [],
+            "inherit_pip_config": true,
+            "index_url": null,
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+        },
+        "model_uri": "file:///path/to/my-ChatTTS",
+        "is_builtin": false
+      }
+
+  .. tab:: flexible
+
+    .. code-block:: json
+
+      {
+        "model_name": "my-flexible-model",
+        "model_id": null,
+        "model_revision": null,
+        "model_hub": "huggingface",
+        "cache_config": null,
+        "version": 2,
+        "model_description": "This is a model description.",
+        "model_uri": "file:///path/to/my-flexible-model",
+        "launcher": "xinference.model.flexible.launchers.transformers",
+        "launcher_args": "{}",
+        "virtualenv": {
+            "packages": [],
+            "inherit_pip_config": true,
+            "index_url": null,
+            "extra_index_url": null,
+            "find_links": null,
+            "trusted_host": null,
+            "no_build_isolation": null
+        },
+        "is_builtin": false
+      }
 
 * model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
-* context_length: context_length: An optional integer that specifies the maximum context size the model was trained to accommodate, encompassing both the input and output lengths. If not defined, the default value is 2048 tokens (~1,500 words).
+* context_length: An optional integer that specifies the maximum context size the model was trained to accommodate, encompassing both the input and output lengths. If not defined, the default value is 2048 tokens (~1,500 words).
+* dimensions: An interger defining the size of the vector output by the embedding model.
+* max_tokens: An interger defining the maximum number of input tokens the embedding model can process in a single request.
 * model_lang: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
 * model_ability: A list of strings defining the abilities of the model. It could include options like "embed", "generate", and "chat". In this case, the model has the ability to "generate".
 * model_family: A required string representing the family of the model you want to register. This parameter must not conflict with any builtin model names.
@@ -109,58 +280,16 @@ Define a custom LLM model based on the following template:
    * model_size_in_billions: An integer defining the size of the model in billions of parameters.
    * quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggufv2 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
    * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face. **If model_uri is missing, Xinference will try to download the model from the huggingface repository specified here.**.
+   * model_hub: A string representing where to download the model from, like "Huggingface" or "modelscope"
    * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". **When the model format is ggufv2, model_uri must be the specific file path. When the model format is pytorch, model_uri must be the path to the directory containing the model files.** If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
-   * model_file_name_template: Required by gguf models. An f-string template used for defining the model file name based on the quantization. **Note that this field is just a template for the format of the ggufv2 model file, do not fill in the specific path of the model file.**
+   * model_revision: A string representing the specific version or commit hash of the model files to use from the repository.
 * chat_template: If ``model_ability`` includes ``chat`` , you must configure this option to generate the correct full prompt during chat. This is a Jinja template string. Usually, you can find it in the ``tokenizer_config.json`` file within the model directory.
 * stop_token_ids: If ``model_ability`` includes ``chat`` , you can configure this option to control when the model stops during chat. This is a list of integers, and you can typically extract the corresponding values from the ``generation_config.json`` or ``tokenizer_config.json`` file in the model directory.
 * stop: If ``model_ability`` includes ``chat`` , you can configure this option to control when the model stops during chat. This is a list of strings, and you can typically extract the corresponding values from the ``generation_config.json`` or ``tokenizer_config.json`` file in the model directory.
-
-Define a custom embedding model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Define a custom embedding model based on the following template:
-
-.. code-block:: json
-
-    {
-        "model_name": "custom-bge-base-en",
-        "dimensions": 768,
-        "max_tokens": 512,
-        "language": ["en"],
-        "model_id": "BAAI/bge-base-en",
-        "model_uri": "file:///path/to/bge-base-en"
-    }
-
-* model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
-* dimensions: A integer that specifies the embedding dimensions.
-* max_tokens: A integer that represents the max sequence length that the embedding model supports.
-* language: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
-* model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
-* model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/your_model". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
-
-
-Define a custom Rerank model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Define a custom rerank model based on the following template:
-
-.. code-block:: json
-
-    {
-        "model_name": "custom-bge-reranker-v2-m3",
-        "type": "normal",
-        "language": ["en", "zh", "multilingual"],
-        "model_id": "BAAI/bge-reranker-v2-m3",
-        "model_uri": "file:///path/to/bge-reranker-v2-m3"
-    }
-
-* model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
-* type: A string defining the type of the model, including ``normal``, ``LLM-based`` and ``LLM-based layerwise``.
-* language: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
-* model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
-* model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/your_model". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
-
-.. _register_custom_model:
+* reasoning_start_tag: A special token or prompt used to explicitly instruct the LLM to begin its chain-of-thought or reasoning process in its output.
+* reasoning_end_tag: A special token or prompt used to explicitly mark the end of the model's chain-of-thought or reasoning process in its output.
+* cache_config: A string representing the parameters and rules for how the system stores and manages temporary data (cache).
+* virtualenv: An array refers to the name or path of a self-contained Python environment used to isolate dependencies required to run a specific model or project. Please refer to :ref:`this document <virtualenv>`.
 
 Register a Custom Model
 ~~~~~~~~~~~~~~~~~~~~~~~
