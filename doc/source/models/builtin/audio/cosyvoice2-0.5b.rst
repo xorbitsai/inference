@@ -6,7 +6,7 @@ CosyVoice2-0.5B
 
 - **Model Name:** CosyVoice2-0.5B
 - **Model Family:** CosyVoice
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot', 'text2audio_voice_cloning']
 - **Multilingual:** True
 
 Specifications

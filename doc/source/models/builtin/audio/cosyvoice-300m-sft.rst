@@ -6,7 +6,7 @@ CosyVoice-300M-SFT
 
 - **Model Name:** CosyVoice-300M-SFT
 - **Model Family:** CosyVoice
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot']
 - **Multilingual:** True
 
 Specifications

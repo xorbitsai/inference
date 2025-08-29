@@ -6,7 +6,7 @@ MeloTTS-English
 
 - **Model Name:** MeloTTS-English
 - **Model Family:** MeloTTS
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot']
 - **Multilingual:** False
 
 Specifications
