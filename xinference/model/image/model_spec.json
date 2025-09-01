@@ -824,13 +824,12 @@
         "deepspeed==0.12.3",
         "peft==0.4.0",
         "tiktoken==0.6.0",
-        "bitsandbytes==0.41.0",
-        "scikit-learn==1.2.2",
         "sentencepiece==0.1.99",
         "einops==0.6.1",
         "einops-exts==0.0.4",
         "timm==0.6.13",
-        "numpy==1.26.4"
+        "#system_numpy#",
+        "#system_torch#"
       ]
     },
     "model_src": {
