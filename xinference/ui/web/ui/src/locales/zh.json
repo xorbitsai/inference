@@ -35,6 +35,8 @@
     "ocr": "光学字符识别",
     "audio2text": "语音转文本",
     "text2audio": "文本转语音",
+    "text2audio_zero_shot": "文本转语音（零样本）",
+    "text2audio_voice_cloning": "文本转语音（声音克隆）",
     "text2video": "文生视频",
     "image2video": "图生视频",
     "firstlastframe2video": "首尾帧生视频",
