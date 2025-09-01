@@ -2,10 +2,8 @@ from ..qwen_tool_parser import QwenToolParser
 
 
 def test_tool_parser_extract_calls_streaming_without_thinking_multi():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_cases = [
         # (previous_texts, current_text, delta_text)
         (["<tool_call>"], "<tool_call>\n", "\n"),
@@ -234,9 +232,6 @@ def test_tool_parser_extract_calls_streaming_without_thinking_multi():
         ),
     ]
 
-    print(f"\n=== 工具解析器流式提取测试 ===")
-
-    # 预期结果
     expected_results = [
         None,  # 案例1-5: 普通文本输出
         None,
@@ -286,14 +281,12 @@ def test_tool_parser_extract_calls_streaming_without_thinking_multi():
         )
         expected = expected_results[i]
 
-        assert result == expected
+        assert result == expected, f"Case {i} failed: {result} != {expected}"
 
 
 def test_tool_parser_extract_calls_streaming_without_thinking():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_cases = [
         # (previous_texts, current_text, delta_text)
         (["<tool_call>"], "<tool_call>\n", "\n"),
@@ -382,9 +375,6 @@ def test_tool_parser_extract_calls_streaming_without_thinking():
         ),
     ]
 
-    print(f"\n=== 工具解析器流式提取测试 ===")
-
-    # 预期结果
     expected_results = [
         None,  # 案例1-5: 普通文本输出
         None,
@@ -414,14 +404,12 @@ def test_tool_parser_extract_calls_streaming_without_thinking():
         )
         expected = expected_results[i]
 
-        assert result == expected
+        assert result == expected, f"Case {i} failed: {result} != {expected}"
 
 
 def test_tool_parser_extract_calls_streaming_with_thinking():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_cases = [
         # (previous_texts, current_text, delta_text)
         ([""], "<think>", "<think>"),
@@ -554,9 +542,6 @@ def test_tool_parser_extract_calls_streaming_with_thinking():
         ),
     ]
 
-    print(f"\n=== 工具解析器流式提取测试 ===")
-
-    # 预期结果
     expected_results = [
         ("<think>", None, None),  # 案例1-5: 普通文本输出
         ("\n", None, None),
@@ -592,14 +577,12 @@ def test_tool_parser_extract_calls_streaming_with_thinking():
         )
         expected = expected_results[i]
 
-        assert result == expected
+        assert result == expected, f"Case {i} failed: {result} != {expected}"
 
 
 def test_tool_parser_extract_calls_streaming_with_parser():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_cases = [
         # (previous_texts, current_text, delta_text)
         ([""], "\n\n", "\n\n"),
@@ -694,9 +677,6 @@ def test_tool_parser_extract_calls_streaming_with_parser():
         ),
     ]
 
-    print(f"\n=== 工具解析器流式提取测试 ===")
-
-    # 预期结果
     expected_results = [
         ("\n\n", None, None),
         None,  # 案例6-24: 工具调用构建中，返回None
@@ -728,59 +708,41 @@ def test_tool_parser_extract_calls_streaming_with_parser():
         )
         expected = expected_results[i]
 
-        # 校验结果
-        assert result == expected
+        assert result == expected, f"Case {i} failed: {result} != {expected}"
 
 
 def test_tool_parser_extract_calls_without_thinking_multi():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_case = '<tool_call>\n{"name": "get_current_weather", "arguments": {"location": "上海"}}\n</tool_call><tool_call>\n{"name": "get_current_weather", "arguments": {"location": "北京"}}\n</tool_call>'
 
-    print(f"\n=== 工具解析器提取测试 ===")
-
-    # 预期结果
     expected_results = [
         (None, "get_current_weather", {"location": "上海"}),
         (None, "get_current_weather", {"location": "北京"}),
-    ]  # 案例25: 完整工具调用
+    ]
 
     result = parser.extract_tool_calls(test_case)
 
-    # 校验结果
-    assert result == expected_results
+    assert result == expected_results, f"Case failed: {result} != {expected_results}"
 
 
 def test_tool_parser_extract_calls_without_thinking():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_case = '<tool_call>\n{"name": "get_current_weather", "arguments": {"location": "上海"}}\n</tool_call>'
 
-    print(f"\n=== 工具解析器提取测试 ===")
-
-    # 预期结果
     expected_results = [(None, "get_current_weather", {"location": "上海"})]
 
     result = parser.extract_tool_calls(test_case)
 
-    # 校验结果
-    assert result == expected_results
+    assert result == expected_results, f"Case failed: {result} != {expected_results}"
 
 
 def test_tool_parser_extract_calls_with_thinking():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_case = '<think>\n好的</think>\n\n<tool_call>\n{"name": "get_current_weather", "arguments": {"location": "上海"}}\n</tool_call>'
 
-    print(f"\n=== 工具解析器提取测试 ===")
-
-    # 预期结果
     expected_results = [
         ("<think>\n好的</think>", None, None),
         ("\n\n", None, None),
@@ -789,20 +751,14 @@ def test_tool_parser_extract_calls_with_thinking():
 
     result = parser.extract_tool_calls(test_case)
 
-    # 校验结果
     assert result == expected_results
 
 
 def test_tool_parser_extract_calls_with_parser():
-    """测试工具解析器的流式提取功能"""
     parser = QwenToolParser()
 
-    # 基于真实调试输出的测试用例
     test_case = '\n\n<tool_call>\n{"name": "get_current_weather", "arguments": {"location": "上海"}}\n</tool_call>'
 
-    print(f"\n=== 工具解析器提取测试 ===")
-
-    # 预期结果
     expected_results = [
         ("\n\n", None, None),
         (None, "get_current_weather", {"location": "上海"}),
@@ -810,5 +766,4 @@ def test_tool_parser_extract_calls_with_parser():
 
     result = parser.extract_tool_calls(test_case)
 
-    # 校验结果
-    assert result == expected_results
+    assert result == expected_results, f"Case failed: {result} != {expected_results}"
