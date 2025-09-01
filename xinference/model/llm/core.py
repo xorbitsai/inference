@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
 from .reasoning_parser import ReasoningParser
+from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV2, LLMSpecV1
@@ -59,6 +60,7 @@ class LLM(abc.ABC):
         self.quantization = model_family.model_specs[0].quantization
         self.model_path = model_path
         self.reasoning_parser = None
+        self.tool_parser = None
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:
@@ -171,6 +173,15 @@ class LLM(abc.ABC):
             enable_thinking=enable_thinking,
         )
 
+
+    def prepare_parse_tool_calls(self):
+        if self.model_family.tool_parser is None:
+            return
+        if self.model_family.tool_parser not in TOOL_PARSERS:
+            return
+        tool_parser = TOOL_PARSERS[self.model_family.tool_parser]
+        self.tool_parser = tool_parser()
+        
 
 # Context variable for passing per-request chat context (e.g., chat_template_kwargs).
 # This variable should be set at the beginning of each chat or stream_chat call.

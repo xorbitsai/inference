@@ -95,6 +95,11 @@ QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 
 class ChatModelMixin:
+
+    def __init__(self):
+        self.reasoning_parser = None
+        self.tool_parser = None
+
     @staticmethod
     @functools.lru_cache
     def _compile_jinja_template(chat_template):
@@ -757,26 +762,33 @@ class ChatModelMixin:
         logger.debug(f"Tool call content: {result}")
         return result
 
-    @classmethod
     def _post_process_completion_chunk(
-        cls,
-        model_family,
+        self,
         model_uid,
         c,
         chunk_id=None,
-        reasoning_parser: Optional[ReasoningParser] = None,
-        tool_call_text: Optional[str] = None,
+        previous_texts: Optional[List[str]] = None,
     ):
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
-        tool_result = cls._eval_tool_arguments(model_family, c, tool_call_text)
+        finish_reason = c["choices"][0]["finish_reason"]
+        delta_text = c["choices"][0]["delta"]["content"]
+        current_text = previous_texts[-1] + delta_text
+        tool_result = self.tool_parser.extract_tool_calls_streaming(
+            previous_texts,
+            current_text,
+            delta_text,
+        )
+        previous_texts[-1] = current_text
+        if tool_result is None and not finish_reason:
+            return None
         tool_calls = []
         failed_contents = []
-        for content, func, args in tool_result:
-            if func:
-                tool_calls.append(
-                    {
-                        "index": 0,
-                        "id": f"call_{_id}",
+        content, func, args = tool_result if tool_result else ("", None, None)
+        if func:
+            tool_calls.append(
+                {
+                    "index": 0,
+                    "id": f"call_{_id}",
                         "type": "function",
                         "function": {
                             "name": func,
@@ -784,20 +796,13 @@ class ChatModelMixin:
                         },
                     }
                 )
-            else:
-                failed_contents.append(content)
-        finish_reason = "tool_calls" if tool_calls else "stop"
-
+        else:
+            failed_contents.append(content)
         content = "".join(failed_contents) if failed_contents else None
-
-        # fix: qwen tool_call content field return null
-        family = model_family.model_family or model_family.model_name
-        if tool_calls and family in QWEN_TOOL_CALL_FAMILY and content is None:
-            content = ""
 
         d = {
             "role": "assistant",
-            "content": content,
+            "content": content if content else "",
             "tool_calls": tool_calls,
         }
 
@@ -826,29 +831,27 @@ class ChatModelMixin:
             "usage": usage,
         }
 
-    @classmethod
     def _post_process_completion(
-        cls,
+        self,
         model_family,
         model_uid,
         c,
-        reasoning_parser: Optional[ReasoningParser] = None,
-    ):
-        if reasoning_parser:
-            c = reasoning_parser.prepare_reasoning_content(c)
+    ): 
+        if self.reasoning_parser:
+            c = self.reasoning_parser.prepare_reasoning_content(c)
         _id = str(uuid.uuid4())
         reasoning_content = None
-        if reasoning_parser and reasoning_parser.check_content_parser():
+        if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             text = c["choices"][0]["text"]
-            reasoning_content, content = reasoning_parser.extract_reasoning_content(
+            reasoning_content, content = self.reasoning_parser.extract_reasoning_content(
                 text
             )
             c["choices"][0]["text"] = content
 
-        tool_result = cls._eval_tool_arguments(model_family, c)
-
         tool_calls = []
         failed_contents = []
+        text = c["choices"][0]["text"]
+        tool_result = self.tool_parser.extract_tool_calls(text)
         for content, func, args in tool_result:
             if func:
                 tool_calls.append(
@@ -868,9 +871,7 @@ class ChatModelMixin:
 
         content = "".join(failed_contents) if failed_contents else None
 
-        # fix: qwen tool_call content field return null
-        family = model_family.model_family or model_family.model_name
-        if tool_calls and family in QWEN_TOOL_CALL_FAMILY and content is None:
+        if content is None:
             content = ""
 
         m = {

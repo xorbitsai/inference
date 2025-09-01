@@ -388,6 +388,7 @@ class VLLMModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV2)
@@ -1297,6 +1298,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
         i = 0
         previous_texts = [""]
+        previous_tools_texts = [""]
         tool_call = False
         tool_call_texts = [""]
         full_text = ""
@@ -1305,37 +1307,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for chunk in chunks:
             set_context()
-            if i == 0:
-                for first_chunk in self._get_first_chat_completion_chunk(
-                    chunk, self.reasoning_parser
-                ):
-                    yield first_chunk
-            # usage
-            choices = chunk.get("choices")
-            if not choices:
-                yield self._get_final_chat_completion_chunk(chunk)
-            else:
-                full_text += chunk["choices"][0]["text"]
-                if self.is_tool_call_chunk_start(chunk):
-                    tool_call = True
-                if tool_call:
-                    tool_call_text = tool_call_texts[-1]
-                    tool_call_text += chunk["choices"][0]["text"]
-                    tool_call_texts.append(tool_call_text)
-                    if self.is_tool_call_chunk_end(chunk):
-                        yield self._post_process_completion_chunk(
-                            self.model_family,
-                            self.model_uid,
-                            chunk,
-                            reasoning_parser=self.reasoning_parser,
-                            tool_call_text=tool_call_text,
-                        )
-                        tool_call = False
-                        tool_call_texts = [""]
-                else:
-                    yield self._to_chat_completion_chunk(
-                        chunk, self.reasoning_parser, previous_texts
-                    )
+            chunk = self._to_chat_completion_chunk(
+                chunk, self.reasoning_parser, previous_texts
+            )
+            if "reasoning_content" in chunk["choices"][0]["delta"] and chunk["choices"][0]["delta"]["reasoning_content"] is not None:
+                yield chunk
+                continue
+            chunk = self._post_process_completion_chunk(
+                self.model_uid,
+                chunk,
+                previous_texts=previous_tools_texts,
+            )
+            if chunk:
+                yield chunk
             i += 1
         logger.debug("Chat finished, output: %s", full_text)
 
@@ -1403,7 +1387,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c, self.reasoning_parser
+                    self.model_family, self.model_uid, c
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 

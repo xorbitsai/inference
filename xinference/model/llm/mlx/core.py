@@ -755,7 +755,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             assert not isinstance(c, Iterator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c, self.reasoning_parser
+                    self.model_family, self.model_uid, c
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 

@@ -7796,7 +7796,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "tool_parser":"glm4"
   },
   {
     "version": 2,
@@ -17304,7 +17305,8 @@
         "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
         "numpy==1.26.4"
       ]
-    }
+    },
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
