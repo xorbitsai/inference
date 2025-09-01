@@ -148,8 +148,7 @@ class MLXModel(LLM):
             raise ValueError("MLX engine has not supported lora yet")
         # used to call async
         self._loop = None
-        
-        # 内存管理配置
+        # memory management configuration
         self._enable_memory_cleanup = model_config.get('enable_memory_cleanup', True)
         self._memory_cleanup_threshold = model_config.get('memory_cleanup_threshold', 0.8)
         self._memory_limit_gb = model_config.get('max_memory_gb', 8)
@@ -161,48 +160,40 @@ class MLXModel(LLM):
         self._loop = loop  # type: ignore
 
     def _cleanup_memory(self):
-        """主动清理MLX内存"""
+        """proactively clean up MLX memory"""
         import gc
         import mlx.core as mx
-        
         try:
-            # 强制垃圾回收
+            # mandatory recycling
             gc.collect()
-            
-            # 清理MLX缓存
+            # clear the MLX cache
             mx.clear_cache()
-            
-            # 记录内存清理
+            # log memory cleanup
             if hasattr(mx, 'metal') and hasattr(mx.metal, 'get_active_memory'):
                 memory_usage = mx.metal.get_active_memory() / 1e9
                 logger.debug(f"Memory cleanup completed. Active memory: {memory_usage:.2f} GB")
-                
         except Exception as e:
             logger.warning(f"Memory cleanup failed: {e}")
 
     def _check_memory_pressure(self):
-        """检查内存压力，必要时进行清理"""
+        """check memory usage and clean up when necessary"""
         import mlx.core as mx
-        
         if not getattr(self, '_enable_memory_cleanup', True):
             return
-            
         try:
             if hasattr(mx, 'metal') and hasattr(mx.metal, 'get_active_memory'):
                 current_memory = mx.metal.get_active_memory() / 1e9
                 memory_limit = getattr(self, '_memory_limit_gb', 8)
                 threshold = getattr(self, '_memory_cleanup_threshold', 0.8)
-                
-                # 如果内存使用超过阈值，进行清理
+                # if memory usage exceeds the threshold then perform cleanup.
                 if current_memory > memory_limit * threshold:
                     logger.warning(f"Memory pressure detected: {current_memory:.2f}/{memory_limit} GB (threshold: {threshold})")
                     self._cleanup_memory()
-                    
         except Exception as e:
             logger.warning(f"Memory pressure check failed: {e}")
 
     def _reset_prompt_cache(self):
-        """重置Prompt缓存以释放内存"""
+        """reset the prompt cache to free up memory."""
         if self._prompt_cache:
             self._prompt_cache.cache = []
             self._prompt_cache.tokens = []
@@ -286,8 +277,7 @@ class MLXModel(LLM):
 
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
-        
-        # 设置内存管理参数
+        # set memory management parameters
         if hasattr(self, '_memory_limit_gb') and self._memory_limit_gb:
             logger.debug(f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}")
 
@@ -339,8 +329,7 @@ class MLXModel(LLM):
 
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
-        
-        # 设置内存管理参数
+        # Set memory management parameters
         if hasattr(self, '_memory_limit_gb') and self._memory_limit_gb:
             logger.debug(f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}")
 
@@ -508,9 +497,8 @@ class MLXModel(LLM):
         return prompt
 
     def _generate_stream_inner(self, **kwargs):
-        # 在推理前检查内存
+        # check memory before reasoning
         self._check_memory_pressure()
-        
         try:
             from mlx_lm.utils import (
                 make_logits_processors,
@@ -531,7 +519,6 @@ class MLXModel(LLM):
             repetition_penalty=kwargs.pop("repetition_penalty"),
             repetition_context_size=kwargs.pop("repetition_context_size"),
         )
-        
         try:
             yield from stream_generate(
                 self._model,
@@ -542,7 +529,7 @@ class MLXModel(LLM):
                 **kwargs,
             )
         finally:
-            # 推理完成后清理内存
+            # after completing the inference, clear the memory.
             self._cleanup_memory()
 
     def _prepare_inputs(
@@ -902,7 +889,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
 
-        # 在推理前检查内存
+        # Check memory before reasoning
         self._check_memory_pressure()
 
         try:
@@ -923,7 +910,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
         detokenizer.reset()
         tic = time.perf_counter()
-        
         try:
             for n, (token, logprobs) in enumerate(
                 generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
@@ -962,7 +948,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 peak_memory=mx.metal.get_peak_memory() / 1e9,
             )
         finally:
-            # 推理完成后清理内存
+            # after completing the inference, clear the memory.
             self._cleanup_memory()
 
     def _prepare_inputs(
