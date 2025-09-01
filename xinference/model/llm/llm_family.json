@@ -1071,7 +1071,8 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "tool_parser": "llama3"
   },
   {
     "version": 2,
@@ -9073,7 +9074,8 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "tool_parser": "llama3"
   },
   {
     "version": 2,

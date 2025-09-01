@@ -46,7 +46,6 @@ def filter_ids_and_created(data):
 
 
 def test_post_process_completion_chunk_without_thinking():
-    """测试_post_process_completion_chunk"""
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
 
@@ -352,7 +351,6 @@ def test_post_process_completion_chunk_without_thinking():
             },
         ),
     ]
-    # 预期结果
     expected_results = [
         None,
         None,
@@ -423,29 +421,26 @@ def test_post_process_completion_chunk_without_thinking():
             "usage": {"prompt_tokens": -1, "completion_tokens": -1, "total_tokens": -1},
         },
     ]
-    # 测试 _post_process_completion_chunk 方法
     previous_texts = [""]
 
     for i, (model_family, chunk_data) in enumerate(test_cases):
-
-        # 调用 _post_process_completion_chunk 方法
         result = mixin._post_process_completion_chunk(
             model_uid=model_family, c=chunk_data, previous_texts=previous_texts
         )
 
         expected = expected_results[i]
 
-        result_filtered = filter_ids_and_created(result)
-        expected_filtered = filter_ids_and_created(expected)
-
-        if expected:
-            assert result_filtered == expected_filtered
+        if expected is None:
+            assert result is None, f"Expected None but got {result}"
         else:
-            assert result == expected
+            result_filtered = filter_ids_and_created(result)
+            expected_filtered = filter_ids_and_created(expected)
+            assert (
+                result_filtered == expected_filtered
+            ), f"Mismatch at case {i}: expected {expected_filtered}, got {result_filtered}"
 
 
 def test_post_process_completion_chunk_with_thinking():
-    """测试_post_process_completion_chunk"""
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
     test_cases = [
@@ -826,7 +821,6 @@ def test_post_process_completion_chunk_with_thinking():
             },
         ),
     ]
-    # 预期结果
     expected_results = [
         {
             "id": "chatcmpl-7a377eb3-76a6-4503-b86f-1f8d4945bd76",
@@ -1012,31 +1006,29 @@ def test_post_process_completion_chunk_with_thinking():
             "usage": {"prompt_tokens": -1, "completion_tokens": -1, "total_tokens": -1},
         },
     ]
-    # 测试 _post_process_completion_chunk 方法
     previous_texts = [""]
 
     for i, (model_family, chunk_data) in enumerate(test_cases):
-
-        # 调用 _post_process_completion_chunk 方法
         result = mixin._post_process_completion_chunk(
             model_uid=model_family, c=chunk_data, previous_texts=previous_texts
         )
 
         expected = expected_results[i]
-        result_filtered = filter_ids_and_created(result)
-        expected_filtered = filter_ids_and_created(expected)
 
-        if expected:
-            assert result_filtered == expected_filtered
+        if expected is None:
+            assert result is None, f"Expected None but got {result}"
         else:
-            assert result == expected
+            result_filtered = filter_ids_and_created(result)
+            expected_filtered = filter_ids_and_created(expected)
+            assert (
+                result_filtered == expected_filtered
+            ), f"Mismatch at case {i}: expected {expected_filtered}, got {result_filtered}"
 
 
 def test_post_process_completion_chunk_with_parser():
-    """测试_post_process_completion_chunk"""
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
-    mixin.reasoning_parser = ReasoningParser(  # type: ignore
+    mixin.reasoning_parser = ReasoningParser(
         reasoning_content=True,
         reasoning_start_tag="<think>",
         reasoning_end_tag="</think>",
@@ -1424,7 +1416,6 @@ def test_post_process_completion_chunk_with_parser():
             },
         ),
     ]
-    # 预期结果
     expected_results = [
         {
             "id": "chatcmpl-2f2a2673-2242-442e-9a70-9efc83e7a2e7",
@@ -1518,28 +1509,26 @@ def test_post_process_completion_chunk_with_parser():
             "usage": {"prompt_tokens": -1, "completion_tokens": -1, "total_tokens": -1},
         },
     ]
-    # 测试 _post_process_completion_chunk 方法
     previous_texts = [""]
 
     for i, (model_family, chunk_data) in enumerate(test_cases):
-
-        # 调用 _post_process_completion_chunk 方法
         result = mixin._post_process_completion_chunk(
             model_uid=model_family, c=chunk_data, previous_texts=previous_texts
         )
 
         expected = expected_results[i]
-        result_filtered = filter_ids_and_created(result)
-        expected_filtered = filter_ids_and_created(expected)
 
-        if expected:
-            assert result_filtered == expected_filtered
+        if expected is None:
+            assert result is None, f"Expected None but got {result}"
         else:
-            assert result == expected
+            result_filtered = filter_ids_and_created(result)
+            expected_filtered = filter_ids_and_created(expected)
+            assert (
+                result_filtered == expected_filtered
+            ), f"Mismatch at case {i}: expected {expected_filtered}, got {result_filtered}"
 
 
 def test_post_process_completion_without_thinking():
-    """测试_post_process_completion_chunk"""
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
 
@@ -1559,7 +1548,6 @@ def test_post_process_completion_without_thinking():
         "usage": {"prompt_tokens": 163, "completion_tokens": 21, "total_tokens": 184},
     }
 
-    # 预期结果
     expected_results = {
         "id": "chatcmpl-5d039f33-dcec-436f-b055-517c2ee928f9",
         "model": "qwen3",
@@ -1588,25 +1576,17 @@ def test_post_process_completion_without_thinking():
         "usage": {"prompt_tokens": 163, "completion_tokens": 21, "total_tokens": 184},
     }
 
-    # 调用 _post_process_completion_chunk 方法
-    result = mixin._post_process_completion(
-        model_family="qwen3", model_uid="qwen3", c=test_case
-    )
-    print(result)
-
-    expected = expected_results
+    result = mixin._post_process_completion(None, model_uid="qwen3", c=test_case)
 
     result_filtered = filter_ids_and_created(result)
-    expected_filtered = filter_ids_and_created(expected)
+    expected_filtered = filter_ids_and_created(expected_results)
 
-    if expected:
-        assert result_filtered == expected_filtered
-    else:
-        assert result == expected
+    assert (
+        result_filtered == expected_filtered
+    ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
 
 
 def test_post_process_completion_with_thinking():
-    """测试_post_process_completion_chunk"""
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
     test_case = {
@@ -1624,7 +1604,6 @@ def test_post_process_completion_with_thinking():
         ],
         "usage": {"prompt_tokens": 159, "completion_tokens": 91, "total_tokens": 250},
     }
-    # 预期结果
     expected_results = {
         "id": "chatcmpl-47473344-4d79-4c64-b237-60622d52560c",
         "model": "qwen3",
@@ -1653,27 +1632,20 @@ def test_post_process_completion_with_thinking():
         "usage": {"prompt_tokens": 159, "completion_tokens": 91, "total_tokens": 250},
     }
 
-    result = mixin._post_process_completion(
-        model_family="qwen3", model_uid="qwen3", c=test_case
-    )
-    print(result)
-
-    expected = expected_results
+    result = mixin._post_process_completion(None, model_uid="qwen3", c=test_case)
 
     result_filtered = filter_ids_and_created(result)
-    expected_filtered = filter_ids_and_created(expected)
+    expected_filtered = filter_ids_and_created(expected_results)
 
-    if expected:
-        assert result_filtered == expected_filtered
-    else:
-        assert result == expected
+    assert (
+        result_filtered == expected_filtered
+    ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
 
 
 def test_post_process_completion_with_parser():
-    """测试_post_process_completion_chunk"""
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
-    mixin.reasoning_parser = ReasoningParser(  # type: ignore
+    mixin.reasoning_parser = ReasoningParser(
         reasoning_content=True,
         reasoning_start_tag="<think>",
         reasoning_end_tag="</think>",
@@ -1694,7 +1666,6 @@ def test_post_process_completion_with_parser():
         ],
         "usage": {"prompt_tokens": 159, "completion_tokens": 115, "total_tokens": 274},
     }
-    # 预期结果
     expected_results = {
         "id": "chatcmpl-67b060a7-674a-4288-ba73-a4089f1c3c26",
         "model": "qwen3",
@@ -1723,17 +1694,11 @@ def test_post_process_completion_with_parser():
         ],
         "usage": {"prompt_tokens": 159, "completion_tokens": 115, "total_tokens": 274},
     }
-    result = mixin._post_process_completion(
-        model_family="qwen3", model_uid="qwen3", c=test_case
-    )
-    print(result)
-
-    expected = expected_results
+    result = mixin._post_process_completion(None, model_uid="qwen3", c=test_case)
 
     result_filtered = filter_ids_and_created(result)
-    expected_filtered = filter_ids_and_created(expected)
+    expected_filtered = filter_ids_and_created(expected_results)
 
-    if expected:
-        assert result_filtered == expected_filtered
-    else:
-        assert result == expected
+    assert (
+        result_filtered == expected_filtered
+    ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
