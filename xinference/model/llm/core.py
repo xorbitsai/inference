@@ -173,7 +173,6 @@ class LLM(abc.ABC):
             enable_thinking=enable_thinking,
         )
 
-
     def prepare_parse_tool_calls(self):
         if self.model_family.tool_parser is None:
             return
@@ -181,7 +180,7 @@ class LLM(abc.ABC):
             return
         tool_parser = TOOL_PARSERS[self.model_family.tool_parser]
         self.tool_parser = tool_parser()
-        
+
 
 # Context variable for passing per-request chat context (e.g., chat_template_kwargs).
 # This variable should be set at the beginning of each chat or stream_chat call.

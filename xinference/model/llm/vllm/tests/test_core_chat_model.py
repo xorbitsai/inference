@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import asyncio
-import pytest
+from typing import Any, AsyncGenerator, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import AsyncGenerator, Dict, Any, Optional
 
-from ..core import VLLMChatModel
+import pytest
+
 from .....types import ChatCompletionChunk, CompletionChunk
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
+from ..core import VLLMChatModel
 
 
 def filter_ids_and_created(data):
@@ -62,7 +63,9 @@ class TestVLLMChatModel:
             yield chunk
 
     @pytest.mark.asyncio
-    async def test_async_to_tool_completion_chunks_without_thinking(self, real_vllm_chat_model):
+    async def test_async_to_tool_completion_chunks_without_thinking(
+        self, real_vllm_chat_model
+    ):
         """测试基本的工具完成块处理 - 集成测试，不使用mock"""
         # 准备测试数据 - 基于真实的工具调用流数据
         test_chunks = [
@@ -425,8 +428,58 @@ class TestVLLMChatModel:
         chunks_generator = self.create_mock_chunks(test_chunks)
         result_chunks = []
         expected_chunks = [
-            {'id': 'chatcmpl-7fcac134-7380-4a19-b665-d93ffaacfbca', 'model': 'test-model-0', 'object': 'chat.completion.chunk', 'created': 1756644905, 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': '', 'tool_calls': [{'index': 0, 'id': 'call_7fcac134-7380-4a19-b665-d93ffaacfbca', 'type': 'function', 'function': {'name': 'get_current_weather', 'arguments': '{"location": "上海"}'}}]}, 'logprobs': None, 'finish_reason': None}], 'usage': {'prompt_tokens': -1, 'completion_tokens': -1, 'total_tokens': -1}},
-            {'id': 'chatcmpl-06a03091-f455-4dfe-a348-2163cf285811', 'model': 'test-model-0', 'object': 'chat.completion.chunk', 'created': 1756644905, 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': '', 'tool_calls': []}, 'logprobs': None, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': -1, 'completion_tokens': -1, 'total_tokens': -1}}
+            {
+                "id": "chatcmpl-7fcac134-7380-4a19-b665-d93ffaacfbca",
+                "model": "test-model-0",
+                "object": "chat.completion.chunk",
+                "created": 1756644905,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_7fcac134-7380-4a19-b665-d93ffaacfbca",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "get_current_weather",
+                                        "arguments": '{"location": "上海"}',
+                                    },
+                                }
+                            ],
+                        },
+                        "logprobs": None,
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
+            },
+            {
+                "id": "chatcmpl-06a03091-f455-4dfe-a348-2163cf285811",
+                "model": "test-model-0",
+                "object": "chat.completion.chunk",
+                "created": 1756644905,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": "", "tool_calls": []},
+                        "logprobs": None,
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
+            },
         ]
 
         i = 0
@@ -1366,23 +1419,149 @@ class TestVLLMChatModel:
         chunks_generator = self.create_mock_chunks(test_chunks)
         result_chunks = []
         expected_chunks = [
-                 {'id': 'chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28', 'model': 'qwen3', 'created': 1756451239, 'object': 'chat.completion.chunk', 'choices': [{'index': 0, 'delta': {'reasoning_content': '', 'content': None}, 'finish_reason': None}], 'usage': None},
-                     {'id': 'chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28', 'model': 'qwen3', 'created': 1756451239, 'object': 'chat.completion.chunk', 'choices': [{'index': 0, 'delta': {'reasoning_content': '\n', 'content': None}, 'finish_reason': None}], 'usage': None},
-                {'id': 'chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28', 'model': 'qwen3', 'created': 1756451239, 'object': 'chat.completion.chunk', 'choices': [{'index': 0, 'delta': {'reasoning_content': '好的', 'content': None}, 'finish_reason': None}], 'usage': None},
-                 {'id': 'chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28', 'model': 'qwen3', 'created': 1756451240, 'object': 'chat.completion.chunk', 'choices': [{'index': 0, 'delta': {'reasoning_content': '', 'content': None}, 'finish_reason': None}], 'usage': None},
-                 {'id': 'chatcmpl-e3ec64af-ed8f-4706-9544-4f8d7b42c85b', 'model': 'test-model-0', 'object': 'chat.completion.chunk', 'created': 1756646208, 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': '\n\n', 'tool_calls': []}, 'logprobs': None, 'finish_reason': None}], 'usage': {'prompt_tokens': -1, 'completion_tokens': -1, 'total_tokens': -1}},
-                 {'id': 'chatcmpl-490011af-9e50-4dea-969b-f10828d5a5ea', 'model': 'test-model-0', 'object': 'chat.completion.chunk', 'created': 1756646208, 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': '', 'tool_calls': [{'index': 0, 'id': 'call_490011af-9e50-4dea-969b-f10828d5a5ea', 'type': 'function', 'function': {'name': 'get_current_weather', 'arguments': '{"location": "上海"}'}}]}, 'logprobs': None, 'finish_reason': None}], 'usage': {'prompt_tokens': -1, 'completion_tokens': -1, 'total_tokens': -1}},
-                 {'id': 'chatcmpl-b5a05647-d043-43bb-a7e6-58907e7f4288', 'model': 'test-model-0', 'object': 'chat.completion.chunk', 'created': 1756646208, 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'content': '', 'tool_calls': []}, 'logprobs': None, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 159, 'completion_tokens': 91, 'total_tokens': 250}}
+            {
+                "id": "chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
+                "model": "qwen3",
+                "created": 1756451239,
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"reasoning_content": "", "content": None},
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": None,
+            },
+            {
+                "id": "chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
+                "model": "qwen3",
+                "created": 1756451239,
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"reasoning_content": "\n", "content": None},
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": None,
+            },
+            {
+                "id": "chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
+                "model": "qwen3",
+                "created": 1756451239,
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"reasoning_content": "好的", "content": None},
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": None,
+            },
+            {
+                "id": "chatcd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
+                "model": "qwen3",
+                "created": 1756451240,
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"reasoning_content": "", "content": None},
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": None,
+            },
+            {
+                "id": "chatcmpl-e3ec64af-ed8f-4706-9544-4f8d7b42c85b",
+                "model": "test-model-0",
+                "object": "chat.completion.chunk",
+                "created": 1756646208,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": "\n\n",
+                            "tool_calls": [],
+                        },
+                        "logprobs": None,
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
+            },
+            {
+                "id": "chatcmpl-490011af-9e50-4dea-969b-f10828d5a5ea",
+                "model": "test-model-0",
+                "object": "chat.completion.chunk",
+                "created": 1756646208,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_490011af-9e50-4dea-969b-f10828d5a5ea",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "get_current_weather",
+                                        "arguments": '{"location": "上海"}',
+                                    },
+                                }
+                            ],
+                        },
+                        "logprobs": None,
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
+            },
+            {
+                "id": "chatcmpl-b5a05647-d043-43bb-a7e6-58907e7f4288",
+                "model": "test-model-0",
+                "object": "chat.completion.chunk",
+                "created": 1756646208,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": "", "tool_calls": []},
+                        "logprobs": None,
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
+            },
         ]
         real_vllm_chat_model.prepare_parse_reasoning_content(True, enable_thinking=True)
 
         i = 0
-        async for chunk in real_vllm_chat_model._async_to_tool_completion_chunks(chunks_generator):
+        async for chunk in real_vllm_chat_model._async_to_tool_completion_chunks(
+            chunks_generator
+        ):
             result_chunks.append(chunk)
             result = filter_ids_and_created(chunk)
             expected_result = filter_ids_and_created(expected_chunks[i])
             assert result == expected_result
-            i = i+1
+            i = i + 1
 
         # 输出结果用于调试
         print(f"总共处理了 {len(result_chunks)} 个 chunks")

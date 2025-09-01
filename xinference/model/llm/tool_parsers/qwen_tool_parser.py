@@ -31,13 +31,15 @@ class QwenToolParser(ToolParser):
         self.think_regex = re.compile("<think>(.*?)</think>", re.DOTALL)
         self.content_regex = r"(<(think|tool_call)>.*?</\2>)"
         self.tool_call_complete_regex = re.compile(
-            r"<tool_call>(.*?)</tool_call>", re.DOTALL)
+            r"<tool_call>(.*?)</tool_call>", re.DOTALL
+        )
         self.tool_call_regex = re.compile(
-            r"<tool_call>.*?</tool_call>|<tool_call>.*?$", re.DOTALL)
-
+            r"<tool_call>.*?</tool_call>|<tool_call>.*?$", re.DOTALL
+        )
 
     def _parse_json_function_call(
-            self, function_call_str: str,
+        self,
+        function_call_str: str,
     ):
         # Extract function name
         function_calls = self.tool_call_complete_regex.findall(function_call_str)
@@ -45,9 +47,9 @@ class QwenToolParser(ToolParser):
             return function_call_str
         return function_calls[-1]
 
-    
     def _parse_json_function_call_stream(
-            self, function_call_str: str,
+        self,
+        function_call_str: str,
     ):
         # Extract function name
         function_calls = self.tool_call_complete_regex.findall(function_call_str)
@@ -83,13 +85,11 @@ class QwenToolParser(ToolParser):
             functions_calls.append(model_output[last_end:])
         return functions_calls
 
-    
     def _get_function_calls_streaming(self, model_output: str) -> list[str]:
         # Find all tool calls
         matched_ranges = self.tool_call_regex.findall(model_output)
         return matched_ranges
-                
-    
+
     def extract_tool_calls(self, model_output: str):
         """
         从完整的模型输出中提取工具调用信息
@@ -100,7 +100,7 @@ class QwenToolParser(ToolParser):
             function_calls = self._get_function_calls(model_output)
             if len(function_calls) == 0:
                 return None
-            
+
             results = []
             for function_call in function_calls:
                 try:
@@ -122,8 +122,7 @@ class QwenToolParser(ToolParser):
                 e,
             )
             return None
-    
-    
+
     def _has_unclosed_tool_call(self, text: str) -> bool:
         """
         检查文本中是否有未闭合的tool_call标签
@@ -132,8 +131,9 @@ class QwenToolParser(ToolParser):
         end_count = text.count(self.tool_call_end_token)
         return start_count > end_count
 
-    def extract_tool_calls_streaming(self, previous_text, current_text: str, 
-                                   delta_text: str):
+    def extract_tool_calls_streaming(
+        self, previous_text, current_text: str, delta_text: str
+    ):
         """
         从流式输出中提取工具调用信息
         """
@@ -148,7 +148,9 @@ class QwenToolParser(ToolParser):
                 if not self._has_unclosed_tool_call(previous_text[-1]):
                     return None
                 # 解析并返回
-                function_call = self._parse_json_function_call_stream(function_calls[-1])
+                function_call = self._parse_json_function_call_stream(
+                    function_calls[-1]
+                )
                 res = json.loads(function_call, strict=False)
                 return None, res["name"], res["arguments"]
             else:

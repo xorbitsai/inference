@@ -1310,7 +1310,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             chunk = self._to_chat_completion_chunk(
                 chunk, self.reasoning_parser, previous_texts
             )
-            if "reasoning_content" in chunk["choices"][0]["delta"] and chunk["choices"][0]["delta"]["reasoning_content"] is not None:
+            if (
+                "reasoning_content" in chunk["choices"][0]["delta"]
+                and chunk["choices"][0]["delta"]["reasoning_content"] is not None
+            ):
                 yield chunk
                 continue
             chunk = self._post_process_completion_chunk(

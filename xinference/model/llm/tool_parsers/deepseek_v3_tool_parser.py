@@ -24,7 +24,8 @@ class DeepseekV3ToolParser(ToolParser):
         self.tool_calls_regex = "\s*```json\s*(.*?)\s*```"
 
     def _parse_json_function_call(
-            self, function_call_str: str,
+        self,
+        function_call_str: str,
     ):
         # Extract function name
         match = self.json_regex.search(function_call_str)
@@ -34,9 +35,9 @@ class DeepseekV3ToolParser(ToolParser):
             return result
         return function_call_str
 
-    
     def _parse_json_function_call_stream(
-            self, function_call_str: str,
+        self,
+        function_call_str: str,
     ):
         # Extract function name
         match = self.json_regex.search(function_call_str)
@@ -45,8 +46,7 @@ class DeepseekV3ToolParser(ToolParser):
             result = match.group(1)
             return result
         return None
-                
-    
+
     def extract_tool_calls(self, model_output: str):
         """
         从完整的模型输出中提取工具调用信息
@@ -90,10 +90,12 @@ class DeepseekV3ToolParser(ToolParser):
 
         return results
 
-
-    def extract_tool_calls_streaming(self, previous_text, current_text: str, 
-                                   delta_text: str):
+    def extract_tool_calls_streaming(
+        self, previous_text, current_text: str, delta_text: str
+    ):
         """
         从流式输出中提取工具调用信息
         """
-        raise ValueError("Streaming support for tool calls is available only when using Qwen models with vLLM backend or GLM4-chat models without vLLM backend.")
+        raise ValueError(
+            "Streaming support for tool calls is available only when using Qwen models with vLLM backend or GLM4-chat models without vLLM backend."
+        )

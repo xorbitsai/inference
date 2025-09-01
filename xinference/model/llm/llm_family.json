@@ -1008,7 +1008,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -1133,7 +1134,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -1946,7 +1948,8 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -2209,7 +2212,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -5655,7 +5659,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "deepseek_r1"
   },
   {
     "version": 2,
@@ -6499,7 +6504,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "tool_parser": "deepseek_v3"
   },
   {
     "version": 2,
@@ -7904,7 +7910,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "tool_parser":"glm4"
   },
   {
     "version": 2,
@@ -11795,7 +11802,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -11858,7 +11866,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -12582,7 +12591,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -12703,7 +12713,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -13885,7 +13896,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -15395,7 +15407,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -17921,7 +17934,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -18533,7 +18547,8 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -19316,7 +19331,8 @@
     "stop": [
       "<|endoftext|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,

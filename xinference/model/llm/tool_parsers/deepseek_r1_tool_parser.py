@@ -24,8 +24,7 @@ class DeepseekR1ToolParser(ToolParser):
             r"<\｜tool▁call▁begin｜>function<\｜tool▁sep｜>([^\n]+)\n"
             r"```json\n(.*?)\n```<\｜tool▁call▁end｜>"
         )
-                
-    
+
     def extract_tool_calls(self, model_output: str):
         """
         从完整的模型输出中提取工具调用信息
@@ -63,10 +62,12 @@ class DeepseekR1ToolParser(ToolParser):
 
         return results
 
-
-    def extract_tool_calls_streaming(self, previous_text, current_text: str, 
-                                   delta_text: str):
+    def extract_tool_calls_streaming(
+        self, previous_text, current_text: str, delta_text: str
+    ):
         """
         从流式输出中提取工具调用信息
         """
-        raise ValueError("Streaming support for tool calls is available only when using Qwen models with vLLM backend or GLM4-chat models without vLLM backend.")
+        raise ValueError(
+            "Streaming support for tool calls is available only when using Qwen models with vLLM backend or GLM4-chat models without vLLM backend."
+        )

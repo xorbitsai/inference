@@ -789,13 +789,13 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "id": f"call_{_id}",
-                        "type": "function",
-                        "function": {
-                            "name": func,
-                            "arguments": json.dumps(args, ensure_ascii=False),
-                        },
-                    }
-                )
+                    "type": "function",
+                    "function": {
+                        "name": func,
+                        "arguments": json.dumps(args, ensure_ascii=False),
+                    },
+                }
+            )
         else:
             failed_contents.append(content)
         content = "".join(failed_contents) if failed_contents else None
@@ -836,15 +836,15 @@ class ChatModelMixin:
         model_family,
         model_uid,
         c,
-    ): 
+    ):
         if self.reasoning_parser:
             c = self.reasoning_parser.prepare_reasoning_content(c)
         _id = str(uuid.uuid4())
         reasoning_content = None
         if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             text = c["choices"][0]["text"]
-            reasoning_content, content = self.reasoning_parser.extract_reasoning_content(
-                text
+            reasoning_content, content = (
+                self.reasoning_parser.extract_reasoning_content(text)
             )
             c["choices"][0]["text"] = content
 
