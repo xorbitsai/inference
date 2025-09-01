@@ -1,13 +1,10 @@
 import json
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import Any, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
-
-if TYPE_CHECKING:
-    from typing import Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
