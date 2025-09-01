@@ -1287,44 +1287,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
         return processed_messages
 
-    async def _async_to_tool_completion_chunks(
-        self,
-        chunks: AsyncGenerator[CompletionChunk, None],
-        ctx: Optional[Dict[str, Any]] = {},
-    ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        def set_context():
-            if ctx:
-                chat_context_var.set(ctx)
-
-        i = 0
-        previous_texts = [""]
-        previous_tools_texts = [""]
-        full_text = ""
-        if self.reasoning_parser:
-            set_context()
-            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
-            set_context()
-            chunk = self._to_chat_completion_chunk(
-                chunk, self.reasoning_parser, previous_texts
-            )
-            if (
-                "reasoning_content" in chunk["choices"][0]["delta"]
-                and chunk["choices"][0]["delta"]["reasoning_content"] is not None
-            ):
-                yield chunk
-                continue
-            chunk = self._post_process_completion_chunk(
-                self.model_family,
-                self.model_uid,
-                chunk,
-                previous_texts=previous_tools_texts,
-            )
-            if chunk:
-                yield chunk
-            i += 1
-        logger.debug("Chat finished, output: %s", full_text)
-
     @vllm_check
     async def async_chat(
         self,

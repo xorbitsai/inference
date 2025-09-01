@@ -12,15 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-from typing import Any, AsyncGenerator, Dict, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from .....types import ChatCompletionChunk, CompletionChunk
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
-from ..core import VLLMChatModel
 
 
 def filter_ids_and_created(data):
@@ -452,7 +448,7 @@ class TestVLLMChatModel:
                             ],
                         },
                         "logprobs": None,
-                        "finish_reason": None,
+                        "finish_reason": "tool_calls",
                     }
                 ],
                 "usage": {
@@ -1522,7 +1518,7 @@ class TestVLLMChatModel:
                             ],
                         },
                         "logprobs": None,
-                        "finish_reason": None,
+                        "finish_reason": "tool_calls",
                     }
                 ],
                 "usage": {
