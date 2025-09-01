@@ -963,7 +963,7 @@ class ChatModelMixin:
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
-        ctx: Optional[Dict[str, Any]] = {},
+        ctx: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         def set_context():
             if ctx:
@@ -976,25 +976,25 @@ class ChatModelMixin:
         if self.reasoning_parser:
             set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
+        async for completion_chunk in chunks:
             set_context()
-            chunk = self._to_chat_completion_chunk(
-                chunk, self.reasoning_parser, previous_texts
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk, self.reasoning_parser, previous_texts
             )
             if (
-                "reasoning_content" in chunk["choices"][0]["delta"]
-                and chunk["choices"][0]["delta"]["reasoning_content"] is not None
+                "reasoning_content" in chat_chunk["choices"][0]["delta"]
+                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
             ):
-                yield chunk
+                yield chat_chunk
                 continue
-            chunk = self._post_process_completion_chunk(
+            processed_chunk = self._post_process_completion_chunk(
                 self.model_family,
                 self.model_uid,
-                chunk,
+                chat_chunk,
                 previous_texts=previous_tools_texts,
             )
-            if chunk:
-                yield chunk
+            if processed_chunk:
+                yield processed_chunk
             i += 1
         logger.debug("Chat finished, output: %s", full_text)
 
