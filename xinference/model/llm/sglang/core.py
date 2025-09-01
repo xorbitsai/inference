@@ -175,6 +175,7 @@ class SGLANGModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -678,8 +679,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                             self.model_family,
                             self.model_uid,
                             chunk,
-                            reasoning_parser=self.reasoning_parser,
-                            tool_call_text=tool_call_text,
                         )
                         tool_call = False
                         tool_call_texts = [""]

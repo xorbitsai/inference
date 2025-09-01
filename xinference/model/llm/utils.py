@@ -810,7 +810,7 @@ class ChatModelMixin:
         else:
             failed_contents.append(content)
 
-        finish_reason = "tool_calls" if tool_calls else "stop"
+        finish_reason = "tool_calls" if tool_calls else finish_reason
 
         content = "".join(failed_contents) if failed_contents else None
 
@@ -864,8 +864,11 @@ class ChatModelMixin:
 
         tool_calls = []
         failed_contents = []
-        text = c["choices"][0]["text"]
-        tool_result = self.tool_parser.extract_tool_calls(text)
+        if isinstance(self.tool_parser, Glm4ToolParser):
+            tool_result = self.tool_parser.extract_tool_calls(c)
+        else:
+            text = c["choices"][0]["text"]
+            tool_result = self.tool_parser.extract_tool_calls(text)
         for content, func, args in tool_result:
             if func:
                 tool_calls.append(
@@ -885,12 +888,9 @@ class ChatModelMixin:
 
         content = "".join(failed_contents) if failed_contents else None
 
-        if content is None:
-            content = ""
-
         m = {
             "role": "assistant",
-            "content": content,
+            "content": content if content else "",
             "tool_calls": tool_calls,
         }
         # add only reasoning_content is None

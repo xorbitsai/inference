@@ -395,7 +395,7 @@ def test_post_process_completion_chunk_without_thinking():
                         ],
                     },
                     "logprobs": None,
-                    "finish_reason": None,
+                    "finish_reason": "tool_calls",
                 }
             ],
             "usage": {
@@ -423,9 +423,9 @@ def test_post_process_completion_chunk_without_thinking():
     ]
     previous_texts = [""]
 
-    for i, (model_family, chunk_data) in enumerate(test_cases):
+    for i, (model_uid, chunk_data) in enumerate(test_cases):
         result = mixin._post_process_completion_chunk(
-            model_uid=model_family, c=chunk_data, previous_texts=previous_texts
+            None, model_uid=model_uid, c=chunk_data, previous_texts=previous_texts
         )
 
         expected = expected_results[i]
@@ -980,7 +980,7 @@ def test_post_process_completion_chunk_with_thinking():
                         ],
                     },
                     "logprobs": None,
-                    "finish_reason": None,
+                    "finish_reason": "tool_calls",
                 }
             ],
             "usage": {
@@ -1483,7 +1483,7 @@ def test_post_process_completion_chunk_with_parser():
                         ],
                     },
                     "logprobs": None,
-                    "finish_reason": None,
+                    "finish_reason": "tool_calls",
                 }
             ],
             "usage": {
@@ -1511,9 +1511,9 @@ def test_post_process_completion_chunk_with_parser():
     ]
     previous_texts = [""]
 
-    for i, (model_family, chunk_data) in enumerate(test_cases):
+    for i, (model_uid, chunk_data) in enumerate(test_cases):
         result = mixin._post_process_completion_chunk(
-            model_uid=model_family, c=chunk_data, previous_texts=previous_texts
+            None, model_uid=model_uid, c=chunk_data, previous_texts=previous_texts
         )
 
         expected = expected_results[i]
