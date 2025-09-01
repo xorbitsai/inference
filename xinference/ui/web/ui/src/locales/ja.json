@@ -35,6 +35,8 @@
     "ocr": "光学文字認識 (OCR)",
     "audio2text": "音声からテキスト",
     "text2audio": "テキストから音声",
+    "text2audio_zero_shot": "テキストから音声 (ゼロショット)",
+    "text2audio_voice_cloning": "テキストから音声 (声のクローン)",
     "text2video": "テキストから動画",
     "image2video": "画像から動画",
     "firstlastframe2video": "最初と最後のフレームから動画",
