@@ -149,9 +149,11 @@ class MLXModel(LLM):
         # used to call async
         self._loop = None
         # memory management configuration
-        self._enable_memory_cleanup = model_config.get('enable_memory_cleanup', True)
-        self._memory_cleanup_threshold = model_config.get('memory_cleanup_threshold', 0.8)
-        self._memory_limit_gb = model_config.get('max_memory_gb', 8)
+        self._enable_memory_cleanup = model_config.get("enable_memory_cleanup", True)
+        self._memory_cleanup_threshold = model_config.get(
+            "memory_cleanup_threshold", 0.8
+        )
+        self._memory_limit_gb = model_config.get("max_memory_gb", 8)
         self._cache_reset_counter = 0
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
@@ -163,31 +165,37 @@ class MLXModel(LLM):
         """proactively clean up MLX memory"""
         import gc
         import mlx.core as mx
+
         try:
             # mandatory recycling
             gc.collect()
             # clear the MLX cache
             mx.clear_cache()
             # log memory cleanup
-            if hasattr(mx, 'metal') and hasattr(mx.metal, 'get_active_memory'):
+            if hasattr(mx, "metal") and hasattr(mx.metal, "get_active_memory"):
                 memory_usage = mx.metal.get_active_memory() / 1e9
-                logger.debug(f"Memory cleanup completed. Active memory: {memory_usage:.2f} GB")
+                logger.debug(
+                    f"Memory cleanup completed. Active memory: {memory_usage:.2f} GB"
+                )
         except Exception as e:
             logger.warning(f"Memory cleanup failed: {e}")
 
     def _check_memory_pressure(self):
         """check memory usage and clean up when necessary"""
         import mlx.core as mx
-        if not getattr(self, '_enable_memory_cleanup', True):
+
+        if not getattr(self, "_enable_memory_cleanup", True):
             return
         try:
-            if hasattr(mx, 'metal') and hasattr(mx.metal, 'get_active_memory'):
+            if hasattr(mx, "metal") and hasattr(mx.metal, "get_active_memory"):
                 current_memory = mx.metal.get_active_memory() / 1e9
-                memory_limit = getattr(self, '_memory_limit_gb', 8)
-                threshold = getattr(self, '_memory_cleanup_threshold', 0.8)
+                memory_limit = getattr(self, "_memory_limit_gb", 8)
+                threshold = getattr(self, "_memory_cleanup_threshold", 0.8)
                 # if memory usage exceeds the threshold then perform cleanup.
                 if current_memory > memory_limit * threshold:
-                    logger.warning(f"Memory pressure detected: {current_memory:.2f}/{memory_limit} GB (threshold: {threshold})")
+                    logger.warning(
+                        f"Memory pressure detected: {current_memory:.2f}/{memory_limit} GB (threshold: {threshold})"
+                    )
                     self._cleanup_memory()
         except Exception as e:
             logger.warning(f"Memory pressure check failed: {e}")
@@ -278,8 +286,10 @@ class MLXModel(LLM):
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
         # set memory management parameters
-        if hasattr(self, '_memory_limit_gb') and self._memory_limit_gb:
-            logger.debug(f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}")
+        if hasattr(self, "_memory_limit_gb") and self._memory_limit_gb:
+            logger.debug(
+                f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}"
+            )
 
         model, tokenizer = load(
             self.model_path,
@@ -330,8 +340,10 @@ class MLXModel(LLM):
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
         # Set memory management parameters
-        if hasattr(self, '_memory_limit_gb') and self._memory_limit_gb:
-            logger.debug(f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}")
+        if hasattr(self, "_memory_limit_gb") and self._memory_limit_gb:
+            logger.debug(
+                f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}"
+            )
 
         self._model, config = load_model(
             pathlib.Path(self.model_path),
