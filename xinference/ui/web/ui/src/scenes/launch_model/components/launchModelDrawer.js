@@ -144,7 +144,7 @@ const LaunchModelDrawer = ({
   }
 
   const getNGPURange = (modelType) => {
-    if (modelType === 'LLM') {
+    if (['LLM', 'image'].includes(modelType)) {
       return gpuAvailable > 0
         ? ['auto', 'CPU', ...range(1, gpuAvailable)]
         : ['auto', 'CPU']
@@ -211,7 +211,7 @@ const LaunchModelDrawer = ({
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
     if (value === 'auto') {
-      return modelType === 'LLM' ? 'auto' : 'GPU'
+      return ['LLM', 'image'].includes(modelType) ? 'auto' : 'GPU'
     }
     if (typeof value === 'number') return String(value)
     return value || 'CPU'
@@ -1353,9 +1353,9 @@ const LaunchModelDrawer = ({
       },
       {
         name: 'n_gpu',
-        label: t('launchModel.device'),
+        label: t('launchModel.nGPU'),
         type: 'select',
-        default: gpuAvailable === 0 ? 'CPU' : 'GPU',
+        default: 'auto',
         options: getNGPURange('image'),
         visible: true,
       },
@@ -1365,7 +1365,7 @@ const LaunchModelDrawer = ({
         type: 'input',
         error: !!formData.gpu_idx && !/^\d+(?:,\d+)*$/.test(formData.gpu_idx),
         helperText: t('launchModel.enterCommaSeparatedNumbers'),
-        visible: !!formData.n_gpu && formData.n_gpu === 'GPU',
+        visible: !!formData.n_gpu && formData.n_gpu !== 'CPU',
       },
       {
         name: 'worker_ip',
@@ -1398,6 +1398,19 @@ const LaunchModelDrawer = ({
         label: t('launchModel.GGUFModelPath.optional'),
         type: 'input',
         visible: !!modelData.gguf_quantizations,
+      },
+      {
+        name: 'lightning_version',
+        label: t('launchModel.lightningVersions.optional'),
+        type: 'select',
+        options: ['none', ...(modelData.lightning_versions || [])],
+        visible: !!modelData.lightning_versions,
+      },
+      {
+        name: 'lightning_model_path',
+        label: t('launchModel.lightningModelPath.optional'),
+        type: 'input',
+        visible: !!modelData.lightning_versions,
       },
       {
         name: 'cpu_offload',
@@ -2022,7 +2035,7 @@ const LaunchModelDrawer = ({
                 title={t(
                   isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
                 )}
-                disabled={!areRequiredFieldsFilled || isLoading}
+                disabled={!areRequiredFieldsFilled || isLoading || isCallingApi}
                 onClick={() => {
                   if (isShowCancel) {
                     fetchCancelModel()
