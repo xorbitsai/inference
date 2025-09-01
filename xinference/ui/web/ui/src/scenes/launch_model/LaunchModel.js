@@ -298,6 +298,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     }
 
     // Reset pagination status
+    setDisplayedData([])
     setCurrentPage(1)
     setHasMore(true)
   }
