@@ -1,30 +1,54 @@
 from functools import wraps
 from typing import Any, Callable, Dict, Type
 
+# Global registry for tool parsers, mapping parser names to their classes
 TOOL_PARSERS: Dict[str, Type[Any]] = {}
 
 
 def register_tool_parser(name: str):
     """
-    装饰器用于注册 ToolParser 类到 TOOL_PARSERS 字典中
+    Decorator for registering ToolParser classes to the TOOL_PARSERS registry.
+
+    This decorator allows tool parser classes to be automatically registered
+    when they are defined, making them available for dynamic lookup.
 
     Args:
-        name: 注册的工具解析器名称
+        name (str): The name to register the tool parser under. This should
+                   typically match the model family name (e.g., "qwen", "glm4").
 
-    Usage:
+    Returns:
+        Callable: The decorator function that registers the class.
+
+    Example:
         @register_tool_parser("qwen")
         class QwenToolParser(ToolParser):
-            pass
+            def parse_tool_calls(self, text: str) -> List[ToolCall]:
+                # Implementation for parsing Qwen model tool calls
+                pass
+
+    Note:
+        The registered class should implement the ToolParser interface
+        and provide methods for parsing tool calls from model outputs.
     """
 
     def decorator(cls: Type[Any]) -> Type[Any]:
+        """
+        The actual decorator that performs the registration.
+
+        Args:
+            cls: The tool parser class to register.
+
+        Returns:
+            The same class (unmodified) after registration.
+        """
         TOOL_PARSERS[name] = cls
         return cls
 
     return decorator
 
 
-# 导入所有工具解析器以触发装饰器注册
+# Import all tool parser modules to trigger decorator registration
+# This ensures all tool parsers are automatically registered when this module is imported
 from . import (
     deepseek_r1_tool_parser,
     deepseek_v3_tool_parser,

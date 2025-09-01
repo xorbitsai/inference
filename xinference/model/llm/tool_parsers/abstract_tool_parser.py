@@ -5,27 +5,7 @@ class ToolParser:
     derived classes.
     """
 
-    def __init__(self, tokenizer):
-        self.prev_tool_call_arr: list[dict] = []
-        # the index of the tool call that is currently being parsed
-        self.current_tool_id: int = -1
-        self.current_tool_name_sent: bool = False
-        self.streamed_args_for_tool: list[str] = []
-
-        self.model_tokenizer = tokenizer
-
-    def vocab(self) -> dict[str, int]:
-        # NOTE: Only PreTrainedTokenizerFast is guaranteed to have .vocab
-        # whereas all tokenizers have .get_vocab()
-        return self.model_tokenizer.get_vocab()
-
-    def adjust_request(self, request):
-        """
-        Static method that used to adjust the request parameters.
-        """
-        return request
-
-    def extract_tool_calls(self, model_output: str, request):
+    def extract_tool_calls(self, model_output: str):
         """
         Static method that should be implemented for extracting tool calls from
         a complete model-generated string.
@@ -38,14 +18,7 @@ class ToolParser:
         )
 
     def extract_tool_calls_streaming(
-        self,
-        previous_text: str,
-        current_text: str,
-        delta_text: str,
-        previous_token_ids,
-        current_token_ids,
-        delta_token_ids,
-        request,
+        self, previous_text, current_text: str, delta_text: str
     ):
         """
         Instance method that should be implemented for extracting tool calls
