@@ -224,6 +224,7 @@ class MediaInterface:
             guidance_scale: int,
             num_inference_steps: int,
             padding_image_to_multiple: int,
+            strength: float,
             sampler_name: Optional[str] = None,
             progress=gr.Progress(),
         ) -> PIL.Image.Image:
@@ -243,6 +244,10 @@ class MediaInterface:
                 None if num_inference_steps == -1 else num_inference_steps  # type: ignore
             )
             padding_image_to_multiple = None if padding_image_to_multiple == -1 else padding_image_to_multiple  # type: ignore
+            # Initialize kwargs and handle strength parameter
+            kwargs = {}
+            if strength is not None:
+                kwargs["strength"] = strength
             sampler_name = None if sampler_name == "default" else sampler_name
 
             bio = io.BytesIO()
@@ -267,6 +272,7 @@ class MediaInterface:
                         guidance_scale=guidance_scale,
                         padding_image_to_multiple=padding_image_to_multiple,
                         sampler_name=sampler_name,
+                        **kwargs,
                     )
                 except Exception as e:
                     exc = e
@@ -324,6 +330,9 @@ class MediaInterface:
                     padding_image_to_multiple = gr.Number(
                         label="Padding image to multiple", value=-1
                     )
+                    strength = gr.Slider(
+                        label="Strength", value=0.6, step=0.1, minimum=0.0, maximum=1.0
+                    )
                     sampler_name = gr.Dropdown(
                         choices=SAMPLING_METHODS,
                         value="default",
@@ -348,11 +357,310 @@ class MediaInterface:
                     guidance_scale,
                     num_inference_steps,
                     padding_image_to_multiple,
+                    strength,
                     sampler_name,
                 ],
                 outputs=output_gallery,
             )
         return image2image_inteface
+
+    def inpainting_interface(self) -> "gr.Blocks":
+        from ...model.image.stable_diffusion.core import SAMPLING_METHODS
+
+        def preview_mask(
+            image_editor_output: Dict[str, Any],
+        ) -> PIL.Image.Image:
+            """Preview the generated mask without submitting inpainting task"""
+            # Extract original image and mask from ImageEditor output
+            if not image_editor_output or "background" not in image_editor_output:
+                return PIL.Image.new(
+                    "L", (512, 512), 0
+                )  # Return black image if no input
+
+            # Get the original image (background)
+            original_image = image_editor_output["background"]
+
+            # Get the composite image which contains the edits
+            composite_image = image_editor_output.get("composite", original_image)
+
+            # Create mask from the differences between original and composite
+            # White areas in composite indicate regions to inpaint
+            if original_image.mode != "RGB":
+                original_image = original_image.convert("RGB")
+            if composite_image.mode != "RGB":
+                composite_image = composite_image.convert("RGB")
+
+            # Create mask by finding differences (white drawn areas)
+            mask_image = PIL.Image.new("L", original_image.size, 0)
+            orig_data = original_image.load()
+            comp_data = composite_image.load()
+            mask_data = mask_image.load()
+
+            for y in range(original_image.size[1]):
+                for x in range(original_image.size[0]):
+                    orig_pixel = orig_data[x, y]
+                    comp_pixel = comp_data[x, y]
+                    # If pixels are different, assume it's a drawn area (white for inpainting)
+                    if orig_pixel != comp_pixel:
+                        mask_data[x, y] = 255  # White for inpainting
+
+            return mask_image
+
+        def process_inpainting(
+            prompt: str,
+            negative_prompt: str,
+            image_editor_output: Dict[str, Any],
+            uploaded_mask: Optional[PIL.Image.Image],
+            n: int,
+            size_width: int,
+            size_height: int,
+            guidance_scale: int,
+            num_inference_steps: int,
+            padding_image_to_multiple: int,
+            strength: float,
+            sampler_name: Optional[str] = None,
+            progress=gr.Progress(),
+        ) -> List[PIL.Image.Image]:
+            from ...client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulImageModelHandle)
+
+            if size_width > 0 and size_height > 0:
+                size = f"{int(size_width)}*{int(size_height)}"
+            else:
+                size = None
+            guidance_scale = None if guidance_scale == -1 else guidance_scale  # type: ignore
+            num_inference_steps = (
+                None if num_inference_steps == -1 else num_inference_steps  # type: ignore
+            )
+            padding_image_to_multiple = None if padding_image_to_multiple == -1 else padding_image_to_multiple  # type: ignore
+            # Initialize kwargs and handle strength parameter
+            kwargs = {}
+            if strength is not None:
+                kwargs["strength"] = strength
+            sampler_name = None if sampler_name == "default" else sampler_name
+
+            # Get the original image for inpainting
+            if not image_editor_output or "background" not in image_editor_output:
+                raise ValueError("Please upload and edit an image first")
+            original_image = image_editor_output["background"]
+
+            # Convert original image to RGB if needed
+            if original_image.mode == "RGBA":
+                # Create a white background and paste the RGBA image onto it
+                rgb_image = PIL.Image.new("RGB", original_image.size, (255, 255, 255))
+                rgb_image.paste(
+                    original_image, mask=original_image.split()[3]
+                )  # Use alpha channel as mask
+                original_image = rgb_image
+            elif original_image.mode != "RGB":
+                original_image = original_image.convert("RGB")
+
+            # Assert that original image is RGB format
+            assert (
+                original_image.mode == "RGB"
+            ), f"Expected RGB image, got {original_image.mode}"
+
+            # Use uploaded mask if provided, otherwise generate from editor
+            if uploaded_mask is not None:
+                mask_image = uploaded_mask
+
+                # Convert RGBA to RGB if needed
+                if mask_image.mode == "RGBA":
+                    # Create a white background and paste the RGBA image onto it
+                    rgb_mask = PIL.Image.new("RGB", mask_image.size, (255, 255, 255))
+                    rgb_mask.paste(
+                        mask_image, mask=(mask_image.split()[3])
+                    )  # Use alpha channel as mask
+                    mask_image = rgb_mask
+                elif mask_image.mode != "RGB":
+                    mask_image = mask_image.convert("RGB")
+
+                # Ensure mask is the same size as original image
+                if mask_image.size != original_image.size:
+                    mask_image = mask_image.resize(original_image.size)
+
+                # Assert that mask image is RGB format
+                assert (
+                    mask_image.mode == "RGB"
+                ), f"Expected RGB mask, got {mask_image.mode}"
+            else:
+                # Generate mask using the preview function
+                mask_image = preview_mask(image_editor_output)
+                # Assert that generated mask is L format (grayscale)
+                assert mask_image.mode == "L", f"Expected L mask, got {mask_image.mode}"
+
+            bio = io.BytesIO()
+            original_image.save(bio, format="png")
+
+            mask_bio = io.BytesIO()
+            mask_image.save(mask_bio, format="png")
+
+            response = None
+            exc = None
+            request_id = str(uuid.uuid4())
+
+            def run_in_thread():
+                nonlocal exc, response
+                try:
+                    response = model.inpainting(
+                        request_id=request_id,
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        n=n,
+                        image=bio.getvalue(),
+                        mask_image=mask_bio.getvalue(),
+                        size=size,
+                        response_format="b64_json",
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                        padding_image_to_multiple=padding_image_to_multiple,
+                        sampler_name=sampler_name,
+                        **kwargs,
+                    )
+                except Exception as e:
+                    exc = e
+
+            t = threading.Thread(target=run_in_thread)
+            t.start()
+            while t.is_alive():
+                try:
+                    cur_progress = client.get_progress(request_id)["progress"]
+                except (KeyError, RuntimeError):
+                    cur_progress = 0.0
+
+                progress(cur_progress, desc="Inpainting images")
+                time.sleep(1)
+
+            if exc:
+                raise exc
+
+            images = []
+            for image_dict in response["data"]:  # type: ignore
+                assert image_dict["b64_json"] is not None
+                image_data = base64.b64decode(image_dict["b64_json"])
+                image = PIL.Image.open(io.BytesIO(image_data))
+                images.append(image)
+
+            return images
+
+        with gr.Blocks() as inpainting_interface:
+            with gr.Column():
+                with gr.Row():
+                    with gr.Column(scale=10):
+                        prompt = gr.Textbox(
+                            label="Prompt",
+                            show_label=True,
+                            placeholder="Enter prompt here...",
+                        )
+                        negative_prompt = gr.Textbox(
+                            label="Negative Prompt",
+                            show_label=True,
+                            placeholder="Enter negative prompt here...",
+                        )
+                    with gr.Column(scale=1):
+                        generate_button = gr.Button("Generate")
+
+                with gr.Row():
+                    n = gr.Number(label="Number of image", value=1)
+                    size_width = gr.Number(label="Width", value=-1)
+                    size_height = gr.Number(label="Height", value=-1)
+
+                with gr.Row():
+                    guidance_scale = gr.Number(label="Guidance scale", value=-1)
+                    num_inference_steps = gr.Number(
+                        label="Inference Step Number", value=-1
+                    )
+                    padding_image_to_multiple = gr.Number(
+                        label="Padding image to multiple", value=-1
+                    )
+                    strength = gr.Slider(
+                        label="Strength", value=0.6, step=0.1, minimum=0.0, maximum=1.0
+                    )
+                    sampler_name = gr.Dropdown(
+                        choices=SAMPLING_METHODS,
+                        value="default",
+                        label="Sampling method",
+                    )
+
+                with gr.Row():
+                    with gr.Column(scale=2):
+                        image_editor = gr.ImageEditor(
+                            type="pil",
+                            label="Edit Image and Create Mask (Draw white areas to inpaint)",
+                            interactive=True,
+                            height=400,
+                        )
+
+                        # Mask controls below the editor
+                        with gr.Row():
+                            preview_button = gr.Button("Preview Mask", size="sm")
+                            upload_mask = gr.Image(
+                                type="pil",
+                                label="Or upload mask image directly",
+                                interactive=True,
+                            )
+                        with gr.Row():
+                            mask_output = gr.Image(
+                                label="Current Mask Preview",
+                                interactive=False,
+                                height=200,
+                            )
+
+                    with gr.Column(scale=1):
+                        gr.Markdown("### Inpainting Results")
+                        output_gallery = gr.Gallery()
+
+            preview_button.click(
+                preview_mask,
+                inputs=[image_editor],
+                outputs=[mask_output],
+            )
+
+            # When user uploads a mask, display it
+            def process_uploaded_mask(
+                mask: Optional[PIL.Image.Image],
+            ) -> PIL.Image.Image:
+                if mask is None:
+                    return PIL.Image.new("L", (512, 512), 0)
+
+                # Convert RGBA to grayscale for preview
+                if mask.mode == "RGBA":
+                    # Use alpha channel for mask preview
+                    alpha = mask.split()[3]
+                    mask = alpha.convert("L")
+                elif mask.mode != "L":
+                    # Convert to grayscale
+                    mask = mask.convert("L")
+
+                return mask
+
+            upload_mask.change(
+                process_uploaded_mask, inputs=[upload_mask], outputs=[mask_output]
+            )
+
+            generate_button.click(
+                process_inpainting,
+                inputs=[
+                    prompt,
+                    negative_prompt,
+                    image_editor,
+                    upload_mask,
+                    n,
+                    size_width,
+                    size_height,
+                    guidance_scale,
+                    num_inference_steps,
+                    padding_image_to_multiple,
+                    strength,
+                    sampler_name,
+                ],
+                outputs=[output_gallery],
+            )
+        return inpainting_interface
 
     def text2video_interface(self) -> "gr.Blocks":
         def text_generate_video(
@@ -906,6 +1214,9 @@ class MediaInterface:
             if "image2image" in self.model_ability:
                 with gr.Tab("Image to Image"):
                     self.image2image_interface()
+            if "inpainting" in self.model_ability:
+                with gr.Tab("Inpainting"):
+                    self.inpainting_interface()
             if "text2video" in self.model_ability:
                 with gr.Tab("Text to Video"):
                     self.text2video_interface()

@@ -18,3 +18,5 @@ Execute the following command to launch the model::
 
    xinference launch --model-name sdxl-turbo --model-type image
 
+
+

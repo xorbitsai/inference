@@ -6,7 +6,7 @@ F5-TTS-MLX
 
 - **Model Name:** F5-TTS-MLX
 - **Model Family:** F5-TTS-MLX
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot', 'text2audio_voice_cloning']
 - **Multilingual:** True
 
 Specifications

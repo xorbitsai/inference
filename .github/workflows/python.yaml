@@ -125,7 +125,7 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install "xllamacpp>=0.1.23"
+          pip install "xllamacpp>=0.2.0"
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
@@ -151,7 +151,6 @@ jobs:
             pip install FlagEmbedding
             pip install "tenacity>=8.2.0,<8.4.0"
             pip install "jinja2==3.1.2"
-            pip install tensorizer
             pip install jj-pytorchvideo
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
@@ -174,7 +173,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers>=4.51.0"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "transformers==4.53.2"
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr<1.1.17"
@@ -188,7 +187,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y matcha-tts
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U openai-whisper
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "torch==2.3.1" "torchaudio==2.3.1"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loguru"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "natsort"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loralib"
@@ -210,9 +209,11 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U vocos
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U jieba
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
+            ${{ env.SELF_HOST_PYTHON }} -m pip install tensorizer
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft>=0.15.0"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
@@ -257,7 +258,10 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/transformers/tests/test_tensorizer.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/tests/test_llm_model.py
@@ -280,6 +284,17 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/core/tests/test_continuous_batching.py --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/image/tests/test_got_ocr2.py --ignore xinference/model/audio/tests --ignore xinference/model/embedding/tests/test_integrated_embedding.py --ignore xinference/model/llm/tests/test_llm_model.py xinference
+              --cov-config=setup.cfg \
+              --cov-report=xml \
+              --cov=xinference \
+              --ignore xinference/core/tests/test_continuous_batching.py \
+              --ignore xinference/client/tests/test_client.py \
+              --ignore xinference/model/image/tests/test_stable_diffusion.py \
+              --ignore xinference/model/image/tests/test_got_ocr2.py \
+              --ignore xinference/model/audio/tests \
+              --ignore xinference/model/embedding/tests/test_integrated_embedding.py \
+              --ignore xinference/model/llm/transformers/tests/test_tensorizer.py \
+              --ignore xinference/model/llm/tests/test_llm_model.py \
+              xinference
           fi
         working-directory: .

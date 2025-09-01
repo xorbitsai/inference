@@ -45,7 +45,7 @@ TEST_MODEL_SPEC = ImageModelFamilyV2(
 logger = logging.getLogger(__name__)
 
 
-def test_model():
+async def test_model():
     model_path = None
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
@@ -53,10 +53,12 @@ def test_model():
         # input is a string
         input_text = "an apple"
         model.load()
-        r = model.text_to_image(input_text, size="256*256")
+        r = await model.text_to_image(input_text, size="256*256")
         assert len(r["data"]) == 1
         assert os.path.exists(r["data"][0]["url"])
-        r = model.text_to_image(input_text, size="256*256", response_format="b64_json")
+        r = await model.text_to_image(
+            input_text, size="256*256", response_format="b64_json"
+        )
         assert len(r["data"]) == 1
         b64_json = r["data"][0]["b64_json"]
         image_bytes = base64.b64decode(b64_json)
@@ -69,7 +71,7 @@ def test_model():
 
 @pytest.mark.asyncio
 async def test_progressor():
-    def _run_model(**kwargs):
+    async def _run_model(**kwargs):
         model_path = None
         try:
             model_path = CacheManager(TEST_MODEL_SPEC).cache()
@@ -77,7 +79,7 @@ async def test_progressor():
             # input is a string
             input_text = "an apple"
             model.load()
-            r = model.text_to_image(input_text, size="256*256", **kwargs)
+            r = await model.text_to_image(input_text, size="256*256", **kwargs)
             assert len(r["data"]) == 1
             assert os.path.exists(r["data"][0]["url"])
         finally:
@@ -101,7 +103,7 @@ async def test_progressor():
         with progressor:
             progressor.split_stages(2, stage_weight=np.array([0, 0.99, 1]))
             with progressor:
-                await asyncio.to_thread(_run_model, progressor=progressor)
+                await _run_model(progressor=progressor)
                 assert progressor._current_progress == 0.99
             assert await progress_tracker_ref.get_progress(request_id) == 0.99
             with progressor:
@@ -239,7 +241,9 @@ def test_restful_api_abort(setup, model_name):
     request_id = str(uuid.uuid4())
 
     def _abort():
-        time.sleep(1)
+        time.sleep(
+            0.1
+        )  # Reduce delay to ensure abort_request is called before task completion
         client.abort_request(model_uid, request_id)
 
     t = threading.Thread(target=_abort)
@@ -250,7 +254,7 @@ def test_restful_api_abort(setup, model_name):
         model.text_to_image(
             prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
             size="512*512",
-            num_inference_steps=10,
+            num_inference_steps=20,  # Increase inference steps to make task run longer
             request_id=request_id,
         )
 
@@ -451,7 +455,7 @@ def test_launch_custom_image(setup):
 
     client = Client(endpoint)
 
-    model_path = os.path.join(XINFERENCE_CACHE_DIR, "sd-turbo")
+    model_path = os.path.join(XINFERENCE_CACHE_DIR, "v2", "sd-turbo")
 
     my_model = {
         "model_family": "stable_diffusion",

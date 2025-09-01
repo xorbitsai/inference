@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import contextlib
 import gc
 import importlib
@@ -31,7 +32,11 @@ import PIL.Image
 import torch
 from PIL import ImageOps
 
-from ....device_utils import get_available_device, move_model_to_available_device
+from ....device_utils import (
+    get_available_device,
+    gpu_count,
+    move_model_to_available_device,
+)
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
 from ..utils import handle_image_result
@@ -175,7 +180,32 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             model = model_type.from_pipe(self._model, controlnet=controlnet)
         else:
-            model = model_type.from_pipe(self._model)
+            try:
+                from diffusers import (
+                    QwenImageImg2ImgPipeline,
+                    QwenImageInpaintPipeline,
+                    QwenImagePipeline,
+                )
+            except ImportError:
+                QwenImagePipeline = None
+                QwenImageImg2ImgPipeline = None
+                QwenImageInpaintPipeline = None
+
+            if QwenImagePipeline is not None and isinstance(
+                self._model, QwenImagePipeline
+            ):
+                # special process for Qwen-image
+                if ability == "image2image":
+                    model = QwenImageImg2ImgPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+                else:
+                    assert ability == "inpainting"
+                    model = QwenImageInpaintPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+            else:
+                model = model_type.from_pipe(self._model)
         self._load_to_device(model)
 
         self._ability_to_models[ability, controlnet_name] = model
@@ -240,6 +270,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._quantize_transformer_gguf()
         else:
             self._quantize_transformer()
+
+        if (device_count := gpu_count()) > 1 and "device_map" not in self._kwargs:
+            logger.debug(
+                "Device count (%d) > 1, force to set device_map=balanced", device_count
+            )
+            self._kwargs["device_map"] = "balanced"
 
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
@@ -730,7 +766,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             await self._image_batch_scheduler.add_request(
                 prompt, future, n, size, response_format, **kwargs
             )
-            import asyncio
 
             fut = asyncio.wrap_future(future)
             return await fut
@@ -747,7 +782,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def _gen_config_for_lightning(self, kwargs):
         if (
-            "num_inference_steps" not in kwargs
+            not kwargs.get("num_inference_steps")
             and self._lightning_model_path is not None
         ):
             is_4_steps = "4steps" in self._lightning_model_path
@@ -771,12 +806,25 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         generate_kwargs["width"], generate_kwargs["height"] = width, height
         self._gen_config_for_lightning(generate_kwargs)
 
-        return self._call_model(
-            prompt=prompt,
-            num_images_per_prompt=n,
+        return await asyncio.to_thread(
+            self._call_model,
+            prompt=prompt,  # type: ignore
+            num_images_per_prompt=n,  # type: ignore
             response_format=response_format,
             **generate_kwargs,
         )
+
+    async def abort_request(self, request_id: str) -> str:
+        """Abort a running request."""
+        from ....model.scheduler.core import AbortRequestMessage
+
+        # Check if we have a cancel callback for this request
+        if hasattr(self, "_cancel_callbacks") and request_id in self._cancel_callbacks:
+            cancel_callback = self._cancel_callbacks.pop(request_id)
+            cancel_callback()
+            return AbortRequestMessage.DONE.name
+
+        return AbortRequestMessage.NO_OP.name
 
     @staticmethod
     def pad_to_multiple(image, multiple=8):
@@ -824,6 +872,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             allow_width_height = model_accept_param(["width", "height"], model)
             if allow_width_height:
                 kwargs["width"], kwargs["height"] = image.size
+
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
 
         return self._call_model(
             image=image,
@@ -874,6 +925,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             )
             # calculate actual image size after padding
             kwargs["width"], kwargs["height"] = image.size
+
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
 
         return self._call_model(
             image=image,

@@ -22,6 +22,8 @@ Execute the following command to launch the model::
    xinference launch --model-name FLUX.1-schnell --model-type image
 
 
-For GGUF quantization, using below command:
+For GGUF quantization, using below command::
 
     xinference launch --model-name FLUX.1-schnell --model-type image --gguf_quantization ${gguf_quantization} --cpu_offload True
+
+

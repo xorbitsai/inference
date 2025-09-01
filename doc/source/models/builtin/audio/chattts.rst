@@ -6,7 +6,7 @@ ChatTTS
 
 - **Model Name:** ChatTTS
 - **Model Family:** ChatTTS
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot']
 - **Multilingual:** True
 
 Specifications

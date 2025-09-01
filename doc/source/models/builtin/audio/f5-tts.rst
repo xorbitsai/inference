@@ -6,7 +6,7 @@ F5-TTS
 
 - **Model Name:** F5-TTS
 - **Model Family:** F5-TTS
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot', 'text2audio_voice_cloning']
 - **Multilingual:** True
 
 Specifications

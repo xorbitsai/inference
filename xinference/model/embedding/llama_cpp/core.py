@@ -22,7 +22,7 @@ import queue
 import sys
 from typing import List, Optional, Union
 
-import orjson
+from packaging import version
 
 from ....types import Embedding
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -69,15 +69,29 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         return sys.platform.startswith("linux")
 
     def load(self):
+        # add truncate_dim args hint
+        if "dimensions" in self._kwargs:
+            raise NotImplementedError(
+                "LlamaCpp embedder does not support dimensions argument now."
+            )
         try:
             from xllamacpp import (
                 CommonParams,
                 Server,
+                __version__,
                 estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
                 llama_pooling_type,
             )
+
+            try:
+                if version.parse(__version__) < version.parse("0.2.0"):
+                    raise RuntimeError(
+                        "Please update xllamacpp to >= 0.2.0 by `pip install -U xllamacpp`"
+                    )
+            except version.InvalidVersion:
+                pass  # If the version parse failed, we just skip the version check.
         except ImportError:
             error_message = "Failed to import module 'xllamacpp'"
             installation_guide = ["Please make sure 'xllamacpp' is installed. "]
@@ -162,7 +176,8 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
                         )
                         logger.info("Estimate num gpu layers: %s", estimate)
                         if estimate.tensor_split:
-                            params.tensor_split = estimate.tensor_split
+                            for i in range(len(estimate.tensor_split)):
+                                params.tensor_split[i] = estimate.tensor_split[i]
                         else:
                             params.n_gpu_layers = estimate.layers
                 except Exception as e:
@@ -190,24 +205,12 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
             model_uid: Optional[str] = kwargs.pop("model_uid", None)
             if model_uid:
                 data["model"] = model_uid
-            prompt_json = orjson.dumps(data)
-
-            def _error_callback(err):
-                try:
-                    msg = orjson.loads(err)
-                    q.put(_Error(msg))
-                except Exception as e:
-                    q.put(_Error(str(e)))
-
-            def _ok_callback(ok):
-                try:
-                    res = orjson.loads(ok)
-                    q.put(res)
-                except Exception as e:
-                    q.put(_Error(str(e)))
-
             try:
-                self._llm.handle_embeddings(prompt_json, _error_callback, _ok_callback)
+                res = self._llm.handle_embeddings(data)
+                if res.get("code"):
+                    q.put(_Error(res))
+                else:
+                    q.put(res)
             except Exception as ex:
                 q.put(_Error(str(ex)))
             q.put(_Done)

@@ -273,6 +273,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Deepseek-V3.1")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
@@ -281,6 +282,10 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gpt-oss")
+    VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
+
+if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.1.1"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
 
 
 class VLLMModel(LLM):

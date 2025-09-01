@@ -83,14 +83,14 @@ export const featureModels = [
   {
     type: 'llm',
     feature_models: [
+      'Deepseek-V3.1',
       'gpt-oss',
       'qwen3',
       'Ernie4.5',
-      'deepseek-v3-0324',
       'deepseek-r1-0528',
       'deepseek-r1-0528-qwen3',
       'qwen2.5-vl-instruct',
-      'glm4-0414',
+      'glm-4.5',
       'QwQ-32B',
       'gemma-3-it',
     ],

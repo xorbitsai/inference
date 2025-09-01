@@ -407,7 +407,16 @@ const ModelCard = ({
       model_name: modelData.model_name,
       model_type: modelType,
       replica: replica,
-      n_gpu: nGpu === 'GPU' ? 'auto' : null,
+      n_gpu:
+        modelType === 'image'
+          ? parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
+            ? null
+            : nGPU === 'auto'
+            ? 'auto'
+            : parseInt(nGPU, 10)
+          : nGpu === 'GPU'
+          ? 'auto'
+          : null,
       worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
       gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
@@ -895,7 +904,11 @@ const ModelCard = ({
     setQuantization(quantization || '')
     setModelUID(model_uid || '')
     setReplica(replica || 1)
-    setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
+    if (modelType === 'image') {
+      setNGPU(n_gpu || 'auto')
+    } else {
+      setNGpu(n_gpu === 'auto' ? 'GPU' : 'CPU')
+    }
     setGPUIdx(gpu_idx?.join(',') || '')
     setWorkerIp(worker_ip || '')
     setDownloadHub(download_hub || '')
@@ -1027,6 +1040,7 @@ const ModelCard = ({
       setQuantization('')
       setModelUID('')
       setReplica(1)
+      setNGPU('auto')
       setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
       setGPUIdx('')
       setWorkerIp('')
@@ -2402,27 +2416,50 @@ const ModelCard = ({
                   value={replica}
                   onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                 />
-                <FormControl variant="outlined" margin="normal" fullWidth>
-                  <InputLabel id="device-label">
-                    {t('launchModel.device')}
-                  </InputLabel>
-                  <Select
-                    className="textHighlight"
-                    labelId="device-label"
-                    value={nGpu}
-                    onChange={(e) => setNGpu(e.target.value)}
-                    label={t('launchModel.device')}
-                  >
-                    {getNewNGPURange().map((v) => {
-                      return (
-                        <MenuItem key={v} value={v}>
-                          {v}
-                        </MenuItem>
-                      )
-                    })}
-                  </Select>
-                </FormControl>
-                {nGpu === 'GPU' && (
+                {['image'].includes(modelType) ? (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="n-gpu-label">
+                      {t('launchModel.nGPU')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="n-gpu-label"
+                      value={nGPU}
+                      onChange={(e) => setNGPU(e.target.value)}
+                      label={t('launchModel.nGPU')}
+                    >
+                      {getNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="device-label">
+                      {t('launchModel.device')}
+                    </InputLabel>
+                    <Select
+                      className="textHighlight"
+                      labelId="device-label"
+                      value={nGpu}
+                      onChange={(e) => setNGpu(e.target.value)}
+                      label={t('launchModel.device')}
+                    >
+                      {getNewNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                )}
+                {(modelType === 'image' ? nGPU !== 'CPU' : nGpu === 'GPU') && (
                   <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
                       className="textHighlight"

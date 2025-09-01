@@ -16,6 +16,7 @@ import shutil
 
 import pytest
 
+from .....client import Client
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
     EmbeddingModelFamilyV2,
@@ -48,10 +49,8 @@ def test_embedding_model_with_vllm():
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
 
-        model, _ = create_embedding_model_instance(
+        model = create_embedding_model_instance(
             "mook",
-            None,
-            "mock",
             "bge-small-en-v1.5",
             "vllm",
             model_path=model_path,
@@ -156,3 +155,33 @@ def test_embedding_model_with_vllm_long_text():
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
+
+
+@pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
+def test_change_dim(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
+    model_uid = client.launch_model(
+        model_name="Qwen3-Embedding-0.6B",
+        model_type="embedding",
+        model_engine="vllm",
+    )
+
+    model = client.get_model(model_uid)
+
+    content = (
+        "We are testing the behavior of the VLLM embedding model when processing text that contains "
+        "significantly more tokens than the specified maximum limit. This test is important because "
+        "it helps us understand how the model handles token truncation or other processing strategies "
+        "when dealing with extremely long input sequences. The model should either truncate the input "
+        "or handle it gracefully without crashing. We expect the embedding dimension to remain consistent "
+        "at 384 dimensions regardless of the input length, as the model architecture should maintain "
+        "the same output dimensionality. This comprehensive test ensures robustness and reliability "
+        "of the embedding generation process under edge case conditions with very long text inputs."
+    )
+
+    embeds = model.create_embedding(content, dimensions=500)
+    assert len(embeds["data"][0]["embedding"]) == 500
+
+    embeds = model.create_embedding(content)
+    assert len(embeds["data"][0]["embedding"]) == 1024

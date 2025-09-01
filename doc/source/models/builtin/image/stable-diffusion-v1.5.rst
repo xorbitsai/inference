@@ -18,3 +18,5 @@ Execute the following command to launch the model::
 
    xinference launch --model-name stable-diffusion-v1.5 --model-type image
 
+
+
