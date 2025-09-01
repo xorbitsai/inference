@@ -332,6 +332,7 @@ class PytorchModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         logger.debug("Loading Transformers model with kwargs: %s", kwargs)
 

@@ -51,6 +51,7 @@ from ...types import (
 )
 from .core import chat_context_var
 from .reasoning_parser import ReasoningParser
+from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 
 logger = logging.getLogger(__name__)
 
@@ -764,21 +765,31 @@ class ChatModelMixin:
 
     def _post_process_completion_chunk(
         self,
+        model_family,
         model_uid,
         c,
         chunk_id=None,
-        previous_texts: Optional[List[str]] = None,
+        previous_texts: List[str] = [""],
     ):
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
-        finish_reason = c["choices"][0]["finish_reason"]
-        delta_text = c["choices"][0]["delta"]["content"]
-        current_text = previous_texts[-1] + delta_text
-        tool_result = self.tool_parser.extract_tool_calls_streaming(
-            previous_texts,
-            current_text,
-            delta_text,
-        )
-        previous_texts[-1] = current_text
+        if isinstance(self.tool_parser, Glm4ToolParser):
+            tool_result = self.tool_parser.extract_tool_calls_streaming(
+                [],
+                c,
+                c,
+            )
+        else:
+            finish_reason = c["choices"][0]["finish_reason"]
+            delta_text = c["choices"][0]["delta"]["content"]
+            current_text = (
+                previous_texts[-1] + delta_text if previous_texts else delta_text
+            )
+            tool_result = self.tool_parser.extract_tool_calls_streaming(
+                previous_texts,
+                current_text,
+                delta_text,
+            )
+            previous_texts[-1] = current_text
         if tool_result is None and not finish_reason:
             return None
         tool_calls = []
@@ -798,6 +809,9 @@ class ChatModelMixin:
             )
         else:
             failed_contents.append(content)
+
+        finish_reason = "tool_calls" if tool_calls else "stop"
+
         content = "".join(failed_contents) if failed_contents else None
 
         d = {

@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
@@ -69,56 +68,28 @@ class Glm4ToolParser(ToolParser):
 
         Example:
             >>> parser = Glm4ToolParser()
-            >>> output = '```json\n{"name": "get_weather", "parameters": {"location": "Beijing"}}\n```'
+            >>> output = {"name": "get_weather", "parameters": {"location": "Beijing"}}
             >>> result = parser.extract_tool_calls(output)
             >>> print(result)
             [(None, 'get_weather', {'location': 'Beijing'})]
         """
-        matches = re.findall(self.tool_calls_regex, model_output, re.DOTALL)
-
-        if not matches:
-            # No tool calls found, return the original output as content
-            return [(model_output, None, None)]
-
-        # Use set for deduplication of identical tool calls
-        tool_calls = set()
-        results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
-            []
-        )
-
-        for raw_json in matches:
-            func_and_args = None
-            try:
-                # Parse JSON to extract function call information
-                func_and_args = json.loads(raw_json)
-                # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(func_and_args["parameters"])
-                tool_call_tuple = (
-                    None,  # No content error
-                    func_and_args["name"],
-                    func_and_args["parameters"],
-                )
-            except json.JSONDecodeError:
-                tool_call_tuple = (
-                    raw_json,
-                    None,
-                    None,
-                )  # If parsing fails, treat as raw content
-                arguments_hashable = None  # No need for hashing
-
-            # Avoid duplicate entries
-            dedup_key = (
-                (func_and_args["name"], arguments_hashable)
-                if func_and_args is not None
-                else (raw_json)
-            )
-
-            # Add to results if not already seen
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
+        try:
+            if isinstance(model_output, dict):
+                try:
+                    return [
+                        (
+                            None,
+                            model_output["name"],
+                            json.loads(model_output["arguments"]),
+                        )
+                    ]
+                except Exception:
+                    return [(None, model_output["name"], model_output["arguments"])]
+        except KeyError:
+            logger.error("Can't parse glm output: %s", model_output)
+            return [(str(model_output), None, None)]
+        else:
+            return [(str(model_output), None, None)]
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
@@ -134,16 +105,19 @@ class Glm4ToolParser(ToolParser):
             previous_text (List[str]): Previous text chunks from the stream.
             current_text (str): Current accumulated text.
             delta_text (str): New text delta in this chunk.
-
-        Raises:
-            ValueError: Always raised as streaming has limited support.
-
-        Note:
-            GLM4 streaming support is limited to specific backend configurations.
-            Use extract_tool_calls() with complete output for reliable results.
         """
-        raise ValueError(
-            "Streaming support for tool calls is available only when using "
-            "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
-            "For GLM4, use extract_tool_calls() with complete output instead."
-        )
+        try:
+            if isinstance(current_text, dict):
+                try:
+                    return (
+                        None,
+                        current_text["name"],
+                        json.loads(current_text["arguments"]),
+                    )
+                except Exception:
+                    return (None, current_text["name"], current_text["arguments"])
+        except KeyError:
+            logger.error("Can't parse glm output: %s", current_text)
+            return (str(current_text), None, None)
+        else:
+            return (str(current_text), None, None)

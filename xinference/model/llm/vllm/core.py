@@ -1299,8 +1299,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         i = 0
         previous_texts = [""]
         previous_tools_texts = [""]
-        tool_call = False
-        tool_call_texts = [""]
         full_text = ""
         if self.reasoning_parser:
             set_context()
@@ -1317,6 +1315,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 yield chunk
                 continue
             chunk = self._post_process_completion_chunk(
+                self.model_family,
                 self.model_uid,
                 chunk,
                 previous_texts=previous_tools_texts,
