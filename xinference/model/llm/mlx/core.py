@@ -164,6 +164,7 @@ class MLXModel(LLM):
     def _cleanup_memory(self):
         """proactively clean up MLX memory"""
         import gc
+
         import mlx.core as mx
 
         try:
