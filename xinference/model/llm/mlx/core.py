@@ -148,13 +148,6 @@ class MLXModel(LLM):
             raise ValueError("MLX engine has not supported lora yet")
         # used to call async
         self._loop = None
-        # memory management configuration
-        self._enable_memory_cleanup = model_config.get("enable_memory_cleanup", True)
-        self._memory_cleanup_threshold = model_config.get(
-            "memory_cleanup_threshold", 0.8
-        )
-        self._memory_limit_gb = model_config.get("max_memory_gb", 5)
-        self._cache_reset_counter = 0
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         # loop will be passed into ModelWrapper,
@@ -249,12 +242,6 @@ class MLXModel(LLM):
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
 
-        # set memory management parameters
-        if hasattr(self, "_memory_limit_gb") and self._memory_limit_gb:
-            logger.debug(
-                f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}"
-            )
-
         model, tokenizer = load(
             self.model_path,
             tokenizer_config=tokenizer_config,
@@ -303,12 +290,6 @@ class MLXModel(LLM):
 
         self._max_kv_size = kwargs.get("max_kv_size", None)
         self._prompt_cache = PromptCache()
-
-        # set memory management parameters
-        if hasattr(self, "_memory_limit_gb") and self._memory_limit_gb:
-            logger.debug(
-                f"Memory management enabled: limit={self._memory_limit_gb}GB, threshold={self._memory_cleanup_threshold}, cleanup={self._enable_memory_cleanup}"
-            )
 
         self._model, config = load_model(
             pathlib.Path(self.model_path),
