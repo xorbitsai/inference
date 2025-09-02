@@ -70,12 +70,6 @@ class MLXModelConfig(TypedDict, total=False):
     address: Optional[str]
     shard: Optional[int]
     n_worker: Optional[int]
-    # memory management
-    cache_limit_gb: Optional[str]
-    max_kv_size: Optional[int]
-    enable_memory_cleanup: bool
-    memory_cleanup_threshold: float
-    max_memory_gb: float
 
 
 class MLXGenerateConfig(TypedDict, total=False):
