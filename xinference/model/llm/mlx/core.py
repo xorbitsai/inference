@@ -148,6 +148,16 @@ class MLXModel(LLM):
         # to call aynsc method with asyncio.run_coroutine_threadsafe
         self._loop = loop  # type: ignore
 
+    def _cleanup_memory(self):
+        import gc
+
+        import mlx.core as mx
+
+        # mandatory recycling
+        gc.collect()
+        # clear the MLX cache
+        mx.clear_cache()
+
     @property
     def driver_info(self) -> Optional[dict]:
         return self._driver_info
@@ -458,14 +468,18 @@ class MLXModel(LLM):
             repetition_penalty=kwargs.pop("repetition_penalty"),
             repetition_context_size=kwargs.pop("repetition_context_size"),
         )
-        yield from stream_generate(
-            self._model,
-            self._tokenizer,
-            prompt_token_ids,
-            sampler=sampler,
-            logits_processors=logits_processors,
-            **kwargs,
-        )
+        try:
+            yield from stream_generate(
+                self._model,
+                self._tokenizer,
+                prompt_token_ids,
+                sampler=sampler,
+                logits_processors=logits_processors,
+                **kwargs,
+            )
+        finally:
+            # after completing the inference, clear the memory.
+            self._cleanup_memory()
 
     def _prepare_inputs(
         self, prompt: Union[str, Dict[str, Any]], kwargs
@@ -831,18 +845,32 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
         detokenizer.reset()
         tic = time.perf_counter()
-        for n, (token, logprobs) in enumerate(
-            generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
-        ):
-            if n == 0:
-                prompt_time = time.perf_counter() - tic
-                prompt_tps = len(input_ids) / prompt_time
-                tic = time.perf_counter()
-            if token == tokenizer.eos_token_id:
-                break
-            detokenizer.add_token(token)
+        try:
+            for n, (token, logprobs) in enumerate(
+                generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
+            ):
+                if n == 0:
+                    prompt_time = time.perf_counter() - tic
+                    prompt_tps = len(input_ids) / prompt_time
+                    tic = time.perf_counter()
+                if token == tokenizer.eos_token_id:
+                    break
+                detokenizer.add_token(token)
 
-            # Yield the last segment if streaming
+                # Yield the last segment if streaming
+                yield GenerationResponse(
+                    text=detokenizer.last_segment,
+                    token=token,
+                    logprobs=logprobs,
+                    from_draft=False,
+                    prompt_tokens=len(input_ids),
+                    prompt_tps=prompt_tps,
+                    generation_tokens=n + 1,
+                    generation_tps=(n + 1) / (time.perf_counter() - tic),
+                    peak_memory=mx.metal.get_peak_memory() / 1e9,
+                )
+
+            detokenizer.finalize()
             yield GenerationResponse(
                 text=detokenizer.last_segment,
                 token=token,
@@ -854,19 +882,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 generation_tps=(n + 1) / (time.perf_counter() - tic),
                 peak_memory=mx.metal.get_peak_memory() / 1e9,
             )
-
-        detokenizer.finalize()
-        yield GenerationResponse(
-            text=detokenizer.last_segment,
-            token=token,
-            logprobs=logprobs,
-            from_draft=False,
-            prompt_tokens=len(input_ids),
-            prompt_tps=prompt_tps,
-            generation_tokens=n + 1,
-            generation_tps=(n + 1) / (time.perf_counter() - tic),
-            peak_memory=mx.metal.get_peak_memory() / 1e9,
-        )
+        finally:
+            # after completing the inference, clear the memory
+            self._cleanup_memory()
 
     def _prepare_inputs(
         self, prompt: Union[str, Dict[str, Any]], kwargs
