@@ -81,7 +81,7 @@ class KokoroModel:
         logger.info("Launching Kokoro model with language code: %s", lang_code)
         self._model = KPipeline(
             lang_code=lang_code,
-            model=KModel(config=config_path, model=model_path),
+            model=KModel(config=config_path, model=model_path).to(self._device),
             device=self._device,
         )
 
