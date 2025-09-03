@@ -35,6 +35,8 @@
     "ocr": "光学字符识别",
     "audio2text": "语音转文本",
     "text2audio": "文本转语音",
+    "text2audio_zero_shot": "文本转语音（零样本）",
+    "text2audio_voice_cloning": "文本转语音（声音克隆）",
     "text2video": "文生视频",
     "image2video": "图生视频",
     "firstlastframe2video": "首尾帧生视频",
@@ -121,7 +123,8 @@
     "commandLineTip": "请确定模型名称是否一致。",
     "featured": "推荐和收藏",
     "all": "全部",
-    "cancelledSuccessfully": "取消成功!"
+    "cancelledSuccessfully": "取消成功!",
+    "mustBeUnique": "{{key}} 必须唯一"
   },
 
   "runningModels": {
@@ -227,7 +230,9 @@
   },
 
   "components": {
-    "copySuccess": "已复制到剪贴板！",
-    "suggestsCommonParameters": "提示常用参数，也允许输入其他参数"
+    "suggestsCommonParameters": "提示常用参数，也允许输入其他参数",
+    "warning": "警告",
+    "ok": "确定",
+    "cancel": "取消"
   }
 }

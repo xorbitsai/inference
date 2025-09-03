@@ -57,9 +57,11 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
           }
         }
       } else if (normalizedKey === 'image_lora_load_kwargs') {
+        peftModelConfig.image_lora_load_kwargs = {}
         const [load_param, load_value] = value.split(/\s+/)
         peftModelConfig.image_lora_load_kwargs[load_param] = load_value
       } else if (normalizedKey === 'image_lora_fuse_kwargs') {
+        peftModelConfig.image_lora_fuse_kwargs = {}
         const [fuse_param, fuse_value] = value.split(/\s+/)
         peftModelConfig.image_lora_fuse_kwargs[fuse_param] = fuse_value
       } else if (normalizedKey === 'quantization_config') {
@@ -77,7 +79,11 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
           envs[envKey] = envVal
         }
       } else {
-        if (['cpu_offload', 'reasoning_content'].includes(normalizedKey)) {
+        if (
+          ['enable_thinking', 'cpu_offload', 'reasoning_content'].includes(
+            normalizedKey
+          )
+        ) {
           params[normalizedKey] = value === 'true'
         } else if (normalizedKey === 'size_in_billions') {
           params['model_size_in_billions'] = value
@@ -89,8 +95,8 @@ const PasteDialog = ({ open, onHandleClose, onHandleCommandLine }) => {
 
     if (
       peftModelConfig.lora_list.length > 0 ||
-      Object.keys(peftModelConfig.image_lora_load_kwargs).length > 0 ||
-      Object.keys(peftModelConfig.image_lora_fuse_kwargs).length > 0
+      Object.keys(peftModelConfig.image_lora_load_kwargs)?.length > 0 ||
+      Object.keys(peftModelConfig.image_lora_fuse_kwargs)?.length > 0
     ) {
       params.peft_model_config = peftModelConfig
     }
