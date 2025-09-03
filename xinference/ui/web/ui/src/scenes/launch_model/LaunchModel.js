@@ -25,6 +25,9 @@ import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import LaunchModelDrawer from './components/launchModelDrawer'
 import ModelCard from './modelCard'
 
+// Toggle pagination globally for this page. Set to false to disable pagination and load all items.
+const ENABLE_PAGINATION = false
+
 const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -208,6 +211,13 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       return 0
     })
 
+    // If pagination is disabled, show all data at once
+    if (!ENABLE_PAGINATION) {
+      setDisplayedData(sortedData)
+      setHasMore(false)
+      return
+    }
+
     const startIndex = (currentPage - 1) * itemsPerPage
     const endIndex = currentPage * itemsPerPage
     const newData = sortedData.slice(startIndex, endIndex)
@@ -239,6 +249,8 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
 
   // Infinite scroll observer
   useEffect(() => {
+    if (!ENABLE_PAGINATION) return
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isCallingApi) {
@@ -483,7 +495,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       </div>
 
       <div ref={loaderRef} style={{ height: '20px', margin: '20px 0' }}>
-        {hasMore && !isCallingApi && (
+        {ENABLE_PAGINATION && hasMore && !isCallingApi && (
           <div style={{ textAlign: 'center', padding: '10px' }}>
             <CircularProgress />
           </div>
