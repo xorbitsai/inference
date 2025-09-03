@@ -122,6 +122,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         if os.path.isfile(self.model_path):
             # mostly passed from --model_path

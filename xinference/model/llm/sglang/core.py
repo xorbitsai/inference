@@ -175,6 +175,7 @@ class SGLANGModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -646,49 +647,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    async def _async_to_tool_completion_chunks(
-        self,
-        chunks: AsyncGenerator[CompletionChunk, None],
-    ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        i = 0
-        previous_texts = [""]
-        tool_call = False
-        tool_call_texts = [""]
-        if self.reasoning_parser:
-            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
-            if i == 0:
-                for first_chunk in self._get_first_chat_completion_chunk(
-                    chunk, self.reasoning_parser
-                ):
-                    yield first_chunk
-            # usage
-            choices = chunk.get("choices")
-            if not choices:
-                yield self._get_final_chat_completion_chunk(chunk)
-            else:
-                if self.is_tool_call_chunk_start(chunk):
-                    tool_call = True
-                if tool_call:
-                    tool_call_text = tool_call_texts[-1]
-                    tool_call_text += chunk["choices"][0]["text"]
-                    tool_call_texts.append(tool_call_text)
-                    if self.is_tool_call_chunk_end(chunk):
-                        yield self._post_process_completion_chunk(
-                            self.model_family,
-                            self.model_uid,
-                            chunk,
-                            reasoning_parser=self.reasoning_parser,
-                            tool_call_text=tool_call_text,
-                        )
-                        tool_call = False
-                        tool_call_texts = [""]
-                else:
-                    yield self._to_chat_completion_chunk(
-                        chunk, self.reasoning_parser, previous_texts
-                    )
-            i += 1
-
     async def async_chat(
         self,
         messages: List[Dict],
@@ -731,7 +689,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c, self.reasoning_parser
+                    self.model_family, self.model_uid, c
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 
