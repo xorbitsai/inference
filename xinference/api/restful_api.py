@@ -23,7 +23,7 @@ import sys
 import time
 import uuid
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import gradio as gr
 import xoscar as xo
@@ -80,8 +80,8 @@ try:
 
     ANTHROPIC_AVAILABLE = True
 except ImportError:
-    AnthropicMessage = None
-    CreateMessage = None
+    AnthropicMessage: Optional[Type[Any]] = None
+    CreateMessage: Optional[Type[Any]] = None
     ANTHROPIC_AVAILABLE = False
 from .oauth2.auth_service import AuthService
 from .oauth2.types import LoginUserForm
@@ -118,7 +118,7 @@ if ANTHROPIC_AVAILABLE:
             }
 
 else:
-    CreateMessageRequest = None
+    CreateMessageRequest: Optional[Type[Any]] = None
 
 
 class CreateEmbeddingRequest(BaseModel):

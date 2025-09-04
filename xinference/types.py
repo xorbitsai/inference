@@ -12,7 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    ForwardRef,
+    Iterable,
+    List,
+    Optional,
+    Type,
+    Union,
+)
 
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -500,6 +510,6 @@ try:
 
 except ImportError:
     # Anthropic package not installed, define placeholder types
-    CreateMessage = None
-    CreateMessageAnthropic = None
-    AnthropicMessage = None
+    CreateMessage: Optional[Type[Any]] = None
+    CreateMessageAnthropic: Optional[Type[Any]] = None
+    AnthropicMessage: Optional[Type[Any]] = None
