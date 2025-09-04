@@ -14,6 +14,7 @@
 
 from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
 
+from anthropic.types import ContentBlock, Usage
 from typing_extensions import Literal, NotRequired, TypedDict
 
 from ._compat import (
@@ -174,6 +175,18 @@ class Completion(TypedDict):
     model: str
     choices: List[CompletionChoice]
     usage: CompletionUsage
+
+
+class AnthropicMessage(TypedDict):
+    id: str
+    type: str
+    role: str
+    content: List[ContentBlock]
+    model: str
+    stop_reason: str
+    stop_sequence: str
+    usage: Usage
+    container: Dict[str, Any]
 
 
 class ChatCompletionAudio(TypedDict):
@@ -371,7 +384,6 @@ class CreateCompletionTorch(BaseModel):
 # This type is for openai API compatibility
 CreateCompletionOpenAI: BaseModel
 
-
 from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
 CreateCompletionOpenAI = create_model_from_typeddict(
@@ -394,7 +406,6 @@ class CreateChatModel(BaseModel):
 
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
-
 
 from ._compat import CreateChatCompletionOpenAI
 
@@ -462,3 +473,29 @@ class PeftModelConfig:
             image_lora_load_kwargs=data.get("image_lora_load_kwargs"),
             image_lora_fuse_kwargs=data.get("image_lora_fuse_kwargs"),
         )
+
+
+# This type is for Anthropic API compatibility
+CreateMessageAnthropic: BaseModel
+
+
+class MessageCreateParams(TypedDict):
+    model: str
+    messages: List[Dict[str, Any]]
+    max_tokens: int
+    stream: NotRequired[bool]
+    temperature: NotRequired[float]
+    top_p: NotRequired[float]
+    top_k: NotRequired[int]
+    stop_sequences: NotRequired[List[str]]
+    metadata: NotRequired[Dict[str, Any]]
+
+
+CreateMessageAnthropic = create_model_from_typeddict(
+    MessageCreateParams,
+)
+CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
+
+
+class CreateMessage(CreateMessageAnthropic):
+    pass

@@ -21,6 +21,7 @@ import os
 import pprint
 import sys
 import time
+import uuid
 import warnings
 from typing import Any, Dict, List, Optional, Union
 
@@ -62,10 +63,12 @@ from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin, json_dumps
 from ..types import (
+    AnthropicMessage,
     ChatCompletion,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
+    CreateMessage,
     ImageList,
     PeftModelConfig,
     SDAPIResult,
@@ -84,6 +87,16 @@ class JSONResponse(StarletteJSONResponse):  # type: ignore # noqa: F811
 
 
 class CreateCompletionRequest(CreateCompletion):
+    class Config:
+        schema_extra = {
+            "example": {
+                "prompt": "\n\n### Instructions:\nWhat is the capital of France?\n\n### Response:\n",
+                "stop": ["\n", "###"],
+            }
+        }
+
+
+class CreateMessageRequest(CreateMessage):
     class Config:
         schema_extra = {
             "example": {
@@ -526,6 +539,17 @@ class RESTfulAPI(CancelMixin):
             self.create_completion,
             methods=["POST"],
             response_model=Completion,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/messages",
+            self.create_message,
+            methods=["POST"],
+            response_model=AnthropicMessage,
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
                 if self.is_authenticated()
@@ -1410,6 +1434,91 @@ class RESTfulAPI(CancelMixin):
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
+            except Exception as e:
+                e = await self._get_model_last_error(model.uid, e)
+                logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
+                self.handle_request_limit_error(e)
+                raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_message(self, request: Request) -> Response:
+        raw_body = await request.json()
+        body = CreateMessage.parse_obj(raw_body)
+
+        exclude = {
+            "model",
+            "messages",
+            "stream",
+            "stop_sequences",
+            "metadata",
+            "tool_choice",
+        }
+        raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
+        kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        # guided_decoding params
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
+
+        # TODO: Decide if this default value override is necessary #1061
+        if body.max_tokens is None:
+            kwargs["max_tokens"] = max_tokens_field.default
+
+        model_uid = body.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        # Convert Anthropic messages format to prompt
+        prompt = self._convert_anthropic_messages_to_prompt(body.messages)
+
+        if body.stream:
+
+            async def stream_results():
+                iterator = None
+                try:
+                    try:
+                        iterator = await model.generate(
+                            prompt, kwargs, raw_params=raw_kwargs
+                        )
+                    except RuntimeError as re:
+                        self.handle_request_limit_error(re)
+                    async for item in iterator:
+                        yield item
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during generate."
+                    )
+                    return
+                except Exception as ex:
+                    ex = await self._get_model_last_error(model.uid, ex)
+                    logger.exception("Message stream got an error: %s", ex)
+                    await self._report_error_event(model_uid, str(ex))
+                    yield dict(data=json.dumps({"error": str(ex)}))
+                    return
+                finally:
+                    await model.decrease_serve_count()
+
+            return EventSourceResponse(
+                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            )
+        else:
+            try:
+                data = await model.generate(prompt, kwargs, raw_params=raw_kwargs)
+                # Convert OpenAI format to Anthropic format
+                openai_response = json.loads(data)
+                anthropic_response = self._convert_openai_to_anthropic(
+                    openai_response, body.model
+                )
+                return Response(
+                    json.dumps(anthropic_response), media_type="application/json"
+                )
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -2602,6 +2711,91 @@ class RESTfulAPI(CancelMixin):
                 kwargs["format"] = raw_extra_body.get("format")
 
         return kwargs
+
+    def _convert_anthropic_messages_to_prompt(self, messages: list) -> str:
+        """
+        Convert Anthropic messages format to a prompt string.
+
+        Args:
+            messages: List of message objects with role and content
+
+        Returns:
+            Formatted prompt string
+        """
+        prompt_parts = []
+
+        for message in messages:
+            role = message.get("role", "")
+            content = message.get("content", "")
+
+            if role == "user":
+                if isinstance(content, str):
+                    prompt_parts.append(f"Human: {content}")
+                elif isinstance(content, list):
+                    # Handle multimodal content
+                    text_content = ""
+                    for item in content:
+                        if item.get("type") == "text":
+                            text_content += item.get("text", "")
+                        # Add handling for other content types if needed
+                    prompt_parts.append(f"Human: {text_content}")
+            elif role == "assistant":
+                prompt_parts.append(f"Assistant: {content}")
+            elif role == "system":
+                # System messages are typically added at the beginning
+                prompt_parts.insert(0, f"System: {content}")
+
+        # Add final Assistant prompt for response
+        prompt_parts.append("Assistant:")
+
+        return "\n\n".join(prompt_parts)
+
+    def _convert_openai_to_anthropic(self, openai_response: dict, model: str) -> dict:
+        """
+        Convert OpenAI response format to Anthropic response format.
+
+        Args:
+            openai_response: OpenAI format response
+            model: Model name
+
+        Returns:
+            Anthropic format response
+        """
+
+        # Extract content from OpenAI response
+        if "choices" in openai_response and len(openai_response["choices"]) > 0:
+            choice = openai_response["choices"][0]
+            if "text" in choice:
+                content_text = choice["text"]
+            elif "message" in choice and "content" in choice["message"]:
+                content_text = choice["message"]["content"]
+            else:
+                content_text = ""
+        else:
+            content_text = ""
+
+        # Build Anthropic response
+        anthropic_response = {
+            "id": str(uuid.uuid4()),
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": content_text}],
+            "model": model,
+            "stop_reason": "stop",
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": openai_response.get("usage", {}).get(
+                    "prompt_tokens", 0
+                ),
+                "output_tokens": openai_response.get("usage", {}).get(
+                    "completion_tokens", 0
+                ),
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            },
+        }
+
+        return anthropic_response
 
 
 def run(
