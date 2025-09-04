@@ -14,7 +14,6 @@
 
 from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
 
-from anthropic.types import ContentBlock, Usage
 from typing_extensions import Literal, NotRequired, TypedDict
 
 from ._compat import (
@@ -175,18 +174,6 @@ class Completion(TypedDict):
     model: str
     choices: List[CompletionChoice]
     usage: CompletionUsage
-
-
-class AnthropicMessage(TypedDict):
-    id: str
-    type: str
-    role: str
-    content: List[ContentBlock]
-    model: str
-    stop_reason: str
-    stop_sequence: str
-    usage: Usage
-    container: Dict[str, Any]
 
 
 class ChatCompletionAudio(TypedDict):
@@ -476,26 +463,43 @@ class PeftModelConfig:
 
 
 # This type is for Anthropic API compatibility
-CreateMessageAnthropic: BaseModel
-
-
-class MessageCreateParams(TypedDict):
-    model: str
-    messages: List[Dict[str, Any]]
-    max_tokens: int
-    stream: NotRequired[bool]
-    temperature: NotRequired[float]
-    top_p: NotRequired[float]
-    top_k: NotRequired[int]
-    stop_sequences: NotRequired[List[str]]
-    metadata: NotRequired[Dict[str, Any]]
-
-
-CreateMessageAnthropic = create_model_from_typeddict(
-    MessageCreateParams,
-)
-CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
-
-
-class CreateMessage(CreateMessageAnthropic):
-    pass
+try:
+    from anthropic.types import ContentBlock, Usage
+    
+    class AnthropicMessage(TypedDict):
+        id: str
+        type: str
+        role: str
+        content: List[ContentBlock]
+        model: str
+        stop_reason: str
+        stop_sequence: str
+        usage: Usage
+        container: Dict[str, Any]
+    
+    CreateMessageAnthropic: BaseModel
+    
+    class MessageCreateParams(TypedDict):
+        model: str
+        messages: List[Dict[str, Any]]
+        max_tokens: int
+        stream: NotRequired[bool]
+        temperature: NotRequired[float]
+        top_p: NotRequired[float]
+        top_k: NotRequired[int]
+        stop_sequences: NotRequired[List[str]]
+        metadata: NotRequired[Dict[str, Any]]
+    
+    CreateMessageAnthropic = create_model_from_typeddict(
+        MessageCreateParams,
+    )
+    CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
+    
+    class CreateMessage(CreateMessageAnthropic):
+        pass
+        
+except ImportError:
+    # Anthropic package not installed, define placeholder types
+    CreateMessage = None
+    CreateMessageAnthropic = None
+    AnthropicMessage = None

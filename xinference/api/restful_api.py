@@ -63,18 +63,25 @@ from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin, json_dumps
 from ..types import (
-    AnthropicMessage,
     ChatCompletion,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
-    CreateMessage,
     ImageList,
     PeftModelConfig,
     SDAPIResult,
     VideoList,
     max_tokens_field,
 )
+
+# Import Anthropic-related types only if available
+try:
+    from ..types import AnthropicMessage, CreateMessage
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    AnthropicMessage = None
+    CreateMessage = None
+    ANTHROPIC_AVAILABLE = False
 from .oauth2.auth_service import AuthService
 from .oauth2.types import LoginUserForm
 
@@ -96,14 +103,19 @@ class CreateCompletionRequest(CreateCompletion):
         }
 
 
-class CreateMessageRequest(CreateMessage):
-    class Config:
-        schema_extra = {
-            "example": {
-                "prompt": "\n\n### Instructions:\nWhat is the capital of France?\n\n### Response:\n",
-                "stop": ["\n", "###"],
+# Define CreateMessageRequest only if Anthropic is available
+if ANTHROPIC_AVAILABLE:
+    class CreateMessageRequest(CreateMessage):
+        class Config:
+            schema_extra = {
+                "example": {
+                    "model": "claude-3-sonnet-20240229",
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "Hello, Claude"}]
+                }
             }
-        }
+else:
+    CreateMessageRequest = None
 
 
 class CreateEmbeddingRequest(BaseModel):
@@ -545,17 +557,19 @@ class RESTfulAPI(CancelMixin):
                 else None
             ),
         )
-        self._router.add_api_route(
-            "/v1/messages",
-            self.create_message,
-            methods=["POST"],
-            response_model=AnthropicMessage,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
+        # Register messages endpoint only if Anthropic is available
+        if ANTHROPIC_AVAILABLE:
+            self._router.add_api_route(
+                "/v1/messages",
+                self.create_message,
+                methods=["POST"],
+                response_model=AnthropicMessage,
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:read"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
