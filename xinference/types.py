@@ -12,17 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    ForwardRef,
-    Iterable,
-    List,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
 
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -473,21 +463,34 @@ class PeftModelConfig:
 
 
 # This type is for Anthropic API compatibility
+ANTHROPIC_AVAILABLE = False
+
 try:
     from anthropic.types import ContentBlock, Usage
+
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ContentBlock = None
+    Usage = None
+
+# Use TYPE_CHECKING to avoid runtime issues with mypy
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # For type checking, define the types as if Anthropic is available
+    from anthropic.types import ContentBlock as ContentBlock_
+    from anthropic.types import Usage as Usage_
 
     class AnthropicMessage(TypedDict):
         id: str
         type: str
         role: str
-        content: List[ContentBlock]
+        content: List[ContentBlock_]
         model: str
         stop_reason: str
         stop_sequence: str
-        usage: Usage
+        usage: Usage_
         container: Dict[str, Any]
-
-    CreateMessageAnthropic: BaseModel
 
     class MessageCreateParams(TypedDict):
         model: str
@@ -500,16 +503,54 @@ try:
         stop_sequences: NotRequired[List[str]]
         metadata: NotRequired[Dict[str, Any]]
 
-    CreateMessageAnthropic = create_model_from_typeddict(
-        MessageCreateParams,
-    )
-    CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
+    CreateMessageAnthropic: BaseModel
 
-    class CreateMessage(CreateMessageAnthropic):
+    class CreateMessage(BaseModel):
         pass
 
-except ImportError:
-    # Anthropic package not installed, define placeholder types
-    CreateMessage: Optional[Type[Any]] = None
-    CreateMessageAnthropic: Optional[Type[Any]] = None
-    AnthropicMessage: Optional[Type[Any]] = None
+else:
+    # Runtime definitions
+    if ANTHROPIC_AVAILABLE:
+
+        class AnthropicMessage(TypedDict):
+            id: str
+            type: str
+            role: str
+            content: List[ContentBlock]
+            model: str
+            stop_reason: str
+            stop_sequence: str
+            usage: Usage
+            container: Dict[str, Any]
+
+        class MessageCreateParams(TypedDict):
+            model: str
+            messages: List[Dict[str, Any]]
+            max_tokens: int
+            stream: NotRequired[bool]
+            temperature: NotRequired[float]
+            top_p: NotRequired[float]
+            top_k: NotRequired[int]
+            stop_sequences: NotRequired[List[str]]
+            metadata: NotRequired[Dict[str, Any]]
+
+        CreateMessageAnthropic: BaseModel = create_model_from_typeddict(
+            MessageCreateParams,
+        )
+        CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
+
+        class CreateMessage(CreateMessageAnthropic):
+            pass
+
+    else:
+        # Define dummy types when Anthropic is not available
+        class AnthropicMessage:
+            pass
+
+        class MessageCreateParams:
+            pass
+
+        CreateMessageAnthropic = None
+
+        class CreateMessage:
+            pass

@@ -23,7 +23,7 @@ import sys
 import time
 import uuid
 import warnings
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -62,27 +62,22 @@ from ..constants import (
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin, json_dumps
+
+# Import Anthropic-related types and availability flag
 from ..types import (
+    ANTHROPIC_AVAILABLE,
+    AnthropicMessage,
     ChatCompletion,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
+    CreateMessage,
     ImageList,
     PeftModelConfig,
     SDAPIResult,
     VideoList,
     max_tokens_field,
 )
-
-# Import Anthropic-related types only if available
-try:
-    from ..types import AnthropicMessage, CreateMessage
-
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    AnthropicMessage: Optional[Type[Any]] = None
-    CreateMessage: Optional[Type[Any]] = None
-    ANTHROPIC_AVAILABLE = False
 from .oauth2.auth_service import AuthService
 from .oauth2.types import LoginUserForm
 
@@ -105,8 +100,8 @@ class CreateCompletionRequest(CreateCompletion):
 
 
 # Define CreateMessageRequest only if Anthropic is available
-if ANTHROPIC_AVAILABLE:
-
+if TYPE_CHECKING:
+    # For type checking, define as if Anthropic is available
     class CreateMessageRequest(CreateMessage):
         class Config:
             schema_extra = {
@@ -118,7 +113,23 @@ if ANTHROPIC_AVAILABLE:
             }
 
 else:
-    CreateMessageRequest: Optional[Type[Any]] = None
+    # Runtime definitions
+    if ANTHROPIC_AVAILABLE:
+
+        class CreateMessageRequest(CreateMessage):
+            class Config:
+                schema_extra = {
+                    "example": {
+                        "model": "claude-3-sonnet-20240229",
+                        "max_tokens": 100,
+                        "messages": [{"role": "user", "content": "Hello, Claude"}],
+                    }
+                }
+
+    else:
+        # Define dummy type when Anthropic is not available
+        class CreateMessageRequest:
+            pass
 
 
 class CreateEmbeddingRequest(BaseModel):
