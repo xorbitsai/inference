@@ -465,7 +465,7 @@ class PeftModelConfig:
 # This type is for Anthropic API compatibility
 try:
     from anthropic.types import ContentBlock, Usage
-    
+
     class AnthropicMessage(TypedDict):
         id: str
         type: str
@@ -476,9 +476,9 @@ try:
         stop_sequence: str
         usage: Usage
         container: Dict[str, Any]
-    
+
     CreateMessageAnthropic: BaseModel
-    
+
     class MessageCreateParams(TypedDict):
         model: str
         messages: List[Dict[str, Any]]
@@ -489,15 +489,15 @@ try:
         top_k: NotRequired[int]
         stop_sequences: NotRequired[List[str]]
         metadata: NotRequired[Dict[str, Any]]
-    
+
     CreateMessageAnthropic = create_model_from_typeddict(
         MessageCreateParams,
     )
     CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
-    
+
     class CreateMessage(CreateMessageAnthropic):
         pass
-        
+
 except ImportError:
     # Anthropic package not installed, define placeholder types
     CreateMessage = None

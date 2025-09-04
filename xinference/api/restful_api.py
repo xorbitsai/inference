@@ -77,6 +77,7 @@ from ..types import (
 # Import Anthropic-related types only if available
 try:
     from ..types import AnthropicMessage, CreateMessage
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     AnthropicMessage = None
@@ -105,15 +106,17 @@ class CreateCompletionRequest(CreateCompletion):
 
 # Define CreateMessageRequest only if Anthropic is available
 if ANTHROPIC_AVAILABLE:
+
     class CreateMessageRequest(CreateMessage):
         class Config:
             schema_extra = {
                 "example": {
                     "model": "claude-3-sonnet-20240229",
                     "max_tokens": 100,
-                    "messages": [{"role": "user", "content": "Hello, Claude"}]
+                    "messages": [{"role": "user", "content": "Hello, Claude"}],
                 }
             }
+
 else:
     CreateMessageRequest = None
 
