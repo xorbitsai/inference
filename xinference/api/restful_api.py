@@ -21,8 +21,9 @@ import os
 import pprint
 import sys
 import time
+import uuid
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -61,11 +62,16 @@ from ..constants import (
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin, json_dumps
+
+# Import Anthropic-related types and availability flag
 from ..types import (
+    ANTHROPIC_AVAILABLE,
+    AnthropicMessage,
     ChatCompletion,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
+    CreateMessage,
     ImageList,
     PeftModelConfig,
     SDAPIResult,
@@ -91,6 +97,39 @@ class CreateCompletionRequest(CreateCompletion):
                 "stop": ["\n", "###"],
             }
         }
+
+
+# Define CreateMessageRequest only if Anthropic is available
+if TYPE_CHECKING:
+    # For type checking, define as if Anthropic is available
+    class CreateMessageRequest(CreateMessage):
+        class Config:
+            schema_extra = {
+                "example": {
+                    "model": "claude-3-sonnet-20240229",
+                    "max_tokens": 100,
+                    "messages": [{"role": "user", "content": "Hello, Claude"}],
+                }
+            }
+
+else:
+    # Runtime definitions
+    if ANTHROPIC_AVAILABLE:
+
+        class CreateMessageRequest(CreateMessage):
+            class Config:
+                schema_extra = {
+                    "example": {
+                        "model": "claude-3-sonnet-20240229",
+                        "max_tokens": 100,
+                        "messages": [{"role": "user", "content": "Hello, Claude"}],
+                    }
+                }
+
+    else:
+        # Define dummy type when Anthropic is not available
+        class CreateMessageRequest:
+            pass
 
 
 class CreateEmbeddingRequest(BaseModel):
@@ -532,6 +571,19 @@ class RESTfulAPI(CancelMixin):
                 else None
             ),
         )
+        # Register messages endpoint only if Anthropic is available
+        if ANTHROPIC_AVAILABLE:
+            self._router.add_api_route(
+                "/v1/messages",
+                self.create_message,
+                methods=["POST"],
+                response_model=AnthropicMessage,
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:read"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
@@ -1410,6 +1462,105 @@ class RESTfulAPI(CancelMixin):
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
+            except Exception as e:
+                e = await self._get_model_last_error(model.uid, e)
+                logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
+                self.handle_request_limit_error(e)
+                raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_message(self, request: Request) -> Response:
+        raw_body = await request.json()
+        body = CreateMessage.parse_obj(raw_body)
+
+        exclude = {
+            "model",
+            "messages",
+            "stream",
+            "stop_sequences",
+            "metadata",
+            "tool_choice",
+            "tools",
+        }
+        raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
+        kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        # guided_decoding params
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
+
+        # TODO: Decide if this default value override is necessary #1061
+        if body.max_tokens is None:
+            kwargs["max_tokens"] = max_tokens_field.default
+
+        messages = body.messages and list(body.messages)
+
+        if not messages or messages[-1].get("role") not in ["user", "assistant"]:
+            raise HTTPException(
+                status_code=400, detail="Invalid input. Please specify the prompt."
+            )
+
+        # Handle tools parameter
+        if hasattr(body, "tools") and body.tools:
+            kwargs["tools"] = body.tools
+
+        # Handle tool_choice parameter
+        if hasattr(body, "tool_choice") and body.tool_choice:
+            kwargs["tool_choice"] = body.tool_choice
+
+        model_uid = body.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        if body.stream:
+
+            async def stream_results():
+                iterator = None
+                try:
+                    try:
+                        iterator = await model.chat(
+                            messages, kwargs, raw_params=raw_kwargs
+                        )
+                    except RuntimeError as re:
+                        self.handle_request_limit_error(re)
+                    async for item in iterator:
+                        yield item
+                    yield "[DONE]"
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during chat."
+                    )
+                    return
+                except Exception as ex:
+                    ex = await self._get_model_last_error(model.uid, ex)
+                    logger.exception("Message stream got an error: %s", ex)
+                    await self._report_error_event(model_uid, str(ex))
+                    yield dict(data=json.dumps({"error": str(ex)}))
+                    return
+                finally:
+                    await model.decrease_serve_count()
+
+            return EventSourceResponse(
+                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            )
+        else:
+            try:
+                data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+                # Convert OpenAI format to Anthropic format
+                openai_response = json.loads(data)
+                anthropic_response = self._convert_openai_to_anthropic(
+                    openai_response, body.model
+                )
+                return Response(
+                    json.dumps(anthropic_response), media_type="application/json"
+                )
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -2602,6 +2753,72 @@ class RESTfulAPI(CancelMixin):
                 kwargs["format"] = raw_extra_body.get("format")
 
         return kwargs
+
+    def _convert_openai_to_anthropic(self, openai_response: dict, model: str) -> dict:
+        """
+        Convert OpenAI response format to Anthropic response format.
+
+        Args:
+            openai_response: OpenAI format response
+            model: Model name
+
+        Returns:
+            Anthropic format response
+        """
+
+        # Extract content and tool calls from OpenAI response
+        content_blocks = []
+        stop_reason = "stop"
+
+        if "choices" in openai_response and len(openai_response["choices"]) > 0:
+            choice = openai_response["choices"][0]
+            message = choice.get("message", {})
+
+            # Handle content text
+            content_text = message.get("content", "")
+            if content_text:
+                content_blocks.append({"type": "text", "text": content_text})
+
+            # Handle tool calls
+            tool_calls = message.get("tool_calls", [])
+            for tool_call in tool_calls:
+                function = tool_call.get("function", {})
+                tool_use_block = {
+                    "type": "tool_use",
+                    "cache_control": {"type": "ephemeral"},
+                    "id": tool_call.get("id", str(uuid.uuid4())),
+                    "name": function.get("name", ""),
+                    "input": json.loads(function.get("arguments", "{}")),
+                }
+                content_blocks.append(tool_use_block)
+
+            # Set stop reason based on finish reason
+            finish_reason = choice.get("finish_reason", "stop")
+            if finish_reason == "tool_calls":
+                stop_reason = "tool_use"
+
+        # Build Anthropic response
+        anthropic_response = {
+            "id": str(uuid.uuid4()),
+            "type": "message",
+            "role": "assistant",
+            "content": content_blocks,
+            "model": model,
+            "stop_reason": stop_reason,
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": openai_response.get("usage", {}).get(
+                    "prompt_tokens", 0
+                ),
+                "output_tokens": openai_response.get("usage", {}).get(
+                    "completion_tokens", 0
+                ),
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            },
+        }
+
+        return anthropic_response
 
 
 def run(

@@ -122,6 +122,70 @@ The output will be:
       ],
   }
 
+Example using Anthropic Client
+------------------------------
+
+.. code-block::
+
+    import anthropic
+    import json
+    import uuid
+
+    client = anthropic.Anthropic(
+        api_key="cannot be empty",
+        base_url="http://localhost:9997"
+    )
+
+    response = client.messages.create(
+        model="qwen3",
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": "What's the weather like in Beijing?"
+            }
+        ],
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather information for a city",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "city": {
+                                "type": "string",
+                                "description": "The city name",
+                            },
+                        },
+                        "required": ["city"]
+                    },
+                },
+            }
+        ],
+        tool_choice={"type": "auto"}
+    )
+
+
+The output will be:
+
+.. code-block:: json
+
+    {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+            "id": "call_26884d11-ff6b-48fb-ada7-734f3fd0dfcc",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": "{\"city\": \"Beijing\"}"
+            }
+        ],
+    }
+
+
 .. note::
 
   Finish reason will be ``tool_calls`` if the LLM uses a tool call. Othewise it will be the default finish reason.

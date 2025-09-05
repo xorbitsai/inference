@@ -351,6 +351,11 @@ class ModelAndPrompt(BaseModel):
     prompt: str
 
 
+class ModelAndMessages(BaseModel):
+    model: str
+    messages: List[Dict[str, Any]]
+
+
 class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
     max_tokens: Optional[int] = max_tokens_field
@@ -370,7 +375,6 @@ class CreateCompletionTorch(BaseModel):
 
 # This type is for openai API compatibility
 CreateCompletionOpenAI: BaseModel
-
 
 from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
@@ -394,7 +398,6 @@ class CreateChatModel(BaseModel):
 
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
-
 
 from ._compat import CreateChatCompletionOpenAI
 
@@ -462,3 +465,103 @@ class PeftModelConfig:
             image_lora_load_kwargs=data.get("image_lora_load_kwargs"),
             image_lora_fuse_kwargs=data.get("image_lora_fuse_kwargs"),
         )
+
+
+# This type is for Anthropic API compatibility
+ANTHROPIC_AVAILABLE = False
+
+try:
+    from anthropic.types import ContentBlock, Usage
+
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ContentBlock = None
+    Usage = None
+
+# Use TYPE_CHECKING to avoid runtime issues with mypy
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # For type checking, define the types as if Anthropic is available
+    from anthropic.types import ContentBlock as ContentBlock_
+    from anthropic.types import Usage as Usage_
+
+    class AnthropicMessage(TypedDict):
+        id: str
+        type: str
+        role: str
+        content: List[ContentBlock_]
+        model: str
+        stop_reason: str
+        stop_sequence: str
+        usage: Usage_
+        container: Dict[str, Any]
+
+    class MessageCreateParams(TypedDict):
+        model: str
+        messages: List[Dict[str, Any]]
+        max_tokens: int
+        stream: NotRequired[bool]
+        temperature: NotRequired[float]
+        top_p: NotRequired[float]
+        top_k: NotRequired[int]
+        stop_sequences: NotRequired[List[str]]
+        metadata: NotRequired[Dict[str, Any]]
+        tools: NotRequired[List[Dict[str, Any]]]
+        tool_choice: NotRequired[Union[str, Dict[str, Any]]]
+
+    CreateMessageAnthropic: BaseModel
+
+    class CreateMessage(
+        ModelAndMessages,
+    ):
+        pass
+
+else:
+    # Runtime definitions
+    if ANTHROPIC_AVAILABLE:
+
+        class AnthropicMessage(TypedDict):
+            id: str
+            type: str
+            role: str
+            content: List[ContentBlock]
+            model: str
+            stop_reason: str
+            stop_sequence: str
+            usage: Usage
+            container: Dict[str, Any]
+
+        class MessageCreateParams(TypedDict):
+            model: str
+            messages: List[Dict[str, Any]]
+            max_tokens: int
+            stream: NotRequired[bool]
+            temperature: NotRequired[float]
+            top_p: NotRequired[float]
+            top_k: NotRequired[int]
+            stop_sequences: NotRequired[List[str]]
+            metadata: NotRequired[Dict[str, Any]]
+            tools: NotRequired[List[Dict[str, Any]]]
+            tool_choice: NotRequired[Union[str, Dict[str, Any]]]
+
+        CreateMessageAnthropic: BaseModel = create_model_from_typeddict(
+            MessageCreateParams,
+        )
+        CreateMessageAnthropic = fix_forward_ref(CreateMessageAnthropic)
+
+        class CreateMessage(CreateMessageAnthropic):
+            pass
+
+    else:
+        # Define dummy types when Anthropic is not available
+        class AnthropicMessage:
+            pass
+
+        class MessageCreateParams:
+            pass
+
+        CreateMessageAnthropic = None
+
+        class CreateMessage:
+            pass
