@@ -507,6 +507,8 @@ if TYPE_CHECKING:
         top_k: NotRequired[int]
         stop_sequences: NotRequired[List[str]]
         metadata: NotRequired[Dict[str, Any]]
+        tools: NotRequired[List[Dict[str, Any]]]
+        tool_choice: NotRequired[Union[str, Dict[str, Any]]]
 
     CreateMessageAnthropic: BaseModel
 
@@ -540,6 +542,8 @@ else:
             top_k: NotRequired[int]
             stop_sequences: NotRequired[List[str]]
             metadata: NotRequired[Dict[str, Any]]
+            tools: NotRequired[List[Dict[str, Any]]]
+            tool_choice: NotRequired[Union[str, Dict[str, Any]]]
 
         CreateMessageAnthropic: BaseModel = create_model_from_typeddict(
             MessageCreateParams,

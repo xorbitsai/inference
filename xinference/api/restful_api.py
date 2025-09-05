@@ -1480,6 +1480,7 @@ class RESTfulAPI(CancelMixin):
             "stop_sequences",
             "metadata",
             "tool_choice",
+            "tools",
         }
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
@@ -1497,6 +1498,14 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
+
+        # Handle tools parameter
+        if hasattr(body, "tools") and body.tools:
+            kwargs["tools"] = body.tools
+
+        # Handle tool_choice parameter
+        if hasattr(body, "tool_choice") and body.tool_choice:
+            kwargs["tool_choice"] = body.tool_choice
 
         model_uid = body.model
         try:
@@ -2757,26 +2766,45 @@ class RESTfulAPI(CancelMixin):
             Anthropic format response
         """
 
-        # Extract content from OpenAI response
+        # Extract content and tool calls from OpenAI response
+        content_blocks = []
+        stop_reason = "stop"
+
         if "choices" in openai_response and len(openai_response["choices"]) > 0:
             choice = openai_response["choices"][0]
-            if "text" in choice:
-                content_text = choice["text"]
-            elif "message" in choice and "content" in choice["message"]:
-                content_text = choice["message"]["content"]
-            else:
-                content_text = ""
-        else:
-            content_text = ""
+            message = choice.get("message", {})
+
+            # Handle content text
+            content_text = message.get("content", "")
+            if content_text:
+                content_blocks.append({"type": "text", "text": content_text})
+
+            # Handle tool calls
+            tool_calls = message.get("tool_calls", [])
+            for tool_call in tool_calls:
+                function = tool_call.get("function", {})
+                tool_use_block = {
+                    "type": "tool_use",
+                    "cache_control": {"type": "ephemeral"},
+                    "id": tool_call.get("id", str(uuid.uuid4())),
+                    "name": function.get("name", ""),
+                    "input": json.loads(function.get("arguments", "{}")),
+                }
+                content_blocks.append(tool_use_block)
+
+            # Set stop reason based on finish reason
+            finish_reason = choice.get("finish_reason", "stop")
+            if finish_reason == "tool_calls":
+                stop_reason = "tool_use"
 
         # Build Anthropic response
         anthropic_response = {
             "id": str(uuid.uuid4()),
             "type": "message",
             "role": "assistant",
-            "content": [{"type": "text", "text": content_text}],
+            "content": content_blocks,
             "model": model,
-            "stop_reason": "stop",
+            "stop_reason": stop_reason,
             "stop_sequence": None,
             "usage": {
                 "input_tokens": openai_response.get("usage", {}).get(
