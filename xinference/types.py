@@ -351,6 +351,11 @@ class ModelAndPrompt(BaseModel):
     prompt: str
 
 
+class ModelAndMessages(BaseModel):
+    model: str
+    messages: List[Dict[str, Any]]
+
+
 class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
     max_tokens: Optional[int] = max_tokens_field
@@ -505,7 +510,9 @@ if TYPE_CHECKING:
 
     CreateMessageAnthropic: BaseModel
 
-    class CreateMessage(BaseModel):
+    class CreateMessage(
+        ModelAndMessages,
+    ):
         pass
 
 else:

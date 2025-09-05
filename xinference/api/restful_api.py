@@ -1491,6 +1491,13 @@ class RESTfulAPI(CancelMixin):
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
 
+        messages = body.messages and list(body.messages)
+
+        if not messages or messages[-1].get("role") not in ["user", "assistant"]:
+            raise HTTPException(
+                status_code=400, detail="Invalid input. Please specify the prompt."
+            )
+
         model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1503,25 +1510,23 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        # Convert Anthropic messages format to prompt
-        prompt = self._convert_anthropic_messages_to_prompt(body.messages)
-
         if body.stream:
 
             async def stream_results():
                 iterator = None
                 try:
                     try:
-                        iterator = await model.generate(
-                            prompt, kwargs, raw_params=raw_kwargs
+                        iterator = await model.chat(
+                            messages, kwargs, raw_params=raw_kwargs
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield item
+                    yield "[DONE]"
                 except asyncio.CancelledError:
                     logger.info(
-                        f"Disconnected from client (via refresh/close) {request.client} during generate."
+                        f"Disconnected from client (via refresh/close) {request.client} during chat."
                     )
                     return
                 except Exception as ex:
@@ -1538,7 +1543,7 @@ class RESTfulAPI(CancelMixin):
             )
         else:
             try:
-                data = await model.generate(prompt, kwargs, raw_params=raw_kwargs)
+                data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
                 # Convert OpenAI format to Anthropic format
                 openai_response = json.loads(data)
                 anthropic_response = self._convert_openai_to_anthropic(
@@ -2739,44 +2744,6 @@ class RESTfulAPI(CancelMixin):
                 kwargs["format"] = raw_extra_body.get("format")
 
         return kwargs
-
-    def _convert_anthropic_messages_to_prompt(self, messages: list) -> str:
-        """
-        Convert Anthropic messages format to a prompt string.
-
-        Args:
-            messages: List of message objects with role and content
-
-        Returns:
-            Formatted prompt string
-        """
-        prompt_parts = []
-
-        for message in messages:
-            role = message.get("role", "")
-            content = message.get("content", "")
-
-            if role == "user":
-                if isinstance(content, str):
-                    prompt_parts.append(f"Human: {content}")
-                elif isinstance(content, list):
-                    # Handle multimodal content
-                    text_content = ""
-                    for item in content:
-                        if item.get("type") == "text":
-                            text_content += item.get("text", "")
-                        # Add handling for other content types if needed
-                    prompt_parts.append(f"Human: {text_content}")
-            elif role == "assistant":
-                prompt_parts.append(f"Assistant: {content}")
-            elif role == "system":
-                # System messages are typically added at the beginning
-                prompt_parts.insert(0, f"System: {content}")
-
-        # Add final Assistant prompt for response
-        prompt_parts.append("Assistant:")
-
-        return "\n\n".join(prompt_parts)
 
     def _convert_openai_to_anthropic(self, openai_response: dict, model: str) -> dict:
         """
