@@ -132,7 +132,7 @@ def test_openai_requests():
     CreateChatCompletion.parse_obj(obj)
 
 
-def test_create_message_with_tools(self):
+def test_create_message_with_tools():
     """Test CreateMessage type with tools and tool_choice"""
     from ...types import CreateMessage
 
@@ -173,7 +173,7 @@ def test_create_message_with_tools(self):
     assert message.tool_choice["type"] == "auto"
 
 
-def test_create_message_without_tools(self):
+def test_create_message_without_tools():
     """Test CreateMessage type without tools"""
     from ...types import CreateMessage
 
@@ -194,7 +194,7 @@ def test_create_message_without_tools(self):
     assert not hasattr(message, "tool_choice") or not message.tool_choice
 
 
-def test_create_message_with_tool_choice_function(self):
+def test_create_message_with_tool_choice_function():
     """Test CreateMessage type with specific tool_choice function"""
     from ...types import CreateMessage
 
@@ -226,7 +226,7 @@ def test_create_message_with_tool_choice_function(self):
     assert message.tool_choice["function"]["name"] == "get_weather"
 
 
-def test_create_message_with_optional_fields(self):
+def test_create_message_with_optional_fields():
     """Test CreateMessage type with optional fields"""
     from ...types import CreateMessage
 
@@ -253,7 +253,7 @@ def test_create_message_with_optional_fields(self):
     assert message.tool_choice["type"] == "none"
 
 
-def test_model_and_messages_type(self):
+def test_model_and_messages_type():
     """Test ModelAndMessages type"""
     from ...types import ModelAndMessages
 
@@ -272,7 +272,7 @@ def test_model_and_messages_type(self):
     assert model_messages.messages[1]["role"] == "assistant"
 
 
-def test_message_create_params_structure(self):
+def test_message_create_params_structure():
     """Test MessageCreateParams structure compatibility"""
     # This test ensures the structure matches Anthropic API expectations
     from ...types import CreateMessage

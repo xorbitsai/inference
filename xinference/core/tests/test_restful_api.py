@@ -1405,14 +1405,23 @@ def test_builtin_families(setup):
     assert "qwen3" in families["hybrid"]
 
 
-def setup_method(self):
-    """Setup test fixtures"""
-    from ...api.restful_api import RESTfulAPIHandler
+@pytest.fixture
+def anthropic_setup():
+    """Setup for Anthropic format conversion tests"""
 
-    self.handler = RESTfulAPIHandler()
+    # Create a mock handler with the conversion method
+    class MockHandler:
+        def _convert_openai_to_anthropic(
+            self, openai_response: dict, model: str
+        ) -> dict:
+            from ...api.restful_api import RESTfulAPI
 
-    # Sample OpenAI response with tool calls
-    self.sample_openai_response_with_tools = {
+            # Create a temporary RESTfulAPI instance to access the method
+            app = RESTfulAPI("test_supervisor_address", "test_host", 12345)
+            return app._convert_openai_to_anthropic(openai_response, model)
+
+    # Sample OpenAI responses for testing
+    sample_openai_response_with_tools = {
         "choices": [
             {
                 "message": {
@@ -1435,8 +1444,7 @@ def setup_method(self):
         "usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
     }
 
-    # Sample OpenAI response without tool calls
-    self.sample_openai_response_without_tools = {
+    sample_openai_response_without_tools = {
         "choices": [
             {
                 "message": {
@@ -1450,11 +1458,18 @@ def setup_method(self):
         "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
     }
 
+    return (
+        MockHandler(),
+        sample_openai_response_with_tools,
+        sample_openai_response_without_tools,
+    )
 
-def test_convert_openai_to_anthropic_with_tools(self):
+
+def test_convert_openai_to_anthropic_with_tools(anthropic_setup):
     """Test conversion of OpenAI response with tool calls to Anthropic format"""
-    result = self.handler._convert_openai_to_anthropic(
-        self.sample_openai_response_with_tools, "test-model"
+    handler, sample_openai_response_with_tools, _ = anthropic_setup
+    result = handler._convert_openai_to_anthropic(
+        sample_openai_response_with_tools, "test-model"
     )
 
     # Verify basic structure
@@ -1477,10 +1492,11 @@ def test_convert_openai_to_anthropic_with_tools(self):
     assert result["usage"]["output_tokens"] == 20
 
 
-def test_convert_openai_to_anthropic_without_tools(self):
+def test_convert_openai_to_anthropic_without_tools(anthropic_setup):
     """Test conversion of OpenAI response without tool calls to Anthropic format"""
-    result = self.handler._convert_openai_to_anthropic(
-        self.sample_openai_response_without_tools, "test-model"
+    handler, _, sample_openai_response_without_tools = anthropic_setup
+    result = handler._convert_openai_to_anthropic(
+        sample_openai_response_without_tools, "test-model"
     )
 
     # Verify basic structure
@@ -1500,8 +1516,9 @@ def test_convert_openai_to_anthropic_without_tools(self):
     assert result["usage"]["output_tokens"] == 10
 
 
-def test_convert_openai_to_anthropic_mixed_content(self):
+def test_convert_openai_to_anthropic_mixed_content(anthropic_setup):
     """Test conversion of OpenAI response with both text and tool calls"""
+    handler, _, _ = anthropic_setup
     openai_response = {
         "choices": [
             {
@@ -1525,7 +1542,7 @@ def test_convert_openai_to_anthropic_mixed_content(self):
         "usage": {"prompt_tokens": 60, "completion_tokens": 30, "total_tokens": 90},
     }
 
-    result = self.handler._convert_openai_to_anthropic(openai_response, "test-model")
+    result = handler._convert_openai_to_anthropic(openai_response, "test-model")
 
     # Verify basic structure
     assert result["type"] == "message"
@@ -1548,8 +1565,9 @@ def test_convert_openai_to_anthropic_mixed_content(self):
     assert tool_block["input"] == {"city": "Shanghai"}
 
 
-def test_convert_openai_to_anthropic_multiple_tools(self):
+def test_convert_openai_to_anthropic_multiple_tools(anthropic_setup):
     """Test conversion of OpenAI response with multiple tool calls"""
+    handler, _, _ = anthropic_setup
     openai_response = {
         "choices": [
             {
@@ -1585,7 +1603,7 @@ def test_convert_openai_to_anthropic_multiple_tools(self):
         },
     }
 
-    result = self.handler._convert_openai_to_anthropic(openai_response, "test-model")
+    result = handler._convert_openai_to_anthropic(openai_response, "test-model")
 
     # Verify content blocks
     assert len(result["content"]) == 3  # 1 text + 2 tool_use blocks
@@ -1603,10 +1621,11 @@ def test_convert_openai_to_anthropic_multiple_tools(self):
     assert tool_blocks[1]["input"] == {"timezone": "UTC"}
 
 
-def test_convert_openai_to_anthropic_empty_response(self):
+def test_convert_openai_to_anthropic_empty_response(anthropic_setup):
     """Test conversion of empty OpenAI response"""
+    handler, _, _ = anthropic_setup
     empty_response = {"choices": []}
-    result = self.handler._convert_openai_to_anthropic(empty_response, "test-model")
+    result = handler._convert_openai_to_anthropic(empty_response, "test-model")
 
     # Should still have basic structure
     assert result["type"] == "message"
@@ -1616,8 +1635,9 @@ def test_convert_openai_to_anthropic_empty_response(self):
     assert result["content"] == []
 
 
-def test_convert_openai_to_anthropic_invalid_tool_arguments(self):
+def test_convert_openai_to_anthropic_invalid_tool_arguments(anthropic_setup):
     """Test handling of invalid tool arguments JSON"""
+    handler, _, _ = anthropic_setup
     openai_response = {
         "choices": [
             {
@@ -1642,7 +1662,7 @@ def test_convert_openai_to_anthropic_invalid_tool_arguments(self):
     }
 
     # Should not raise exception, should handle gracefully
-    result = self.handler._convert_openai_to_anthropic(openai_response, "test-model")
+    result = handler._convert_openai_to_anthropic(openai_response, "test-model")
 
     # Verify structure is maintained even with invalid JSON
     assert result["type"] == "message"
@@ -1654,10 +1674,11 @@ def test_convert_openai_to_anthropic_invalid_tool_arguments(self):
     assert tool_block["input"] == {}
 
 
-def test_anthropic_tools_response_format(self):
+def test_anthropic_tools_response_format(anthropic_setup):
     """Test that the response format matches Anthropic API specification"""
-    result = self.handler._convert_openai_to_anthropic(
-        self.sample_openai_response_with_tools, "test-model"
+    handler, sample_openai_response_with_tools, _ = anthropic_setup
+    result = handler._convert_openai_to_anthropic(
+        sample_openai_response_with_tools, "test-model"
     )
 
     # Verify required fields according to Anthropic API spec

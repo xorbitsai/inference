@@ -2783,12 +2783,17 @@ class RESTfulAPI(CancelMixin):
             tool_calls = message.get("tool_calls", [])
             for tool_call in tool_calls:
                 function = tool_call.get("function", {})
+                arguments = function.get("arguments", "{}")
+                try:
+                    input_data = json.loads(arguments)
+                except json.JSONDecodeError:
+                    input_data = {}
                 tool_use_block = {
                     "type": "tool_use",
                     "cache_control": {"type": "ephemeral"},
                     "id": tool_call.get("id", str(uuid.uuid4())),
                     "name": function.get("name", ""),
-                    "input": json.loads(function.get("arguments", "{}")),
+                    "input": input_data,
                 }
                 content_blocks.append(tool_use_block)
 
