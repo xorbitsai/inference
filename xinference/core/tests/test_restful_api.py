@@ -1405,293 +1405,289 @@ def test_builtin_families(setup):
     assert "qwen3" in families["hybrid"]
 
 
-class TestAnthropicTools:
-    """Test cases for Anthropic API tools functionality"""
+def setup_method(self):
+    """Setup test fixtures"""
+    from ...api.restful_api import RESTfulAPIHandler
 
-    def setup_method(self):
-        """Setup test fixtures"""
-        from ...api.restful_api import RESTfulAPIHandler
+    self.handler = RESTfulAPIHandler()
 
-        self.handler = RESTfulAPIHandler()
-
-        # Sample OpenAI response with tool calls
-        self.sample_openai_response_with_tools = {
-            "choices": [
-                {
-                    "message": {
-                        "content": None,
-                        "tool_calls": [
-                            {
-                                "id": "call_123",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_weather",
-                                    "arguments": '{"city": "Beijing"}',
-                                },
-                            }
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
-                    "index": 0,
-                }
-            ],
-            "usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
-        }
-
-        # Sample OpenAI response without tool calls
-        self.sample_openai_response_without_tools = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "Hello, how can I help you?",
-                        "tool_calls": [],
-                    },
-                    "finish_reason": "stop",
-                    "index": 0,
-                }
-            ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
-        }
-
-    def test_convert_openai_to_anthropic_with_tools(self):
-        """Test conversion of OpenAI response with tool calls to Anthropic format"""
-        result = self.handler._convert_openai_to_anthropic(
-            self.sample_openai_response_with_tools, "test-model"
-        )
-
-        # Verify basic structure
-        assert result["type"] == "message"
-        assert result["role"] == "assistant"
-        assert result["model"] == "test-model"
-        assert result["stop_reason"] == "tool_use"
-
-        # Verify content blocks
-        assert len(result["content"]) == 1
-        content_block = result["content"][0]
-        assert content_block["type"] == "tool_use"
-        assert content_block["name"] == "get_weather"
-        assert content_block["input"] == {"city": "Beijing"}
-        assert "id" in content_block
-        assert content_block["cache_control"] == {"type": "ephemeral"}
-
-        # Verify usage stats
-        assert result["usage"]["input_tokens"] == 50
-        assert result["usage"]["output_tokens"] == 20
-
-    def test_convert_openai_to_anthropic_without_tools(self):
-        """Test conversion of OpenAI response without tool calls to Anthropic format"""
-        result = self.handler._convert_openai_to_anthropic(
-            self.sample_openai_response_without_tools, "test-model"
-        )
-
-        # Verify basic structure
-        assert result["type"] == "message"
-        assert result["role"] == "assistant"
-        assert result["model"] == "test-model"
-        assert result["stop_reason"] == "stop"
-
-        # Verify content blocks
-        assert len(result["content"]) == 1
-        content_block = result["content"][0]
-        assert content_block["type"] == "text"
-        assert content_block["text"] == "Hello, how can I help you?"
-
-        # Verify usage stats
-        assert result["usage"]["input_tokens"] == 10
-        assert result["usage"]["output_tokens"] == 10
-
-    def test_convert_openai_to_anthropic_mixed_content(self):
-        """Test conversion of OpenAI response with both text and tool calls"""
-        openai_response = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "I'll help you check the weather.",
-                        "tool_calls": [
-                            {
-                                "id": "call_456",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_weather",
-                                    "arguments": '{"city": "Shanghai"}',
-                                },
-                            }
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
-                    "index": 0,
-                }
-            ],
-            "usage": {"prompt_tokens": 60, "completion_tokens": 30, "total_tokens": 90},
-        }
-
-        result = self.handler._convert_openai_to_anthropic(
-            openai_response, "test-model"
-        )
-
-        # Verify basic structure
-        assert result["type"] == "message"
-        assert result["role"] == "assistant"
-        assert result["model"] == "test-model"
-        assert result["stop_reason"] == "tool_use"
-
-        # Verify content blocks (should have both text and tool_use)
-        assert len(result["content"]) == 2
-
-        # First block should be text
-        text_block = result["content"][0]
-        assert text_block["type"] == "text"
-        assert text_block["text"] == "I'll help you check the weather."
-
-        # Second block should be tool_use
-        tool_block = result["content"][1]
-        assert tool_block["type"] == "tool_use"
-        assert tool_block["name"] == "get_weather"
-        assert tool_block["input"] == {"city": "Shanghai"}
-
-    def test_convert_openai_to_anthropic_multiple_tools(self):
-        """Test conversion of OpenAI response with multiple tool calls"""
-        openai_response = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "I'll help you with both tasks.",
-                        "tool_calls": [
-                            {
-                                "id": "call_789",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_weather",
-                                    "arguments": '{"city": "Beijing"}',
-                                },
+    # Sample OpenAI response with tool calls
+    self.sample_openai_response_with_tools = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Beijing"}',
                             },
-                            {
-                                "id": "call_790",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_time",
-                                    "arguments": '{"timezone": "UTC"}',
-                                },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
+    }
+
+    # Sample OpenAI response without tool calls
+    self.sample_openai_response_without_tools = {
+        "choices": [
+            {
+                "message": {
+                    "content": "Hello, how can I help you?",
+                    "tool_calls": [],
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+    }
+
+
+def test_convert_openai_to_anthropic_with_tools(self):
+    """Test conversion of OpenAI response with tool calls to Anthropic format"""
+    result = self.handler._convert_openai_to_anthropic(
+        self.sample_openai_response_with_tools, "test-model"
+    )
+
+    # Verify basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "tool_use"
+
+    # Verify content blocks
+    assert len(result["content"]) == 1
+    content_block = result["content"][0]
+    assert content_block["type"] == "tool_use"
+    assert content_block["name"] == "get_weather"
+    assert content_block["input"] == {"city": "Beijing"}
+    assert "id" in content_block
+    assert content_block["cache_control"] == {"type": "ephemeral"}
+
+    # Verify usage stats
+    assert result["usage"]["input_tokens"] == 50
+    assert result["usage"]["output_tokens"] == 20
+
+
+def test_convert_openai_to_anthropic_without_tools(self):
+    """Test conversion of OpenAI response without tool calls to Anthropic format"""
+    result = self.handler._convert_openai_to_anthropic(
+        self.sample_openai_response_without_tools, "test-model"
+    )
+
+    # Verify basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "stop"
+
+    # Verify content blocks
+    assert len(result["content"]) == 1
+    content_block = result["content"][0]
+    assert content_block["type"] == "text"
+    assert content_block["text"] == "Hello, how can I help you?"
+
+    # Verify usage stats
+    assert result["usage"]["input_tokens"] == 10
+    assert result["usage"]["output_tokens"] == 10
+
+
+def test_convert_openai_to_anthropic_mixed_content(self):
+    """Test conversion of OpenAI response with both text and tool calls"""
+    openai_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": "I'll help you check the weather.",
+                    "tool_calls": [
+                        {
+                            "id": "call_456",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Shanghai"}',
                             },
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
-                    "index": 0,
-                }
-            ],
-            "usage": {
-                "prompt_tokens": 80,
-                "completion_tokens": 40,
-                "total_tokens": 120,
-            },
-        }
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 60, "completion_tokens": 30, "total_tokens": 90},
+    }
 
-        result = self.handler._convert_openai_to_anthropic(
-            openai_response, "test-model"
-        )
+    result = self.handler._convert_openai_to_anthropic(openai_response, "test-model")
 
-        # Verify content blocks
-        assert len(result["content"]) == 3  # 1 text + 2 tool_use blocks
+    # Verify basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "tool_use"
 
-        # Check tool blocks
-        tool_blocks = [
-            block for block in result["content"] if block["type"] == "tool_use"
-        ]
-        assert len(tool_blocks) == 2
+    # Verify content blocks (should have both text and tool_use)
+    assert len(result["content"]) == 2
 
-        # Verify first tool
-        assert tool_blocks[0]["name"] == "get_weather"
-        assert tool_blocks[0]["input"] == {"city": "Beijing"}
+    # First block should be text
+    text_block = result["content"][0]
+    assert text_block["type"] == "text"
+    assert text_block["text"] == "I'll help you check the weather."
 
-        # Verify second tool
-        assert tool_blocks[1]["name"] == "get_time"
-        assert tool_blocks[1]["input"] == {"timezone": "UTC"}
+    # Second block should be tool_use
+    tool_block = result["content"][1]
+    assert tool_block["type"] == "tool_use"
+    assert tool_block["name"] == "get_weather"
+    assert tool_block["input"] == {"city": "Shanghai"}
 
-    def test_convert_openai_to_anthropic_empty_response(self):
-        """Test conversion of empty OpenAI response"""
-        empty_response = {"choices": []}
-        result = self.handler._convert_openai_to_anthropic(empty_response, "test-model")
 
-        # Should still have basic structure
-        assert result["type"] == "message"
-        assert result["role"] == "assistant"
-        assert result["model"] == "test-model"
-        assert result["stop_reason"] == "stop"
-        assert result["content"] == []
+def test_convert_openai_to_anthropic_multiple_tools(self):
+    """Test conversion of OpenAI response with multiple tool calls"""
+    openai_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": "I'll help you with both tasks.",
+                    "tool_calls": [
+                        {
+                            "id": "call_789",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Beijing"}',
+                            },
+                        },
+                        {
+                            "id": "call_790",
+                            "type": "function",
+                            "function": {
+                                "name": "get_time",
+                                "arguments": '{"timezone": "UTC"}',
+                            },
+                        },
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 80,
+            "completion_tokens": 40,
+            "total_tokens": 120,
+        },
+    }
 
-    def test_convert_openai_to_anthropic_invalid_tool_arguments(self):
-        """Test handling of invalid tool arguments JSON"""
-        openai_response = {
-            "choices": [
-                {
-                    "message": {
-                        "content": None,
-                        "tool_calls": [
-                            {
-                                "id": "call_invalid",
-                                "type": "function",
-                                "function": {
-                                    "name": "test_tool",
-                                    "arguments": "invalid json {",
-                                },
-                            }
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
-                    "index": 0,
-                }
-            ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
-        }
+    result = self.handler._convert_openai_to_anthropic(openai_response, "test-model")
 
-        # Should not raise exception, should handle gracefully
-        result = self.handler._convert_openai_to_anthropic(
-            openai_response, "test-model"
-        )
+    # Verify content blocks
+    assert len(result["content"]) == 3  # 1 text + 2 tool_use blocks
 
-        # Verify structure is maintained even with invalid JSON
-        assert result["type"] == "message"
-        assert len(result["content"]) == 1
-        tool_block = result["content"][0]
-        assert tool_block["type"] == "tool_use"
-        assert tool_block["name"] == "test_tool"
-        # Invalid JSON should result in empty dict
-        assert tool_block["input"] == {}
+    # Check tool blocks
+    tool_blocks = [block for block in result["content"] if block["type"] == "tool_use"]
+    assert len(tool_blocks) == 2
 
-    def test_anthropic_tools_response_format(self):
-        """Test that the response format matches Anthropic API specification"""
-        result = self.handler._convert_openai_to_anthropic(
-            self.sample_openai_response_with_tools, "test-model"
-        )
+    # Verify first tool
+    assert tool_blocks[0]["name"] == "get_weather"
+    assert tool_blocks[0]["input"] == {"city": "Beijing"}
 
-        # Verify required fields according to Anthropic API spec
-        required_fields = [
-            "id",
-            "type",
-            "role",
-            "content",
-            "model",
-            "stop_reason",
-            "usage",
-        ]
-        for field in required_fields:
-            assert field in result
+    # Verify second tool
+    assert tool_blocks[1]["name"] == "get_time"
+    assert tool_blocks[1]["input"] == {"timezone": "UTC"}
 
-        # Verify field types
-        assert isinstance(result["id"], str)
-        assert result["type"] == "message"
-        assert result["role"] == "assistant"
-        assert isinstance(result["content"], list)
-        assert isinstance(result["model"], str)
-        assert result["stop_reason"] in ["stop", "tool_use"]
-        assert isinstance(result["usage"], dict)
 
-        # Verify usage structure
-        usage_fields = [
-            "input_tokens",
-            "output_tokens",
-            "cache_creation_input_tokens",
-            "cache_read_input_tokens",
-        ]
-        for field in usage_fields:
-            assert field in result["usage"]
+def test_convert_openai_to_anthropic_empty_response(self):
+    """Test conversion of empty OpenAI response"""
+    empty_response = {"choices": []}
+    result = self.handler._convert_openai_to_anthropic(empty_response, "test-model")
+
+    # Should still have basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "stop"
+    assert result["content"] == []
+
+
+def test_convert_openai_to_anthropic_invalid_tool_arguments(self):
+    """Test handling of invalid tool arguments JSON"""
+    openai_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_invalid",
+                            "type": "function",
+                            "function": {
+                                "name": "test_tool",
+                                "arguments": "invalid json {",
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+    }
+
+    # Should not raise exception, should handle gracefully
+    result = self.handler._convert_openai_to_anthropic(openai_response, "test-model")
+
+    # Verify structure is maintained even with invalid JSON
+    assert result["type"] == "message"
+    assert len(result["content"]) == 1
+    tool_block = result["content"][0]
+    assert tool_block["type"] == "tool_use"
+    assert tool_block["name"] == "test_tool"
+    # Invalid JSON should result in empty dict
+    assert tool_block["input"] == {}
+
+
+def test_anthropic_tools_response_format(self):
+    """Test that the response format matches Anthropic API specification"""
+    result = self.handler._convert_openai_to_anthropic(
+        self.sample_openai_response_with_tools, "test-model"
+    )
+
+    # Verify required fields according to Anthropic API spec
+    required_fields = [
+        "id",
+        "type",
+        "role",
+        "content",
+        "model",
+        "stop_reason",
+        "usage",
+    ]
+    for field in required_fields:
+        assert field in result
+
+    # Verify field types
+    assert isinstance(result["id"], str)
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert isinstance(result["content"], list)
+    assert isinstance(result["model"], str)
+    assert result["stop_reason"] in ["stop", "tool_use"]
+    assert isinstance(result["usage"], dict)
+
+    # Verify usage structure
+    usage_fields = [
+        "input_tokens",
+        "output_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+    ]
+    for field in usage_fields:
+        assert field in result["usage"]
