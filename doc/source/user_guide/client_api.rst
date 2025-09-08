@@ -141,6 +141,8 @@ Output:
 Anthropic Client
 ========================
 
+    Anthropic API's access address is: /v1/messages
+
 .. code-block::
 
     import anthropic

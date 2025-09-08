@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-04 15:18+0800\n"
+"POT-Creation-Date: 2025-09-08 11:05+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -61,16 +61,16 @@ msgid "To initialize an LLM and chat:"
 msgstr "初始化一个大语言模型并且与之对话："
 
 #: ../../source/user_guide/client_api.rst:41
-#: ../../source/user_guide/client_api.rst:181
-#: ../../source/user_guide/client_api.rst:252
-#: ../../source/user_guide/client_api.rst:321
+#: ../../source/user_guide/client_api.rst:183
+#: ../../source/user_guide/client_api.rst:254
+#: ../../source/user_guide/client_api.rst:323
 msgid "Xinference Client"
 msgstr "Xinference Client"
 
 #: ../../source/user_guide/client_api.rst:65
-#: ../../source/user_guide/client_api.rst:213
-#: ../../source/user_guide/client_api.rst:276
-#: ../../source/user_guide/client_api.rst:345
+#: ../../source/user_guide/client_api.rst:215
+#: ../../source/user_guide/client_api.rst:278
+#: ../../source/user_guide/client_api.rst:347
 msgid "OpenAI Client"
 msgstr "OpenAI Client"
 
@@ -88,13 +88,13 @@ msgid "OpenAI Client Tool Calls"
 msgstr "OpenAI 工具调用"
 
 #: ../../source/user_guide/client_api.rst:134
-#: ../../source/user_guide/client_api.rst:195
-#: ../../source/user_guide/client_api.rst:227
-#: ../../source/user_guide/client_api.rst:267
-#: ../../source/user_guide/client_api.rst:291
-#: ../../source/user_guide/client_api.rst:335
-#: ../../source/user_guide/client_api.rst:360
-#: ../../source/user_guide/client_api.rst:389
+#: ../../source/user_guide/client_api.rst:197
+#: ../../source/user_guide/client_api.rst:229
+#: ../../source/user_guide/client_api.rst:269
+#: ../../source/user_guide/client_api.rst:293
+#: ../../source/user_guide/client_api.rst:337
+#: ../../source/user_guide/client_api.rst:362
+#: ../../source/user_guide/client_api.rst:391
 msgid "Output:"
 msgstr "输出："
 
@@ -103,19 +103,23 @@ msgstr "输出："
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
 
-#: ../../source/user_guide/client_api.rst:163
+#: ../../source/user_guide/client_api.rst:144
+msgid "Anthropic API's access address is: /v1/messages"
+msgstr "Anthropic的API访问地址为：/v1/messages"
+
+#: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
 msgstr "Embedding"
 
-#: ../../source/user_guide/client_api.rst:165
+#: ../../source/user_guide/client_api.rst:167
 msgid "To list the available built-in embedding models:"
 msgstr "列出所有内置支持的 embedding 模型："
 
-#: ../../source/user_guide/client_api.rst:178
+#: ../../source/user_guide/client_api.rst:180
 msgid "To launch an embedding model and embed text:"
 msgstr "拉起 embedding 模型并使用文本向量化："
 
-#: ../../source/user_guide/client_api.rst:215
+#: ../../source/user_guide/client_api.rst:217
 msgid ""
 "Openai client request with the same function as before, excluding launch "
 "model. More details refer to: https://platform.openai.com/docs/api-"
@@ -124,20 +128,20 @@ msgstr ""
 "使用 Openai 发送请求时，除了创建模型，其余的请求都保持与 Openai 的接口兼容。Openai 使用方式可以参考 "
 "https://platform.openai.com/docs/api-reference/embeddings?lang=python"
 
-#: ../../source/user_guide/client_api.rst:234
+#: ../../source/user_guide/client_api.rst:236
 msgid "Image"
 msgstr "图片"
 
-#: ../../source/user_guide/client_api.rst:236
-#: ../../source/user_guide/client_api.rst:301
+#: ../../source/user_guide/client_api.rst:238
+#: ../../source/user_guide/client_api.rst:303
 msgid "To list the available built-in image models:"
 msgstr "列出所有内置的文生图模型："
 
-#: ../../source/user_guide/client_api.rst:249
+#: ../../source/user_guide/client_api.rst:251
 msgid "To initiate an image model and generate an image using a text prompt:"
 msgstr "初始化一个文生图模型并通过提示词生成图片："
 
-#: ../../source/user_guide/client_api.rst:278
+#: ../../source/user_guide/client_api.rst:280
 msgid ""
 "Openai client request with the same function as before, excluding launch "
 "model. More details refer to: https://platform.openai.com/docs/api-"
@@ -146,15 +150,15 @@ msgstr ""
 "使用 Openai 发送请求时，除了创建模型，其余的请求都保持与 Openai 的接口兼容。Openai 使用方式可以参考 "
 "https://platform.openai.com/docs/api-reference/images/create?lang=python"
 
-#: ../../source/user_guide/client_api.rst:299
+#: ../../source/user_guide/client_api.rst:301
 msgid "Audio"
 msgstr ""
 
-#: ../../source/user_guide/client_api.rst:318
+#: ../../source/user_guide/client_api.rst:320
 msgid "To initiate an audio model and get text from an audio:"
 msgstr "初始化一个语音模型并通过语音生成文字："
 
-#: ../../source/user_guide/client_api.rst:347
+#: ../../source/user_guide/client_api.rst:349
 msgid ""
 "Openai client request with the same function as before. More details "
 "refer to: https://platform.openai.com/docs/api-"
@@ -163,11 +167,11 @@ msgstr ""
 "使用 Openai 发送请求时，除了创建模型，其余的请求都保持与 Openai 的接口兼容。Openai 使用方式可以参考 "
 "https://platform.openai.com/docs/api-reference/images/create?lang=python"
 
-#: ../../source/user_guide/client_api.rst:368
+#: ../../source/user_guide/client_api.rst:370
 msgid "Rerank"
 msgstr "Rerank"
 
-#: ../../source/user_guide/client_api.rst:369
+#: ../../source/user_guide/client_api.rst:371
 msgid "To launch a rerank model and compute the similarity scores:"
 msgstr "拉起 rerank 模型并计算文本相似度："
 
