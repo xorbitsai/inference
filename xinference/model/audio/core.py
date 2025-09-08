@@ -25,6 +25,7 @@ from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
+from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
 from .whisper import WhisperModel
@@ -140,6 +141,7 @@ def create_audio_model_instance(
     MeloTTSModel,
     KokoroModel,
     KokoroMLXModel,
+    KokoroZHModel,
     MegaTTSModel,
 ]:
     from ..cache_manager import CacheManager
@@ -160,6 +162,7 @@ def create_audio_model_instance(
         MeloTTSModel,
         KokoroModel,
         KokoroMLXModel,
+        KokoroZHModel,
         MegaTTSModel,
     ]
     if model_spec.model_family == "whisper":
@@ -183,6 +186,8 @@ def create_audio_model_instance(
         model = MeloTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Kokoro":
         model = KokoroModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Kokoro-zh":
+        model = KokoroZHModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Kokoro-MLX":
         model = KokoroMLXModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "MegaTTS":
