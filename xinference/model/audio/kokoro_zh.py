@@ -1,4 +1,3 @@
-# 替换掉官网的文件kokoro.py,用来v1.1-zh和解决GPU问题
 # Copyright 2022-2023 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
