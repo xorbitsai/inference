@@ -2371,7 +2371,14 @@ class RESTfulAPI(CancelMixin):
             data = await (await self._get_supervisor_ref()).list_model_registrations(
                 model_type, detailed=detailed
             )
-            return JSONResponse(content=data)
+            # 去重
+            model_names = set([])
+            final_data = []
+            for item in data:
+                if item["model_name"] not in model_names:
+                    model_names.add(item["model_name"])
+                    final_data.append(item)
+            return JSONResponse(content=final_data)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
