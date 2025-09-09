@@ -141,7 +141,7 @@ Output:
 Anthropic Client
 ========================
 
-    Anthropic API's access address is: /v1/messages
+    Anthropic API's access address is: /anthropic/v1/messages
 
 .. code-block::
 

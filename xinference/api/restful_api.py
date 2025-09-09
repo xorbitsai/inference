@@ -574,7 +574,7 @@ class RESTfulAPI(CancelMixin):
         # Register messages endpoint only if Anthropic is available
         if ANTHROPIC_AVAILABLE:
             self._router.add_api_route(
-                "/v1/messages",
+                "/anthropic/v1/messages",
                 self.create_message,
                 methods=["POST"],
                 response_model=AnthropicMessage,

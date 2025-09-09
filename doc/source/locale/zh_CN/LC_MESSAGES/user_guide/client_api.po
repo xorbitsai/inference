@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-08 11:05+0800\n"
+"POT-Creation-Date: 2025-09-09 12:13+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -104,8 +104,9 @@ msgid "Anthropic Client"
 msgstr "Anthropic Client"
 
 #: ../../source/user_guide/client_api.rst:144
-msgid "Anthropic API's access address is: /v1/messages"
-msgstr "Anthropic的API访问地址为：/v1/messages"
+#, fuzzy
+msgid "Anthropic API's access address is: /anthropic/v1/messages"
+msgstr "Anthropic的API访问地址为：/anthropic/v1/messages"
 
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
