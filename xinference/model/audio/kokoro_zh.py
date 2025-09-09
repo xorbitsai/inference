@@ -24,31 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-from kokoro import KModel, KPipeline
-
 REPO_ID = "hexgrad/Kokoro-82M-v1.1-zh"
-
-en_pipeline = KPipeline(lang_code="a", repo_id=REPO_ID, model=False)
-
-
-# from https://hf-mirror.com/hexgrad/Kokoro-82M-v1.1-zh/blob/main/samples/make_zh.py
-def en_callable(text):
-    if text == "Kokoro":
-        return "kˈOkəɹO"
-    elif text == "Sol":
-        return "sˈOl"
-    return next(en_pipeline(text)).phonemes
-
-
-# HACK: Mitigate rushing caused by lack of training data beyond ~100 tokens
-# Simple piecewise linear fn that decreases speed as len_ps increases
-def speed_callable(len_ps):
-    speed = 0.8
-    if len_ps <= 83:
-        speed = 1
-    elif len_ps < 183:
-        speed = 1 - (len_ps - 83) / 500
-    return speed * 1.1
 
 
 class KokoroZHModel:
@@ -67,6 +43,18 @@ class KokoroZHModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._en_pipeline = None
+
+    def _en_callable(self, text):
+        """
+        Fixing the issue of English words being skipped in the Chinese model.
+        from https://hf-mirror.com/hexgrad/Kokoro-82M-v1.1-zh/blob/main/samples/make_zh.py
+        """
+        if text == "Kokoro":
+            return "kˈOkəɹO"
+        elif text == "Sol":
+            return "sˈOl"
+        return next(self._en_pipeline(text)).phonemes
 
     @property
     def model_ability(self):
@@ -81,6 +69,10 @@ class KokoroZHModel:
 
         import os
 
+        from kokoro import KModel, KPipeline
+
+        self._en_pipeline = KPipeline(lang_code="a", repo_id=REPO_ID, model=False)
+
         config_path = os.path.join(self._model_path, "config.json")
         model_path = os.path.join(self._model_path, "kokoro-v1_1-zh.pth")
         lang_code = self._kwargs.get("lang_code", "z")
@@ -90,7 +82,7 @@ class KokoroZHModel:
             lang_code=lang_code,
             model=KModel(config=config_path, model=model_path).to(self._device),
             repo_id=REPO_ID,
-            en_callable=en_callable,
+            en_callable=self._en_callable,
             device=self._device,
         )
 
@@ -99,7 +91,7 @@ class KokoroZHModel:
         input: str,
         voice: str,
         response_format: str = "mp3",
-        speed: float = -1.0,
+        speed: float = 1.0,
         stream: bool = False,
         **kwargs,
     ):
@@ -116,9 +108,6 @@ class KokoroZHModel:
         else:
             logger.info("Using voice: %s", voice)
         logger.info("Speech kwargs: %s", kwargs)
-        # hack for speed
-        if speed < 0:
-            speed = speed_callable
         generator = self._model(text=input, voice=voice, speed=speed, **kwargs)
         results = list(generator)
         audio = np.concatenate([r[2] for r in results])
