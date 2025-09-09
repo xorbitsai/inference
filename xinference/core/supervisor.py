@@ -1042,7 +1042,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         # search in worker first
-        if not self.is_local_deployment():
+        if not self.is_local_deployment() and worker_ip is None:
             workers = list(self._worker_address_to_worker.values())
             for worker in workers:
                 res = await worker.get_model_registration(model_type, model_name)
