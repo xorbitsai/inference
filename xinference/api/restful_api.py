@@ -584,6 +584,27 @@ class RESTfulAPI(CancelMixin):
                     else None
                 ),
             )
+            # Register Anthropic models endpoints
+            self._router.add_api_route(
+                "/anthropic/v1/models",
+                self.anthropic_list_models,
+                methods=["GET"],
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:list"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
+            self._router.add_api_route(
+                "/anthropic/v1/models/{model_id}",
+                self.anthropic_get_model,
+                methods=["GET"],
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:list"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
@@ -1042,6 +1063,59 @@ class RESTfulAPI(CancelMixin):
             response = {"object": "list", "data": model_list}
 
             return JSONResponse(content=response)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def anthropic_list_models(self) -> JSONResponse:
+        """Anthropic-compatible models endpoint"""
+        try:
+            models = await (await self._get_supervisor_ref()).list_models()
+
+            # Convert to Anthropic format
+            model_list = []
+            for model_id, model_info in models.items():
+                anthropic_model = {
+                    "id": model_id,
+                    "object": "model",
+                    "created": 0,
+                    "display_name": model_info.get("model_name", model_id),
+                    "type": model_info.get("model_type", "model"),
+                    "max_tokens": model_info.get("context_length", 4096),
+                }
+                model_list.append(anthropic_model)
+
+            return JSONResponse(content=model_list)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def anthropic_get_model(self, model_id: str) -> JSONResponse:
+        """Anthropic-compatible model retrieval endpoint"""
+        try:
+            models = await (await self._get_supervisor_ref()).list_models()
+
+            if model_id not in models:
+                raise HTTPException(
+                    status_code=404, detail=f"Model '{model_id}' not found"
+                )
+
+            model_info = models[model_id]
+
+            # Convert to Anthropic format
+            anthropic_model = {
+                "id": model_id,
+                "object": "model",
+                "created": 0,
+                "display_name": model_info.get("model_name", model_id),
+                "type": model_info.get("model_type", "model"),
+                "max_tokens": model_info.get("context_length", 4096),
+                **model_info,
+            }
+
+            return JSONResponse(content=anthropic_model)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
