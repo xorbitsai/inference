@@ -17,6 +17,7 @@ import os
 import os.path
 import sys
 import time
+from unittest.mock import AsyncMock
 
 import openai
 import pytest
@@ -1712,3 +1713,206 @@ def test_anthropic_tools_response_format(anthropic_setup):
     ]
     for field in usage_fields:
         assert field in result["usage"]
+
+
+@pytest.fixture
+def anthropic_api():
+    """Create RESTfulAPI instance for testing"""
+    from ...api.restful_api import RESTfulAPI
+
+    return RESTfulAPI("localhost", 9997, "localhost:9997")
+
+
+@pytest.fixture
+def mock_supervisor():
+    """Mock supervisor reference"""
+    supervisor = AsyncMock()
+    return supervisor
+
+
+@pytest.fixture
+def sample_models():
+    """Sample models data for testing"""
+    return {
+        "model1": {
+            "model_name": "claude-3-sonnet",
+            "model_type": "LLM",
+            "context_length": 8192,
+            "model_format": "pytorch",
+            "model_size_in_billions": 7,
+            "quantization": "none",
+        },
+        "model2": {
+            "model_name": "claude-3-haiku",
+            "model_type": "LLM",
+            "context_length": 4096,
+            "model_format": "pytorch",
+            "model_size_in_billions": 3,
+            "quantization": "none",
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_anthropic_list_models(anthropic_api, mock_supervisor, sample_models):
+    """Test anthropic_list_models endpoint"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Call the method
+    response = await anthropic_api.anthropic_list_models()
+
+    # Verify response
+    assert response.status_code == 200
+    data = json.loads(response.body.decode())
+
+    assert len(data) == 2
+    assert data[0]["id"] == "model1"
+    assert data[0]["object"] == "model"
+    assert data[0]["display_name"] == "claude-3-sonnet"
+    assert data[0]["type"] == "LLM"
+    assert data[0]["max_tokens"] == 8192
+
+
+@pytest.mark.asyncio
+async def test_anthropic_get_model_found(anthropic_api, mock_supervisor, sample_models):
+    """Test anthropic_get_model endpoint when model exists"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Call the method
+    response = await anthropic_api.anthropic_get_model("model1")
+
+    # Verify response
+    assert response.status_code == 200
+    data = json.loads(response.body.decode())
+
+    assert data["id"] == "model1"
+    assert data["object"] == "model"
+    assert data["display_name"] == "claude-3-sonnet"
+    assert data["type"] == "LLM"
+    assert data["max_tokens"] == 8192
+    assert data["model_name"] == "claude-3-sonnet"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_get_model_not_found(
+    anthropic_api, mock_supervisor, sample_models
+):
+    """Test anthropic_get_model endpoint when model doesn't exist"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Call the method and expect exception
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        await anthropic_api.anthropic_get_model("nonexistent_model")
+
+    assert exc_info.value.status_code == 404
+    assert "Model 'nonexistent_model' not found" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_list_models_empty(anthropic_api, mock_supervisor):
+    """Test anthropic_list_models endpoint with no models"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value={})
+
+    # Call the method
+    response = await anthropic_api.anthropic_list_models()
+
+    # Verify response
+    assert response.status_code == 200
+    data = json.loads(response.body.decode())
+    assert len(data) == 0
+
+
+@pytest.mark.asyncio
+async def test_anthropic_list_models_error(anthropic_api, mock_supervisor):
+    """Test anthropic_list_models endpoint with error"""
+    # Mock the supervisor to raise exception
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(side_effect=Exception("Database error"))
+
+    # Call the method and expect exception
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        await anthropic_api.anthropic_list_models()
+
+    assert exc_info.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_anthropic_get_model_error(anthropic_api, mock_supervisor):
+    """Test anthropic_get_model endpoint with error"""
+    # Mock the supervisor to raise exception
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(side_effect=Exception("Database error"))
+
+    # Call the method and expect exception
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        await anthropic_api.anthropic_get_model("model1")
+
+    assert exc_info.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_anthropic_models_format_compatibility(
+    anthropic_api, mock_supervisor, sample_models
+):
+    """Test that Anthropic models endpoint format is compatible with Anthropic API"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Test list models
+    response = await anthropic_api.anthropic_list_models()
+    data = json.loads(response.body.decode())
+
+    # Verify Anthropic format
+    for model in data:
+        # Required fields for Anthropic models API
+        assert "id" in model
+        assert "object" in model
+        assert model["object"] == "model"
+        assert "created" in model
+        assert "display_name" in model
+        assert "type" in model
+        assert "max_tokens" in model
+
+        # Verify types
+        assert isinstance(model["id"], str)
+        assert isinstance(model["created"], int)
+        assert isinstance(model["display_name"], str)
+        assert isinstance(model["type"], str)
+        assert isinstance(model["max_tokens"], int)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_models_include_original_fields(
+    anthropic_api, mock_supervisor, sample_models
+):
+    """Test that original model fields are preserved in Anthropic response"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Test get model
+    response = await anthropic_api.anthropic_get_model("model1")
+    data = json.loads(response.body.decode())
+
+    # Verify original fields are preserved
+    assert data["model_name"] == "claude-3-sonnet"
+    assert data["model_type"] == "LLM"
+    assert data["context_length"] == 8192
+    assert data["model_format"] == "pytorch"
+    assert data["model_size_in_billions"] == 7
+    assert data["quantization"] == "none"
