@@ -14,6 +14,7 @@
 
 import asyncio
 import inspect
+import ipaddress
 import json
 import logging
 import multiprocessing
@@ -213,6 +214,9 @@ class BuildGradioMediaInterfaceRequest(BaseModel):
 
 
 class RESTfulAPI(CancelMixin):
+    # Add new class attributes 
+    _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None 
+
     def __init__(
         self,
         supervisor_address: str,
@@ -229,6 +233,44 @@ class RESTfulAPI(CancelMixin):
         self._auth_service = AuthService(auth_config_file)
         self._router = APIRouter()
         self._app = FastAPI()
+        # Initialize allowed IP list once
+        self._init_allowed_ip_list()
+
+    def _init_allowed_ip_list(self):
+        """Initialize the allowed IP list from environment variable."""
+        if RESTfulAPI._allowed_ip_list is None:
+            # ie: export XINFERENCE_ALLOWED_IPS=192.168.1.0/24
+            allowed_ips = os.environ.get("XINFERENCE_ALLOWED_IPS")
+            if allowed_ips:
+                RESTfulAPI._allowed_ip_list = []
+                for ip in allowed_ips.split(","):
+                    ip = ip.strip()
+                    try:
+                        # Try parsing as network/CIDR
+                        if "/" in ip:
+                            RESTfulAPI._allowed_ip_list.append(ipaddress.ip_network(ip))
+                        else:
+                            # Parse as single IP
+                            RESTfulAPI._allowed_ip_list.append(
+                                ipaddress.ip_network(f"{ip}/32")
+                            )
+                    except ValueError as e:
+                        logger.error(f"Invalid IP address or network: {ip}")
+                        continue
+
+    def _is_ip_allowed(self, ip: str) -> bool:
+        """Check if an IP is allowed based on configured rules."""
+        if not RESTfulAPI._allowed_ip_list:
+            return True
+            
+        try:
+            client_ip = ipaddress.ip_address(ip)
+            return any(
+                client_ip in allowed_net 
+                for allowed_net in RESTfulAPI._allowed_ip_list
+            )
+        except ValueError:
+            return False
 
     def is_authenticated(self):
         return False if self._auth_service.config is None else True
@@ -286,6 +328,17 @@ class RESTfulAPI(CancelMixin):
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+        @self._app.middleware("http")
+        async def ip_restriction_middleware(request: Request, call_next):
+            client_ip = request.client.host
+            if not self._is_ip_allowed(client_ip):
+                return PlainTextResponse(
+                    status_code=403,
+                    content=f"Access denied for IP: {client_ip}\n"
+                )
+            response = await call_next(request)
+            return response
 
         @self._app.exception_handler(500)
         async def internal_exception_handler(request: Request, exc: Exception):
