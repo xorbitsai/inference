@@ -1070,24 +1070,29 @@ class RESTfulAPI(CancelMixin):
     async def anthropic_list_models(self) -> JSONResponse:
         """Anthropic-compatible models endpoint"""
         try:
-            models = await (await self._get_supervisor_ref()).list_models()
+            # Get running models from xinference
+            running_models = await (await self._get_supervisor_ref()).list_models()
 
-            # Convert to Anthropic format
-            model_list = []
-            for model_id, model_info in models.items():
-                anthropic_model = {
-                    "id": model_id,
-                    "object": "model",
-                    "created": 0,
-                    "display_name": model_info.get("model_name", model_id),
-                    "type": model_info.get("model_type", "model"),
-                    "max_tokens": model_info.get("context_length", 4096),
-                }
-                model_list.append(anthropic_model)
+            # Get standard Claude model definitions
+            model_list = self._get_standard_claude_models()
+
+            # Add running models to the list
+            for model_id, model_info in running_models.items():
+                # Only add if it's not already in the standard list
+                if not any(model["id"] == model_id for model in model_list):
+                    anthropic_model = {
+                        "id": model_id,
+                        "object": "model",
+                        "created": 0,
+                        "display_name": model_info.get("model_name", model_id),
+                        "type": model_info.get("model_type", "model"),
+                        "max_tokens": model_info.get("context_length", 4096),
+                    }
+                    model_list.append(anthropic_model)
 
             return JSONResponse(content=model_list)
         except Exception as e:
-            logger.error(e, exc_info=True)
+            logger.error(e, sys.exc_info)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def anthropic_get_model(self, model_id: str) -> JSONResponse:
@@ -1095,16 +1100,30 @@ class RESTfulAPI(CancelMixin):
         try:
             models = await (await self._get_supervisor_ref()).list_models()
 
-            if model_id not in models:
-                raise HTTPException(
-                    status_code=404, detail=f"Model '{model_id}' not found"
-                )
+            # Model mapping: map standard Claude model IDs to running models
+            model_mapping = self._get_model_mapping(models)
 
-            model_info = models[model_id]
+            # Get the actual model ID to use
+            actual_model_id = model_mapping.get(model_id, model_id)
+
+            # If it's a standard Claude model but not running, return the standard definition
+            if actual_model_id not in models:
+                standard_models = {
+                    model["id"]: model for model in self._get_standard_claude_models()
+                }
+
+                if model_id in standard_models:
+                    return JSONResponse(content=standard_models[model_id])
+                else:
+                    raise HTTPException(
+                        status_code=404, detail=f"Model '{model_id}' not found"
+                    )
+
+            model_info = models[actual_model_id]
 
             # Convert to Anthropic format
             anthropic_model = {
-                "id": model_id,
+                "id": model_id,  # Return the original requested ID
                 "object": "model",
                 "created": 0,
                 "display_name": model_info.get("model_name", model_id),
@@ -1119,6 +1138,74 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    def _get_model_mapping(self, running_models):
+        """Create mapping from standard Claude model IDs to running models"""
+        mapping = {}
+
+        # If no running models, return empty mapping
+        if not running_models:
+            return mapping
+
+        # Simple strategy: map Claude models to the first available LLM model
+        # You can customize this logic based on your needs
+        llm_models = [
+            (uid, info)
+            for uid, info in running_models.items()
+            if info.get("model_type") == "LLM"
+        ]
+
+        if llm_models:
+            # Map standard Claude models to the first available LLM
+            first_model_uid = llm_models[0][0]
+
+            mapping.update(
+                {
+                    "claude-3-5-sonnet-20241022": first_model_uid,
+                    "claude-3-5-haiku-20241022": first_model_uid,
+                    "claude-3-opus-20240229": first_model_uid,
+                    "claude-sonnet-4-20250514": first_model_uid,
+                }
+            )
+
+        return mapping
+
+    def _get_standard_claude_models(self):
+        """Get standard Claude model definitions"""
+        return [
+            {
+                "id": "claude-3-5-sonnet-20241022",
+                "object": "model",
+                "created": 0,
+                "display_name": "Claude 3.5 Sonnet",
+                "type": "model",
+                "max_tokens": 8192,
+            },
+            {
+                "id": "claude-3-5-haiku-20241022",
+                "object": "model",
+                "created": 0,
+                "display_name": "Claude 3.5 Haiku",
+                "type": "model",
+                "max_tokens": 8192,
+            },
+            {
+                "id": "claude-3-opus-20240229",
+                "object": "model",
+                "created": 0,
+                "display_name": "Claude 3 Opus",
+                "type": "model",
+                "max_tokens": 8192,
+            },
+            {
+                "id": "claude-sonnet-4-20250514",
+                "object": "model",
+                "created": 0,
+                "display_name": "Claude Sonnet 4",
+                "type": "model",
+                "max_tokens": 8192,
+            },
+        ]
 
     async def describe_model(self, model_uid: str) -> JSONResponse:
         try:
@@ -1487,7 +1574,37 @@ class RESTfulAPI(CancelMixin):
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
 
-        model_uid = body.model
+        # Handle model selection with mapping
+        requested_model_id = body.model
+
+        # Get model mapping
+        try:
+            running_models = await (await self._get_supervisor_ref()).list_models()
+            model_mapping = self._get_model_mapping(running_models)
+        except Exception as e:
+            logger.error(f"Failed to get model mapping: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to get model mapping")
+
+        # Map the requested model ID to the actual running model
+        model_uid = model_mapping.get(requested_model_id, requested_model_id)
+
+        # If it's a standard Claude model but no running models, raise error
+        if model_uid == requested_model_id and requested_model_id in [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+            "claude-sonnet-4-20250514",
+        ]:
+            if not running_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No running models available. Please start a model in xinference first.",
+                )
+            elif model_uid not in running_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
+                )
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1581,7 +1698,38 @@ class RESTfulAPI(CancelMixin):
         if hasattr(body, "tool_choice") and body.tool_choice:
             kwargs["tool_choice"] = body.tool_choice
 
-        model_uid = body.model
+        # Handle model selection with mapping
+        requested_model_id = body.model
+
+        # Get model mapping
+        try:
+            running_models = await (await self._get_supervisor_ref()).list_models()
+            model_mapping = self._get_model_mapping(running_models)
+        except Exception as e:
+            logger.error(f"Failed to get model mapping: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to get model mapping")
+
+        # Map the requested model ID to the actual running model
+        model_uid = model_mapping.get(requested_model_id, requested_model_id)
+
+        # If it's a standard Claude model but no running models, raise error
+        if model_uid == requested_model_id and requested_model_id in [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+            "claude-sonnet-4-20250514",
+        ]:
+            if not running_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No running models available. Please start a model in xinference first.",
+                )
+            elif model_uid not in running_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
+                )
+
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1604,8 +1752,30 @@ class RESTfulAPI(CancelMixin):
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
-                    async for item in iterator:
-                        yield item
+
+                    # Check if iterator is actually an async iterator
+                    if hasattr(iterator, "__aiter__"):
+                        async for item in iterator:
+                            yield item
+                    elif isinstance(iterator, (str, bytes)):
+                        # Handle case where chat returns bytes/string instead of iterator
+                        if isinstance(iterator, bytes):
+                            try:
+                                content = iterator.decode("utf-8")
+                            except UnicodeDecodeError:
+                                content = str(iterator)
+                        else:
+                            content = iterator
+                        yield dict(data=json.dumps({"content": content}))
+                    else:
+                        # Fallback: try to iterate normally
+                        try:
+                            for item in iterator:
+                                yield item
+                        except TypeError:
+                            # If not iterable, yield as single result
+                            yield dict(data=json.dumps({"content": str(iterator)}))
+
                     yield "[DONE]"
                 except asyncio.CancelledError:
                     logger.info(
@@ -2849,9 +3019,28 @@ class RESTfulAPI(CancelMixin):
             message = choice.get("message", {})
 
             # Handle content text
-            content_text = message.get("content", "")
-            if content_text:
-                content_blocks.append({"type": "text", "text": content_text})
+            content = message.get("content", "")
+            if content:
+                if isinstance(content, str):
+                    # If content is a string, use it directly
+                    content_blocks.append({"type": "text", "text": content})
+                elif isinstance(content, list):
+                    # If content is a list, extract text from each content block
+                    for content_block in content:
+                        if isinstance(content_block, dict):
+                            if content_block.get("type") == "text":
+                                text = content_block.get("text", "")
+                                if text:
+                                    content_blocks.append(
+                                        {"type": "text", "text": text}
+                                    )
+                            elif "text" in content_block:
+                                # Handle different content block format
+                                text = content_block.get("text", "")
+                                if text:
+                                    content_blocks.append(
+                                        {"type": "text", "text": text}
+                                    )
 
             # Handle tool calls
             tool_calls = message.get("tool_calls", [])

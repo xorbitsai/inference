@@ -590,12 +590,37 @@ class ChatModelMixin:
                 pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
                 if pos2 != -1:
                     content = content[:pos2]
+
+                # Skip empty content after extraction
+                if not content.strip():
+                    continue
+
                 try:
                     res = json.loads(content, strict=False)
-                    results.append((None, res["name"], res["arguments"]))
-                except Exception as e:
+                    if isinstance(res, dict):
+                        # Check if required fields exist
+                        if "name" in res and "arguments" in res:
+                            results.append((None, res["name"], res["arguments"]))
+                        else:
+                            logger.warning(
+                                "Missing required fields in qwen tool call: %s", content
+                            )
+                            results.append((content, None, None))
+                    else:
+                        logger.warning(
+                            "Qwen tool call result is not a dict: %s", content
+                        )
+                        results.append((content, None, None))
+                except json.JSONDecodeError as e:
                     logger.error(
                         "Can't parse single qwen tool call output: %s. Error: %s",
+                        content,
+                        e,
+                    )
+                    results.append((content, None, None))
+                except Exception as e:
+                    logger.error(
+                        "Unexpected error parsing qwen tool call: %s. Error: %s",
                         content,
                         e,
                     )
