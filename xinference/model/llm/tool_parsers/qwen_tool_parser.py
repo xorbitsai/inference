@@ -317,4 +317,4 @@ class QwenToolParser(ToolParser):
 
         except Exception as e:
             logger.error("Error in Qwen streaming tool call extraction: %s", e)
-            return None
+            raise
