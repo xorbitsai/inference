@@ -54,6 +54,7 @@ from xoscar.utils import get_next_port
 from .._compat import BaseModel, Field
 from .._version import get_versions
 from ..constants import (
+    XINFERENCE_ALLOWED_IPS,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
@@ -214,8 +215,8 @@ class BuildGradioMediaInterfaceRequest(BaseModel):
 
 
 class RESTfulAPI(CancelMixin):
-    # Add new class attributes 
-    _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None 
+    # Add new class attributes
+    _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
 
     def __init__(
         self,
@@ -240,7 +241,7 @@ class RESTfulAPI(CancelMixin):
         """Initialize the allowed IP list from environment variable."""
         if RESTfulAPI._allowed_ip_list is None:
             # ie: export XINFERENCE_ALLOWED_IPS=192.168.1.0/24
-            allowed_ips = os.environ.get("XINFERENCE_ALLOWED_IPS")
+            allowed_ips = XINFERENCE_ALLOWED_IPS
             if allowed_ips:
                 RESTfulAPI._allowed_ip_list = []
                 for ip in allowed_ips.split(","):
@@ -254,20 +255,21 @@ class RESTfulAPI(CancelMixin):
                             RESTfulAPI._allowed_ip_list.append(
                                 ipaddress.ip_network(f"{ip}/32")
                             )
-                    except ValueError as e:
-                        logger.error(f"Invalid IP address or network: {ip}")
+                    except ValueError:
+                        logger.error(
+                            f"Invalid IP address or network: {ip}", exc_info=True
+                        )
                         continue
 
     def _is_ip_allowed(self, ip: str) -> bool:
         """Check if an IP is allowed based on configured rules."""
         if not RESTfulAPI._allowed_ip_list:
             return True
-            
+
         try:
             client_ip = ipaddress.ip_address(ip)
             return any(
-                client_ip in allowed_net 
-                for allowed_net in RESTfulAPI._allowed_ip_list
+                client_ip in allowed_net for allowed_net in RESTfulAPI._allowed_ip_list
             )
         except ValueError:
             return False
@@ -334,8 +336,7 @@ class RESTfulAPI(CancelMixin):
             client_ip = request.client.host
             if not self._is_ip_allowed(client_ip):
                 return PlainTextResponse(
-                    status_code=403,
-                    content=f"Access denied for IP: {client_ip}\n"
+                    status_code=403, content=f"Access denied for IP: {client_ip}\n"
                 )
             response = await call_next(request)
             return response
