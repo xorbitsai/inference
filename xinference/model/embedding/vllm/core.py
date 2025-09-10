@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib.util
+import json
 import logging
 from typing import List, Union
 
@@ -54,13 +55,18 @@ class VLLMEmbeddingModel(EmbeddingModel):
                 self._kwargs["hf_overrides"].update(
                     is_matryoshka=True,
                 )
+            elif isinstance(self._kwargs["hf_overrides"], str):
+                self._kwargs["hf_overrides"] = json.loads(self._kwargs["hf_overrides"])
+                self._kwargs["hf_overrides"].update(
+                    is_matryoshka=True,
+                )
 
         self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     @staticmethod
     def _get_detailed_instruct(task_description: str, query: str) -> str:
-        return f"Instruct: {task_description}\nQuery:{query}"
+        return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
     @cache_clean
     def create_embedding(
