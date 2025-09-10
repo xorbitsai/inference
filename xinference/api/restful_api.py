@@ -1070,29 +1070,45 @@ class RESTfulAPI(CancelMixin):
     async def anthropic_list_models(self) -> JSONResponse:
         """Anthropic-compatible models endpoint"""
         try:
+            import os
+
+            # Check if we should include standard Claude models (for Claude Code integration)
+            include_standard_models = (
+                os.getenv("XINFERENCE_INCLUDE_STANDARD_CLAUDE_MODELS", "false").lower()
+                == "true"
+            )
+
             # Get running models from xinference
             running_models = await (await self._get_supervisor_ref()).list_models()
 
-            # Get standard Claude model definitions
-            model_list = self._get_standard_claude_models()
+            # For backward compatibility with tests, only return running models by default
+            model_list = []
 
             # Add running models to the list
             for model_id, model_info in running_models.items():
-                # Only add if it's not already in the standard list
-                if not any(model["id"] == model_id for model in model_list):
-                    anthropic_model = {
-                        "id": model_id,
-                        "object": "model",
-                        "created": 0,
-                        "display_name": model_info.get("model_name", model_id),
-                        "type": model_info.get("model_type", "model"),
-                        "max_tokens": model_info.get("context_length", 4096),
-                    }
-                    model_list.append(anthropic_model)
+                anthropic_model = {
+                    "id": model_id,
+                    "object": "model",
+                    "created": 0,
+                    "display_name": model_info.get("model_name", model_id),
+                    "type": model_info.get("model_type", "model"),
+                    "max_tokens": model_info.get("context_length", 4096),
+                }
+                model_list.append(anthropic_model)
+
+            # Add standard Claude models only if explicitly enabled
+            if include_standard_models and running_models:
+                standard_models = self._get_standard_claude_models()
+                # Only add standard models that are not already in running models
+                for standard_model in standard_models:
+                    if not any(
+                        model["id"] == standard_model["id"] for model in model_list
+                    ):
+                        model_list.append(standard_model)
 
             return JSONResponse(content=model_list)
         except Exception as e:
-            logger.error(e, sys.exc_info)
+            logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def anthropic_get_model(self, model_id: str) -> JSONResponse:
