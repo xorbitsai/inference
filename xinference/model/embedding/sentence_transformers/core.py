@@ -265,7 +265,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
                     "clip" in self.model_family.model_name.lower()
                     or "jina-embeddings-v4" in self.model_family.model_name.lower()
                 ):
-                    # support input_ids 和 text_input_ids
+                    # support input_ids and text_input_ids
                     for key in ["input_ids", "text_input_ids"]:
                         if key in features and hasattr(features[key], "numel"):
                             all_token_nums += features[key].numel()
