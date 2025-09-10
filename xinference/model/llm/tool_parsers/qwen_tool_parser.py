@@ -260,6 +260,8 @@ class QwenToolParser(ToolParser):
         Returns:
             bool: True if there are unclosed tool_call tags.
         """
+        if not text:
+            return True
         start_count = text.count(self.tool_call_start_token)
         end_count = text.count(self.tool_call_end_token)
         return start_count > end_count

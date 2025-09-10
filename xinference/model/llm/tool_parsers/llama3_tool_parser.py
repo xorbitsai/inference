@@ -70,7 +70,7 @@ class Llama3ToolParser(ToolParser):
             Llama3 model does not currently support streaming tool call
             extraction. Use extract_tool_calls() with complete output instead.
         """
-        raise ValueError(
+        raise NotImplementedError(
             "Streaming support for tool calls is available only when using "
             "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
             "Llama3 does not support streaming tool call extraction."

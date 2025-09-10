@@ -138,7 +138,7 @@ class DeepseekV3ToolParser(ToolParser):
         Raises:
             ValueError: Always raised as streaming is not supported.
         """
-        raise ValueError(
+        raise NotImplementedError(
             "Streaming support for tool calls is available only when using "
             "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
             "DeepSeek V3 does not support streaming tool call extraction."

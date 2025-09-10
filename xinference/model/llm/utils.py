@@ -853,6 +853,8 @@ class ChatModelMixin:
         model_uid,
         c,
     ):
+        if not self.tool_parser:
+            return self._get_final_chat_completion_chunk(c)
         if self.reasoning_parser:
             c = self.reasoning_parser.prepare_reasoning_content(c)
         _id = str(uuid.uuid4())

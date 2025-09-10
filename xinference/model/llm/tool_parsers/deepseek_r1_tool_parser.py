@@ -121,7 +121,7 @@ class DeepseekR1ToolParser(ToolParser):
             DeepSeek R1 model does not currently support streaming tool call
             extraction. Use extract_tool_calls() with complete output instead.
         """
-        raise ValueError(
+        raise NotImplementedError(
             "Streaming support for tool calls is available only when using "
             "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
             "DeepSeek R1 does not support streaming tool call extraction."
