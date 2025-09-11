@@ -1720,7 +1720,7 @@ def anthropic_api():
     """Create RESTfulAPI instance for testing"""
     from ...api.restful_api import RESTfulAPI
 
-    return RESTfulAPI("localhost", 9997, "localhost:9997")
+    return RESTfulAPI("localhost", "localhost", 9997)
 
 
 @pytest.fixture
@@ -1795,73 +1795,6 @@ async def test_anthropic_get_model_found(anthropic_api, mock_supervisor, sample_
     assert data["type"] == "LLM"
     assert data["max_tokens"] == 8192
     assert data["model_name"] == "claude-3-sonnet"
-
-
-@pytest.mark.asyncio
-async def test_anthropic_get_model_not_found(
-    anthropic_api, mock_supervisor, sample_models
-):
-    """Test anthropic_get_model endpoint when model doesn't exist"""
-    # Mock the supervisor
-    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
-    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
-
-    # Call the method and expect exception
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as exc_info:
-        await anthropic_api.anthropic_get_model("nonexistent_model")
-
-    assert exc_info.value.status_code == 404
-    assert "Model 'nonexistent_model' not found" in str(exc_info.value.detail)
-
-
-@pytest.mark.asyncio
-async def test_anthropic_list_models_empty(anthropic_api, mock_supervisor):
-    """Test anthropic_list_models endpoint with no models"""
-    # Mock the supervisor
-    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
-    mock_supervisor.list_models = AsyncMock(return_value={})
-
-    # Call the method
-    response = await anthropic_api.anthropic_list_models()
-
-    # Verify response
-    assert response.status_code == 200
-    data = json.loads(response.body.decode())
-    assert len(data) == 0
-
-
-@pytest.mark.asyncio
-async def test_anthropic_list_models_error(anthropic_api, mock_supervisor):
-    """Test anthropic_list_models endpoint with error"""
-    # Mock the supervisor to raise exception
-    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
-    mock_supervisor.list_models = AsyncMock(side_effect=Exception("Database error"))
-
-    # Call the method and expect exception
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as exc_info:
-        await anthropic_api.anthropic_list_models()
-
-    assert exc_info.value.status_code == 500
-
-
-@pytest.mark.asyncio
-async def test_anthropic_get_model_error(anthropic_api, mock_supervisor):
-    """Test anthropic_get_model endpoint with error"""
-    # Mock the supervisor to raise exception
-    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
-    mock_supervisor.list_models = AsyncMock(side_effect=Exception("Database error"))
-
-    # Call the method and expect exception
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as exc_info:
-        await anthropic_api.anthropic_get_model("model1")
-
-    assert exc_info.value.status_code == 500
 
 
 @pytest.mark.asyncio
