@@ -2371,8 +2371,8 @@ class RESTfulAPI(CancelMixin):
             data = await (await self._get_supervisor_ref()).list_model_registrations(
                 model_type, detailed=detailed
             )
-            # 去重
-            model_names = set([])
+            # Remove duplicate model names.
+            model_names = set()
             final_data = []
             for item in data:
                 if item["model_name"] not in model_names:

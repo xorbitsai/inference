@@ -903,11 +903,11 @@ class SupervisorActor(xo.StatelessActor):
     ):
         logger.info(f"begin sync model:{model_name} to worker")
         try:
-            # 把模型同步给其他 worker
+            # Sync model to all workers.
             for name, worker in self._worker_address_to_worker.items():
                 logger.info(f"sync model:{model_name} to {name}")
                 if name == self.address:
-                    # 当worker和supervisor在同一个节点，则忽略
+                    # Ignore: when worker and supervisor at the same node.
                     logger.info(
                         f"ignore sync model:{model_name} to {name} for same node"
                     )
@@ -915,7 +915,7 @@ class SupervisorActor(xo.StatelessActor):
                     await worker.register_model(model_type, model, persist)
                     logger.info(f"success sync model:{model_name} to {name}")
         except Exception as e:
-            # 模型同步失败，则取消注册
+            # If sync fails, unregister the model in all workers.
             for name, worker in self._worker_address_to_worker.items():
                 logger.warning(f"ready to unregister model for {name}")
                 await worker.unregister_model(model_type, model_name)
