@@ -886,6 +886,10 @@ class SupervisorActor(xo.StatelessActor):
                 await self._cache_tracker_ref.record_model_version(
                     generate_fn(model_spec), self.address
                 )
+                await self._sync_register_model(
+                    model_type, model, persist, model_spec.model_name
+                )
+
             except ValueError as e:
                 raise e
             except Exception as e:
@@ -893,6 +897,30 @@ class SupervisorActor(xo.StatelessActor):
                 raise e
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    async def _sync_register_model(
+        self, model_type: str, model: str, persist: bool, model_name: str
+    ):
+        logger.info(f"begin sync model:{model_name} to worker")
+        try:
+            # Sync model to all workers.
+            for name, worker in self._worker_address_to_worker.items():
+                logger.info(f"sync model:{model_name} to {name}")
+                if name == self.address:
+                    # Ignore: when worker and supervisor at the same node.
+                    logger.info(
+                        f"ignore sync model:{model_name} to {name} for same node"
+                    )
+                else:
+                    await worker.register_model(model_type, model, persist)
+                    logger.info(f"success sync model:{model_name} to {name}")
+        except Exception as e:
+            # If sync fails, unregister the model in all workers.
+            for name, worker in self._worker_address_to_worker.items():
+                logger.warning(f"ready to unregister model for {name}")
+                await worker.unregister_model(model_type, model_name)
+                logger.warning(f"finish unregister model:{model} for {name}")
+            raise e
 
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
@@ -1014,7 +1042,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         # search in worker first
-        if not self.is_local_deployment():
+        if not self.is_local_deployment() and worker_ip is None:
             workers = list(self._worker_address_to_worker.values())
             for worker in workers:
                 res = await worker.get_model_registration(model_type, model_name)
