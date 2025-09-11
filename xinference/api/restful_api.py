@@ -23,7 +23,7 @@ import sys
 import time
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -97,39 +97,6 @@ class CreateCompletionRequest(CreateCompletion):
                 "stop": ["\n", "###"],
             }
         }
-
-
-# Define CreateMessageRequest only if Anthropic is available
-if TYPE_CHECKING:
-    # For type checking, define as if Anthropic is available
-    class CreateMessageRequest(CreateMessage):
-        class Config:
-            schema_extra = {
-                "example": {
-                    "model": "qwen3",
-                    "max_tokens": 100,
-                    "messages": [{"role": "user", "content": "Hello, Qwen"}],
-                }
-            }
-
-else:
-    # Runtime definitions
-    if ANTHROPIC_AVAILABLE:
-
-        class CreateMessageRequest(CreateMessage):
-            class Config:
-                schema_extra = {
-                    "example": {
-                        "model": "qwen3",
-                        "max_tokens": 100,
-                        "messages": [{"role": "user", "content": "Hello, Qwen"}],
-                    }
-                }
-
-    else:
-        # Define dummy type when Anthropic is not available
-        class CreateMessageRequest:
-            pass
 
 
 class CreateEmbeddingRequest(BaseModel):

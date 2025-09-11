@@ -149,7 +149,7 @@ Anthropic Client
 
     client = anthropic.Anthropic(
         # defaults to os.environ.get("ANTHROPIC_API_KEY")
-        base_url="http://localhost:9997",
+        base_url="http://localhost:9997/anthropic",
     )
     message = client.messages.create(
         model="qwen3",
