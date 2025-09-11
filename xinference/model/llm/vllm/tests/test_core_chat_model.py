@@ -37,10 +37,8 @@ class TestVLLMChatModel:
     def real_vllm_chat_model(self):
         from ..core import VLLMChatModel
 
-        # 创建一个最小化的真实实例
         model = object.__new__(VLLMChatModel)
 
-        # 设置必要的属性
         model.model_family = MagicMock()
         model.model_family.model_family = "qwen"
         model.model_family.reasoning_start_tag = "<think>"
