@@ -106,9 +106,9 @@ if TYPE_CHECKING:
         class Config:
             schema_extra = {
                 "example": {
-                    "model": "claude-3-sonnet-20240229",
+                    "model": "qwen3",
                     "max_tokens": 100,
-                    "messages": [{"role": "user", "content": "Hello, Claude"}],
+                    "messages": [{"role": "user", "content": "Hello, Qwen"}],
                 }
             }
 
@@ -120,9 +120,9 @@ else:
             class Config:
                 schema_extra = {
                     "example": {
-                        "model": "claude-3-sonnet-20240229",
+                        "model": "qwen3",
                         "max_tokens": 100,
-                        "messages": [{"role": "user", "content": "Hello, Claude"}],
+                        "messages": [{"role": "user", "content": "Hello, Qwen"}],
                     }
                 }
 
@@ -1070,13 +1070,6 @@ class RESTfulAPI(CancelMixin):
     async def anthropic_list_models(self) -> JSONResponse:
         """Anthropic-compatible models endpoint"""
         try:
-            import os
-
-            # Check if we should include standard Claude models (for Claude Code integration)
-            include_standard_models = (
-                os.getenv("XINFERENCE_INCLUDE_STANDARD_CLAUDE_MODELS", "false").lower()
-                == "true"
-            )
 
             # Get running models from xinference
             running_models = await (await self._get_supervisor_ref()).list_models()
@@ -1096,16 +1089,6 @@ class RESTfulAPI(CancelMixin):
                 }
                 model_list.append(anthropic_model)
 
-            # Add standard Claude models only if explicitly enabled
-            if include_standard_models and running_models:
-                standard_models = self._get_standard_claude_models()
-                # Only add standard models that are not already in running models
-                for standard_model in standard_models:
-                    if not any(
-                        model["id"] == standard_model["id"] for model in model_list
-                    ):
-                        model_list.append(standard_model)
-
             return JSONResponse(content=model_list)
         except Exception as e:
             logger.error(e, exc_info=True)
@@ -1116,26 +1099,7 @@ class RESTfulAPI(CancelMixin):
         try:
             models = await (await self._get_supervisor_ref()).list_models()
 
-            # Model mapping: map standard Claude model IDs to running models
-            model_mapping = self._get_model_mapping(models)
-
-            # Get the actual model ID to use
-            actual_model_id = model_mapping.get(model_id, model_id)
-
-            # If it's a standard Claude model but not running, return the standard definition
-            if actual_model_id not in models:
-                standard_models = {
-                    model["id"]: model for model in self._get_standard_claude_models()
-                }
-
-                if model_id in standard_models:
-                    return JSONResponse(content=standard_models[model_id])
-                else:
-                    raise HTTPException(
-                        status_code=404, detail=f"Model '{model_id}' not found"
-                    )
-
-            model_info = models[actual_model_id]
+            model_info = models[model_id]
 
             # Convert to Anthropic format
             anthropic_model = {
@@ -1154,74 +1118,6 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-
-    def _get_model_mapping(self, running_models):
-        """Create mapping from standard Claude model IDs to running models"""
-        mapping = {}
-
-        # If no running models, return empty mapping
-        if not running_models:
-            return mapping
-
-        # Simple strategy: map Claude models to the first available LLM model
-        # You can customize this logic based on your needs
-        llm_models = [
-            (uid, info)
-            for uid, info in running_models.items()
-            if info.get("model_type") == "LLM"
-        ]
-
-        if llm_models:
-            # Map standard Claude models to the first available LLM
-            first_model_uid = llm_models[0][0]
-
-            mapping.update(
-                {
-                    "claude-3-5-sonnet-20241022": first_model_uid,
-                    "claude-3-5-haiku-20241022": first_model_uid,
-                    "claude-3-opus-20240229": first_model_uid,
-                    "claude-sonnet-4-20250514": first_model_uid,
-                }
-            )
-
-        return mapping
-
-    def _get_standard_claude_models(self):
-        """Get standard Claude model definitions"""
-        return [
-            {
-                "id": "claude-3-5-sonnet-20241022",
-                "object": "model",
-                "created": 0,
-                "display_name": "Claude 3.5 Sonnet",
-                "type": "model",
-                "max_tokens": 8192,
-            },
-            {
-                "id": "claude-3-5-haiku-20241022",
-                "object": "model",
-                "created": 0,
-                "display_name": "Claude 3.5 Haiku",
-                "type": "model",
-                "max_tokens": 8192,
-            },
-            {
-                "id": "claude-3-opus-20240229",
-                "object": "model",
-                "created": 0,
-                "display_name": "Claude 3 Opus",
-                "type": "model",
-                "max_tokens": 8192,
-            },
-            {
-                "id": "claude-sonnet-4-20250514",
-                "object": "model",
-                "created": 0,
-                "display_name": "Claude Sonnet 4",
-                "type": "model",
-                "max_tokens": 8192,
-            },
-        ]
 
     async def describe_model(self, model_uid: str) -> JSONResponse:
         try:
@@ -1590,37 +1486,7 @@ class RESTfulAPI(CancelMixin):
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
 
-        # Handle model selection with mapping
-        requested_model_id = body.model
-
-        # Get model mapping
-        try:
-            running_models = await (await self._get_supervisor_ref()).list_models()
-            model_mapping = self._get_model_mapping(running_models)
-        except Exception as e:
-            logger.error(f"Failed to get model mapping: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to get model mapping")
-
-        # Map the requested model ID to the actual running model
-        model_uid = model_mapping.get(requested_model_id, requested_model_id)
-
-        # If it's a standard Claude model but no running models, raise error
-        if model_uid == requested_model_id and requested_model_id in [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229",
-            "claude-sonnet-4-20250514",
-        ]:
-            if not running_models:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"No running models available. Please start a model in xinference first.",
-                )
-            elif model_uid not in running_models:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
-                )
+        model_uid = body.model
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1714,37 +1580,30 @@ class RESTfulAPI(CancelMixin):
         if hasattr(body, "tool_choice") and body.tool_choice:
             kwargs["tool_choice"] = body.tool_choice
 
-        # Handle model selection with mapping
-        requested_model_id = body.model
-
         # Get model mapping
         try:
             running_models = await (await self._get_supervisor_ref()).list_models()
-            model_mapping = self._get_model_mapping(running_models)
         except Exception as e:
             logger.error(f"Failed to get model mapping: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to get model mapping")
 
-        # Map the requested model ID to the actual running model
-        model_uid = model_mapping.get(requested_model_id, requested_model_id)
+        if not running_models:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No running models available. Please start a model in xinference first.",
+            )
 
-        # If it's a standard Claude model but no running models, raise error
-        if model_uid == requested_model_id and requested_model_id in [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229",
-            "claude-sonnet-4-20250514",
-        ]:
-            if not running_models:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"No running models available. Please start a model in xinference first.",
-                )
-            elif model_uid not in running_models:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
-                )
+        requested_model_id = body.model
+        if "claude" in requested_model_id:
+            requested_model_id = list(running_models.keys())[0]
+
+        if requested_model_id not in running_models:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
+            )
+        else:
+            model_uid = requested_model_id
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
