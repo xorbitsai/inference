@@ -343,6 +343,7 @@ class MLXModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         kwargs = {}
         kwargs["revision"] = self._model_config.get(
@@ -769,7 +770,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             assert not isinstance(c, Iterator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c, self.reasoning_parser
+                    self.model_family, self.model_uid, c
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 
