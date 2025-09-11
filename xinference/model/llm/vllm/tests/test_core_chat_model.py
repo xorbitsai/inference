@@ -32,11 +32,9 @@ def filter_ids_and_created(data):
 
 
 class TestVLLMChatModel:
-    """VLLMChatModel 的单元测试类"""
 
     @pytest.fixture
     def real_vllm_chat_model(self):
-        """创建一个真实的 VLLMChatModel 实例用于集成测试"""
         from ..core import VLLMChatModel
 
         # 创建一个最小化的真实实例
@@ -54,7 +52,6 @@ class TestVLLMChatModel:
         return model
 
     async def create_mock_chunks(self, chunks_data):
-        """创建模拟的异步生成器"""
         for chunk in chunks_data:
             yield chunk
 
@@ -62,8 +59,6 @@ class TestVLLMChatModel:
     async def test_async_to_tool_completion_chunks_without_thinking(
         self, real_vllm_chat_model
     ):
-        """测试基本的工具完成块处理 - 集成测试，不使用mock"""
-        # 准备测试数据 - 基于真实的工具调用流数据
         test_chunks = [
             {
                 "id": "cd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
@@ -420,7 +415,6 @@ class TestVLLMChatModel:
             },
         ]
 
-        # 执行测试 - 使用真实的方法，不进行任何mock
         chunks_generator = self.create_mock_chunks(test_chunks)
         result_chunks = []
         expected_chunks = [
@@ -488,17 +482,10 @@ class TestVLLMChatModel:
             result_chunks.append(chunk)
             i += 1
 
-        # 输出结果用于调试
-        print(f"总共处理了 {len(result_chunks)} 个 chunks")
-        for i, chunk in enumerate(result_chunks):
-            print(f"Chunk {i}: {chunk}")
-
     @pytest.mark.asyncio
     async def test_async_to_tool_completion_chunks_with_thinking(
         self, real_vllm_chat_model
     ):
-        """测试带推理内容的工具完成块处理 - 集成测试，不使用mock"""
-        # 准备测试数据 - 包含 <think> 推理内容的工具调用流数据
         test_chunks = [
             {
                 "id": "cd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
@@ -945,7 +932,6 @@ class TestVLLMChatModel:
             },
         ]
 
-        # 执行测试 - 使用真实的方法，不进行任何mock
         chunks_generator = self.create_mock_chunks(test_chunks)
         result_chunks = []
 
@@ -954,17 +940,10 @@ class TestVLLMChatModel:
         async for chunk in gen:
             result_chunks.append(chunk)
 
-        # 输出结果用于调试
-        print(f"总共处理了 {len(result_chunks)} 个 chunks")
-        for i, chunk in enumerate(result_chunks):
-            print(f"Chunk {i}: {chunk}")
-
     @pytest.mark.asyncio
     async def test_async_to_tool_completion_chunks_with_parser(
         self, real_vllm_chat_model
     ):
-        """测试带推理内容的工具完成块处理 - 集成测试，不使用mock"""
-        # 准备测试数据 - 包含 <think> 推理内容的工具调用流数据
         test_chunks = [
             {
                 "id": "cd40cd70-84a6-11f0-b7a4-bc2411fe6c28",
@@ -1411,7 +1390,6 @@ class TestVLLMChatModel:
             },
         ]
 
-        # 执行测试 - 使用真实的方法，不进行任何mock
         chunks_generator = self.create_mock_chunks(test_chunks)
         result_chunks = []
         expected_chunks = [
@@ -1558,8 +1536,3 @@ class TestVLLMChatModel:
             expected_result = filter_ids_and_created(expected_chunks[i])
             assert result == expected_result
             i = i + 1
-
-        # 输出结果用于调试
-        print(f"总共处理了 {len(result_chunks)} 个 chunks")
-        for i, chunk in enumerate(result_chunks):
-            print(f"Chunk {i}: {chunk}")
