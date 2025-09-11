@@ -22,6 +22,7 @@ import os
 import pprint
 import sys
 import time
+import uuid
 import warnings
 from typing import Any, Dict, List, Optional, Union
 
@@ -63,11 +64,16 @@ from ..constants import (
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin, json_dumps
+
+# Import Anthropic-related types and availability flag
 from ..types import (
+    ANTHROPIC_AVAILABLE,
+    AnthropicMessage,
     ChatCompletion,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
+    CreateMessage,
     ImageList,
     PeftModelConfig,
     SDAPIResult,
@@ -586,6 +592,40 @@ class RESTfulAPI(CancelMixin):
                 else None
             ),
         )
+        # Register messages endpoint only if Anthropic is available
+        if ANTHROPIC_AVAILABLE:
+            self._router.add_api_route(
+                "/anthropic/v1/messages",
+                self.create_message,
+                methods=["POST"],
+                response_model=AnthropicMessage,
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:read"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
+            # Register Anthropic models endpoints
+            self._router.add_api_route(
+                "/anthropic/v1/models",
+                self.anthropic_list_models,
+                methods=["GET"],
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:list"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
+            self._router.add_api_route(
+                "/anthropic/v1/models/{model_id}",
+                self.anthropic_get_model,
+                methods=["GET"],
+                dependencies=(
+                    [Security(self._auth_service, scopes=["models:list"])]
+                    if self.is_authenticated()
+                    else None
+                ),
+            )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
@@ -1048,6 +1088,58 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def anthropic_list_models(self) -> JSONResponse:
+        """Anthropic-compatible models endpoint"""
+        try:
+
+            # Get running models from xinference
+            running_models = await (await self._get_supervisor_ref()).list_models()
+
+            # For backward compatibility with tests, only return running models by default
+            model_list = []
+
+            # Add running models to the list
+            for model_id, model_info in running_models.items():
+                anthropic_model = {
+                    "id": model_id,
+                    "object": "model",
+                    "created": 0,
+                    "display_name": model_info.get("model_name", model_id),
+                    "type": model_info.get("model_type", "model"),
+                    "max_tokens": model_info.get("context_length", 4096),
+                }
+                model_list.append(anthropic_model)
+
+            return JSONResponse(content=model_list)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def anthropic_get_model(self, model_id: str) -> JSONResponse:
+        """Anthropic-compatible model retrieval endpoint"""
+        try:
+            models = await (await self._get_supervisor_ref()).list_models()
+
+            model_info = models[model_id]
+
+            # Convert to Anthropic format
+            anthropic_model = {
+                "id": model_id,  # Return the original requested ID
+                "object": "model",
+                "created": 0,
+                "display_name": model_info.get("model_name", model_id),
+                "type": model_info.get("model_type", "model"),
+                "max_tokens": model_info.get("context_length", 4096),
+                **model_info,
+            }
+
+            return JSONResponse(content=anthropic_model)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def describe_model(self, model_uid: str) -> JSONResponse:
         try:
             data = await (await self._get_supervisor_ref()).describe_model(model_uid)
@@ -1464,6 +1556,151 @@ class RESTfulAPI(CancelMixin):
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
+            except Exception as e:
+                e = await self._get_model_last_error(model.uid, e)
+                logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
+                self.handle_request_limit_error(e)
+                raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_message(self, request: Request) -> Response:
+        raw_body = await request.json()
+        body = CreateMessage.parse_obj(raw_body)
+
+        exclude = {
+            "model",
+            "messages",
+            "stream",
+            "stop_sequences",
+            "metadata",
+            "tool_choice",
+            "tools",
+        }
+        raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
+        kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        # guided_decoding params
+        kwargs.update(self.extract_guided_params(raw_body=raw_body))
+
+        # TODO: Decide if this default value override is necessary #1061
+        if body.max_tokens is None:
+            kwargs["max_tokens"] = max_tokens_field.default
+
+        messages = body.messages and list(body.messages)
+
+        if not messages or messages[-1].get("role") not in ["user", "assistant"]:
+            raise HTTPException(
+                status_code=400, detail="Invalid input. Please specify the prompt."
+            )
+
+        # Handle tools parameter
+        if hasattr(body, "tools") and body.tools:
+            kwargs["tools"] = body.tools
+
+        # Handle tool_choice parameter
+        if hasattr(body, "tool_choice") and body.tool_choice:
+            kwargs["tool_choice"] = body.tool_choice
+
+        # Get model mapping
+        try:
+            running_models = await (await self._get_supervisor_ref()).list_models()
+        except Exception as e:
+            logger.error(f"Failed to get model mapping: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to get model mapping")
+
+        if not running_models:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No running models available. Please start a model in xinference first.",
+            )
+
+        requested_model_id = body.model
+        if "claude" in requested_model_id:
+            requested_model_id = list(running_models.keys())[0]
+
+        if requested_model_id not in running_models:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
+            )
+        else:
+            model_uid = requested_model_id
+
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        if body.stream:
+
+            async def stream_results():
+                iterator = None
+                try:
+                    try:
+                        iterator = await model.chat(
+                            messages, kwargs, raw_params=raw_kwargs
+                        )
+                    except RuntimeError as re:
+                        self.handle_request_limit_error(re)
+
+                    # Check if iterator is actually an async iterator
+                    if hasattr(iterator, "__aiter__"):
+                        async for item in iterator:
+                            yield item
+                    elif isinstance(iterator, (str, bytes)):
+                        # Handle case where chat returns bytes/string instead of iterator
+                        if isinstance(iterator, bytes):
+                            try:
+                                content = iterator.decode("utf-8")
+                            except UnicodeDecodeError:
+                                content = str(iterator)
+                        else:
+                            content = iterator
+                        yield dict(data=json.dumps({"content": content}))
+                    else:
+                        # Fallback: try to iterate normally
+                        try:
+                            for item in iterator:
+                                yield item
+                        except TypeError:
+                            # If not iterable, yield as single result
+                            yield dict(data=json.dumps({"content": str(iterator)}))
+
+                    yield "[DONE]"
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during chat."
+                    )
+                    return
+                except Exception as ex:
+                    ex = await self._get_model_last_error(model.uid, ex)
+                    logger.exception("Message stream got an error: %s", ex)
+                    await self._report_error_event(model_uid, str(ex))
+                    yield dict(data=json.dumps({"error": str(ex)}))
+                    return
+                finally:
+                    await model.decrease_serve_count()
+
+            return EventSourceResponse(
+                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            )
+        else:
+            try:
+                data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+                # Convert OpenAI format to Anthropic format
+                openai_response = json.loads(data)
+                anthropic_response = self._convert_openai_to_anthropic(
+                    openai_response, body.model
+                )
+                return Response(
+                    json.dumps(anthropic_response), media_type="application/json"
+                )
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -2663,6 +2900,96 @@ class RESTfulAPI(CancelMixin):
                 kwargs["format"] = raw_extra_body.get("format")
 
         return kwargs
+
+    def _convert_openai_to_anthropic(self, openai_response: dict, model: str) -> dict:
+        """
+        Convert OpenAI response format to Anthropic response format.
+
+        Args:
+            openai_response: OpenAI format response
+            model: Model name
+
+        Returns:
+            Anthropic format response
+        """
+
+        # Extract content and tool calls from OpenAI response
+        content_blocks = []
+        stop_reason = "stop"
+
+        if "choices" in openai_response and len(openai_response["choices"]) > 0:
+            choice = openai_response["choices"][0]
+            message = choice.get("message", {})
+
+            # Handle content text
+            content = message.get("content", "")
+            if content:
+                if isinstance(content, str):
+                    # If content is a string, use it directly
+                    content_blocks.append({"type": "text", "text": content})
+                elif isinstance(content, list):
+                    # If content is a list, extract text from each content block
+                    for content_block in content:
+                        if isinstance(content_block, dict):
+                            if content_block.get("type") == "text":
+                                text = content_block.get("text", "")
+                                if text:
+                                    content_blocks.append(
+                                        {"type": "text", "text": text}
+                                    )
+                            elif "text" in content_block:
+                                # Handle different content block format
+                                text = content_block.get("text", "")
+                                if text:
+                                    content_blocks.append(
+                                        {"type": "text", "text": text}
+                                    )
+
+            # Handle tool calls
+            tool_calls = message.get("tool_calls", [])
+            for tool_call in tool_calls:
+                function = tool_call.get("function", {})
+                arguments = function.get("arguments", "{}")
+                try:
+                    input_data = json.loads(arguments)
+                except json.JSONDecodeError:
+                    input_data = {}
+                tool_use_block = {
+                    "type": "tool_use",
+                    "cache_control": {"type": "ephemeral"},
+                    "id": tool_call.get("id", str(uuid.uuid4())),
+                    "name": function.get("name", ""),
+                    "input": input_data,
+                }
+                content_blocks.append(tool_use_block)
+
+            # Set stop reason based on finish reason
+            finish_reason = choice.get("finish_reason", "stop")
+            if finish_reason == "tool_calls":
+                stop_reason = "tool_use"
+
+        # Build Anthropic response
+        anthropic_response = {
+            "id": str(uuid.uuid4()),
+            "type": "message",
+            "role": "assistant",
+            "content": content_blocks,
+            "model": model,
+            "stop_reason": stop_reason,
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": openai_response.get("usage", {}).get(
+                    "prompt_tokens", 0
+                ),
+                "output_tokens": openai_response.get("usage", {}).get(
+                    "completion_tokens", 0
+                ),
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            },
+        }
+
+        return anthropic_response
 
 
 def run(

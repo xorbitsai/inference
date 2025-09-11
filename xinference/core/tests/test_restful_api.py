@@ -17,6 +17,7 @@ import os
 import os.path
 import sys
 import time
+from unittest.mock import AsyncMock
 
 import openai
 import pytest
@@ -1403,3 +1404,448 @@ def test_builtin_families(setup):
     ]
     assert all(ability in families for ability in test_abilities)
     assert "qwen3" in families["hybrid"]
+
+
+@pytest.fixture
+def anthropic_setup():
+    """Setup for Anthropic format conversion tests"""
+
+    # Create a mock handler with the conversion method
+    class MockHandler:
+        def _convert_openai_to_anthropic(
+            self, openai_response: dict, model: str
+        ) -> dict:
+            from ...api.restful_api import RESTfulAPI
+
+            # Create a temporary RESTfulAPI instance to access the method
+            app = RESTfulAPI("test_supervisor_address", "test_host", 12345)
+            return app._convert_openai_to_anthropic(openai_response, model)
+
+    # Sample OpenAI responses for testing
+    sample_openai_response_with_tools = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Beijing"}',
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70},
+    }
+
+    sample_openai_response_without_tools = {
+        "choices": [
+            {
+                "message": {
+                    "content": "Hello, how can I help you?",
+                    "tool_calls": [],
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+    }
+
+    return (
+        MockHandler(),
+        sample_openai_response_with_tools,
+        sample_openai_response_without_tools,
+    )
+
+
+def test_convert_openai_to_anthropic_with_tools(anthropic_setup):
+    """Test conversion of OpenAI response with tool calls to Anthropic format"""
+    handler, sample_openai_response_with_tools, _ = anthropic_setup
+    result = handler._convert_openai_to_anthropic(
+        sample_openai_response_with_tools, "test-model"
+    )
+
+    # Verify basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "tool_use"
+
+    # Verify content blocks
+    assert len(result["content"]) == 1
+    content_block = result["content"][0]
+    assert content_block["type"] == "tool_use"
+    assert content_block["name"] == "get_weather"
+    assert content_block["input"] == {"city": "Beijing"}
+    assert "id" in content_block
+    assert content_block["cache_control"] == {"type": "ephemeral"}
+
+    # Verify usage stats
+    assert result["usage"]["input_tokens"] == 50
+    assert result["usage"]["output_tokens"] == 20
+
+
+def test_convert_openai_to_anthropic_without_tools(anthropic_setup):
+    """Test conversion of OpenAI response without tool calls to Anthropic format"""
+    handler, _, sample_openai_response_without_tools = anthropic_setup
+    result = handler._convert_openai_to_anthropic(
+        sample_openai_response_without_tools, "test-model"
+    )
+
+    # Verify basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "stop"
+
+    # Verify content blocks
+    assert len(result["content"]) == 1
+    content_block = result["content"][0]
+    assert content_block["type"] == "text"
+    assert content_block["text"] == "Hello, how can I help you?"
+
+    # Verify usage stats
+    assert result["usage"]["input_tokens"] == 10
+    assert result["usage"]["output_tokens"] == 10
+
+
+def test_convert_openai_to_anthropic_mixed_content(anthropic_setup):
+    """Test conversion of OpenAI response with both text and tool calls"""
+    handler, _, _ = anthropic_setup
+    openai_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": "I'll help you check the weather.",
+                    "tool_calls": [
+                        {
+                            "id": "call_456",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Shanghai"}',
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 60, "completion_tokens": 30, "total_tokens": 90},
+    }
+
+    result = handler._convert_openai_to_anthropic(openai_response, "test-model")
+
+    # Verify basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "tool_use"
+
+    # Verify content blocks (should have both text and tool_use)
+    assert len(result["content"]) == 2
+
+    # First block should be text
+    text_block = result["content"][0]
+    assert text_block["type"] == "text"
+    assert text_block["text"] == "I'll help you check the weather."
+
+    # Second block should be tool_use
+    tool_block = result["content"][1]
+    assert tool_block["type"] == "tool_use"
+    assert tool_block["name"] == "get_weather"
+    assert tool_block["input"] == {"city": "Shanghai"}
+
+
+def test_convert_openai_to_anthropic_multiple_tools(anthropic_setup):
+    """Test conversion of OpenAI response with multiple tool calls"""
+    handler, _, _ = anthropic_setup
+    openai_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": "I'll help you with both tasks.",
+                    "tool_calls": [
+                        {
+                            "id": "call_789",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Beijing"}',
+                            },
+                        },
+                        {
+                            "id": "call_790",
+                            "type": "function",
+                            "function": {
+                                "name": "get_time",
+                                "arguments": '{"timezone": "UTC"}',
+                            },
+                        },
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 80,
+            "completion_tokens": 40,
+            "total_tokens": 120,
+        },
+    }
+
+    result = handler._convert_openai_to_anthropic(openai_response, "test-model")
+
+    # Verify content blocks
+    assert len(result["content"]) == 3  # 1 text + 2 tool_use blocks
+
+    # Check tool blocks
+    tool_blocks = [block for block in result["content"] if block["type"] == "tool_use"]
+    assert len(tool_blocks) == 2
+
+    # Verify first tool
+    assert tool_blocks[0]["name"] == "get_weather"
+    assert tool_blocks[0]["input"] == {"city": "Beijing"}
+
+    # Verify second tool
+    assert tool_blocks[1]["name"] == "get_time"
+    assert tool_blocks[1]["input"] == {"timezone": "UTC"}
+
+
+def test_convert_openai_to_anthropic_empty_response(anthropic_setup):
+    """Test conversion of empty OpenAI response"""
+    handler, _, _ = anthropic_setup
+    empty_response = {"choices": []}
+    result = handler._convert_openai_to_anthropic(empty_response, "test-model")
+
+    # Should still have basic structure
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert result["model"] == "test-model"
+    assert result["stop_reason"] == "stop"
+    assert result["content"] == []
+
+
+def test_convert_openai_to_anthropic_invalid_tool_arguments(anthropic_setup):
+    """Test handling of invalid tool arguments JSON"""
+    handler, _, _ = anthropic_setup
+    openai_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_invalid",
+                            "type": "function",
+                            "function": {
+                                "name": "test_tool",
+                                "arguments": "invalid json {",
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+                "index": 0,
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+    }
+
+    # Should not raise exception, should handle gracefully
+    result = handler._convert_openai_to_anthropic(openai_response, "test-model")
+
+    # Verify structure is maintained even with invalid JSON
+    assert result["type"] == "message"
+    assert len(result["content"]) == 1
+    tool_block = result["content"][0]
+    assert tool_block["type"] == "tool_use"
+    assert tool_block["name"] == "test_tool"
+    # Invalid JSON should result in empty dict
+    assert tool_block["input"] == {}
+
+
+def test_anthropic_tools_response_format(anthropic_setup):
+    """Test that the response format matches Anthropic API specification"""
+    handler, sample_openai_response_with_tools, _ = anthropic_setup
+    result = handler._convert_openai_to_anthropic(
+        sample_openai_response_with_tools, "test-model"
+    )
+
+    # Verify required fields according to Anthropic API spec
+    required_fields = [
+        "id",
+        "type",
+        "role",
+        "content",
+        "model",
+        "stop_reason",
+        "usage",
+    ]
+    for field in required_fields:
+        assert field in result
+
+    # Verify field types
+    assert isinstance(result["id"], str)
+    assert result["type"] == "message"
+    assert result["role"] == "assistant"
+    assert isinstance(result["content"], list)
+    assert isinstance(result["model"], str)
+    assert result["stop_reason"] in ["stop", "tool_use"]
+    assert isinstance(result["usage"], dict)
+
+    # Verify usage structure
+    usage_fields = [
+        "input_tokens",
+        "output_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+    ]
+    for field in usage_fields:
+        assert field in result["usage"]
+
+
+@pytest.fixture
+def anthropic_api():
+    """Create RESTfulAPI instance for testing"""
+    from ...api.restful_api import RESTfulAPI
+
+    return RESTfulAPI("localhost", "localhost", 9997)
+
+
+@pytest.fixture
+def mock_supervisor():
+    """Mock supervisor reference"""
+    supervisor = AsyncMock()
+    return supervisor
+
+
+@pytest.fixture
+def sample_models():
+    """Sample models data for testing"""
+    return {
+        "model1": {
+            "model_name": "claude-3-sonnet",
+            "model_type": "LLM",
+            "context_length": 8192,
+            "model_format": "pytorch",
+            "model_size_in_billions": 7,
+            "quantization": "none",
+        },
+        "model2": {
+            "model_name": "claude-3-haiku",
+            "model_type": "LLM",
+            "context_length": 4096,
+            "model_format": "pytorch",
+            "model_size_in_billions": 3,
+            "quantization": "none",
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_anthropic_list_models(anthropic_api, mock_supervisor, sample_models):
+    """Test anthropic_list_models endpoint"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Call the method
+    response = await anthropic_api.anthropic_list_models()
+
+    # Verify response
+    assert response.status_code == 200
+    data = json.loads(response.body.decode())
+
+    assert len(data) == 2
+    assert data[0]["id"] == "model1"
+    assert data[0]["object"] == "model"
+    assert data[0]["display_name"] == "claude-3-sonnet"
+    assert data[0]["type"] == "LLM"
+    assert data[0]["max_tokens"] == 8192
+
+
+@pytest.mark.asyncio
+async def test_anthropic_get_model_found(anthropic_api, mock_supervisor, sample_models):
+    """Test anthropic_get_model endpoint when model exists"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Call the method
+    response = await anthropic_api.anthropic_get_model("model1")
+
+    # Verify response
+    assert response.status_code == 200
+    data = json.loads(response.body.decode())
+
+    assert data["id"] == "model1"
+    assert data["object"] == "model"
+    assert data["display_name"] == "claude-3-sonnet"
+    assert data["type"] == "LLM"
+    assert data["max_tokens"] == 8192
+    assert data["model_name"] == "claude-3-sonnet"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_models_format_compatibility(
+    anthropic_api, mock_supervisor, sample_models
+):
+    """Test that Anthropic models endpoint format is compatible with Anthropic API"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Test list models
+    response = await anthropic_api.anthropic_list_models()
+    data = json.loads(response.body.decode())
+
+    # Verify Anthropic format
+    for model in data:
+        # Required fields for Anthropic models API
+        assert "id" in model
+        assert "object" in model
+        assert model["object"] == "model"
+        assert "created" in model
+        assert "display_name" in model
+        assert "type" in model
+        assert "max_tokens" in model
+
+        # Verify types
+        assert isinstance(model["id"], str)
+        assert isinstance(model["created"], int)
+        assert isinstance(model["display_name"], str)
+        assert isinstance(model["type"], str)
+        assert isinstance(model["max_tokens"], int)
+
+
+@pytest.mark.asyncio
+async def test_anthropic_models_include_original_fields(
+    anthropic_api, mock_supervisor, sample_models
+):
+    """Test that original model fields are preserved in Anthropic response"""
+    # Mock the supervisor
+    anthropic_api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.list_models = AsyncMock(return_value=sample_models)
+
+    # Test get model
+    response = await anthropic_api.anthropic_get_model("model1")
+    data = json.loads(response.body.decode())
+
+    # Verify original fields are preserved
+    assert data["model_name"] == "claude-3-sonnet"
+    assert data["model_type"] == "LLM"
+    assert data["context_length"] == 8192
+    assert data["model_format"] == "pytorch"
+    assert data["model_size_in_billions"] == 7
+    assert data["quantization"] == "none"
