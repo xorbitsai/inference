@@ -13,10 +13,7 @@ autoawq!=0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
-torchvision  # For deepseek VL
 FlagEmbedding  # For rerank
-torchaudio  # For ChatTTS
-torch>=2.0.0  # For CosyVoice
 lightning>=2.0.0  # For CosyVoice, matcha
 hydra-core>=1.3.2  # For CosyVoice, matcha
 inflect  # For CosyVoice, matcha
