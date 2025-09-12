@@ -2858,7 +2858,6 @@ class RESTfulAPI(CancelMixin):
     def extract_guided_params(raw_body: dict) -> dict:
         kwargs = {}
         raw_extra_body: dict = raw_body.get("extra_body")  # type: ignore
-        
         # Convert OpenAI response_format to vLLM guided decoding
         response_format = raw_body.get("response_format")
         if response_format is not None:
@@ -2872,7 +2871,6 @@ class RESTfulAPI(CancelMixin):
                             kwargs["guided_json"] = schema
                 elif format_type == "json_object":
                     kwargs["guided_json_object"] = True
-        
         if raw_body.get("guided_json"):
             kwargs["guided_json"] = raw_body.get("guided_json")
         if raw_body.get("guided_regex") is not None:
@@ -2904,7 +2902,6 @@ class RESTfulAPI(CancelMixin):
                                 kwargs["guided_json"] = schema
                     elif format_type == "json_object":
                         kwargs["guided_json_object"] = True
-            
             if raw_extra_body.get("guided_json"):
                 kwargs["guided_json"] = raw_extra_body.get("guided_json")
             if raw_extra_body.get("guided_regex") is not None:
