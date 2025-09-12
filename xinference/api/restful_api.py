@@ -2859,7 +2859,7 @@ class RESTfulAPI(CancelMixin):
         kwargs = {}
         raw_extra_body: dict = raw_body.get("extra_body")  # type: ignore
         
-        # 处理 OpenAI response_format 参数
+        # Convert OpenAI response_format to vLLM guided decoding
         response_format = raw_body.get("response_format")
         if response_format is not None:
             if isinstance(response_format, dict):
@@ -2891,7 +2891,7 @@ class RESTfulAPI(CancelMixin):
             )
         # Parse OpenAI extra_body
         if raw_extra_body is not None:
-            # 处理 extra_body 中的 response_format
+            # Convert OpenAI response_format to vLLM guided decoding
             extra_response_format = raw_extra_body.get("response_format")
             if extra_response_format is not None:
                 if isinstance(extra_response_format, dict):

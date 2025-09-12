@@ -831,10 +831,6 @@ class VLLMModel(LLM):
             "guided_json_object",
             generate_config.get("guided_json_object", guided_json_object),
         )
-        # sanitized.setdefault(
-        #     "guided_decoding_backend",
-        #     generate_config.get("guided_decoding_backend", guided_decoding_backend),
-        # )
 
         return sanitized
 
