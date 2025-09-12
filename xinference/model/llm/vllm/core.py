@@ -774,7 +774,6 @@ class VLLMModel(LLM):
         sanitized = VLLMGenerateConfig()
 
         response_format = generate_config.pop("response_format", None)
-        guided_decoding_backend = generate_config.get("guided_decoding_backend", None)
         guided_json_object = None
         guided_json = None
 
@@ -785,8 +784,6 @@ class VLLMModel(LLM):
                 json_schema = response_format.get("json_schema")
                 assert json_schema is not None
                 guided_json = json_schema.get("json_schema")
-                if guided_decoding_backend is None:
-                    guided_decoding_backend = "outlines"
 
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
@@ -833,10 +830,6 @@ class VLLMModel(LLM):
         sanitized.setdefault(
             "guided_json_object",
             generate_config.get("guided_json_object", guided_json_object),
-        )
-        sanitized.setdefault(
-            "guided_decoding_backend",
-            generate_config.get("guided_decoding_backend", guided_decoding_backend),
         )
 
         return sanitized
