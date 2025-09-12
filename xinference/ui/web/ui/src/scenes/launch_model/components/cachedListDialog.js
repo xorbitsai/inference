@@ -49,7 +49,7 @@ const EditCustomModel = ({ open, modelData, modelType, onClose, onUpdate }) => {
         if (
           page !== 0 &&
           data.list.length &&
-          (page + 1) * 5 >= cachedListArr.length &&
+          (page + 1) * 5 >= data.list.length &&
           data.list.length % 5 === 0
         ) {
           setPage(data.list.length / 5 - 1)

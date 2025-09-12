@@ -35,20 +35,26 @@ const DynamicFieldList = ({
   const handleChange = (index, field, val) => {
     const newItems = [...value]
     newItems[index] = { ...newItems[index], [field]: val }
-
-    // Check for duplicate keys
     if (field === keyPlaceholder) {
-      const keys = newItems.map((item) => item[keyPlaceholder])
-      const duplicates = keys.filter((k, i) => k && keys.indexOf(k) !== i)
       const errorMap = {}
+      const keys = new Map()
+
       newItems.forEach((item, idx) => {
-        if (duplicates.includes(item[keyPlaceholder])) {
+        const key = item[keyPlaceholder]
+        if (!key) return
+
+        if (keys.has(key)) {
+          const firstIdx = keys.get(key)
+          errorMap[firstIdx] = t('launchModel.mustBeUnique', {
+            key: keyPlaceholder,
+          })
           errorMap[idx] = t('launchModel.mustBeUnique', { key: keyPlaceholder })
+        } else {
+          keys.set(key, idx)
         }
       })
       setErrors(errorMap)
     }
-
     onChange(name, newItems)
   }
 

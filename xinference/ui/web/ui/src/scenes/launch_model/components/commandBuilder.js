@@ -3,6 +3,8 @@ import { Tooltip } from '@mui/material'
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { copyToClipboard } from '../../../components/utils'
+
 const keyMap = {
   model_size_in_billions: '--size-in-billions',
   download_hub: '--download_hub',
@@ -80,47 +82,17 @@ const CopyComponent = ({ getData, predefinedKeys }) => {
     return `xinference launch ${args}`
   }
 
-  const handleCopy = (event) => {
+  const showTooltipTemporarily = (status) => {
+    setCopyStatus(status)
+    setTimeout(() => setCopyStatus('pending'), 1500)
+  }
+
+  const handleCopy = async (event) => {
     const text = generateCommandLineStatement(getData())
     event.stopPropagation()
     const textToCopy = String(text ?? '')
-
-    const showTooltipTemporarily = (status) => {
-      setCopyStatus(status)
-      setTimeout(() => {
-        setCopyStatus('pending')
-      }, 1500)
-    }
-
-    if (navigator.clipboard && window.isSecureContext) {
-      // for HTTPS
-      navigator.clipboard
-        .writeText(textToCopy)
-        .then(() => showTooltipTemporarily('success'))
-        .catch(() => showTooltipTemporarily('failed'))
-    } else {
-      // for HTTP
-      const textArea = document.createElement('textarea')
-      textArea.value = textToCopy
-      textArea.style.position = 'absolute'
-      textArea.style.left = '-9999px'
-      document.body.appendChild(textArea)
-      textArea.select()
-      textArea.setSelectionRange(0, textArea.value.length)
-
-      try {
-        const success = document.execCommand('copy')
-        if (success) {
-          showTooltipTemporarily('success')
-        } else {
-          showTooltipTemporarily('failed')
-        }
-      } catch (err) {
-        showTooltipTemporarily('failed')
-      }
-
-      document.body.removeChild(textArea)
-    }
+    const success = await copyToClipboard(textToCopy)
+    showTooltipTemporarily(success ? 'success' : 'failed')
   }
 
   return (
