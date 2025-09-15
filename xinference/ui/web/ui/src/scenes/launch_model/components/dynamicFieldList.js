@@ -1,8 +1,10 @@
 import AddCircle from '@mui/icons-material/AddCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { Autocomplete, Box, IconButton, Stack, TextField } from '@mui/material'
-import React from 'react'
+import React, { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { ApiContext } from '../../../components/apiContext'
 
 const DynamicFieldList = ({
   name,
@@ -15,15 +17,39 @@ const DynamicFieldList = ({
   keyOptions = [],
 }) => {
   const { t } = useTranslation()
+  const { setErrorMsg } = useContext(ApiContext)
   const [errors, setErrors] = React.useState({})
 
   const handleAdd = () => {
+    if (value.length > 0) {
+      const lastItem = value[value.length - 1]
+      let isIncomplete = false
+
+      if (mode === 'key-value') {
+        isIncomplete = Object.values(lastItem).some((val) =>
+          typeof val === 'string'
+            ? val.trim() === ''
+            : val === undefined || val === null
+        )
+      } else if (mode === 'value') {
+        if (typeof lastItem === 'string') {
+          isIncomplete = lastItem.trim() === ''
+        } else {
+          isIncomplete = lastItem === undefined || lastItem === null
+        }
+      }
+
+      if (isIncomplete) {
+        setErrorMsg(t('launchModel.fillCompleteParametersBeforeAdding'))
+        return
+      }
+    }
+
     const newItem =
       mode === 'key-value'
         ? { [keyPlaceholder]: '', [valuePlaceholder]: '' }
         : ''
-    const newItems = [...value, newItem]
-    onChange(name, newItems)
+    onChange(name, [...value, newItem])
   }
 
   const handleDelete = (index) => {

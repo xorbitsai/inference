@@ -679,10 +679,28 @@ const LaunchModelDrawer = ({
       if (field.name === 'gpu_idx' && result[field.name]) {
         result[field.name] = handleGPUIdx(result[field.name])
       }
-      if (field.visible === false || result[field.name] === '') {
+      if (field.visible === false || result[field.name] === '' || result[field.name] == null) {
         delete result[field.name]
       }
-      if (field.type === 'collapse') {
+      if (field.type === 'dynamicField' && Array.isArray(result[field.name])) {
+        result[field.name] = result[field.name].filter((item) => {
+          if (typeof item === 'string') {
+            return item.trim() !== ''
+          } else if (typeof item === 'object' && item !== null) {
+            return Object.values(item).every((val) => {
+              if (typeof val === 'string') {
+                return val.trim() !== ''
+              }
+              return val !== undefined && val !== null
+            })
+          }
+          return false
+        })
+        if (result[field.name].length === 0) {
+          delete result[field.name]
+        }
+      }
+      if (field.type === 'collapse' && Array.isArray(field.children)) {
         processFieldsRecursively(field.children, result)
       }
     })
@@ -746,6 +764,11 @@ const LaunchModelDrawer = ({
       )
     }
 
+    for (const key in result) {
+      if (![...llmAllDataKey, 'custom'].includes(key)) {
+        delete result[key]
+      }
+    }
     if (result.custom?.length) {
       Object.assign(result, arrayToObject(result.custom, handleValueType))
       delete result.custom

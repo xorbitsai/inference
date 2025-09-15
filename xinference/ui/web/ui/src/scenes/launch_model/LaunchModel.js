@@ -294,10 +294,12 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
 
     setter(value)
 
-    const updatedFilterArr = [
-      ...filterArr.filter((item) => !excludeArr.includes(item)),
-      value,
-    ]
+    const updatedFilterArr = Array.from(
+      new Set([
+        ...filterArr.filter((item) => !excludeArr.includes(item)),
+        value,
+      ])
+    )
 
     setFilterArr(updatedFilterArr)
 
