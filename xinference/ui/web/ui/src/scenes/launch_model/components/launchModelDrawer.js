@@ -679,7 +679,11 @@ const LaunchModelDrawer = ({
       if (field.name === 'gpu_idx' && result[field.name]) {
         result[field.name] = handleGPUIdx(result[field.name])
       }
-      if (field.visible === false || result[field.name] === '' || result[field.name] == null) {
+      if (
+        field.visible === false ||
+        result[field.name] === '' ||
+        result[field.name] == null
+      ) {
         delete result[field.name]
       }
       if (field.type === 'dynamicField' && Array.isArray(result[field.name])) {
