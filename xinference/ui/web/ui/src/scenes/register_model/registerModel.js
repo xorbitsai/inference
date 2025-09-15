@@ -35,7 +35,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
-import CopyComponent from '../../components/copyComponent/copyComponent'
+import CopyComponent from '../../components/copyComponent'
 import fetchWrapper from '../../components/fetchWrapper'
 import { isValidBearerToken } from '../../components/utils'
 import AddControlnet from './components/addControlnet'

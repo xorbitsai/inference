@@ -35,6 +35,8 @@
     "ocr": "光学文字認識 (OCR)",
     "audio2text": "音声からテキスト",
     "text2audio": "テキストから音声",
+    "text2audio_zero_shot": "テキストから音声 (ゼロショット)",
+    "text2audio_voice_cloning": "テキストから音声 (声のクローン)",
     "text2video": "テキストから動画",
     "image2video": "画像から動画",
     "firstlastframe2video": "最初と最後のフレームから動画",
@@ -121,7 +123,8 @@
     "commandLineTip": "モデル名が一致しているか確認してください。",
     "featured": "おすすめとお気に入り",
     "all": "すべて",
-    "cancelledSuccessfully": "正常にキャンセルされました！"
+    "cancelledSuccessfully": "正常にキャンセルされました！",
+    "mustBeUnique": "{{key}} は一意でなければなりません"
   },
 
   "runningModels": {
@@ -227,7 +230,9 @@
   },
 
   "components": {
-    "copySuccess": "クリップボードにコピーしました！",
-    "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。"
+    "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。",
+    "warning": "警告",
+    "ok": "確認",
+    "cancel": "キャンセル"
   }
 }

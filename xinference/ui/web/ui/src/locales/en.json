@@ -35,6 +35,8 @@
     "ocr": "Optical Character Recognition (OCR)",
     "audio2text": "Audio to Text",
     "text2audio": "Text to Audio",
+    "text2audio_zero_shot": "Text to Audio (Zero-Shot)",
+    "text2audio_voice_cloning": "Text to Audio (Voice Cloning)",
     "text2video": "Text to Video",
     "image2video": "Image to Video",
     "firstlastframe2video": "First & Last Frame to Video",
@@ -121,7 +123,8 @@
     "commandLineTip": "Please confirm whether the model names are consistent.",
     "featured": "featured",
     "all": "all",
-    "cancelledSuccessfully": "Cancelled Successfully!"
+    "cancelledSuccessfully": "Cancelled Successfully!",
+    "mustBeUnique": "{{key}} must be unique"
   },
 
   "runningModels": {
@@ -227,7 +230,9 @@
   },
 
   "components": {
-    "copySuccess": "Copied to clipboard!",
-    "suggestsCommonParameters": "Suggests common parameters; others allowed."
+    "suggestsCommonParameters": "Suggests common parameters; others allowed.",
+    "warning": "Warning",
+    "ok": "OK",
+    "cancel": "Cancel"
   }
 }
