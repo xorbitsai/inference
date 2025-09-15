@@ -113,6 +113,7 @@ const LaunchModelDrawer = ({
   const [isShowCancel, setIsShowCancel] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [checkDynamicFieldComplete, setCheckDynamicFieldComplete] = useState([])
 
   const intervalRef = useRef(null)
 
@@ -641,7 +642,26 @@ const LaunchModelDrawer = ({
     })
   }
 
+  const isDynamicFieldComplete = (val) => {
+    if (!val) return false
+    if (Array.isArray(val) && typeof val[0] === 'string') {
+      return val.every((item) => item?.trim())
+    }
+    if (Array.isArray(val) && typeof val[0] === 'object') {
+      return val.every((obj) => {
+        return Object.values(obj).every(
+          (v) => typeof v !== 'string' || v.trim()
+        )
+      })
+    }
+    return true
+  }
+
   const handleDynamicField = (name, val) => {
+    setCheckDynamicFieldComplete((prev) => {
+      const filtered = prev.filter((item) => item.name !== name)
+      return [...filtered, { name, isComplete: isDynamicFieldComplete(val) }]
+    })
     setFormData((prev) => ({
       ...prev,
       [name]: val,
@@ -1123,7 +1143,12 @@ const LaunchModelDrawer = ({
                 title={t(
                   isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
                 )}
-                disabled={!areRequiredFieldsFilled || isLoading || isCallingApi}
+                disabled={
+                  !areRequiredFieldsFilled ||
+                  isLoading ||
+                  isCallingApi ||
+                  checkDynamicFieldComplete.some((item) => !item.isComplete)
+                }
                 onClick={() => {
                   if (isShowCancel) {
                     fetchCancelModel()

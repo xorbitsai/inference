@@ -142,7 +142,13 @@ export default function getModelFormConfig({
           {
             name: 'n_worker',
             label: t('launchModel.workerCount.optional'),
-            type: 'input',
+            type: 'number',
+            default: 1,
+            inputProps: {
+              inputProps: {
+                min: 1,
+              },
+            },
             visible:
               !!formData.model_engine &&
               enginesWithNWorker.includes(formData.model_engine),
