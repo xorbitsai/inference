@@ -1263,7 +1263,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 if schema:
                     generate_config["guided_json"] = schema
 
-        print("generate_config:", generate_config)
         return generate_config
 
     @staticmethod
