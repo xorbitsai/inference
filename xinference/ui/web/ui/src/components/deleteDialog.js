@@ -8,15 +8,19 @@ import {
   DialogTitle,
 } from '@mui/material'
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 const DeleteDialog = ({ text, isDelete, onHandleIsDelete, onHandleDelete }) => {
+  const { t } = useTranslation()
   return (
     <Dialog
       open={isDelete}
       aria-labelledby="alert-dialog-title"
       aria-describedby="alert-dialog-description"
     >
-      <DialogTitle id="alert-dialog-title">Warning</DialogTitle>
+      <DialogTitle id="alert-dialog-title">
+        {t('components.warning')}
+      </DialogTitle>
       <DialogContent>
         <DialogContentText
           className="deleteDialog"
@@ -32,10 +36,10 @@ const DeleteDialog = ({ text, isDelete, onHandleIsDelete, onHandleDelete }) => {
             onHandleIsDelete()
           }}
         >
-          no
+          {t('components.cancel')}
         </Button>
         <Button onClick={onHandleDelete} autoFocus>
-          yes
+          {t('components.ok')}
         </Button>
       </DialogActions>
     </Dialog>

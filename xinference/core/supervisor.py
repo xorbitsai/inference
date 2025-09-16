@@ -812,16 +812,9 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            if model_name in BUILTIN_RERANK_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_RERANK_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            else:
-                for f in get_user_defined_reranks():
-                    if f.model_name == model_name:
-                        return f
+            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "flexible":
             from ..model.flexible import get_flexible_models
@@ -829,6 +822,16 @@ class SupervisorActor(xo.StatelessActor):
             for f in get_flexible_models():
                 if f.model_name == model_name:
                     return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "video":
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            if model_name in BUILTIN_VIDEO_MODELS:
+                return [
+                    x
+                    for x in BUILTIN_VIDEO_MODELS[model_name]
+                    if x.model_hub == "huggingface"
+                ][0]
             raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
