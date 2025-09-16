@@ -320,6 +320,7 @@ class SGLANGModel(LLM):
         generate_config.setdefault("ignore_eos", False)
         response_format = generate_config.pop("response_format")
         json_schema_config = response_format.pop("json_schema")
+        json_schema = None
         if "schema_" in json_schema_config:
             json_schema = json_schema_config.pop("schema_")
         elif "schema" in json_schema_config:
