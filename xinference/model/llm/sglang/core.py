@@ -317,11 +317,12 @@ class SGLANGModel(LLM):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
-        json_schema = (
-            generate_config.pop("response_format", {})  # type: ignore
-            .pop("json_schema", {})
-            .pop("schema_", {})
-        )
+        response_format = generate_config.pop("response_format")
+        json_schema_config = response_format.pop("json_schema")
+        if "schema_" in json_schema_config:
+            json_schema = json_schema_config.pop("schema_")
+        elif "schema" in json_schema_config:
+            json_schema = json_schema_config.pop("schema")
         if json_schema:
             generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
 
