@@ -1231,11 +1231,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         return VLLM_INSTALLED
 
     def _sanitize_chat_config(
-        self,
-        generate_config: Optional[Dict] = None,
+            self,
+            generate_config: Optional[Dict] = None,
     ) -> Dict:
         if not generate_config:
             generate_config = {}
+
         if "reasoning" in getattr(self.model_family, "model_ability", []):
             generate_config.pop("stop", None)
             generate_config.pop("stop_token_ids", None)
@@ -1243,12 +1244,26 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if not generate_config.get("stop") and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
             if (
-                not generate_config.get("stop_token_ids")
-                and self.model_family.stop_token_ids
+                    not generate_config.get("stop_token_ids")
+                    and self.model_family.stop_token_ids
             ):
                 generate_config["stop_token_ids"] = (
                     self.model_family.stop_token_ids.copy()
                 )
+
+        # if response_format exists，generate guided_json
+        if "response_format" in generate_config:
+            resp_format = generate_config["response_format"]
+            if (
+                    isinstance(resp_format, dict)
+                    and resp_format.get("type") == "json_schema"
+                    and "json_schema" in resp_format
+            ):
+                schema = resp_format["json_schema"].get("schema_")
+                if schema:
+                    generate_config["guided_json"] = schema
+
+        print("generate_config:", generate_config)
         return generate_config
 
     @staticmethod
