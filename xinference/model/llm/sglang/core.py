@@ -73,6 +73,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     stream: bool
     stream_options: Optional[Union[dict, None]]
     json_schema: Optional[dict]
+    response_format: dict
 
 
 try:
