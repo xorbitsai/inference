@@ -320,7 +320,7 @@ class SGLANGModel(LLM):
         json_schema = (
             generate_config.pop("response_format", {})  # type: ignore
             .pop("json_schema", {})
-            .pop("schema", {})
+            .pop("schema_", {})
         )
         if json_schema:
             generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
