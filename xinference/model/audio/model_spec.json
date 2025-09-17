@@ -914,6 +914,43 @@
   },
   {
     "version": 2,
+    "model_name": "IndexTTS2",
+    "model_family": "IndexTTS2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.1",
+        "#system_torch#",
+        "#system_numpy#",
+        "json5",
+        "munch",
+        "matplotlib",
+        "flatten_dict",
+        "julius",
+        "tensorboard",
+        "randomname",
+        "argbind"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "IndexTeam/IndexTTS-2",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "master"
+      }
+    }
+  },
+  {
+    "version": 2,
     "model_name": "Kokoro-82M-v1.1-zh",
     "model_family": "Kokoro-zh",
     "model_ability": [
