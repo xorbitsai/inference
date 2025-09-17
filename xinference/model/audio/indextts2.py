@@ -86,6 +86,7 @@ class Indextts2:
         emo_alpha: float = kwargs.pop("emo_alpha", 1.0)
         emo_text: Optional[str] = kwargs.pop("emo_text", None)
         use_random_emo: bool = kwargs.pop("use_random_emo", False)
+        emo_vector: Optional[list] = kwargs.pop("emo_vector", None)
         seed: Optional[int] = kwargs.pop("seed", 0)
 
         if prompt_speech is None:
@@ -140,6 +141,7 @@ class Indextts2:
                 emo_alpha=emo_alpha,
                 emo_text=emo_text,
                 use_random=use_random_emo,
+                emo_vector=emo_vector,
             )
 
             # Read generated audio and convert to requested format
