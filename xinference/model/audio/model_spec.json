@@ -685,7 +685,7 @@
         "model_revision": "4dcc16f297f2ff98a17b3726b16f5de5a5e45672"
       },
       "modelscope": {
-        "model_id": "SWivid/F5-TTS_Emilia-ZH-EN",
+        "model_id": "AI-ModelScope/F5-TTS",
         "model_revision": "master"
       }
     }
@@ -925,6 +925,43 @@
       "huggingface": {
         "model_id": "ByteDance/MegaTTS3",
         "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738"
+      },
+      "modelscope": {
+        "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "master"
+      }
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "IndexTTS2",
+    "model_family": "IndexTTS2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.1",
+        "#system_torch#",
+        "#system_numpy#",
+        "json5",
+        "munch",
+        "matplotlib",
+        "flatten_dict",
+        "julius",
+        "tensorboard",
+        "randomname",
+        "argbind"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "IndexTeam/IndexTTS-2",
+        "model_revision": "main"
       },
       "modelscope": {
         "model_id": "ByteDance/MegaTTS3",

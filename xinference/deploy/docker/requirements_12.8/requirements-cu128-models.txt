@@ -41,3 +41,11 @@ ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 silero-vad  # For Fish Speech
 qwen_omni_utils  # For qwen2.5-omni
+json5 # IndexTTS2
+munch # IndexTTS2
+matplotlib # IndexTTS2
+flatten_dict # IndexTTS2
+julius # IndexTTS2
+tensorboard # IndexTTS2
+randomname # IndexTTS2
+argbind # IndexTTS2
