@@ -867,6 +867,26 @@ class SupervisorActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
+            model_spec = model_spec_cls.parse_raw(model)
+
+            # check if model already registered
+            try:
+                model = await self.get_model_registration(
+                    model_type, model_spec.model_name
+                )
+                if model is not None:
+                    raise ValueError(
+                        f"Model {model_spec.model_name} already registered"
+                    )
+            except ValueError as e:
+                if "not found" in str(e):
+                    pass
+                else:
+                    raise e
+            except Exception as e:
+                logger.error(f"Get model registration failed. Error: {e}")
+                raise e
+
             target_ip_worker_ref = (
                 self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
             )
@@ -883,7 +903,6 @@ class SupervisorActor(xo.StatelessActor):
                 await target_ip_worker_ref.register_model(model_type, model, persist)
                 return
 
-            model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
                 await self._cache_tracker_ref.record_model_version(
@@ -904,25 +923,25 @@ class SupervisorActor(xo.StatelessActor):
     async def _sync_register_model(
         self, model_type: str, model: str, persist: bool, model_name: str
     ):
-        logger.info(f"begin sync model:{model_name} to worker")
+        logger.info(f"begin sync model: {model_name} to worker")
         try:
             # Sync model to all workers.
             for name, worker in self._worker_address_to_worker.items():
-                logger.info(f"sync model:{model_name} to {name}")
+                logger.info(f"sync model: {model_name} to {name}")
                 if name == self.address:
                     # Ignore: when worker and supervisor at the same node.
                     logger.info(
-                        f"ignore sync model:{model_name} to {name} for same node"
+                        f"ignore sync model: {model_name} to {name} for same node"
                     )
                 else:
                     await worker.register_model(model_type, model, persist)
-                    logger.info(f"success sync model:{model_name} to {name}")
+                    logger.info(f"success sync model: {model_name} to {name}")
         except Exception as e:
             # If sync fails, unregister the model in all workers.
             for name, worker in self._worker_address_to_worker.items():
                 logger.warning(f"ready to unregister model for {name}")
                 await worker.unregister_model(model_type, model_name)
-                logger.warning(f"finish unregister model:{model} for {name}")
+                logger.warning(f"finish unregister model: {model} for {name}")
             raise e
 
     @log_async(logger=logger)
