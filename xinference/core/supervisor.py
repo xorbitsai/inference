@@ -883,9 +883,9 @@ class SupervisorActor(xo.StatelessActor):
                     pass
                 else:
                     raise e
-            except Exception as e:
-                logger.error(f"Get model registration failed. Error: {e}")
-                raise e
+            except Exception:
+                logger.error("Get model registration failed.", exc_info=True)
+                raise
 
             target_ip_worker_ref = (
                 self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
