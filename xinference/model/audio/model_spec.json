@@ -964,7 +964,7 @@
         "model_revision": "main"
       },
       "modelscope": {
-        "model_id": "ByteDance/MegaTTS3",
+        "model_id": "IndexTeam/IndexTTS-2",
         "model_revision": "master"
       }
     }
