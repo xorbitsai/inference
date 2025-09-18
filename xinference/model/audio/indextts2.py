@@ -85,9 +85,10 @@ class Indextts2:
         emo_prompt_speech: Optional[bytes] = kwargs.pop("emo_prompt_speech", None)
         emo_alpha: float = kwargs.pop("emo_alpha", 1.0)
         emo_text: Optional[str] = kwargs.pop("emo_text", None)
-        use_random_emo: bool = kwargs.pop("use_random_emo", False)
+        use_random: bool = kwargs.pop("use_random", False)
         emo_vector: Optional[list] = kwargs.pop("emo_vector", None)
         seed: Optional[int] = kwargs.pop("seed", 0)
+        use_emo_text: bool = kwargs.pop("use_emo_text", False)
 
         if prompt_speech is None:
             # IndexTTS2 requires reference audio for voice cloning
@@ -140,8 +141,9 @@ class Indextts2:
                 emo_audio_prompt=emo_prompt_path,
                 emo_alpha=emo_alpha,
                 emo_text=emo_text,
-                use_random=use_random_emo,
+                use_random=use_random,
                 emo_vector=emo_vector,
+                use_emo_text = use_emo_text,
             )
 
             # Read generated audio and convert to requested format

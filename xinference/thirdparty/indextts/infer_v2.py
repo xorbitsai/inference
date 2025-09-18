@@ -314,8 +314,8 @@ class IndexTTS2:
               verbose=False, max_text_tokens_per_segment=120, **generation_kwargs):
         print(">> starting inference...")
         self._set_gr_progress(0, "starting inference...")
-        if verbose:
-            print(f"origin text:{text}, spk_audio_prompt:{spk_audio_prompt}, "
+        #if verbose:
+        print(f"origin text:{text}, spk_audio_prompt:{spk_audio_prompt}, "
                   f"emo_audio_prompt:{emo_audio_prompt}, emo_alpha:{emo_alpha}, "
                   f"emo_vector:{emo_vector}, use_emo_text:{use_emo_text}, "
                   f"emo_text:{emo_text}")
