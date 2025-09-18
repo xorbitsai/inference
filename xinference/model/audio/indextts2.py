@@ -143,7 +143,7 @@ class Indextts2:
                 emo_text=emo_text,
                 use_random=use_random,
                 emo_vector=emo_vector,
-                use_emo_text = use_emo_text,
+                use_emo_text=use_emo_text,
             )
 
             # Read generated audio and convert to requested format
