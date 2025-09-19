@@ -653,7 +653,7 @@ Here are several examples of how to use IndexTTS2:
             emo_prompt_speech = f.read()
 
         response = model.speech(
-            input = "酒楼丧尽天良，开始借机竞拍房间，哎，一群蠢货。",
+            input = "It's such a shame the singer didn't make it to the finals.",
             prompt_speech = test_prompt_speech,
             emo_audio_prompt = emo_prompt_speech
         )
@@ -675,7 +675,7 @@ Here are several examples of how to use IndexTTS2:
             emo_prompt_speech = f.read()
 
         response = model.speech(
-            input = "酒楼丧尽天良，开始借机竞拍房间，哎，一群蠢货。",
+            input = "It's such a shame the singer didn't make it to the finals.",
             prompt_speech = test_prompt_speech,
             emo_audio_prompt = emo_prompt_speech,
             emo_alpha = 0.9
@@ -698,7 +698,7 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "哇塞！这个爆率也太高了！欧皇附体了！",
+            input = "Wow, I'm so lucky!",
             prompt_speech = test_prompt_speech,
             emo_vector = [0, 0, 0, 0, 0, 0, 0.45, 0],
             use_random = False
@@ -722,7 +722,7 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "快躲起来！是他要来了！他要来抓我们了！",
+            input = "Quick, hide! He's coming! He's coming to get us!",
             prompt_speech = test_prompt_speech,
             emo_alpha = 0.6,
             use_emo_text = True,
@@ -744,11 +744,11 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "快躲起来！是他要来了！他要来抓我们了！",
+            input = "Quick, hide! He's coming! He's coming to get us!",
             prompt_speech = test_prompt_speech,
             emo_alpha = 0.6,
             use_emo_text = True,
-            emo_text = "你吓死我了！你是鬼吗？",
+            emo_text = "You scared the hell out of me! Are you a ghost?",
             use_random = False
         )
 
