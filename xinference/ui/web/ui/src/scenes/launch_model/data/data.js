@@ -129,6 +129,7 @@ export const featureModels = [
   {
     type: 'audio',
     feature_models: [
+      'IndexTTS2',
       'CosyVoice2-0.5B',
       'FishSpeech-1.5',
       'F5-TTS',
