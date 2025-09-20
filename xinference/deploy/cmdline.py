@@ -588,9 +588,7 @@ def list_model_registrations(
                 ]
             )
         print(
-            tabulate(
-                table, headers=["Type", "Name", "Is-built-in"]
-            ),
+            tabulate(table, headers=["Type", "Name", "Is-built-in"]),
             file=sys.stderr,
         )
     else:
