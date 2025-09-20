@@ -712,6 +712,16 @@ class WorkerActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "flexible":
+            from ..model.flexible.custom import get_flexible_models
+
+            ret = []
+
+            for model_spec in get_flexible_models():
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
