@@ -33,9 +33,13 @@ The following is a list of built-in audio models in Xinference:
   
    fishspeech-1.5
   
+   indextts2
+  
    kokoro-82m
   
    kokoro-82m-mlx
+  
+   kokoro-82m-v1.1-zh
   
    megatts3
   
