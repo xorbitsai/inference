@@ -337,7 +337,7 @@ msgid "ChatTTS Usage"
 msgstr "ChatTTS 使用"
 
 #: ../../source/models/model_abilities/audio.rst:277
-#: ../../source/models/model_abilities/audio.rst:475
+#: ../../source/models/model_abilities/audio.rst:480
 msgid "Basic usage, refer to :ref:`audio speech usage <audio_speech>`."
 msgstr "基本使用，参考 :ref:`语音使用章节 <audio_speech>`。"
 
