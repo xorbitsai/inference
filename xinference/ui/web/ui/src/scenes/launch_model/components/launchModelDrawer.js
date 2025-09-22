@@ -343,7 +343,7 @@ const LaunchModelDrawer = ({
       })
       .catch((error) => {
         console.error('Error:', error)
-        if (error.response.status !== 403) {
+        if (error?.response?.status !== 403) {
           setErrorMsg(error.message)
         }
       })
@@ -358,7 +358,7 @@ const LaunchModelDrawer = ({
       setIsLoading(true)
     } catch (error) {
       console.error('Error:', error)
-      if (error.response.status !== 403) {
+      if (error?.response?.status !== 403) {
         setErrorMsg(error.message)
       }
     } finally {
@@ -377,7 +377,7 @@ const LaunchModelDrawer = ({
       if (res.progress !== 1.0) setProgress(Number(res.progress))
     } catch (error) {
       console.error('Error:', error)
-      if (error.response.status !== 403) {
+      if (error?.response?.status !== 403) {
         setErrorMsg(error.message)
       }
     } finally {
