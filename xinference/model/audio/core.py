@@ -114,12 +114,8 @@ def match_audio(
                     [x for x in model_families if x.model_hub == "modelscope"]
                     + [x for x in model_families if x.model_hub == "huggingface"]
                 )[0]
-            elif download_hub == "huggingface":
-                return [x for x in model_families if x.model_hub == "huggingface"][0]
-            elif download_hub == "openmind_hub":
-                return [x for x in model_families if x.model_hub == "openmind_hub"][0]
-            elif download_hub == "csghub":
-                return [x for x in model_families if x.model_hub == "csghub"][0]
+            else:
+                return [x for x in model_families if x.model_hub == download_hub][0]
         else:
             if download_from_modelscope():
                 return (

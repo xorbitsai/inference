@@ -90,6 +90,11 @@ Text to audio (TTS)
 * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
 * :ref:`F5-TTS <models_builtin_f5-tts>`
 * :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
+* :ref:`IndexTTS2 <models_builtin_indextts2>`
+
+**Models supporting emotion control**:
+
+* :ref:`IndexTTS2 <models_builtin_indextts2>`
 
 For Mac M-series chips only:
 
@@ -634,8 +639,8 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "Translate for me, what is a surprise!",
-            prompt_speech = test_prompt_speech,
+            input="Translate for me, what is a surprise!",
+            prompt_speech=test_prompt_speech,
         )
 
 2. Using a separate, emotional reference audio file to condition the speech synthesis:
@@ -653,14 +658,14 @@ Here are several examples of how to use IndexTTS2:
             emo_prompt_speech = f.read()
 
         response = model.speech(
-            input = "It's such a shame the singer didn't make it to the finals.",
-            prompt_speech = test_prompt_speech,
-            emo_audio_prompt = emo_prompt_speech
+            input="It's such a shame the singer didn't make it to the finals.",
+            prompt_speech=test_prompt_speech,
+            emo_audio_prompt=emo_prompt_speech
         )
 
 3. When an emotional reference audio file is specified, you can optionally set
-   the `emo_alpha` to adjust how much it affects the output.
-   Valid range is `0.0 - 1.0`, and the default value is `1.0` (100%):
+   the ``emo_alpha`` to adjust how much it affects the output.
+   Valid range is ``0.0 - 1.0`` , and the default value is ``1.0`` (100%):
 
    .. code-block::
 
@@ -675,17 +680,17 @@ Here are several examples of how to use IndexTTS2:
             emo_prompt_speech = f.read()
 
         response = model.speech(
-            input = "It's such a shame the singer didn't make it to the finals.",
-            prompt_speech = test_prompt_speech,
-            emo_audio_prompt = emo_prompt_speech,
-            emo_alpha = 0.9
+            input="It's such a shame the singer didn't make it to the finals.",
+            prompt_speech=test_prompt_speech,
+            emo_audio_prompt=emo_prompt_speech,
+            emo_alpha=0.9
         )
 
 4. It's also possible to omit the emotional reference audio and instead provide
    an 8-float list specifying the intensity of each emotion, in the following order:
-   `[happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]`.
-   You can additionally use the `use_random` parameter to introduce stochasticity
-   during inference; the default is `False`, and setting it to `True` enables
+   ``[happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]`` .
+   You can additionally use the ``use_random`` parameter to introduce stochasticity
+   during inference; the default is ``False`` , and setting it to ``True`` enables
    randomness:
 
    .. code-block::
@@ -698,19 +703,19 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "Wow, I'm so lucky!",
-            prompt_speech = test_prompt_speech,
-            emo_vector = [0, 0, 0, 0, 0, 0, 0.45, 0],
-            use_random = False
+            input="Wow, I'm so lucky!",
+            prompt_speech=test_prompt_speech,
+            emo_vector=[0, 0, 0, 0, 0, 0, 0.45, 0],
+            use_random=False
         )
 
-5. Alternatively, you can enable `use_emo_text` to guide the emotions based on
-   your provided `text` script. Your text script will then automatically
+5. Alternatively, you can enable ``use_emo_text`` to guide the emotions based on
+   your provided ``text`` script. Your text script will then automatically
    be converted into emotion vectors.
-   It's recommended to use `emo_alpha` around 0.6 (or lower) when using the text
+   It's recommended to use ``emo_alpha`` around 0.6 (or lower) when using the text
    emotion modes, for more natural sounding speech.
-   You can introduce randomness with `use_random` (default: `False`;
-   `True` enables randomness):
+   You can introduce randomness with ``use_random`` (default: ``False``;
+   ``True`` enables randomness):
 
    .. code-block::
 
@@ -722,15 +727,15 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "Quick, hide! He's coming! He's coming to get us!",
-            prompt_speech = test_prompt_speech,
-            emo_alpha = 0.6,
-            use_emo_text = True,
-            use_random = False
+            input="Quick, hide! He's coming! He's coming to get us!",
+            prompt_speech=test_prompt_speech,
+            emo_alpha=0.6,
+            use_emo_text=True,
+            use_random=False
         )
 
 6. It's also possible to directly provide a specific text emotion description
-   via the `emo_text` parameter. Your emotion text will then automatically be
+   via the ``emo_text`` parameter. Your emotion text will then automatically be
    converted into emotion vectors. This gives you separate control of the text
    script and the text emotion description:
 
@@ -744,12 +749,12 @@ Here are several examples of how to use IndexTTS2:
             test_prompt_speech = f.read()
 
         response = model.speech(
-            input = "Quick, hide! He's coming! He's coming to get us!",
-            prompt_speech = test_prompt_speech,
-            emo_alpha = 0.6,
-            use_emo_text = True,
-            emo_text = "You scared the hell out of me! Are you a ghost?",
-            use_random = False
+            input="Quick, hide! He's coming! He's coming to get us!",
+            prompt_speech=test_prompt_speech,
+            emo_alpha=0.6,
+            use_emo_text=True,
+            emo_text="You scared the hell out of me! Are you a ghost?",
+            use_random=False
         )
 
 
