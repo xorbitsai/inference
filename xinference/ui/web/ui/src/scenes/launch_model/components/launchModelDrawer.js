@@ -116,20 +116,10 @@ const LaunchModelDrawer = ({
 
   const intervalRef = useRef(null)
 
-  const downloadHubOptions = useMemo(() => {
-    let hubs = []
-
-    if (
-      Array.isArray(modelData?.model_specs) &&
-      modelData.model_specs.length > 0
-    ) {
-      hubs = modelData.model_specs.map((spec) => spec.model_hub).filter(Boolean)
-    } else if (modelData?.model_hub) {
-      hubs = [modelData.model_hub]
-    }
-
-    return ['none', ...new Set(hubs)]
-  }, [modelData])
+  const downloadHubOptions = useMemo(
+    () => ['none', ...(modelData?.download_hubs || [])],
+    [modelData?.download_hubs]
+  )
 
   const isCached = (spec) => {
     if (Array.isArray(spec.cache_status)) {
