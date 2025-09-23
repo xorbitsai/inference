@@ -1084,13 +1084,6 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
-        name: 'download_hub',
-        label: t('launchModel.downloadHub.optional'),
-        type: 'select',
-        options: downloadHubOptions,
-        visible: true,
-      },
-      {
         name: 'model_path',
         label: t('launchModel.modelPath.optional'),
         type: 'input',

@@ -40,7 +40,6 @@ import getModelFormConfig from './modelFormConfig'
 import PasteDialog from './pasteDialog'
 import Progress from './progress'
 
-const csghubArr = ['qwen2-instruct']
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
 const modelEngineType = ['LLM', 'embedding', 'rerank']
 
@@ -117,13 +116,10 @@ const LaunchModelDrawer = ({
 
   const intervalRef = useRef(null)
 
-  const downloadHubOptions = [
-    'none',
-    'huggingface',
-    'modelscope',
-    'openmind_hub',
-    ...(csghubArr.includes(modelData.model_name) ? ['csghub'] : []),
-  ]
+  const downloadHubOptions = useMemo(
+    () => ['none', ...(modelData?.download_hubs || [])],
+    [modelData?.download_hubs]
+  )
 
   const isCached = (spec) => {
     if (Array.isArray(spec.cache_status)) {
