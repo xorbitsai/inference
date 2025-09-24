@@ -119,7 +119,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 **kwargs,
             ).eval()
         elif device == "mps":
-            # MacOS special, https://github.com/QwenLM/Qwen2.5-VL/issues/777
+            # MacOS special, see https://github.com/QwenLM/Qwen2.5-VL/issues/761
             self._model = model_cls.from_pretrained(
                 self.model_path,
                 torch_dtype="bfloat16",
