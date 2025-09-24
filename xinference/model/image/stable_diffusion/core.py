@@ -836,7 +836,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def image_to_image(
         self,
-        image: PIL.Image,
+        image: Union[PIL.Image, List[PIL.Image]],
         prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
         size: Optional[str] = None,
@@ -856,7 +856,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
             # padding the image if specified
-            origin_x, origin_y = image.size
+            if isinstance(image, list):
+                origin_x, origin_y = image[0].size
+            else:
+                origin_x, origin_y = image.size
             kwargs["origin_size"] = (origin_x, origin_y)
             kwargs["is_padded"] = True
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
@@ -864,14 +867,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if size:
             width, height = map(int, re.split(r"[^\d]+", size))
             if padding_image_to_multiple:
-                width, height = image.size
+                if isinstance(image, list):
+                    width, height = image[0].size
+                else:
+                    width, height = image.size
             kwargs["width"] = width
             kwargs["height"] = height
         else:
             # SD3 image2image cannot accept width and height
             allow_width_height = model_accept_param(["width", "height"], model)
             if allow_width_height:
-                kwargs["width"], kwargs["height"] = image.size
+                if isinstance(image, list):
+                    kwargs["width"], kwargs["height"] = image[0].size
+                else:
+                    kwargs["width"], kwargs["height"] = image.size
 
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)
