@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/xorbitsai-inference-badge.png)](https://mseep.ai/app/xorbitsai-inference)
+
 <div align="center">
 <img src="./assets/xorbits-logo.png" width="180px" alt="xorbits" />
 
