@@ -836,7 +836,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def image_to_image(
         self,
-        image: Union[PIL.Image, List[PIL.Image]],
+        image: Union[PIL.Image.Image, List[PIL.Image.Image]],
         prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
         size: Optional[str] = None,
