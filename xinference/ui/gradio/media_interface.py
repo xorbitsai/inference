@@ -217,7 +217,7 @@ class MediaInterface:
         def image_generate_image(
             prompt: str,
             negative_prompt: str,
-            image: PIL.Image.Image,
+            images: Optional[List[PIL.Image.Image]],
             n: int,
             size_width: int,
             size_height: int,
@@ -250,8 +250,21 @@ class MediaInterface:
                 kwargs["strength"] = strength
             sampler_name = None if sampler_name == "default" else sampler_name
 
-            bio = io.BytesIO()
-            image.save(bio, format="png")
+            # Handle single image or multiple images
+            if images is None:
+                raise ValueError("Please upload at least one image")
+
+            # Process uploaded files to get PIL images
+            processed_images = process_uploaded_files(images)
+            if processed_images is None:
+                raise ValueError("Please upload at least one image")
+
+            # Convert all images to bytes
+            image_bytes_list = []
+            for img in processed_images:
+                bio = io.BytesIO()
+                img.save(bio, format="png")
+                image_bytes_list.append(bio.getvalue())
 
             response = None
             exc = None
@@ -265,7 +278,7 @@ class MediaInterface:
                         prompt=prompt,
                         negative_prompt=negative_prompt,
                         n=n,
-                        image=bio.getvalue(),
+                        image=image_bytes_list,
                         size=size,
                         response_format="b64_json",
                         num_inference_steps=num_inference_steps,
@@ -300,7 +313,7 @@ class MediaInterface:
 
             return images
 
-        with gr.Blocks() as image2image_inteface:
+        with gr.Blocks() as image2image_interface:
             with gr.Column():
                 with gr.Row():
                     with gr.Column(scale=10):
@@ -341,16 +354,61 @@ class MediaInterface:
 
                 with gr.Row():
                     with gr.Column(scale=1):
-                        uploaded_image = gr.Image(type="pil", label="Upload Image")
+                        gr.Markdown("### Upload Images")
+                        gr.Markdown(
+                            "*Multiple images supported for image-to-image generation*"
+                        )
+                        uploaded_images = gr.File(
+                            file_count="multiple",
+                            file_types=["image"],
+                            label="Upload Images",
+                        )
+                        image_preview = gr.Gallery(label="Image Preview", height=300)
                     with gr.Column(scale=1):
                         output_gallery = gr.Gallery()
+
+            # Function to handle file uploads and convert to PIL images
+            def process_uploaded_files(files):
+                if files is None:
+                    return None
+
+                images = []
+                for file_info in files:
+                    if isinstance(file_info, dict) and "name" in file_info:
+                        # Handle file info format from gradio
+                        file_path = file_info["name"]
+                        try:
+                            img = PIL.Image.open(file_path)
+                            images.append(img)
+                        except Exception as e:
+                            logger.warning(f"Failed to load image {file_path}: {e}")
+                    elif hasattr(file_info, "name"):
+                        # Handle file object
+                        try:
+                            img = PIL.Image.open(file_info.name)
+                            images.append(img)
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to load image {file_info.name}: {e}"
+                            )
+
+                return images if images else None
+
+            # Update gallery when files are uploaded
+            def update_gallery(files):
+                images = process_uploaded_files(files)
+                return images if images else []
+
+            uploaded_images.change(
+                update_gallery, inputs=[uploaded_images], outputs=[image_preview]
+            )
 
             generate_button.click(
                 image_generate_image,
                 inputs=[
                     prompt,
                     negative_prompt,
-                    uploaded_image,
+                    uploaded_images,
                     n,
                     size_width,
                     size_height,
@@ -362,7 +420,7 @@ class MediaInterface:
                 ],
                 outputs=output_gallery,
             )
-        return image2image_inteface
+        return image2image_interface
 
     def inpainting_interface(self) -> "gr.Blocks":
         from ...model.image.stable_diffusion.core import SAMPLING_METHODS
