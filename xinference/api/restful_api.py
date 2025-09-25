@@ -739,7 +739,19 @@ class RESTfulAPI(CancelMixin):
                 else None
             ),
         )
-        # SD WebUI API
+        self._router.add_api_route(
+            "/v1/images/edits",
+            self.create_image_edits,
+            methods=["POST"],
+            response_model=ImageList,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+
+                # SD WebUI API
         self._router.add_api_route(
             "/sdapi/v1/options",
             self.sdapi_options,
@@ -2298,6 +2310,255 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_image_edits(
+        self,
+        request: Request,
+        prompt: str = Form(...),
+        mask: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
+        model: Optional[str] = Form(None),
+        n: Optional[int] = Form(1),
+        size: Optional[str] = Form("1024x1024"),
+        response_format: Optional[str] = Form("url"),
+        stream: Optional[bool] = Form(False),
+    ) -> Response:
+        """OpenAI-compatible image edit endpoint."""
+        import io
+
+        # Parse multipart form data to handle files
+        form = await request.form()
+        files = {}
+
+        # Extract all uploaded files
+        for key, value in form.items():
+            if hasattr(value, 'filename') and value.filename:
+                if key not in files:
+                    files[key] = []
+                files[key].append(value)
+
+        # Get image files - OpenAI client can send multiple 'image' fields
+        image_files = files.get('image', [])
+        if not image_files:
+            raise HTTPException(status_code=400, detail="At least one image file is required")
+
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt is required")
+
+        if len(prompt) > 1000:
+            raise HTTPException(
+                status_code=400, detail="Prompt must be less than 1000 characters"
+            )
+
+        # Validate size format
+        valid_sizes = ["256x256", "512x512", "1024x1024"]
+        if size not in valid_sizes:
+            raise HTTPException(
+                status_code=400, detail=f"Size must be one of {valid_sizes}"
+            )
+
+        # Validate response format
+        if response_format not in ["url", "b64_json"]:
+            raise HTTPException(
+                status_code=400, detail="response_format must be 'url' or 'b64_json'"
+            )
+
+        # Convert size format from "1024x1024" to "1024*1024" for internal processing
+        internal_size = size.replace("x", "*")
+
+        # Get default model if not specified
+        if not model:
+            try:
+                models = await (await self._get_supervisor_ref()).list_models()
+                image_models = [
+                    name
+                    for name, info in models.items()
+                    if info["model_type"] == "image"
+                    and info.get("model_ability", [])
+                    and (
+                        "image2image" in info["model_ability"]
+                        or "inpainting" in info["model_ability"]
+                    )
+                ]
+                if not image_models:
+                    raise HTTPException(
+                        status_code=400, detail="No available image models found"
+                    )
+                model = image_models[0]
+            except Exception as e:
+                logger.error(f"Failed to get available models: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=500, detail="Failed to get available models"
+                )
+
+        model_uid = model
+        try:
+            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        request_id = None
+        try:
+            self._add_running_task(request_id)
+
+            # Handle streaming if requested
+            if stream:
+                return EventSourceResponse(self._stream_image_edit(
+                    model_ref, image_files, mask, prompt, internal_size, response_format, n
+                ))
+
+            # Read and process all images
+            images = []
+            for img in image_files:
+                image_content = await img.read()
+                image_file = io.BytesIO(image_content)
+                pil_image = Image.open(image_file)
+                images.append(pil_image)
+
+            # Use the first image as primary, others as reference
+            primary_image = images[0]
+            reference_images = images[1:] if len(images) > 1 else []
+
+            # Prepare model parameters
+            model_params = {
+                "prompt": prompt,
+                "n": n or 1,
+                "size": internal_size,
+                "response_format": response_format,
+                "denoising_strength": 0.75,  # Default strength for image editing
+                "reference_images": reference_images,  # Pass reference images
+            }
+
+            # Generate the image
+            if mask:
+                # Use inpainting for masked edits
+                mask_content = await mask.read()
+                mask_image = Image.open(io.BytesIO(mask_content))
+                result = await model_ref.inpainting(
+                    image=primary_image,
+                    mask_image=mask_image,
+                    **model_params,
+                )
+            else:
+                # Use image-to-image for general edits
+                result = await model_ref.image_to_image(image=primary_image, **model_params)
+
+            # Return the result directly (should be ImageList format)
+            return Response(content=result, media_type="application/json")
+
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
+        except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def _stream_image_edit(self, model_ref, images, mask, prompt, size, response_format, n):
+        """Stream image editing progress and results"""
+        import io
+        import json
+        from datetime import datetime
+
+        try:
+            # Send start event
+            yield {
+                "event": "start",
+                "data": json.dumps({
+                    "type": "image_edit_started",
+                    "timestamp": datetime.now().isoformat(),
+                    "prompt": prompt,
+                    "image_count": len(images)
+                })
+            }
+
+            # Read and process all images
+            image_objects = []
+            for img in images:
+                image_content = await img.read()
+                image_file = io.BytesIO(image_content)
+                pil_image = Image.open(image_file)
+                image_objects.append(pil_image)
+
+            # Use the first image as primary, others as reference
+            primary_image = image_objects[0]
+            reference_images = image_objects[1:] if len(image_objects) > 1 else []
+
+            # Send processing event
+            yield {
+                "event": "processing",
+                "data": json.dumps({
+                    "type": "images_loaded",
+                    "timestamp": datetime.now().isoformat(),
+                    "primary_image_size": primary_image.size,
+                    "reference_images_count": len(reference_images)
+                })
+            }
+
+            # Prepare model parameters
+            model_params = {
+                "prompt": prompt,
+                "n": n or 1,
+                "size": size,
+                "response_format": response_format,
+                "denoising_strength": 0.75,
+                "reference_images": reference_images,
+            }
+
+            # Generate the image
+            if mask:
+                mask_content = await mask.read()
+                mask_image = Image.open(io.BytesIO(mask_content))
+                yield {
+                    "event": "processing",
+                    "data": json.dumps({
+                        "type": "mask_loaded",
+                        "timestamp": datetime.now().isoformat(),
+                        "mask_size": mask_image.size
+                    })
+                }
+                result = await model_ref.inpainting(
+                    image=primary_image,
+                    mask_image=mask_image,
+                    **model_params,
+                )
+            else:
+                yield {
+                    "event": "processing",
+                    "data": json.dumps({
+                        "type": "starting_generation",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                }
+                result = await model_ref.image_to_image(image=primary_image, **model_params)
+
+            # Parse the result and send final event in OpenAI format
+            result_data = json.loads(result)
+
+            # Send completion event with OpenAI-compatible format
+            yield {
+                "event": "complete",
+                "data": json.dumps(result_data)  # Direct send the result in OpenAI format
+            }
+
+        except Exception as e:
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "type": "image_edit_error",
+                    "timestamp": datetime.now().isoformat(),
+                    "error": str(e)
+                })
+            }
 
     async def create_flexible_infer(self, request: Request) -> Response:
         payload = await request.json()
