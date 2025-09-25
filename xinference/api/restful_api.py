@@ -751,7 +751,7 @@ class RESTfulAPI(CancelMixin):
             ),
         )
 
-                # SD WebUI API
+        # SD WebUI API
         self._router.add_api_route(
             "/sdapi/v1/options",
             self.sdapi_options,
@@ -2318,19 +2318,21 @@ class RESTfulAPI(CancelMixin):
 
         # Parse multipart form data to handle files
         form = await request.form()
-        files = {}
+        files: dict[str, list] = {}
 
         # Extract all uploaded files
         for key, value in form.items():
-            if hasattr(value, 'filename') and value.filename:
+            if hasattr(value, "filename") and value.filename:
                 if key not in files:
                     files[key] = []
                 files[key].append(value)
 
         # Get image files - OpenAI client can send multiple 'image' fields
-        image_files = files.get('image', [])
+        image_files = files.get("image", [])
         if not image_files:
-            raise HTTPException(status_code=400, detail="At least one image file is required")
+            raise HTTPException(
+                status_code=400, detail="At least one image file is required"
+            )
 
         if not prompt:
             raise HTTPException(status_code=400, detail="Prompt is required")
@@ -2399,9 +2401,17 @@ class RESTfulAPI(CancelMixin):
 
             # Handle streaming if requested
             if stream:
-                return EventSourceResponse(self._stream_image_edit(
-                    model_ref, image_files, mask, prompt, internal_size, response_format, n
-                ))
+                return EventSourceResponse(
+                    self._stream_image_edit(
+                        model_ref,
+                        image_files,
+                        mask,
+                        prompt,
+                        internal_size,
+                        response_format,
+                        n,
+                    )
+                )
 
             # Read and process all images
             images = []
@@ -2437,7 +2447,9 @@ class RESTfulAPI(CancelMixin):
                 )
             else:
                 # Use image-to-image for general edits
-                result = await model_ref.image_to_image(image=primary_image, **model_params)
+                result = await model_ref.image_to_image(
+                    image=primary_image, **model_params
+                )
 
             # Return the result directly (should be ImageList format)
             return Response(content=result, media_type="application/json")
@@ -2454,7 +2466,9 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def _stream_image_edit(self, model_ref, images, mask, prompt, size, response_format, n):
+    async def _stream_image_edit(
+        self, model_ref, images, mask, prompt, size, response_format, n
+    ):
         """Stream image editing progress and results"""
         import io
         import json
@@ -2464,12 +2478,14 @@ class RESTfulAPI(CancelMixin):
             # Send start event
             yield {
                 "event": "start",
-                "data": json.dumps({
-                    "type": "image_edit_started",
-                    "timestamp": datetime.now().isoformat(),
-                    "prompt": prompt,
-                    "image_count": len(images)
-                })
+                "data": json.dumps(
+                    {
+                        "type": "image_edit_started",
+                        "timestamp": datetime.now().isoformat(),
+                        "prompt": prompt,
+                        "image_count": len(images),
+                    }
+                ),
             }
 
             # Read and process all images
@@ -2487,12 +2503,14 @@ class RESTfulAPI(CancelMixin):
             # Send processing event
             yield {
                 "event": "processing",
-                "data": json.dumps({
-                    "type": "images_loaded",
-                    "timestamp": datetime.now().isoformat(),
-                    "primary_image_size": primary_image.size,
-                    "reference_images_count": len(reference_images)
-                })
+                "data": json.dumps(
+                    {
+                        "type": "images_loaded",
+                        "timestamp": datetime.now().isoformat(),
+                        "primary_image_size": primary_image.size,
+                        "reference_images_count": len(reference_images),
+                    }
+                ),
             }
 
             # Prepare model parameters
@@ -2511,11 +2529,13 @@ class RESTfulAPI(CancelMixin):
                 mask_image = Image.open(io.BytesIO(mask_content))
                 yield {
                     "event": "processing",
-                    "data": json.dumps({
-                        "type": "mask_loaded",
-                        "timestamp": datetime.now().isoformat(),
-                        "mask_size": mask_image.size
-                    })
+                    "data": json.dumps(
+                        {
+                            "type": "mask_loaded",
+                            "timestamp": datetime.now().isoformat(),
+                            "mask_size": mask_image.size,
+                        }
+                    ),
                 }
                 result = await model_ref.inpainting(
                     image=primary_image,
@@ -2525,12 +2545,16 @@ class RESTfulAPI(CancelMixin):
             else:
                 yield {
                     "event": "processing",
-                    "data": json.dumps({
-                        "type": "starting_generation",
-                        "timestamp": datetime.now().isoformat()
-                    })
+                    "data": json.dumps(
+                        {
+                            "type": "starting_generation",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    ),
                 }
-                result = await model_ref.image_to_image(image=primary_image, **model_params)
+                result = await model_ref.image_to_image(
+                    image=primary_image, **model_params
+                )
 
             # Parse the result and send final event in OpenAI format
             result_data = json.loads(result)
@@ -2538,17 +2562,21 @@ class RESTfulAPI(CancelMixin):
             # Send completion event with OpenAI-compatible format
             yield {
                 "event": "complete",
-                "data": json.dumps(result_data)  # Direct send the result in OpenAI format
+                "data": json.dumps(
+                    result_data
+                ),  # Direct send the result in OpenAI format
             }
 
         except Exception as e:
             yield {
                 "event": "error",
-                "data": json.dumps({
-                    "type": "image_edit_error",
-                    "timestamp": datetime.now().isoformat(),
-                    "error": str(e)
-                })
+                "data": json.dumps(
+                    {
+                        "type": "image_edit_error",
+                        "timestamp": datetime.now().isoformat(),
+                        "error": str(e),
+                    }
+                ),
             }
 
     async def create_flexible_infer(self, request: Request) -> Response:
