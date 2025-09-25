@@ -159,6 +159,10 @@ def load_model_family_from_json(json_filename, target_families):
                     BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
                         "reasoning_end_tag"
                     ] = model_spec.reasoning_end_tag
+                if model_spec.tool_parser:
+                    BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
+                        "tool_parser"
+                    ] = model_spec.tool_parser
 
         # register model family
         if "chat" in model_spec.model_ability:

@@ -347,9 +347,7 @@ class ChatModelMixin:
         assert choices is not None
         usage = (
             chunk["usage"]
-            if choices[0]["finish_reason"] is not None
-            and reasoning_parser
-            and reasoning_parser.check_content_parser()
+            if choices and choices[0]["finish_reason"] is not None or not choices
             else None
         )
         chat_chunk = {
@@ -798,7 +796,11 @@ class ChatModelMixin:
         chunk_id=None,
         previous_texts: List[str] = [""],
     ):
+        if not c.get("choices"):
+            return c
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
+        tool_result = None
+        finish_reason = None
         if isinstance(self.tool_parser, Glm4ToolParser):
             tool_result = self.tool_parser.extract_tool_calls_streaming(
                 [],
@@ -851,11 +853,7 @@ class ChatModelMixin:
             usage = c.get("usage")
             assert "prompt_tokens" in usage
         except Exception:
-            usage = {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            }
+            usage = None
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -1009,7 +1007,8 @@ class ChatModelMixin:
                 completion_chunk, self.reasoning_parser, previous_texts
             )
             if (
-                "reasoning_content" in chat_chunk["choices"][0]["delta"]
+                chat_chunk["choices"]
+                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
                 and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
             ):
                 yield chat_chunk
