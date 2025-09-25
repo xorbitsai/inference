@@ -116,7 +116,7 @@ export const featureModels = [
     type: 'image',
     feature_models: [
       'Qwen-Image',
-      'Qwen-Image-Edit',
+      'Qwen-Image-Edit-2509',
       'FLUX.1-dev',
       'FLUX.1-Kontext-dev',
       'FLUX.1-schnell',
