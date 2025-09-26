@@ -124,7 +124,30 @@
     "featured": "featured",
     "all": "all",
     "cancelledSuccessfully": "Cancelled Successfully!",
-    "mustBeUnique": "{{key}} must be unique"
+    "mustBeUnique": "{{key}} must be unique",
+    "addModel": "Add Model",
+    "addModelDialog": {
+      "introPrefix": "To add a model, please use",
+      "platformLinkText": "Model Management Platform",
+      "introSuffix": " and paste the model's URL",
+      "example": "Example: The URL for {{modelName}} on the platform is {{modelUrl}}",
+      "urlLabel": "URL"
+    },
+    "loginDialog": {
+      "title": "No permission to download this model. Please log in and try again.",
+      "usernameOrEmail": "Username or Email",
+      "password": "Password",
+      "login": "Login"
+    },
+    "error": {
+      "cannotExtractModelId": "Unable to extract model_id from URL. Please check your input.",
+      "downloadFailed": "Download failed: {{status}} {{text}}",
+      "requestFailed": "Request failed",
+      "loginFailedText": "Login failed: {{status}} {{text}}",
+      "noTokenAfterLogin": "Login succeeded but no token was returned",
+      "modelPrivate": "This model is private and requires download permission.",
+      "noPermissionAfterLogin": "The logged-in account does not have permission to download this model. Please contact the administrator or use a different account."
+    }
   },
 
   "runningModels": {
