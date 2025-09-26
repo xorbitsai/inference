@@ -2326,19 +2326,72 @@ class RESTfulAPI(CancelMixin):
         import io
 
         # Parse multipart form data to handle files
-        form = await request.form()
-        files: dict[str, list] = {}
+        content_type = request.headers.get("content-type", "")
 
-        # Extract all uploaded files
-        for key, value in form.items():
-            if hasattr(value, "filename") and value.filename:
-                if key not in files:
-                    files[key] = []
-                files[key].append(value)
+        if "multipart/form-data" in content_type:
+            # Try manual multipart parsing for better duplicate field handling
+            try:
+                image_files = await self._parse_multipart_manual(request)
+            except Exception as e:
+                logger.error(f"Manual parsing failed, falling back to FastAPI: {e}")
+                # Fallback to FastAPI form parsing
+                form = await request.form()
+                files: dict[str, list] = {}
+                for key, value in form.items():
+                    if hasattr(value, "filename") and value.filename:
+                        if key not in files:
+                            files[key] = []
+                        files[key].append(value)
 
-        # Get image files - OpenAI client can send multiple 'image' fields
-        image_files = files.get("image", [])
+                image_files = files.get("image", [])
+                if not image_files:
+                    image_files = files.get("image[]", [])
+                if not image_files:
+                    image_files = files.get("images", [])
+
+        else:
+            # Fallback to FastAPI form parsing
+            form = await request.form()
+            files: dict[str, list] = {}
+            for key, value in form.items():
+                if hasattr(value, "filename") and value.filename:
+                    if key not in files:
+                        files[key] = []
+                    files[key].append(value)
+
+            image_files = files.get("image", [])
+            if not image_files:
+                image_files = files.get("image[]", [])
+            if not image_files:
+                image_files = files.get("images", [])
+
+        all_file_keys = []
+        if "multipart/form-data" in content_type:
+            all_file_keys = [f"image[] (x{len(image_files)})"] if image_files else []
+        else:
+            # Fallback to FastAPI form parsing
+            form = await request.form()
+            files: dict[str, list] = {}
+            for key, value in form.items():
+                if hasattr(value, "filename") and value.filename:
+                    if key not in files:
+                        files[key] = []
+                    files[key].append(value)
+
+            # Get image files
+            image_files = files.get("image", [])
+            if not image_files:
+                image_files = files.get("image[]", [])
+            if not image_files:
+                image_files = files.get("images", [])
+
+        logger.info(f"Total image files found: {len(image_files)}")
+
         if not image_files:
+            # Debug: log all received file fields
+            logger.warning(
+                f"No image files found. Available file fields: {all_file_keys}"
+            )
             raise HTTPException(
                 status_code=400, detail="At least one image file is required"
             )
@@ -2408,12 +2461,49 @@ class RESTfulAPI(CancelMixin):
         try:
             self._add_running_task(request_id)
 
+            # Read and process all images (needed for both streaming and non-streaming)
+            images = []
+            for i, img in enumerate(image_files):
+                image_content = await img.read()
+                image_file = io.BytesIO(image_content)
+                pil_image = Image.open(image_file)
+
+                # Debug: save the received image for inspection
+                debug_filename = f"/tmp/received_image_{i}_{pil_image.mode}_{pil_image.size[0]}x{pil_image.size[1]}.png"
+                pil_image.save(debug_filename)
+                logger.info(f"Saved received image {i} to {debug_filename}")
+
+                # Convert to RGB format to avoid channel mismatch errors
+                if pil_image.mode == "RGBA":
+                    logger.info(f"Converting RGBA image {i} to RGB")
+                    # Create white background for RGBA images
+                    background = Image.new("RGB", pil_image.size, (255, 255, 255))
+                    background.paste(pil_image, mask=pil_image.split()[3])
+                    pil_image = background
+                elif pil_image.mode != "RGB":
+                    logger.info(f"Converting {pil_image.mode} image {i} to RGB")
+                    pil_image = pil_image.convert("RGB")
+
+                # Debug: save the converted image
+                converted_filename = f"/tmp/converted_image_{i}_RGB_{pil_image.size[0]}x{pil_image.size[1]}.png"
+                pil_image.save(converted_filename)
+                logger.info(f"Saved converted image {i} to {converted_filename}")
+
+                images.append(pil_image)
+
+            # Debug: log image summary
+            logger.info(f"Processing {len(images)} images:")
+            for i, img in enumerate(images):
+                logger.info(
+                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={image_files[i].filename if hasattr(image_files[i], 'filename') else 'unknown'}"
+                )
+
             # Handle streaming if requested
             if stream:
                 return EventSourceResponse(
                     self._stream_image_edit(
                         model_ref,
-                        image_files,
+                        images,  # Pass processed images instead of raw files
                         mask,
                         prompt,
                         internal_size,
@@ -2421,14 +2511,6 @@ class RESTfulAPI(CancelMixin):
                         n,
                     )
                 )
-
-            # Read and process all images
-            images = []
-            for img in image_files:
-                image_content = await img.read()
-                image_file = io.BytesIO(image_content)
-                pil_image = Image.open(image_file)
-                images.append(pil_image)
 
             # Use the first image as primary, others as reference
             primary_image = images[0]
@@ -2442,6 +2524,7 @@ class RESTfulAPI(CancelMixin):
                 "response_format": response_format,
                 "denoising_strength": 0.75,  # Default strength for image editing
                 "reference_images": reference_images,  # Pass reference images
+                "negative_prompt": " ",  # Space instead of empty string to prevent filtering
             }
 
             # Generate the image
@@ -2475,6 +2558,66 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def _parse_multipart_manual(self, request: Request):
+        """Manually parse multipart form data to handle duplicate field names"""
+        import io
+
+        from multipart.multipart import parse_options_header
+
+        content_type = request.headers.get("content-type", "")
+        if not content_type:
+            return []
+
+        # Parse content type and boundary
+        content_type, options = parse_options_header(content_type.encode("utf-8"))
+        if content_type != b"multipart/form-data":
+            return []
+
+        boundary = options.get(b"boundary")
+        if not boundary:
+            return []
+
+        # Get the raw body
+        body = await request.body()
+
+        # Parse multipart data manually
+        image_files = []
+        try:
+            # Import multipart parser
+            from multipart.multipart import MultipartParser
+
+            # Parse the multipart data
+            parser = MultipartParser(
+                io.BytesIO(body),
+                boundary.decode("utf-8") if isinstance(boundary, bytes) else boundary,
+            )
+
+            for part in parser:
+                # Check if this part is an image file
+                field_name = part.name
+                filename = part.filename or ""
+
+                # Look for image fields with different naming conventions
+                if field_name in ["image", "image[]", "images"] and filename:
+                    # Create a file-like object from the part data
+                    file_obj = io.BytesIO(part.data)
+                    file_obj.filename = filename
+                    file_obj.content_type = (
+                        part.content_type or "application/octet-stream"
+                    )
+                    image_files.append(file_obj)
+
+            logger.info(
+                f"Manual multipart parsing found {len(image_files)} image files"
+            )
+
+        except Exception as e:
+            logger.error(f"Manual multipart parsing failed: {e}")
+            # Return empty list to trigger fallback
+            return []
+
+        return image_files
+
     async def _stream_image_edit(
         self, model_ref, images, mask, prompt, size, response_format, n
     ):
@@ -2497,13 +2640,14 @@ class RESTfulAPI(CancelMixin):
                 ),
             }
 
-            # Read and process all images
-            image_objects = []
-            for img in images:
-                image_content = await img.read()
-                image_file = io.BytesIO(image_content)
-                pil_image = Image.open(image_file)
-                image_objects.append(pil_image)
+            # Images are already processed in the main method, just use them directly
+            image_objects = images
+            logger.info(f"Streaming: Using {len(image_objects)} pre-processed images")
+
+            # Debug: log streaming image summary
+            logger.info(f"Streaming: Processing {len(image_objects)} images:")
+            for i, img in enumerate(image_objects):
+                logger.info(f"  Streaming Image {i}: mode={img.mode}, size={img.size}")
 
             # Use the first image as primary, others as reference
             primary_image = image_objects[0]
@@ -2530,6 +2674,7 @@ class RESTfulAPI(CancelMixin):
                 "response_format": response_format,
                 "denoising_strength": 0.75,
                 "reference_images": reference_images,
+                "negative_prompt": " ",  # Space instead of empty string to prevent filtering
             }
 
             # Generate the image
