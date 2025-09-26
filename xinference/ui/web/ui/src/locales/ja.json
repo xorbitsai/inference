@@ -162,6 +162,7 @@
     "stop": "停止",
     "reasoningStartTag": "推論開始タグ",
     "reasoningEndTag": "推論終了タグ",
+    "toolParser": "ツールパーサー",
     "launcher": "ランチャー",
     "launcherArguments": "ランチャー引数（オプション）",
     "edit": "編集",
