@@ -92,7 +92,11 @@ const LaunchModel = () => {
               value="/launch_model/custom/llm"
             />
           </TabList>
-          <Button variant="outlined" startIcon={<Add />} onClick={() => setOpen(true)}>
+          <Button
+            variant="outlined"
+            startIcon={<Add />}
+            onClick={() => setOpen(true)}
+          >
             {t('launchModel.addModel')}
           </Button>
         </Box>
