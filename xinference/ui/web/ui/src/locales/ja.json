@@ -124,7 +124,30 @@
     "featured": "おすすめとお気に入り",
     "all": "すべて",
     "cancelledSuccessfully": "正常にキャンセルされました！",
-    "mustBeUnique": "{{key}} は一意でなければなりません"
+    "mustBeUnique": "{{key}} は一意でなければなりません",
+    "addModel": "モデルを追加",
+    "addModelDialog": {
+      "introPrefix": "モデルを追加するには",
+      "platformLinkText": "モデル管理プラットフォーム",
+      "introSuffix": "に基づき、対応するURLを入力してください",
+      "example": "例：{{modelName}} のモデル管理プラットフォーム上のURLは {{modelUrl}} です",
+      "urlLabel": "URL"
+    },
+    "loginDialog": {
+      "title": "このモデルをダウンロードする権限がありません。ログイン後に再度お試しください",
+      "usernameOrEmail": "ユーザー名またはメールアドレス",
+      "password": "パスワード",
+      "login": "ログイン"
+    },
+    "error": {
+      "cannotExtractModelId": "URLから model_id を抽出できません。入力内容を確認してください",
+      "downloadFailed": "ダウンロード失敗: {{status}} {{text}}",
+      "requestFailed": "リクエスト失敗",
+      "loginFailedText": "ログイン失敗: {{status}} {{text}}",
+      "noTokenAfterLogin": "ログインは成功しましたが、トークンを取得できませんでした",
+      "modelPrivate": "このモデルは非公開であり、ダウンロード権限が必要です。",
+      "noPermissionAfterLogin": "このアカウントにはモデルをダウンロードする権限がありません。管理者に連絡するか、別のアカウントを使用してください。"
+    }
   },
 
   "runningModels": {

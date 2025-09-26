@@ -124,7 +124,30 @@
     "featured": "推荐和收藏",
     "all": "全部",
     "cancelledSuccessfully": "取消成功!",
-    "mustBeUnique": "{{key}} 必须唯一"
+    "mustBeUnique": "{{key}} 必须唯一",
+    "addModel": "添加模型",
+    "addModelDialog": {
+      "introPrefix": "添加模型需基于",
+      "platformLinkText": "模型管理平台",
+      "introSuffix": "，填写模型对应的 URL",
+      "example": "例：{{modelName}}在模型管理平台上对应的 URL 如下 {{modelUrl}}",
+      "urlLabel": "URL"
+    },
+    "loginDialog": {
+      "title": "暂无权限下载该模型，登录后重新尝试下载",
+      "usernameOrEmail": "用户名或邮箱",
+      "password": "密码",
+      "login": "登录"
+    },
+    "error": {
+      "cannotExtractModelId": "无法从 URL 中提取 model_id，请检查输入",
+      "downloadFailed": "下载失败: {{status}} {{text}}",
+      "requestFailed": "请求失败",
+      "loginFailedText": "登录失败: {{status}} {{text}}",
+      "noTokenAfterLogin": "登录成功但未获取到 token",
+      "modelPrivate": "该模型为私有，需要具有下载权限。",
+      "noPermissionAfterLogin": "该登录账户暂无权限下载该模型，请联系管理员或更换账户。"
+    }
   },
 
   "runningModels": {

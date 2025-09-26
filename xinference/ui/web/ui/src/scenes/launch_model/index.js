@@ -1,5 +1,6 @@
+import Add from '@mui/icons-material/Add'
 import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Box, Tab } from '@mui/material'
+import { Box, Button, Tab } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +12,7 @@ import fetchWrapper from '../../components/fetchWrapper'
 import SuccessMessageSnackBar from '../../components/successMessageSnackBar'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
+import AddModelDialog from './components/addModelDialog'
 import { featureModels } from './data/data'
 import LaunchCustom from './launchCustom'
 import LaunchModelComponent from './LaunchModel'
@@ -22,6 +24,7 @@ const LaunchModel = () => {
       : '/launch_model/llm'
   )
   const [gpuAvailable, setGPUAvailable] = useState(-1)
+  const [open, setOpen] = useState(false)
 
   const { setErrorMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
@@ -65,7 +68,15 @@ const LaunchModel = () => {
       <ErrorMessageSnackBar />
       <SuccessMessageSnackBar />
       <TabContext value={value}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
             <Tab label={t('model.languageModels')} value="/launch_model/llm" />
             <Tab
@@ -81,6 +92,9 @@ const LaunchModel = () => {
               value="/launch_model/custom/llm"
             />
           </TabList>
+          <Button variant="outlined" startIcon={<Add />} onClick={() => setOpen(true)}>
+            {t('launchModel.addModel')}
+          </Button>
         </Box>
         <TabPanel value="/launch_model/llm" sx={{ padding: 0 }}>
           <LaunchModelComponent
@@ -142,6 +156,7 @@ const LaunchModel = () => {
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>
+      <AddModelDialog open={open} onClose={() => setOpen(false)} />
     </Box>
   )
 }
