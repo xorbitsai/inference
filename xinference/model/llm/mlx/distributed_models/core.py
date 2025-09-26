@@ -162,3 +162,44 @@ class DistributedModelMixin:
         self.layers = self.layers[: self.end_idx]
         self.layers[: self.start_idx] = [None] * self.start_idx
         self.num_layers = len(self.layers) - self.start_idx
+
+
+class SafeKVCache:
+    """
+    A safe wrapper around mlx_lm's KVCache that handles None keys gracefully.
+    This is needed because mlx_lm's generate function accesses cache.state
+    before the cache is properly initialized.
+    """
+
+    def __init__(self):
+        from mlx_lm.models.cache import KVCache
+
+        self._cache = KVCache()
+
+    @property
+    def state(self):
+        # Safe access to state property
+        if self._cache.keys is None:
+            return None, None
+        if self._cache.offset == self._cache.keys.shape[2]:
+            return self._cache.keys, self._cache.values
+        else:
+            return (
+                self._cache.keys[..., : self._cache.offset, :],
+                self._cache.values[..., : self._cache.offset, :],
+            )
+
+    @state.setter
+    def state(self, v):
+        # Safe setter for state property
+        if v is None or v[0] is None:
+            self._cache.keys = None
+            self._cache.values = None
+            self._cache.offset = 0
+        else:
+            self._cache.keys, self._cache.values = v
+            self._cache.offset = self._cache.keys.shape[2]
+
+    def __getattr__(self, name):
+        # Delegate all other attributes and methods to the underlying cache
+        return getattr(self._cache, name)
