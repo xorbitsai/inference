@@ -337,11 +337,14 @@ class ChatModelMixin:
                     delta["reasoning_content"] = None
             elif "tool_calls" in choice:
                 delta["tool_calls"] = choice["tool_calls"]
+            finish_reason = choice["finish_reason"]
+            if isinstance(finish_reason, dict) and "type" in finish_reason:
+                finish_reason = finish_reason["type"]
             choices_list.append(
                 {
                     "index": i,
                     "delta": delta,
-                    "finish_reason": choice["finish_reason"],
+                    "finish_reason": finish_reason,
                 }
             )
         assert choices is not None
