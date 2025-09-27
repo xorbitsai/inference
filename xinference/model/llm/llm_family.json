@@ -5321,7 +5321,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "deepseek-r1"
   },
   {
     "version": 2,
@@ -5778,7 +5779,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "deepseek_r1"
+    "tool_parser": "deepseek-r1"
   },
   {
     "version": 2,
