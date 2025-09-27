@@ -264,6 +264,9 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.5"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
 
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.0"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("Baichuan-M2")
+
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
 
