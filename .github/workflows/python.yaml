@@ -297,6 +297,7 @@ jobs:
               --ignore xinference/model/llm/tests/test_llm_model.py \
               --ignore xinference/core \
               --ignore xinference/model \
+              --ignore xinference/thirdparty \
               xinference
           fi
         working-directory: .
