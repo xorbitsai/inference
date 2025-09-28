@@ -144,7 +144,7 @@ jobs:
             pip install sentencepiece
             pip install transformers_stream_generator
             pip install bitsandbytes
-            pip install "sentence-transformers>=2.3.1"
+            pip install "sentence-transformers>=5.1.1"
             pip install modelscope
             pip install diffusers
             pip install protobuf
