@@ -348,6 +348,11 @@ def test_post_process_completion_chunk_without_thinking():
                 "choices": [
                     {"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}
                 ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
             },
         ),
     ]
@@ -414,7 +419,11 @@ def test_post_process_completion_chunk_without_thinking():
                     "finish_reason": "stop",
                 }
             ],
-            "usage": None,
+            "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
         },
     ]
     previous_texts = [""]
@@ -814,6 +823,11 @@ def test_post_process_completion_chunk_with_thinking():
                 "choices": [
                     {"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}
                 ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
             },
         ),
     ]
@@ -975,7 +989,11 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": "stop",
                 }
             ],
-            "usage": None,
+            "usage": {
+                "prompt_tokens": 159,
+                "completion_tokens": 91,
+                "total_tokens": 250,
+            },
         },
     ]
     previous_texts = [""]
@@ -1385,6 +1403,11 @@ def test_post_process_completion_chunk_with_parser():
                         "finish_reason": "stop",
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
             },
         ),
     ]
@@ -1470,7 +1493,11 @@ def test_post_process_completion_chunk_with_parser():
                     "finish_reason": "stop",
                 }
             ],
-            "usage": None,
+            "usage": {
+                "prompt_tokens": 159,
+                "completion_tokens": 91,
+                "total_tokens": 250,
+            },
         },
     ]
     previous_texts = [""]
