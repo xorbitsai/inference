@@ -2404,12 +2404,6 @@ class RESTfulAPI(CancelMixin):
                 status_code=400, detail="Prompt must be less than 1000 characters"
             )
 
-        # Validate size format - allow original size or standard sizes
-        valid_sizes = ["256x256", "512x512", "1024x1024", "original"]
-        if size not in valid_sizes:
-            raise HTTPException(
-                status_code=400, detail=f"Size must be one of {valid_sizes}"
-            )
 
         # Validate response format
         if response_format not in ["url", "b64_json"]:
@@ -2418,11 +2412,6 @@ class RESTfulAPI(CancelMixin):
             )
 
         # Convert size format from "1024x1024" to "1024*1024" for internal processing
-        # If "original" is specified, we'll pass empty string to let model use original image size
-        if size == "original":
-            internal_size = ""
-        else:
-            internal_size = size.replace("x", "*")
 
         # Get default model if not specified
         if not model:
@@ -2510,7 +2499,7 @@ class RESTfulAPI(CancelMixin):
                         images,  # Pass processed images instead of raw files
                         mask,
                         prompt,
-                        internal_size,
+                        size.replace("x", "*"),  # Convert size format for streaming
                         response_format,
                         n,
                     )
@@ -2521,12 +2510,11 @@ class RESTfulAPI(CancelMixin):
             reference_images = images[1:] if len(images) > 1 else []
 
             # Prepare model parameters
-            # If size is "original", use the original image dimensions
-            if internal_size == "original":
-                original_width, original_height = primary_image.size
-                model_size = f"{original_width}*{original_height}"
+            # If size is "original", use empty string to let model determine original dimensions
+            if size == "original":
+                model_size = ""
             else:
-                model_size = internal_size
+                model_size = size.replace("x", "*")
 
             model_params = {
                 "prompt": prompt,
@@ -2695,10 +2683,16 @@ class RESTfulAPI(CancelMixin):
             }
 
             # Prepare model parameters
+            # If size is "original", use empty string to let model determine original dimensions
+            if size == "original":
+                model_size = ""
+            else:
+                model_size = size
+
             model_params = {
                 "prompt": prompt,
                 "n": n or 1,
-                "size": size,
+                "size": model_size,
                 "response_format": response_format,
                 "denoising_strength": 0.75,
                 "reference_images": reference_images,
