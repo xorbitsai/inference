@@ -2318,7 +2318,7 @@ class RESTfulAPI(CancelMixin):
         mask: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         model: Optional[str] = Form(None),
         n: Optional[int] = Form(1),
-        size: Optional[str] = Form("1024x1024"),
+        size: Optional[str] = Form("original"),
         response_format: Optional[str] = Form("url"),
         stream: Optional[bool] = Form(False),
     ) -> Response:
@@ -2404,8 +2404,8 @@ class RESTfulAPI(CancelMixin):
                 status_code=400, detail="Prompt must be less than 1000 characters"
             )
 
-        # Validate size format
-        valid_sizes = ["256x256", "512x512", "1024x1024"]
+        # Validate size format - allow original size or standard sizes
+        valid_sizes = ["256x256", "512x512", "1024x1024", "original"]
         if size not in valid_sizes:
             raise HTTPException(
                 status_code=400, detail=f"Size must be one of {valid_sizes}"
@@ -2418,7 +2418,11 @@ class RESTfulAPI(CancelMixin):
             )
 
         # Convert size format from "1024x1024" to "1024*1024" for internal processing
-        internal_size = size.replace("x", "*")
+        # If "original" is specified, we'll pass empty string to let model use original image size
+        if size == "original":
+            internal_size = ""
+        else:
+            internal_size = size.replace("x", "*")
 
         # Get default model if not specified
         if not model:
@@ -2517,10 +2521,17 @@ class RESTfulAPI(CancelMixin):
             reference_images = images[1:] if len(images) > 1 else []
 
             # Prepare model parameters
+            # If size is "original", use the original image dimensions
+            if internal_size == "original":
+                original_width, original_height = primary_image.size
+                model_size = f"{original_width}*{original_height}"
+            else:
+                model_size = internal_size
+
             model_params = {
                 "prompt": prompt,
                 "n": n or 1,
-                "size": internal_size,
+                "size": model_size,
                 "response_format": response_format,
                 "denoising_strength": 0.75,  # Default strength for image editing
                 "reference_images": reference_images,  # Pass reference images
