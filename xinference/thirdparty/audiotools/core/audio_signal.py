@@ -41,7 +41,7 @@ window_length : int, optional
 hop_length : int, optional
     Hop length of STFT, by default ``window_length // 4``.
 window_type : str, optional
-    Type of window to use, by default ``sqrt\_hann``.
+    Type of window to use, by default ``sqrt\\_hann``.
 match_stride : bool, optional
     Whether to match the stride of convolutional layers, by default False
 padding_type : str, optional
@@ -1011,7 +1011,7 @@ class AudioSignal(
     def get_window(window_type: str, window_length: int, device: str):
         """Wrapper around scipy.signal.get_window so one can also get the
         popular sqrt-hann window. This function caches for efficiency
-        using functools.lru\_cache.
+        using functools.lru\\_cache.
 
         Parameters
         ----------
@@ -1089,7 +1089,7 @@ class AudioSignal(
     def compute_stft_padding(
         self, window_length: int, hop_length: int, match_stride: bool
     ):
-        """Compute how the STFT should be padded, based on match\_stride.
+        """Compute how the STFT should be padded, based on match\\_stride.
 
         Parameters
         ----------
@@ -1138,7 +1138,7 @@ class AudioSignal(
         hop_length : int, optional
             Hop length of STFT, by default ``window_length // 4``.
         window_type : str, optional
-            Type of window to use, by default ``sqrt\_hann``.
+            Type of window to use, by default ``sqrt\\_hann``.
         match_stride : bool, optional
             Whether to match the stride of convolutional layers, by default False
         padding_type : str, optional
@@ -1219,7 +1219,7 @@ class AudioSignal(
         match_stride: bool = None,
         length: int = None,
     ):
-        """Computes inverse STFT and sets it to audio\_data.
+        """Computes inverse STFT and sets it to audio\\_data.
 
         Parameters
         ----------
@@ -1228,7 +1228,7 @@ class AudioSignal(
         hop_length : int, optional
             Hop length of STFT, by default ``window_length // 4``.
         window_type : str, optional
-            Type of window to use, by default ``sqrt\_hann``.
+            Type of window to use, by default ``sqrt\\_hann``.
         match_stride : bool, optional
             Whether to match the stride of convolutional layers, by default False
         length : int, optional
