@@ -296,8 +296,9 @@ jobs:
               --ignore xinference/model/llm/transformers/tests/test_tensorizer.py \
               --ignore xinference/model/llm/tests/test_llm_model.py \
               --ignore xinference/core \
-              --ignore xinference/model \
+              --ignore xinference/client \
               --ignore xinference/thirdparty \
               xinference
+          
           fi
         working-directory: .
