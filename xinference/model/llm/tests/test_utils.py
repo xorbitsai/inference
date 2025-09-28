@@ -420,10 +420,10 @@ def test_post_process_completion_chunk_without_thinking():
                 }
             ],
             "usage": {
-                    "prompt_tokens": 159,
-                    "completion_tokens": 91,
-                    "total_tokens": 250,
-                },
+                "prompt_tokens": 159,
+                "completion_tokens": 91,
+                "total_tokens": 250,
+            },
         },
     ]
     previous_texts = [""]
