@@ -2487,7 +2487,9 @@ class RESTfulAPI(CancelMixin):
                         images,  # Pass processed images instead of raw files
                         mask,
                         prompt,
-                        size.replace("x", "*") if size else "",  # Convert size format for streaming
+                        (
+                            size.replace("x", "*") if size else ""
+                        ),  # Convert size format for streaming
                         response_format,
                         n,
                     )
