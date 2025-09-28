@@ -295,10 +295,8 @@ jobs:
               --ignore xinference/model/embedding/tests/test_integrated_embedding.py \
               --ignore xinference/model/llm/transformers/tests/test_tensorizer.py \
               --ignore xinference/model/llm/tests/test_llm_model.py \
-              --ignore xinference \
-              xinference/client/tests/test_async_client.py \
-              xinference/client/tests/test_async_client_with_auth.py \
-              xinference/client/tests/test_client_with_auth.py
-#              xinference
+              --ignore xinference/core \
+              --ignore xinference/model \
+              xinference
           fi
         working-directory: .
