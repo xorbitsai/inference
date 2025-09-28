@@ -1649,6 +1649,7 @@ class SupervisorActor(xo.StatelessActor):
         if isinstance(worker_ref, list):
             # get first worker to fetch information if model across workers
             worker_ref = worker_ref[0]
+        assert not isinstance(worker_ref, (list, tuple)), "worker_ref must be a single worker"
         return await worker_ref.get_model(model_uid=replica_model_uid)
 
     @log_async(logger=logger)
@@ -1661,6 +1662,7 @@ class SupervisorActor(xo.StatelessActor):
         if isinstance(worker_ref, list):
             # get status from first shard if model has multiple shards across workers
             worker_ref = worker_ref[0]
+        assert not isinstance(worker_ref, (list, tuple)), "worker_ref must be a single worker"
         return await worker_ref.get_model_status(replica_model_uid)
 
     @log_async(logger=logger)
@@ -1679,6 +1681,7 @@ class SupervisorActor(xo.StatelessActor):
         if isinstance(worker_ref, list):
             # get status from first shard if model has multiple shards across workers
             worker_ref = worker_ref[0]
+        assert not isinstance(worker_ref, (list, tuple)), "worker_ref must be a single worker"
         info = await worker_ref.describe_model(model_uid=replica_model_uid)
         info["replica"] = replica_info.replica
         return info
@@ -1754,6 +1757,7 @@ class SupervisorActor(xo.StatelessActor):
             if isinstance(worker_ref, list):
                 # get status from first shard if model has multiple shards across workers
                 worker_ref = worker_ref[0]
+            assert not isinstance(worker_ref, (list, tuple)), "worker_ref must be a single worker"
             model_ref = await worker_ref.get_model(model_uid=rep_mid)
             result_info = await model_ref.abort_request(request_id, block_duration)
             res["msg"] = result_info
