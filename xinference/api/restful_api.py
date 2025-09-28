@@ -2404,14 +2404,11 @@ class RESTfulAPI(CancelMixin):
                 status_code=400, detail="Prompt must be less than 1000 characters"
             )
 
-
         # Validate response format
         if response_format not in ["url", "b64_json"]:
             raise HTTPException(
                 status_code=400, detail="response_format must be 'url' or 'b64_json'"
             )
-
-        # Convert size format from "1024x1024" to "1024*1024" for internal processing
 
         # Get default model if not specified
         if not model:
@@ -2499,7 +2496,7 @@ class RESTfulAPI(CancelMixin):
                         images,  # Pass processed images instead of raw files
                         mask,
                         prompt,
-                        size.replace("x", "*"),  # Convert size format for streaming
+                        size.replace("x", "*") if size else "",  # Convert size format for streaming
                         response_format,
                         n,
                     )
@@ -2514,7 +2511,7 @@ class RESTfulAPI(CancelMixin):
             if size == "original":
                 model_size = ""
             else:
-                model_size = size.replace("x", "*")
+                model_size = size.replace("x", "*") if size else ""
 
             model_params = {
                 "prompt": prompt,
