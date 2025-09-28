@@ -2336,34 +2336,34 @@ class RESTfulAPI(CancelMixin):
                 logger.error(f"Manual parsing failed, falling back to FastAPI: {e}")
                 # Fallback to FastAPI form parsing
                 form = await request.form()
-                files: dict[str, list] = {}
+                multipart_files: dict[str, list] = {}
                 for key, value in form.items():
                     if hasattr(value, "filename") and value.filename:
-                        if key not in files:
-                            files[key] = []
-                        files[key].append(value)
+                        if key not in multipart_files:
+                            multipart_files[key] = []
+                        multipart_files[key].append(value)
 
-                image_files = files.get("image", [])
+                image_files = multipart_files.get("image", [])
                 if not image_files:
-                    image_files = files.get("image[]", [])
+                    image_files = multipart_files.get("image[]", [])
                 if not image_files:
-                    image_files = files.get("images", [])
+                    image_files = multipart_files.get("images", [])
 
         else:
             # Fallback to FastAPI form parsing
             form = await request.form()
-            files: dict[str, list] = {}
+            fallback_files: dict[str, list] = {}
             for key, value in form.items():
                 if hasattr(value, "filename") and value.filename:
-                    if key not in files:
-                        files[key] = []
-                    files[key].append(value)
+                    if key not in fallback_files:
+                        fallback_files[key] = []
+                    fallback_files[key].append(value)
 
-            image_files = files.get("image", [])
+            image_files = fallback_files.get("image", [])
             if not image_files:
-                image_files = files.get("image[]", [])
+                image_files = fallback_files.get("image[]", [])
             if not image_files:
-                image_files = files.get("images", [])
+                image_files = fallback_files.get("images", [])
 
         all_file_keys = []
         if "multipart/form-data" in content_type:
@@ -2371,19 +2371,19 @@ class RESTfulAPI(CancelMixin):
         else:
             # Fallback to FastAPI form parsing
             form = await request.form()
-            files: dict[str, list] = {}
+            debug_files: dict[str, list] = {}
             for key, value in form.items():
                 if hasattr(value, "filename") and value.filename:
-                    if key not in files:
-                        files[key] = []
-                    files[key].append(value)
+                    if key not in debug_files:
+                        debug_files[key] = []
+                    debug_files[key].append(value)
 
             # Get image files
-            image_files = files.get("image", [])
+            image_files = debug_files.get("image", [])
             if not image_files:
-                image_files = files.get("image[]", [])
+                image_files = debug_files.get("image[]", [])
             if not image_files:
-                image_files = files.get("images", [])
+                image_files = debug_files.get("images", [])
 
         logger.info(f"Total image files found: {len(image_files)}")
 
@@ -2562,6 +2562,23 @@ class RESTfulAPI(CancelMixin):
         """Manually parse multipart form data to handle duplicate field names"""
         import io
 
+        class FileWrapper:
+            """Wrapper for BytesIO to add filename and content_type attributes"""
+
+            def __init__(self, data, filename, content_type="application/octet-stream"):
+                self._file = io.BytesIO(data)
+                self.filename = filename
+                self.content_type = content_type
+
+            def read(self, *args, **kwargs):
+                return self._file.read(*args, **kwargs)
+
+            def seek(self, *args, **kwargs):
+                return self._file.seek(*args, **kwargs)
+
+            def tell(self, *args, **kwargs):
+                return self._file.tell(*args, **kwargs)
+
         from multipart.multipart import parse_options_header
 
         content_type = request.headers.get("content-type", "")
@@ -2600,10 +2617,10 @@ class RESTfulAPI(CancelMixin):
                 # Look for image fields with different naming conventions
                 if field_name in ["image", "image[]", "images"] and filename:
                     # Create a file-like object from the part data
-                    file_obj = io.BytesIO(part.data)
-                    file_obj.filename = filename
-                    file_obj.content_type = (
-                        part.content_type or "application/octet-stream"
+                    file_obj = FileWrapper(
+                        part.data,
+                        filename,
+                        part.content_type or "application/octet-stream",
                     )
                     image_files.append(file_obj)
 
