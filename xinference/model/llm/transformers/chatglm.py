@@ -472,7 +472,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     r.prompt = self._process_messages(
                         r.prompt, tools=tools, tool_choice=tool_choice
                     )
-                    assert isinstance(r.prompt, list), "r.prompt must be a list after processing"
+                    assert isinstance(
+                        r.prompt, list
+                    ), "r.prompt must be a list after processing"
                     r.full_prompt = self.get_full_context(
                         r.prompt,
                         self.model_family.chat_template,  # type: ignore
