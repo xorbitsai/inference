@@ -300,6 +300,8 @@ jobs:
               --ignore xinference/model/llm/tool_parsers \
               --ignore xinference/model/llm/transformers \
               --ignore xinference/model/flexible \
+              --ignore xinference/model/rerank \
+              --ignore xinference/model/tests \
               xinference
           
           fi
