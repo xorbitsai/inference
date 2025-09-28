@@ -2028,7 +2028,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2196,7 +2196,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2256,7 +2256,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2300,7 +2300,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=text, media_type="text/plain")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2545,7 +2545,7 @@ class RESTfulAPI(CancelMixin):
             return Response(content=result, media_type="application/json")
 
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2810,7 +2810,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=video_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2859,7 +2859,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=video_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2910,7 +2910,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=video_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id}"
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
