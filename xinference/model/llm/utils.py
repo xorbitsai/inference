@@ -853,10 +853,8 @@ class ChatModelMixin:
             "tool_calls": tool_calls,
         }
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        usage = c.get("usage")
+        if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
             usage = None
         return {
             "id": "chat" + f"cmpl-{_id}",
@@ -928,10 +926,8 @@ class ChatModelMixin:
         if reasoning_content is not None:
             m["reasoning_content"] = reasoning_content
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        usage = c.get("usage")
+        if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
             usage = {
                 "prompt_tokens": -1,
                 "completion_tokens": -1,
