@@ -348,6 +348,11 @@ def test_post_process_completion_chunk_without_thinking():
                 "choices": [
                     {"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}
                 ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
             },
         ),
     ]
@@ -398,11 +403,7 @@ def test_post_process_completion_chunk_without_thinking():
                     "finish_reason": "tool_calls",
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         None,
         {
@@ -418,7 +419,11 @@ def test_post_process_completion_chunk_without_thinking():
                     "finish_reason": "stop",
                 }
             ],
-            "usage": {"prompt_tokens": -1, "completion_tokens": -1, "total_tokens": -1},
+            "usage": {
+                "prompt_tokens": 159,
+                "completion_tokens": 91,
+                "total_tokens": 250,
+            },
         },
     ]
     previous_texts = [""]
@@ -818,6 +823,11 @@ def test_post_process_completion_chunk_with_thinking():
                 "choices": [
                     {"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}
                 ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
             },
         ),
     ]
@@ -839,11 +849,7 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         {
             "id": "chatcmpl-83dc7d9a-3672-4d2b-a053-cd42a187cef3",
@@ -862,11 +868,7 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         {
             "id": "chatcmpl-2755f3b2-c020-4127-aa12-9998dfcda26e",
@@ -885,11 +887,7 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         {
             "id": "chatcmpl-4850ba39-7a0f-4d84-89c6-f1344d229616",
@@ -908,11 +906,7 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         {
             "id": "chatcmpl-2f2a2673-2242-442e-9a70-9efc83e7a2e7",
@@ -931,11 +925,7 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         None,
         None,
@@ -983,11 +973,7 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": "tool_calls",
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         None,
         {
@@ -1003,7 +989,11 @@ def test_post_process_completion_chunk_with_thinking():
                     "finish_reason": "stop",
                 }
             ],
-            "usage": {"prompt_tokens": -1, "completion_tokens": -1, "total_tokens": -1},
+            "usage": {
+                "prompt_tokens": 159,
+                "completion_tokens": 91,
+                "total_tokens": 250,
+            },
         },
     ]
     previous_texts = [""]
@@ -1413,6 +1403,11 @@ def test_post_process_completion_chunk_with_parser():
                         "finish_reason": "stop",
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 159,
+                    "completion_tokens": 91,
+                    "total_tokens": 250,
+                },
             },
         ),
     ]
@@ -1434,11 +1429,7 @@ def test_post_process_completion_chunk_with_parser():
                     "finish_reason": None,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         None,
         None,
@@ -1486,11 +1477,7 @@ def test_post_process_completion_chunk_with_parser():
                     "finish_reason": "tool_calls",
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": None,
         },
         None,
         {
@@ -1506,7 +1493,11 @@ def test_post_process_completion_chunk_with_parser():
                     "finish_reason": "stop",
                 }
             ],
-            "usage": {"prompt_tokens": -1, "completion_tokens": -1, "total_tokens": -1},
+            "usage": {
+                "prompt_tokens": 159,
+                "completion_tokens": 91,
+                "total_tokens": 250,
+            },
         },
     ]
     previous_texts = [""]
