@@ -360,22 +360,31 @@ class SGLANGModel(LLM):
 
     @staticmethod
     def _convert_state_to_completion_chunk(
-        request_id: str, model: str, output_text: str
+        request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> CompletionChunk:
+        finish_reason = meta_info.get("finish_reason", None)
+        if isinstance(finish_reason, dict) and "type" in finish_reason:
+            finish_reason = finish_reason["type"]
         choices: List[CompletionChoice] = [
             CompletionChoice(
                 text=output_text,
                 index=0,
                 logprobs=None,
-                finish_reason=None,
+                finish_reason=finish_reason,
             )
         ]
+        usage = CompletionUsage(
+            prompt_tokens=meta_info["prompt_tokens"],
+            completion_tokens=meta_info["completion_tokens"],
+            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
+        )
         chunk = CompletionChunk(
             id=request_id,
             object="text_completion",
             created=int(time.time()),
             model=model,
             choices=choices,
+            usage=usage,
         )
         return chunk
 
@@ -383,12 +392,15 @@ class SGLANGModel(LLM):
     def _convert_state_to_completion(
         request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> Completion:
+        finish_reason = meta_info.get("finish_reason", None)
+        if isinstance(finish_reason, dict) and "type" in finish_reason:
+            finish_reason = finish_reason["type"]
         choices = [
             CompletionChoice(
                 text=output_text,
                 index=0,
                 logprobs=None,
-                finish_reason=None,
+                finish_reason=finish_reason,
             )
         ]
 
@@ -517,7 +529,10 @@ class SGLANGModel(LLM):
                     prompt, image_data, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
-                        request_id, self.model_uid, output_text=out
+                        request_id,
+                        self.model_uid,
+                        output_text=out,
+                        meta_info=meta_info,
                     )
                     complete_response += out
                     finish_reason = meta_info["finish_reason"]
