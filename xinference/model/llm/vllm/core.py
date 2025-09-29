@@ -295,6 +295,10 @@ if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.2"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
 
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
+
 
 class VLLMModel(LLM):
     def __init__(
