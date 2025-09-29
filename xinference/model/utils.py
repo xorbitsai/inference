@@ -315,6 +315,9 @@ def set_all_random_seed(seed: int):
 
 
 class CancellableDownloader:
+    _global_lock = threading.Lock()
+    _active_instances = 0
+
     def __init__(
         self,
         cancel_error_cls: Type[BaseException] = asyncio.CancelledError,
@@ -398,6 +401,7 @@ class CancellableDownloader:
         downloader = self
 
         def patched_update(self, n):
+            # Safety check: don't block if cancelled
             if downloader.cancelled:
                 downloader.raise_error()
             if not self.disable:
@@ -407,7 +411,13 @@ class CancellableDownloader:
                     else downloader._download_progresses
                 )
                 progresses.add(self)
-            return original_update(self, n)
+            # Call original update but with safety check
+            try:
+                return original_update(self, n)
+            except Exception as e:
+                # If original update fails, log and continue to prevent deadlock
+                logger.debug(f"tqdm update failed: {e}")
+                return n
 
         tqdm.update = patched_update
 
@@ -418,11 +428,19 @@ class CancellableDownloader:
             tqdm.update = self._original_update
 
     def __enter__(self):
-        self.patch_tqdm()
+        # Use global lock to prevent concurrent patching
+        with self._global_lock:
+            if self._active_instances == 0:
+                self.patch_tqdm()
+            self._active_instances += 1
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.unpatch_tqdm()
+        # Use global lock to prevent concurrent unpatching
+        with self._global_lock:
+            self._active_instances -= 1
+            if self._active_instances == 0:
+                self.unpatch_tqdm()
         self._done_event.set()
         self.reset()
 
