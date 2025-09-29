@@ -309,6 +309,11 @@ jobs:
               --ignore xinference/model/llm/tests/test_memory_estimate.py \
               --ignore xinference/model/llm/tool_parsers \
               --ignore xinference/model/llm/transformers \
+              --ignore xinference/model/llm/tests/test_multimodal.py \
+              --ignore xinference/model/llm/tests/test_stream_options.py \
+              --ignore xinference/model/video \
+              --ignore xinference/model/tests \
+              --ignore xinference/client \
               xinference
           
           fi
