@@ -488,7 +488,9 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
     model = client.get_model(model_uid=model_uid)
     assert isinstance(model, RESTfulChatModelHandle)
 
-    messages = [{"role": "user", "content": "Once upon a time, there was a very old computer"}]
+    messages = [
+        {"role": "user", "content": "Once upon a time, there was a very old computer"}
+    ]
     completion = model.chat(messages)
     assert "content" in completion["choices"][0]["message"]
 
@@ -496,9 +498,7 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
 
     for _ in range(60):
         try:
-            completion = model.chat(
-                messages, generate_config={"max_tokens": 64}
-            )
+            completion = model.chat(messages, generate_config={"max_tokens": 64})
             assert "content" in completion["choices"][0]["message"]
             break
         except Exception:
