@@ -296,19 +296,8 @@ jobs:
               --ignore xinference/model/embedding/tests/test_integrated_embedding.py \
               --ignore xinference/model/llm/transformers/tests/test_tensorizer.py \
               --ignore xinference/model/llm/tests/test_llm_model.py \
-              --ignore xinference/core \
-              --ignore xinference/model/embedding \
-              --ignore xinference/model/llm/tool_parsers \
-              --ignore xinference/model/llm/transformers \
-              --ignore xinference/model/llm/llama_cpp \
-              --ignore xinference/model/llm/mlx \
-              --ignore xinference/model/llm/tests \
-              --ignore xinference/model/flexible \
-              --ignore xinference/model/rerank \
-              --ignore xinference/model/tests \
-              --ignore xinference/model/video \
-              --ignore xinference/client \
-              --ignore xinference/deploy \
+              --ignore xinference/model/vllm \
+              --ignore xinference/model/sglang \
               xinference
           
           fi
