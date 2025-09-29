@@ -443,7 +443,11 @@ class TestVLLMChatModel:
                         "finish_reason": "tool_calls",
                     }
                 ],
-                "usage": None,
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
             },
             {
                 "id": "chatcmpl-06a03091-f455-4dfe-a348-2163cf285811",
