@@ -158,10 +158,6 @@ jobs:
           fi
         working-directory: .
 
-      - name: Show memory before tests
-        run: |
-          free -h || vm_stat || system_profiler SPHardwareDataType
-
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
@@ -317,7 +313,3 @@ jobs:
           
           fi
         working-directory: .
-
-      - name: Show memory after tests
-        run: |
-          free -h || vm_stat || system_profiler SPHardwareDataType
