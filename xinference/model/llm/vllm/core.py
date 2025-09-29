@@ -934,7 +934,10 @@ class VLLMModel(LLM):
     async def _get_tokenizer(self, lora_request: Any) -> Any:
         try:
             # vLLM 0.11.0+ get_tokenizer doesn't accept lora_request parameter
-            if VLLM_VERSION >= version.parse("0.11.0") or VLLM_VERSION.base_version >= "0.11.0":
+            if (
+                VLLM_VERSION >= version.parse("0.11.0")
+                or VLLM_VERSION.base_version >= "0.11.0"
+            ):
                 return await self._engine.get_tokenizer()  # type: ignore
             else:
                 return await self._engine.get_tokenizer(lora_request)  # type: ignore
@@ -1026,7 +1029,7 @@ class VLLMModel(LLM):
             from vllm.sampling_params import GuidedDecodingParams
 
             # Extract guided decoding parameters
-            guided_params = {}
+            guided_params: dict[str, Any] = {}
             guided_json = sanitized_generate_config.pop("guided_json", None)
             if guided_json:
                 guided_params["json"] = guided_json
@@ -1043,15 +1046,21 @@ class VLLMModel(LLM):
             if guided_grammar:
                 guided_params["grammar"] = guided_grammar
 
-            guided_json_object = sanitized_generate_config.pop("guided_json_object", None)
+            guided_json_object = sanitized_generate_config.pop(
+                "guided_json_object", None
+            )
             if guided_json_object:
                 guided_params["json_object"] = guided_json_object
 
-            guided_backend = sanitized_generate_config.pop("guided_decoding_backend", None)
+            guided_backend = sanitized_generate_config.pop(
+                "guided_decoding_backend", None
+            )
             if guided_backend:
                 guided_params["_backend"] = guided_backend
 
-            guided_whitespace_pattern = sanitized_generate_config.pop("guided_whitespace_pattern", None)
+            guided_whitespace_pattern = sanitized_generate_config.pop(
+                "guided_whitespace_pattern", None
+            )
             if guided_whitespace_pattern:
                 guided_params["whitespace_pattern"] = guided_whitespace_pattern
 
@@ -1065,7 +1074,10 @@ class VLLMModel(LLM):
                     guided_options = None
 
             # Use structured_outputs for vLLM >= 0.11.0, guided_decoding for older versions
-            if VLLM_VERSION >= version.parse("0.11.0") or VLLM_VERSION.base_version >= "0.11.0":
+            if (
+                VLLM_VERSION >= version.parse("0.11.0")
+                or VLLM_VERSION.base_version >= "0.11.0"
+            ):
                 sampling_params = SamplingParams(
                     structured_outputs=guided_options, **sanitized_generate_config
                 )
