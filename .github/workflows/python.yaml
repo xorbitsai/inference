@@ -308,6 +308,7 @@ jobs:
               --ignore xinference/model/tests \
               --ignore xinference/model/video \
               --ignore xinference/client \
+              --ignore xinference/deploy \
               xinference
           
           fi
