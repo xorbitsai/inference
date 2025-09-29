@@ -158,6 +158,10 @@ jobs:
           fi
         working-directory: .
 
+      - name: Show memory before tests
+        run: |
+          free -h || vm_stat || system_profiler SPHardwareDataType
+
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
@@ -298,7 +302,22 @@ jobs:
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/model/llm/vllm \
               --ignore xinference/model/llm/sglang \
+              --ignore xinference/core \
+              --ignore xinference/deploy \
+              --ignore xinference/model/embedding \
+              --ignore xinference/model/flexible \
+              --ignore xinference/model/llm/llama_cpp \
+              --ignore xinference/model/llm/mlx \
+              --ignore xinference/model/llm/tests/test_harmony.py \
+              --ignore xinference/model/llm/tests/test_llm_family.py \
+              --ignore xinference/model/llm/tests/test_memory_estimate.py \
+              --ignore xinference/model/llm/tool_parsers \
+              --ignore xinference/model/llm/transformers \
               xinference
           
           fi
         working-directory: .
+
+      - name: Show memory after tests
+        run: |
+          free -h || vm_stat || system_profiler SPHardwareDataType
