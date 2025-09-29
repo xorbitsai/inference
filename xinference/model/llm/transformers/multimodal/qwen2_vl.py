@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 @register_batching_multimodal_models(
-    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview"
+    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview", "Qwen3-VL-Instruct", "Qwen3-VL-Thinking"
 )
 @register_transformer
 @register_non_default_model(
-    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview"
+    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview", "Qwen3-VL-Instruct", "Qwen3-VL-Thinking"
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
     def _sanitize_model_config(
@@ -47,7 +47,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp8"]:
             return False
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-vl-instruct".lower() in llm_family.lower():
