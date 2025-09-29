@@ -250,7 +250,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
     def image_to_image(
         self,
-        image: Union[str, bytes],
+        image: Union[str, bytes, List[Union[str, bytes]]],
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
@@ -263,7 +263,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         Parameters
         ----------
-        image: `Union[str, bytes]`
+        image: `Union[str, bytes, List[Union[str, bytes]]]`
             The ControlNet input condition to provide guidance to the `unet` for generation. If the type is
             specified as `torch.FloatTensor`, it is passed to ControlNet as is. `PIL.Image.Image` can also be
             accepted as an image. The dimensions of the output image defaults to `image`'s dimensions. If height
@@ -302,7 +302,24 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
+
+        # Handle both single image and list of images
+        if isinstance(image, list):
+            if len(image) == 0:
+                raise ValueError("Image list cannot be empty")
+            elif len(image) == 1:
+                # Single image in list, use it directly
+                files.append(("image", ("image", image[0], "application/octet-stream")))
+            else:
+                # Multiple images - send all images with same field name
+                # FastAPI will collect them into a list
+                for img_data in image:
+                    files.append(
+                        ("image", ("image", img_data, "application/octet-stream"))
+                    )
+        else:
+            # Single image
+            files.append(("image", ("image", image, "application/octet-stream")))
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(

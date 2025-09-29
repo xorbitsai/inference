@@ -2136,7 +2136,7 @@ class RESTfulAPI(CancelMixin):
     async def create_variations(
         self,
         model: str = Form(...),
-        image: UploadFile = File(media_type="application/octet-stream"),
+        image: List[UploadFile] = File(media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
@@ -2164,8 +2164,17 @@ class RESTfulAPI(CancelMixin):
                 parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
+
+            # Handle single image or multiple images
+            if len(image) == 1:
+                # Single image
+                image_data = Image.open(image[0].file)
+            else:
+                # Multiple images - convert to list of PIL Images
+                image_data = [Image.open(img.file) for img in image]
+
             image_list = await model_ref.image_to_image(
-                image=Image.open(image.file),
+                image=image_data,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 n=n,
