@@ -443,7 +443,11 @@ class TestVLLMChatModel:
                         "finish_reason": "tool_calls",
                     }
                 ],
-                "usage": None,
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
             },
             {
                 "id": "chatcmpl-06a03091-f455-4dfe-a348-2163cf285811",
@@ -459,9 +463,9 @@ class TestVLLMChatModel:
                     }
                 ],
                 "usage": {
-                    "prompt_tokens": 159,
-                    "completion_tokens": 91,
-                    "total_tokens": 250,
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
                 },
             },
         ]
@@ -1460,7 +1464,11 @@ class TestVLLMChatModel:
                         "finish_reason": None,
                     }
                 ],
-                "usage": None,
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
             },
             {
                 "id": "chatcmpl-490011af-9e50-4dea-969b-f10828d5a5ea",
@@ -1489,7 +1497,11 @@ class TestVLLMChatModel:
                         "finish_reason": "tool_calls",
                     }
                 ],
-                "usage": None,
+                "usage": {
+                    "prompt_tokens": -1,
+                    "completion_tokens": -1,
+                    "total_tokens": -1,
+                },
             },
             {
                 "id": "chatcmpl-b5a05647-d043-43bb-a7e6-58907e7f4288",
