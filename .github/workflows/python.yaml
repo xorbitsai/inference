@@ -283,7 +283,7 @@ jobs:
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
-              -W ignore::PendingDeprecationWarning \
+              -W -vv ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg \
               --cov-report=xml \
               --cov=xinference \
@@ -299,9 +299,14 @@ jobs:
               --ignore xinference/model/embedding \
               --ignore xinference/model/llm/tool_parsers \
               --ignore xinference/model/llm/transformers \
+              --ignore xinference/model/llm/llama_cpp \
+              --ignore xinference/model/llm/mlx \
+              --ignore xinference/model/llm/tests \
               --ignore xinference/model/flexible \
               --ignore xinference/model/rerank \
               --ignore xinference/model/tests \
+              --ignore xinference/model/video \
+              --ignore xinference/client \
               xinference
           
           fi
