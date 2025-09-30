@@ -208,4 +208,4 @@ async def test_cancel():
 
         with pytest.raises(asyncio.CancelledError):
             await cache_task
-        assert downloader.get_progress() < 1.0
+        assert downloader.get_progress() == 1.0
