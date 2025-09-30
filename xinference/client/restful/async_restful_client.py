@@ -500,7 +500,6 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         finally:
             await _release_response(response) if "response" in locals() else None
 
-  
     async def inpainting(
         self,
         image: Union[str, bytes],
