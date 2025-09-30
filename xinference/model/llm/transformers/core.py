@@ -48,6 +48,7 @@ from ..utils import (
 )
 from .utils import (
     _get_pad_param,
+    convert_to_cache_cls,
     get_context_length,
     get_max_src_len,
     pad_prefill_tokens,
@@ -760,7 +761,10 @@ class PytorchModel(LLM):
         # Create merged cache
         ret_kv = DynamicCache()
         for idx in range(len(past_cache)):
-            if past_cache.key_cache[idx] is not None and new_cache.key_cache[idx] is not None:
+            if (
+                past_cache.key_cache[idx] is not None
+                and new_cache.key_cache[idx] is not None
+            ):
                 k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
                 v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
                 ret_kv.update(
