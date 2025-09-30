@@ -408,16 +408,20 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             for i, img in enumerate(image):
                 if isinstance(img, str):
                     # File path - open file
-                    f = open(img, 'rb')
-                    files.append((f"image[]", (f"image_{i}", f, "application/octet-stream")))
+                    f = open(img, "rb")
+                    files.append(
+                        (f"image[]", (f"image_{i}", f, "application/octet-stream"))
+                    )
                 else:
                     # Binary data
-                    files.append((f"image[]", (f"image_{i}", img, "application/octet-stream")))
+                    files.append(
+                        (f"image[]", (f"image_{i}", img, "application/octet-stream"))
+                    )
         else:
             # Single image
             if isinstance(image, str):
                 # File path - open file
-                f = open(image, 'rb')
+                f = open(image, "rb")
                 files.append(("image", ("image", f, "application/octet-stream")))
             else:
                 # Binary data
@@ -426,7 +430,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if mask is not None:
             if isinstance(mask, str):
                 # File path - open file
-                f = open(mask, 'rb')
+                f = open(mask, "rb")
                 files.append(("mask", ("mask", f, "application/octet-stream")))
             else:
                 # Binary data
@@ -444,9 +448,13 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         finally:
             # Close all opened files
             for file_item in files:
-                if len(file_item) >= 2 and hasattr(file_item[1], '__len__') and len(file_item[1]) >= 2:
+                if (
+                    len(file_item) >= 2
+                    and hasattr(file_item[1], "__len__")
+                    and len(file_item[1]) >= 2
+                ):
                     file_obj = file_item[1][1]
-                    if hasattr(file_obj, 'close'):
+                    if hasattr(file_obj, "close"):
                         file_obj.close()
 
     def inpainting(
