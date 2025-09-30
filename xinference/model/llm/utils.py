@@ -73,6 +73,8 @@ QWEN_TOOL_CALL_FAMILY = [
     "Qwen3-Coder",
     "Qwen3-VL-Instruct",
     "Qwen3-VL-Thinking",
+    "Qwen3-Next-Instruct",
+    "Qwen3-Next-Thinking",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [

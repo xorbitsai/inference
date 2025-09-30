@@ -288,6 +288,8 @@ if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.2"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
