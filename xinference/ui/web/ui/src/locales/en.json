@@ -162,6 +162,7 @@
     "stop": "Stop",
     "reasoningStartTag": "Reasoning Start Tag",
     "reasoningEndTag": "Reasoning End Tag",
+    "toolParser": "Tool Parser",
     "launcher": "Launcher",
     "launcherArguments": "Launcher Arguments (Optional)",
     "edit": "Edit",

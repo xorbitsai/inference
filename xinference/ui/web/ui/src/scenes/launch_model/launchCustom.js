@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
+import LaunchModelDrawer from './components/launchModelDrawer'
 import ModelCard from './modelCard'
 
 const customType = ['llm', 'embedding', 'rerank', 'image', 'audio', 'flexible']
@@ -20,13 +21,15 @@ const LaunchCustom = ({ gpuAvailable }) => {
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
   const [value, setValue] = useState(sessionStorage.getItem('subType'))
+  const [selectedModel, setSelectedModel] = useState(null)
+  const [isOpenLaunchModelDrawer, setIsOpenLaunchModelDrawer] = useState(false)
   const { t } = useTranslation()
 
   const navigate = useNavigate()
   const handleTabChange = (_, newValue) => {
     const type =
       newValue.split('/')[3] === 'llm' ? 'LLM' : newValue.split('/')[3]
-    getData(type)
+    update(type)
     setValue(newValue)
     navigate(newValue)
     sessionStorage.setItem('subType', newValue)
@@ -46,10 +49,10 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
   useEffect(() => {
     const type = sessionStorage.getItem('subType').split('/')[3]
-    getData(type === 'llm' ? 'LLM' : type)
+    update(type === 'llm' ? 'LLM' : type)
   }, [])
 
-  const getData = async (type) => {
+  const update = async (type) => {
     if (isCallingApi || isUpdatingModel) return
     try {
       setIsCallingApi(true)
@@ -75,14 +78,6 @@ const LaunchCustom = ({ gpuAvailable }) => {
     } finally {
       setIsCallingApi(false)
     }
-  }
-
-  const handlecustomDelete = (model_name) => {
-    setRegistrationData(
-      registrationData.filter((item) => {
-        return item.model_name !== model_name
-      })
-    )
   }
 
   const style = {
@@ -161,10 +156,24 @@ const LaunchCustom = ({ gpuAvailable }) => {
                     gpuAvailable={gpuAvailable}
                     is_custom={true}
                     modelType={item === 'llm' ? 'LLM' : item}
-                    onHandlecustomDelete={handlecustomDelete}
+                    onUpdate={update}
+                    onClick={() => {
+                      setSelectedModel(filteredRegistration)
+                      setIsOpenLaunchModelDrawer(true)
+                    }}
                   />
                 ))}
             </div>
+            {selectedModel && (
+              <LaunchModelDrawer
+                key={selectedModel.model_name}
+                modelData={selectedModel}
+                modelType={item === 'llm' ? 'LLM' : item}
+                gpuAvailable={gpuAvailable}
+                open={isOpenLaunchModelDrawer}
+                onClose={() => setIsOpenLaunchModelDrawer(false)}
+              />
+            )}
           </TabPanel>
         ))}
       </TabContext>

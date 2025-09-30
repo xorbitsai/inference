@@ -288,7 +288,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
     async def image_to_image(
         self,
-        image: Union[str, bytes],
+        image: Union[str, bytes, List[Union[str, bytes]]],
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
@@ -301,7 +301,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
         Parameters
         ----------
-        image: `Union[str, bytes]`
+        image: `Union[str, bytes, List[Union[str, bytes]]]`
             The ControlNet input condition to provide guidance to the `unet` for generation. If the type is
             specified as `torch.FloatTensor`, it is passed to ControlNet as is. `PIL.Image.Image` can also be
             accepted as an image. The dimensions of the output image defaults to `image`'s dimensions. If height

@@ -23,6 +23,7 @@ from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
+from .indextts2 import Indextts2
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
@@ -107,13 +108,23 @@ def match_audio(
 
     if model_name in BUILTIN_AUDIO_MODELS:
         model_families = BUILTIN_AUDIO_MODELS[model_name]
-        if download_hub == "modelscope" or download_from_modelscope():
-            return (
-                [x for x in model_families if x.model_hub == "modelscope"]
-                + [x for x in model_families if x.model_hub == "huggingface"]
-            )[0]
+        if download_hub is not None:
+            if download_hub == "modelscope":
+                return (
+                    [x for x in model_families if x.model_hub == "modelscope"]
+                    + [x for x in model_families if x.model_hub == "huggingface"]
+                )[0]
+            else:
+                return [x for x in model_families if x.model_hub == download_hub][0]
         else:
-            return [x for x in model_families if x.model_hub == "huggingface"][0]
+            if download_from_modelscope():
+                return (
+                    [x for x in model_families if x.model_hub == "modelscope"]
+                    + [x for x in model_families if x.model_hub == "huggingface"]
+                )[0]
+            else:
+                return [x for x in model_families if x.model_hub == "huggingface"][0]
+
     else:
         raise ValueError(
             f"Audio model {model_name} not found, available"
@@ -143,6 +154,7 @@ def create_audio_model_instance(
     KokoroMLXModel,
     KokoroZHModel,
     MegaTTSModel,
+    Indextts2,
 ]:
     from ..cache_manager import CacheManager
 
@@ -164,6 +176,7 @@ def create_audio_model_instance(
         KokoroMLXModel,
         KokoroZHModel,
         MegaTTSModel,
+        Indextts2,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -192,6 +205,8 @@ def create_audio_model_instance(
         model = KokoroMLXModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "MegaTTS":
         model = MegaTTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "IndexTTS2":
+        model = Indextts2(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     return model
