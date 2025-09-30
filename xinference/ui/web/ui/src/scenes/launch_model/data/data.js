@@ -44,6 +44,7 @@ export const additionalParameterTipList = {
     'pipeline_parallel_size',
     'enable_prefix_caching',
     'enable_chunked_prefill',
+    'enable_expert_parallel',
     'enforce_eager',
     'cpu_offload_gb',
     'disable_custom_all_reduce',
