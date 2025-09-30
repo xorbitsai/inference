@@ -362,9 +362,16 @@ class SGLANGModel(LLM):
     def _convert_state_to_completion_chunk(
         request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> CompletionChunk:
-        finish_reason = meta_info.get("finish_reason", None)
-        if isinstance(finish_reason, dict) and "type" in finish_reason:
-            finish_reason = finish_reason["type"]
+        finish_reason_raw = meta_info.get("finish_reason", None)
+        finish_reason: Optional[str] = None
+        if isinstance(finish_reason_raw, dict) and "type" in finish_reason_raw:
+            finish_reason = (
+                str(finish_reason_raw["type"])
+                if finish_reason_raw["type"] is not None
+                else None
+            )
+        elif isinstance(finish_reason_raw, str):
+            finish_reason = finish_reason_raw
         choices: List[CompletionChoice] = [
             CompletionChoice(
                 text=output_text,
@@ -392,9 +399,16 @@ class SGLANGModel(LLM):
     def _convert_state_to_completion(
         request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> Completion:
-        finish_reason = meta_info.get("finish_reason", None)
-        if isinstance(finish_reason, dict) and "type" in finish_reason:
-            finish_reason = finish_reason["type"]
+        finish_reason_raw = meta_info.get("finish_reason", None)
+        finish_reason: Optional[str] = None
+        if isinstance(finish_reason_raw, dict) and "type" in finish_reason_raw:
+            finish_reason = (
+                str(finish_reason_raw["type"])
+                if finish_reason_raw["type"] is not None
+                else None
+            )
+        elif isinstance(finish_reason_raw, str):
+            finish_reason = finish_reason_raw
         choices = [
             CompletionChoice(
                 text=output_text,
