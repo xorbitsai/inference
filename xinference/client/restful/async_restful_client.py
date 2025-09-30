@@ -77,8 +77,7 @@ class AsyncRESTfulModelHandle:
         # 设置更长的默认超时，因为图像编辑需要很长时间
         self.timeout = aiohttp.ClientTimeout(total=1800)  # 30分钟默认超时
         self.session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(force_close=True),
-            timeout=self.timeout
+            connector=aiohttp.TCPConnector(force_close=True), timeout=self.timeout
         )
 
     async def close(self):
