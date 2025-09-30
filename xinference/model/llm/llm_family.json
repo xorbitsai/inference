@@ -21699,7 +21699,8 @@
     "stop": [
       "<|endoftext|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -21785,7 +21786,8 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -21894,7 +21896,8 @@
     "stop": [
       "<|endoftext|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -22006,6 +22009,7 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   }
 ]
