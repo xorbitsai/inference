@@ -64,6 +64,8 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             return True
         if "qvq-72b-preview".lower() in llm_family.lower():
             return True
+        if "qwen3-vl" in llm_family.lower():
+            return True
         return False
 
     def decide_device(self):
@@ -93,13 +95,19 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         except ImportError:
             Qwen2_5_VLForConditionalGeneration = None
 
+        try:
+            from transformers import AutoModelForImageTextToText
+        except ImportError:
+            AutoModelForImageTextToText = None
+
         kwargs = self.apply_bnb_quantization()
         llm_family = self.model_family.model_family or self.model_family.model_name
-        model_cls = (
-            Qwen2_5_VLForConditionalGeneration
-            if "qwen2.5" in llm_family
-            else Qwen2VLForConditionalGeneration
-        )
+        if "qwen2.5" in llm_family:
+            model_cls = Qwen2_5_VLForConditionalGeneration
+        elif "qwen3" in llm_family:
+            model_cls = AutoModelForImageTextToText
+        else:
+            model_cls = Qwen2VLForConditionalGeneration
         if model_cls is None:
             raise ImportError("`transformers` version is too old, please upgrade it")
         device = "auto" if self._device == "cuda" else self._device
