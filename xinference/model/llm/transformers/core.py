@@ -713,30 +713,74 @@ class PytorchModel(LLM):
         from torch.nn.functional import pad
         from transformers import DynamicCache
 
+        # Handle case where past_cache is None or empty
+        if past_cache is None:
+            return new_cache
+
+        # Convert both caches to DynamicCache format if they aren't already
+        if not isinstance(past_cache, DynamicCache):
+            past_cache = convert_to_cache_cls(past_cache)
+        if not isinstance(new_cache, DynamicCache):
+            new_cache = convert_to_cache_cls(new_cache)
+
         _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
+
+        # Handle empty caches
+        if len(past_cache) == 0:
+            return new_cache
+        if len(new_cache) == 0:
+            return past_cache
+
+        # Check if we have tensors to work with
+        if past_cache[0][0] is None or new_cache[0][0] is None:
+            return new_cache if len(new_cache) > 0 else past_cache
+
         past_seq_len = past_cache[0][0].shape[seq_len_idx]
         new_seq_len = new_cache[0][0].shape[seq_len_idx]
+
         if past_seq_len != new_seq_len:
-            padding_target = new_cache if past_seq_len > new_seq_len else past_cache
-            padding_len = abs(past_seq_len - new_seq_len)
+            # Pad the shorter cache to match the longer one
+            if past_seq_len > new_seq_len:
+                padding_target = new_cache
+                padding_len = past_seq_len - new_seq_len
+            else:
+                padding_target = past_cache
+                padding_len = new_seq_len - past_seq_len
+
             pad_param = _get_pad_param(seq_len_idx, padding_len)
             for idx in range(len(padding_target)):
-                k = padding_target.key_cache[idx]
-                v = padding_target.value_cache[idx]
-                _k = pad(k, pad_param)
-                _v = pad(v, pad_param)
-                padding_target.key_cache[idx] = _k
-                padding_target.value_cache[idx] = _v
+                if padding_target.key_cache[idx] is not None:
+                    k = padding_target.key_cache[idx]
+                    v = padding_target.value_cache[idx]
+                    _k = pad(k, pad_param)
+                    _v = pad(v, pad_param)
+                    padding_target.key_cache[idx] = _k
+                    padding_target.value_cache[idx] = _v
 
+        # Create merged cache
         ret_kv = DynamicCache()
         for idx in range(len(past_cache)):
-            k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
-            v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
-            ret_kv.update(
-                torch.cat((k1, k2), 0).contiguous(),
-                torch.cat((v1, v2), 0).contiguous(),
-                idx,
-            )
+            if past_cache.key_cache[idx] is not None and new_cache.key_cache[idx] is not None:
+                k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
+                v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
+                ret_kv.update(
+                    torch.cat((k1, k2), 0).contiguous(),
+                    torch.cat((v1, v2), 0).contiguous(),
+                    idx,
+                )
+            elif past_cache.key_cache[idx] is not None:
+                ret_kv.update(
+                    past_cache.key_cache[idx],
+                    past_cache.value_cache[idx],
+                    idx,
+                )
+            elif new_cache.key_cache[idx] is not None:
+                ret_kv.update(
+                    new_cache.key_cache[idx],
+                    new_cache.value_cache[idx],
+                    idx,
+                )
+
         return ret_kv
 
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):

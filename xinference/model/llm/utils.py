@@ -858,12 +858,6 @@ class ChatModelMixin:
             usage = None
         else:
             usage = c.get("usage")
-            if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
-                usage = {
-                    "prompt_tokens": -1,
-                    "completion_tokens": -1,
-                    "total_tokens": -1,
-                }
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
