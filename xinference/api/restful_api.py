@@ -2028,7 +2028,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
+            err_str = f"The request has been cancelled: {request_id}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2196,7 +2196,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
+            err_str = f"The request has been cancelled: {request_id}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2256,7 +2256,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=image_list, media_type="application/json")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
+            err_str = f"The request has been cancelled: {request_id}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2300,7 +2300,7 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=text, media_type="text/plain")
         except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
+            err_str = f"The request has been cancelled: {request_id}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
@@ -2331,7 +2331,10 @@ class RESTfulAPI(CancelMixin):
         if "multipart/form-data" in content_type:
             # Try manual multipart parsing for better duplicate field handling
             try:
-                image_files = await self._parse_multipart_manual(request)
+                image_files, manual_mask = await self._parse_multipart_manual(request)
+                # Use manually parsed mask if available, otherwise keep the original
+                if manual_mask is not None:
+                    mask = manual_mask
             except Exception as e:
                 logger.error(f"Manual parsing failed, falling back to FastAPI: {e}")
                 # Fallback to FastAPI form parsing
@@ -2394,14 +2397,6 @@ class RESTfulAPI(CancelMixin):
             )
             raise HTTPException(
                 status_code=400, detail="At least one image file is required"
-            )
-
-        if not prompt:
-            raise HTTPException(status_code=400, detail="Prompt is required")
-
-        if len(prompt) > 1000:
-            raise HTTPException(
-                status_code=400, detail="Prompt must be less than 1000 characters"
             )
 
         # Validate response format
@@ -2581,22 +2576,23 @@ class RESTfulAPI(CancelMixin):
 
         content_type = request.headers.get("content-type", "")
         if not content_type:
-            return []
+            return [], None
 
         # Parse content type and boundary
         content_type, options = parse_options_header(content_type.encode("utf-8"))
         if content_type != b"multipart/form-data":
-            return []
+            return [], None
 
         boundary = options.get(b"boundary")
         if not boundary:
-            return []
+            return [], None
 
         # Get the raw body
         body = await request.body()
 
         # Parse multipart data manually
         image_files = []
+        mask_file = None
         try:
             # Import multipart parser
             from multipart.multipart import MultipartParser
@@ -2621,17 +2617,25 @@ class RESTfulAPI(CancelMixin):
                         part.content_type or "application/octet-stream",
                     )
                     image_files.append(file_obj)
+                elif field_name == "mask" and filename:
+                    # Handle mask file
+                    mask_file = FileWrapper(
+                        part.data,
+                        filename,
+                        part.content_type or "application/octet-stream",
+                    )
+                    logger.info(f"Manual multipart parsing found mask file: {filename}")
 
             logger.info(
-                f"Manual multipart parsing found {len(image_files)} image files"
+                f"Manual multipart parsing found {len(image_files)} image files and mask: {mask_file is not None}"
             )
 
         except Exception as e:
             logger.error(f"Manual multipart parsing failed: {e}")
             # Return empty list to trigger fallback
-            return []
+            return [], None
 
-        return image_files
+        return image_files, mask_file
 
     async def _stream_image_edit(
         self, model_ref, images, mask, prompt, size, response_format, n

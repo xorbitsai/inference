@@ -329,6 +329,126 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def image_edit(
+        self,
+        image: Union[Union[str, bytes], List[Union[str, bytes]]],
+        prompt: str,
+        mask: Optional[Union[str, bytes]] = None,
+        n: int = 1,
+        size: Optional[str] = None,
+        response_format: str = "url",
+        **kwargs,
+    ) -> "ImageList":
+        """
+        Edit image(s) by the input text and optional mask.
+
+        Parameters
+        ----------
+        image: `Union[Union[str, bytes], List[Union[str, bytes]]]`
+            The input image(s) to edit. Can be:
+            - Single image: file path, URL, or binary image data
+            - Multiple images: list of file paths, URLs, or binary image data
+            When multiple images are provided, the first image is used as the primary image
+            and subsequent images are used as reference images for better editing results.
+        prompt: `str`
+            The prompt or prompts to guide image editing. If not defined, you need to pass `prompt_embeds`.
+        mask: `Optional[Union[str, bytes]]`, optional
+            An optional mask image. White pixels in the mask are repainted while black pixels are preserved.
+            If provided, this will trigger inpainting mode. If not provided, this will trigger image-to-image mode.
+        n: `int`, defaults to 1
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size: `Optional[str]`, optional
+            The width*height in pixels of the generated image. If not specified, uses the original image size.
+        response_format: `str`, defaults to `url`
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        **kwargs
+            Additional parameters to pass to the model.
+
+        Returns
+        -------
+        ImageList
+            A list of edited image objects.
+
+        Raises
+        ------
+        RuntimeError
+            If the image editing request fails.
+
+        Examples
+        --------
+        # Single image editing
+        result = model.image_edit(
+            image="path/to/image.png",
+            prompt="make this image look like a painting"
+        )
+
+        # Multiple image editing with reference images
+        result = model.image_edit(
+            image=["primary_image.png", "reference1.jpg", "reference2.png"],
+            prompt="edit the main image using the style from reference images"
+        )
+        """
+        url = f"{self._base_url}/v1/images/edits"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "n": n,
+            "size": size,
+            "response_format": response_format,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            if value is not None:
+                files.append((key, (None, value)))
+
+        # Handle single image or multiple images using requests format
+        if isinstance(image, list):
+            # Multiple images - send as image[] array
+            for i, img in enumerate(image):
+                if isinstance(img, str):
+                    # File path - open file
+                    f = open(img, 'rb')
+                    files.append((f"image[]", (f"image_{i}", f, "application/octet-stream")))
+                else:
+                    # Binary data
+                    files.append((f"image[]", (f"image_{i}", img, "application/octet-stream")))
+        else:
+            # Single image
+            if isinstance(image, str):
+                # File path - open file
+                f = open(image, 'rb')
+                files.append(("image", ("image", f, "application/octet-stream")))
+            else:
+                # Binary data
+                files.append(("image", ("image", image, "application/octet-stream")))
+
+        if mask is not None:
+            if isinstance(mask, str):
+                # File path - open file
+                f = open(mask, 'rb')
+                files.append(("mask", ("mask", f, "application/octet-stream")))
+            else:
+                # Binary data
+                files.append(("mask", ("mask", mask, "application/octet-stream")))
+
+        try:
+            response = self.session.post(url, files=files, headers=self.auth_headers)
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"Failed to edit the images, detail: {_get_error_string(response)}"
+                )
+
+            response_data = response.json()
+            return response_data
+        finally:
+            # Close all opened files
+            for file_item in files:
+                if len(file_item) >= 2 and hasattr(file_item[1], '__len__') and len(file_item[1]) >= 2:
+                    file_obj = file_item[1][1]
+                    if hasattr(file_obj, 'close'):
+                        file_obj.close()
+
     def inpainting(
         self,
         image: Union[str, bytes],
