@@ -27,11 +27,19 @@ logger = logging.getLogger(__name__)
 
 
 @register_batching_multimodal_models(
-    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview", "Qwen3-VL-Instruct", "Qwen3-VL-Thinking"
+    "qwen2-vl-instruct",
+    "qwen2.5-vl-instruct",
+    "QvQ-72B-Preview",
+    "Qwen3-VL-Instruct",
+    "Qwen3-VL-Thinking",
 )
 @register_transformer
 @register_non_default_model(
-    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview", "Qwen3-VL-Instruct", "Qwen3-VL-Thinking"
+    "qwen2-vl-instruct",
+    "qwen2.5-vl-instruct",
+    "QvQ-72B-Preview",
+    "Qwen3-VL-Instruct",
+    "Qwen3-VL-Thinking",
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
     def _sanitize_model_config(
