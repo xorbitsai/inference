@@ -343,9 +343,10 @@ class CancellableDownloader:
         self._download_progresses.clear()
 
     def get_progress(self) -> float:
-        if self.cancelled or self.done:
-            # directly return 1.0 when cancelled or finished
+        if self.done:
+            # directly return 1.0 when finished
             return 1.0
+        # Don't return 1.0 when cancelled, calculate actual progress
 
         tasks = finished_tasks = 0
         for main_progress in self._main_progresses:
@@ -403,34 +404,29 @@ class CancellableDownloader:
 
                 # Thread-safe patched update
                 def patched_update(tqdm_instance, n):
-                    # Check all active downloaders for cancellation
-                    with self._global_lock:
-                        if self._active_instances > 0:
-                            # Find all active downloaders and check if any are cancelled
-                            import gc
+                    # Get all CancellableDownloader instances and check for cancellation
+                    import gc
 
-                            # Get all CancellableDownloader instances
-                            downloaders = [
-                                obj
-                                for obj in gc.get_objects()
-                                if isinstance(obj, CancellableDownloader)
-                            ]
+                    downloaders = [
+                        obj
+                        for obj in gc.get_objects()
+                        if isinstance(obj, CancellableDownloader)
+                    ]
 
-                            for downloader in downloaders:
-                                try:
-                                    if downloader.cancelled:
-                                        downloader.raise_error()
-                                    if not tqdm_instance.disable:
-                                        progresses = (
-                                            downloader._main_progresses
-                                            if getattr(tqdm_instance, "unit", "it")
-                                            == "it"
-                                            else downloader._download_progresses
-                                        )
-                                        progresses.add(tqdm_instance)
-                                except Exception:
-                                    # Skip problematic downloaders
-                                    continue
+                    for downloader in downloaders:
+                        if downloader.cancelled:
+                            downloader.raise_error()
+                        try:
+                            if not tqdm_instance.disable:
+                                progresses = (
+                                    downloader._main_progresses
+                                    if getattr(tqdm_instance, "unit", "it") == "it"
+                                    else downloader._download_progresses
+                                )
+                                progresses.add(tqdm_instance)
+                        except Exception:
+                            # Skip problematic downloaders
+                            continue
 
                     # Call original update with safety check
                     try:
