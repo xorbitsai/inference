@@ -45,7 +45,7 @@ jobs:
           sortPaths: "xinference"
           configuration: "--check-only --diff --sp setup.cfg"
       - name: mypy
-        run: pip install 'mypy<1.16.0' && mypy --install-types --non-interactive xinference
+        run: pip install 'mypy==1.18.1' && mypy --install-types --non-interactive xinference
       - name: codespell
         run: pip install codespell && codespell --ignore-words-list thirdparty xinference
       - name: Set up Node.js
