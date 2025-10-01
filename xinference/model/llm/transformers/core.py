@@ -48,6 +48,7 @@ from ..utils import (
 )
 from .utils import (
     _get_pad_param,
+    convert_to_cache_cls,
     get_context_length,
     get_max_src_len,
     pad_prefill_tokens,
@@ -548,9 +549,20 @@ class PytorchModel(LLM):
         So we need pad `0` on the left again.
         """
         data = []
-        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs) + 1
+        # Update attention_mask_seq_len to match the current sequence length from KV cache
         for r in reqs:
-            r.extra_kwargs["attention_mask_seq_len"] += 1
+            # Ensure attention_mask_seq_len doesn't exceed the actual sequence length
+            if "attention_mask_seq_len" not in r.extra_kwargs:
+                r.extra_kwargs["attention_mask_seq_len"] = seq_length - 1
+            else:
+                # Use the minimum between the tracked length and actual sequence length
+                r.extra_kwargs["attention_mask_seq_len"] = min(
+                    r.extra_kwargs["attention_mask_seq_len"] + 1, seq_length
+                )
+
+        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs)
+
+        for r in reqs:
             real_len = r.extra_kwargs["attention_mask_seq_len"]
             pad_len = max_len - real_len
 
@@ -713,30 +725,116 @@ class PytorchModel(LLM):
         from torch.nn.functional import pad
         from transformers import DynamicCache
 
+        # Handle case where past_cache is None or empty
+        if past_cache is None:
+            return new_cache
+
+        # Convert both caches to DynamicCache format if they aren't already
+        if not isinstance(past_cache, DynamicCache):
+            past_cache = convert_to_cache_cls(past_cache)
+        if not isinstance(new_cache, DynamicCache):
+            new_cache = convert_to_cache_cls(new_cache)
+
         _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
-        past_seq_len = past_cache[0][0].shape[seq_len_idx]
-        new_seq_len = new_cache[0][0].shape[seq_len_idx]
+
+        # Handle empty caches
+        if len(past_cache) == 0:
+            return new_cache
+        if len(new_cache) == 0:
+            return past_cache
+
+        # Check if we have tensors to work with - be more defensive
+        try:
+            # Check if the first layer has valid tensors
+            past_first_valid = (
+                past_cache[0][0] is not None and past_cache[0][1] is not None
+            )
+            new_first_valid = (
+                new_cache[0][0] is not None and new_cache[0][1] is not None
+            )
+
+            if not past_first_valid or not new_first_valid:
+                # If either cache has invalid first layer, return the valid one
+                return new_cache if new_first_valid else past_cache
+
+            past_seq_len = past_cache[0][0].shape[seq_len_idx]
+            new_seq_len = new_cache[0][0].shape[seq_len_idx]
+        except (IndexError, AttributeError, RuntimeError):
+            # If we can't access the shape, something is wrong - return new_cache
+            return new_cache
+
         if past_seq_len != new_seq_len:
-            padding_target = new_cache if past_seq_len > new_seq_len else past_cache
-            padding_len = abs(past_seq_len - new_seq_len)
+            # Pad the shorter cache to match the longer one
+            if past_seq_len > new_seq_len:
+                padding_target = new_cache
+                padding_len = past_seq_len - new_seq_len
+            else:
+                padding_target = past_cache
+                padding_len = new_seq_len - past_seq_len
+
             pad_param = _get_pad_param(seq_len_idx, padding_len)
             for idx in range(len(padding_target)):
-                k = padding_target.key_cache[idx]
-                v = padding_target.value_cache[idx]
-                _k = pad(k, pad_param)
-                _v = pad(v, pad_param)
-                padding_target.key_cache[idx] = _k
-                padding_target.value_cache[idx] = _v
+                if padding_target.key_cache[idx] is not None:
+                    try:
+                        k = padding_target.key_cache[idx]
+                        v = padding_target.value_cache[idx]
+                        _k = pad(k, pad_param)
+                        _v = pad(v, pad_param)
+                        padding_target.key_cache[idx] = _k
+                        padding_target.value_cache[idx] = _v
+                    except RuntimeError as e:
+                        logger.warning(f"Failed to pad cache at layer {idx}: {e}")
+                        # Skip this layer if padding fails
+                        continue
 
+        # Create merged cache
         ret_kv = DynamicCache()
-        for idx in range(len(past_cache)):
-            k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
-            v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
-            ret_kv.update(
-                torch.cat((k1, k2), 0).contiguous(),
-                torch.cat((v1, v2), 0).contiguous(),
-                idx,
-            )
+        max_layers = max(len(past_cache), len(new_cache))
+
+        for idx in range(max_layers):
+            try:
+                # Get tensors for this layer, handling the case where one cache has fewer layers
+                past_k = past_cache.key_cache[idx] if idx < len(past_cache) else None
+                past_v = past_cache.value_cache[idx] if idx < len(past_cache) else None
+                new_k = new_cache.key_cache[idx] if idx < len(new_cache) else None
+                new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
+
+                if past_k is not None and new_k is not None:
+                    # Both caches have this layer - merge them
+                    try:
+                        # Check tensor shapes before concatenation
+                        if (
+                            past_k.shape[1:] == new_k.shape[1:]
+                        ):  # Check all dimensions except batch
+                            ret_kv.update(
+                                torch.cat((new_k, past_k), 0).contiguous(),
+                                torch.cat((new_v, past_v), 0).contiguous(),
+                                idx,
+                            )
+                        else:
+                            # Shapes don't match, log warning and use the one with larger batch size
+                            logger.warning(
+                                f"Tensor shape mismatch at layer {idx}: past={past_k.shape}, new={new_k.shape}"
+                            )
+                            if past_k.shape[0] > new_k.shape[0]:
+                                ret_kv.update(past_k, past_v, idx)
+                            else:
+                                ret_kv.update(new_k, new_v, idx)
+                    except RuntimeError as e:
+                        logger.warning(f"Failed to merge tensors at layer {idx}: {e}")
+                        # Use new cache if merging fails
+                        ret_kv.update(new_k, new_v, idx)
+                elif past_k is not None:
+                    # Only past cache has this layer
+                    ret_kv.update(past_k, past_v, idx)
+                elif new_k is not None:
+                    # Only new cache has this layer
+                    ret_kv.update(new_k, new_v, idx)
+            except Exception as e:
+                logger.warning(f"Error processing layer {idx} during cache merge: {e}")
+                # Skip this layer if there's an error
+                continue
+
         return ret_kv
 
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):

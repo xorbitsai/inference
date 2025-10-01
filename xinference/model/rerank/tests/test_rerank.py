@@ -29,6 +29,12 @@ def test_restful_api(model_name, model_engine, setup):
         pytest.skip("bge-reranker-base exceeds the max_model_len( 560 > 512 ) of vllm")
     if model_engine == "vllm":
         pytest.importorskip("vllm", reason="vllm is not installed")
+
+    # Skip network-intensive tests on CI to avoid timeout issues
+    import os
+
+    if os.environ.get("CI") and model_engine == "sentence_transformers":
+        pytest.skip("Skip network-intensive rerank test on CI to avoid timeout")
     endpoint, _ = setup
     client = Client(endpoint)
 

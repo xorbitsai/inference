@@ -853,11 +853,11 @@ class ChatModelMixin:
             "tool_calls": tool_calls,
         }
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        # For tool completion chunks, use None for usage, actual values for stop
+        if finish_reason == "tool_calls":
             usage = None
+        else:
+            usage = c.get("usage")
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -928,10 +928,9 @@ class ChatModelMixin:
         if reasoning_content is not None:
             m["reasoning_content"] = reasoning_content
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        # For tool completion chunks, use actual usage values when available
+        usage = c.get("usage")
+        if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
             usage = {
                 "prompt_tokens": -1,
                 "completion_tokens": -1,
