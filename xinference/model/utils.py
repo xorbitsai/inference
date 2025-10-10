@@ -381,6 +381,7 @@ class CancellableDownloader:
 
     def cancel(self):
         self._cancelled.set()
+        self._done_event.set()
 
     @property
     def cancelled(self):
