@@ -21735,15 +21735,17 @@
         "model_src": {
           "huggingface": {
             "quantizations": [
-              "Int4"
+              "4bit",
+	      "8bit"
             ],
-            "model_id": "QuantTrio/Qwen3-VL-30B-A3B-Instruct-AWQ"
-          },
+            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"  
+          }, 
           "modelscope": {
             "quantizations": [
-              "Int4"
+              "4bit",
+	      "8bit"
             ],
-            "model_id": "tclf90/Qwen3-VL-30B-A3B-Instruct-AWQ"
+            "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"
           }
         }
       }
@@ -21877,15 +21879,17 @@
         "model_src": {
           "huggingface": {
             "quantizations": [
-              "Int4"
+              "4bit",
+	      "8bit"
             ],
-            "model_id": "QuantTrio/Qwen3-VL-30B-A3B-Thinking-AWQ"
+            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}" 
           },
           "modelscope": {
             "quantizations": [
-              "Int4"
+              "4bit",
+	      "8bit"
             ],
-            "model_id": "tclf90/Qwen3-VL-30B-A3B-Thinking-AWQ"
+            "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}"
           }
         }
       }
