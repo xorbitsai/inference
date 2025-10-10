@@ -725,11 +725,11 @@ class PytorchModel(LLM):
         from torch.nn.functional import pad
         from transformers import DynamicCache
 
-        # Handle case where past_cache is None or empty
+        # Handle case where past_cache is None
         if past_cache is None:
             return new_cache
 
-        # Convert both caches to DynamicCache format if they aren't already
+        # Convert both caches to DynamicCache if not already
         if not isinstance(past_cache, DynamicCache):
             past_cache = convert_to_cache_cls(past_cache)
         if not isinstance(new_cache, DynamicCache):
@@ -743,28 +743,20 @@ class PytorchModel(LLM):
         if len(new_cache) == 0:
             return past_cache
 
-        # Check if we have tensors to work with - be more defensive
-        try:
-            # Check if the first layer has valid tensors
-            past_first_valid = (
-                past_cache[0][0] is not None and past_cache[0][1] is not None
-            )
-            new_first_valid = (
-                new_cache[0][0] is not None and new_cache[0][1] is not None
-            )
+        # Get first layer seq_len safely
+        past_first = past_cache[0] if len(past_cache) > 0 else (None, None)
+        new_first = new_cache[0] if len(new_cache) > 0 else (None, None)
 
-            if not past_first_valid or not new_first_valid:
-                # If either cache has invalid first layer, return the valid one
-                return new_cache if new_first_valid else past_cache
-
-            past_seq_len = past_cache[0][0].shape[seq_len_idx]
-            new_seq_len = new_cache[0][0].shape[seq_len_idx]
-        except (IndexError, AttributeError, RuntimeError):
-            # If we can't access the shape, something is wrong - return new_cache
+        if past_first[0] is None or past_first[1] is None:
             return new_cache
+        if new_first[0] is None or new_first[1] is None:
+            return past_cache
 
+        past_seq_len = past_first[0].shape[seq_len_idx]
+        new_seq_len = new_first[0].shape[seq_len_idx]
+
+        # Pad the shorter cache
         if past_seq_len != new_seq_len:
-            # Pad the shorter cache to match the longer one
             if past_seq_len > new_seq_len:
                 padding_target = new_cache
                 padding_len = past_seq_len - new_seq_len
@@ -774,66 +766,43 @@ class PytorchModel(LLM):
 
             pad_param = _get_pad_param(seq_len_idx, padding_len)
             for idx in range(len(padding_target)):
-                if padding_target.key_cache[idx] is not None:
-                    try:
-                        k = padding_target.key_cache[idx]
-                        v = padding_target.value_cache[idx]
-                        _k = pad(k, pad_param)
-                        _v = pad(v, pad_param)
-                        padding_target.key_cache[idx] = _k
-                        padding_target.value_cache[idx] = _v
-                    except RuntimeError as e:
-                        logger.warning(f"Failed to pad cache at layer {idx}: {e}")
-                        # Skip this layer if padding fails
-                        continue
+                k = padding_target.key_cache[idx]
+                v = padding_target.value_cache[idx]
+                if k is not None and v is not None:
+                    padding_target.key_cache[idx] = pad(k, pad_param)
+                    padding_target.value_cache[idx] = pad(v, pad_param)
 
-        # Create merged cache
+        # Merge caches
         ret_kv = DynamicCache()
         max_layers = max(len(past_cache), len(new_cache))
 
         for idx in range(max_layers):
-            try:
-                # Get tensors for this layer, handling the case where one cache has fewer layers
-                past_k = past_cache.key_cache[idx] if idx < len(past_cache) else None
-                past_v = past_cache.value_cache[idx] if idx < len(past_cache) else None
-                new_k = new_cache.key_cache[idx] if idx < len(new_cache) else None
-                new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
+            past_k = past_cache.key_cache[idx] if idx < len(past_cache) else None
+            past_v = past_cache.value_cache[idx] if idx < len(past_cache) else None
+            new_k = new_cache.key_cache[idx] if idx < len(new_cache) else None
+            new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
 
-                if past_k is not None and new_k is not None:
-                    # Both caches have this layer - merge them
-                    try:
-                        # Check tensor shapes before concatenation
-                        if (
-                            past_k.shape[1:] == new_k.shape[1:]
-                        ):  # Check all dimensions except batch
-                            ret_kv.update(
-                                torch.cat((new_k, past_k), 0).contiguous(),
-                                torch.cat((new_v, past_v), 0).contiguous(),
-                                idx,
-                            )
-                        else:
-                            # Shapes don't match, log warning and use the one with larger batch size
-                            logger.warning(
-                                f"Tensor shape mismatch at layer {idx}: past={past_k.shape}, new={new_k.shape}"
-                            )
-                            if past_k.shape[0] > new_k.shape[0]:
-                                ret_kv.update(past_k, past_v, idx)
-                            else:
-                                ret_kv.update(new_k, new_v, idx)
-                    except RuntimeError as e:
-                        logger.warning(f"Failed to merge tensors at layer {idx}: {e}")
-                        # Use new cache if merging fails
+            if past_k is not None and new_k is not None:
+                # Both layers exist
+                if past_k.shape[1:] == new_k.shape[1:]:
+                    ret_kv.update(
+                        torch.cat((new_k, past_k), 0).contiguous(),
+                        torch.cat((new_v, past_v), 0).contiguous(),
+                        idx,
+                    )
+                else:
+                    # Shapes mismatch, choose batch larger
+                    if past_k.shape[0] >= new_k.shape[0]:
+                        ret_kv.update(past_k, past_v, idx)
+                    else:
                         ret_kv.update(new_k, new_v, idx)
-                elif past_k is not None:
-                    # Only past cache has this layer
-                    ret_kv.update(past_k, past_v, idx)
-                elif new_k is not None:
-                    # Only new cache has this layer
-                    ret_kv.update(new_k, new_v, idx)
-            except Exception as e:
-                logger.warning(f"Error processing layer {idx} during cache merge: {e}")
-                # Skip this layer if there's an error
-                continue
+            elif past_k is not None:
+                ret_kv.update(past_k, past_v, idx)
+            elif new_k is not None:
+                ret_kv.update(new_k, new_v, idx)
+            else:
+                # both None, fill with None
+                ret_kv.update(None, None, idx)
 
         return ret_kv
 
