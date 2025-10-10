@@ -74,6 +74,7 @@ class AsyncRESTfulModelHandle:
         self._model_uid = model_uid
         self._base_url = base_url
         self.auth_headers = auth_headers
+        self.timeout = aiohttp.ClientTimeout(total=1800)
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True)
         )
@@ -451,6 +452,9 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
         # Handle single image or multiple images
         if isinstance(image, list):
+            # Validate image list is not empty
+            if len(image) == 0:
+                raise ValueError("Image list cannot be empty")
             # Multiple images - send as image[] array
             for i, img in enumerate(image):
                 if isinstance(img, str):
@@ -1135,8 +1139,7 @@ class AsyncClient:
         self.base_url = base_url
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
-        # 设置更长的默认超时，因为图像编辑需要很长时间
-        self.timeout = aiohttp.ClientTimeout(total=1800)  # 30分钟默认超时
+        self.timeout = aiohttp.ClientTimeout(total=1800)
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True), timeout=self.timeout
         )

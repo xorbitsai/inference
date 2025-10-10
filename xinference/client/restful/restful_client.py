@@ -404,6 +404,9 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         # Handle single image or multiple images using requests format
         if isinstance(image, list):
+            # Validate image list is not empty
+            if len(image) == 0:
+                raise ValueError("Image list cannot be empty")
             # Multiple images - send as image[] array
             for i, img in enumerate(image):
                 if isinstance(img, str):
