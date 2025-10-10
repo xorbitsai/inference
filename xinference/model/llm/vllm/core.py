@@ -990,7 +990,7 @@ class VLLMModel(LLM):
         token_ids = await asyncio.to_thread(
             self._tokenize,
             tokenizer,
-            prompt, # type: ignore
+            prompt,  # type: ignore
             config,
         )
         return TokensPrompt(prompt_token_ids=token_ids)
