@@ -1605,6 +1605,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 inputs["multi_modal_data"]["audio"] = audios
         if "omni" in self.model_family.model_ability:
             inputs["mm_processor_kwargs"]["use_audio_in_video"] = True
+        if inputs["multi_modal_data"] == {}:
+            inputs.pop("multi_modal_data")
+        if inputs["mm_processor_kwargs"] == {}:
+            inputs.pop("mm_processor_kwargs")
         generate_config = self._sanitize_chat_config(generate_config)
 
         stream = generate_config.get("stream", None)
