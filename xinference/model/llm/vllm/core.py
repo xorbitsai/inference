@@ -242,6 +242,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-audio")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
@@ -249,10 +250,12 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("moonlight-16b-a3b-instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-audio-instruct")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwenLong-l1")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-omni")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
@@ -292,8 +295,10 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.2"):
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Thinking")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-Omni-Thinking")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-Omni-Instruct")
 
 
 class VLLMModel(LLM):
@@ -1464,7 +1469,11 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
                 return False
-        if "vision" not in llm_family.model_ability:
+        if (
+            "vision" not in llm_family.model_ability
+            and "audio" not in llm_family.model_ability
+            and "omni" not in llm_family.model_ability
+        ):
             return False
         return VLLM_INSTALLED
 
@@ -1478,6 +1487,8 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 if model_config.get("limit_mm_per_prompt")
                 else {
                     "image": 2,  # default 2 images all chat
+                    "video": 2,  # default 1 video all chat
+                    "audio": 1,  # default 1 audio all chat
                 }
             )
         return model_config
@@ -1532,9 +1543,13 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
-
+        audios, images, videos = None, None, None
         if "internvl" not in model_family.lower():
-            from qwen_vl_utils import process_vision_info
+            from qwen_omni_utils import (
+                process_audio_info,
+                process_mm_info,
+                process_vision_info,
+            )
 
             messages = self._transform_messages(messages)
 
@@ -1549,29 +1564,39 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
+            if "omni" in self.model_family.model_ability:
+                audios, images, videos = process_mm_info(
+                    messages, use_audio_in_video=True
+                )
+            elif "audio" in self.model_family.model_ability:
+                audios = process_audio_info(messages, use_audio_in_video=False)
+            elif "vision" in self.model_family.model_ability:
+                images, videos = process_vision_info(  # type: ignore
+                    messages, return_video_kwargs=False
+                )
+
             prompt = self.get_full_context(
                 messages, self.model_family.chat_template, **full_context_kwargs
             )
-            images, video_inputs = process_vision_info(messages)
-            if video_inputs:
-                raise ValueError("Not support video input now.")
+
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)
-
-        if not images:
-            inputs = {
-                "prompt": prompt,
-            }
-        elif len(images) == 1:
-            inputs = {
-                "prompt": prompt,
-                "multi_modal_data": {"image": images[-1]},  # type: ignore
-            }
-        else:
-            inputs = {
-                "prompt": prompt,
-                "multi_modal_data": {"image": images},  # type: ignore
-            }
+        inputs = {"prompt": prompt, "multi_modal_data": {}}
+        if images:
+            if len(images) == 1:
+                inputs["multi_modal_data"].update(images[0])
+            else:
+                inputs["multi_modal_data"].update(images)
+        if videos:
+            if len(videos) == 1:
+                inputs["multi_modal_data"].update(videos[0])
+            else:
+                inputs["multi_modal_data"].update(videos)
+        if audios:
+            if len(audios) == 1:
+                inputs["multi_modal_data"].update(audios[0])
+            else:
+                inputs["multi_modal_data"].update(audios)
         generate_config = self._sanitize_chat_config(generate_config)
 
         stream = generate_config.get("stream", None)
