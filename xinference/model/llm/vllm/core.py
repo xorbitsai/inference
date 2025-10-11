@@ -1482,15 +1482,21 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
     ) -> VLLMModelConfig:
         model_config = super()._sanitize_model_config(model_config)
         if VLLM_VERSION >= version.parse("0.5.5"):
-            model_config["limit_mm_per_prompt"] = (
-                json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
-                if model_config.get("limit_mm_per_prompt")
-                else {
-                    "image": 2,  # default 2 images all chat
-                    "video": 2,  # default 1 video all chat
-                    "audio": 1,  # default 1 audio all chat
-                }
-            )
+            if model_config.get("limit_mm_per_prompt"):
+                model_config["limit_mm_per_prompt"] = json.loads(
+                    model_config.get("limit_mm_per_prompt")  # type: ignore
+                )
+            else:
+                if "omni" in self.model_family.model_ability:
+                    model_config["limit_mm_per_prompt"] = {
+                        "image": 2,
+                        "video": 2,
+                        "audio": 2,
+                    }
+                elif "vision" in self.model_family.model_ability:
+                    model_config["limit_mm_per_prompt"] = {"image": 2, "video": 2}
+                elif "audio" in self.model_family.model_ability:
+                    model_config["limit_mm_per_prompt"] = {"audio": 2}
         return model_config
 
     def _sanitize_chat_config(
