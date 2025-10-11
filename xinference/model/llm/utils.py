@@ -91,7 +91,12 @@ LLAMA3_TOOL_CALL_FAMILY = [
 
 DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528", "Deepseek-V3.1"]
 
-TOOL_CALL_FAMILY = QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY + LLAMA3_TOOL_CALL_FAMILY + DEEPSEEK_TOOL_CALL_FAMILY
+TOOL_CALL_FAMILY = (
+    QWEN_TOOL_CALL_FAMILY
+    + GLM4_TOOL_CALL_FAMILY
+    + LLAMA3_TOOL_CALL_FAMILY
+    + DEEPSEEK_TOOL_CALL_FAMILY
+)
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
@@ -122,9 +127,13 @@ class ChatModelMixin:
         jinja_env.globals["raise_exception"] = raise_exception
         return jinja_env.from_string(chat_template)
 
-    def _build_from_raw_template(self, messages: List, chat_template: str, **kwargs) -> str:
+    def _build_from_raw_template(
+        self, messages: List, chat_template: str, **kwargs
+    ) -> str:
         compiled_template = self._compile_jinja_template(chat_template)
-        rendered = compiled_template.render(messages=messages, add_generation_prompt=True, **kwargs)
+        rendered = compiled_template.render(
+            messages=messages, add_generation_prompt=True, **kwargs
+        )
         return rendered
 
     def get_full_context(
@@ -136,7 +145,9 @@ class ChatModelMixin:
         **kwargs,
     ):
         if "vision" not in self.model_family.model_ability:  # type: ignore
-            messages = self.convert_messages_with_content_list_to_str_conversion(messages)
+            messages = self.convert_messages_with_content_list_to_str_conversion(
+                messages
+            )
         if tokenizer is not None:
             try:
                 full_context = tokenizer.apply_chat_template(
@@ -149,7 +160,9 @@ class ChatModelMixin:
                 logger.debug("Prompt: %s", full_context)
                 return full_context
             except Exception as e:
-                logger.warning(f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}")
+                logger.warning(
+                    f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                )
                 return self._build_from_raw_template(messages, chat_template, **kwargs)
         else:
             # build from jinja
@@ -167,11 +180,15 @@ class ChatModelMixin:
                 try:
                     return json.loads(kwargs)
                 except json.JSONDecodeError:
-                    raise TypeError(f"`chat_template_kwargs` should be json parsable, got: {kwargs}")
+                    raise TypeError(
+                        f"`chat_template_kwargs` should be json parsable, got: {kwargs}"
+                    )
             elif isinstance(kwargs, dict):
                 return kwargs
             else:
-                raise TypeError(f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}")
+                raise TypeError(
+                    f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
+                )
         elif reasoning_parser and not reasoning_parser.enable_thinking:
             # hybrid model like qwen3,
             # disabled thinking
@@ -207,7 +224,9 @@ class ChatModelMixin:
         _messages.append({"role": "assistant", "content": ""})
 
         if "internvl" in model_family.lower():
-            system_prompt = messages[0]["content"] if messages[0]["role"] == "system" else ""
+            system_prompt = (
+                messages[0]["content"] if messages[0]["role"] == "system" else ""
+            )
             intra_message_sep = "<|im_end|>"
             ret = (
                 "<s>"
@@ -247,9 +266,18 @@ class ChatModelMixin:
                         ret += role + "\n" + text + intra_message_sep + "\n"
                     else:
                         placeholders = "\n".join(
-                            f"Image-{i + 1}: <image>\n" for i in range(len(images) - len(image_futures), len(images))
+                            f"Image-{i + 1}: <image>\n"
+                            for i in range(
+                                len(images) - len(image_futures), len(images)
+                            )
                         )
-                        ret += role + "\n" + f"{placeholders}\n{text}" + intra_message_sep + "\n"
+                        ret += (
+                            role
+                            + "\n"
+                            + f"{placeholders}\n{text}"
+                            + intra_message_sep
+                            + "\n"
+                        )
             if len(images) == 1:
                 ret = ret.replace("Image-1: <image>\n", "<image>\n")
             return ret, images
@@ -264,7 +292,11 @@ class ChatModelMixin:
         previous_texts: Optional[List[str]] = None,
     ) -> ChatCompletionChunk:
         choices = chunk.get("choices")
-        if chunk.get("object") == "chat.completion.chunk" and choices and "delta" in choices[0]:
+        if (
+            chunk.get("object") == "chat.completion.chunk"
+            and choices
+            and "delta" in choices[0]
+        ):
             if choices[0]["finish_reason"] is None:
                 if reasoning_parser and reasoning_parser.check_content_parser():
                     # process parsing reasoning content
@@ -317,7 +349,11 @@ class ChatModelMixin:
                 }
             )
         assert choices is not None
-        usage = chunk["usage"] if choices and choices[0]["finish_reason"] is not None or not choices else None
+        usage = (
+            chunk["usage"]
+            if choices and choices[0]["finish_reason"] is not None or not choices
+            else None
+        )
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
@@ -361,7 +397,9 @@ class ChatModelMixin:
         return chunks
 
     @classmethod
-    def _get_final_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
+    def _get_final_chat_completion_chunk(
+        cls, chunk: CompletionChunk
+    ) -> ChatCompletionChunk:
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
@@ -389,11 +427,15 @@ class ChatModelMixin:
             if not choices:
                 yield cls._get_final_chat_completion_chunk(chunk)
             else:
-                r = cls._to_chat_completion_chunk(chunk, reasoning_parse, previous_texts)
+                r = cls._to_chat_completion_chunk(
+                    chunk, reasoning_parse, previous_texts
+                )
                 yield r
 
     @classmethod
-    def _tools_to_messages_for_deepseek(cls, messages: List[dict], tools: Iterable[dict]):
+    def _tools_to_messages_for_deepseek(
+        cls, messages: List[dict], tools: Iterable[dict]
+    ):
         # deepseek integrates tool calls into messages
         # we follow the chat template rule to integrate tools into messages
         tool_call_message: Dict[str, Any] = {
@@ -446,7 +488,9 @@ class ChatModelMixin:
                 if choices[0].get("text"):
                     full_text += choices[0]["text"]  # type: ignore
 
-                chat_chunk = cls._to_chat_completion_chunk(chunk, reasoning_parser, previous_texts)
+                chat_chunk = cls._to_chat_completion_chunk(
+                    chunk, reasoning_parser, previous_texts
+                )
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)
 
@@ -568,10 +612,14 @@ class ChatModelMixin:
                         if "name" in res and "arguments" in res:
                             results.append((None, res["name"], res["arguments"]))
                         else:
-                            logger.warning("Missing required fields in qwen tool call: %s", content)
+                            logger.warning(
+                                "Missing required fields in qwen tool call: %s", content
+                            )
                             results.append((content, None, None))
                     else:
-                        logger.warning("Qwen tool call result is not a dict: %s", content)
+                        logger.warning(
+                            "Qwen tool call result is not a dict: %s", content
+                        )
                         results.append((content, None, None))
                 except json.JSONDecodeError as e:
                     logger.error(
@@ -590,7 +638,9 @@ class ChatModelMixin:
         return results
 
     @classmethod
-    def _eval_qwen_chat_arguments(cls, c, tool_call_text: Optional[str] = None) -> List[Tuple]:
+    def _eval_qwen_chat_arguments(
+        cls, c, tool_call_text: Optional[str] = None
+    ) -> List[Tuple]:
         text = c["choices"][0]["text"]
         if tool_call_text:
             text = tool_call_text
@@ -662,7 +712,11 @@ class ChatModelMixin:
                 arguments_hashable = None  # No need for hashing
 
             # Avoid duplicate entries
-            dedup_key = (func_and_args["name"], arguments_hashable) if func_and_args is not None else (raw_json)
+            dedup_key = (
+                (func_and_args["name"], arguments_hashable)
+                if func_and_args is not None
+                else (raw_json)
+            )
             if dedup_key not in tool_calls:
                 tool_calls.add(dedup_key)
                 results.append(tool_call_tuple)
@@ -704,7 +758,11 @@ class ChatModelMixin:
                 tool_call_tuple = (raw_json, None, None)
                 arguments_hashable = None
 
-            dedup_key = (func_name, arguments_hashable) if func_and_args is not None else raw_json
+            dedup_key = (
+                (func_name, arguments_hashable)
+                if func_and_args is not None
+                else raw_json
+            )
             if dedup_key not in tool_calls:
                 tool_calls.add(dedup_key)
                 results.append(tool_call_tuple)
@@ -712,7 +770,9 @@ class ChatModelMixin:
         return results
 
     @classmethod
-    def _eval_tool_arguments(cls, model_family, c, tool_call_text: Optional[str] = None):
+    def _eval_tool_arguments(
+        cls, model_family, c, tool_call_text: Optional[str] = None
+    ):
         family = model_family.model_family or model_family.model_name
         if family in GLM4_TOOL_CALL_FAMILY:
             result = cls._eval_glm_chat_arguments(c)
@@ -726,7 +786,9 @@ class ChatModelMixin:
             else:
                 result = cls._eval_deepseek_chat_arguments(c)
         else:
-            raise Exception(f"Model {model_family.model_name} is not support tool calls.")
+            raise Exception(
+                f"Model {model_family.model_name} is not support tool calls."
+            )
         logger.debug(f"Tool call content: {result}")
         return result
 
@@ -752,7 +814,9 @@ class ChatModelMixin:
         else:
             finish_reason = c["choices"][0]["finish_reason"]
             delta_text = c["choices"][0]["delta"]["content"]
-            current_text = previous_texts[-1] + delta_text if previous_texts else delta_text
+            current_text = (
+                previous_texts[-1] + delta_text if previous_texts else delta_text
+            )
             tool_result = self.tool_parser.extract_tool_calls_streaming(
                 previous_texts,
                 current_text,
@@ -824,7 +888,9 @@ class ChatModelMixin:
         reasoning_content = None
         if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             text = c["choices"][0]["text"]
-            reasoning_content, content = self.reasoning_parser.extract_reasoning_content(text)
+            reasoning_content, content = (
+                self.reasoning_parser.extract_reasoning_content(text)
+            )
             c["choices"][0]["text"] = content
 
         tool_calls = []
@@ -902,11 +968,17 @@ class ChatModelMixin:
                     if "text" in item:
                         new_content.append({"type": "text", "text": item["text"]})
                     elif "image_url" in item:
-                        new_content.append({"type": "image", "image": item["image_url"]["url"]})
+                        new_content.append(
+                            {"type": "image", "image": item["image_url"]["url"]}
+                        )
                     elif "video_url" in item:
-                        new_content.append({"type": "video", "video": item["video_url"]["url"]})
+                        new_content.append(
+                            {"type": "video", "video": item["video_url"]["url"]}
+                        )
                     elif "audio_url" in item:
-                        new_content.append({"type": "audio", "audio": item["audio_url"]["url"]})
+                        new_content.append(
+                            {"type": "audio", "audio": item["audio_url"]["url"]}
+                        )
                     else:
                         logger.warning(
                             "Unknown message type, message: %s, this message may be ignored",
@@ -935,7 +1007,9 @@ class ChatModelMixin:
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for completion_chunk in chunks:
             set_context()
-            chat_chunk = self._to_chat_completion_chunk(completion_chunk, self.reasoning_parser, previous_texts)
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk, self.reasoning_parser, previous_texts
+            )
             if (
                 chat_chunk["choices"]
                 and "reasoning_content" in chat_chunk["choices"][0]["delta"]
@@ -1017,7 +1091,9 @@ def generate_completion_chunk(
     choices = []
     if has_choice:
         choices.append(
-            CompletionChoice(text=chunk_text, index=0, logprobs=None, finish_reason=finish_reason)
+            CompletionChoice(
+                text=chunk_text, index=0, logprobs=None, finish_reason=finish_reason
+            )
             if has_content
             else CompletionChoice(index=0, logprobs=None, finish_reason=finish_reason)
         )
@@ -1048,7 +1124,11 @@ def generate_completion(
         object="text_completion",
         created=int(time.time()),
         model=model_uid,
-        choices=[CompletionChoice(text=response, index=0, logprobs=None, finish_reason=finish_reason)],
+        choices=[
+            CompletionChoice(
+                text=response, index=0, logprobs=None, finish_reason=finish_reason
+            )
+        ],
         usage=CompletionUsage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
