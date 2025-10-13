@@ -295,9 +295,9 @@ jobs:
               --ignore xinference/model/embedding/tests/test_integrated_embedding.py \
               --ignore xinference/model/llm/transformers/tests/test_tensorizer.py \
               --ignore xinference/model/llm/tests/test_llm_model.py \
-              --ignore xinference/client/tests/test_client.py \
               --ignore xinference/model/llm/vllm \
               --ignore xinference/model/llm/sglang \
+              --ignore xinference/client/tests/test_client.py \
               xinference
           
           fi
