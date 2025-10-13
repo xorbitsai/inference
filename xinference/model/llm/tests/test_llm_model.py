@@ -250,7 +250,7 @@ async def test_qwen3_with_tools(setup):
         quantization="none",
         n_gpu="auto",
         replica=1,
-        enable_thinking=False,  # 专门测试工具调用，不启用thinking
+        enable_thinking=True,
     )
     model = client.get_model(model_uid)
     assert model is not None
@@ -272,7 +272,7 @@ async def test_qwen3_with_tools(setup):
                 },
             }
         ],
-        max_tokens=100,  # 增加 max_tokens 以确保工具调用能完整生成
+        max_tokens=100,
     )
 
     assert completion is not None
@@ -301,7 +301,7 @@ async def test_qwen3_with_tools(setup):
                 },
             }
         ],
-        max_tokens=100,  # 增加 max_tokens 以确保工具调用能完整生成
+        max_tokens=100,
     )
     assert completion is not None
     assert completion.choices[0].message.content is not None

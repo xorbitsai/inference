@@ -65,7 +65,7 @@ class QwenToolParser(ToolParser):
             return function_calls[-1]
 
         # If no complete tool calls found, try to extract from incomplete tool calls
-        # Handle cases like <tool_call><tool_call>_city: 好的请.
+        # Handle cases like <tool_call><tool_call>_city
         if self.tool_call_start_token in function_call_str:
             # Extract content between the last tool_call start token and end of string
             last_start = function_call_str.rfind(self.tool_call_start_token)
