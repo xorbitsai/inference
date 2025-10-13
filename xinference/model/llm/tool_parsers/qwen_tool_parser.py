@@ -59,10 +59,28 @@ class QwenToolParser(ToolParser):
         Returns:
             str: Extracted JSON string or original string if no match found.
         """
+        # First try to find complete tool calls
         function_calls = self.tool_call_complete_regex.findall(function_call_str)
-        if len(function_calls) == 0:
-            return function_call_str
-        return function_calls[-1]
+        if len(function_calls) > 0:
+            return function_calls[-1]
+
+        # If no complete tool calls found, try to extract from incomplete tool calls
+        # Handle cases like <tool_call><tool_call>_city: 好的请.
+        if self.tool_call_start_token in function_call_str:
+            # Extract content between the last tool_call start token and end of string
+            last_start = function_call_str.rfind(self.tool_call_start_token)
+            potential_json = function_call_str[
+                last_start + len(self.tool_call_start_token) :
+            ]
+            # Remove any trailing tool_call end tokens
+            if self.tool_call_end_token in potential_json:
+                potential_json = potential_json.split(self.tool_call_end_token)[0]
+            # Clean up any extra whitespace
+            potential_json = potential_json.strip()
+            if potential_json:
+                return potential_json
+
+        return function_call_str
 
     def _parse_json_function_call_stream(
         self,
@@ -229,7 +247,14 @@ class QwenToolParser(ToolParser):
                 try:
                     parsed_json = self._parse_json_function_call(function_call)
                     res = json.loads(parsed_json, strict=False)
-                    results.append((None, res["name"], res["arguments"]))
+                    # Validate that we have the required fields
+                    if "name" in res and "arguments" in res:
+                        results.append((None, res["name"], res["arguments"]))
+                    else:
+                        logger.warning(
+                            "Invalid tool call format, missing required fields: %s", res
+                        )
+                        results.append((function_call, None, None))
                 except Exception as e:
                     logger.error(
                         "Can't parse single qwen tool call output: %s. Error: %s",

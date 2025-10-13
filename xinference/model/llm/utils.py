@@ -882,17 +882,11 @@ class ChatModelMixin:
     ):
         if not self.tool_parser:
             return self._get_final_chat_completion_chunk(c)
-        if self.reasoning_parser:
-            c = self.reasoning_parser.prepare_reasoning_content(c)
+
         _id = str(uuid.uuid4())
         reasoning_content = None
-        if self.reasoning_parser and self.reasoning_parser.check_content_parser():
-            text = c["choices"][0]["text"]
-            reasoning_content, content = (
-                self.reasoning_parser.extract_reasoning_content(text)
-            )
-            c["choices"][0]["text"] = content
 
+        # First, extract tool calls from the original text before reasoning processing
         tool_calls = []
         failed_contents = []
         if isinstance(self.tool_parser, Glm4ToolParser):
@@ -900,6 +894,8 @@ class ChatModelMixin:
         else:
             text = c["choices"][0]["text"]
             tool_result = self.tool_parser.extract_tool_calls(text)
+
+        # Process tool results
         for content, func, args in tool_result:
             if func:
                 tool_calls.append(
@@ -914,6 +910,19 @@ class ChatModelMixin:
                 )
             else:
                 if content:
+                    failed_contents.append(content)
+
+        # Then, process reasoning content if reasoning parser exists
+        if self.reasoning_parser:
+            c = self.reasoning_parser.prepare_reasoning_content(c)
+            if self.reasoning_parser.check_content_parser():
+                text = c["choices"][0]["text"]
+                reasoning_content, content = (
+                    self.reasoning_parser.extract_reasoning_content(text)
+                )
+                c["choices"][0]["text"] = content
+                # Append reasoning-processed content to failed_contents if no tool calls
+                if not tool_calls and content:
                     failed_contents.append(content)
         finish_reason = "tool_calls" if tool_calls else "stop"
 

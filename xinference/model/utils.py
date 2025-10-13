@@ -405,9 +405,9 @@ class CancellableDownloader:
 
                 # Thread-safe patched update
                 def patched_update(tqdm_instance, n):
-                    # Get all CancellableDownloader instances and check for cancellation
                     import gc
 
+                    # Get all CancellableDownloader instances and check for cancellation
                     downloaders = [
                         obj
                         for obj in gc.get_objects()
@@ -415,27 +415,31 @@ class CancellableDownloader:
                     ]
 
                     for downloader in downloaders:
-                        if downloader.cancelled:
+                        # if download cancelled, throw error
+                        if getattr(downloader, "cancelled", False):
                             downloader.raise_error()
-                        try:
-                            if not tqdm_instance.disable:
-                                progresses = (
-                                    downloader._main_progresses
-                                    if getattr(tqdm_instance, "unit", "it") == "it"
-                                    else downloader._download_progresses
+
+                        progresses = None
+                        if not getattr(tqdm_instance, "disable", False):
+                            unit = getattr(tqdm_instance, "unit", "it")
+                            if unit == "it":
+                                progresses = getattr(
+                                    downloader, "_main_progresses", None
                                 )
-                                progresses.add(tqdm_instance)
-                        except Exception:
-                            # Skip problematic downloaders
-                            continue
+                            else:
+                                progresses = getattr(
+                                    downloader, "_download_progresses", None
+                                )
+
+                        if progresses is not None:
+                            progresses.add(tqdm_instance)
+                        else:
+                            logger.debug(
+                                f"No progresses found for downloader {downloader}"
+                            )
 
                     # Call original update with safety check
-                    try:
-                        return original_update(tqdm_instance, n)
-                    except Exception as e:
-                        # If original update fails, log and continue to prevent deadlock
-                        logger.debug(f"tqdm update failed: {e}")
-                        return n
+                    return original_update(tqdm_instance, n)
 
                 tqdm.update = patched_update
 

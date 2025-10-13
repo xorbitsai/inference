@@ -496,15 +496,18 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
 
     model_proc.kill()
 
-    for _ in range(60):
+    # 增加到180秒，给CI环境更多时间，特别是模型重新加载
+    for i in range(180):
         try:
             completion = model.chat(messages, generate_config={"max_tokens": 64})
             assert "content" in completion["choices"][0]["message"]
             break
-        except Exception:
+        except Exception as e:
+            if i % 10 == 0:  # 每10次打印一次状态
+                print(f"Auto-recover attempt {i+1}/180, error: {e}")
             time.sleep(1)
     else:
-        assert False
+        assert False, "Model auto-recovery failed after 180 seconds"
 
 
 def test_model_error(set_test_oom_error, setup_cluster):

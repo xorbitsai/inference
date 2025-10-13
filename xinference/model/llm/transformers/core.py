@@ -549,42 +549,48 @@ class PytorchModel(LLM):
         So we need pad `0` on the left again.
         """
         data = []
-        # Update attention_mask_seq_len to match the current sequence length from KV cache
+        # For decode phase, attention mask should match the full KV cache sequence length
+        # All requests in batch should have attention mask of length `seq_length`
         for r in reqs:
-            # Ensure attention_mask_seq_len doesn't exceed the actual sequence length
+            # Get the actual sequence length for this request from its tracking
             if "attention_mask_seq_len" not in r.extra_kwargs:
-                r.extra_kwargs["attention_mask_seq_len"] = seq_length - 1
+                # Initialize with the current sequence length (full KV cache length)
+                r.extra_kwargs["attention_mask_seq_len"] = seq_length
             else:
-                # Use the minimum between the tracked length and actual sequence length
-                r.extra_kwargs["attention_mask_seq_len"] = min(
-                    r.extra_kwargs["attention_mask_seq_len"] + 1, seq_length
-                )
+                # Use the previously tracked length, but ensure it doesn't exceed current seq_length
+                tracked_len = r.extra_kwargs["attention_mask_seq_len"]
+                r.extra_kwargs["attention_mask_seq_len"] = min(tracked_len, seq_length)
 
-        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs)
-
+        # For decode phase after KV cache merge, all requests should have attention mask
+        # that matches the merged sequence length
         for r in reqs:
             real_len = r.extra_kwargs["attention_mask_seq_len"]
-            pad_len = max_len - real_len
 
-            if self._tokenizer.padding_side == "left":
-                x = torch.cat(
-                    [
-                        (
-                            torch.full((pad_len,), 0, dtype=torch.long)
-                            if pad_len > 0
-                            else torch.tensor([], dtype=torch.long)
-                        ),
-                        torch.ones((real_len,), dtype=torch.long),
-                    ]
-                )
+            # The attention mask should cover the full sequence length
+            if real_len < seq_length:
+                # Pad with zeros on the left to reach full sequence length
+                pad_len = seq_length - real_len
+
+                if self._tokenizer.padding_side == "left":
+                    x = torch.cat(
+                        [
+                            torch.full((pad_len,), 0, dtype=torch.long),
+                            torch.ones((real_len,), dtype=torch.long),
+                        ]
+                    )
+                else:
+                    x = torch.cat(
+                        [
+                            torch.ones((real_len,), dtype=torch.long),
+                            torch.full((pad_len,), 0, dtype=torch.long),
+                        ]
+                    )
             else:
-                x = torch.cat(
-                    [
-                        torch.ones((real_len,), dtype=torch.long),
-                        torch.full((pad_len,), 0, dtype=torch.long),
-                    ]
-                )
+                # Already at correct length
+                x = torch.ones((real_len,), dtype=torch.long)
+
             data.append(x)
+
         return torch.stack(data).to(self._device)
 
     def build_prefill_position_ids(
@@ -783,15 +789,35 @@ class PytorchModel(LLM):
             new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
 
             if past_k is not None and new_k is not None:
-                # Both layers exist
+                # Both layers exist - validate tensor dimensions before concatenation
+                if past_k.dim() != new_k.dim():
+                    logger.error(
+                        f"KV cache tensor dimension mismatch at layer {idx}: "
+                        f"past_k.dim()={past_k.dim()}, new_k.dim()={new_k.dim()}"
+                    )
+                    # Use the cache with higher batch size
+                    if past_k.shape[0] >= new_k.shape[0]:
+                        ret_kv.update(past_k, past_v, idx)
+                    else:
+                        ret_kv.update(new_k, new_v, idx)
+                    continue
+
                 if past_k.shape[1:] == new_k.shape[1:]:
+                    # Shapes are compatible, concatenate along batch dimension
                     ret_kv.update(
                         torch.cat((new_k, past_k), 0).contiguous(),
                         torch.cat((new_v, past_v), 0).contiguous(),
                         idx,
                     )
                 else:
-                    # Shapes mismatch, choose batch larger
+                    # Detailed logging for shape mismatch
+                    logger.warning(
+                        f"KV cache shape mismatch at layer {idx}: "
+                        f"past_k.shape={past_k.shape}, new_k.shape={new_k.shape}. "
+                        f"This may be due to inconsistent batch sizes in continuous batching."
+                    )
+
+                    # Choose the cache with larger batch size to preserve more data
                     if past_k.shape[0] >= new_k.shape[0]:
                         ret_kv.update(past_k, past_v, idx)
                     else:

@@ -281,7 +281,20 @@ def _batch_inference_one_step_internal(
             r.append_new_token(token)
 
         if decode_reqs:
+            # Ensure all decode requests have the same kv_cache reference
+            # This prevents batch size mismatches during merging
             decode_kv = decode_reqs[0].kv_cache
+
+            # Verify that all decode requests share the same kv_cache
+            for req in decode_reqs[1:]:
+                if req.kv_cache is not decode_kv:
+                    logger.warning(
+                        "Inconsistent kv_cache references detected in decode requests. "
+                        "This may indicate a batching synchronization issue."
+                    )
+                    # Use the first decode_kv as the reference to maintain consistency
+                    req.kv_cache = decode_kv
+
             # prefill and decode kv cache need to be merged at `batch_size` and `seq_len` dimensions.
             merged_kv_cache = xinf_model_obj.merge_kv_cache(decode_kv, past_key_values)
             # Update sequence length information after KV cache merge
