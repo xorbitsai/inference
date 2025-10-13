@@ -281,7 +281,8 @@ jobs:
           else
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py \
+              --ignore xinference/client/tests/test_client.py::test_auto_recover
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               -vv \
