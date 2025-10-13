@@ -488,70 +488,22 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
     model = client.get_model(model_uid=model_uid)
     assert isinstance(model, RESTfulChatModelHandle)
 
-    messages = [
-        {"role": "user", "content": "Once upon a time, there was a very old computer"}
-    ]
-    completion = model.chat(messages)
-    assert "content" in completion["choices"][0]["message"]
+    completion = model.generate("Once upon a time, there was a very old computer")
+    assert "text" in completion["choices"][0]
 
     model_proc.kill()
 
-    # Enhanced auto-recovery test with multiple strategies
-    recovery_successful = False
-
-    # Strategy 1: Direct retry with exponential backoff
-    for i in range(60):  # 60 seconds with exponential backoff
+    for _ in range(60):
         try:
-            completion = model.chat(messages, generate_config={"max_tokens": 64})
-            assert "content" in completion["choices"][0]["message"]
-            recovery_successful = True
-            print(f"Auto-recovery successful at attempt {i+1}")
+            completion = model.generate(
+                "Once upon a time, there was a very old computer", {"max_tokens": 64}
+            )
+            assert "text" in completion["choices"][0]
             break
-        except Exception as e:
-            if i % 5 == 0:  # Log every 5 attempts
-                print(f"Auto-recovery attempt {i+1}/60, error: {e}")
-
-            # Exponential backoff
-            sleep_time = min(2 ** (i // 10), 10)  # Cap at 10 seconds
-            time.sleep(sleep_time)
-
-    # Strategy 2: If direct retry fails, try reconnecting
-    if not recovery_successful:
-        print("Direct retry failed, trying reconnection strategy...")
-
-        for i in range(30):  # Additional 30 seconds
-            try:
-                # Try to get model handle again
-                model = client.get_model(model_uid=model_uid)
-                completion = model.chat(messages, generate_config={"max_tokens": 64})
-                assert "content" in completion["choices"][0]["message"]
-                recovery_successful = True
-                print(f"Reconnection recovery successful at attempt {i+1}")
-                break
-            except Exception as e:
-                if i % 5 == 0:
-                    print(f"Reconnection attempt {i+1}/30, error: {e}")
-                time.sleep(1)
-
-    # Strategy 3: Check if model is in list and retry launch if needed
-    if not recovery_successful:
-        print("Reconnection failed, checking model status...")
-
-        models = client.list_models()
-        if model_uid in models:
-            print(f"Model {model_uid} still in list, trying one more time...")
-            try:
-                completion = model.chat(messages, generate_config={"max_tokens": 64})
-                assert "content" in completion["choices"][0]["message"]
-                recovery_successful = True
-                print("Final attempt successful")
-            except Exception as e:
-                print(f"Final attempt failed: {e}")
-        else:
-            print(f"Model {model_uid} not in model list")
-
-    if not recovery_successful:
-        assert False, "Model auto-recovery failed after all strategies"
+        except Exception:
+            time.sleep(1)
+    else:
+        assert False
 
 
 def test_model_error(set_test_oom_error, setup_cluster):
