@@ -14,6 +14,7 @@
 
 import asyncio
 import functools
+import importlib.util
 import json
 import logging
 import os
@@ -472,44 +473,266 @@ class CancellableDownloader:
 
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
-) -> Optional[Dict[str, List[dict]]]:
+) -> Optional[Dict[str, Union[List[dict], str]]]:
     if model_type == "LLM":
-        from .llm.llm_family import LLM_ENGINES
+        from .llm.llm_family import LLM_ENGINES, SUPPORTED_ENGINES
 
         if model_name not in LLM_ENGINES:
             return None
 
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine, params in engine_params.items():
+        # Get all supported engines, not just currently available ones
+        all_supported_engines = list(SUPPORTED_ENGINES.keys())
+        engine_params = {}
+
+        # First add currently available engine parameters
+        available_engines = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in available_engines.items():
             for param in params:
-                del param["llm_class"]
+                # Remove previous available attribute as available engines don't need this flag
+                if "available" in param:
+                    del param["available"]
+            engine_params[engine] = params
+
+        # Check unavailable engines
+        for engine_name in all_supported_engines:
+            if engine_name not in engine_params:  # Engine not in available list
+                try:
+                    engine_classes = SUPPORTED_ENGINES[engine_name]
+                    error_msg = None
+
+                    # Try to find specific error reasons
+                    for engine_class in engine_classes:
+                        try:
+                            if hasattr(engine_class, "check_lib"):
+                                lib_available = engine_class.check_lib()
+                                if not lib_available:
+                                    error_msg = (
+                                        f"Engine {engine_name} library is not available"
+                                    )
+                                    break
+                            else:
+                                # If no check_lib method, try import check
+                                module_name = engine_name.lower().replace(".", "")
+                                if engine_name == "vLLM":
+                                    module_name = "vllm"
+                                elif engine_name == "SGLang":
+                                    module_name = "sglang"
+                                elif engine_name == "llama.cpp":
+                                    module_name = "llama_cpp"
+                                elif engine_name == "MLX":
+                                    module_name = "mlx"
+                                elif engine_name == "LMDEPLOY":
+                                    module_name = "lmdeploy"
+                                elif engine_name == "Transformers":
+                                    module_name = "transformers"
+
+                                importlib.import_module(module_name)
+                                break
+                        except ImportError as e:
+                            error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                        except Exception as e:
+                            error_msg = (
+                                f"Engine {engine_name} is not available: {str(e)}"
+                            )
+
+                    if error_msg is None:
+                        error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+
+                    # For unavailable engines, directly return error message string
+                    engine_params[engine_name] = error_msg
+
+                except Exception as e:
+                    # If exception occurs during checking, return error message string
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
+
+        # Filter out llm_class field
+        for engine, params in engine_params.items():
+            if isinstance(
+                params, list
+            ):  # Only process parameter lists of available engines
+                for param in params:
+                    if "llm_class" in param:
+                        del param["llm_class"]
 
         return engine_params
     elif model_type == "embedding":
-        from .embedding.embed_family import EMBEDDING_ENGINES
+        from .embedding.embed_family import (
+            EMBEDDING_ENGINES,
+        )
+        from .embedding.embed_family import (
+            SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
+        )
 
         if model_name not in EMBEDDING_ENGINES:
             return None
 
-        # filter embedding_class
-        engine_params = deepcopy(EMBEDDING_ENGINES[model_name])
-        for engine, params in engine_params.items():
+        # Get all supported engines, not just currently available ones
+        all_supported_engines = list(EMBEDDING_SUPPORTED_ENGINES.keys())
+        engine_params = {}
+
+        # First add currently available engine parameters
+        available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in available_engines.items():
             for param in params:
-                del param["embedding_class"]
+                # Remove previous available attribute as available engines don't need this flag
+                if "available" in param:
+                    del param["available"]
+            engine_params[engine] = params
+
+        # Check unavailable engines
+        for engine_name in all_supported_engines:
+            if engine_name not in engine_params:  # Engine not in available list
+                try:
+                    engine_classes = EMBEDDING_SUPPORTED_ENGINES[engine_name]
+                    error_msg = None
+
+                    # Try to find specific error reasons
+                    for engine_class in engine_classes:
+                        try:
+                            if hasattr(engine_class, "check_lib"):
+                                lib_available = engine_class.check_lib()
+                                if not lib_available:
+                                    error_msg = (
+                                        f"Engine {engine_name} library is not available"
+                                    )
+                                    break
+                            else:
+                                # If no check_lib method, try import check
+                                module_name = engine_name.lower().replace(".", "")
+                                if engine_name == "vLLM":
+                                    module_name = "vllm"
+                                elif engine_name == "SGLang":
+                                    module_name = "sglang"
+                                elif engine_name == "llama.cpp":
+                                    module_name = "llama_cpp"
+                                elif engine_name == "MLX":
+                                    module_name = "mlx"
+                                elif engine_name == "LMDEPLOY":
+                                    module_name = "lmdeploy"
+                                elif engine_name == "Transformers":
+                                    module_name = "transformers"
+                                elif engine_name == "SentenceTransformers":
+                                    module_name = "sentence_transformers"
+
+                                importlib.import_module(module_name)
+                                break
+                        except ImportError as e:
+                            error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                        except Exception as e:
+                            error_msg = (
+                                f"Engine {engine_name} is not available: {str(e)}"
+                            )
+
+                    if error_msg is None:
+                        error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+
+                    # For unavailable engines, directly return error message string
+                    engine_params[engine_name] = error_msg
+
+                except Exception as e:
+                    # If exception occurs during checking, return error message string
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
+
+        # Filter out embedding_class field
+        for engine, params in engine_params.items():
+            if isinstance(
+                params, list
+            ):  # Only process parameter lists of available engines
+                for param in params:
+                    if "embedding_class" in param:
+                        del param["embedding_class"]
 
         return engine_params
     elif model_type == "rerank":
-        from .rerank.rerank_family import RERANK_ENGINES
+        from .rerank.rerank_family import (
+            RERANK_ENGINES,
+        )
+        from .rerank.rerank_family import SUPPORTED_ENGINES as RERANK_SUPPORTED_ENGINES
 
         if model_name not in RERANK_ENGINES:
             return None
 
-        # filter rerank_class
-        engine_params = deepcopy(RERANK_ENGINES[model_name])
-        for engine, params in engine_params.items():
+        # Get all supported engines, not just currently available ones
+        all_supported_engines = list(RERANK_SUPPORTED_ENGINES.keys())
+        engine_params = {}
+
+        # First add currently available engine parameters
+        available_engines = deepcopy(RERANK_ENGINES[model_name])
+        for engine, params in available_engines.items():
             for param in params:
-                del param["rerank_class"]
+                # Remove previous available attribute as available engines don't need this flag
+                if "available" in param:
+                    del param["available"]
+            engine_params[engine] = params
+
+        # Check unavailable engines
+        for engine_name in all_supported_engines:
+            if engine_name not in engine_params:  # Engine not in available list
+                try:
+                    engine_classes = RERANK_SUPPORTED_ENGINES[engine_name]
+                    error_msg = None
+
+                    # Try to find specific error reasons
+                    for engine_class in engine_classes:
+                        try:
+                            if hasattr(engine_class, "check_lib"):
+                                lib_available = engine_class.check_lib()
+                                if not lib_available:
+                                    error_msg = (
+                                        f"Engine {engine_name} library is not available"
+                                    )
+                                    break
+                            else:
+                                # If no check_lib method, try import check
+                                module_name = engine_name.lower().replace(".", "")
+                                if engine_name == "vLLM":
+                                    module_name = "vllm"
+                                elif engine_name == "SGLang":
+                                    module_name = "sglang"
+                                elif engine_name == "llama.cpp":
+                                    module_name = "llama_cpp"
+                                elif engine_name == "MLX":
+                                    module_name = "mlx"
+                                elif engine_name == "LMDEPLOY":
+                                    module_name = "lmdeploy"
+                                elif engine_name == "Transformers":
+                                    module_name = "transformers"
+                                elif engine_name == "SentenceTransformers":
+                                    module_name = "sentence_transformers"
+
+                                importlib.import_module(module_name)
+                                break
+                        except ImportError as e:
+                            error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                        except Exception as e:
+                            error_msg = (
+                                f"Engine {engine_name} is not available: {str(e)}"
+                            )
+
+                    if error_msg is None:
+                        error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+
+                    # For unavailable engines, directly return error message string
+                    engine_params[engine_name] = error_msg
+
+                except Exception as e:
+                    # If exception occurs during checking, return error message string
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
+
+        # Filter out rerank_class field
+        for engine, params in engine_params.items():
+            if isinstance(
+                params, list
+            ):  # Only process parameter lists of available engines
+                for param in params:
+                    if "rerank_class" in param:
+                        del param["rerank_class"]
 
         return engine_params
     else:

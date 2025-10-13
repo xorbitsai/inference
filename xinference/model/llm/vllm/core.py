@@ -851,7 +851,30 @@ class VLLMModel(LLM):
 
     @classmethod
     def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+        if importlib.util.find_spec("vllm") is None:
+            return False
+
+        try:
+            import vllm
+
+            if not getattr(vllm, "__version__", None):
+                return False
+
+            # Check version
+            from packaging import version
+
+            if version.parse(vllm.__version__) < version.parse("0.3.0"):
+                return False
+
+            # Check CUDA
+            import torch
+
+            if not torch.cuda.is_available():
+                return False
+
+            return True
+        except Exception:
+            return False
 
     @classmethod
     def match_json(
