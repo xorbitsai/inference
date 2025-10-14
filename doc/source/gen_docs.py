@@ -311,12 +311,30 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for model in sorted_models:
-            # Process model_src for template compatibility
-            if 'model_src' in model:
-                if 'huggingface' in model['model_src']:
-                    model['model_id'] = model['model_src']['huggingface']['model_id']
-                elif 'modelscope' in model['model_src']:
-                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            # Initialize model_hubs list
+            model['model_hubs'] = []
+            
+            # Process model specs for new model_src structure
+            model_spec = model['model_specs'][0]  # Use first spec for model hubs
+            if 'model_src' in model_spec:
+                if 'huggingface' in model_spec['model_src']:
+                    hf_src = model_spec['model_src']['huggingface']
+                    model['model_hubs'].append({
+                        'name': MODEL_HUB_HUGGING_FACE,
+                        'url': f"https://huggingface.co/{hf_src['model_id']}"
+                    })
+                    # Set model_id for template compatibility (prefer huggingface)
+                    model['model_id'] = hf_src['model_id']
+                
+                if 'modelscope' in model_spec['model_src']:
+                    ms_src = model_spec['model_src']['modelscope']
+                    model['model_hubs'].append({
+                        'name': MODEL_HUB_MODELSCOPE,
+                        'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
+                    })
+                    # Only set modelscope model_id if no huggingface exists
+                    if 'huggingface' not in model_spec['model_src']:
+                        model['model_id'] = ms_src['model_id']
             
             rendered = env.get_template('rerank.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
@@ -325,7 +343,6 @@ def main():
 
         index_file_path = os.path.join(output_dir, "index.rst")
         with open(index_file_path, "w") as file:
-            
             rendered_index = env.get_template('rerank_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
@@ -347,6 +364,11 @@ def main():
                         model['gguf_model_id'] = hf_src['gguf_model_id']
                     if 'gguf_quantizations' in hf_src:
                         model['gguf_quantizations'] = ", ".join(hf_src['gguf_quantizations'])
+                    # Handle Lightning related fields
+                    if 'lightning_model_id' in hf_src:
+                        model['lightning_model_id'] = hf_src['lightning_model_id']
+                    if 'lightning_versions' in hf_src:
+                        model['lightning_versions'] = ", ".join(hf_src['lightning_versions'])
                 elif 'modelscope' in model['model_src']:
                     model['model_id'] = model['model_src']['modelscope']['model_id']
             

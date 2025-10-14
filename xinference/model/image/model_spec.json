@@ -169,7 +169,9 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers.git",
+        "diffusers==0.35.1",
+        "peft>=0.17.0",
+        "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
@@ -180,7 +182,9 @@
     "model_name": "Qwen-Image",
     "model_family": "stable_diffusion",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image",
+      "inpainting"
     ],
     "model_src": {
       "huggingface": {
@@ -202,7 +206,16 @@
           "Q6_K",
           "Q8_0"
         ],
-        "gguf_model_file_name_template": "qwen-image-{quantization}.gguf"
+        "gguf_model_file_name_template": "qwen-image-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0",
+          "8steps-V1.0",
+          "8steps-V1.1-bf16",
+          "8steps-V1.1"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Lightning-{lightning_version}.safetensors"
       },
       "modelscope": {
         "model_id": "Qwen/Qwen-Image",
@@ -223,7 +236,16 @@
           "Q6_K",
           "Q8_0"
         ],
-        "gguf_model_file_name_template": "qwen-image-{quantization}.gguf"
+        "gguf_model_file_name_template": "qwen-image-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0",
+          "8steps-V1.0",
+          "8steps-V1.1-bf16",
+          "8steps-V1.1"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Lightning-{lightning_version}.safetensors"
       }
     },
     "default_model_config": {
@@ -232,11 +254,166 @@
       "torch_dtype": "bfloat16"
     },
     "default_generate_config": {
-      "guidance_scale": 1.0
+      "guidance_scale": 1.0,
+      "true_cfg_scale": 1.0
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers.git",
+        "diffusers==0.35.1",
+        "peft>=0.17.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Edit",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Edit",
+        "model_revision": "0b71959872ea3bf4d106c578b7c480ebb133dba7",
+        "gguf_model_id": "QuantStack/Qwen-Image-Edit-GGUF",
+        "gguf_quantizations": [
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "Qwen_Image_Edit-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0",
+          "8steps-V1.0-bf16",
+          "8steps-V1.0"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-Lightning-{lightning_version}.safetensors"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Edit",
+        "model_revision": "master",
+        "gguf_model_id": "QuantStack/Qwen-Image-Edit-GGUF",
+        "gguf_quantizations": [
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "Qwen_Image_Edit-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0",
+          "8steps-V1.0-bf16",
+          "8steps-V1.0"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-Lightning-{lightning_version}.safetensors"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4.0
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers==0.35.1",
+        "peft>=0.17.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Edit-2509",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Edit-2509",
+        "model_revision": "d3968ef930e841f4c73640fb8afa3b306a78167e",
+        "gguf_model_id": "QuantStack/Qwen-Image-Edit-2509-GGUF",
+        "gguf_quantizations": [
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "Qwen-Image-Edit-2509-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Edit-2509",
+        "model_revision": "master",
+        "gguf_model_id": "QuantStack/Qwen-Image-Edit-2509-GGUF",
+        "gguf_quantizations": [
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "Qwen-Image-Edit-2509-{quantization}.gguf"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4.0
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -716,13 +893,12 @@
         "deepspeed==0.12.3",
         "peft==0.4.0",
         "tiktoken==0.6.0",
-        "bitsandbytes==0.41.0",
-        "scikit-learn==1.2.2",
         "sentencepiece==0.1.99",
         "einops==0.6.1",
         "einops-exts==0.0.4",
         "timm==0.6.13",
-        "numpy==1.26.4"
+        "#system_numpy#",
+        "#system_torch#"
       ]
     },
     "model_src": {

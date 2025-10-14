@@ -3,6 +3,7 @@ import uuid
 from typing import List, Optional
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
@@ -22,9 +23,27 @@ class VLLMRerankModel(RerankModel):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        if self.model_family.model_name in {
+            "Qwen3-Reranker-0.6B",
+            "Qwen3-Reranker-4B",
+            "Qwen3-Reranker-8B",
+        }:
+            if "hf_overrides" not in self._kwargs:
+                self._kwargs["hf_overrides"] = {
+                    "architectures": ["Qwen3ForSequenceClassification"],
+                    "classifier_from_token": ["no", "yes"],
+                    "is_original_qwen3_reranker": True,
+                }
+            elif isinstance(self._kwargs["hf_overrides"], dict):
+                self._kwargs["hf_overrides"].update(
+                    architectures=["Qwen3ForSequenceClassification"],
+                    classifier_from_token=["no", "yes"],
+                    is_original_qwen3_reranker=True,
+                )
         self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
+    @cache_clean
     def rerank(
         self,
         documents: List[str],
@@ -51,14 +70,45 @@ class VLLMRerankModel(RerankModel):
         """
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
+        assert self._model is not None
         documents_size = len(documents)
         query_list = [query] * documents_size
-        assert self._model is not None
-        outputs = self._model.score(
-            documents,
-            query_list,
-            use_tqdm=False,
-        )
+
+        if self.model_family.model_name in {
+            "Qwen3-Reranker-0.6B",
+            "Qwen3-Reranker-4B",
+            "Qwen3-Reranker-8B",
+        }:
+            instruction = "Given a web search query, retrieve relevant passages that answer the query"
+            prefix = (
+                "<|im_start|>system\nJudge whether the Document meets the requirements based on"
+                " the Query and the Instruct provided. "
+                'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
+            )
+            suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
+            document_template = "<Document>: {doc}{suffix}"
+            processed_queries = [
+                query_template.format(
+                    prefix=prefix, instruction=instruction, query=query
+                )
+                for query in query_list
+            ]
+            processed_documents = [
+                document_template.format(doc=doc, suffix=suffix) for doc in documents
+            ]
+            outputs = self._model.score(
+                processed_documents,
+                processed_queries,
+                use_tqdm=False,
+            )
+
+        else:
+            outputs = self._model.score(
+                documents,
+                query_list,
+                use_tqdm=False,
+            )
         scores = map(lambda scoreoutput: scoreoutput.outputs.score, outputs)
         documents = list(map(lambda doc: Document(text=doc), documents))
         document_parts = list(zip(range(documents_size), scores, documents))

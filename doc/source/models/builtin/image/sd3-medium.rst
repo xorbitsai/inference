@@ -18,3 +18,5 @@ Execute the following command to launch the model::
 
    xinference launch --model-name sd3-medium --model-type image
 
+
+

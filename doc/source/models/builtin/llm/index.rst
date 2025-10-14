@@ -151,6 +151,11 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. 
 
+   * - :ref:`deepseek-v3.1 <models_llm_deepseek-v3.1>`
+     - chat, reasoning, hybrid, tools
+     - 131072
+     - DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -188,8 +193,13 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`glm-4.5 <models_llm_glm-4.5>`
      - chat, reasoning, hybrid
-     - 65536
+     - 131072
      - The GLM-4.5 series models are foundation models designed for intelligent agents. 
+
+   * - :ref:`glm-4.5v <models_llm_glm-4.5v>`
+     - chat, vision, reasoning
+     - 131072
+     - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
@@ -226,6 +236,11 @@ The following is a list of built-in LLM in Xinference:
      - 1024
      - GPT-2 is a Transformer-based LLM that is trained on WebTest, a 40 GB dataset of Reddit posts with 3+ upvotes.
 
+   * - :ref:`gpt-oss <models_llm_gpt-oss>`
+     - chat, reasoning
+     - 131072
+     - gpt-oss series, OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.
+
    * - :ref:`huatuogpt-o1-llama-3.1 <models_llm_huatuogpt-o1-llama-3.1>`
      - chat, tools
      - 131072
@@ -245,6 +260,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 8192
      - InternVL3, an advanced multimodal large language model (MLLM) series that demonstrates superior overall performance.
+
+   * - :ref:`kat-v1 <models_llm_kat-v1>`
+     - chat
+     - 131072
+     - Kwaipilot-AutoThink ranks first among all open-source models on LiveCodeBench Pro, a challenging benchmark explicitly designed to prevent data leakage, and even surpasses strong proprietary systems such as Seed and o3-mini.
 
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
@@ -551,6 +571,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - SeaLLMs - Large Language Models for Southeast Asia
 
+   * - :ref:`seed-oss <models_llm_seed-oss>`
+     - chat, reasoning, tools
+     - 524288
+     - Seed-OSS is a series of open-source large language models developed by ByteDance's Seed Team, designed for powerful long-context, reasoning, agent and general capabilities, and versatile developer-friendly features. Although trained with only 12T tokens, Seed-OSS achieves excellent performance on several popular open benchmarks.
+
    * - :ref:`skywork <models_llm_skywork>`
      - generate
      - 4096
@@ -695,6 +720,8 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-v3-0324
   
+   deepseek-v3.1
+  
    deepseek-vl2
   
    dianjin-r1
@@ -711,6 +738,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-4.5
   
+   glm-4.5v
+  
    glm-4v
   
    glm-edge-chat
@@ -725,6 +754,8 @@ The following is a list of built-in LLM in Xinference:
   
    gpt-2
   
+   gpt-oss
+  
    huatuogpt-o1-llama-3.1
   
    huatuogpt-o1-qwen2.5
@@ -732,6 +763,8 @@ The following is a list of built-in LLM in Xinference:
    internlm3-instruct
   
    internvl3
+  
+   kat-v1
   
    llama-2
   
@@ -854,6 +887,8 @@ The following is a list of built-in LLM in Xinference:
    seallm_v2.5
   
    seallms-v3
+  
+   seed-oss
   
    skywork
   

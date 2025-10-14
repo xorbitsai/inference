@@ -17,13 +17,23 @@ Specifications
 - **GGUF Model ID**: {{ gguf_model_id }}
 - **GGUF Quantizations**: {{ gguf_quantizations }}
 {% endif %}
+{%- if lightning_model_id %}
+- **Lightning Model ID**: {{ lightning_model_id }}
+- **Lightning Versions**: {{ lightning_versions }}
+{% endif %}
 
 Execute the following command to launch the model::
 
    xinference launch --model-name {{ model_name }} --model-type image
 
 {% if gguf_quantizations %}
-For GGUF quantization, using below command:
+For GGUF quantization, using below command::
 
     xinference launch --model-name {{ model_name }} --model-type image --gguf_quantization ${{ '{' }}gguf_quantization{{ '}' }} --cpu_offload True
+{% endif %}
+
+{% if lightning_versions %}
+For Lightning LoRA acceleration, using below command::
+
+    xinference launch --model-name {{ model_name }} --model-type image --lightning_version ${{ '{' }}lightning_version{{ '}' }}
 {% endif %}

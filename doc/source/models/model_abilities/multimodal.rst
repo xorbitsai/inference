@@ -117,6 +117,57 @@ Uploading base 64 encoded images
     print(response.choices[0])
 
 
+Limiting Images Per Prompt
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For vision models using the VLLM backend, you can use the ``limit_mm_per_prompt`` parameter to limit the number of images that can be processed in each conversation turn. This helps control memory usage and improve performance.
+
+.. code-block:: python
+
+    # Launch model with image count limitation using Python client
+    from xinference.client import Client
+    
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    
+    # Launch model and set maximum 4 images per conversation turn
+    model_uid = client.launch_model(
+        model_name="qwen2.5-vl-instruct",
+        model_engine="vLLM",
+        model_format="pytorch",
+        quantization="none",
+        model_size_in_billions=3,
+        limit_mm_per_prompt="{\"image\": 4}"
+    )
+
+Alternatively, you can launch the model using the command line:
+
+.. code-block:: bash
+
+    # Launch model with image count limitation using CLI
+    xinference launch \
+        --model-engine vLLM \
+        --model-name qwen2.5-vl-instruct \
+        --size-in-billions 3 \
+        --model-format pytorch \
+        --quantization none \
+        --limit_mm_per_prompt "{\"image\":4}"
+
+For Web UI, you can set the ``limit_mm_per_prompt`` parameter in the launch form:
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../../_static/limit_mm_per_prompt.png" style="background-color: transparent", width="95%">
+
+This parameter provides the following benefits:
+
+* **image**: Sets the maximum number of images allowed per conversation turn
+* Helps prevent memory overflow, especially when processing multiple images
+* Improves model inference stability and performance
+* Applies to all VLLM-based vision models
+
+.. note::
+   The ``limit_mm_per_prompt`` parameter only takes effect when using the VLLM backend. If your model uses other backends, this parameter will be ignored.
+
 You can find more examples of ``vision`` ability in the tutorial notebook:
 
 .. grid:: 1
@@ -125,6 +176,7 @@ You can find more examples of ``vision`` ability in the tutorial notebook:
       :link: https://github.com/xorbitsai/inference/blob/main/examples/chat_vl.ipynb
       
       Learn vision ability from a example using qwen-vl-chat
+
 
 Audio
 ============

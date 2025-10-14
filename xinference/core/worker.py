@@ -712,6 +712,16 @@ class WorkerActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "flexible":
+            from ..model.flexible.custom import get_flexible_models
+
+            ret = []
+
+            for model_spec in get_flexible_models():
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -827,9 +837,12 @@ class WorkerActor(xo.StatelessActor):
         settings: Optional[VirtualEnvSettings],
         virtual_env_packages: Optional[List[str]],
     ):
-        if not settings or not settings.packages:
+        if (not settings or not settings.packages) and not virtual_env_packages:
             # no settings or no packages
             return
+
+        if settings is None:
+            settings = VirtualEnvSettings(packages=virtual_env_packages)
 
         if settings.inherit_pip_config:
             # inherit pip config

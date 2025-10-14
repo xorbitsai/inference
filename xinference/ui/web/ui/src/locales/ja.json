@@ -35,6 +35,8 @@
     "ocr": "光学文字認識 (OCR)",
     "audio2text": "音声からテキスト",
     "text2audio": "テキストから音声",
+    "text2audio_zero_shot": "テキストから音声 (ゼロショット)",
+    "text2audio_voice_cloning": "テキストから音声 (声のクローン)",
     "text2video": "テキストから動画",
     "image2video": "画像から動画",
     "firstlastframe2video": "最初と最後のフレームから動画",
@@ -80,6 +82,8 @@
     "modelPath.optional": "(オプション) モデルパス、PyTorchの場合はモデルディレクトリ、GGML/GGUFの場合はモデルファイルパスを指定",
     "GGUFQuantization.optional": "(オプション) GGUF量子化フォーマット、Transformer部分を量子化",
     "GGUFModelPath.optional": "(オプション) GGUFモデルパス、.ggufで終わるファイルを指定",
+    "lightningVersions.optional": "(オプション) 軽量化バージョン",
+    "lightningModelPath.optional": "(オプション) 軽量化LoRAモデルパス",
     "enableThinking": "思考を有効化",
     "parsingReasoningContent": "推論内容の解析",
     "CPUOffload": "CPUオフロード",
@@ -119,7 +123,8 @@
     "commandLineTip": "モデル名が一致しているか確認してください。",
     "featured": "おすすめとお気に入り",
     "all": "すべて",
-    "cancelledSuccessfully": "正常にキャンセルされました！"
+    "cancelledSuccessfully": "正常にキャンセルされました！",
+    "mustBeUnique": "{{key}} は一意でなければなりません"
   },
 
   "runningModels": {
@@ -157,6 +162,7 @@
     "stop": "停止",
     "reasoningStartTag": "推論開始タグ",
     "reasoningEndTag": "推論終了タグ",
+    "toolParser": "ツールパーサー",
     "launcher": "ランチャー",
     "launcherArguments": "ランチャー引数（オプション）",
     "edit": "編集",
@@ -225,7 +231,9 @@
   },
 
   "components": {
-    "copySuccess": "クリップボードにコピーしました！",
-    "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。"
+    "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。",
+    "warning": "警告",
+    "ok": "確認",
+    "cancel": "キャンセル"
   }
 }

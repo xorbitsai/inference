@@ -70,18 +70,31 @@ For Mac M-series chips only:
 * :ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-mlx>`
 
 
-Text to audio
-~~~~~~~~~~~~~
+Text to audio (TTS)
+~~~~~~~~~~~~~~~~~~~~~
+
+**Models supporting zero-shot** (direct synthesis without reference audio):
 
 * :ref:`ChatTTS <models_builtin_chattts>`
 * :ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`
-* :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
 * :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`
+* MeloTTS series
+* :ref:`Kokoro-82M <models_builtin_kokoro-82m>`
+* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
+* :ref:`MegaTTS3 <models_builtin_megatts3>`
+
+**Models supporting voice cloning** (requires reference audio):
+
+* :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
 * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
 * :ref:`F5-TTS <models_builtin_f5-tts>`
-* :ref:`MegaTTS3 <models_builtin_megatts3>`
-* MeloTTS series
+* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
+* :ref:`IndexTTS2 <models_builtin_indextts2>`
+
+**Models supporting emotion control**:
+
+* :ref:`IndexTTS2 <models_builtin_indextts2>`
 
 For Mac M-series chips only:
 
@@ -419,13 +432,9 @@ Instruction based, launch model ``CosyVoice-300M-Instruct``.
         "Fights with fervor for justice, but struggles with impulsiveness.",
     )
 
-CosyVoice 2.0 only has one model, it provides all the capabilities of the three CosyVoice models. The usage is the same as CosyVoice, with the only difference being that CosyVoice 2.0 requires ``use_flow_cache=True`` when launching the model for stream generation.
+CosyVoice 2.0 only has one model, it provides all the capabilities of the three CosyVoice models. The usage is the same as CosyVoice.
 
 CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
-
-.. note::
-
-    Please note that the latest CosyVoice 2.0 requires `use_flow_cache=True` for stream generation.
 
 .. code-block::
 
@@ -436,7 +445,6 @@ CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``.
         model_name=model_name,
         model_type="audio",
         download_hub="modelscope",
-        use_flow_cache=True,
     )
 
     endpoint = "http://127.0.0.1:9997"
@@ -611,3 +619,143 @@ and add an additional parameter when starting the model.
 
        input_string = "重新启动即可更新"
        response = model.speech(input_string, voice="zf_xiaoyi")
+
+
+IndexTTS2 Usage
+~~~~~~~~~~~~
+
+The IndexTTS2 model supports emotion control, you can use this feature by specifying some additional parameters.
+Here are several examples of how to use IndexTTS2:
+
+1. Synthesize new speech with a single reference audio file (voice cloning):
+
+   .. code-block::
+
+        from xinference.client import Client
+        client = Client("http://0.0.0.0:6735")
+        model = client.get_model("IndexTTS2")
+
+        with open("../mp3_test_voice.mp3", "rb") as f:
+            test_prompt_speech = f.read()
+
+        response = model.speech(
+            input="Translate for me, what is a surprise!",
+            prompt_speech=test_prompt_speech,
+        )
+
+2. Using a separate, emotional reference audio file to condition the speech synthesis:
+
+   .. code-block::
+
+        from xinference.client import Client
+        client = Client("http://0.0.0.0:6735")
+        model = client.get_model("IndexTTS2")
+
+        with open("../mp3_test_voice.mp3", "rb") as f:
+            test_prompt_speech = f.read()
+
+        with open("example/emo_sad.wav", "rb") as f:
+            emo_prompt_speech = f.read()
+
+        response = model.speech(
+            input="It's such a shame the singer didn't make it to the finals.",
+            prompt_speech=test_prompt_speech,
+            emo_audio_prompt=emo_prompt_speech
+        )
+
+3. When an emotional reference audio file is specified, you can optionally set
+   the ``emo_alpha`` to adjust how much it affects the output.
+   Valid range is ``0.0 - 1.0`` , and the default value is ``1.0`` (100%):
+
+   .. code-block::
+
+        from xinference.client import Client
+        client = Client("http://0.0.0.0:6735")
+        model = client.get_model("IndexTTS2")
+
+        with open("../mp3_test_voice.mp3", "rb") as f:
+            test_prompt_speech = f.read()
+
+        with open("example/emo_sad.wav", "rb") as f:
+            emo_prompt_speech = f.read()
+
+        response = model.speech(
+            input="It's such a shame the singer didn't make it to the finals.",
+            prompt_speech=test_prompt_speech,
+            emo_audio_prompt=emo_prompt_speech,
+            emo_alpha=0.9
+        )
+
+4. It's also possible to omit the emotional reference audio and instead provide
+   an 8-float list specifying the intensity of each emotion, in the following order:
+   ``[happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]`` .
+   You can additionally use the ``use_random`` parameter to introduce stochasticity
+   during inference; the default is ``False`` , and setting it to ``True`` enables
+   randomness:
+
+   .. code-block::
+
+        from xinference.client import Client
+        client = Client("http://0.0.0.0:6735")
+        model = client.get_model("IndexTTS2")
+
+        with open("../mp3_test_voice.mp3", "rb") as f:
+            test_prompt_speech = f.read()
+
+        response = model.speech(
+            input="Wow, I'm so lucky!",
+            prompt_speech=test_prompt_speech,
+            emo_vector=[0, 0, 0, 0, 0, 0, 0.45, 0],
+            use_random=False
+        )
+
+5. Alternatively, you can enable ``use_emo_text`` to guide the emotions based on
+   your provided ``text`` script. Your text script will then automatically
+   be converted into emotion vectors.
+   It's recommended to use ``emo_alpha`` around 0.6 (or lower) when using the text
+   emotion modes, for more natural sounding speech.
+   You can introduce randomness with ``use_random`` (default: ``False``;
+   ``True`` enables randomness):
+
+   .. code-block::
+
+        from xinference.client import Client
+        client = Client("http://0.0.0.0:6735")
+        model = client.get_model("IndexTTS2")
+
+        with open("../mp3_test_voice.mp3", "rb") as f:
+            test_prompt_speech = f.read()
+
+        response = model.speech(
+            input="Quick, hide! He's coming! He's coming to get us!",
+            prompt_speech=test_prompt_speech,
+            emo_alpha=0.6,
+            use_emo_text=True,
+            use_random=False
+        )
+
+6. It's also possible to directly provide a specific text emotion description
+   via the ``emo_text`` parameter. Your emotion text will then automatically be
+   converted into emotion vectors. This gives you separate control of the text
+   script and the text emotion description:
+
+   .. code-block::
+
+        from xinference.client import Client
+        client = Client("http://0.0.0.0:6735")
+        model = client.get_model("IndexTTS2")
+
+        with open("../mp3_test_voice.mp3", "rb") as f:
+            test_prompt_speech = f.read()
+
+        response = model.speech(
+            input="Quick, hide! He's coming! He's coming to get us!",
+            prompt_speech=test_prompt_speech,
+            emo_alpha=0.6,
+            use_emo_text=True,
+            emo_text="You scared the hell out of me! Are you a ghost?",
+            use_random=False
+        )
+
+
+

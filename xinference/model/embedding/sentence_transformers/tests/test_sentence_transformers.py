@@ -32,7 +32,8 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
             quantization="none",
-            model_hub="modelscope",
+            # use huggingface in ci
+            # model_hub="modelscope",
         )
     ],
 )
@@ -72,6 +73,47 @@ def test_embedding_model_with_sentence_transformer():
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == 384
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
+
+
+def test_embedding_model_with_sentence_transformer_truncate_dim():
+    model_path = None
+
+    try:
+        model_path = CacheManager(TEST_MODEL_SPEC).cache()
+
+        truncate_dim = 128
+        model = create_embedding_model_instance(
+            "mock",
+            "bge-small-en-v1.5",
+            "sentence_transformers",
+            model_path=model_path,
+            dimensions=truncate_dim,
+        )
+        model.load()
+
+        # input is a string
+        input_text = "what is the capital of China?"
+
+        # test sparse and dense
+        r = model.create_embedding(input_text)
+        assert len(r["data"]) == 1
+        assert len(r["data"][0]["embedding"]) == truncate_dim
+
+        # input is a lit
+        input_texts = [
+            "what is the capital of China?",
+            "how to implement quick sort in python?",
+            "Beijing",
+            "sorting algorithms",
+        ]
+        # test sparse and dense
+        r = model.create_embedding(input_texts)
+        assert len(r["data"]) == 4
+        for d in r["data"]:
+            assert len(d["embedding"]) == truncate_dim
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)

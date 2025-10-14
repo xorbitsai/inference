@@ -135,6 +135,8 @@ class GradioInterface:
                     generate_config=generate_config,  # type: ignore
                 ):
                     assert isinstance(chunk, dict)
+                    if not chunk["choices"]:
+                        continue
                     delta = chunk["choices"][0]["delta"]
 
                     if (

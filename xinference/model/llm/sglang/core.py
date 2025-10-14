@@ -73,6 +73,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     stream: bool
     stream_options: Optional[Union[dict, None]]
     json_schema: Optional[dict]
+    response_format: dict
 
 
 try:
@@ -175,6 +176,7 @@ class SGLANGModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -316,13 +318,16 @@ class SGLANGModel(LLM):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
-        json_schema = (
-            generate_config.pop("response_format", {})  # type: ignore
-            .pop("json_schema", {})
-            .pop("schema", {})
-        )
-        if json_schema:
-            generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
+        response_format = generate_config.pop("response_format", None)
+        if response_format:
+            json_schema_config = response_format.pop("json_schema", None)
+            json_schema = None
+            if "schema_" in json_schema_config:
+                json_schema = json_schema_config.pop("schema_")
+            elif "schema" in json_schema_config:
+                json_schema = json_schema_config.pop("schema")
+            if json_schema:
+                generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
 
         return generate_config
 
@@ -355,22 +360,31 @@ class SGLANGModel(LLM):
 
     @staticmethod
     def _convert_state_to_completion_chunk(
-        request_id: str, model: str, output_text: str
+        request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> CompletionChunk:
+        finish_reason = meta_info.get("finish_reason", None)
+        if isinstance(finish_reason, dict) and "type" in finish_reason:
+            finish_reason = finish_reason["type"]
         choices: List[CompletionChoice] = [
             CompletionChoice(
                 text=output_text,
                 index=0,
                 logprobs=None,
-                finish_reason=None,
+                finish_reason=finish_reason,
             )
         ]
+        usage = CompletionUsage(
+            prompt_tokens=meta_info["prompt_tokens"],
+            completion_tokens=meta_info["completion_tokens"],
+            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
+        )
         chunk = CompletionChunk(
             id=request_id,
             object="text_completion",
             created=int(time.time()),
             model=model,
             choices=choices,
+            usage=usage,
         )
         return chunk
 
@@ -378,12 +392,15 @@ class SGLANGModel(LLM):
     def _convert_state_to_completion(
         request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> Completion:
+        finish_reason = meta_info.get("finish_reason", None)
+        if isinstance(finish_reason, dict) and "type" in finish_reason:
+            finish_reason = finish_reason["type"]
         choices = [
             CompletionChoice(
                 text=output_text,
                 index=0,
                 logprobs=None,
-                finish_reason=None,
+                finish_reason=finish_reason,
             )
         ]
 
@@ -512,7 +529,10 @@ class SGLANGModel(LLM):
                     prompt, image_data, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
-                        request_id, self.model_uid, output_text=out
+                        request_id,
+                        self.model_uid,
+                        output_text=out,
+                        meta_info=meta_info,
                     )
                     complete_response += out
                     finish_reason = meta_info["finish_reason"]
@@ -646,49 +666,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    async def _async_to_tool_completion_chunks(
-        self,
-        chunks: AsyncGenerator[CompletionChunk, None],
-    ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        i = 0
-        previous_texts = [""]
-        tool_call = False
-        tool_call_texts = [""]
-        if self.reasoning_parser:
-            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
-            if i == 0:
-                for first_chunk in self._get_first_chat_completion_chunk(
-                    chunk, self.reasoning_parser
-                ):
-                    yield first_chunk
-            # usage
-            choices = chunk.get("choices")
-            if not choices:
-                yield self._get_final_chat_completion_chunk(chunk)
-            else:
-                if self.is_tool_call_chunk_start(chunk):
-                    tool_call = True
-                if tool_call:
-                    tool_call_text = tool_call_texts[-1]
-                    tool_call_text += chunk["choices"][0]["text"]
-                    tool_call_texts.append(tool_call_text)
-                    if self.is_tool_call_chunk_end(chunk):
-                        yield self._post_process_completion_chunk(
-                            self.model_family,
-                            self.model_uid,
-                            chunk,
-                            reasoning_parser=self.reasoning_parser,
-                            tool_call_text=tool_call_text,
-                        )
-                        tool_call = False
-                        tool_call_texts = [""]
-                else:
-                    yield self._to_chat_completion_chunk(
-                        chunk, self.reasoning_parser, previous_texts
-                    )
-            i += 1
-
     async def async_chat(
         self,
         messages: List[Dict],
@@ -731,7 +708,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c, self.reasoning_parser
+                    self.model_family, self.model_uid, c
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 

@@ -37,9 +37,10 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="qwen1.5-chat",
+        model_name="qwen2.5-instruct",
         model_engine="llama.cpp",
         model_size_in_billions="0_5",
+        model_format="ggufv2",
         quantization="q4_0",
     )
     assert len(client.list_models()) == 1
@@ -83,6 +84,9 @@ def test_RESTful_client(setup):
             generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
+            if not chunk["choices"]:
+                assert chunk["usage"]
+                continue
             assert "finish_reason" in chunk["choices"][0]
             finish_reason = chunk["choices"][0]["finish_reason"]
             if finish_reason is None:
@@ -110,11 +114,11 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="tiny-llama",
+        model_name="qwen2.5-instruct",
         model_engine="llama.cpp",
-        model_size_in_billions=1,
+        model_size_in_billions="0_5",
         model_format="ggufv2",
-        quantization="q2_K",
+        quantization="q4_0",
     )
     assert len(client.list_models()) == 1
 
@@ -155,9 +159,10 @@ def test_RESTful_client(setup):
         client.terminate_model(model_uid=model_uid)
 
     model_uid2 = client.launch_model(
-        model_name="qwen1.5-chat",
+        model_name="qwen2.5-instruct",
         model_engine="llama.cpp",
         model_size_in_billions="0_5",
+        model_format="ggufv2",
         quantization="q4_0",
     )
 
@@ -470,9 +475,10 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
     client = RESTfulClient(endpoint)
 
     model_uid = client.launch_model(
-        model_name="qwen1.5-chat",
+        model_name="qwen2.5-instruct",
         model_engine="llama.cpp",
         model_size_in_billions="0_5",
+        model_format="ggufv2",
         quantization="q4_0",
     )
     new_children_proc = set(current_proc.children(recursive=True))
@@ -505,9 +511,10 @@ def test_model_error(set_test_oom_error, setup_cluster):
     client = RESTfulClient(endpoint)
 
     model_uid = client.launch_model(
-        model_name="qwen1.5-chat",
+        model_name="qwen2.5-instruct",
         model_engine="llama.cpp",
         model_size_in_billions="0_5",
+        model_format="ggufv2",
         quantization="q4_0",
     )
     assert len(client.list_models()) == 1

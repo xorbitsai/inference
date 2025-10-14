@@ -154,6 +154,7 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     reasoning_end_tag: Optional[str]
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
+    tool_parser: Optional[str]
 
     class Config:
         extra = "allow"

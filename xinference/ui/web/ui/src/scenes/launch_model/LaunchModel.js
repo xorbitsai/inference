@@ -3,19 +3,30 @@ import {
   Button,
   ButtonGroup,
   Chip,
+  CircularProgress,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
 } from '@mui/material'
-import React, { useContext, useEffect, useState } from 'react'
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../components/apiContext'
 import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
+import LaunchModelDrawer from './components/launchModelDrawer'
 import ModelCard from './modelCard'
+
+// Toggle pagination globally for this page. Set to false to disable pagination and load all items.
+const ENABLE_PAGINATION = false
 
 const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
@@ -28,7 +39,6 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [status, setStatus] = useState('')
   const [statusArr, setStatusArr] = useState([])
-  const [completeDeleteArr, setCompleteDeleteArr] = useState([])
   const [collectionArr, setCollectionArr] = useState([])
   const [filterArr, setFilterArr] = useState([])
   const { t } = useTranslation()
@@ -38,85 +48,90 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
     modelAbility: '',
     options: [],
   })
+  const [selectedModel, setSelectedModel] = useState(null)
+  const [isOpenLaunchModelDrawer, setIsOpenLaunchModelDrawer] = useState(false)
 
-  const filter = (registration) => {
-    if (searchTerm !== '') {
-      if (!registration || typeof searchTerm !== 'string') return false
-      const modelName = registration.model_name
-        ? registration.model_name.toLowerCase()
-        : ''
-      const modelDescription = registration.model_description
-        ? registration.model_description.toLowerCase()
-        : ''
+  // Pagination status
+  const [displayedData, setDisplayedData] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const itemsPerPage = 20
+  const loaderRef = useRef(null)
+
+  const filter = useCallback(
+    (registration) => {
+      if (searchTerm !== '') {
+        if (!registration || typeof searchTerm !== 'string') return false
+        const modelName = registration.model_name
+          ? registration.model_name.toLowerCase()
+          : ''
+        const modelDescription = registration.model_description
+          ? registration.model_description.toLowerCase()
+          : ''
+
+        if (
+          !modelName.includes(searchTerm.toLowerCase()) &&
+          !modelDescription.includes(searchTerm.toLowerCase())
+        ) {
+          return false
+        }
+      }
+
+      if (modelListType === 'featured') {
+        if (
+          featureModels.length &&
+          !featureModels.includes(registration.model_name) &&
+          !collectionArr?.includes(registration.model_name)
+        ) {
+          return false
+        }
+      }
 
       if (
-        !modelName.includes(searchTerm.toLowerCase()) &&
-        !modelDescription.includes(searchTerm.toLowerCase())
-      ) {
+        modelAbilityData.modelAbility &&
+        ((Array.isArray(registration.model_ability) &&
+          registration.model_ability.indexOf(modelAbilityData.modelAbility) <
+            0) ||
+          (typeof registration.model_ability === 'string' &&
+            registration.model_ability !== modelAbilityData.modelAbility))
+      )
         return false
-      }
-    }
 
-    if (modelListType === 'featured') {
-      if (
-        featureModels.length &&
-        !featureModels.includes(registration.model_name) &&
-        !collectionArr?.includes(registration.model_name)
-      ) {
-        return false
-      }
-    }
-
-    if (
-      modelAbilityData.modelAbility &&
-      ((Array.isArray(registration.model_ability) &&
-        registration.model_ability.indexOf(modelAbilityData.modelAbility) <
-          0) ||
-        (typeof registration.model_ability === 'string' &&
-          registration.model_ability !== modelAbilityData.modelAbility))
-    )
-      return false
-
-    if (completeDeleteArr.includes(registration.model_name)) {
-      registration.model_specs?.forEach((item) => {
-        item.cache_status = Array.isArray(item) ? [false] : false
-      })
-    }
-
-    if (statusArr.length === 1) {
-      if (statusArr[0] === 'cached') {
+      if (statusArr.length === 1) {
+        if (statusArr[0] === 'cached') {
+          const judge =
+            registration.model_specs?.some((spec) => filterCache(spec)) ||
+            registration?.cache_status
+          return judge
+        } else {
+          return collectionArr?.includes(registration.model_name)
+        }
+      } else if (statusArr.length > 1) {
         const judge =
           registration.model_specs?.some((spec) => filterCache(spec)) ||
           registration?.cache_status
-        return judge && !completeDeleteArr.includes(registration.model_name)
-      } else {
-        return collectionArr?.includes(registration.model_name)
+        return judge && collectionArr?.includes(registration.model_name)
       }
-    } else if (statusArr.length > 1) {
-      const judge =
-        registration.model_specs?.some((spec) => filterCache(spec)) ||
-        registration?.cache_status
-      return (
-        judge &&
-        !completeDeleteArr.includes(registration.model_name) &&
-        collectionArr?.includes(registration.model_name)
-      )
-    }
 
-    return true
-  }
+      return true
+    },
+    [
+      searchTerm,
+      modelListType,
+      featureModels,
+      collectionArr,
+      modelAbilityData.modelAbility,
+      statusArr,
+    ]
+  )
 
-  const filterCache = (spec) => {
+  const filterCache = useCallback((spec) => {
     if (Array.isArray(spec.cache_status)) {
       return spec.cache_status?.some((cs) => cs)
     } else {
       return spec.cache_status === true
     }
-  }
-
-  const handleCompleteDelete = (model_name) => {
-    setCompleteDeleteArr([...completeDeleteArr, model_name])
-  }
+  }, [])
 
   function getUniqueModelAbilities(arr) {
     const uniqueAbilities = new Set()
@@ -156,6 +171,10 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
             localStorage.getItem('collectionArr')
           )
           setCollectionArr(collectionData)
+
+          // Reset pagination status
+          setCurrentPage(1)
+          setHasMore(true)
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -173,6 +192,84 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
   useEffect(() => {
     update()
   }, [cookie.token])
+
+  // Update pagination data
+  const updateDisplayedData = useCallback(() => {
+    const filteredData = registrationData.filter((registration) =>
+      filter(registration)
+    )
+
+    const sortedData = [...filteredData].sort((a, b) => {
+      if (modelListType === 'featured') {
+        const indexA = featureModels.indexOf(a.model_name)
+        const indexB = featureModels.indexOf(b.model_name)
+        return (
+          (indexA !== -1 ? indexA : Infinity) -
+          (indexB !== -1 ? indexB : Infinity)
+        )
+      }
+      return 0
+    })
+
+    // If pagination is disabled, show all data at once
+    if (!ENABLE_PAGINATION) {
+      setDisplayedData(sortedData)
+      setHasMore(false)
+      return
+    }
+
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = currentPage * itemsPerPage
+    const newData = sortedData.slice(startIndex, endIndex)
+
+    if (currentPage === 1) {
+      setDisplayedData(newData)
+    } else {
+      setDisplayedData((prev) => [...prev, ...newData])
+    }
+    setHasMore(endIndex < sortedData.length)
+  }, [
+    registrationData,
+    filter,
+    modelListType,
+    featureModels,
+    currentPage,
+    itemsPerPage,
+  ])
+
+  useEffect(() => {
+    updateDisplayedData()
+  }, [updateDisplayedData])
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+    setHasMore(true)
+  }, [searchTerm, modelAbilityData.modelAbility, status, modelListType])
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!ENABLE_PAGINATION) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isCallingApi) {
+          setCurrentPage((prev) => prev + 1)
+        }
+      },
+      { threshold: 1.0 }
+    )
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current)
+    }
+
+    return () => {
+      if (loaderRef.current) {
+        observer.unobserve(loaderRef.current)
+      }
+    }
+  }, [hasMore, isCallingApi, currentPage])
 
   const getCollectionArr = (data) => {
     setCollectionArr(data)
@@ -197,10 +294,12 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
 
     setter(value)
 
-    const updatedFilterArr = [
-      ...filterArr.filter((item) => !excludeArr.includes(item)),
-      value,
-    ]
+    const updatedFilterArr = Array.from(
+      new Set([
+        ...filterArr.filter((item) => !excludeArr.includes(item)),
+        value,
+      ])
+    )
 
     setFilterArr(updatedFilterArr)
 
@@ -211,6 +310,11 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
         )
       )
     }
+
+    // Reset pagination status
+    setDisplayedData([])
+    setCurrentPage(1)
+    setHasMore(true)
   }
 
   const handleDeleteChip = (item) => {
@@ -232,11 +336,20 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
       )
       if (item === status) setStatus('')
     }
+
+    // Reset pagination status
+    setCurrentPage(1)
+    setHasMore(true)
   }
 
   const handleModelType = (newModelType) => {
     if (newModelType !== null) {
       setModelListType(newModelType)
+
+      // Reset pagination status
+      setDisplayedData([])
+      setCurrentPage(1)
+      setHasMore(true)
     }
   }
 
@@ -336,7 +449,9 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
             type="search"
             label={t('launchModel.search')}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+            }}
             size="small"
             hotkey="Enter"
             t={t}
@@ -364,31 +479,41 @@ const LaunchModelComponent = ({ modelType, gpuAvailable, featureModels }) => {
           gridGap: '2rem 0rem',
         }}
       >
-        {registrationData
-          .filter((registration) => filter(registration))
-          .sort((a, b) => {
-            if (modelListType === 'featured') {
-              const indexA = featureModels.indexOf(a.model_name)
-              const indexB = featureModels.indexOf(b.model_name)
-              return (
-                (indexA !== -1 ? indexA : Infinity) -
-                (indexB !== -1 ? indexB : Infinity)
-              )
-            }
-            return 0
-          })
-          .map((filteredRegistration) => (
-            <ModelCard
-              key={filteredRegistration.model_name}
-              url={endPoint}
-              modelData={filteredRegistration}
-              gpuAvailable={gpuAvailable}
-              modelType={modelType}
-              onHandleCompleteDelete={handleCompleteDelete}
-              onGetCollectionArr={getCollectionArr}
-            />
-          ))}
+        {displayedData.map((filteredRegistration) => (
+          <ModelCard
+            key={filteredRegistration.model_name}
+            url={endPoint}
+            modelData={filteredRegistration}
+            gpuAvailable={gpuAvailable}
+            modelType={modelType}
+            onGetCollectionArr={getCollectionArr}
+            onUpdate={update}
+            onClick={() => {
+              setSelectedModel(filteredRegistration)
+              setIsOpenLaunchModelDrawer(true)
+            }}
+          />
+        ))}
       </div>
+
+      <div ref={loaderRef} style={{ height: '20px', margin: '20px 0' }}>
+        {ENABLE_PAGINATION && hasMore && !isCallingApi && (
+          <div style={{ textAlign: 'center', padding: '10px' }}>
+            <CircularProgress />
+          </div>
+        )}
+      </div>
+
+      {selectedModel && (
+        <LaunchModelDrawer
+          key={selectedModel.model_name}
+          modelData={selectedModel}
+          modelType={modelType}
+          gpuAvailable={gpuAvailable}
+          open={isOpenLaunchModelDrawer}
+          onClose={() => setIsOpenLaunchModelDrawer(false)}
+        />
+      )}
     </Box>
   )
 }

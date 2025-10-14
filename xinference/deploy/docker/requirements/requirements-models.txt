@@ -1,4 +1,4 @@
-funasr==1.2.6
+funasr==1.2.7
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing==1.1.0  # 1.1.0 requires pynini==2.1.6.post1
 #WeTextProcessing==1.0.4.1  # 1.0.4 requires pynini==2.1.6
@@ -41,3 +41,11 @@ ormsgpack  # For Fish Speech
 cachetools  # For Fish Speech
 silero-vad  # For Fish Speech
 qwen_omni_utils  # For qwen2.5-omni
+json5 # IndexTTS2
+munch # IndexTTS2
+matplotlib # IndexTTS2
+flatten_dict # IndexTTS2
+julius # IndexTTS2
+tensorboard # IndexTTS2
+randomname # IndexTTS2
+argbind # IndexTTS2

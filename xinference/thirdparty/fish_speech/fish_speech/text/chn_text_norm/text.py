@@ -68,7 +68,7 @@ class Text:
         pattern = re.compile(
             r"\D+((\d+(\.\d+)?)[多余几]?"
             + CURRENCY_UNITS
-            + "(\d"
+            + R"(\d"
             + CURRENCY_UNITS
             + "?)?)"
         )

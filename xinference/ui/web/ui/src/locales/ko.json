@@ -35,6 +35,8 @@
     "ocr": "광학 문자 인식 (OCR)",
     "audio2text": "오디오에서 텍스트",
     "text2audio": "텍스트에서 오디오",
+    "text2audio_zero_shot": "텍스트에서 오디오 (제로 샷)",
+    "text2audio_voice_cloning": "텍스트에서 오디오 (음성 클로닝)",
     "text2video": "텍스트에서 비디오",
     "image2video": "이미지에서 비디오",
     "firstlastframe2video": "첫 번째와 마지막 프레임에서 비디오",
@@ -80,6 +82,8 @@
     "modelPath.optional": "(선택) 모델 경로, PyTorch의 경우 모델 디렉토리, GGML/GGUF의 경우 모델 파일 경로 지정",
     "GGUFQuantization.optional": "(선택) GGUF 양자화 형식, Transformer 부분 양자화",
     "GGUFModelPath.optional": "(선택) GGUF 모델 경로, .gguf로 끝나는 파일 지정",
+    "lightningVersions.optional": "(선택) 경량화 버전",
+    "lightningModelPath.optional": "(선택) 경량화 lora 모델 경로",
     "enableThinking": "사고 활성화",
     "parsingReasoningContent": "추론 내용 파싱",
     "CPUOffload": "CPU 오프로드",
@@ -119,7 +123,8 @@
     "commandLineTip": "모델 이름이 일치하는지 확인하세요.",
     "featured": "추천 및 즐겨찾기",
     "all": "모두",
-    "cancelledSuccessfully": "성공적으로 취소되었습니다!"
+    "cancelledSuccessfully": "성공적으로 취소되었습니다!",
+    "mustBeUnique": "{{key}} 는 고유해야 합니다"
   },
 
   "runningModels": {
@@ -157,6 +162,7 @@
     "stop": "중지",
     "reasoningStartTag": "추론 시작 태그",
     "reasoningEndTag": "추론 종료 태그",
+    "toolParser": "도구 파서",
     "launcher": "런처",
     "launcherArguments": "런처 인수 (선택)",
     "edit": "편집",
@@ -225,7 +231,9 @@
   },
 
   "components": {
-    "copySuccess": "클립보드에 복사되었습니다!",
-    "suggestsCommonParameters": "일반적인 매개변수를 제안합니다. 다른 매개변수도 사용 가능합니다."
+    "suggestsCommonParameters": "일반적인 매개변수를 제안합니다. 다른 매개변수도 사용 가능합니다.",
+    "warning": "경고",
+    "ok": "확인",
+    "cancel": "취소"
   }
 }

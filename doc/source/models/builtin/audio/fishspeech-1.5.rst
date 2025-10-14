@@ -6,7 +6,7 @@ FishSpeech-1.5
 
 - **Model Name:** FishSpeech-1.5
 - **Model Family:** FishAudio
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot', 'text2audio_voice_cloning']
 - **Multilingual:** True
 
 Specifications

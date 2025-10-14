@@ -130,3 +130,194 @@ def test_openai_requests():
         "guided_decoding_backend": "outlines",
     }
     CreateChatCompletion.parse_obj(obj)
+
+
+def test_create_message_with_tools():
+    """Test CreateMessage type with tools and tool_choice"""
+    from ...types import CreateMessage
+
+    # Test message with tools
+    obj = {
+        "model": "qwen2-instruct",
+        "messages": [{"role": "user", "content": "What's the weather like?"}],
+        "max_tokens": 1000,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "city": {"type": "string", "description": "City name"}
+                        },
+                        "required": ["city"],
+                    },
+                },
+            }
+        ],
+        "tool_choice": {"type": "auto"},
+    }
+
+    # Should parse without error
+    message = CreateMessage.parse_obj(obj)
+    assert message.model == "qwen2-instruct"
+    assert len(message.messages) == 1
+    assert message.messages[0]["role"] == "user"
+    assert message.max_tokens == 1000
+    assert hasattr(message, "tools")
+    assert hasattr(message, "tool_choice")
+    assert len(message.tools) == 1
+    assert message.tools[0]["function"]["name"] == "get_weather"
+    assert message.tool_choice["type"] == "auto"
+
+
+def test_create_message_without_tools():
+    """Test CreateMessage type without tools"""
+    from ...types import CreateMessage
+
+    # Test message without tools
+    obj = {
+        "model": "qwen2-instruct",
+        "messages": [{"role": "user", "content": "Hello, Qwen!"}],
+        "max_tokens": 1000,
+    }
+
+    # Should parse without error
+    message = CreateMessage.parse_obj(obj)
+    assert message.model == "qwen2-instruct"
+    assert len(message.messages) == 1
+    assert message.max_tokens == 1000
+    # tools and tool_choice should be None or not present
+    assert not hasattr(message, "tools") or not message.tools
+    assert not hasattr(message, "tool_choice") or not message.tool_choice
+
+
+def test_create_message_with_tool_choice_function():
+    """Test CreateMessage type with specific tool_choice function"""
+    from ...types import CreateMessage
+
+    obj = {
+        "model": "qwen2-instruct",
+        "messages": [{"role": "user", "content": "Get weather for Beijing"}],
+        "max_tokens": 1000,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "city": {"type": "string", "description": "City name"}
+                        },
+                        "required": ["city"],
+                    },
+                },
+            }
+        ],
+        "tool_choice": {"type": "function", "function": {"name": "get_weather"}},
+    }
+
+    message = CreateMessage.parse_obj(obj)
+    assert message.tool_choice["type"] == "function"
+    assert message.tool_choice["function"]["name"] == "get_weather"
+
+
+def test_create_message_with_optional_fields():
+    """Test CreateMessage type with optional fields"""
+    from ...types import CreateMessage
+
+    obj = {
+        "model": "qwen2-instruct",
+        "messages": [{"role": "user", "content": "Hello!"}],
+        "max_tokens": 1000,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "stop_sequences": ["\n\nHuman:", "\n\nAssistant:"],
+        "metadata": {"user_id": "12345"},
+        "tools": [],
+        "tool_choice": {"type": "none"},
+    }
+
+    message = CreateMessage.parse_obj(obj)
+    assert message.temperature == 0.7
+    assert message.top_p == 0.9
+    assert message.top_k == 50
+    assert message.stop_sequences == ["\n\nHuman:", "\n\nAssistant:"]
+    assert message.metadata["user_id"] == "12345"
+    assert message.tools == []
+    assert message.tool_choice["type"] == "none"
+
+
+def test_model_and_messages_type():
+    """Test ModelAndMessages type"""
+    from ...types import ModelAndMessages
+
+    obj = {
+        "model": "test-model",
+        "messages": [
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi there!"},
+        ],
+    }
+
+    model_messages = ModelAndMessages.parse_obj(obj)
+    assert model_messages.model == "test-model"
+    assert len(model_messages.messages) == 2
+    assert model_messages.messages[0]["role"] == "user"
+    assert model_messages.messages[1]["role"] == "assistant"
+
+
+def test_message_create_params_structure():
+    """Test MessageCreateParams structure compatibility"""
+    # This test ensures the structure matches Anthropic API expectations
+    from ...types import CreateMessage
+
+    # Test minimal valid message
+    minimal_obj = {
+        "model": "qwen2-instruct",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 1000,
+    }
+
+    message = CreateMessage.parse_obj(minimal_obj)
+    assert message.model == "qwen2-instruct"
+    assert message.max_tokens == 1000
+
+    # Test with all optional fields
+    complete_obj = {
+        "model": "qwen2-instruct",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 1000,
+        "stream": False,
+        "temperature": 0.5,
+        "top_p": 0.8,
+        "top_k": 40,
+        "stop_sequences": ["Human:", "Assistant:"],
+        "metadata": {"session_id": "abc123"},
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "test_function",
+                    "description": "Test function",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"param": {"type": "string"}},
+                        "required": ["param"],
+                    },
+                },
+            }
+        ],
+        "tool_choice": {"type": "auto"},
+    }
+
+    message = CreateMessage.parse_obj(complete_obj)
+    assert message.stream == False
+    assert message.metadata["session_id"] == "abc123"
+    assert len(message.tools) == 1
+    assert message.tools[0]["function"]["name"] == "test_function"

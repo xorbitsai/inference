@@ -1008,7 +1008,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -1070,7 +1071,8 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "tool_parser": "llama3"
   },
   {
     "version": 2,
@@ -1133,7 +1135,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -1946,7 +1949,8 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -2209,7 +2213,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -4767,6 +4772,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4846,6 +4852,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4866,6 +4873,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -4885,6 +4893,7 @@
       {
         "model_format": "ggufv2",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5215,6 +5224,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5263,6 +5273,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5281,6 +5292,7 @@
       {
         "model_format": "gptq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -5309,7 +5321,118 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "deepseek-r1"
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "Deepseek-V3.1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/DeepSeek-V3.1-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% if not thinking is defined %}{% set thinking = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\n\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{ bos_token }}{{ ns.system_prompt }}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{%- set ns.is_first = false -%}{%- set ns.is_last_user = true -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}{%- if ns.is_last_user %}{{'<｜Assistant｜></think>'}}{%- endif %}{%- set ns.is_last_user = false -%}{%- set ns.is_first = false %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls'] %}{%- if not ns.is_first %}{%- if message['content'] is none %}{{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- else %}{{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- set ns.is_first = true -%}{%- else %}{{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- endfor %}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}{%- if ns.is_last_user %}{{'<｜Assistant｜>'}}{%- if message['prefix'] is defined and message['prefix'] and thinking %}{{'<think>'}}  {%- else %}{{'</think>'}}{%- endif %}{%- endif %}{%- set ns.is_last_user = false -%}{%- if ns.is_tool %}{{message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{%- set content = message['content'] -%}{%- if '</think>' in content %}{%- set content = content.split('</think>', 1)[1] -%}{%- endif %}{{content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_last_user = false -%}{%- set ns.is_tool = true -%}{{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endfor -%}{%- if add_generation_prompt and ns.is_last_user and not ns.is_tool %}{{'<｜Assistant｜>'}}{%- if not thinking %}{{'</think>'}}{%- else %}{{'<think>'}}{%- endif %}{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers==4.53.0"
+      ]
+    }
   },
   {
     "version": 2,
@@ -5655,7 +5778,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "deepseek-r1"
   },
   {
     "version": 2,
@@ -6242,6 +6366,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6262,6 +6387,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6281,6 +6407,7 @@
       {
         "model_format": "ggufv2",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6475,6 +6602,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6499,7 +6627,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "tool_parser": "deepseek_v3"
   },
   {
     "version": 2,
@@ -6517,6 +6646,7 @@
       {
         "model_format": "pytorch",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6535,6 +6665,7 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -6553,6 +6684,7 @@
       {
         "model_format": "mlx",
         "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -7687,7 +7819,7 @@
       "packages": [
         "transformers>=4.51.3",
         "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
     }
   },
@@ -7796,7 +7928,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "tool_parser":"glm4"
   },
   {
     "version": 2,
@@ -7903,7 +8036,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "tool_parser":"glm4"
   },
   {
     "version": 2,
@@ -9065,7 +9199,8 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "tool_parser": "llama3"
   },
   {
     "version": 2,
@@ -11794,7 +11929,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -11857,7 +11993,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -12581,7 +12718,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -12702,7 +12840,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -13884,7 +14023,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -15394,7 +15534,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -15521,7 +15662,7 @@
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview",
-        "numpy==1.26.4",
+        "#system_numpy#",
         "qwen_omni_utils",
         "soundfile"
       ]
@@ -17302,9 +17443,10 @@
       "packages": [
         "transformers>=4.51.0",
         "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
-        "numpy==1.26.4"
+        "#system_numpy#"
       ]
-    }
+    },
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -17359,6 +17501,24 @@
         }
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Instruct-2507"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Instruct-2507"
+          }
+        }
+      },
+      {
         "model_format": "fp8",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -17393,6 +17553,24 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Instruct-2507-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Instruct-2507-FP8"
           }
         }
       },
@@ -17435,6 +17613,26 @@
         }
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "JunHowie/Qwen3-4B-Instruct-2507-GPTQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "JunHowie/Qwen3-4B-Instruct-2507-GPTQ-{quantization}"
+          }
+        }
+      },
+      {
         "model_format": "awq",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -17473,6 +17671,24 @@
         }
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Eslzzyl/Qwen3-4B-Instruct-2507-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Eslzzyl/Qwen3-4B-Instruct-2507-AWQ"
+          }
+        }
+      },
+      {
         "model_format": "mlx",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -17521,6 +17737,30 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-30B-A3B-Instruct-2507-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-4B-Instruct-2507-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-4B-Instruct-2507-{quantization}"
           }
         }
       },
@@ -17905,6 +18145,76 @@
             "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
             "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "model_id": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+            "model_file_name_template": "Qwen3-4B-Instruct-2507-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "model_id": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+            "model_file_name_template": "Qwen3-4B-Instruct-2507-{quantization}.gguf"
           }
         }
       }
@@ -17919,7 +18229,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -17975,6 +18286,24 @@
         }
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Thinking-2507"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Thinking-2507"
+          }
+        }
+      },
+      {
         "model_format": "fp8",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -18009,6 +18338,24 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Thinking-2507-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-4B-Thinking-2507-FP8"
           }
         }
       },
@@ -18051,6 +18398,26 @@
         }
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "JunHowie/Qwen3-4B-Thinking-2507-GPTQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "JunHowie/Qwen3-4B-Thinking-2507-GPTQ-{quantization}"
+          }
+        }
+      },
+      {
         "model_format": "awq",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -18089,6 +18456,24 @@
         }
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Eslzzyl/Qwen3-4B-Thinking-2507-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Eslzzyl/Qwen3-4B-Thinking-2507-AWQ"
+          }
+        }
+      },
+      {
         "model_format": "mlx",
         "model_size_in_billions": 235,
         "activated_size_in_billions": 22,
@@ -18131,6 +18516,30 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-30B-A3B-Thinking-2507-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-4B-Thinking-2507-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-4B-Thinking-2507-{quantization}"
           }
         }
       },
@@ -18515,6 +18924,76 @@
             "model_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
             "model_file_name_template": "Qwen3-30B-A3B-Thinking-2507-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Thinking-2507-{quantization}-{part}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "model_id": "unsloth/Qwen3-4B-Thinking-2507-GGUF",
+            "model_file_name_template": "Qwen3-4B-Thinking-2507-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "model_id": "unsloth/Qwen3-4B-Thinking-2507-GGUF",
+            "model_file_name_template": "Qwen3-4B-Thinking-2507-{quantization}.gguf"
           }
         }
       }
@@ -18531,7 +19010,8 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -19314,7 +19794,8 @@
     "stop": [
       "<|endoftext|>",
       "<|im_end|>"
-    ]
+    ],
+    "tool_parser":"qwen"
   },
   {
     "version": 2,
@@ -21137,5 +21618,852 @@
         "#system_numpy#"
       ]
     }
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "KAT-V1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Kwaipilot-AutoThink ranks first among all open-source models on LiveCodeBench Pro, a challenging benchmark explicitly designed to prevent data leakage, and even surpasses strong proprietary systems such as Seed and o3-mini.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 40,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Kwaipilot/KAT-V1-40B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Kwaipilot/KAT-V1-40B"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 40,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/KAT-V1-40B-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 40,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/KAT-V1-40B-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/KAT-V1-40B-AWQ"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- '' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" and not message.tool_calls %}\n        {%- set content = message.content %}\n        {%- if not loop.last %}\n            {%- set answer_blocks = message.content.split('<answer>\\n') %}\n            {%- if answer_blocks|length > 1 %}\n                {%- set last_answer_block = answer_blocks[-1] %}\n                {%- if '\\n</answer>' in last_answer_block %}\n                    {%- set content = last_answer_block.split('\\n</answer>')[0] %}\n                {%- else %}\n                    {%- set content = message.content.split('<think_off>')[-1].lstrip('\\n') %}\n                    {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n                {%- endif %}\n            {%- else %}\n                {%- set content = message.content.split('<think_off>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set content = message.content %}\n        {%- if not loop.last %}\n            {%- set answer_blocks = message.content.split('<answer>\\n') %}\n            {%- if answer_blocks|length > 1 %}\n                {%- set last_answer_block = answer_blocks[-1] %}\n                {%- if '\\n</answer>' in last_answer_block %}\n                    {%- set content = last_answer_block.split('\\n</answer>')[0] %}\n                {%- else %}\n                    {%- set content = message.content.split('<think_off>')[-1].lstrip('\\n') %}\n                    {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n                {%- endif %}\n            {%- else %}\n                {%- set content = message.content.split('<think_off>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\\\"name\\\": \\\"' }}\n            {{- tool_call.name }}\n            {{- '\\\", \\\"arguments\\\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n<judge>\\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ]
+  },
+  {
+    "version": 2,
+    "context_length": 524288,
+    "model_name": "seed-oss",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "tools"
+    ],
+    "model_description": "Seed-OSS is a series of open-source large language models developed by ByteDance's Seed Team, designed for powerful long-context, reasoning, agent and general capabilities, and versatile developer-friendly features. Although trained with only 12T tokens, Seed-OSS achieves excellent performance on several popular open benchmarks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 36,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 36,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int8",
+              "Int4",
+              "Int3"
+            ],
+            "model_id": "QuantTrio/Seed-OSS-36B-Instruct-GPTQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int8",
+              "Int4",
+              "Int3"
+            ],
+            "model_id": "tclf90/Seed-OSS-36B-Instruct-GPTQ-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 36,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Seed-OSS-36B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Seed-OSS-36B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 36,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 36,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+             "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Seed-OSS-36B-Instruct-GGUF",
+            "model_file_name_template": "Seed-OSS-36B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q2_K",
+              "Q2_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+             "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "model_id": "unsloth/Seed-OSS-36B-Instruct-GGUF",
+            "model_file_name_template": "Seed-OSS-36B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{# ------------- special token variables ------------- #}{%- set bos_token              = '<seed:bos>'               -%}{%- set eos_token              = '<seed:eos>'               -%}{%- set pad_token              = '<seed:pad>'               -%}{%- set toolcall_begin_token   = '<seed:tool_call>'         -%}{%- set toolcall_end_token     = '</seed:tool_call>'        -%}{%- set think_begin_token      = '<seed:think>'             -%}{%- set think_end_token        = '</seed:think>'            -%}{%- set budget_begin_token     = '<seed:cot_budget_reflect>'-%}{%- set budget_end_token       = '</seed:cot_budget_reflect>'-%}{# -------------- reflection-interval lookup -------------- #}{%- if not thinking_budget is defined %}{%- set thinking_budget = -1 -%}{%- endif -%}{%- set budget_reflections_v05 = {     0:      0,     512:    128,     1024:   256,     2048:   512,     4096:   512,     8192:   1024,     16384:  1024} -%}{%- set ns = namespace(interval = None) -%}{%- for k, v in budget_reflections_v05 | dictsort -%}    {%- if ns.interval is none and thinking_budget <= k -%}        {%- set ns.interval = v -%}    {%- endif -%}{%- endfor -%}{%- if ns.interval is none -%}    {%- set ns.interval = budget_reflections_v05[16384] -%}{%- endif -%}{%- if messages[0][\"role\"] == \"system\" %}{%- set system_message = messages[0][\"content\"] %}{%- set loop_messages = messages[1:] %}{%- else %}{%- set loop_messages = messages %}{%- endif %}{%- if not tools is defined or tools is none %}{%- set tools = [] %}{%- endif %}{%- macro py_type(t) -%}    {%- if t == \"string\" -%}str    {%- elif t in (\"number\", \"integer\") -%}int    {%- elif t == \"boolean\" -%}bool    {%- elif t == \"array\" -%}list    {%- else -%}Any{%- endif -%}{%- endmacro -%}{%- if system_message is defined %}{{ bos_token + \"system\\n\" + system_message }}{%- else %}{%- if tools is iterable and tools | length > 0 %}{{ bos_token + \"system\\nYou are Doubao, a helpful AI assistant. You may call one or more functions to assist with the user query.\" }}{%- endif %}{%- endif %}{%- if use_json_tooldef is defined and use_json_tooldef %}{{\"Tool List:\\nYou are authorized to use the following tools (described in JSON Schema format). Before performing any task, you must decide how to call them based on the descriptions and parameters of these tools.\"}}{{ tools | tojson(ensure_ascii=False) }}{%- else %}{%- for item in tools if item.type == \"function\" %}Function:def {{ item.function.name }}({%- for name, spec in item.function.parameters.properties.items() %}        {{- name }}: {{ py_type(spec.type) }}{% if not loop.last %},{% endif %}{%- endfor %}):    \"\"\"    {{ item.function.description | trim }}    {%- if item.function.parameters.properties %}    Args:    {%- for name, spec in item.function.parameters.properties.items() %}    - {{ name }} ({{ py_type(spec.type) }})      {%- if name in item.function.parameters.required %} [必填]{% else %} [选填]{% endif %}:      {{- \" \" ~ (spec.description or \"\") }}    {%- endfor %}    {%- endif %}    {%- if item.function.returns is defined           and item.function.returns.properties is defined           and item.function.returns.properties %}    Returns:    {%- for name, spec in item.function.returns.properties.items() %}    - {{ name }} ({{ py_type(spec.type) }}):      {{- \" \" ~ (spec.description or \"\") }}    {%- endfor %}    {%- endif %}    \"\"\"{%- endfor %}{%- endif %}{%- if tools is iterable and tools | length > 0 %}{{\"工具调用请遵循如下格式:\\n<seed:tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>value_1</parameter>\\n<parameter=example_parameter_2>This is the value for the second parameter\\nthat can span\\nmultiple lines</parameter>\\n</function>\\n</seed:tool_call>\\n\"}}{%- endif %}{%- if system_message is defined or tools is iterable and tools | length > 0 %}{{ eos_token }}{%- endif %}{%- if thinking_budget is defined %}{%- if thinking_budget == 0 %}{{ bos_token+\"system\" }}{{ \"You are an intelligent assistant that can answer questions in one step without the need for reasoning and thinking, that is, your thinking budget is 0. Next, please skip the thinking process and directly start answering the user's questions.\" }}{{ eos_token }}{%- elif not thinking_budget == -1 %}{{ bos_token+\"system\" }}{{ \"You are an intelligent assistant with reflective ability. In the process of thinking and reasoning, you need to strictly follow the thinking budget, which is \"}}{{thinking_budget}}{{\". That is, you need to complete your thinking within \"}}{{thinking_budget}}{{\" tokens and start answering the user's questions. You will reflect on your thinking process every \"}}{{ns.interval}}{{\" tokens, stating how many tokens have been used and how many are left.\"}}{{ eos_token }}{%- endif %}{%- endif %}{%- for message in loop_messages %}{%- if message.role == \"assistant\"   and message.tool_calls is defined   and message.tool_calls is iterable   and message.tool_calls | length > 0 %}{{ bos_token + message.role }}{%- if message.reasoning_content is defined and message.reasoning_content is string and message.reasoning_content | trim | length > 0 %}{{ \"\\n\" + think_begin_token + message.reasoning_content | trim + think_end_token }}{%- endif %}{%- if message.content is defined and message.content is string and message.content | trim | length > 0 %}{{ \"\\n\" + message.content | trim + \"\\n\" }}{%- endif %}{%- for tool_call in message.tool_calls %}{%- if tool_call.function is defined %}{% set tool_call = tool_call.function %}{% endif %}{{ \"\\n\" + toolcall_begin_token + \"\\n<function=\" + tool_call.name + \">\\n\" }}{%- if tool_call.arguments is defined %}{%- for arg_name, arg_value in tool_call.arguments | items %}{{ \"<parameter=\" + arg_name + \">\" }}{%- set arg_value = arg_value if arg_value is string else arg_value | string %}{{ arg_value+\"</parameter>\\n\" }}{%- endfor %}{%- endif %}{{ \"</function>\\n\" + toolcall_end_token }}{%- endfor %}{{ eos_token }}{%- elif message.role in [\"user\", \"system\"] %}{{ bos_token + message.role + \"\\n\" + message.content + eos_token }}{%- elif message.role == \"assistant\" %}{{ bos_token + message.role }}{%- if message.reasoning_content is defined and message.reasoning_content is string and message.reasoning_content | trim | length > 0 %}{{ \"\\n\" + think_begin_token + message.reasoning_content | trim + think_end_token }}{%- endif %}{%- if message.content is defined and message.content is string and message.content | trim | length > 0 %}{{ \"\\n\" + message.content | trim + eos_token }}{%- endif %}{%- else %}{{ bos_token + message.role + \"\\n\" + message.content + eos_token }}{%- endif %}{%- endfor %}{%- if add_generation_prompt %}{{ bos_token+\"assistant\\n\" }}{%- if thinking_budget == 0 %}{{ think_begin_token + \"\\n\" + budget_begin_token + \"The current thinking budget is 0, so I will directly start answering the question.\" + budget_end_token + \"\\n\" + think_end_token }}{%- endif %}{%- endif %}",
+    "stop_token_ids": [
+      0,
+      1,
+      2
+    ],
+    "stop": [
+      "<seed:bos>",
+      "<seed:pad>",
+      "<seed:eos>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>"
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "Baichuan-M2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "Baichuan-M2-32B is Baichuan AI's medical-enhanced reasoning model, the second medical model released by Baichuan. Designed for real-world medical reasoning tasks, this model builds upon Qwen2.5-32B with an innovative Large Verifier System. Through domain-specific fine-tuning on real-world medical questions, it achieves breakthrough medical performance while maintaining strong general capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "baichuan-inc/Baichuan-M2-32B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "baichuan-inc/Baichuan-M2-32B"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "baichuan-inc/Baichuan-M2-32B-GPTQ-Int4"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "baichuan-inc/Baichuan-M2-32B-GPTQ-Int4"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set content = message.content %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is defined and message.reasoning_content is not none %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in message.content %}\n                {%- set content = message.content.split('</think>')[-1].lstrip('\\n') %}\n                {%- set reasoning_content = message.content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if thinking_mode is defined %}\n        {%- if thinking_mode == \"on\" %}\n            {{- '<think>\\n' }}\n        {%- elif thinking_mode == \"off\" %}\n            {{- '<think>\\n\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>"
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-VL-Instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "tools"
+    ],
+    "model_description": "Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Instruct-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Instruct-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Qwen3-VL-235B-A22B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Qwen3-VL-235B-A22B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions":3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+	      "8bit"
+            ],
+            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"  
+          }, 
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+	      "8bit"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {%- if messages[0].content is string %}\n            {{- messages[0].content }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' }}\n        {%- if messages[0].content is string %}\n            {{- messages[0].content }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" %}\n        {{- '<|im_start|>' + message.role + '\\n' }}\n        {%- if message.content is string %}\n            {{- message.content }}\n        {%- else %}\n            {%- for content in message.content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                    {%- if add_vision_id %}Picture {{ image_count.value }}: {% endif -%}\n                    <|vision_start|><|image_pad|><|vision_end|>\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                    {%- if add_vision_id %}Video {{ video_count.value }}: {% endif -%}\n                    <|vision_start|><|video_pad|><|vision_end|>\n                {%- elif 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\\n' }}\n        {%- if message.content is string %}\n            {{- message.content }}\n        {%- else %}\n            {%- for content_item in message.content %}\n                {%- if 'text' in content_item %}\n                    {{- content_item.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and message.content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {%- if message.content is string %}\n            {{- message.content }}\n        {%- else %}\n            {%- for content in message.content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                    {%- if add_vision_id %}Picture {{ image_count.value }}: {% endif -%}\n                    <|vision_start|><|image_pad|><|vision_end|>\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                    {%- if add_vision_id %}Video {{ video_count.value }}: {% endif -%}\n                    <|vision_start|><|video_pad|><|vision_end|>\n                {%- elif 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "tool_parser":"qwen"
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-VL-Thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "reasoning",
+      "tools"
+    ],
+    "model_description": "Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/Qwen3-VL-235B-A22B-Thinking-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/Qwen3-VL-235B-A22B-Thinking-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+	      "8bit"
+            ],
+            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}" 
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+	      "8bit"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- macro render_content(content, do_vision_count) %}\n    {%- if content is string %}\n        {{- content }}\n    {%- else %}\n        {%- for item in content %}\n            {%- if 'image' in item or 'image_url' in item or item.type == 'image' %}\n                {%- if do_vision_count %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}Picture {{ image_count.value }}: {% endif -%}\n                <|vision_start|><|image_pad|><|vision_end|>\n            {%- elif 'video' in item or item.type == 'video' %}\n                {%- if do_vision_count %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}Video {{ video_count.value }}: {% endif -%}\n                <|vision_start|><|video_pad|><|vision_end|>\n            {%- elif 'text' in item %}\n                {{- item.text }}\n            {%- endif %}\n        {%- endfor %}\n    {%- endif %}\n{%- endmacro %}\n{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- render_content(messages[0].content, false) + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + render_content(messages[0].content, false) + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" %}\n        {%- set content = render_content(message.content, false) %}\n        {%- if not(content.startswith('<tool_response>') and content.endswith('</tool_response>')) %}\n            {%- set ns.multi_step_tool = false %}\n            {%- set ns.last_query_index = index %}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- set content = render_content(message.content, True) %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n<think>\\n' }}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-Next-Instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen3-Next-80B-A3B is the first installment in the Qwen3-Next series",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "cpatonn/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Next-80B-A3B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Next-80B-A3B-Instruct-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "tool_parser":"qwen"
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-Next-Thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "tools"
+    ],
+    "model_description": "Qwen3-Next-80B-A3B is the first installment in the Qwen3-Next series",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Thinking"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Thinking"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Thinking-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Qwen/Qwen3-Next-80B-A3B-Thinking-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "cpatonn/Qwen3-Next-80B-A3B-Thinking-AWQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-Next-80B-A3B-Thinking-AWQ-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 80,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Next-80B-A3B-Thinking-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-Next-80B-A3B-Thinking-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n<think>\\n' }}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
   }
 ]

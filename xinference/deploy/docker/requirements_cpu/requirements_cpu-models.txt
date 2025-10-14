@@ -72,7 +72,17 @@ verovio>=4.3.1
 langdetect
 pyloudnorm
 
+# IndexTTS2
+json5
+munch
+matplotlib
+flatten_dict
+julius
+tensorboard
+randomname
+argbind
+
 # Others
-funasr<1.1.17
+funasr==1.2.7
 nemo_text_processing<1.1.0  # 1.1.0 requires pynini==2.1.6.post1
 WeTextProcessing<1.0.4  # 1.0.4 requires pynini==2.1.6

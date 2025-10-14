@@ -58,6 +58,11 @@ class FlagEmbeddingModel(EmbeddingModel):
         self._return_sparse = return_sparse
 
     def load(self):
+        # add truncate_dim args hint
+        if self._kwargs and "dimensions" in self._kwargs:
+            raise NotImplementedError(
+                "Flag embedder does not support dimensions argument now."
+            )
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError:

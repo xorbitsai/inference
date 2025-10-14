@@ -51,6 +51,7 @@ from ...types import (
 )
 from .core import chat_context_var
 from .reasoning_parser import ReasoningParser
+from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,10 @@ QWEN_TOOL_CALL_FAMILY = [
     "Qwen3-Thinking",
     "Qwen3-Instruct",
     "Qwen3-Coder",
+    "Qwen3-VL-Instruct",
+    "Qwen3-VL-Thinking",
+    "Qwen3-Next-Instruct",
+    "Qwen3-Next-Thinking",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -82,7 +87,7 @@ LLAMA3_TOOL_CALL_FAMILY = [
     "HuatuoGPT-o1-LLaMA-3.1",
 ]
 
-DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528"]
+DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528", "Deepseek-V3.1"]
 
 TOOL_CALL_FAMILY = (
     QWEN_TOOL_CALL_FAMILY
@@ -95,6 +100,13 @@ QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 
 class ChatModelMixin:
+
+    def __init__(self):
+        self.model_family = None
+        self.model_uid = None
+        self.reasoning_parser = None
+        self.tool_parser = None
+
     @staticmethod
     @functools.lru_cache
     def _compile_jinja_template(chat_template):
@@ -339,9 +351,7 @@ class ChatModelMixin:
         assert choices is not None
         usage = (
             chunk["usage"]
-            if choices[0]["finish_reason"] is not None
-            and reasoning_parser
-            and reasoning_parser.check_content_parser()
+            if choices and choices[0]["finish_reason"] is not None or not choices
             else None
         )
         chat_chunk = {
@@ -590,12 +600,37 @@ class ChatModelMixin:
                 pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
                 if pos2 != -1:
                     content = content[:pos2]
+
+                # Skip empty content after extraction
+                if not content.strip():
+                    continue
+
                 try:
                     res = json.loads(content, strict=False)
-                    results.append((None, res["name"], res["arguments"]))
-                except Exception as e:
+                    if isinstance(res, dict):
+                        # Check if required fields exist
+                        if "name" in res and "arguments" in res:
+                            results.append((None, res["name"], res["arguments"]))
+                        else:
+                            logger.warning(
+                                "Missing required fields in qwen tool call: %s", content
+                            )
+                            results.append((content, None, None))
+                    else:
+                        logger.warning(
+                            "Qwen tool call result is not a dict: %s", content
+                        )
+                        results.append((content, None, None))
+                except json.JSONDecodeError as e:
                     logger.error(
                         "Can't parse single qwen tool call output: %s. Error: %s",
+                        content,
+                        e,
+                    )
+                    results.append((content, None, None))
+                except Exception as e:
+                    logger.error(
+                        "Unexpected error parsing qwen tool call: %s. Error: %s",
                         content,
                         e,
                     )
@@ -757,59 +792,72 @@ class ChatModelMixin:
         logger.debug(f"Tool call content: {result}")
         return result
 
-    @classmethod
     def _post_process_completion_chunk(
-        cls,
+        self,
         model_family,
         model_uid,
         c,
         chunk_id=None,
-        reasoning_parser: Optional[ReasoningParser] = None,
-        tool_call_text: Optional[str] = None,
+        previous_texts: List[str] = [""],
     ):
+        if not c.get("choices"):
+            return c
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
-        tool_result = cls._eval_tool_arguments(model_family, c, tool_call_text)
+        tool_result = None
+        finish_reason = None
+        if isinstance(self.tool_parser, Glm4ToolParser):
+            tool_result = self.tool_parser.extract_tool_calls_streaming(
+                [],
+                c,
+                c,
+            )
+        else:
+            finish_reason = c["choices"][0]["finish_reason"]
+            delta_text = c["choices"][0]["delta"]["content"]
+            current_text = (
+                previous_texts[-1] + delta_text if previous_texts else delta_text
+            )
+            tool_result = self.tool_parser.extract_tool_calls_streaming(
+                previous_texts,
+                current_text,
+                delta_text,
+            )
+            previous_texts[-1] = current_text
+        if tool_result is None and not finish_reason:
+            return None
         tool_calls = []
         failed_contents = []
-        for content, func, args in tool_result:
-            if func:
-                tool_calls.append(
-                    {
-                        "index": 0,
-                        "id": f"call_{_id}",
-                        "type": "function",
-                        "function": {
-                            "name": func,
-                            "arguments": json.dumps(args, ensure_ascii=False),
-                        },
-                    }
-                )
-            else:
-                failed_contents.append(content)
-        finish_reason = "tool_calls" if tool_calls else "stop"
+        content, func, args = tool_result if tool_result else ("", None, None)
+        if func:
+            tool_calls.append(
+                {
+                    "index": 0,
+                    "id": f"call_{_id}",
+                    "type": "function",
+                    "function": {
+                        "name": func,
+                        "arguments": json.dumps(args, ensure_ascii=False),
+                    },
+                }
+            )
+        else:
+            failed_contents.append(content)
+
+        finish_reason = "tool_calls" if tool_calls else finish_reason
 
         content = "".join(failed_contents) if failed_contents else None
 
-        # fix: qwen tool_call content field return null
-        family = model_family.model_family or model_family.model_name
-        if tool_calls and family in QWEN_TOOL_CALL_FAMILY and content is None:
-            content = ""
-
         d = {
             "role": "assistant",
-            "content": content,
+            "content": content if content else "",
             "tool_calls": tool_calls,
         }
 
-        try:
+        # For tool completion chunks, use None for usage, actual values for stop
+        if finish_reason == "tool_calls":
+            usage = None
+        else:
             usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
-            usage = {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            }
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -826,30 +874,40 @@ class ChatModelMixin:
             "usage": usage,
         }
 
-    @classmethod
     def _post_process_completion(
-        cls,
+        self,
         model_family,
         model_uid,
         c,
-        reasoning_parser: Optional[ReasoningParser] = None,
     ):
-        if reasoning_parser:
-            c = reasoning_parser.prepare_reasoning_content(c)
+        if not self.tool_parser:
+            return self._get_final_chat_completion_chunk(c)
+
         _id = str(uuid.uuid4())
         reasoning_content = None
-        if reasoning_parser and reasoning_parser.check_content_parser():
-            text = c["choices"][0]["text"]
-            reasoning_content, content = reasoning_parser.extract_reasoning_content(
-                text
+        content = ""
+
+        # First, process reasoning content if reasoning parser exists
+        text = c["choices"][0]["text"]
+        if self.reasoning_parser and self.reasoning_parser.check_content_parser():
+            # Extract reasoning content directly from the original text
+            reasoning_content, processed_content = (
+                self.reasoning_parser.extract_reasoning_content(text)
             )
-            c["choices"][0]["text"] = content
+            # Use the processed content (without thinking tags) for tool parsing
+            if processed_content:
+                text = processed_content
 
-        tool_result = cls._eval_tool_arguments(model_family, c)
-
+        # Then, extract tool calls from the processed text (without thinking tags)
         tool_calls = []
         failed_contents = []
-        for content, func, args in tool_result:
+        if isinstance(self.tool_parser, Glm4ToolParser):
+            tool_result = self.tool_parser.extract_tool_calls(c)
+        else:
+            tool_result = self.tool_parser.extract_tool_calls(text)
+
+        # Process tool results
+        for tool_content, func, args in tool_result:
             if func:
                 tool_calls.append(
                     {
@@ -862,16 +920,18 @@ class ChatModelMixin:
                     }
                 )
             else:
-                if content:
-                    failed_contents.append(content)
+                if tool_content:
+                    failed_contents.append(tool_content)
+
+        # Determine the final content
+        if tool_calls:
+            # For tool calls, the main content should be empty or contain only non-tool parts
+            content = "".join(failed_contents) if failed_contents else ""
+        else:
+            # For non-tool calls, use the processed content from reasoning parser
+            content = text
+
         finish_reason = "tool_calls" if tool_calls else "stop"
-
-        content = "".join(failed_contents) if failed_contents else None
-
-        # fix: qwen tool_call content field return null
-        family = model_family.model_family or model_family.model_name
-        if tool_calls and family in QWEN_TOOL_CALL_FAMILY and content is None:
-            content = ""
 
         m = {
             "role": "assistant",
@@ -882,10 +942,9 @@ class ChatModelMixin:
         if reasoning_content is not None:
             m["reasoning_content"] = reasoning_content
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        # For tool completion chunks, use actual usage values when available
+        usage = c.get("usage")
+        if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
             usage = {
                 "prompt_tokens": -1,
                 "completion_tokens": -1,
@@ -942,6 +1001,45 @@ class ChatModelMixin:
             transformed_messages.append(new_message)
 
         return transformed_messages
+
+    async def _async_to_tool_completion_chunks(
+        self,
+        chunks: AsyncGenerator[CompletionChunk, None],
+        ctx: Optional[Dict[str, Any]] = None,
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
+        i = 0
+        previous_texts = [""]
+        previous_tools_texts = [""]
+        full_text = ""
+        if self.reasoning_parser:
+            set_context()
+            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
+        async for completion_chunk in chunks:
+            set_context()
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk, self.reasoning_parser, previous_texts
+            )
+            if (
+                chat_chunk["choices"]
+                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
+                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
+            ):
+                yield chat_chunk
+                continue
+            processed_chunk = self._post_process_completion_chunk(
+                self.model_family,
+                self.model_uid,
+                chat_chunk,
+                previous_texts=previous_tools_texts,
+            )
+            if processed_chunk:
+                yield processed_chunk
+            i += 1
+        logger.debug("Chat finished, output: %s", full_text)
 
 
 def get_model_version(

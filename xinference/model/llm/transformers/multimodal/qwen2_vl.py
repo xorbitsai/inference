@@ -27,11 +27,19 @@ logger = logging.getLogger(__name__)
 
 
 @register_batching_multimodal_models(
-    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview"
+    "qwen2-vl-instruct",
+    "qwen2.5-vl-instruct",
+    "QvQ-72B-Preview",
+    "Qwen3-VL-Instruct",
+    "Qwen3-VL-Thinking",
 )
 @register_transformer
 @register_non_default_model(
-    "qwen2-vl-instruct", "qwen2.5-vl-instruct", "QvQ-72B-Preview"
+    "qwen2-vl-instruct",
+    "qwen2.5-vl-instruct",
+    "QvQ-72B-Preview",
+    "Qwen3-VL-Instruct",
+    "Qwen3-VL-Thinking",
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
     def _sanitize_model_config(
@@ -47,7 +55,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp8"]:
             return False
         llm_family = model_family.model_family or model_family.model_name
         if "qwen2-vl-instruct".lower() in llm_family.lower():
@@ -55,6 +63,8 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         if "qwen2.5-vl-instruct".lower() in llm_family.lower():
             return True
         if "qvq-72b-preview".lower() in llm_family.lower():
+            return True
+        if "qwen3-vl" in llm_family.lower():
             return True
         return False
 
@@ -85,13 +95,19 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         except ImportError:
             Qwen2_5_VLForConditionalGeneration = None
 
+        try:
+            from transformers import AutoModelForImageTextToText
+        except ImportError:
+            AutoModelForImageTextToText = None
+
         kwargs = self.apply_bnb_quantization()
         llm_family = self.model_family.model_family or self.model_family.model_name
-        model_cls = (
-            Qwen2_5_VLForConditionalGeneration
-            if "qwen2.5" in llm_family
-            else Qwen2VLForConditionalGeneration
-        )
+        if "qwen2.5" in llm_family:
+            model_cls = Qwen2_5_VLForConditionalGeneration
+        elif "qwen3" in llm_family:
+            model_cls = AutoModelForImageTextToText
+        else:
+            model_cls = Qwen2VLForConditionalGeneration
         if model_cls is None:
             raise ImportError("`transformers` version is too old, please upgrade it")
         device = "auto" if self._device == "cuda" else self._device
@@ -117,6 +133,16 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 trust_remote_code=True,
                 torch_dtype="float16",
                 **kwargs,
+            ).eval()
+        elif device == "mps":
+            # MacOS special, see https://github.com/QwenLM/Qwen2.5-VL/issues/761
+            self._model = model_cls.from_pretrained(
+                self.model_path,
+                torch_dtype="bfloat16",
+                device_map=device,
+                attn_implementation="eager",
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
             ).eval()
         else:
             self._model = model_cls.from_pretrained(

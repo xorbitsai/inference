@@ -60,7 +60,6 @@ class CosyVoiceModel:
             from cosyvoice.cli.cosyvoice import CosyVoice2 as CosyVoice
 
             self._is_cosyvoice2 = True
-            kwargs = {"use_flow_cache": self._kwargs.get("use_flow_cache", False)}
         else:
             from cosyvoice.cli.cosyvoice import CosyVoice
 

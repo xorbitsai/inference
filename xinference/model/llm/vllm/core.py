@@ -264,6 +264,9 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.5"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
 
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.0"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("Baichuan-M2")
+
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
 
@@ -273,13 +276,24 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Deepseek-V3.1")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.5v")
+    VLLM_SUPPORTED_CHAT_MODELS.append("KAT-V1")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gpt-oss")
+
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
+
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
+    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
 
 
 class VLLMModel(LLM):
@@ -387,6 +401,7 @@ class VLLMModel(LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        self.prepare_parse_tool_calls()
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV2)
@@ -530,7 +545,7 @@ class VLLMModel(LLM):
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-                except:
+                except:  # noqa: E722
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
 
@@ -699,7 +714,7 @@ class VLLMModel(LLM):
                 logger.info("Detecting vLLM is not health, prepare to quit the process")
                 try:
                     self.stop()
-                except:
+                except:  # noqa: E722
                     # ignore error when stop
                     pass
                 # Just kill the process and let xinference auto-recover the model
@@ -767,7 +782,6 @@ class VLLMModel(LLM):
         sanitized = VLLMGenerateConfig()
 
         response_format = generate_config.pop("response_format", None)
-        guided_decoding_backend = generate_config.get("guided_decoding_backend", None)
         guided_json_object = None
         guided_json = None
 
@@ -778,8 +792,6 @@ class VLLMModel(LLM):
                 json_schema = response_format.get("json_schema")
                 assert json_schema is not None
                 guided_json = json_schema.get("json_schema")
-                if guided_decoding_backend is None:
-                    guided_decoding_backend = "outlines"
 
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
@@ -827,10 +839,6 @@ class VLLMModel(LLM):
             "guided_json_object",
             generate_config.get("guided_json_object", guided_json_object),
         )
-        sanitized.setdefault(
-            "guided_decoding_backend",
-            generate_config.get("guided_decoding_backend", guided_decoding_backend),
-        )
 
         return sanitized
 
@@ -849,7 +857,7 @@ class VLLMModel(LLM):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
             # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
@@ -934,9 +942,21 @@ class VLLMModel(LLM):
 
     async def _get_tokenizer(self, lora_request: Any) -> Any:
         try:
-            return await self._engine.get_tokenizer(lora_request)  # type: ignore
+            # vLLM 0.11.0+ get_tokenizer doesn't accept lora_request parameter
+            if (
+                VLLM_VERSION >= version.parse("0.11.0")
+                or VLLM_VERSION.base_version >= "0.11.0"
+            ):
+                return await self._engine.get_tokenizer()  # type: ignore
+            else:
+                return await self._engine.get_tokenizer(lora_request)  # type: ignore
         except AttributeError:
-            return await self._engine.get_tokenizer_async(lora_request)  # type: ignore
+            # Fallback to get_tokenizer_async for older versions
+            try:
+                return await self._engine.get_tokenizer_async(lora_request)  # type: ignore
+            except (AttributeError, TypeError):
+                # If all else fails, try without parameters
+                return await self._engine.get_tokenizer()  # type: ignore
 
     def _tokenize(self, tokenizer: Any, prompt: str, config: dict) -> List[int]:
         truncate_prompt_tokens = config.get("truncate_prompt_tokens")
@@ -968,7 +988,10 @@ class VLLMModel(LLM):
         from vllm import TokensPrompt
 
         token_ids = await asyncio.to_thread(
-            self._tokenize, tokenizer, prompt, config  # type: ignore
+            self._tokenize,
+            tokenizer,
+            prompt,  # type: ignore
+            config,
         )
         return TokensPrompt(prompt_token_ids=token_ids)
 
@@ -1017,23 +1040,65 @@ class VLLMModel(LLM):
             # guided decoding only available for vllm >= 0.6.3
             from vllm.sampling_params import GuidedDecodingParams
 
-            guided_options = GuidedDecodingParams.from_optional(
-                json=sanitized_generate_config.pop("guided_json", None),
-                regex=sanitized_generate_config.pop("guided_regex", None),
-                choice=sanitized_generate_config.pop("guided_choice", None),
-                grammar=sanitized_generate_config.pop("guided_grammar", None),
-                json_object=sanitized_generate_config.pop("guided_json_object", None),
-                backend=sanitized_generate_config.pop("guided_decoding_backend", None),
-                whitespace_pattern=sanitized_generate_config.pop(
-                    "guided_whitespace_pattern", None
-                ),
-            )
+            # Extract guided decoding parameters
+            guided_params: dict[str, Any] = {}
+            guided_json = sanitized_generate_config.pop("guided_json", None)
+            if guided_json:
+                guided_params["json"] = guided_json
 
-            sampling_params = SamplingParams(
-                guided_decoding=guided_options, **sanitized_generate_config
+            guided_regex = sanitized_generate_config.pop("guided_regex", None)
+            if guided_regex:
+                guided_params["regex"] = guided_regex
+
+            guided_choice = sanitized_generate_config.pop("guided_choice", None)
+            if guided_choice:
+                guided_params["choice"] = guided_choice
+
+            guided_grammar = sanitized_generate_config.pop("guided_grammar", None)
+            if guided_grammar:
+                guided_params["grammar"] = guided_grammar
+
+            guided_json_object = sanitized_generate_config.pop(
+                "guided_json_object", None
             )
+            if guided_json_object:
+                guided_params["json_object"] = guided_json_object
+
+            guided_backend = sanitized_generate_config.pop(
+                "guided_decoding_backend", None
+            )
+            if guided_backend:
+                guided_params["_backend"] = guided_backend
+
+            guided_whitespace_pattern = sanitized_generate_config.pop(
+                "guided_whitespace_pattern", None
+            )
+            if guided_whitespace_pattern:
+                guided_params["whitespace_pattern"] = guided_whitespace_pattern
+
+            # Create GuidedDecodingParams if we have any guided parameters
+            guided_options = None
+            if guided_params:
+                try:
+                    guided_options = GuidedDecodingParams(**guided_params)
+                except Exception as e:
+                    logger.warning(f"Failed to create GuidedDecodingParams: {e}")
+                    guided_options = None
+
+            # Use structured_outputs for vLLM >= 0.11.0, guided_decoding for older versions
+            if (
+                VLLM_VERSION >= version.parse("0.11.0")
+                or VLLM_VERSION.base_version >= "0.11.0"
+            ):
+                sampling_params = SamplingParams(
+                    structured_outputs=guided_options, **sanitized_generate_config
+                )
+            else:
+                sampling_params = SamplingParams(
+                    guided_decoding=guided_options, **sanitized_generate_config
+                )
         else:
-            # ignore generate configs
+            # ignore generate configs for older versions
             sanitized_generate_config.pop("guided_json", None)
             sanitized_generate_config.pop("guided_regex", None)
             sanitized_generate_config.pop("guided_choice", None)
@@ -1049,7 +1114,9 @@ class VLLMModel(LLM):
             # this requires tokenizing
             tokenizer = await self._get_tokenizer(lora_request)
             prompt_or_token_ids = await self._gen_tokens_prompt(
-                tokenizer, prompt, sanitized_generate_config  # type: ignore
+                tokenizer,
+                prompt,
+                sanitized_generate_config,  # type: ignore
             )
             sampling_params.max_tokens = max_tokens = self._context_length - len(  # type: ignore
                 prompt_or_token_ids["prompt_token_ids"]  # type: ignore
@@ -1204,11 +1271,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         ]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
-            if "4" not in quantization:
+            if not any(q in quantization for q in ("4", "8")):
                 return False
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
@@ -1236,6 +1302,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
+
         if "reasoning" in getattr(self.model_family, "model_ability", []):
             generate_config.pop("stop", None)
             generate_config.pop("stop_token_ids", None)
@@ -1249,6 +1316,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 generate_config["stop_token_ids"] = (
                     self.model_family.stop_token_ids.copy()
                 )
+
+        # if response_format exists，generate guided_json
+        if "response_format" in generate_config:
+            resp_format = generate_config["response_format"]
+            if (
+                isinstance(resp_format, dict)
+                and resp_format.get("type") == "json_schema"
+                and "json_schema" in resp_format
+            ):
+                schema = resp_format["json_schema"].get("schema_")
+                if schema:
+                    generate_config["guided_json"] = schema
+
         return generate_config
 
     @staticmethod
@@ -1284,59 +1364,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 processed_messages.append(msg)
 
         return processed_messages
-
-    async def _async_to_tool_completion_chunks(
-        self,
-        chunks: AsyncGenerator[CompletionChunk, None],
-        ctx: Optional[Dict[str, Any]] = {},
-    ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        def set_context():
-            if ctx:
-                chat_context_var.set(ctx)
-
-        i = 0
-        previous_texts = [""]
-        tool_call = False
-        tool_call_texts = [""]
-        full_text = ""
-        if self.reasoning_parser:
-            set_context()
-            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
-            set_context()
-            if i == 0:
-                for first_chunk in self._get_first_chat_completion_chunk(
-                    chunk, self.reasoning_parser
-                ):
-                    yield first_chunk
-            # usage
-            choices = chunk.get("choices")
-            if not choices:
-                yield self._get_final_chat_completion_chunk(chunk)
-            else:
-                full_text += chunk["choices"][0]["text"]
-                if self.is_tool_call_chunk_start(chunk):
-                    tool_call = True
-                if tool_call:
-                    tool_call_text = tool_call_texts[-1]
-                    tool_call_text += chunk["choices"][0]["text"]
-                    tool_call_texts.append(tool_call_text)
-                    if self.is_tool_call_chunk_end(chunk):
-                        yield self._post_process_completion_chunk(
-                            self.model_family,
-                            self.model_uid,
-                            chunk,
-                            reasoning_parser=self.reasoning_parser,
-                            tool_call_text=tool_call_text,
-                        )
-                        tool_call = False
-                        tool_call_texts = [""]
-                else:
-                    yield self._to_chat_completion_chunk(
-                        chunk, self.reasoning_parser, previous_texts
-                    )
-            i += 1
-        logger.debug("Chat finished, output: %s", full_text)
 
     @vllm_check
     async def async_chat(
@@ -1402,7 +1429,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._post_process_completion(
-                    self.model_family, self.model_uid, c, self.reasoning_parser
+                    self.model_family, self.model_uid, c
                 )
             return self._to_chat_completion(c, self.reasoning_parser)
 
@@ -1419,11 +1446,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
-            if "4" not in quantization:
+            if not any(q in quantization for q in ("4", "8")):
                 return False
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
@@ -1487,7 +1513,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         multi_modal_data = prompt.get("multi_modal_data")
 
         token_ids = await asyncio.to_thread(
-            self._tokenize, tokenizer, prompt_str, config  # type: ignore
+            self._tokenize,
+            tokenizer,
+            prompt_str,
+            config,  # type: ignore
         )
         return TokensPrompt(
             prompt_token_ids=token_ids, multi_modal_data=multi_modal_data

@@ -6,7 +6,7 @@ Kokoro-82M-MLX
 
 - **Model Name:** Kokoro-82M-MLX
 - **Model Family:** Kokoro-MLX
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot']
 - **Multilingual:** True
 
 Specifications

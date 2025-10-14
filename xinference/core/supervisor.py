@@ -31,6 +31,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
@@ -406,6 +407,26 @@ class SupervisorActor(xo.StatelessActor):
             "workers": self._worker_status,
         }
 
+    def _get_spec_dicts(
+        self, model_family: Any, cache_manager_cls: Type
+    ) -> Tuple[List[dict], List[str]]:
+        specs = []
+        download_hubs: Dict[str, None] = dict()
+        for spec in model_family.model_specs:
+            model_hub = spec.model_hub
+            if model_hub not in download_hubs:
+                download_hubs[model_hub] = None
+            if model_hub != "huggingface":
+                # since we only need to know all specs
+                # thus filter huggingface specs only
+                continue
+            model_family.model_specs = [spec]
+            cache_manager = cache_manager_cls(model_family)
+            specs.append(
+                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
+            )
+        return specs, list(download_hubs)
+
     async def _to_llm_reg(
         self, llm_family: "LLMFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
@@ -415,20 +436,15 @@ class SupervisorActor(xo.StatelessActor):
         version_cnt = await self.get_model_version_count(llm_family.model_name)
 
         if self.is_local_deployment():
-            specs = []
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             _llm_family = llm_family.copy()
-            for spec in [
-                _spec
-                for _spec in llm_family.model_specs
-                if _spec.model_hub == "huggingface"
-            ]:
-                _llm_family.model_specs = [spec]
-                cache_manager = LLMCacheManager(_llm_family)
-                specs.append(
-                    {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
-                )
-            res = {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
+            specs, download_hubs = self._get_spec_dicts(_llm_family, LLMCacheManager)
+            res = {
+                **llm_family.dict(),
+                "is_builtin": is_builtin,
+                "model_specs": specs,
+                "download_hubs": download_hubs,
+            }
         else:
             res = {**llm_family.dict(), "is_builtin": is_builtin}
         res["model_version_count"] = version_cnt
@@ -445,24 +461,13 @@ class SupervisorActor(xo.StatelessActor):
 
         if self.is_local_deployment():
             _family = model_family.copy()
-            specs = []
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            for spec in [
-                x for x in model_family.model_specs if x.model_hub == "huggingface"
-            ]:
-                _family.model_specs = [spec]
-                specs.append(
-                    {
-                        **spec.dict(),
-                        "cache_status": EmbeddingCacheManager(
-                            _family
-                        ).get_cache_status(),
-                    }
-                )
+            specs, download_hubs = self._get_spec_dicts(_family, EmbeddingCacheManager)
             res = {
                 **model_family.dict(),
                 "is_builtin": is_builtin,
                 "model_specs": specs,
+                "download_hubs": download_hubs,
             }
         else:
             res = {
@@ -474,25 +479,26 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def _to_rerank_model_reg(
-        self, model_spec: "RerankModelFamilyV2", is_builtin: bool
+        self, model_family: "RerankModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.rerank.cache_manager import RerankCacheManager as CacheManager
+        from ..model.rerank.cache_manager import RerankCacheManager
 
-        instance_cnt = await self.get_instance_count(model_spec.model_name)
-        version_cnt = await self.get_model_version_count(model_spec.model_name)
-        cache_manager = CacheManager(model_spec)
+        instance_cnt = await self.get_instance_count(model_family.model_name)
+        version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self.is_local_deployment():
+            _family = model_family.copy()
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_status = cache_manager.get_cache_status()
+            specs, download_hubs = self._get_spec_dicts(_family, RerankCacheManager)
             res = {
-                **model_spec.dict(),
-                "cache_status": cache_status,
+                **model_family.dict(),
                 "is_builtin": is_builtin,
+                "model_specs": specs,
+                "download_hubs": download_hubs,
             }
         else:
             res = {
-                **model_spec.dict(),
+                **model_family.dict(),
                 "is_builtin": is_builtin,
             }
         res["model_version_count"] = version_cnt
@@ -657,7 +663,9 @@ class SupervisorActor(xo.StatelessActor):
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
-                    ret.append(await self._to_image_model_reg(family, is_builtin=True))
+                    info = await self._to_image_model_reg(family, is_builtin=True)
+                    info["download_hubs"] = [x.model_hub for x in families]
+                    ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
@@ -680,7 +688,9 @@ class SupervisorActor(xo.StatelessActor):
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
-                    ret.append(await self._to_audio_model_reg(family, is_builtin=True))
+                    info = await self._to_audio_model_reg(family, is_builtin=True)
+                    info["download_hubs"] = [x.model_hub for x in families]
+                    ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
@@ -702,7 +712,9 @@ class SupervisorActor(xo.StatelessActor):
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
-                    ret.append(await self._to_video_model_reg(family, is_builtin=True))
+                    info = await self._to_video_model_reg(family, is_builtin=True)
+                    info["download_hubs"] = [x.model_hub for x in families]
+                    ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
@@ -812,16 +824,9 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            if model_name in BUILTIN_RERANK_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_RERANK_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            else:
-                for f in get_user_defined_reranks():
-                    if f.model_name == model_name:
-                        return f
+            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "flexible":
             from ..model.flexible import get_flexible_models
@@ -829,6 +834,16 @@ class SupervisorActor(xo.StatelessActor):
             for f in get_flexible_models():
                 if f.model_name == model_name:
                     return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "video":
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            if model_name in BUILTIN_VIDEO_MODELS:
+                return [
+                    x
+                    for x in BUILTIN_VIDEO_MODELS[model_name]
+                    if x.model_hub == "huggingface"
+                ][0]
             raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -864,6 +879,26 @@ class SupervisorActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
+            model_spec = model_spec_cls.parse_raw(model)
+
+            # check if model already registered
+            try:
+                model = await self.get_model_registration(
+                    model_type, model_spec.model_name
+                )
+                if model is not None:
+                    raise ValueError(
+                        f"Model {model_spec.model_name} already registered"
+                    )
+            except ValueError as e:
+                if "not found" in str(e):
+                    pass
+                else:
+                    raise e
+            except Exception:
+                logger.error("Get model registration failed.", exc_info=True)
+                raise
+
             target_ip_worker_ref = (
                 self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
             )
@@ -880,12 +915,15 @@ class SupervisorActor(xo.StatelessActor):
                 await target_ip_worker_ref.register_model(model_type, model, persist)
                 return
 
-            model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
                 await self._cache_tracker_ref.record_model_version(
                     generate_fn(model_spec), self.address
                 )
+                await self._sync_register_model(
+                    model_type, model, persist, model_spec.model_name
+                )
+
             except ValueError as e:
                 raise e
             except Exception as e:
@@ -893,6 +931,30 @@ class SupervisorActor(xo.StatelessActor):
                 raise e
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    async def _sync_register_model(
+        self, model_type: str, model: str, persist: bool, model_name: str
+    ):
+        logger.info(f"begin sync model: {model_name} to worker")
+        try:
+            # Sync model to all workers.
+            for name, worker in self._worker_address_to_worker.items():
+                logger.info(f"sync model: {model_name} to {name}")
+                if name == self.address:
+                    # Ignore: when worker and supervisor at the same node.
+                    logger.info(
+                        f"ignore sync model: {model_name} to {name} for same node"
+                    )
+                else:
+                    await worker.register_model(model_type, model, persist)
+                    logger.info(f"success sync model: {model_name} to {name}")
+        except Exception as e:
+            # If sync fails, unregister the model in all workers.
+            for name, worker in self._worker_address_to_worker.items():
+                logger.warning(f"ready to unregister model for {name}")
+                await worker.unregister_model(model_type, model_name)
+                logger.warning(f"finish unregister model: {model} for {name}")
+            raise e
 
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
@@ -1014,7 +1076,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         # search in worker first
-        if not self.is_local_deployment():
+        if not self.is_local_deployment() and worker_ip is None:
             workers = list(self._worker_address_to_worker.values())
             for worker in workers:
                 res = await worker.get_model_registration(model_type, model_name)

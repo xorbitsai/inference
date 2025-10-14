@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import contextlib
 import gc
 import importlib
@@ -19,6 +20,7 @@ import inspect
 import itertools
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -30,7 +32,11 @@ import PIL.Image
 import torch
 from PIL import ImageOps
 
-from ....device_utils import get_available_device, move_model_to_available_device
+from ....device_utils import (
+    get_available_device,
+    gpu_count,
+    move_model_to_available_device,
+)
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
 from ..utils import handle_image_result
@@ -89,6 +95,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         lora_fuse_kwargs: Optional[Dict] = None,
         model_spec: Optional["ImageModelFamilyV2"] = None,
         gguf_model_path: Optional[str] = None,
+        lightning_model_path: Optional[str] = None,
         **kwargs,
     ):
         self.model_family = model_spec
@@ -115,6 +122,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._kwargs = kwargs
         # gguf
         self._gguf_model_path = gguf_model_path
+        # lightning
+        self._lightning_model_path = lightning_model_path
 
     @property
     def model_ability(self):
@@ -171,7 +180,32 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             model = model_type.from_pipe(self._model, controlnet=controlnet)
         else:
-            model = model_type.from_pipe(self._model)
+            try:
+                from diffusers import (
+                    QwenImageImg2ImgPipeline,
+                    QwenImageInpaintPipeline,
+                    QwenImagePipeline,
+                )
+            except ImportError:
+                QwenImagePipeline = None
+                QwenImageImg2ImgPipeline = None
+                QwenImageInpaintPipeline = None
+
+            if QwenImagePipeline is not None and isinstance(
+                self._model, QwenImagePipeline
+            ):
+                # special process for Qwen-image
+                if ability == "image2image":
+                    model = QwenImageImg2ImgPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+                else:
+                    assert ability == "inpainting"
+                    model = QwenImageInpaintPipeline.from_pipe(
+                        self._model, torch_dtype=None
+                    )
+            else:
+                model = model_type.from_pipe(self._model)
         self._load_to_device(model)
 
         self._ability_to_models[ability, controlnet_name] = model
@@ -237,35 +271,42 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             self._quantize_transformer()
 
+        if (device_count := gpu_count()) > 1 and "device_map" not in self._kwargs:
+            logger.debug(
+                "Device count (%d) > 1, force to set device_map=balanced", device_count
+            )
+            self._kwargs["device_map"] = "balanced"
+
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
         )
-        try:
-            self._model = AutoPipelineModel.from_pretrained(
-                self._model_path,
-                **self._kwargs,
-            )
-        except ValueError:
-            if "kontext" in self._model_spec.model_name.lower():
-                # TODO: remove this branch when auto pipeline supports
-                # flux.1-kontext-dev
-                from diffusers import FluxKontextPipeline
-
-                self._model = FluxKontextPipeline.from_pretrained(
-                    self._model_path, **self._kwargs
+        with self._process_lightning(self._kwargs):
+            try:
+                self._model = AutoPipelineModel.from_pretrained(
+                    self._model_path,
+                    **self._kwargs,
                 )
-            elif "qwen" in self._model_spec.model_name.lower():
-                # TODO: remove this branch when auto pipeline supports
-                # Qwen-Image
-                from diffusers import DiffusionPipeline
+            except ValueError:
+                if "kontext" in self._model_spec.model_name.lower():
+                    # TODO: remove this branch when auto pipeline supports
+                    # flux.1-kontext-dev
+                    from diffusers import FluxKontextPipeline
 
-                self._model = DiffusionPipeline.from_pretrained(
-                    self._model_path, **self._kwargs
-                )
-            else:
-                raise
-        self._load_to_device(self._model)
-        self._apply_lora()
+                    self._model = FluxKontextPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "qwen" in self._model_spec.model_name.lower():
+                    # TODO: remove this branch when auto pipeline supports
+                    # Qwen-Image
+                    from diffusers import DiffusionPipeline
+
+                    self._model = DiffusionPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                else:
+                    raise
+            self._load_to_device(self._model)
+            self._apply_lora()
 
         if self._kwargs.get("deepcache", False):
             try:
@@ -439,6 +480,44 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             torch_dtype=torch_dtype,
             config=os.path.join(self._model_path, "transformer"),
         )
+
+    @contextlib.contextmanager
+    def _process_lightning(self, kwargs):
+        lightning_model_path = self._lightning_model_path
+        if not lightning_model_path:
+            yield
+            return
+
+        from diffusers import FlowMatchEulerDiscreteScheduler
+
+        if "qwen" in self._model_spec.model_name.lower():
+            scheduler_config = {
+                "base_image_seq_len": 256,
+                "base_shift": math.log(3),  # We use shift=3 in distillation
+                "invert_sigmas": False,
+                "max_image_seq_len": 8192,
+                "max_shift": math.log(3),  # We use shift=3 in distillation
+                "num_train_timesteps": 1000,
+                "shift": 1.0,
+                "shift_terminal": None,  # set shift_terminal to None
+                "stochastic_sampling": False,
+                "time_shift_type": "exponential",
+                "use_beta_sigmas": False,
+                "use_dynamic_shifting": True,
+                "use_exponential_sigmas": False,
+                "use_karras_sigmas": False,
+            }
+            scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+            kwargs["scheduler"] = scheduler
+
+            yield
+
+            model = self._model
+            logger.debug("Loading lightning lora: %s", self._lightning_model_path)
+            model.load_lora_weights(self._lightning_model_path)
+        else:
+            logger.debug("No lightning applied")
+            yield
 
     def _load_to_device(self, model):
         if self._kwargs.get("cpu_offload", False):
@@ -687,7 +766,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             await self._image_batch_scheduler.add_request(
                 prompt, future, n, size, response_format, **kwargs
             )
-            import asyncio
 
             fut = asyncio.wrap_future(future)
             return await fut
@@ -702,6 +780,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if self._image_batch_scheduler and not self._image_batch_scheduler._running:
             await self._image_batch_scheduler.start()
 
+    def _gen_config_for_lightning(self, kwargs):
+        if (
+            not kwargs.get("num_inference_steps")
+            and self._lightning_model_path is not None
+        ):
+            is_4_steps = "4steps" in self._lightning_model_path
+            if is_4_steps:
+                kwargs["num_inference_steps"] = 4
+            else:
+                assert "8steps" in self._lightning_model_path
+                kwargs["num_inference_steps"] = 8
+
     async def _direct_text_to_image(
         self,
         prompt: str,
@@ -714,13 +804,27 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
         generate_kwargs["width"], generate_kwargs["height"] = width, height
+        self._gen_config_for_lightning(generate_kwargs)
 
-        return self._call_model(
-            prompt=prompt,
-            num_images_per_prompt=n,
+        return await asyncio.to_thread(
+            self._call_model,
+            prompt=prompt,  # type: ignore
+            num_images_per_prompt=n,  # type: ignore
             response_format=response_format,
             **generate_kwargs,
         )
+
+    async def abort_request(self, request_id: str) -> str:
+        """Abort a running request."""
+        from ....model.scheduler.core import AbortRequestMessage
+
+        # Check if we have a cancel callback for this request
+        if hasattr(self, "_cancel_callbacks") and request_id in self._cancel_callbacks:
+            cancel_callback = self._cancel_callbacks.pop(request_id)
+            cancel_callback()
+            return AbortRequestMessage.DONE.name
+
+        return AbortRequestMessage.NO_OP.name
 
     @staticmethod
     def pad_to_multiple(image, multiple=8):
@@ -732,7 +836,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def image_to_image(
         self,
-        image: PIL.Image,
+        image: Union[PIL.Image.Image, List[PIL.Image.Image]],
         prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
         size: Optional[str] = None,
@@ -752,7 +856,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
             # padding the image if specified
-            origin_x, origin_y = image.size
+            if isinstance(image, list):
+                origin_x, origin_y = image[0].size
+            else:
+                origin_x, origin_y = image.size
             kwargs["origin_size"] = (origin_x, origin_y)
             kwargs["is_padded"] = True
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
@@ -760,14 +867,23 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if size:
             width, height = map(int, re.split(r"[^\d]+", size))
             if padding_image_to_multiple:
-                width, height = image.size
+                if isinstance(image, list):
+                    width, height = image[0].size
+                else:
+                    width, height = image.size
             kwargs["width"] = width
             kwargs["height"] = height
         else:
             # SD3 image2image cannot accept width and height
             allow_width_height = model_accept_param(["width", "height"], model)
             if allow_width_height:
-                kwargs["width"], kwargs["height"] = image.size
+                if isinstance(image, list):
+                    kwargs["width"], kwargs["height"] = image[0].size
+                else:
+                    kwargs["width"], kwargs["height"] = image.size
+
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
 
         return self._call_model(
             image=image,
@@ -818,6 +934,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             )
             # calculate actual image size after padding
             kwargs["width"], kwargs["height"] = image.size
+
+        # generate config for lightning
+        self._gen_config_for_lightning(kwargs)
 
         return self._call_model(
             image=image,
