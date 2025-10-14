@@ -431,7 +431,7 @@ class CancellableDownloader:
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
 ) -> Optional[Dict[str, Union[List[Dict[str, Any]], str]]]:
-    engine_params: Optional[Dict[str, Union[List[Dict[str, Any]], str]]] = None
+    engine_params: Dict[str, Union[List[Dict[str, Any]], str]] = {}
 
     if model_type == "LLM":
         from .llm.llm_family import LLM_ENGINES, SUPPORTED_ENGINES
@@ -441,7 +441,6 @@ def get_engine_params_by_name(
 
         # Get all supported engines, not just currently available ones
         all_supported_engines = list(SUPPORTED_ENGINES.keys())
-        engine_params = {}
 
         # First add currently available engine parameters
         available_engines = deepcopy(LLM_ENGINES[model_name])
@@ -529,7 +528,6 @@ def get_engine_params_by_name(
 
         # Get all supported engines, not just currently available ones
         all_supported_engines = list(EMBEDDING_SUPPORTED_ENGINES.keys())
-        engine_params = {}
 
         # First add currently available engine parameters
         available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
@@ -617,7 +615,6 @@ def get_engine_params_by_name(
 
         # Get all supported engines, not just currently available ones
         all_supported_engines = list(RERANK_SUPPORTED_ENGINES.keys())
-        engine_params = {}
 
         # First add currently available engine parameters
         available_engines = deepcopy(RERANK_ENGINES[model_name])
