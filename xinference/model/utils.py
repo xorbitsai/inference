@@ -499,11 +499,11 @@ def get_engine_params_by_name(
         for engine_name in all_supported_engines:
             if engine_name not in engine_params:  # Engine not in available list
                 try:
-                    engine_classes = SUPPORTED_ENGINES[engine_name]
+                    llm_engine_classes = SUPPORTED_ENGINES[engine_name]
                     error_msg = None
 
                     # Try to find specific error reasons
-                    for engine_class in engine_classes:
+                    for engine_class in llm_engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
                                 lib_available = engine_class.check_lib()
@@ -587,11 +587,11 @@ def get_engine_params_by_name(
         for engine_name in all_supported_engines:
             if engine_name not in engine_params:  # Engine not in available list
                 try:
-                    engine_classes = EMBEDDING_SUPPORTED_ENGINES[engine_name]
+                    embedding_engine_classes = EMBEDDING_SUPPORTED_ENGINES[engine_name]
                     error_msg = None
 
                     # Try to find specific error reasons
-                    for engine_class in engine_classes:
+                    for engine_class in embedding_engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
                                 lib_available = engine_class.check_lib()
@@ -675,11 +675,11 @@ def get_engine_params_by_name(
         for engine_name in all_supported_engines:
             if engine_name not in engine_params:  # Engine not in available list
                 try:
-                    engine_classes = RERANK_SUPPORTED_ENGINES[engine_name]
+                    rerank_engine_classes = RERANK_SUPPORTED_ENGINES[engine_name]
                     error_msg = None
 
                     # Try to find specific error reasons
-                    for engine_class in engine_classes:
+                    for engine_class in rerank_engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
                                 lib_available = engine_class.check_lib()
