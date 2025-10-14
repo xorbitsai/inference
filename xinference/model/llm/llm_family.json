@@ -15829,8 +15829,7 @@
     "model_name": "qwen3",
     "model_lang": [
       "en",
-      "zh",
-      "test"
+      "zh"
     ],
     "model_ability": [
       "chat",
