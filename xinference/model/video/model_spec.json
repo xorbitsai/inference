@@ -77,7 +77,8 @@
     "model_name": "Wan2.1-1.3B",
     "model_family": "Wan",
     "model_ability": [
-      "text2video"
+      "text2video",
+      "test"
     ],
     "default_model_config": {
       "torch_dtype": "bfloat16"
