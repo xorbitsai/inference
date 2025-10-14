@@ -589,10 +589,10 @@ def get_engine_params_by_name(
                     error_msg = None
 
                     # Try to find specific error reasons
-                    for engine_class in embedding_engine_classes:
+                    for embedding_engine_class in embedding_engine_classes:
                         try:
-                            if hasattr(engine_class, "check_lib"):
-                                lib_available = engine_class.check_lib()
+                            if hasattr(embedding_engine_class, "check_lib"):
+                                lib_available = embedding_engine_class.check_lib()
                                 if not lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
@@ -676,10 +676,10 @@ def get_engine_params_by_name(
                     error_msg = None
 
                     # Try to find specific error reasons
-                    for engine_class in rerank_engine_classes:
+                    for rerank_engine_class in rerank_engine_classes:
                         try:
-                            if hasattr(engine_class, "check_lib"):
-                                lib_available = engine_class.check_lib()
+                            if hasattr(rerank_engine_class, "check_lib"):
+                                lib_available = rerank_engine_class.check_lib()
                                 if not lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
