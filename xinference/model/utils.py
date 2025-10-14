@@ -540,11 +540,11 @@ def get_engine_params_by_name(
                         error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg  # type: ignore[arg-type]
+                    engine_params[engine_name] = error_msg
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (  # type: ignore[arg-type]
+                    engine_params[engine_name] = (
                         f"Error checking engine {engine_name}: {str(e)}"
                     )
 
@@ -629,11 +629,11 @@ def get_engine_params_by_name(
                         error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg  # type: ignore[arg-type]
+                    engine_params[engine_name] = error_msg
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (  # type: ignore[arg-type]
+                    engine_params[engine_name] = (
                         f"Error checking engine {engine_name}: {str(e)}"
                     )
 
@@ -716,11 +716,11 @@ def get_engine_params_by_name(
                         error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg  # type: ignore[arg-type]
+                    engine_params[engine_name] = error_msg
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (  # type: ignore[arg-type]
+                    engine_params[engine_name] = (
                         f"Error checking engine {engine_name}: {str(e)}"
                     )
 
