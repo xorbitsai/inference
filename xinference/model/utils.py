@@ -474,6 +474,8 @@ class CancellableDownloader:
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
 ) -> Optional[Dict[str, Union[List[dict], str]]]:
+    engine_params: Optional[Dict[str, Union[List[dict], str]]] = None
+
     if model_type == "LLM":
         from .llm.llm_family import LLM_ENGINES, SUPPORTED_ENGINES
 
