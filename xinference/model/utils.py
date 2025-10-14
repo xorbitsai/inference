@@ -505,7 +505,7 @@ def get_engine_params_by_name(
                     for engine_class in llm_engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
-                                lib_available = engine_class.check_lib()
+                                lib_available: bool = engine_class.check_lib()  # type: ignore[assignment]
                                 if not lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
@@ -540,11 +540,11 @@ def get_engine_params_by_name(
                         error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg
+                    engine_params[engine_name] = error_msg  # type: ignore[arg-type]
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (
+                    engine_params[engine_name] = (  # type: ignore[arg-type]
                         f"Error checking engine {engine_name}: {str(e)}"
                     )
 
@@ -592,8 +592,8 @@ def get_engine_params_by_name(
                     for embedding_engine_class in embedding_engine_classes:
                         try:
                             if hasattr(embedding_engine_class, "check_lib"):
-                                lib_available = embedding_engine_class.check_lib()
-                                if not lib_available:
+                                embedding_lib_available: bool = embedding_engine_class.check_lib()  # type: ignore[assignment]
+                                if not embedding_lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
                                     )
@@ -629,11 +629,11 @@ def get_engine_params_by_name(
                         error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg
+                    engine_params[engine_name] = error_msg  # type: ignore[arg-type]
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (
+                    engine_params[engine_name] = (  # type: ignore[arg-type]
                         f"Error checking engine {engine_name}: {str(e)}"
                     )
 
@@ -679,8 +679,8 @@ def get_engine_params_by_name(
                     for rerank_engine_class in rerank_engine_classes:
                         try:
                             if hasattr(rerank_engine_class, "check_lib"):
-                                lib_available = rerank_engine_class.check_lib()
-                                if not lib_available:
+                                rerank_lib_available: bool = rerank_engine_class.check_lib()  # type: ignore[assignment]
+                                if not rerank_lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
                                     )
@@ -716,11 +716,11 @@ def get_engine_params_by_name(
                         error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg
+                    engine_params[engine_name] = error_msg  # type: ignore[arg-type]
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (
+                    engine_params[engine_name] = (  # type: ignore[arg-type]
                         f"Error checking engine {engine_name}: {str(e)}"
                     )
 
