@@ -291,7 +291,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
 
-if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.2"):
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
     VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
 
@@ -545,7 +545,7 @@ class VLLMModel(LLM):
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-                except:
+                except:  # noqa: E722
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
 
@@ -714,7 +714,7 @@ class VLLMModel(LLM):
                 logger.info("Detecting vLLM is not health, prepare to quit the process")
                 try:
                     self.stop()
-                except:
+                except:  # noqa: E722
                     # ignore error when stop
                     pass
                 # Just kill the process and let xinference auto-recover the model
@@ -857,7 +857,7 @@ class VLLMModel(LLM):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
             # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
@@ -988,7 +988,10 @@ class VLLMModel(LLM):
         from vllm import TokensPrompt
 
         token_ids = await asyncio.to_thread(
-            self._tokenize, tokenizer, prompt, config  # type: ignore
+            self._tokenize,
+            tokenizer,
+            prompt,  # type: ignore
+            config,
         )
         return TokensPrompt(prompt_token_ids=token_ids)
 
@@ -1111,7 +1114,9 @@ class VLLMModel(LLM):
             # this requires tokenizing
             tokenizer = await self._get_tokenizer(lora_request)
             prompt_or_token_ids = await self._gen_tokens_prompt(
-                tokenizer, prompt, sanitized_generate_config  # type: ignore
+                tokenizer,
+                prompt,
+                sanitized_generate_config,  # type: ignore
             )
             sampling_params.max_tokens = max_tokens = self._context_length - len(  # type: ignore
                 prompt_or_token_ids["prompt_token_ids"]  # type: ignore
@@ -1266,11 +1271,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         ]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
-            if "4" not in quantization:
+            if not any(q in quantization for q in ("4", "8")):
                 return False
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
@@ -1442,11 +1446,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
-            if "4" not in quantization:
+            if not any(q in quantization for q in ("4", "8")):
                 return False
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
@@ -1510,7 +1513,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         multi_modal_data = prompt.get("multi_modal_data")
 
         token_ids = await asyncio.to_thread(
-            self._tokenize, tokenizer, prompt_str, config  # type: ignore
+            self._tokenize,
+            tokenizer,
+            prompt_str,
+            config,  # type: ignore
         )
         return TokensPrompt(
             prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
