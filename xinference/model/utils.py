@@ -473,8 +473,8 @@ class CancellableDownloader:
 
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
-) -> Optional[Dict[str, Union[List[dict], str]]]:
-    engine_params: Optional[Dict[str, Union[List[dict], str]]] = None
+) -> Optional[Dict[str, Union[List[Dict[str, Any]], str]]]:
+    engine_params: Optional[Dict[str, Union[List[Dict[str, Any]], str]]] = None
 
     if model_type == "LLM":
         from .llm.llm_family import LLM_ENGINES, SUPPORTED_ENGINES
@@ -506,7 +506,7 @@ def get_engine_params_by_name(
                     for engine_class in engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
-                                lib_available: bool = engine_class.check_lib()
+                                lib_available = engine_class.check_lib()
                                 if not lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
@@ -587,14 +587,14 @@ def get_engine_params_by_name(
         for engine_name in all_supported_engines:
             if engine_name not in engine_params:  # Engine not in available list
                 try:
-                    engine_classes: Any = EMBEDDING_SUPPORTED_ENGINES[engine_name]
+                    engine_classes = EMBEDDING_SUPPORTED_ENGINES[engine_name]
                     error_msg = None
 
                     # Try to find specific error reasons
                     for engine_class in engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
-                                lib_available: bool = engine_class.check_lib()
+                                lib_available = engine_class.check_lib()
                                 if not lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
@@ -675,14 +675,14 @@ def get_engine_params_by_name(
         for engine_name in all_supported_engines:
             if engine_name not in engine_params:  # Engine not in available list
                 try:
-                    engine_classes: Any = RERANK_SUPPORTED_ENGINES[engine_name]
+                    engine_classes = RERANK_SUPPORTED_ENGINES[engine_name]
                     error_msg = None
 
                     # Try to find specific error reasons
                     for engine_class in engine_classes:
                         try:
                             if hasattr(engine_class, "check_lib"):
-                                lib_available: bool = engine_class.check_lib()
+                                lib_available = engine_class.check_lib()
                                 if not lib_available:
                                     error_msg = (
                                         f"Engine {engine_name} library is not available"
