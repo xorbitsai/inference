@@ -1087,6 +1087,7 @@ class VLLMModel(LLM):
 
             try:
                 import inspect
+
                 sp_sig = inspect.signature(SamplingParams)
                 # For v0.9.2 and similar versions, prioritize guided_decoding over structured_outputs
                 # structured_outputs was introduced later (around v0.11.0) and may not accept
@@ -1098,7 +1099,8 @@ class VLLMModel(LLM):
                 elif "structured_outputs" in sp_sig.parameters:
                     try:
                         sampling_params = SamplingParams(
-                            structured_outputs=guided_options, **sanitized_generate_config
+                            structured_outputs=guided_options,
+                            **sanitized_generate_config,
                         )
                     except TypeError as e:
                         if "structured_outputs" in str(e):
@@ -1108,13 +1110,17 @@ class VLLMModel(LLM):
                                 f"structured_outputs parameter failed: {e}. "
                                 "Falling back to no guided decoding for vLLM version compatibility."
                             )
-                            sampling_params = SamplingParams(**sanitized_generate_config)
+                            sampling_params = SamplingParams(
+                                **sanitized_generate_config
+                            )
                         else:
                             raise
                 else:
                     sampling_params = SamplingParams(**sanitized_generate_config)
             except Exception as e:
-                logger.warning(f"Failed to create SamplingParams with guided decoding: {e}")
+                logger.warning(
+                    f"Failed to create SamplingParams with guided decoding: {e}"
+                )
                 sampling_params = SamplingParams(**sanitized_generate_config)
         else:
             # ignore generate configs for older versions
