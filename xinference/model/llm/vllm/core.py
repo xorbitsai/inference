@@ -1085,18 +1085,37 @@ class VLLMModel(LLM):
                     logger.warning(f"Failed to create GuidedDecodingParams: {e}")
                     guided_options = None
 
-            # Use structured_outputs for vLLM >= 0.11.0, guided_decoding for older versions
-            if (
-                VLLM_VERSION >= version.parse("0.11.0")
-                or VLLM_VERSION.base_version >= "0.11.0"
-            ):
-                sampling_params = SamplingParams(
-                    structured_outputs=guided_options, **sanitized_generate_config
-                )
-            else:
-                sampling_params = SamplingParams(
-                    guided_decoding=guided_options, **sanitized_generate_config
-                )
+            try:
+                import inspect
+                sp_sig = inspect.signature(SamplingParams)
+                # For v0.9.2 and similar versions, prioritize guided_decoding over structured_outputs
+                # structured_outputs was introduced later (around v0.11.0) and may not accept
+                # GuidedDecodingParams in earlier versions even if the parameter exists
+                if "guided_decoding" in sp_sig.parameters:
+                    sampling_params = SamplingParams(
+                        guided_decoding=guided_options, **sanitized_generate_config
+                    )
+                elif "structured_outputs" in sp_sig.parameters:
+                    try:
+                        sampling_params = SamplingParams(
+                            structured_outputs=guided_options, **sanitized_generate_config
+                        )
+                    except TypeError as e:
+                        if "structured_outputs" in str(e):
+                            # structured_outputs parameter exists but doesn't accept GuidedDecodingParams
+                            # Fall back to no guided decoding
+                            logger.warning(
+                                f"structured_outputs parameter failed: {e}. "
+                                "Falling back to no guided decoding for vLLM version compatibility."
+                            )
+                            sampling_params = SamplingParams(**sanitized_generate_config)
+                        else:
+                            raise
+                else:
+                    sampling_params = SamplingParams(**sanitized_generate_config)
+            except Exception as e:
+                logger.warning(f"Failed to create SamplingParams with guided decoding: {e}")
+                sampling_params = SamplingParams(**sanitized_generate_config)
         else:
             # ignore generate configs for older versions
             sanitized_generate_config.pop("guided_json", None)
