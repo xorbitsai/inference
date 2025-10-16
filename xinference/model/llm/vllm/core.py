@@ -1589,20 +1589,11 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             prompt, images = self.get_specific_prompt(model_family, messages)
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
         if images:
-            if len(images) == 1:
-                inputs["multi_modal_data"]["image"] = images[0]
-            else:
-                inputs["multi_modal_data"]["image"] = images
+            inputs["multi_modal_data"]["image"] = images
         if videos:
-            if len(videos) == 1:
-                inputs["multi_modal_data"]["video"] = videos[0]
-            else:
-                inputs["multi_modal_data"]["video"] = videos
+            inputs["multi_modal_data"]["video"] = videos
         if audios:
-            if len(audios) == 1:
-                inputs["multi_modal_data"]["audio"] = audios[0]
-            else:
-                inputs["multi_modal_data"]["audio"] = audios
+            inputs["multi_modal_data"]["audio"] = audios
         if "omni" in self.model_family.model_ability:
             inputs["mm_processor_kwargs"]["use_audio_in_video"] = True
         if inputs["multi_modal_data"] == {}:
