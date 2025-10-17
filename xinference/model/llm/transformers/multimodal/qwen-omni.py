@@ -35,11 +35,18 @@ logger = logging.getLogger(__name__)
 
 @register_transformer
 @register_non_default_model("qwen2.5-omni")
-class Qwen2_5OmniChatModel(PytorchMultiModalModel):
+@register_non_default_model("qwen3-omni")
+class QwenOmniChatModel(PytorchMultiModalModel):
     DEFAULT_SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
         "capable of perceiving auditory and visual inputs, as well as generating text and speech."
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 2.5 or 3
+        model_family = self.model_family.model_family or self.model_family.model_name
+        self._omni_version = "2.5" if "2.5" in model_family else "3"
 
     @classmethod
     def match_json(
@@ -48,7 +55,10 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
         if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
             return False
         llm_family = model_family.model_family or model_family.model_name
-        if "qwen2.5-omni".lower() in llm_family.lower():
+        if (
+            "qwen2.5-omni".lower() in llm_family.lower()
+            or "qwen3-omni".lower() in llm_family.lower()
+        ):
             return True
         return False
 
@@ -58,15 +68,25 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
         self._device = device
 
     def load_processor(self):
-        from transformers import Qwen2_5OmniProcessor
+        if self._omni_version == "2.5":
+            from transformers import Qwen2_5OmniProcessor as QwenOminiProcessor
+        else:
+            from transformers import Qwen3OmniMoeProcessor as QwenOminiProcessor
 
-        self._processor = Qwen2_5OmniProcessor.from_pretrained(
+        self._processor = QwenOminiProcessor.from_pretrained(
             self.model_path, trust_remote_code=True
         )
         self._tokenizer = self._processor.tokenizer
 
     def load_multimodal_model(self):
-        from transformers import Qwen2_5OmniForConditionalGeneration
+        if self._omni_version == "2.5":
+            from transformers import (
+                Qwen2_5OmniForConditionalGeneration as QwenOmniForConditionalGeneration,
+            )
+        else:
+            from transformers import (
+                Qwen3OmniMoeForConditionalGeneration as QwenOmniForConditionalGeneration,
+            )
 
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if self._device == "cuda" else self._device
@@ -79,7 +99,7 @@ class Qwen2_5OmniChatModel(PytorchMultiModalModel):
         kwargs = self.apply_bnb_quantization(kwargs)
         logger.debug("Loading model with extra kwargs: %s", kwargs)
 
-        self._model = Qwen2_5OmniForConditionalGeneration.from_pretrained(
+        self._model = QwenOmniForConditionalGeneration.from_pretrained(
             self.model_path,
             torch_dtype="auto",
             device_map=device,
