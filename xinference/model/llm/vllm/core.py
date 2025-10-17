@@ -131,7 +131,7 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
-VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = []
+VLLM_SUPPORTED_MULTI_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
@@ -229,37 +229,37 @@ if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.5.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("internvl2")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL2.5")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL2.5-MPO")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL3")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
     VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-audio")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("llama-3.2-vision-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-vl-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("QvQ-72B-Preview")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-audio")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2.5-vl-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("moonlight-16b-a3b-instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-audio-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-audio-instruct")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwenLong-l1")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-omni")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2.5-omni")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("gemma-3-it")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
@@ -275,7 +275,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("glm-4.1v-thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
@@ -283,7 +283,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.5v")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("glm-4.5v")
     VLLM_SUPPORTED_CHAT_MODELS.append("KAT-V1")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
@@ -295,10 +295,10 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Thinking")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-Omni-Thinking")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-Omni-Instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Thinking")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Thinking")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Instruct")
 
 
 class VLLMModel(LLM):
@@ -1439,7 +1439,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return self._to_chat_completion(c, self.reasoning_parser)
 
 
-class VLLMVisionModel(VLLMModel, ChatModelMixin):
+class VLLMMultiModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -1464,10 +1464,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 if "4" not in quantization:
                     return False
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+            if llm_family.model_family not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
                 return False
         else:
-            if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+            if llm_family.model_name not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
                 return False
         if (
             "vision" not in llm_family.model_ability
