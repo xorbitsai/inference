@@ -35,7 +35,7 @@ class MockWorkerActor(WorkerActor):
             self._gpu_memory_info[gpu_idx] = {
                 "total": 24000,
                 "used": 0,
-                "available": 24000
+                "available": 24000,
             }
 
     async def __post_create__(self):
