@@ -47,6 +47,15 @@ class ImageList(TypedDict):
     data: List[Image]
 
 
+class ImageEditRequest(TypedDict, total=False):
+    image: Union[Union[str, bytes], List[Union[str, bytes]]]
+    mask: Optional[Union[str, bytes]]
+    prompt: str
+    n: int
+    size: Optional[str]
+    response_format: str
+
+
 class SDAPIResult(TypedDict):
     images: List[str]
     parameters: dict
