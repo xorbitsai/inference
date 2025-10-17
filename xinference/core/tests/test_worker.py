@@ -30,6 +30,13 @@ class MockWorkerActor(WorkerActor):
         cuda_devices: List[int],
     ):
         super().__init__(supervisor_address, main_pool, cuda_devices)
+        self._gpu_memory_info = {}
+        for gpu_idx in cuda_devices:
+            self._gpu_memory_info[gpu_idx] = {
+                "total": 24000,
+                "used": 0,
+                "available": 24000
+            }
 
     async def __post_create__(self):
         pass

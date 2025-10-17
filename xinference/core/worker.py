@@ -586,8 +586,13 @@ class WorkerActor(xo.StatelessActor):
             remaining_needed = n_gpu - len(selected_devices)
 
             # Get GPUs sorted by available memory (most available first)
+            # Exclude GPUs that are already allocated by user_specified models
             candidate_gpus = [
-                dev for dev in self._total_gpu_devices if dev not in selected_devices
+                dev
+                for dev in self._total_gpu_devices
+                if dev not in selected_devices
+                and dev not in self._gpu_to_model_uid
+                and dev not in user_specified_allocated_devices
             ]
 
             gpu_memory_list = []
