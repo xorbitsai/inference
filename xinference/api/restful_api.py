@@ -1269,11 +1269,29 @@ class RESTfulAPI(CancelMixin):
 
         if isinstance(gpu_idx, int):
             gpu_idx = [gpu_idx]
-        if gpu_idx:
-            if len(gpu_idx) % replica:
+
+        # Check if single-GPU multi-replica is enabled
+        from ..constants import XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA
+
+        if XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA:
+            # Enhanced replica validation with single-GPU multi-replica support
+            if gpu_idx and len(gpu_idx) > 1 and len(gpu_idx) % replica:
+                # Only keep the restriction when multiple GPUs are specified
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid input. Allocated gpu must be a multiple of replica.",
+                    detail="Invalid input. When using multiple GPUs, the count must be a multiple of replica.",
+                )
+            # Allow single-GPU multi-replica deployment when enabled
+            if gpu_idx and len(gpu_idx) == 1 and replica > 1:
+                logger.info(
+                    f"Single-GPU multi-replica deployment enabled: {replica} replicas on 1 GPU"
+                )
+        else:
+            # Traditional behavior - strict multiple requirement
+            if gpu_idx and len(gpu_idx) % replica:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid input. Allocated gpu must be a multiple of replica. Set XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA=1 to enable single-GPU multi-replica deployment.",
                 )
 
         if peft_model_config is not None:

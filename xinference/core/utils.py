@@ -294,12 +294,33 @@ def merge_virtual_env_packages(
 def assign_replica_gpu(
     _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
 ) -> Optional[List[int]]:
+    """
+    Enhanced GPU assignment for replica models.
+    Supports single-GPU multi-replica deployment by intelligently allocating GPUs.
+    """
     model_uid, rep_id = parse_replica_model_uid(_replica_model_uid)
     rep_id, replica = int(rep_id), int(replica)
+
     if isinstance(gpu_idx, int):
         gpu_idx = [gpu_idx]
+
     if isinstance(gpu_idx, list) and gpu_idx:
-        return gpu_idx[rep_id::replica]
+        # When we have enough GPUs for round-robin allocation
+        if len(gpu_idx) >= replica:
+            return gpu_idx[rep_id::replica]
+        else:
+            # Support single-GPU multi-replica deployment
+            # All replicas will share the same GPU (or GPUs if more than 1 but less than replica count)
+            # This allows multiple replicas to run on the same GPU using memory-aware scheduling
+            if len(gpu_idx) == 1:
+                # Single GPU case - all replicas use the same GPU
+                return gpu_idx
+            else:
+                # Multiple GPUs but fewer than replicas - distribute as evenly as possible
+                # This enables better resource utilization
+                assigned_gpu = gpu_idx[rep_id % len(gpu_idx)]
+                return [assigned_gpu]
+
     return gpu_idx
 
 
