@@ -853,11 +853,11 @@ class ChatModelMixin:
             "tool_calls": tool_calls,
         }
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        # For tool completion chunks, use None for usage, actual values for stop
+        if finish_reason == "tool_calls":
             usage = None
+        else:
+            usage = c.get("usage")
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -882,25 +882,32 @@ class ChatModelMixin:
     ):
         if not self.tool_parser:
             return self._get_final_chat_completion_chunk(c)
-        if self.reasoning_parser:
-            c = self.reasoning_parser.prepare_reasoning_content(c)
+
         _id = str(uuid.uuid4())
         reasoning_content = None
+        content = ""
+
+        # First, process reasoning content if reasoning parser exists
+        text = c["choices"][0]["text"]
         if self.reasoning_parser and self.reasoning_parser.check_content_parser():
-            text = c["choices"][0]["text"]
-            reasoning_content, content = (
+            # Extract reasoning content directly from the original text
+            reasoning_content, processed_content = (
                 self.reasoning_parser.extract_reasoning_content(text)
             )
-            c["choices"][0]["text"] = content
+            # Use the processed content (without thinking tags) for tool parsing
+            if processed_content:
+                text = processed_content
 
+        # Then, extract tool calls from the processed text (without thinking tags)
         tool_calls = []
         failed_contents = []
         if isinstance(self.tool_parser, Glm4ToolParser):
             tool_result = self.tool_parser.extract_tool_calls(c)
         else:
-            text = c["choices"][0]["text"]
             tool_result = self.tool_parser.extract_tool_calls(text)
-        for content, func, args in tool_result:
+
+        # Process tool results
+        for tool_content, func, args in tool_result:
             if func:
                 tool_calls.append(
                     {
@@ -913,25 +920,31 @@ class ChatModelMixin:
                     }
                 )
             else:
-                if content:
-                    failed_contents.append(content)
-        finish_reason = "tool_calls" if tool_calls else "stop"
+                if tool_content:
+                    failed_contents.append(tool_content)
 
-        content = "".join(failed_contents) if failed_contents else None
+        # Determine the final content
+        if tool_calls:
+            # For tool calls, the main content should be empty or contain only non-tool parts
+            content = "".join(failed_contents) if failed_contents else ""
+        else:
+            # For non-tool calls, use the processed content from reasoning parser
+            content = text
+
+        finish_reason = "tool_calls" if tool_calls else "stop"
 
         m = {
             "role": "assistant",
-            "content": content if content else "",
+            "content": content,
             "tool_calls": tool_calls,
         }
         # add only reasoning_content is None
         if reasoning_content is not None:
             m["reasoning_content"] = reasoning_content
 
-        try:
-            usage = c.get("usage")
-            assert "prompt_tokens" in usage
-        except Exception:
+        # For tool completion chunks, use actual usage values when available
+        usage = c.get("usage")
+        if not usage or not isinstance(usage, dict) or "prompt_tokens" not in usage:
             usage = {
                 "prompt_tokens": -1,
                 "completion_tokens": -1,

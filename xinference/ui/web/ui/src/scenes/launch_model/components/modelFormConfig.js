@@ -88,7 +88,6 @@ export default function getModelFormConfig({
           },
         },
         disabled: !formData.quantization,
-        required: true,
         visible: !!['ggufv2', 'ggmlv3'].includes(formData.model_format),
       },
       {

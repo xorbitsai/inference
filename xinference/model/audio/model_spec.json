@@ -863,26 +863,6 @@
       }
     }
   },
-    {
-    "version": 2,
-    "model_name": "Kokoro-82M-v1.1-zh",
-    "model_family": "Kokoro-zh",
-    "model_ability": [
-      "text2audio",
-      "text2audio_zero_shot"
-    ],
-    "multilingual": false,
-    "model_src": {
-      "huggingface": {
-        "model_id": "hexgrad/Kokoro-82M-v1.1-zh",
-        "model_revision": "01e7505bd6a7a2ac4975463114c3a7650a9f7218"
-      },
-      "modelscope": {
-        "model_id": "AI-ModelScope/Kokoro-82M-v1.1-zh",
-        "model_revision": "master"
-      }
-    }
-  },
   {
     "version": 2,
     "model_name": "Kokoro-82M-MLX",
@@ -928,6 +908,26 @@
       },
       "modelscope": {
         "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "master"
+      }
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Kokoro-82M-v1.1-zh",
+    "model_family": "Kokoro-zh",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "hexgrad/Kokoro-82M-v1.1-zh",
+        "model_revision": "01e7505bd6a7a2ac4975463114c3a7650a9f7218"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/Kokoro-82M-v1.1-zh",
         "model_revision": "master"
       }
     }
