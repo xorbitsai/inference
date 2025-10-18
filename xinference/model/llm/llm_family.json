@@ -1009,7 +1009,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -1136,7 +1136,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -1950,7 +1950,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -2214,7 +2214,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -5327,116 +5327,6 @@
   {
     "version": 2,
     "context_length": 131072,
-    "model_name": "Deepseek-V3.1",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "reasoning",
-      "hybrid",
-      "tools"
-    ],
-    "model_description": "DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 671,
-        "activated_size_in_billions": 37,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "none"
-            ],
-            "model_id": "deepseek-ai/DeepSeek-V3.1"
-          },
-          "modelscope": {
-            "quantizations": [
-              "none"
-            ],
-            "model_id": "deepseek-ai/DeepSeek-V3.1"
-          }
-        }
-      },
-      {
-        "model_format": "gptq",
-        "model_size_in_billions": 671,
-        "activated_size_in_billions": 37,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
-          },
-          "modelscope": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
-          }
-        }
-      },
-      {
-        "model_format": "awq",
-        "model_size_in_billions": 671,
-        "activated_size_in_billions": 37,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ"
-          },
-          "modelscope": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "tclf90/DeepSeek-V3.1-AWQ"
-          }
-        }
-      },
-      {
-        "model_format": "mlx",
-        "model_size_in_billions": 671,
-        "activated_size_in_billions": 37,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "8bit",
-              "4bit"
-            ],
-            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
-          },
-          "modelscope": {
-            "quantizations": [
-              "8bit",
-              "4bit"
-            ],
-            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
-          }
-        }
-      }
-    ],
-    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% if not thinking is defined %}{% set thinking = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\n\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{ bos_token }}{{ ns.system_prompt }}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{%- set ns.is_first = false -%}{%- set ns.is_last_user = true -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}{%- if ns.is_last_user %}{{'<｜Assistant｜></think>'}}{%- endif %}{%- set ns.is_last_user = false -%}{%- set ns.is_first = false %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls'] %}{%- if not ns.is_first %}{%- if message['content'] is none %}{{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- else %}{{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- set ns.is_first = true -%}{%- else %}{{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- endfor %}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}{%- if ns.is_last_user %}{{'<｜Assistant｜>'}}{%- if message['prefix'] is defined and message['prefix'] and thinking %}{{'<think>'}}  {%- else %}{{'</think>'}}{%- endif %}{%- endif %}{%- set ns.is_last_user = false -%}{%- if ns.is_tool %}{{message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{%- set content = message['content'] -%}{%- if '</think>' in content %}{%- set content = content.split('</think>', 1)[1] -%}{%- endif %}{{content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_last_user = false -%}{%- set ns.is_tool = true -%}{{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endfor -%}{%- if add_generation_prompt and ns.is_last_user and not ns.is_tool %}{{'<｜Assistant｜>'}}{%- if not thinking %}{{'</think>'}}{%- else %}{{'<think>'}}{%- endif %}{% endif %}",
-    "stop_token_ids": [
-      1
-    ],
-    "stop": [
-      "<｜end▁of▁sentence｜>"
-    ],
-    "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>",
-    "virtualenv": {
-      "packages": [
-        "transformers==4.53.0"
-      ]
-    }
-  },
-  {
-    "version": 2,
-    "context_length": 131072,
     "model_name": "deepseek-r1-0528-qwen3",
     "model_lang": [
       "en",
@@ -6690,11 +6580,11 @@
             "quantizations": [
               "4bit",
               "5bit",
-	      "8bit"
+              "8bit"
             ],
             "model_id": "mlx-community/DeepSeek-V3-0324-{quantization}"
           }
-	}
+        }
       }
     ],
     "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, is_output_first=true, system_prompt='', is_first_sp=true, is_last_user=false) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\n\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{ bos_token }}{{ ns.system_prompt }}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{%- set ns.is_first = false -%}{%- set ns.is_last_user = true -%}{{'<｜User｜>' + message['content'] + '<｜Assistant｜>'}}{%- endif %}{%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}{%- set ns.is_last_user = false -%}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{%- endif %}{%- set ns.is_first = false %}{%- set ns.is_tool = false -%}{%- set ns.is_output_first = true %}{%- for tool in message['tool_calls'] %}{%- if not ns.is_first %}{%- if message['content'] is none %}{{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\n' + '```json' + '\n' + tool['function']['arguments'] + '\n' + '```' + '<｜tool▁call▁end｜>'}}{%- else %}{{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\n' + '```json' + '\n' + tool['function']['arguments'] + '\n' + '```' + '<｜tool▁call▁end｜>'}}{%- endif %}{%- set ns.is_first = true -%}{%- else %}{{'\n' + '<｜tool▁call▁begin｜>' + tool['type'] + '<｜tool▁sep｜>' + tool['function']['name'] + '\n' + '```json' + '\n' + tool['function']['arguments'] + '\n' + '```' + '<｜tool▁call▁end｜>'}}{%- endif %}{%- endfor %}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none)%}{%- set ns.is_last_user = false -%}{%- if ns.is_tool %}{{'<｜tool▁outputs▁end｜>' + message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{% set content = message['content'] %}{{content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_last_user = false -%}{%- set ns.is_tool = true -%}{%- if ns.is_output_first %}{{'<｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- set ns.is_output_first = false %}{%- else %}{{'\n<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endif %}{%- endfor -%}{% if ns.is_tool %}{{'<｜tool▁outputs▁end｜>'}}{% endif %}{% if add_generation_prompt and not ns.is_last_user and not ns.is_tool %}{{'<｜Assistant｜>'}}{% endif %}",
@@ -7929,7 +7819,7 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "tool_parser":"glm4"
+    "tool_parser": "glm4"
   },
   {
     "version": 2,
@@ -8037,7 +7927,7 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "tool_parser":"glm4"
+    "tool_parser": "glm4"
   },
   {
     "version": 2,
@@ -11930,7 +11820,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -11994,7 +11884,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -12719,7 +12609,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -12841,7 +12731,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -14024,7 +13914,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -15535,7 +15425,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -18230,7 +18120,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -19011,7 +18901,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -19795,7 +19685,7 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -20789,7 +20679,7 @@
       },
       {
         "model_format": "ggufv2",
-        "model_size_in_billions":  "0_3",
+        "model_size_in_billions": "0_3",
         "model_src": {
           "huggingface": {
             "quantizations": [
@@ -20974,25 +20864,25 @@
               "Q8_0"
             ],
             "quantization_parts": {
-              "Q2_K":  [
+              "Q2_K": [
                 "00001-of-00003",
                 "00002-of-00003",
                 "00003-of-00003"
               ],
-              "Q4_K_M":  [
+              "Q4_K_M": [
                 "00001-of-00004",
                 "00002-of-00004",
                 "00003-of-00004",
                 "00004-of-00004"
               ],
-              "Q6_K":  [
+              "Q6_K": [
                 "00001-of-00005",
                 "00002-of-00005",
                 "00003-of-00005",
                 "00004-of-00005",
                 "00005-of-00005"
               ],
-              "Q8_0":  [
+              "Q8_0": [
                 "00001-of-00007",
                 "00002-of-00007",
                 "00003-of-00007",
@@ -21014,25 +20904,25 @@
               "Q8_0"
             ],
             "quantization_parts": {
-              "Q2_K":  [
+              "Q2_K": [
                 "00001-of-00003",
                 "00002-of-00003",
                 "00003-of-00003"
               ],
-              "Q4_K_M":  [
+              "Q4_K_M": [
                 "00001-of-00004",
                 "00002-of-00004",
                 "00003-of-00004",
                 "00004-of-00004"
               ],
-              "Q6_K":  [
+              "Q6_K": [
                 "00001-of-00005",
                 "00002-of-00005",
                 "00003-of-00005",
                 "00004-of-00005",
                 "00005-of-00005"
               ],
-              "Q8_0":  [
+              "Q8_0": [
                 "00001-of-00007",
                 "00002-of-00007",
                 "00003-of-00007",
@@ -21602,7 +21492,7 @@
         }
       }
     ],
-    "chat_template": "{#-\n  In addition to the normal inputs of `messages` and `tools`, this template also accepts the\n  following kwargs:\n  - \"builtin_tools\": A list, can contain \"browser\" and/or \"python\".\n  - \"model_identity\": A string that optionally describes the model identity.\n  - \"reasoning_effort\": A string that describes the reasoning effort, defaults to \"medium\".\n #}\n\n{#- Tool Definition Rendering ============================================== #}\n{%- macro render_typescript_type(param_spec, required_params, is_nullable=false) -%}\n    {%- if param_spec.type == \"array\" -%}\n        {%- if param_spec['items'] -%}\n            {%- if param_spec['items']['type'] == \"string\" -%}\n                {{- \"string[]\" }}\n            {%- elif param_spec['items']['type'] == \"number\" -%}\n                {{- \"number[]\" }}\n            {%- elif param_spec['items']['type'] == \"integer\" -%}\n                {{- \"number[]\" }}\n            {%- elif param_spec['items']['type'] == \"boolean\" -%}\n                {{- \"boolean[]\" }}\n            {%- else -%}\n                {%- set inner_type = render_typescript_type(param_spec['items'], required_params) -%}\n                {%- if inner_type == \"object | object\" or inner_type|length > 50 -%}\n                    {{- \"any[]\" }}\n                {%- else -%}\n                    {{- inner_type + \"[]\" }}\n                {%- endif -%}\n            {%- endif -%}\n            {%- if param_spec.nullable -%}\n                {{- \" | null\" }}\n            {%- endif -%}\n        {%- else -%}\n            {{- \"any[]\" }}\n            {%- if param_spec.nullable -%}\n                {{- \" | null\" }}\n            {%- endif -%}\n        {%- endif -%}\n    {%- elif param_spec.type is defined and param_spec.type is iterable and param_spec.type is not string and param_spec.type is not mapping and param_spec.type[0] is defined -%}\n        {#- Handle array of types like [\"object\", \"object\"] from Union[dict, list] #}\n        {%- if param_spec.type | length > 1 -%}\n            {{- param_spec.type | join(\" | \") }}\n        {%- else -%}\n            {{- param_spec.type[0] }}\n        {%- endif -%}\n    {%- elif param_spec.oneOf -%}\n        {#- Handle oneOf schemas - check for complex unions and fallback to any #}\n        {%- set has_object_variants = false -%}\n        {%- for variant in param_spec.oneOf -%}\n            {%- if variant.type == \"object\" -%}\n                {%- set has_object_variants = true -%}\n            {%- endif -%}\n        {%- endfor -%}\n        {%- if has_object_variants and param_spec.oneOf|length > 1 -%}\n            {{- \"any\" }}\n        {%- else -%}\n            {%- for variant in param_spec.oneOf -%}\n                {{- render_typescript_type(variant, required_params) -}}\n                {%- if variant.description %}\n                    {{- \"// \" + variant.description }}\n                {%- endif -%}\n                {%- if variant.default is defined %}\n                    {{ \"// default: \" + variant.default|tojson }}\n                {%- endif -%}\n                {%- if not loop.last %}\n                    {{- \" | \" }}\n                {% endif -%}\n            {%- endfor -%}\n        {%- endif -%}\n    {%- elif param_spec.type == \"string\" -%}\n        {%- if param_spec.enum -%}\n            {{- '\"' + param_spec.enum|join('\" | \"') + '\"' -}}\n        {%- else -%}\n            {{- \"string\" }}\n            {%- if param_spec.nullable %}\n                {{- \" | null\" }}\n            {%- endif -%}\n        {%- endif -%}\n    {%- elif param_spec.type == \"number\" -%}\n        {{- \"number\" }}\n    {%- elif param_spec.type == \"integer\" -%}\n        {{- \"number\" }}\n    {%- elif param_spec.type == \"boolean\" -%}\n        {{- \"boolean\" }}\n\n    {%- elif param_spec.type == \"object\" -%}\n        {%- if param_spec.properties -%}\n            {{- \"{\n\" }}\n            {%- for prop_name, prop_spec in param_spec.properties.items() -%}\n                {{- prop_name -}}\n                {%- if prop_name not in (param_spec.required or []) -%}\n                    {{- \"?\" }}\n                {%- endif -%}\n                {{- \": \" }}\n                {{ render_typescript_type(prop_spec, param_spec.required or []) }}\n                {%- if not loop.last -%}\n                    {{-\", \" }}\n                {%- endif -%}\n            {%- endfor -%}\n            {{- \"}\" }}\n        {%- else -%}\n            {{- \"object\" }}\n        {%- endif -%}\n    {%- else -%}\n        {{- \"any\" }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{%- macro render_tool_namespace(namespace_name, tools) -%}\n    {{- \"## \" + namespace_name + \"\n\n\" }}\n    {{- \"namespace \" + namespace_name + \" {\n\n\" }}\n    {%- for tool in tools %}\n        {%- set tool = tool.function %}\n        {{- \"// \" + tool.description + \"\n\" }}\n        {{- \"type \"+ tool.name + \" = \" }}\n        {%- if tool.parameters and tool.parameters.properties %}\n            {{- \"(_: {\n\" }}\n            {%- for param_name, param_spec in tool.parameters.properties.items() %}\n                {%- if param_spec.description %}\n                    {{- \"// \" + param_spec.description + \"\n\" }}\n                {%- endif %}\n                {{- param_name }}\n                {%- if param_name not in (tool.parameters.required or []) -%}\n                    {{- \"?\" }}\n                {%- endif -%}\n                {{- \": \" }}\n                {{- render_typescript_type(param_spec, tool.parameters.required or []) }}\n                {%- if param_spec.default is defined -%}\n                    {%- if param_spec.enum %}\n                        {{- \", // default: \" + param_spec.default }}\n                    {%- elif param_spec.oneOf %}\n                        {{- \"// default: \" + param_spec.default }}\n                    {%- else %}\n                        {{- \", // default: \" + param_spec.default|tojson }}\n                    {%- endif -%}\n                {%- endif -%}\n                {%- if not loop.last %}\n                    {{- \",\n\" }}\n                {%- else %}\n                    {{- \"\n\" }}\n                {%- endif -%}\n            {%- endfor %}\n            {{- \"}) => any;\n\n\" }}\n        {%- else -%}\n            {{- \"() => any;\n\n\" }}\n        {%- endif -%}\n    {%- endfor %}\n    {{- \"} // namespace \" + namespace_name }}\n{%- endmacro -%}\n\n{%- macro render_builtin_tools(browser_tool, python_tool) -%}\n    {%- if browser_tool %}\n        {{- \"## browser\n\n\" }}\n        {{- \"// Tool for browsing.\n\" }}\n        {{- \"// The `cursor` appears in brackets before each browsing display: `[{cursor}]`.\n\" }}\n        {{- \"// Cite information from the tool using the following format:\n\" }}\n        {{- \"// `\u3010{cursor}\u2020L{line_start}(-L{line_end})?\u3011`, for example: `\u30106\u2020L9-L11\u3011` or `\u30108\u2020L3\u3011`.\n\" }}\n        {{- \"// Do not quote more than 10 words directly from the tool output.\n\" }}\n        {{- \"// sources=web (default: web)\n\" }}\n        {{- \"namespace browser {\n\n\" }}\n        {{- \"// Searches for information related to `query` and displays `topn` results.\n\" }}\n        {{- \"type search = (_: {\n\" }}\n        {{- \"query: string,\n\" }}\n        {{- \"topn?: number, // default: 10\n\" }}\n        {{- \"source?: string,\n\" }}\n        {{- \"}) => any;\n\n\" }}\n        {{- \"// Opens the link `id` from the page indicated by `cursor` starting at line number `loc`, showing `num_lines` lines.\n\" }}\n        {{- \"// Valid link ids are displayed with the formatting: `\u3010{id}\u2020.*\u3011`.\n\" }}\n        {{- \"// If `cursor` is not provided, the most recent page is implied.\n\" }}\n        {{- \"// If `id` is a string, it is treated as a fully qualified URL associated with `source`.\n\" }}\n        {{- \"// If `loc` is not provided, the viewport will be positioned at the beginning of the document or centered on the most relevant passage, if available.\n\" }}\n        {{- \"// Use this function without `id` to scroll to a new location of an opened page.\n\" }}\n        {{- \"type open = (_: {\n\" }}\n        {{- \"id?: number | string, // default: -1\n\" }}\n        {{- \"cursor?: number, // default: -1\n\" }}\n        {{- \"loc?: number, // default: -1\n\" }}\n        {{- \"num_lines?: number, // default: -1\n\" }}\n        {{- \"view_source?: boolean, // default: false\n\" }}\n        {{- \"source?: string,\n\" }}\n        {{- \"}) => any;\n\n\" }}\n        {{- \"// Finds exact matches of `pattern` in the current page, or the page given by `cursor`.\n\" }}\n        {{- \"type find = (_: {\n\" }}\n        {{- \"pattern: string,\n\" }}\n        {{- \"cursor?: number, // default: -1\n\" }}\n        {{- \"}) => any;\n\n\" }}\n        {{- \"} // namespace browser\n\n\" }}\n    {%- endif -%}\n\n    {%- if python_tool %}\n        {{- \"## python\n\n\" }}\n        {{- \"Use this tool to execute Python code in your chain of thought. The code will not be shown to the user. This tool should be used for internal reasoning, but not for code that is intended to be visible to the user (e.g. when creating plots, tables, or files).\n\n\" }}\n        {{- \"When you send a message containing Python code to python, it will be executed in a stateful Jupyter notebook environment. python will respond with the output of the execution or time out after 120.0 seconds. The drive at '/mnt/data' can be used to save and persist user files. Internet access for this session is UNKNOWN. Depends on the cluster.\n\n\" }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{#- System Message Construction ============================================ #}\n{%- macro build_system_message() -%}\n    {%- if model_identity is not defined %}\n        {%- set model_identity = \"You are ChatGPT, a large language model trained by OpenAI.\" %}\n    {%- endif %}\n    {{- model_identity + \"\n\" }}\n    {{- \"Knowledge cutoff: 2024-06\n\" }}\n    {{- \"Current date: \" + strftime_now(\"%Y-%m-%d\") + \"\n\n\" }}\n    {%- if reasoning_effort is not defined %}\n        {%- set reasoning_effort = \"medium\" %}\n    {%- endif %}\n    {{- \"Reasoning: \" + reasoning_effort + \"\n\n\" }}\n    {%- if builtin_tools %}\n        {{- \"# Tools\n\n\" }}\n        {%- set available_builtin_tools = namespace(browser=false, python=false) %}\n        {%- for tool in builtin_tools %}\n            {%- if tool == \"browser\" %}\n                {%- set available_builtin_tools.browser = true %}\n            {%- elif tool == \"python\" %}\n                {%- set available_builtin_tools.python = true %}\n            {%- endif %}\n        {%- endfor %}\n        {{- render_builtin_tools(available_builtin_tools.browser, available_builtin_tools.python) }}\n    {%- endif -%}\n    {{- \"# Valid channels: analysis, commentary, final. Channel must be included for every message.\" }}\n    {%- if tools -%}\n        {{- \"\nCalls to these tools must go to the commentary channel: 'functions'.\" }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{#- Main Template Logic ================================================= #}\n{#- Set defaults #}\n\n{#- Render system message #}\n{{- \"<|start|>system<|message|>\" }}\n{{- build_system_message() }}\n{{- \"<|end|>\" }}\n\n{#- Extract developer message #}\n{%- if messages[0].role == \"developer\" or messages[0].role == \"system\" %}\n    {%- set developer_message = messages[0].content %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set developer_message = \"\" %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n\n{#- Render developer message #}\n{%- if developer_message or tools %}\n    {{- \"<|start|>developer<|message|>\" }}\n    {%- if developer_message %}\n        {{- \"# Instructions\n\n\" }}\n        {{- developer_message }}\n    {%- endif %}\n    {%- if tools -%}\n        {{- \"\n\n\" }}\n        {{- \"# Tools\n\n\" }}\n        {{- render_tool_namespace(\"functions\", tools) }}\n    {%- endif -%}\n    {{- \"<|end|>\" }}\n{%- endif %}\n\n{#- Render messages #}\n{%- set last_tool_call = namespace(name=none) %}\n{%- for message in loop_messages -%}\n    {#- At this point only assistant/user/tool messages should remain #}\n    {%- if message.role == 'assistant' -%}\n        {#- Checks to ensure the messages are being passed in the format we expect #}\n        {%- if \"content\" in message %}\n            {%- if \"<|channel|>analysis<|message|>\" in message.content or \"<|channel|>final<|message|>\" in message.content %}\n                {{- raise_exception(\"You have passed a message containing <|channel|> tags in the content field. Instead of doing this, you should pass analysis messages (the string between '<|message|>' and '<|end|>') in the 'thinking' field, and final messages (the string between '<|message|>' and '<|end|>') in the 'content' field.\") }}\n            {%- endif %}\n        {%- endif %}\n        {%- if \"thinking\" in message %}\n            {%- if \"<|channel|>analysis<|message|>\" in message.thinking or \"<|channel|>final<|message|>\" in message.thinking %}\n                {{- raise_exception(\"You have passed a message containing <|channel|> tags in the thinking field. Instead of doing this, you should pass analysis messages (the string between '<|message|>' and '<|end|>') in the 'thinking' field, and final messages (the string between '<|message|>' and '<|end|>') in the 'content' field.\") }}\n            {%- endif %}\n        {%- endif %}\n        {%- if \"tool_calls\" in message %}\n            {#- We assume max 1 tool call per message, and so we infer the tool call name #}\n            {#- in \"tool\" messages from the most recent assistant tool call name #}\n            {%- set tool_call = message.tool_calls[0] %}\n            {%- if tool_call.function %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {%- if message.content and message.thinking %}\n                {{- raise_exception(\"Cannot pass both content and thinking in an assistant message with tool calls! Put the analysis message in one or the other, but not both.\") }}\n            {%- elif message.content %}\n                {{- \"<|start|>assistant<|channel|>analysis<|message|>\" + message.content + \"<|end|>\" }}\n            {%- elif message.thinking %}\n                {{- \"<|start|>assistant<|channel|>analysis<|message|>\" + message.thinking + \"<|end|>\" }}\n            {%- endif %}\n            {{- \"<|start|>assistant to=\" }}\n            {{- \"functions.\" + tool_call.name + \"<|channel|>commentary \" }}\n            {{- (tool_call.content_type if tool_call.content_type is defined else \"json\") + \"<|message|>\" }}\n            {{- tool_call.arguments|tojson }}\n            {{- \"<|call|>\" }}\n            {%- set last_tool_call.name = tool_call.name %}\n        {%- elif loop.last and not add_generation_prompt %}\n            {#- Only render the CoT if the final turn is an assistant turn and add_generation_prompt is false #}\n            {#- This is a situation that should only occur in training, never in inference. #}\n            {%- if \"thinking\" in message %}\n                {{- \"<|start|>assistant<|channel|>analysis<|message|>\" + message.thinking + \"<|end|>\" }}\n            {%- endif %}\n            {#- <|return|> indicates the end of generation, but <|end|> does not #}\n            {#- <|return|> should never be an input to the model, but we include it as the final token #}\n            {#- when training, so the model learns to emit it. #}\n            {{- \"<|start|>assistant<|channel|>final<|message|>\" + message.content + \"<|return|>\" }}\n        {%- else %}\n            {#- CoT is dropped during all previous turns, so we never render it for inference #}\n            {{- \"<|start|>assistant<|channel|>final<|message|>\" + message.content + \"<|end|>\" }}\n            {%- set last_tool_call.name = none %}\n        {%- endif %}\n    {%- elif message.role == 'tool' -%}\n        {%- if last_tool_call.name is none %}\n            {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n        {%- endif %}\n        {{- \"<|start|>functions.\" + last_tool_call.name }}\n        {{- \" to=assistant<|channel|>commentary<|message|>\" + message.content|tojson + \"<|end|>\" }}\n    {%- elif message.role == 'user' -%}\n        {{- \"<|start|>user<|message|>\" + message.content + \"<|end|>\" }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt #}\n{%- if add_generation_prompt -%}\n<|start|>assistant\n{%- endif -%}",
+    "chat_template": "{#-\n  In addition to the normal inputs of `messages` and `tools`, this template also accepts the\n  following kwargs:\n  - \"builtin_tools\": A list, can contain \"browser\" and/or \"python\".\n  - \"model_identity\": A string that optionally describes the model identity.\n  - \"reasoning_effort\": A string that describes the reasoning effort, defaults to \"medium\".\n #}\n\n{#- Tool Definition Rendering ============================================== #}\n{%- macro render_typescript_type(param_spec, required_params, is_nullable=false) -%}\n    {%- if param_spec.type == \"array\" -%}\n        {%- if param_spec['items'] -%}\n            {%- if param_spec['items']['type'] == \"string\" -%}\n                {{- \"string[]\" }}\n            {%- elif param_spec['items']['type'] == \"number\" -%}\n                {{- \"number[]\" }}\n            {%- elif param_spec['items']['type'] == \"integer\" -%}\n                {{- \"number[]\" }}\n            {%- elif param_spec['items']['type'] == \"boolean\" -%}\n                {{- \"boolean[]\" }}\n            {%- else -%}\n                {%- set inner_type = render_typescript_type(param_spec['items'], required_params) -%}\n                {%- if inner_type == \"object | object\" or inner_type|length > 50 -%}\n                    {{- \"any[]\" }}\n                {%- else -%}\n                    {{- inner_type + \"[]\" }}\n                {%- endif -%}\n            {%- endif -%}\n            {%- if param_spec.nullable -%}\n                {{- \" | null\" }}\n            {%- endif -%}\n        {%- else -%}\n            {{- \"any[]\" }}\n            {%- if param_spec.nullable -%}\n                {{- \" | null\" }}\n            {%- endif -%}\n        {%- endif -%}\n    {%- elif param_spec.type is defined and param_spec.type is iterable and param_spec.type is not string and param_spec.type is not mapping and param_spec.type[0] is defined -%}\n        {#- Handle array of types like [\"object\", \"object\"] from Union[dict, list] #}\n        {%- if param_spec.type | length > 1 -%}\n            {{- param_spec.type | join(\" | \") }}\n        {%- else -%}\n            {{- param_spec.type[0] }}\n        {%- endif -%}\n    {%- elif param_spec.oneOf -%}\n        {#- Handle oneOf schemas - check for complex unions and fallback to any #}\n        {%- set has_object_variants = false -%}\n        {%- for variant in param_spec.oneOf -%}\n            {%- if variant.type == \"object\" -%}\n                {%- set has_object_variants = true -%}\n            {%- endif -%}\n        {%- endfor -%}\n        {%- if has_object_variants and param_spec.oneOf|length > 1 -%}\n            {{- \"any\" }}\n        {%- else -%}\n            {%- for variant in param_spec.oneOf -%}\n                {{- render_typescript_type(variant, required_params) -}}\n                {%- if variant.description %}\n                    {{- \"// \" + variant.description }}\n                {%- endif -%}\n                {%- if variant.default is defined %}\n                    {{ \"// default: \" + variant.default|tojson }}\n                {%- endif -%}\n                {%- if not loop.last %}\n                    {{- \" | \" }}\n                {% endif -%}\n            {%- endfor -%}\n        {%- endif -%}\n    {%- elif param_spec.type == \"string\" -%}\n        {%- if param_spec.enum -%}\n            {{- '\"' + param_spec.enum|join('\" | \"') + '\"' -}}\n        {%- else -%}\n            {{- \"string\" }}\n            {%- if param_spec.nullable %}\n                {{- \" | null\" }}\n            {%- endif -%}\n        {%- endif -%}\n    {%- elif param_spec.type == \"number\" -%}\n        {{- \"number\" }}\n    {%- elif param_spec.type == \"integer\" -%}\n        {{- \"number\" }}\n    {%- elif param_spec.type == \"boolean\" -%}\n        {{- \"boolean\" }}\n\n    {%- elif param_spec.type == \"object\" -%}\n        {%- if param_spec.properties -%}\n            {{- \"{\n\" }}\n            {%- for prop_name, prop_spec in param_spec.properties.items() -%}\n                {{- prop_name -}}\n                {%- if prop_name not in (param_spec.required or []) -%}\n                    {{- \"?\" }}\n                {%- endif -%}\n                {{- \": \" }}\n                {{ render_typescript_type(prop_spec, param_spec.required or []) }}\n                {%- if not loop.last -%}\n                    {{-\", \" }}\n                {%- endif -%}\n            {%- endfor -%}\n            {{- \"}\" }}\n        {%- else -%}\n            {{- \"object\" }}\n        {%- endif -%}\n    {%- else -%}\n        {{- \"any\" }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{%- macro render_tool_namespace(namespace_name, tools) -%}\n    {{- \"## \" + namespace_name + \"\n\n\" }}\n    {{- \"namespace \" + namespace_name + \" {\n\n\" }}\n    {%- for tool in tools %}\n        {%- set tool = tool.function %}\n        {{- \"// \" + tool.description + \"\n\" }}\n        {{- \"type \"+ tool.name + \" = \" }}\n        {%- if tool.parameters and tool.parameters.properties %}\n            {{- \"(_: {\n\" }}\n            {%- for param_name, param_spec in tool.parameters.properties.items() %}\n                {%- if param_spec.description %}\n                    {{- \"// \" + param_spec.description + \"\n\" }}\n                {%- endif %}\n                {{- param_name }}\n                {%- if param_name not in (tool.parameters.required or []) -%}\n                    {{- \"?\" }}\n                {%- endif -%}\n                {{- \": \" }}\n                {{- render_typescript_type(param_spec, tool.parameters.required or []) }}\n                {%- if param_spec.default is defined -%}\n                    {%- if param_spec.enum %}\n                        {{- \", // default: \" + param_spec.default }}\n                    {%- elif param_spec.oneOf %}\n                        {{- \"// default: \" + param_spec.default }}\n                    {%- else %}\n                        {{- \", // default: \" + param_spec.default|tojson }}\n                    {%- endif -%}\n                {%- endif -%}\n                {%- if not loop.last %}\n                    {{- \",\n\" }}\n                {%- else %}\n                    {{- \"\n\" }}\n                {%- endif -%}\n            {%- endfor %}\n            {{- \"}) => any;\n\n\" }}\n        {%- else -%}\n            {{- \"() => any;\n\n\" }}\n        {%- endif -%}\n    {%- endfor %}\n    {{- \"} // namespace \" + namespace_name }}\n{%- endmacro -%}\n\n{%- macro render_builtin_tools(browser_tool, python_tool) -%}\n    {%- if browser_tool %}\n        {{- \"## browser\n\n\" }}\n        {{- \"// Tool for browsing.\n\" }}\n        {{- \"// The `cursor` appears in brackets before each browsing display: `[{cursor}]`.\n\" }}\n        {{- \"// Cite information from the tool using the following format:\n\" }}\n        {{- \"// `【{cursor}†L{line_start}(-L{line_end})?】`, for example: `【6†L9-L11】` or `【8†L3】`.\n\" }}\n        {{- \"// Do not quote more than 10 words directly from the tool output.\n\" }}\n        {{- \"// sources=web (default: web)\n\" }}\n        {{- \"namespace browser {\n\n\" }}\n        {{- \"// Searches for information related to `query` and displays `topn` results.\n\" }}\n        {{- \"type search = (_: {\n\" }}\n        {{- \"query: string,\n\" }}\n        {{- \"topn?: number, // default: 10\n\" }}\n        {{- \"source?: string,\n\" }}\n        {{- \"}) => any;\n\n\" }}\n        {{- \"// Opens the link `id` from the page indicated by `cursor` starting at line number `loc`, showing `num_lines` lines.\n\" }}\n        {{- \"// Valid link ids are displayed with the formatting: `【{id}†.*】`.\n\" }}\n        {{- \"// If `cursor` is not provided, the most recent page is implied.\n\" }}\n        {{- \"// If `id` is a string, it is treated as a fully qualified URL associated with `source`.\n\" }}\n        {{- \"// If `loc` is not provided, the viewport will be positioned at the beginning of the document or centered on the most relevant passage, if available.\n\" }}\n        {{- \"// Use this function without `id` to scroll to a new location of an opened page.\n\" }}\n        {{- \"type open = (_: {\n\" }}\n        {{- \"id?: number | string, // default: -1\n\" }}\n        {{- \"cursor?: number, // default: -1\n\" }}\n        {{- \"loc?: number, // default: -1\n\" }}\n        {{- \"num_lines?: number, // default: -1\n\" }}\n        {{- \"view_source?: boolean, // default: false\n\" }}\n        {{- \"source?: string,\n\" }}\n        {{- \"}) => any;\n\n\" }}\n        {{- \"// Finds exact matches of `pattern` in the current page, or the page given by `cursor`.\n\" }}\n        {{- \"type find = (_: {\n\" }}\n        {{- \"pattern: string,\n\" }}\n        {{- \"cursor?: number, // default: -1\n\" }}\n        {{- \"}) => any;\n\n\" }}\n        {{- \"} // namespace browser\n\n\" }}\n    {%- endif -%}\n\n    {%- if python_tool %}\n        {{- \"## python\n\n\" }}\n        {{- \"Use this tool to execute Python code in your chain of thought. The code will not be shown to the user. This tool should be used for internal reasoning, but not for code that is intended to be visible to the user (e.g. when creating plots, tables, or files).\n\n\" }}\n        {{- \"When you send a message containing Python code to python, it will be executed in a stateful Jupyter notebook environment. python will respond with the output of the execution or time out after 120.0 seconds. The drive at '/mnt/data' can be used to save and persist user files. Internet access for this session is UNKNOWN. Depends on the cluster.\n\n\" }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{#- System Message Construction ============================================ #}\n{%- macro build_system_message() -%}\n    {%- if model_identity is not defined %}\n        {%- set model_identity = \"You are ChatGPT, a large language model trained by OpenAI.\" %}\n    {%- endif %}\n    {{- model_identity + \"\n\" }}\n    {{- \"Knowledge cutoff: 2024-06\n\" }}\n    {{- \"Current date: \" + strftime_now(\"%Y-%m-%d\") + \"\n\n\" }}\n    {%- if reasoning_effort is not defined %}\n        {%- set reasoning_effort = \"medium\" %}\n    {%- endif %}\n    {{- \"Reasoning: \" + reasoning_effort + \"\n\n\" }}\n    {%- if builtin_tools %}\n        {{- \"# Tools\n\n\" }}\n        {%- set available_builtin_tools = namespace(browser=false, python=false) %}\n        {%- for tool in builtin_tools %}\n            {%- if tool == \"browser\" %}\n                {%- set available_builtin_tools.browser = true %}\n            {%- elif tool == \"python\" %}\n                {%- set available_builtin_tools.python = true %}\n            {%- endif %}\n        {%- endfor %}\n        {{- render_builtin_tools(available_builtin_tools.browser, available_builtin_tools.python) }}\n    {%- endif -%}\n    {{- \"# Valid channels: analysis, commentary, final. Channel must be included for every message.\" }}\n    {%- if tools -%}\n        {{- \"\nCalls to these tools must go to the commentary channel: 'functions'.\" }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{#- Main Template Logic ================================================= #}\n{#- Set defaults #}\n\n{#- Render system message #}\n{{- \"<|start|>system<|message|>\" }}\n{{- build_system_message() }}\n{{- \"<|end|>\" }}\n\n{#- Extract developer message #}\n{%- if messages[0].role == \"developer\" or messages[0].role == \"system\" %}\n    {%- set developer_message = messages[0].content %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set developer_message = \"\" %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n\n{#- Render developer message #}\n{%- if developer_message or tools %}\n    {{- \"<|start|>developer<|message|>\" }}\n    {%- if developer_message %}\n        {{- \"# Instructions\n\n\" }}\n        {{- developer_message }}\n    {%- endif %}\n    {%- if tools -%}\n        {{- \"\n\n\" }}\n        {{- \"# Tools\n\n\" }}\n        {{- render_tool_namespace(\"functions\", tools) }}\n    {%- endif -%}\n    {{- \"<|end|>\" }}\n{%- endif %}\n\n{#- Render messages #}\n{%- set last_tool_call = namespace(name=none) %}\n{%- for message in loop_messages -%}\n    {#- At this point only assistant/user/tool messages should remain #}\n    {%- if message.role == 'assistant' -%}\n        {#- Checks to ensure the messages are being passed in the format we expect #}\n        {%- if \"content\" in message %}\n            {%- if \"<|channel|>analysis<|message|>\" in message.content or \"<|channel|>final<|message|>\" in message.content %}\n                {{- raise_exception(\"You have passed a message containing <|channel|> tags in the content field. Instead of doing this, you should pass analysis messages (the string between '<|message|>' and '<|end|>') in the 'thinking' field, and final messages (the string between '<|message|>' and '<|end|>') in the 'content' field.\") }}\n            {%- endif %}\n        {%- endif %}\n        {%- if \"thinking\" in message %}\n            {%- if \"<|channel|>analysis<|message|>\" in message.thinking or \"<|channel|>final<|message|>\" in message.thinking %}\n                {{- raise_exception(\"You have passed a message containing <|channel|> tags in the thinking field. Instead of doing this, you should pass analysis messages (the string between '<|message|>' and '<|end|>') in the 'thinking' field, and final messages (the string between '<|message|>' and '<|end|>') in the 'content' field.\") }}\n            {%- endif %}\n        {%- endif %}\n        {%- if \"tool_calls\" in message %}\n            {#- We assume max 1 tool call per message, and so we infer the tool call name #}\n            {#- in \"tool\" messages from the most recent assistant tool call name #}\n            {%- set tool_call = message.tool_calls[0] %}\n            {%- if tool_call.function %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {%- if message.content and message.thinking %}\n                {{- raise_exception(\"Cannot pass both content and thinking in an assistant message with tool calls! Put the analysis message in one or the other, but not both.\") }}\n            {%- elif message.content %}\n                {{- \"<|start|>assistant<|channel|>analysis<|message|>\" + message.content + \"<|end|>\" }}\n            {%- elif message.thinking %}\n                {{- \"<|start|>assistant<|channel|>analysis<|message|>\" + message.thinking + \"<|end|>\" }}\n            {%- endif %}\n            {{- \"<|start|>assistant to=\" }}\n            {{- \"functions.\" + tool_call.name + \"<|channel|>commentary \" }}\n            {{- (tool_call.content_type if tool_call.content_type is defined else \"json\") + \"<|message|>\" }}\n            {{- tool_call.arguments|tojson }}\n            {{- \"<|call|>\" }}\n            {%- set last_tool_call.name = tool_call.name %}\n        {%- elif loop.last and not add_generation_prompt %}\n            {#- Only render the CoT if the final turn is an assistant turn and add_generation_prompt is false #}\n            {#- This is a situation that should only occur in training, never in inference. #}\n            {%- if \"thinking\" in message %}\n                {{- \"<|start|>assistant<|channel|>analysis<|message|>\" + message.thinking + \"<|end|>\" }}\n            {%- endif %}\n            {#- <|return|> indicates the end of generation, but <|end|> does not #}\n            {#- <|return|> should never be an input to the model, but we include it as the final token #}\n            {#- when training, so the model learns to emit it. #}\n            {{- \"<|start|>assistant<|channel|>final<|message|>\" + message.content + \"<|return|>\" }}\n        {%- else %}\n            {#- CoT is dropped during all previous turns, so we never render it for inference #}\n            {{- \"<|start|>assistant<|channel|>final<|message|>\" + message.content + \"<|end|>\" }}\n            {%- set last_tool_call.name = none %}\n        {%- endif %}\n    {%- elif message.role == 'tool' -%}\n        {%- if last_tool_call.name is none %}\n            {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n        {%- endif %}\n        {{- \"<|start|>functions.\" + last_tool_call.name }}\n        {{- \" to=assistant<|channel|>commentary<|message|>\" + message.content|tojson + \"<|end|>\" }}\n    {%- elif message.role == 'user' -%}\n        {{- \"<|start|>user<|message|>\" + message.content + \"<|end|>\" }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt #}\n{%- if add_generation_prompt -%}\n<|start|>assistant\n{%- endif -%}",
     "stop_token_ids": [
       200002,
       199999
@@ -21696,6 +21586,116 @@
       "<|endoftext|>",
       "<|im_end|>"
     ]
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "Deepseek-V3.1",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/DeepSeek-V3.1"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "cpatonn/DeepSeek-V3.1-GPTQ-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/DeepSeek-V3.1-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit",
+              "4bit"
+            ],
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% if not thinking is defined %}{% set thinking = false %}{% endif %}{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false) %}{%- for message in messages %}{%- if message['role'] == 'system' %}{%- if ns.is_first_sp %}{% set ns.system_prompt = ns.system_prompt + message['content'] %}{% set ns.is_first_sp = false %}{%- else %}{% set ns.system_prompt = ns.system_prompt + '\n\n' + message['content'] %}{%- endif %}{%- endif %}{%- endfor %}{{ bos_token }}{{ ns.system_prompt }}{%- for message in messages %}{%- if message['role'] == 'user' %}{%- set ns.is_tool = false -%}{%- set ns.is_first = false -%}{%- set ns.is_last_user = true -%}{{'<｜User｜>' + message['content']}}{%- endif %}{%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}{%- if ns.is_last_user %}{{'<｜Assistant｜></think>'}}{%- endif %}{%- set ns.is_last_user = false -%}{%- set ns.is_first = false %}{%- set ns.is_tool = false -%}{%- for tool in message['tool_calls'] %}{%- if not ns.is_first %}{%- if message['content'] is none %}{{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- else %}{{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- set ns.is_first = true -%}{%- else %}{{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}{%- endif %}{%- endfor %}{{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}{%- endif %}{%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}{%- if ns.is_last_user %}{{'<｜Assistant｜>'}}{%- if message['prefix'] is defined and message['prefix'] and thinking %}{{'<think>'}}  {%- else %}{{'</think>'}}{%- endif %}{%- endif %}{%- set ns.is_last_user = false -%}{%- if ns.is_tool %}{{message['content'] + '<｜end▁of▁sentence｜>'}}{%- set ns.is_tool = false -%}{%- else %}{%- set content = message['content'] -%}{%- if '</think>' in content %}{%- set content = content.split('</think>', 1)[1] -%}{%- endif %}{{content + '<｜end▁of▁sentence｜>'}}{%- endif %}{%- endif %}{%- if message['role'] == 'tool' %}{%- set ns.is_last_user = false -%}{%- set ns.is_tool = true -%}{{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}{%- endif %}{%- endfor -%}{%- if add_generation_prompt and ns.is_last_user and not ns.is_tool %}{{'<｜Assistant｜>'}}{%- if not thinking %}{{'</think>'}}{%- else %}{{'<think>'}}{%- endif %}{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers==4.53.0"
+      ]
+    }
   },
   {
     "version": 2,
@@ -21821,7 +21821,7 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-             "quantization_parts": {
+            "quantization_parts": {
               "BF16": [
                 "00001-of-00002",
                 "00002-of-00002"
@@ -21860,7 +21860,7 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-             "quantization_parts": {
+            "quantization_parts": {
               "BF16": [
                 "00001-of-00002",
                 "00002-of-00002"
@@ -22067,19 +22067,19 @@
       {
         "model_format": "awq",
         "model_size_in_billions": 30,
-        "activated_size_in_billions":3,
+        "activated_size_in_billions": 3,
         "model_src": {
           "huggingface": {
             "quantizations": [
               "4bit",
-	      "8bit"
+              "8bit"
             ],
-            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"  
-          }, 
+            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"
+          },
           "modelscope": {
             "quantizations": [
               "4bit",
-	      "8bit"
+              "8bit"
             ],
             "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Instruct-AWQ-{quantization}"
           }
@@ -22095,7 +22095,7 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -22216,14 +22216,14 @@
           "huggingface": {
             "quantizations": [
               "4bit",
-	      "8bit"
+              "8bit"
             ],
-            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}" 
+            "model_id": "cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}"
           },
           "modelscope": {
             "quantizations": [
               "4bit",
-	      "8bit"
+              "8bit"
             ],
             "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}"
           }
@@ -22241,7 +22241,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -22351,7 +22351,7 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -22464,6 +22464,73 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
+  },
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "MiniCPM-V-4.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "MiniCPM-V 4.5 is an improved version in the MiniCPM-V series with enhanced multimodal capabilities and better performance.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4_5",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4_5",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4_5-int4",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4_5-int4",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>"
+    ],
+    "virtualenv": {
+      "packages": []
+    }
   }
 ]
