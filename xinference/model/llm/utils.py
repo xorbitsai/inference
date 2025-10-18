@@ -144,7 +144,7 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
-        if "vision" not in self.model_family.model_ability:  # type: ignore
+        if "vision" not in self.model_family.model_ability and "audio" not in self.model_family.model_ability:  # type: ignore
             messages = self.convert_messages_with_content_list_to_str_conversion(
                 messages
             )
