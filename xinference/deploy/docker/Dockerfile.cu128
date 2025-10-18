@@ -43,14 +43,14 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-models.txt && \
-    pip install -i "$PIP_INDEX" transformers>=4.51.3 && \
-    pip install -i "$PIP_INDEX" --no-deps sglang==0.4.6.post5 && \
-    pip install  https://github.com/sgl-project/whl/releases/download/v0.2.6/sgl_kernel-0.2.6+cu128-cp39-abi3-manylinux2014_x86_64.whl && \
+    pip install -i "$PIP_INDEX" transformers>=4.55.2 && \
+    pip install -i "$PIP_INDEX" --no-deps sglang==0.4.9.post5 && \
+    pip install -i "$PIP_INDEX" sgl-kernel==0.3.15 && \
     pip install -i "$PIP_INDEX" wetext && \
     pip uninstall flashinfer -y && \
-    pip install -i "$PIP_INDEX" flashinfer-python && \
+    pip install -i "$PIP_INDEX" flashinfer-python==0.4.0rc3 && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
-    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.18/flash_attn-2.7.4+cu124torch2.7-cp312-cp312-linux_x86_64.whl && \
+    pip install https://ghproxy.cn/https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.14/flash_attn-2.8.2+cu128torch2.8-cp312-cp312-linux_x86_64.whl && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
