@@ -179,12 +179,12 @@ def _install():
     from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
     from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
     from .transformers.core import PytorchChatModel, PytorchModel
-    from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
+    from .vllm.core import VLLMChatModel, VLLMModel, VLLMMultiModel
 
     # register llm classes.
     LLAMA_CLASSES.extend([XllamaCppModel])
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel, SGLANGVisionModel])
-    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMMultiModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
     TRANSFORMERS_CLASSES.extend([PytorchChatModel, PytorchModel])

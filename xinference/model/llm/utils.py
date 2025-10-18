@@ -75,6 +75,8 @@ QWEN_TOOL_CALL_FAMILY = [
     "Qwen3-VL-Thinking",
     "Qwen3-Next-Instruct",
     "Qwen3-Next-Thinking",
+    "Qwen3-Omni-Instruct",
+    "Qwen3-Omni-Thinking",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
@@ -100,7 +102,6 @@ QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 
 class ChatModelMixin:
-
     def __init__(self):
         self.model_family = None
         self.model_uid = None
@@ -143,7 +144,7 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
-        if "vision" not in self.model_family.model_ability:  # type: ignore
+        if "vision" not in self.model_family.model_ability and "audio" not in self.model_family.model_ability:  # type: ignore
             messages = self.convert_messages_with_content_list_to_str_conversion(
                 messages
             )
@@ -186,8 +187,7 @@ class ChatModelMixin:
                 return kwargs
             else:
                 raise TypeError(
-                    f"`chat_template_kwargs` but be a JSON parsable str "
-                    f"or dict, got: {kwargs}"
+                    f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
                 )
         elif reasoning_parser and not reasoning_parser.enable_thinking:
             # hybrid model like qwen3,

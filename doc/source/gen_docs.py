@@ -81,8 +81,8 @@ def mock_platform_checks():
     vllm_core.VLLMModel._has_cuda_device = lambda: True
     vllm_core.VLLMChatModel._is_linux = lambda: True
     vllm_core.VLLMChatModel._has_cuda_device = lambda: True
-    vllm_core.VLLMVisionModel._is_linux = lambda: True
-    vllm_core.VLLMVisionModel._has_cuda_device = lambda: True
+    vllm_core.VLLMMultiModel._is_linux = lambda: True
+    vllm_core.VLLMMultiModel._has_cuda_device = lambda: True
     
     # Mock SGLang platform checks if available
     try:
