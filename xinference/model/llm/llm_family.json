@@ -11969,6 +11969,7 @@
         }
       }
     ],
+    "chat_template": "{% set audio_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system You are a helpful assistant.<|im_end|> {% endif %}<|im_start|>{{ message['role'] }} {% if message['content'] is string %}{{ message['content'] }}<|im_end|> {% else %}{% for content in message['content'] %}{% if 'audio' in content or 'audio_url' in content or message['type'] == 'audio' or content['type'] == 'audio' %}{% set audio_count.value = audio_count.value + 1 %}Audio {{ audio_count.value }}: <|audio_bos|><|AUDIO|><|audio_eos|> {% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|> {% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant {% endif %}",
     "prompt_style": {
       "style_name": "QWEN",
       "system_prompt": "You are a helpful assistant",
@@ -15540,7 +15541,7 @@
         }
       }
     ],
-    "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
+    "chat_template": "{% set audio_count = namespace(value=0) %}{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_bos|><|IMAGE|><|vision_eos|>{% elif content['type'] == 'audio' or 'audio' in content or 'audio_url' in content %}{% set audio_count.value = audio_count.value + 1 %}{% if add_audio_id %}Audio {{ audio_count.value }}: {% endif %}<|audio_bos|><|AUDIO|><|audio_eos|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_bos|><|VIDEO|><|vision_eos|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
     "stop_token_ids": [
       151645,
       151643
@@ -22532,5 +22533,146 @@
     "virtualenv": {
       "packages": []
     }
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-Omni-Thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "audio",
+      "omni",
+      "reasoning",
+      "tools"
+    ],
+    "model_description": "Qwen3-Omni is the natively end-to-end multilingual omni-modal foundation models. It processes text, images, audio, and video, and delivers real-time streaming responses in both text and natural speech. We introduce several architectural upgrades to improve performance and efficiency.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+	          "8bit"
+            ],
+            "model_id": "cpatonn/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+	          "8bit"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}{{- messages[0].content + '\\n\\n' }}{%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- if messages[0].content is string %}\n            {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {{- '<|im_start|>system\\n' +\"<|vision_start|><|image_pad|><|vision_end|>\"+ '<|im_end|>\\n' }}\n                {%- elif content.type == 'audio' or 'audio' in content or 'audio_url' in content %}\n                    {{- '<|im_start|>system\\n' +\"<|audio_start|><|audio_pad|><|audio_end|>\"+ '<|im_end|>\\n' }}\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {{- '<|im_start|>system\\n' +\"<|vision_start|><|video_pad|><|vision_end|>\"+ '<|im_end|>\\n' }}\n                {%- elif content.type == 'text' %}\n                    {{- '<|im_start|>system\\n' +content.text+ '<|im_end|>\\n' }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = namespace(text=\"\") %}\n        {%- for mcontent in message.content %}\n            {%- if mcontent.type == 'image' or 'image' in mcontent or 'image_url' in mcontent %}\n                {%- set content.text = content.text~\"<|vision_start|><|image_pad|><|vision_end|>\" %}\n            {%- elif mcontent.type == 'audio' or 'audio' in mcontent or 'audio_url' in mcontent %}\n                {%- set content.text = content.text~\"<|audio_start|><|audio_pad|><|audio_end|>\" %}\n            {%- elif mcontent.type == 'video' or 'video' in mcontent %}\n                {%- set content.text = content.text~\"<|vision_start|><|video_pad|><|vision_end|>\" %}\n            {%- elif mcontent.type == 'text' %}\n                {%- set content.text = content.text~mcontent.text %}\n            {%- endif %}\n        {%- endfor %}\n        {%- set content = content.text %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = \"\" %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n            {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n            {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n        {%- endif %}\n    {%- endif %}\n    {%- if loop.index0 > ns.last_query_index %}\n        {%- if loop.last or (not loop.last and reasoning_content) %}\n            {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip(\"\\n\") + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n    {%- else %}\n        {{- '<|im_start|>' + message.role + '\\n' + content }}\n    {%- endif %}\n    {%- if message.tool_calls %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if (loop.first and content) or (not loop.first) %}{{- '\\n' }}{%- endif %}\n            {%- if tool_call.function %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {%- if tool_call.arguments is string %}\n                {{- tool_call.arguments }}\n            {%- else %}\n                {{- tool_call.arguments | tojson }}\n            {%- endif %}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n    {%- endif %}\n    {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}{{- '<|im_start|>user' }}{%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}{{- '<|im_end|>\\n' }}{%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined and enable_thinking is false %}{{- '<think>\\n\\n</think>\\n\\n' }}{%- endif %}\n{%- endif %}\n",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser":"qwen"
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Qwen3-Omni-Instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "audio",
+      "omni",
+      "tools"
+    ],
+    "model_description": "Qwen3-Omni is the natively end-to-end multilingual omni-modal foundation models. It processes text, images, audio, and video, and delivers real-time streaming responses in both text and natural speech. We introduce several architectural upgrades to improve performance and efficiency.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+	          "8bit"
+            ],
+            "model_id": "cpatonn/Qwen3-Omni-30B-A3B-Instruct-AWQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+	          "8bit"
+            ],
+            "model_id": "cpatonn-mirror/Qwen3-Omni-30B-A3B-Instruct-AWQ-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {%- if messages[0].content is string %}\n            {{- messages[0].content }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {{- \"<|vision_start|><|image_pad|><|vision_end|>\" }}\n                {%- elif content.type == 'audio' or 'audio' in content or 'audio_url' in content %}\n                    {{- \"<|audio_start|><|audio_pad|><|audio_end|>\" }}\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {{- \"<|vision_start|><|video_pad|><|vision_end|>\" }}\n                {%- elif content.type == 'text' %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n    {%- endif %}\n    {{- '\\n\\n' }}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- if messages[0].content is string %}\n            {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {{- '<|im_start|>system\\n' +\"<|vision_start|><|image_pad|><|vision_end|>\"+ '<|im_end|>\\n' }}\n                {%- elif content.type == 'audio' or 'audio' in content or 'audio_url' in content %}\n                    {{- '<|im_start|>system\\n' +\"<|audio_start|><|audio_pad|><|audio_end|>\"+ '<|im_end|>\\n' }}\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {{- '<|im_start|>system\\n' +\"<|vision_start|><|video_pad|><|vision_end|>\"+ '<|im_end|>\\n' }}\n                {%- elif content.type == 'text' %}\n                    {{- '<|im_start|>system\\n' +content.text+ '<|im_end|>\\n' }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = namespace(text=\"\") %}\n        {%- for mcontent in message.content %}\n            {%- if mcontent.type == 'image' or 'image' in mcontent or 'image_url' in mcontent %}\n                {%- set content.text = content.text~\"<|vision_start|><|image_pad|><|vision_end|>\" %}\n            {%- elif mcontent.type == 'audio' or 'audio' in mcontent or 'audio_url' in mcontent %}\n                {%- set content.text = content.text~\"<|audio_start|><|audio_pad|><|audio_end|>\" %}\n            {%- elif mcontent.type == 'video' or 'video' in mcontent %}\n                {%- set content.text = content.text~\"<|vision_start|><|video_pad|><|vision_end|>\" %}\n            {%- elif mcontent.type == 'text' %}\n                {%- set content.text = content.text~mcontent.text %}\n            {%- endif %}\n        {%- endfor %}\n        {%- set content = content.text %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = \"\" %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n            {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n            {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n        {%- endif %}\n    {%- endif %}\n    {%- if loop.index0 > ns.last_query_index %}\n        {%- if loop.last or (not loop.last and reasoning_content) %}\n            {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip(\"\\n\") + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n    {%- else %}\n        {{- '<|im_start|>' + message.role + '\\n' + content }}\n    {%- endif %}\n    {%- if message.tool_calls %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if (loop.first and content) or (not loop.first) %}{{- '\\n' }}{%- endif %}\n            {%- if tool_call.function %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {%- if tool_call.arguments is string %}\n                {{- tool_call.arguments }}\n            {%- else %}\n                {{- tool_call.arguments | tojson }}\n            {%- endif %}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n    {%- endif %}\n    {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}{{- '<|im_start|>user' }}{%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}{{- '<|im_end|>\\n' }}{%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined and enable_thinking is false %}{{- '<think>\\n\\n</think>\\n\\n' }}{%- endif %}\n{%- endif %}",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "tool_parser":"qwen"
   }
 ]
