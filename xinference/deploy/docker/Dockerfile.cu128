@@ -50,7 +50,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip uninstall flashinfer -y && \
     pip install -i "$PIP_INDEX" flashinfer-python==0.4.0rc3 && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
-    pip install https://ghproxy.cn/https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.14/flash_attn-2.8.2+cu128torch2.8-cp312-cp312-linux_x86_64.whl && \
+    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.14/flash_attn-2.8.2+cu128torch2.8-cp312-cp312-linux_x86_64.whl && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
