@@ -94,14 +94,15 @@ Currently, supported models include:
 - ``moonlight-16b-a3b-instruct``
 - ``qwenLong-l1``
 - ``qwen3``
+- ``Baichuan-M2``
 - ``minicpm4``
 - ``Ernie4.5``
-- ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``
+- ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``, ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``Deepseek-V3.1``
 - ``glm-4.5``
 - ``KAT-V1``
 - ``gpt-oss``
-- ``seed-oss``, ``seed-oss``
+- ``seed-oss``
 .. vllm_end
 
 To install Xinference and vLLM::
