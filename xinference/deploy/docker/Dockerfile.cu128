@@ -43,7 +43,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-models.txt && \
-    pip install -i "$PIP_INDEX" transformers>=4.55.2 && \
+    pip install -i "$PIP_INDEX" transformers==4.53.2 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.4.9.post5 && \
     pip install -i "$PIP_INDEX" sgl-kernel==0.3.15 && \
     pip install -i "$PIP_INDEX" wetext && \
