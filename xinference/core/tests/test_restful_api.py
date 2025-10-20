@@ -1178,13 +1178,13 @@ def test_lang_chain(setup):
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_restful_api"
 
-    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
     from langchain_core.prompts import (
         ChatPromptTemplate,
         HumanMessagePromptTemplate,
         SystemMessagePromptTemplate,
     )
-    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
 
     inference_server_url = f"{endpoint}/v1"
 
