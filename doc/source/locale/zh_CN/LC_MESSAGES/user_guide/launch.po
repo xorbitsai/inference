@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-02 23:15+0800\n"
+"POT-Creation-Date: 2025-10-20 16:28+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
@@ -46,11 +46,86 @@ msgstr ""
 "两张 GPU 上。Xinference 会自动进行负载均衡，确保请求均匀分配到多张卡上。"
 "用户看到的仍是一个模型，这大大提升了整体资源利用率。"
 
-#: ../../source/user_guide/launch.rst:18
+#: ../../source/user_guide/launch.rst:17
+msgid "Traditional Multi-Instance Deployment："
+msgstr "旧版本多实例部署："
+
+#: ../../source/user_guide/launch.rst:19
+msgid ""
+"When you have multiple GPU cards, each capable of hosting one model "
+"instance, you can set the number of instances equal to the number of "
+"GPUs. For example:"
+msgstr "当您拥有多张GPU显卡时，每张显卡可承载一个模型实例，此时可将实例数量设置为等于GPU数量。例如:"
+
+#: ../../source/user_guide/launch.rst:21
+msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
+msgstr "2张GPU，2个实例：每张GPU运行一个模型实例"
+
+#: ../../source/user_guide/launch.rst:22
+msgid "4 GPUs, 4 instances: Each GPU runs one model instance"
+msgstr "4张GPU，4个实例：每张GPU运行一个模型实例"
+
+#: ../../source/user_guide/launch.rst:26
+msgid "Introduce a new environment variable:"
+msgstr "引入一个新的环境变量:"
+
+#: ../../source/user_guide/launch.rst:32
+msgid ""
+"Control whether to enable the single GPU multi-copy feature Default "
+"value: 1"
+msgstr "控制是否启用单GPU多副本功能，默认值：1"
+
+#: ../../source/user_guide/launch.rst:35
+msgid "New Feature: Smart Replica Deployment"
+msgstr "新功能：智能副本部署"
+
+#: ../../source/user_guide/launch.rst:37
+msgid "Single GPU Multi-Replica"
+msgstr "单GPU多副本"
+
+#: ../../source/user_guide/launch.rst:39
+msgid "New Support: Run multiple model replicas even with just one GPU."
+msgstr "新增支持：即使仅有一块GPU，也能运行多个模型副本。"
+
+#: ../../source/user_guide/launch.rst:41
+msgid "Scenario: You have 1 GPU with sufficient VRAM"
+msgstr "场景：您拥有1个GPU且显存充足"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "Configuration: Replica Count = 3, GPU Count = 1"
+msgstr "配置：副本数量=3，GPU数量=1"
+
+#: ../../source/user_guide/launch.rst:43
+msgid "Result: 3 model instances running on the same GPU, sharing GPU resources"
+msgstr "结果：3个模型实例，在同一GPU上运行，共享GPU资源"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Hybrid GPU Allocation"
+msgstr "混合GPU分配"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"Smart Allocation: Number of replicas may differ from GPU count; system "
+"intelligently distributes"
+msgstr "智能分配: 副本数可以不等于GPU数量，系统会智能分配"
+
+#: ../../source/user_guide/launch.rst:49
+msgid "Scenario: You have 2 GPUs and need 3 replicas"
+msgstr "场景: 你有2张GPU，需要3个副本"
+
+#: ../../source/user_guide/launch.rst:50
+msgid "Configuration: Replicas=3, GPUs=2"
+msgstr "配置: 副本数=3，GPU数量=2"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
+msgstr "结果: GPU0运行2个实例，GPU1运行1个实例"
+
+#: ../../source/user_guide/launch.rst:54
 msgid "Set Environment Variables"
 msgstr "设置环境变量"
 
-#: ../../source/user_guide/launch.rst:22
+#: ../../source/user_guide/launch.rst:58
 msgid ""
 "Sometimes, we want to specify environment variables for a particular "
 "model at runtime. Since v1.8.1, Xinference provides the capability to "
@@ -60,21 +135,21 @@ msgstr ""
 "有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference "
 "提供了单独配置环境变量的功能，无需在启动 Xinference 前设置。"
 
-#: ../../source/user_guide/launch.rst:25
+#: ../../source/user_guide/launch.rst:61
 msgid "For Web UI."
 msgstr "针对 Web UI。"
 
-#: ../../source/user_guide/launch.rst:31
+#: ../../source/user_guide/launch.rst:67
 msgid ""
 "When using the command line, use ``--env`` to specify an environment "
 "variable."
 msgstr "命令行使用时，使用 ``--env`` 指定环境变量。"
 
-#: ../../source/user_guide/launch.rst:33
+#: ../../source/user_guide/launch.rst:69
 msgid "Example usage:"
 msgstr "示例用法："
 
-#: ../../source/user_guide/launch.rst:39
+#: ../../source/user_guide/launch.rst:75
 msgid ""
 "Take vLLM as an example: it has versions V1 and V0, and by default, it "
 "automatically determines which version to use. If you want to force the "
@@ -85,13 +160,25 @@ msgstr ""
 "在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
 "。"
 
-#: ../../source/user_guide/launch.rst:43
+#: ../../source/user_guide/launch.rst:79
 msgid "Configuring Model Virtual Environment"
 msgstr "配置模型虚拟空间"
 
-#: ../../source/user_guide/launch.rst:47
+#: ../../source/user_guide/launch.rst:83
 msgid ""
 "For this part, please refer to :ref:`toggling virtual environments and "
 "customizing dependencies <model_launching_virtualenv>`."
-msgstr "对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_virtualenv>`。"
+msgstr ""
+"对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_"
+"virtualenv>`。"
+
+#~ msgid ""
+#~ "Scenario: You have 2 GPUs and need"
+#~ " 3 replicas Configuration: Replicas=3, "
+#~ "GPUs=2 Result: GPU0 runs 2 instances,"
+#~ " GPU1 runs 1 instance"
+#~ msgstr ""
+#~ "场景: 你有2张GPU，需要3个副本"
+#~ "配置: 副本数=3，GPU数量=2结果:"
+#~ " GPU0运行2个实例，GPU1运行1个实例"
 
