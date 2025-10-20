@@ -549,46 +549,30 @@ class PytorchModel(LLM):
         So we need pad `0` on the left again.
         """
         data = []
-        # For decode phase, attention mask should match the full KV cache sequence length
-        # All requests in batch should have attention mask of length `seq_length`
+        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs) + 1
         for r in reqs:
-            # Get the actual sequence length for this request from its tracking
-            if "attention_mask_seq_len" not in r.extra_kwargs:
-                # Initialize with the current sequence length (full KV cache length)
-                r.extra_kwargs["attention_mask_seq_len"] = seq_length
-            else:
-                # Use the previously tracked length, but ensure it doesn't exceed current seq_length
-                tracked_len = r.extra_kwargs["attention_mask_seq_len"]
-                r.extra_kwargs["attention_mask_seq_len"] = min(tracked_len, seq_length)
-
-        # For decode phase after KV cache merge, all requests should have attention mask
-        # that matches the merged sequence length
-        for r in reqs:
+            r.extra_kwargs["attention_mask_seq_len"] += 1
             real_len = r.extra_kwargs["attention_mask_seq_len"]
+            pad_len = max_len - real_len
 
-            # The attention mask should cover the full sequence length
-            if real_len < seq_length:
-                # Pad with zeros on the left to reach full sequence length
-                pad_len = seq_length - real_len
-
-                if self._tokenizer.padding_side == "left":
-                    x = torch.cat(
-                        [
-                            torch.full((pad_len,), 0, dtype=torch.long),
-                            torch.ones((real_len,), dtype=torch.long),
-                        ]
-                    )
-                else:
-                    x = torch.cat(
-                        [
-                            torch.ones((real_len,), dtype=torch.long),
-                            torch.full((pad_len,), 0, dtype=torch.long),
-                        ]
-                    )
+            if self._tokenizer.padding_side == "left":
+                x = torch.cat(
+                    [
+                        (
+                            torch.full((pad_len,), 0, dtype=torch.long)
+                            if pad_len > 0
+                            else torch.tensor([], dtype=torch.long)
+                        ),
+                        torch.ones((real_len,), dtype=torch.long),
+                    ]
+                )
             else:
-                # Already at correct length
-                x = torch.ones((real_len,), dtype=torch.long)
-
+                x = torch.cat(
+                    [
+                        torch.ones((real_len,), dtype=torch.long),
+                        torch.full((pad_len,), 0, dtype=torch.long),
+                    ]
+                )
             data.append(x)
 
         return torch.stack(data).to(self._device)
