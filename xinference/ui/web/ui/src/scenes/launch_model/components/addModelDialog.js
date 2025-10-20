@@ -6,7 +6,7 @@ import {
   DialogTitle,
   TextField,
 } from '@mui/material'
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const API_BASE_URL = 'https://model.xinference.io'
@@ -15,11 +15,10 @@ const AddModelDialog = ({ open, onClose }) => {
   const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [loginOpen, setLoginOpen] = useState(false)
-  const [usernameOrEmail, setUsernameOrEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [pendingModelId, setPendingModelId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const loginIframeRef = useRef(null)
 
   const handleClose = (type) => {
     setErrorMsg('')
@@ -46,11 +45,17 @@ const AddModelDialog = ({ open, onClose }) => {
     return null
   }
 
-  const performDownload = async (modelId, token, fromLogin = false) => {
+  // 修改：download 默认从 sessionStorage 读取 token（若传参提供则优先）
+  // performDownload：收到 token 后直连接口，获取 JSON
+  const performDownload = async (modelId, tokenFromParam, fromLogin = false) => {
     const endpoint = `${API_BASE_URL}/api/models/download?model_id=${encodeURIComponent(
       modelId
     )}`
-    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    const effectiveToken =
+      tokenFromParam ||
+      sessionStorage.getItem('model_hub_token') ||
+      localStorage.getItem('io_login_success')
+    const headers = effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}
     setLoading(true)
     setErrorMsg('')
     try {
@@ -58,6 +63,44 @@ const AddModelDialog = ({ open, onClose }) => {
         method: 'GET',
         headers,
       })
+
+      if (res.status === 401) {
+        const refreshToken = sessionStorage.getItem('model_hub_refresh_token')
+        if (!refreshToken) {
+          sessionStorage.removeItem('model_hub_token')
+          setPendingModelId(modelId)
+          setLoginOpen(true)
+          return
+        }
+        try {
+          const refreshRes = await fetch(`${API_BASE_URL}/api/users/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: refreshToken }),
+          })
+          if (!refreshRes.ok) {
+            throw new Error(`refresh failed: ${refreshRes.status}`)
+          }
+          const refreshData = await refreshRes.json().catch(() => ({}))
+          const newToken = refreshData?.data?.accessToken
+          if (newToken) {
+            sessionStorage.setItem('model_hub_token', newToken)
+            await performDownload(modelId, newToken, false)
+            return
+          } else {
+            sessionStorage.removeItem('model_hub_token')
+            setPendingModelId(modelId)
+            setLoginOpen(true)
+            return
+          }
+        } catch (e) {
+          sessionStorage.removeItem('model_hub_token')
+          setPendingModelId(modelId)
+          setLoginOpen(true)
+          return
+        }
+      }
+
       if (res.status === 403) {
         let detailMsg = ''
         try {
@@ -68,13 +111,11 @@ const AddModelDialog = ({ open, onClose }) => {
             detailMsg = body.message
           }
         } catch {
-          // ignore and use default message
+          console.log('');
+          
         }
-
         if (fromLogin) {
-          setErrorMsg(
-            detailMsg || t('launchModel.error.noPermissionAfterLogin')
-          )
+          setErrorMsg(detailMsg || t('launchModel.error.noPermissionAfterLogin'))
           return
         } else {
           setPendingModelId(modelId)
@@ -82,6 +123,7 @@ const AddModelDialog = ({ open, onClose }) => {
           return
         }
       }
+
       if (!res.ok) {
         const text = await res.text().catch(() => '')
         throw new Error(
@@ -109,43 +151,26 @@ const AddModelDialog = ({ open, onClose }) => {
     await performDownload(modelId)
   }
 
-  const handleLoginSubmit = async (e) => {
-    e.preventDefault()
-    if (!pendingModelId) return
-    setLoading(true)
-    setErrorMsg('')
-    try {
-      const loginRes = await fetch(`${API_BASE_URL}/api/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          usernameOrEmail: usernameOrEmail.trim(),
-          password: password,
-        }),
-      })
-      if (!loginRes.ok) {
-        const text = await loginRes.text().catch(() => '')
-        throw new Error(
-          t('launchModel.error.loginFailedText', {
-            status: loginRes.status,
-            text,
-          })
-        )
+  useEffect(() => {
+    const listener = (event) => {
+      if (event.origin !== API_BASE_URL) return
+      const { type, token, refresh_token } = event.data || {}
+
+      if (type === 'io_login_success' && token && refresh_token) {
+        handleClose('login')
+        sessionStorage.setItem('model_hub_token', token)
+        sessionStorage.setItem('model_hub_refresh_token', refresh_token)
+        if (pendingModelId) {
+          void performDownload(pendingModelId, token, true)
+        }
       }
-      const loginJson = await loginRes.json()
-      const token = loginJson.data?.accessToken
-      if (!token) {
-        throw new Error(t('launchModel.error.noTokenAfterLogin'))
-      }
-      handleClose('login')
-      await performDownload(pendingModelId, token, true)
-    } catch (err) {
-      console.error(err)
-      setErrorMsg(err.message || t('launchModel.error.requestFailed'))
-    } finally {
-      setLoading(false)
     }
-  }
+
+    window.addEventListener('message', listener)
+    return () => {
+      window.removeEventListener('message', listener)
+    }
+  }, [pendingModelId])
 
   return (
     <Dialog open={open} onClose={() => handleClose('add')} width={500}>
@@ -163,7 +188,7 @@ const AddModelDialog = ({ open, onClose }) => {
           <div>
             {t('launchModel.addModelDialog.introPrefix')}{' '}
             <a
-              href="https://model.xinference.io/models"
+              href={`${API_BASE_URL}/models`}
               target="_blank"
               rel="noopener noreferrer"
               style={{ textDecoration: 'none', color: '#1976d2' }}
@@ -212,55 +237,27 @@ const AddModelDialog = ({ open, onClose }) => {
         </Button>
       </DialogActions>
 
-      {/* 403 */}
       <Dialog open={loginOpen} onClose={() => handleClose('login')}>
-        <DialogTitle>{t('launchModel.loginDialog.title')}</DialogTitle>
-        <DialogContent>
-          <form
-            onSubmit={handleLoginSubmit}
-            id="login-form"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              width: 360,
-              paddingTop: 10,
-            }}
-          >
-            <TextField
-              required
-              id="usernameOrEmail"
-              name="usernameOrEmail"
-              label={t('launchModel.loginDialog.usernameOrEmail')}
-              fullWidth
-              value={usernameOrEmail}
-              onChange={(e) => setUsernameOrEmail(e.target.value)}
-              disabled={loading}
-            />
-            <TextField
-              required
-              id="password"
-              name="password"
-              label={t('launchModel.loginDialog.password')}
-              type="password"
-              fullWidth
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-          </form>
-          {errorMsg && (
-            <div style={{ color: '#d32f2f', marginTop: 8 }}>{errorMsg}</div>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => handleClose('login')} disabled={loading}>
-            {t('launchModel.cancel')}
-          </Button>
-          <Button type="submit" form="login-form" disabled={loading}>
-            {t('launchModel.loginDialog.login')}
-          </Button>
-        </DialogActions>
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 640,
+            padding: 16,
+            boxSizing: 'border-box',
+          }}
+        >
+          <iframe
+            ref={loginIframeRef}
+            src={`${API_BASE_URL}/signin`}
+            title="Model Platform Signin"
+            style={{ width: '100%', minHeight: 520, border: 0 }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+            <Button onClick={() => handleClose('login')} disabled={loading}>
+              关闭
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </Dialog>
   )
