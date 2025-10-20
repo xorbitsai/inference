@@ -47,7 +47,11 @@ const AddModelDialog = ({ open, onClose }) => {
 
   // 修改：download 默认从 sessionStorage 读取 token（若传参提供则优先）
   // performDownload：收到 token 后直连接口，获取 JSON
-  const performDownload = async (modelId, tokenFromParam, fromLogin = false) => {
+  const performDownload = async (
+    modelId,
+    tokenFromParam,
+    fromLogin = false
+  ) => {
     const endpoint = `${API_BASE_URL}/api/models/download?model_id=${encodeURIComponent(
       modelId
     )}`
@@ -55,7 +59,9 @@ const AddModelDialog = ({ open, onClose }) => {
       tokenFromParam ||
       sessionStorage.getItem('model_hub_token') ||
       localStorage.getItem('io_login_success')
-    const headers = effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}
+    const headers = effectiveToken
+      ? { Authorization: `Bearer ${effectiveToken}` }
+      : {}
     setLoading(true)
     setErrorMsg('')
     try {
@@ -111,11 +117,12 @@ const AddModelDialog = ({ open, onClose }) => {
             detailMsg = body.message
           }
         } catch {
-          console.log('');
-          
+          console.log('')
         }
         if (fromLogin) {
-          setErrorMsg(detailMsg || t('launchModel.error.noPermissionAfterLogin'))
+          setErrorMsg(
+            detailMsg || t('launchModel.error.noPermissionAfterLogin')
+          )
           return
         } else {
           setPendingModelId(modelId)
@@ -252,7 +259,13 @@ const AddModelDialog = ({ open, onClose }) => {
             title="Model Platform Signin"
             style={{ width: '100%', minHeight: 520, border: 0 }}
           />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginTop: 12,
+            }}
+          >
             <Button onClick={() => handleClose('login')} disabled={loading}>
               关闭
             </Button>
