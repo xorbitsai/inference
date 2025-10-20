@@ -6,7 +6,7 @@ IndexTTS2
 
 - **Model Name:** IndexTTS2
 - **Model Family:** IndexTTS2
-- **Abilities:** ['text2audio', 'text2audio_voice_cloning', 'text2audio_emotion_control']
+- **Abilities:** ['text2audio', 'text2audio_zero_shot', 'text2audio_voice_cloning', 'text2audio_emotion_control']
 - **Multilingual:** True
 
 Specifications

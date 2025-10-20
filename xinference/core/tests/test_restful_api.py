@@ -1178,13 +1178,13 @@ def test_lang_chain(setup):
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_restful_api"
 
-    from langchain.chat_models import ChatOpenAI
-    from langchain.prompts.chat import (
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+    from langchain_core.prompts import (
         ChatPromptTemplate,
         HumanMessagePromptTemplate,
         SystemMessagePromptTemplate,
     )
-    from langchain.schema import AIMessage, HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
 
     inference_server_url = f"{endpoint}/v1"
 
@@ -1204,7 +1204,7 @@ def test_lang_chain(setup):
             content="Translate the following sentence from English to Italian: I love programming."
         ),
     ]
-    r = chat(messages)
+    r = chat.invoke(messages)
     assert type(r) == AIMessage
     assert r.content
 
@@ -1218,7 +1218,7 @@ def test_lang_chain(setup):
     )
 
     # get a chat completion from the formatted messages
-    r = chat(
+    r = chat.invoke(
         chat_prompt.format_prompt(
             input_language="English",
             output_language="Italian",

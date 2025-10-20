@@ -131,7 +131,7 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
-VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = []
+VLLM_SUPPORTED_MULTI_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
@@ -229,34 +229,37 @@ if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.5.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("internvl2")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL2.5-MPO")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("InternVL3")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("internvl2")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL2.5")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL2.5-MPO")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL3")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
     VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("llama-3.2-vision-instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2-vl-instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("QvQ-72B-Preview")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("llama-3.2-vision-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-vl-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("QvQ-72B-Preview")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-audio")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("qwen2.5-vl-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2.5-vl-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("moonlight-16b-a3b-instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-audio-instruct")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwenLong-l1")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2.5-omni")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("gemma-3-it")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("gemma-3-it")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
@@ -272,7 +275,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.1v-thinking")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("glm-4.1v-thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
@@ -280,7 +283,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
     VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("glm-4.5v")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("glm-4.5v")
     VLLM_SUPPORTED_CHAT_MODELS.append("KAT-V1")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
@@ -292,8 +295,10 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
     VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
-    VLLM_SUPPORTED_VISION_MODEL_LIST.append("Qwen3-VL-Instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Thinking")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Instruct")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Thinking")
+    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Instruct")
 
 
 class VLLMModel(LLM):
@@ -1085,18 +1090,43 @@ class VLLMModel(LLM):
                     logger.warning(f"Failed to create GuidedDecodingParams: {e}")
                     guided_options = None
 
-            # Use structured_outputs for vLLM >= 0.11.0, guided_decoding for older versions
-            if (
-                VLLM_VERSION >= version.parse("0.11.0")
-                or VLLM_VERSION.base_version >= "0.11.0"
-            ):
-                sampling_params = SamplingParams(
-                    structured_outputs=guided_options, **sanitized_generate_config
+            try:
+                import inspect
+
+                sp_sig = inspect.signature(SamplingParams)
+                # For v0.9.2 and similar versions, prioritize guided_decoding over structured_outputs
+                # structured_outputs was introduced later (around v0.11.0) and may not accept
+                # GuidedDecodingParams in earlier versions even if the parameter exists
+                if "guided_decoding" in sp_sig.parameters:
+                    sampling_params = SamplingParams(
+                        guided_decoding=guided_options, **sanitized_generate_config
+                    )
+                elif "structured_outputs" in sp_sig.parameters:
+                    try:
+                        sampling_params = SamplingParams(
+                            structured_outputs=guided_options,
+                            **sanitized_generate_config,
+                        )
+                    except TypeError as e:
+                        if "structured_outputs" in str(e):
+                            # structured_outputs parameter exists but doesn't accept GuidedDecodingParams
+                            # Fall back to no guided decoding
+                            logger.warning(
+                                f"structured_outputs parameter failed: {e}. "
+                                "Falling back to no guided decoding for vLLM version compatibility."
+                            )
+                            sampling_params = SamplingParams(
+                                **sanitized_generate_config
+                            )
+                        else:
+                            raise
+                else:
+                    sampling_params = SamplingParams(**sanitized_generate_config)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create SamplingParams with guided decoding: {e}"
                 )
-            else:
-                sampling_params = SamplingParams(
-                    guided_decoding=guided_options, **sanitized_generate_config
-                )
+                sampling_params = SamplingParams(**sanitized_generate_config)
         else:
             # ignore generate configs for older versions
             sanitized_generate_config.pop("guided_json", None)
@@ -1434,7 +1464,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return self._to_chat_completion(c, self.reasoning_parser)
 
 
-class VLLMVisionModel(VLLMModel, ChatModelMixin):
+class VLLMMultiModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -1459,12 +1489,16 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 if "4" not in quantization:
                     return False
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+            if llm_family.model_family not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
                 return False
         else:
-            if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+            if llm_family.model_name not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
                 return False
-        if "vision" not in llm_family.model_ability:
+        if (
+            "vision" not in llm_family.model_ability
+            and "audio" not in llm_family.model_ability
+            and "omni" not in llm_family.model_ability
+        ):
             return False
         return VLLM_INSTALLED
 
@@ -1473,13 +1507,21 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
     ) -> VLLMModelConfig:
         model_config = super()._sanitize_model_config(model_config)
         if VLLM_VERSION >= version.parse("0.5.5"):
-            model_config["limit_mm_per_prompt"] = (
-                json.loads(model_config.get("limit_mm_per_prompt"))  # type: ignore
-                if model_config.get("limit_mm_per_prompt")
-                else {
-                    "image": 2,  # default 2 images all chat
-                }
-            )
+            if model_config.get("limit_mm_per_prompt"):
+                model_config["limit_mm_per_prompt"] = json.loads(
+                    model_config.get("limit_mm_per_prompt")  # type: ignore
+                )
+            else:
+                if "omni" in self.model_family.model_ability:
+                    model_config["limit_mm_per_prompt"] = {
+                        "image": 2,
+                        "video": 2,
+                        "audio": 2,
+                    }
+                elif "vision" in self.model_family.model_ability:
+                    model_config["limit_mm_per_prompt"] = {"image": 2, "video": 2}
+                elif "audio" in self.model_family.model_ability:
+                    model_config["limit_mm_per_prompt"] = {"audio": 2}
         return model_config
 
     def _sanitize_chat_config(
@@ -1532,9 +1574,13 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
-
+        audios, images, videos = None, None, None
         if "internvl" not in model_family.lower():
-            from qwen_vl_utils import process_vision_info
+            from qwen_omni_utils import (
+                process_audio_info,
+                process_mm_info,
+                process_vision_info,
+            )
 
             messages = self._transform_messages(messages)
 
@@ -1549,29 +1595,36 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
+            if "omni" in self.model_family.model_ability:
+                audios, images, videos = process_mm_info(
+                    messages, use_audio_in_video=True
+                )
+            elif "audio" in self.model_family.model_ability:
+                audios = process_audio_info(messages, use_audio_in_video=False)
+            elif "vision" in self.model_family.model_ability:
+                images, videos = process_vision_info(  # type: ignore
+                    messages, return_video_kwargs=False
+                )
+
             prompt = self.get_full_context(
                 messages, self.model_family.chat_template, **full_context_kwargs
             )
-            images, video_inputs = process_vision_info(messages)
-            if video_inputs:
-                raise ValueError("Not support video input now.")
+
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)
-
-        if not images:
-            inputs = {
-                "prompt": prompt,
-            }
-        elif len(images) == 1:
-            inputs = {
-                "prompt": prompt,
-                "multi_modal_data": {"image": images[-1]},  # type: ignore
-            }
-        else:
-            inputs = {
-                "prompt": prompt,
-                "multi_modal_data": {"image": images},  # type: ignore
-            }
+        inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
+        if images:
+            inputs["multi_modal_data"]["image"] = images
+        if videos:
+            inputs["multi_modal_data"]["video"] = videos
+        if audios:
+            inputs["multi_modal_data"]["audio"] = audios
+        if "omni" in self.model_family.model_ability:
+            inputs["mm_processor_kwargs"]["use_audio_in_video"] = True
+        if inputs["multi_modal_data"] == {}:
+            inputs.pop("multi_modal_data")
+        if inputs["mm_processor_kwargs"] == {}:
+            inputs.pop("mm_processor_kwargs")
         generate_config = self._sanitize_chat_config(generate_config)
 
         stream = generate_config.get("stream", None)
