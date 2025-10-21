@@ -22,7 +22,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from ..match_result import MatchResult
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import is_flash_attn_available
@@ -32,6 +31,7 @@ from ..core import (
     RerankModelFamilyV2,
     RerankSpecV1,
 )
+from ..match_result import MatchResult
 from ..utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)

@@ -42,7 +42,6 @@ import xoscar as xo
 from packaging import version
 from typing_extensions import NotRequired
 
-from ..match_result import MatchResult, ErrorType
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
@@ -57,6 +56,7 @@ from ....types import (
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV2, cache_model_tokenizer_and_config
+from ..match_result import ErrorType, MatchResult
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -1812,18 +1812,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             return False
 
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if not is_vision_model_supported(
-                llm_family.model_family.lower()
-            ):
+            if not is_vision_model_supported(llm_family.model_family.lower()):
                 return MatchResult.failure(
                     reason=f"Custom vision model may not be fully supported by vLLM: {llm_family.model_family}",
                     error_type=ErrorType.MODEL_COMPATIBILITY,
                     technical_details=f"Custom vision family: {llm_family.model_family}",
                 )
         else:
-            if not is_vision_model_supported(
-                llm_family.model_name.lower()
-            ):
+            if not is_vision_model_supported(llm_family.model_name.lower()):
                 return MatchResult.failure(
                     reason=f"Vision model may not be supported by vLLM: {llm_family.model_name}",
                     error_type=ErrorType.MODEL_COMPATIBILITY,

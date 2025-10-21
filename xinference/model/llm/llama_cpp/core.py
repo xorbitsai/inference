@@ -21,11 +21,11 @@ from typing import Iterator, List, Optional, Union
 
 from packaging import version
 
-from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..match_result import MatchResult
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)

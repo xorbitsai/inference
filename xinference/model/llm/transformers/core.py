@@ -20,7 +20,6 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
-from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....device_utils import (
     get_device_preferred_dtype,
@@ -41,6 +40,7 @@ from ...scheduler.request import InferenceRequest
 from ...utils import select_device
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..match_result import MatchResult
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,

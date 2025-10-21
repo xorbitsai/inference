@@ -19,11 +19,11 @@ from typing import List, Optional, Union, no_type_check
 import numpy as np
 import torch
 
-from ..match_result import MatchResult
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []

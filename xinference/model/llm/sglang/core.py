@@ -24,7 +24,6 @@ from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
 from xoscar.utils import get_next_port
 
-from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
@@ -38,6 +37,7 @@ from ....types import (
 from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV2
+from ..match_result import MatchResult
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,

@@ -31,6 +31,7 @@ from ...utils import make_hashable
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
+from .match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 

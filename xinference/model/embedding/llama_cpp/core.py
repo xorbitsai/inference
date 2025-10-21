@@ -24,10 +24,10 @@ from typing import List, Optional, Union
 
 from packaging import version
 
-from ..match_result import MatchResult
 from ....types import Embedding
 from ...batch import BatchMixin
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 
