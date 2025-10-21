@@ -35,6 +35,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
 )
 
 import huggingface_hub
@@ -543,14 +544,16 @@ def get_engine_params_by_name(
 
                     if detailed_error:
                         # Convert error dict to string format for consistency
-                        error_parts = [detailed_error.get("error", "Unknown error")]
-                        if detailed_error.get("error_type"):
-                            error_parts.append(f"Type: {detailed_error['error_type']}")
-                        if detailed_error.get("technical_details"):
-                            error_parts.append(
-                                f"Details: {detailed_error['technical_details']}"
-                            )
-                        engine_params[engine_name] = " | ".join(error_parts)
+                        error_parts = [detailed_error.get("error") or "Unknown error"]
+                        error_type = detailed_error.get("error_type")
+                        if error_type:
+                            error_parts.append(f"Type: {error_type}")
+                        technical_details = detailed_error.get("technical_details")
+                        if technical_details:
+                            error_parts.append(f"Details: {technical_details}")
+                        # Filter out None values and join
+                        error_parts_filtered = [part for part in error_parts if part is not None]
+                        engine_params[engine_name] = " | ".join(error_parts_filtered)
                     else:
                         # Fallback to basic error checking for backward compatibility
                         error_msg: Optional[str] = None
@@ -600,7 +603,8 @@ def get_engine_params_by_name(
             if isinstance(
                 params, list
             ):  # Only process parameter lists of available engines
-                for param in params:
+                assert isinstance(params, list)
+                for param in params:  # type: ignore
                     if isinstance(param, dict) and "llm_class" in param:
                         del param["llm_class"]
 
@@ -689,7 +693,8 @@ def get_engine_params_by_name(
             if isinstance(
                 params, list
             ):  # Only process parameter lists of available engines
-                for param in params:
+                assert isinstance(params, list)
+                for param in params:  # type: ignore
                     if isinstance(param, dict) and "embedding_class" in param:
                         del param["embedding_class"]
 
@@ -776,7 +781,8 @@ def get_engine_params_by_name(
             if isinstance(
                 params, list
             ):  # Only process parameter lists of available engines
-                for param in params:
+                assert isinstance(params, list)
+                for param in params:  # type: ignore
                     if isinstance(param, dict) and "rerank_class" in param:
                         del param["rerank_class"]
 
