@@ -551,7 +551,9 @@ def get_engine_params_by_name(
                         if technical_details:
                             error_parts.append(f"Details: {technical_details}")
                         # Filter out None values and join
-                        error_parts_filtered = [part for part in error_parts if part is not None]
+                        error_parts_filtered = [
+                            part for part in error_parts if part is not None
+                        ]
                         engine_params[engine_name] = " | ".join(error_parts_filtered)
                     else:
                         # Fallback to basic error checking for backward compatibility
