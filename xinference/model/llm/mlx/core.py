@@ -422,20 +422,20 @@ class MLXModel(LLM):
     ) -> "MatchResult":
         from ..match_result import ErrorType, MatchResult
 
-        # Check library availability
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="MLX library (mlx_lm) is not installed",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="mlx_lm package not found in Python environment",
-            )
-
-        # Check platform compatibility - MLX only works on Apple Silicon
+        # Check platform compatibility first - MLX only works on Apple Silicon
         if sys.platform != "darwin" or platform.processor() != "arm":
             return MatchResult.failure(
                 reason="MLX engine only works on Apple Silicon Macs (macOS with ARM processor)",
                 error_type=ErrorType.OS_REQUIREMENT,
                 technical_details=f"Current platform: {sys.platform}, processor: {platform.processor()}, required: darwin + arm",
+            )
+
+        # Check library availability (only if platform is compatible)
+        if not cls.check_lib():
+            return MatchResult.failure(
+                reason="MLX library (mlx_lm) is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="mlx_lm package not found in Python environment",
             )
 
         # Check model format compatibility
@@ -869,20 +869,20 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     ) -> "MatchResult":
         from ..match_result import ErrorType, MatchResult
 
-        # Check library availability first - MLX Vision uses mlx_vlm
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="MLX Vision library (mlx_vlm) is not installed",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="mlx_vlm package not found in Python environment",
-            )
-
-        # Check platform compatibility
+        # Check platform compatibility first - MLX only works on Apple Silicon
         if sys.platform != "darwin" or platform.processor() != "arm":
             return MatchResult.failure(
                 reason="MLX Vision engine only works on Apple Silicon Macs (macOS with ARM processor)",
                 error_type=ErrorType.OS_REQUIREMENT,
                 technical_details=f"Current platform: {sys.platform}, processor: {platform.processor()}, required: darwin + arm",
+            )
+
+        # Check library availability (only if platform is compatible) - MLX Vision uses mlx_vlm
+        if not cls.check_lib():
+            return MatchResult.failure(
+                reason="MLX Vision library (mlx_vlm) is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="mlx_vlm package not found in Python environment",
             )
 
         # Check model format compatibility
