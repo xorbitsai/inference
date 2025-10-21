@@ -600,12 +600,9 @@ def get_engine_params_by_name(
                     )
 
         # Filter out llm_class field
-        for engine, params in engine_params.items():
-            if isinstance(
-                params, list
-            ):  # Only process parameter lists of available engines
-                assert isinstance(params, list)
-                for param in params:  # type: ignore
+        for engine in engine_params.keys():
+            if isinstance(engine_params[engine], list):  # Only process parameter lists of available engines
+                for param in engine_params[engine]:  # type: ignore
                     if isinstance(param, dict) and "llm_class" in param:
                         del param["llm_class"]
 
@@ -690,12 +687,9 @@ def get_engine_params_by_name(
                     )
 
         # Filter out embedding_class field
-        for engine, params in engine_params.items():
-            if isinstance(
-                params, list
-            ):  # Only process parameter lists of available engines
-                assert isinstance(params, list)
-                for param in params:  # type: ignore
+        for engine in engine_params.keys():
+            if isinstance(engine_params[engine], list):  # Only process parameter lists of available engines
+                for param in engine_params[engine]:  # type: ignore
                     if isinstance(param, dict) and "embedding_class" in param:
                         del param["embedding_class"]
 
@@ -778,12 +772,9 @@ def get_engine_params_by_name(
                     )
 
         # Filter out rerank_class field
-        for engine, params in engine_params.items():
-            if isinstance(
-                params, list
-            ):  # Only process parameter lists of available engines
-                assert isinstance(params, list)
-                for param in params:  # type: ignore
+        for engine in engine_params.keys():
+            if isinstance(engine_params[engine], list):  # Only process parameter lists of available engines
+                for param in engine_params[engine]:  # type: ignore
                     if isinstance(param, dict) and "rerank_class" in param:
                         del param["rerank_class"]
 
