@@ -22579,14 +22579,14 @@
           "huggingface": {
             "quantizations": [
               "4bit",
-	          "8bit"
+              "8bit"
             ],
             "model_id": "cpatonn/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}"
           },
           "modelscope": {
             "quantizations": [
               "4bit",
-	          "8bit"
+              "8bit"
             ],
             "model_id": "cpatonn-mirror/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}"
           }
@@ -22604,7 +22604,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   },
   {
     "version": 2,
@@ -22650,14 +22650,14 @@
           "huggingface": {
             "quantizations": [
               "4bit",
-	          "8bit"
+              "8bit"
             ],
             "model_id": "cpatonn/Qwen3-Omni-30B-A3B-Instruct-AWQ-{quantization}"
           },
           "modelscope": {
             "quantizations": [
               "4bit",
-	          "8bit"
+              "8bit"
             ],
             "model_id": "cpatonn-mirror/Qwen3-Omni-30B-A3B-Instruct-AWQ-{quantization}"
           }
@@ -22673,6 +22673,6 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser":"qwen"
+    "tool_parser": "qwen"
   }
 ]
