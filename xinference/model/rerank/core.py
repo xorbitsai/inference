@@ -17,6 +17,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional
 
+from .match_result import MatchResult
 from ..._compat import BaseModel
 from ...types import Rerank
 from ..core import VirtualEnvSettings

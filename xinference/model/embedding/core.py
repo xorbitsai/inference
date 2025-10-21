@@ -20,6 +20,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Annotated, Dict, List, Literal, Optional, Union
 
+from .match_result import MatchResult
 from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
 from ...device_utils import empty_cache
 from ..core import VirtualEnvSettings

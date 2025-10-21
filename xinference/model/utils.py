@@ -520,7 +520,7 @@ def get_engine_params_by_name(
                                         if hasattr(
                                             engine_class, "match_json_with_reason"
                                         ):
-                                            from .llm.match_result import MatchResult
+                                            pass
 
                                             result = (
                                                 engine_class.match_json_with_reason(

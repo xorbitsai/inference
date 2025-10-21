@@ -19,6 +19,7 @@ from typing import List, Optional, Union, no_type_check
 import numpy as np
 import torch
 
+from ..match_result import MatchResult
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...utils import is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -434,7 +435,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(model_family, model_spec, quantization)
         return result.is_match
