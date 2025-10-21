@@ -14,7 +14,6 @@
 
 import asyncio
 import functools
-import importlib.util
 import json
 import logging
 import os
@@ -566,22 +565,65 @@ def get_engine_params_by_name(
                                         error_msg = f"Engine {engine_name} library is not available (Type: dependency_missing)"
                                         break
                                 else:
-                                    # If no check_lib method, try import check
-                                    module_name = engine_name.lower().replace(".", "")
-                                    if engine_name == "vLLM":
-                                        module_name = "vllm"
-                                    elif engine_name == "SGLang":
-                                        module_name = "sglang"
-                                    elif engine_name == "llama.cpp":
-                                        module_name = "llama_cpp"
-                                    elif engine_name == "MLX":
-                                        module_name = "mlx"
-                                    elif engine_name == "LMDEPLOY":
-                                        module_name = "lmdeploy"
-                                    elif engine_name == "Transformers":
-                                        module_name = "transformers"
+                                    # If no check_lib method, try to use engine's match method for compatibility check
+                                    # This provides more detailed and accurate error information
+                                    try:
+                                        # Create a minimal test spec if we don't have real model specs
+                                        from .llm.llm_family import (
+                                            LLMFamilyV2,
+                                            PytorchLLMSpecV2,
+                                        )
 
-                                    importlib.import_module(module_name)
+                                        # Create a minimal test case
+                                        test_family = LLMFamilyV2(
+                                            model_name="test",
+                                            model_family="test",
+                                            model_specs=[
+                                                PytorchLLMSpecV2(
+                                                    model_format="pytorch",
+                                                    quantization="none",
+                                                )
+                                            ],
+                                        )
+                                        test_spec = test_family.model_specs[0]
+
+                                        # Use the engine's match method if available
+                                        if hasattr(
+                                            engine_class, "match_json_with_reason"
+                                        ):
+                                            result = (
+                                                engine_class.match_json_with_reason(
+                                                    test_family, test_spec, "none"
+                                                )
+                                            )
+                                            if result.is_match:
+                                                break  # Engine is available
+                                            else:
+                                                error_msg = f"Engine {engine_name}: {result.reason}"
+                                                if result.error_type:
+                                                    error_msg += (
+                                                        f" (Type: {result.error_type})"
+                                                    )
+                                                break
+                                        elif hasattr(engine_class, "match_json"):
+                                            # Fallback to simple match method - use test data
+                                            if engine_class.match_json(
+                                                test_family, test_spec, "none"
+                                            ):
+                                                break
+                                            else:
+                                                error_msg = f"Engine {engine_name} is not compatible with current model or environment (Type: model_compatibility)"
+                                                break
+                                        else:
+                                            # Final fallback: generic import check
+                                            raise ImportError(
+                                                "No compatibility check method available"
+                                            )
+
+                                    except ImportError as e:
+                                        error_msg = f"Engine {engine_name} library is not installed: {str(e)} (Type: dependency_missing)"
+                                    except Exception as e:
+                                        error_msg = f"Engine {engine_name} is not available: {str(e)} (Type: configuration_error)"
                                     break
                             except ImportError as e:
                                 error_msg = f"Engine {engine_name} library is not installed: {str(e)} (Type: dependency_missing)"
@@ -650,24 +692,45 @@ def get_engine_params_by_name(
                                     )
                                     break
                             else:
-                                # If no check_lib method, try import check
-                                module_name = engine_name.lower().replace(".", "")
-                                if engine_name == "vLLM":
-                                    module_name = "vllm"
-                                elif engine_name == "SGLang":
-                                    module_name = "sglang"
-                                elif engine_name == "llama.cpp":
-                                    module_name = "llama_cpp"
-                                elif engine_name == "MLX":
-                                    module_name = "mlx"
-                                elif engine_name == "LMDEPLOY":
-                                    module_name = "lmdeploy"
-                                elif engine_name == "Transformers":
-                                    module_name = "transformers"
-                                elif engine_name == "SentenceTransformers":
-                                    module_name = "sentence_transformers"
+                                # If no check_lib method, try to use engine's match method for compatibility check
+                                try:
+                                    from .embedding.core import (
+                                        EmbeddingModelFamilyV2,
+                                        TransformersEmbeddingSpecV1,
+                                    )
 
-                                importlib.import_module(module_name)
+                                    # Use the engine's match method if available
+                                    if hasattr(embedding_engine_class, "match"):
+                                        # Create a minimal test case
+                                        test_family = EmbeddingModelFamilyV2(
+                                            model_name="test",
+                                            model_specs=[
+                                                TransformersEmbeddingSpecV1(
+                                                    model_format="pytorch",
+                                                    quantization="none",
+                                                )
+                                            ],
+                                        )
+                                        test_spec = test_family.model_specs[0]
+
+                                        # Use the engine's match method to check compatibility
+                                        if embedding_engine_class.match(
+                                            test_family, test_spec, "none"
+                                        ):
+                                            break  # Engine is available
+                                        else:
+                                            embedding_error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+                                            break
+                                    else:
+                                        # Final fallback: generic import check
+                                        raise ImportError(
+                                            "No compatibility check method available"
+                                        )
+
+                                except ImportError as e:
+                                    embedding_error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                                except Exception as e:
+                                    embedding_error_msg = f"Engine {engine_name} is not available: {str(e)}"
                                 break
                         except ImportError as e:
                             embedding_error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
@@ -737,24 +800,45 @@ def get_engine_params_by_name(
                                     )
                                     break
                             else:
-                                # If no check_lib method, try import check
-                                module_name = engine_name.lower().replace(".", "")
-                                if engine_name == "vLLM":
-                                    module_name = "vllm"
-                                elif engine_name == "SGLang":
-                                    module_name = "sglang"
-                                elif engine_name == "llama.cpp":
-                                    module_name = "llama_cpp"
-                                elif engine_name == "MLX":
-                                    module_name = "mlx"
-                                elif engine_name == "LMDEPLOY":
-                                    module_name = "lmdeploy"
-                                elif engine_name == "Transformers":
-                                    module_name = "transformers"
-                                elif engine_name == "SentenceTransformers":
-                                    module_name = "sentence_transformers"
+                                # If no check_lib method, try to use engine's match method for compatibility check
+                                try:
+                                    from .rerank.core import (
+                                        RerankModelFamilyV2,
+                                        RerankSpecV1,
+                                    )
 
-                                importlib.import_module(module_name)
+                                    # Use the engine's match method if available
+                                    if hasattr(rerank_engine_class, "match"):
+                                        # Create a minimal test case
+                                        test_family = RerankModelFamilyV2(
+                                            model_name="test",
+                                            model_specs=[
+                                                RerankSpecV1(
+                                                    model_format="pytorch",
+                                                    quantization="none",
+                                                )
+                                            ],
+                                        )
+                                        test_spec = test_family.model_specs[0]
+
+                                        # Use the engine's match method to check compatibility
+                                        if rerank_engine_class.match(
+                                            test_family, test_spec, "none"
+                                        ):
+                                            break  # Engine is available
+                                        else:
+                                            rerank_error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+                                            break
+                                    else:
+                                        # Final fallback: generic import check
+                                        raise ImportError(
+                                            "No compatibility check method available"
+                                        )
+
+                                except ImportError as e:
+                                    rerank_error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                                except Exception as e:
+                                    rerank_error_msg = f"Engine {engine_name} is not available: {str(e)}"
                                 break
                         except ImportError as e:
                             rerank_error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
