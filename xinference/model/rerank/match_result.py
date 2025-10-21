@@ -45,7 +45,7 @@ class MatchResult:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses."""
-        result = {"is_match": self.is_match}
+        result: Dict[str, Any] = {"is_match": self.is_match}
         if not self.is_match:
             if self.reason:
                 result["reason"] = self.reason

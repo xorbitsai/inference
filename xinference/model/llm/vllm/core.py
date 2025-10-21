@@ -1003,7 +1003,7 @@ class VLLMModel(LLM):
             return False
 
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if not is_model_supported(
+            if not llm_family.model_family or not is_model_supported(
                 llm_family.model_family.lower(), VLLM_SUPPORTED_MODELS
             ):
                 return MatchResult.failure(
@@ -1551,7 +1551,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return False
 
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if not is_chat_model_supported(
+            if not llm_family.model_family or not is_chat_model_supported(
                 llm_family.model_family.lower(), VLLM_SUPPORTED_CHAT_MODELS
             ):
                 return MatchResult.failure(
@@ -1812,14 +1812,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             return False
 
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if not is_vision_model_supported(llm_family.model_family.lower()):
+            if not llm_family.model_family or not is_vision_model_supported(llm_family.model_family.lower(), VLLM_SUPPORTED_MULTI_MODEL_LIST):
                 return MatchResult.failure(
                     reason=f"Custom vision model may not be fully supported by vLLM: {llm_family.model_family}",
                     error_type=ErrorType.MODEL_COMPATIBILITY,
                     technical_details=f"Custom vision family: {llm_family.model_family}",
                 )
         else:
-            if not is_vision_model_supported(llm_family.model_name.lower()):
+            if not llm_family.model_name or not is_vision_model_supported(llm_family.model_name.lower(), VLLM_SUPPORTED_MULTI_MODEL_LIST):
                 return MatchResult.failure(
                     reason=f"Vision model may not be supported by vLLM: {llm_family.model_name}",
                     error_type=ErrorType.MODEL_COMPATIBILITY,
