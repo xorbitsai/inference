@@ -17,11 +17,11 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional
 
-from .match_result import MatchResult
 from ..._compat import BaseModel
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .match_result import MatchResult
 from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
 
 logger = logging.getLogger(__name__)

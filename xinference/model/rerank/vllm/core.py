@@ -2,10 +2,10 @@ import importlib.util
 import uuid
 from typing import List, Optional
 
-from ..match_result import MatchResult
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
+from ..match_result import MatchResult
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 

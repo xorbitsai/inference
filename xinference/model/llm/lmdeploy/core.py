@@ -18,10 +18,10 @@ from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Un
 
 import torch
 
-from ..match_result import MatchResult
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
 from ..core import LLM
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..match_result import MatchResult
 from ..utils import ChatModelMixin, generate_chat_completion, generate_completion_chunk
 
 logger = logging.getLogger(__name__)

@@ -39,7 +39,6 @@ from typing import (
 
 import xoscar as xo
 
-from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....fields import max_tokens_field
 from ....types import (
@@ -52,6 +51,7 @@ from ....types import (
 )
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..match_result import MatchResult
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
