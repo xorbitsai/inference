@@ -32,7 +32,57 @@ import transformers
 
 from indextts.gpt.transformers_generation_utils import GenerationMixin
 from indextts.gpt.transformers_modeling_utils import PreTrainedModel
-from transformers.modeling_utils import SequenceSummary
+# SequenceSummary has been removed in transformers 4.57.1+
+# Adding compatibility implementation
+class SequenceSummary(nn.Module):
+    """
+    Compute a single vector summary of a sequence hidden states.
+    """
+    def __init__(self, config):
+        super().__init__()
+        self.summary_type = getattr(config, 'summary_type', 'last')
+        self.summary_use_proj = getattr(config, 'summary_use_proj', True)
+        self.summary_activation = getattr(config, 'summary_activation', None)
+        self.summary_proj_to_labels = getattr(config, 'summary_proj_to_labels', True)
+        self.summary_first_dropout = getattr(config, 'summary_first_dropout', 0.1)
+
+        if self.summary_use_proj:
+            if hasattr(config, 'summary_proj_to_labels') and config.summary_proj_to_labels and config.num_labels > 0:
+                num_classes = config.num_labels
+            else:
+                num_classes = config.hidden_size
+            self.summary = nn.Linear(config.hidden_size, num_classes)
+
+        if hasattr(config, 'summary_activation') and config.summary_activation == 'tanh':
+            self.activation = nn.Tanh()
+        else:
+            self.activation = lambda x: x
+
+        if hasattr(config, 'summary_first_dropout') and config.summary_first_dropout > 0:
+            self.dropout = nn.Dropout(config.summary_first_dropout)
+        else:
+            self.dropout = lambda x: x
+
+    def forward(self, hidden_states, cls_token_index=None):
+        if self.summary_type == 'last':
+            output = hidden_states[:, -1]
+        elif self.summary_type == 'first':
+            output = hidden_states[:, 0]
+        elif self.summary_type == 'mean':
+            output = hidden_states.mean(dim=1)
+        elif self.summary_type == 'cls_index':
+            if cls_token_index is None:
+                raise ValueError("cls_token_index must be specified when summary_type='cls_index'")
+            batch_size = hidden_states.size(0)
+            output = hidden_states[batch_size, cls_token_index]
+        else:
+            output = hidden_states[:, -1]  # fallback to last
+
+        output = self.dropout(output)
+        if self.summary_use_proj:
+            output = self.summary(output)
+        output = self.activation(output)
+        return output
 
 from transformers.modeling_attn_mask_utils import _prepare_4d_attention_mask_for_sdpa, _prepare_4d_causal_attention_mask_for_sdpa
 from transformers.modeling_outputs import (
