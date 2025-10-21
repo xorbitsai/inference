@@ -239,6 +239,64 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(model_family, model_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls,
+        model_family: EmbeddingModelFamilyV2,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability
+        if not cls.check_lib():
+            return MatchResult.failure(
+                reason="llama.cpp library (xllamacpp) is not installed for embedding",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="xllamacpp package not found in Python environment",
+            )
+
+        # Check model format compatibility
         if model_spec.model_format not in ["ggufv2"]:
-            return False
-        return True
+            return MatchResult.failure(
+                reason=f"llama.cpp embedding only supports GGUF v2 format, got: {model_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Unsupported format: {model_spec.model_format}, required: ggufv2",
+            )
+
+        # Check embedding-specific requirements
+        if not hasattr(model_spec, "model_file_name_template"):
+            return MatchResult.failure(
+                reason="GGUF embedding model requires proper file configuration",
+                error_type=ErrorType.CONFIGURATION_ERROR,
+                technical_details="Missing model_file_name_template for GGUF embedding",
+            )
+
+        # Check model dimensions for llama.cpp compatibility
+        model_dimensions = model_family.dimensions
+        if model_dimensions > 4096:  # llama.cpp may have limitations
+            return MatchResult.failure(
+                reason=f"Large embedding model may have compatibility issues with llama.cpp ({model_dimensions} dimensions)",
+                error_type=ErrorType.MODEL_COMPATIBILITY,
+                technical_details=f"Large embedding dimensions: {model_dimensions}",
+            )
+
+        # Check platform-specific considerations
+        import platform
+
+        current_platform = platform.system()
+
+        # llama.cpp works across platforms but may have performance differences
+        if current_platform == "Windows":
+            return MatchResult.failure(
+                reason="llama.cpp embedding may have limited performance on Windows",
+                error_type=ErrorType.OS_REQUIREMENT,
+                technical_details=f"Windows platform: {current_platform}",
+            )
+
+        return MatchResult.success()

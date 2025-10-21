@@ -15,6 +15,7 @@ import importlib.util
 import json
 import logging
 import multiprocessing
+import platform
 import sys
 import threading
 import time
@@ -341,24 +342,104 @@ class SGLANGModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability first
+        if not SGLANG_INSTALLED:
+            return MatchResult.failure(
+                reason="SGLang library is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="sglang package not found in Python environment",
+            )
+
+        # Check hardware requirements - SGLang requires CUDA
         if not cls._has_cuda_device():
-            return False
+            return MatchResult.failure(
+                reason="SGLang requires CUDA GPU support",
+                error_type=ErrorType.HARDWARE_REQUIREMENT,
+                technical_details="No CUDA devices detected",
+            )
+
+        # Check OS requirements
         if not cls._is_linux():
-            return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return MatchResult.failure(
+                reason="SGLang only supports Linux operating system",
+                error_type=ErrorType.OS_REQUIREMENT,
+                technical_details=f"Current OS: {platform.system()}, required: Linux",
+            )
+
+        # Check model format compatibility
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return MatchResult.failure(
+                reason=f"SGLang does not support model format: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Unsupported format: {llm_spec.model_format}",
+            )
+
+        # Check quantization compatibility with format
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
+            if quantization != "none" and quantization is not None:
+                return MatchResult.failure(
+                    reason=f"SGLang pytorch format does not support quantization: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"pytorch + {quantization} combination not supported",
+                )
+
+        # Check model compatibility
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
-                return False
+                return MatchResult.failure(
+                    reason=f"Custom model family not supported by SGLang: {llm_family.model_family}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Custom family: {llm_family.model_family}",
+                )
         else:
             if llm_family.model_name not in SGLANG_SUPPORTED_MODELS:
-                return False
-        if "generate" not in llm_family.model_ability:
-            return False
-        return SGLANG_INSTALLED
+                return MatchResult.failure(
+                    reason=f"Model not supported by SGLang: {llm_family.model_name}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Unsupported model: {llm_family.model_name}",
+                )
+
+        # Check model abilities with flexible logic
+        # SGLang can handle models with various text generation capabilities
+        has_text_capability = (
+            "generate" in llm_family.model_ability
+            or "chat" in llm_family.model_ability
+            or "reasoning" in llm_family.model_ability
+            or "tools" in llm_family.model_ability
+        )
+
+        if not has_text_capability:
+            return MatchResult.failure(
+                reason=f"SGLang requires text generation capabilities, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        # SGLang is primarily designed for text models, not specialized models
+        specialized_abilities = ["embedding", "rerank", "audio", "vision"]
+        has_specialized = any(
+            ability in llm_family.model_ability for ability in specialized_abilities
+        )
+        if has_specialized:
+            return MatchResult.failure(
+                reason=f"SGLang is designed for text models, this model has specialized abilities: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Specialized abilities: {[a for a in llm_family.model_ability if a in specialized_abilities]}",
+            )
+
+        return MatchResult.success()
 
     @staticmethod
     def _convert_state_to_completion_chunk(
@@ -647,20 +728,65 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Use base class validation first
+        base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
+        if not base_result.is_match:
+            return base_result
+
+        # Check model format compatibility (same as base)
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return MatchResult.failure(
+                reason=f"SGLang Chat does not support model format: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Chat model unsupported format: {llm_spec.model_format}",
+            )
+
+        # Check quantization compatibility with format
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
+            if quantization != "none" and quantization is not None:
+                return MatchResult.failure(
+                    reason=f"SGLang Chat pytorch format does not support quantization: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"Chat pytorch + {quantization} not supported",
+                )
+
+        # Check chat model compatibility
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return False
+                return MatchResult.failure(
+                    reason=f"Custom chat model not supported by SGLang: {llm_family.model_family}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Custom chat family: {llm_family.model_family}",
+                )
         else:
             if llm_family.model_name not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return False
+                return MatchResult.failure(
+                    reason=f"Chat model not supported by SGLang: {llm_family.model_name}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Unsupported chat model: {llm_family.model_name}",
+                )
+
+        # Check chat ability
         if "chat" not in llm_family.model_ability:
-            return False
-        return SGLANG_INSTALLED
+            return MatchResult.failure(
+                reason=f"SGLang Chat requires 'chat' ability, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        return MatchResult.success()
 
     def _sanitize_chat_config(
         self,
@@ -734,24 +860,65 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not cls._has_cuda_device():
-            return False
-        if not cls._is_linux():
-            return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Use base class validation first
+        base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
+        if not base_result.is_match:
+            return base_result
+
+        # Vision models have the same format restrictions as base SGLANG
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return MatchResult.failure(
+                reason=f"SGLang Vision does not support model format: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Vision model unsupported format: {llm_spec.model_format}",
+            )
+
+        # Vision models typically work with specific quantization settings
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
+            if quantization != "none" and quantization is not None:
+                return MatchResult.failure(
+                    reason=f"SGLang Vision pytorch format does not support quantization: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"Vision pytorch + {quantization} not supported",
+                )
+
+        # Check vision model compatibility
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return False
+                return MatchResult.failure(
+                    reason=f"Custom vision model not supported by SGLang: {llm_family.model_family}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Custom vision family: {llm_family.model_family}",
+                )
         else:
             if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return False
+                return MatchResult.failure(
+                    reason=f"Vision model not supported by SGLang: {llm_family.model_name}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Unsupported vision model: {llm_family.model_name}",
+                )
+
+        # Check vision ability
         if "vision" not in llm_family.model_ability:
-            return False
-        return SGLANG_INSTALLED
+            return MatchResult.failure(
+                reason=f"SGLang Vision requires 'vision' ability, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        return MatchResult.success()
 
     def _sanitize_chat_config(
         self,

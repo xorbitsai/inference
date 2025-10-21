@@ -19,6 +19,7 @@ import json
 import logging
 import multiprocessing
 import os
+import platform
 import sys
 import threading
 import time
@@ -880,35 +881,178 @@ class VLLMModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability first
+        if not VLLM_INSTALLED:
+            return MatchResult.failure(
+                reason="vLLM library is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="vllm package not found in Python environment",
+            )
+
+        # Check hardware requirements
         if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False
+            return MatchResult.failure(
+                reason="vLLM requires CUDA or MLU accelerator support",
+                error_type=ErrorType.HARDWARE_REQUIREMENT,
+                technical_details="No CUDA or MLU devices detected",
+            )
+
+        # Check OS requirements
         if not cls._is_linux():
-            return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return MatchResult.failure(
+                reason="vLLM only supports Linux operating system",
+                error_type=ErrorType.OS_REQUIREMENT,
+                technical_details=f"Current OS: {platform.system()}, required: Linux",
+            )
+
+        # Check model format
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return MatchResult.failure(
+                reason=f"vLLM does not support model format: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Unsupported format: {llm_spec.model_format}",
+            )
+
+        # Check quantization compatibility with format
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and quantization is not None:
-                return False
+                return MatchResult.failure(
+                    reason=f"vLLM pytorch format does not support quantization: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"pytorch + {quantization} combination not supported",
+                )
+
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
-                return False
+                return MatchResult.failure(
+                    reason=f"vLLM AWQ format requires 4-bit quantization, got: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"AWQ + {quantization} not supported, only 4-bit",
+                )
+
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return MatchResult.failure(
+                        reason=f"vLLM GPTQ format requires 3/4/8-bit quantization, got: {quantization}",
+                        error_type=ErrorType.QUANTIZATION,
+                        technical_details=f"GPTQ + {quantization} not supported with vLLM >= 0.3.3",
+                    )
             else:
                 if "4" not in quantization:
-                    return False
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
-                return False
-        else:
-            if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
-                return False
-        if "generate" not in llm_family.model_ability:
+                    return MatchResult.failure(
+                        reason=f"Older vLLM version only supports 4-bit GPTQ, got: {quantization}",
+                        error_type=ErrorType.VERSION_REQUIREMENT,
+                        technical_details=f"GPTQ + {quantization} requires vLLM >= 0.3.3",
+                    )
+
+        # Check model compatibility with more flexible matching
+        def is_model_supported(model_name: str, supported_list: List[str]) -> bool:
+            """Check if model is supported with flexible matching."""
+            # Direct match
+            if model_name in supported_list:
+                return True
+
+            # Partial matching for models with variants (e.g., qwen3 variants)
+            for supported in supported_list:
+                if model_name.startswith(
+                    supported.lower()
+                ) or supported.lower().startswith(model_name):
+                    return True
+
+            # Family-based matching for common patterns
+            model_lower = model_name.lower()
+            if any(
+                family in model_lower
+                for family in [
+                    "qwen3",
+                    "llama",
+                    "mistral",
+                    "gemma",
+                    "baichuan",
+                    "deepseek",
+                ]
+            ):
+                # Check if there's a corresponding supported model with same family
+                for supported in supported_list:
+                    if any(
+                        family in supported.lower()
+                        for family in [
+                            "qwen3",
+                            "llama",
+                            "mistral",
+                            "gemma",
+                            "baichuan",
+                            "deepseek",
+                        ]
+                    ):
+                        return True
+
             return False
-        return VLLM_INSTALLED
+
+        if isinstance(llm_family, CustomLLMFamilyV2):
+            if not is_model_supported(
+                llm_family.model_family.lower(), VLLM_SUPPORTED_MODELS
+            ):
+                return MatchResult.failure(
+                    reason=f"Custom model family may not be fully supported by vLLM: {llm_family.model_family}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Custom family: {llm_family.model_family}",
+                )
+        else:
+            if not is_model_supported(
+                llm_family.model_name.lower(),
+                [s.lower() for s in VLLM_SUPPORTED_MODELS],
+            ):
+                return MatchResult.failure(
+                    reason=f"Model may not be supported by vLLM: {llm_family.model_name}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Unsupported model: {llm_family.model_name}",
+                )
+
+        # Check model abilities with flexible logic
+        # vLLM can handle models that have text generation capabilities
+        # Models with 'chat' ability usually also support 'generate'
+        has_text_capability = (
+            "generate" in llm_family.model_ability
+            or "chat" in llm_family.model_ability
+            or "reasoning" in llm_family.model_ability
+            or "tools" in llm_family.model_ability
+        )
+
+        if not has_text_capability:
+            return MatchResult.failure(
+                reason=f"vLLM requires text generation capabilities, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        # Additional check: ensure model doesn't have conflicting abilities
+        conflicting_abilities = ["embedding", "rerank"]
+        has_conflicting = any(
+            ability in llm_family.model_ability for ability in conflicting_abilities
+        )
+        if has_conflicting:
+            return MatchResult.failure(
+                reason=f"Model has conflicting abilities for vLLM: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Conflicting abilities detected: {[a for a in llm_family.model_ability if a in conflicting_abilities]}",
+            )
+
+        # All checks passed
+        return MatchResult.success()
 
     @staticmethod
     def _convert_request_output_to_completion_chunk(
@@ -1316,40 +1460,141 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in [
-            "pytorch",
-            "gptq",
-            "awq",
-            "fp8",
-            "bnb",
-            "ggufv2",
-        ]:
-            return False
-        if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
-        if llm_spec.model_format == "awq":
-            if not any(q in quantization for q in ("4", "8")):
-                return False
-        if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
-                if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
-            else:
-                if "4" not in quantization:
-                    return False
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Use base class validation first
+        base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
+        if not base_result.is_match:
+            return base_result
+
+        # Chat-specific format support (includes GGUFv2 for newer vLLM)
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb", "ggufv2"]
+        if llm_spec.model_format not in supported_formats:
+            return MatchResult.failure(
+                reason=f"vLLM Chat does not support model format: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Chat model unsupported format: {llm_spec.model_format}",
+            )
+
+        # GGUFv2 requires newer vLLM version
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
-                return False
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
-                return False
-        else:
-            if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:
-                return False
-        if "chat" not in llm_family.model_ability:
+                return MatchResult.failure(
+                    reason="vLLM GGUF support requires version >= 0.8.2",
+                    error_type=ErrorType.VERSION_REQUIREMENT,
+                    technical_details=f"Current vLLM: {VLLM_VERSION}, required: >=0.8.2",
+                )
+
+        # AWQ chat models support more quantization levels
+        if llm_spec.model_format == "awq":
+            if not any(q in quantization for q in ("4", "8")):
+                return MatchResult.failure(
+                    reason=f"vLLM Chat AWQ requires 4 or 8-bit quantization, got: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"Chat AWQ + {quantization} not supported",
+                )
+
+        # Check chat model compatibility with flexible matching
+        def is_chat_model_supported(model_name: str, supported_list: List[str]) -> bool:
+            """Check if chat model is supported with flexible matching."""
+            # Direct match
+            if model_name in supported_list:
+                return True
+
+            # Partial matching for models with variants
+            for supported in supported_list:
+                if model_name.startswith(
+                    supported.lower()
+                ) or supported.lower().startswith(model_name):
+                    return True
+
+            # Family-based matching for common chat model patterns
+            model_lower = model_name.lower()
+            if any(
+                family in model_lower
+                for family in [
+                    "qwen3",
+                    "llama",
+                    "mistral",
+                    "gemma",
+                    "baichuan",
+                    "deepseek",
+                    "glm",
+                    "chatglm",
+                ]
+            ):
+                # Check if there's a corresponding supported chat model with same family
+                for supported in supported_list:
+                    if any(
+                        family in supported.lower()
+                        for family in [
+                            "qwen3",
+                            "llama",
+                            "mistral",
+                            "gemma",
+                            "baichuan",
+                            "deepseek",
+                            "glm",
+                            "chatglm",
+                        ]
+                    ):
+                        return True
+
             return False
-        return VLLM_INSTALLED
+
+        if isinstance(llm_family, CustomLLMFamilyV2):
+            if not is_chat_model_supported(
+                llm_family.model_family.lower(), VLLM_SUPPORTED_CHAT_MODELS
+            ):
+                return MatchResult.failure(
+                    reason=f"Custom chat model may not be fully supported by vLLM: {llm_family.model_family}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Custom chat family: {llm_family.model_family}",
+                )
+        else:
+            if not is_chat_model_supported(
+                llm_family.model_name.lower(),
+                [s.lower() for s in VLLM_SUPPORTED_CHAT_MODELS],
+            ):
+                return MatchResult.failure(
+                    reason=f"Chat model may not be supported by vLLM: {llm_family.model_name}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Unsupported chat model: {llm_family.model_name}",
+                )
+
+        # Check chat ability with flexible logic
+        # vLLM Chat should work with models that have conversation capabilities
+        has_chat_capability = (
+            "chat" in llm_family.model_ability
+            or "generate" in llm_family.model_ability
+            or "reasoning" in llm_family.model_ability
+        )
+
+        if not has_chat_capability:
+            return MatchResult.failure(
+                reason=f"vLLM Chat requires conversation capabilities, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        # Additional check: ensure model is not purely a tool model without conversation
+        if set(llm_family.model_ability) == {"tools"}:
+            return MatchResult.failure(
+                reason=f"Model only has 'tools' capability without conversation support: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Tool-only model detected",
+            )
+
+        return MatchResult.success()
 
     def _sanitize_chat_config(
         self,
@@ -1494,38 +1739,110 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False
-        if not cls._is_linux():
-            return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Use base class validation first
+        base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
+        if not base_result.is_match:
+            return base_result
+
+        # Vision models have the same format restrictions as base VLLM
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return MatchResult.failure(
+                reason=f"vLLM Vision does not support model format: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Vision model unsupported format: {llm_spec.model_format}",
+            )
+
+        # Vision models typically work with specific quantization settings
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and quantization is not None:
-                return False
+                return MatchResult.failure(
+                    reason=f"vLLM Vision pytorch format does not support quantization: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"Vision pytorch + {quantization} not supported",
+                )
+
+        # AWQ vision models support more quantization levels than base
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
-                return False
-        if llm_spec.model_format == "gptq":
-            if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
-                if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
-            else:
-                if "4" not in quantization:
-                    return False
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return False
-        else:
-            if llm_family.model_name not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return False
-        if (
-            "vision" not in llm_family.model_ability
-            and "audio" not in llm_family.model_ability
-            and "omni" not in llm_family.model_ability
-        ):
+                return MatchResult.failure(
+                    reason=f"vLLM Vision AWQ requires 4 or 8-bit quantization, got: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"Vision AWQ + {quantization} not supported",
+                )
+
+        # Check vision model compatibility with flexible matching
+        def is_vision_model_supported(
+            model_name: str, supported_list: List[str]
+        ) -> bool:
+            """Check if vision model is supported with flexible matching."""
+            # Direct match
+            if model_name in supported_list:
+                return True
+
+            # Partial matching for models with variants
+            for supported in supported_list:
+                if model_name.startswith(
+                    supported.lower()
+                ) or supported.lower().startswith(model_name):
+                    return True
+
+            # Family-based matching for common vision model patterns
+            model_lower = model_name.lower()
+            if any(
+                family in model_lower
+                for family in ["llama", "qwen", "internvl", "glm", "phi"]
+            ):
+                # Check if there's a corresponding supported vision model with same family
+                for supported in supported_list:
+                    if any(
+                        family in supported.lower()
+                        for family in ["llama", "qwen", "internvl", "glm", "phi"]
+                    ):
+                        return True
+
             return False
-        return VLLM_INSTALLED
+
+        if isinstance(llm_family, CustomLLMFamilyV2):
+            if not is_vision_model_supported(
+                llm_family.model_family.lower(), VLLM_SUPPORTED_VISION_MODEL_LIST
+            ):
+                return MatchResult.failure(
+                    reason=f"Custom vision model may not be fully supported by vLLM: {llm_family.model_family}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Custom vision family: {llm_family.model_family}",
+                )
+        else:
+            if not is_vision_model_supported(
+                llm_family.model_name.lower(),
+                [s.lower() for s in VLLM_SUPPORTED_VISION_MODEL_LIST],
+            ):
+                return MatchResult.failure(
+                    reason=f"Vision model may not be supported by vLLM: {llm_family.model_name}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details=f"Unsupported vision model: {llm_family.model_name}",
+                )
+
+        # Check vision ability
+        if "vision" not in llm_family.model_ability:
+            return MatchResult.failure(
+                reason=f"vLLM Vision requires 'vision' ability, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        return MatchResult.success()
 
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]

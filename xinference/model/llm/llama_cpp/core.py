@@ -86,14 +86,67 @@ class XllamaCppModel(LLM, ChatModelMixin):
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability
+        if not cls.check_lib():
+            return MatchResult.failure(
+                reason="llama.cpp library (xllamacpp) is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="xllamacpp package not found in Python environment",
+            )
+
+        # Check model format compatibility
         if llm_spec.model_format not in ["ggufv2"]:
-            return False
+            return MatchResult.failure(
+                reason=f"llama.cpp only supports GGUF v2 format, got: {llm_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Unsupported format: {llm_spec.model_format}, required: ggufv2",
+            )
+
+        # Check model abilities - llama.cpp supports both chat and generation
         if (
             "chat" not in llm_family.model_ability
             and "generate" not in llm_family.model_ability
         ):
-            return False
-        return True
+            return MatchResult.failure(
+                reason=f"llama.cpp requires 'chat' or 'generate' ability, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        # Check platform-specific issues
+        import platform
+
+        current_platform = platform.system()
+
+        # Check for ARM64 specific issues
+        if current_platform == "Darwin" and platform.machine() == "arm64":
+            # Apple Silicon specific checks could go here
+            pass
+        elif current_platform == "Windows":
+            # Windows specific checks could go here
+            pass
+
+        # Check memory requirements (basic heuristic)
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Very large models
+            return MatchResult.failure(
+                reason=f"llama.cpp may struggle with very large models ({model_size}B parameters)",
+                error_type=ErrorType.MODEL_COMPATIBILITY,
+                technical_details=f"Large model size: {model_size}B parameters",
+            )
+
+        return MatchResult.success()
 
     def load(self):
         try:

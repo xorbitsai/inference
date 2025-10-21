@@ -149,8 +149,71 @@ class VLLMRerankModel(RerankModel):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> bool:
-        if model_spec.model_format in ["pytorch"]:
-            prefix = model_family.model_name.split("-", 1)[0]
-            if prefix in SUPPORTED_MODELS_PREFIXES:
-                return True
-        return False
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(model_family, model_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls,
+        model_family: RerankModelFamilyV2,
+        model_spec: RerankSpecV1,
+        quantization: str,
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability
+        if not cls.check_lib():
+            return MatchResult.failure(
+                reason="vLLM library is not installed for reranking",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="vllm package not found in Python environment",
+            )
+
+        # Check model format compatibility
+        if model_spec.model_format not in ["pytorch"]:
+            return MatchResult.failure(
+                reason=f"vLLM reranking only supports pytorch format, got: {model_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Unsupported format: {model_spec.model_format}, required: pytorch",
+            )
+
+        # Check model name prefix matching
+        if model_spec.model_format == "pytorch":
+            try:
+                prefix = model_family.model_name.split("-", 1)[0].lower()
+                # Support both prefix matching and special cases
+                if prefix.lower() not in [p.lower() for p in SUPPORTED_MODELS_PREFIXES]:
+                    # Special handling for Qwen3 models
+                    if "qwen3" not in model_family.model_name.lower():
+                        return MatchResult.failure(
+                            reason=f"Model family prefix not supported by vLLM reranking: {prefix}",
+                            error_type=ErrorType.MODEL_COMPATIBILITY,
+                            technical_details=f"Unsupported prefix: {prefix}",
+                        )
+            except (IndexError, AttributeError):
+                return MatchResult.failure(
+                    reason="Unable to parse model family name for vLLM compatibility check",
+                    error_type=ErrorType.CONFIGURATION_ERROR,
+                    technical_details=f"Model name parsing failed: {model_family.model_name}",
+                )
+
+        # Check rerank-specific requirements
+        if not hasattr(model_family, "model_name"):
+            return MatchResult.failure(
+                reason="Rerank model family requires model name specification for vLLM",
+                error_type=ErrorType.CONFIGURATION_ERROR,
+                technical_details="Missing model_name in vLLM rerank model family",
+            )
+
+        # Check max tokens limit for vLLM reranking performance
+        max_tokens = model_family.max_tokens
+        if max_tokens and max_tokens > 4096:  # vLLM has stricter limits
+            return MatchResult.failure(
+                reason=f"High max_tokens limit for vLLM reranking model: {max_tokens}",
+                error_type=ErrorType.CONFIGURATION_ERROR,
+                technical_details=f"High max_tokens for vLLM reranking: {max_tokens}",
+            )
+
+        return MatchResult.success()

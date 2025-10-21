@@ -494,59 +494,111 @@ def get_engine_params_by_name(
                     del param["available"]
             engine_params[engine] = params
 
-        # Check unavailable engines
+        # Check unavailable engines with detailed error information
         for engine_name in all_supported_engines:
             if engine_name not in engine_params:  # Engine not in available list
                 try:
                     llm_engine_classes = SUPPORTED_ENGINES[engine_name]
-                    error_msg = None
 
-                    # Try to find specific error reasons
-                    for engine_class in llm_engine_classes:
+                    # Try to get detailed error information from engine's match_json_with_reason
+                    detailed_error = None
+
+                    # We need a sample model to test against, use the first available spec
+                    if model_name in LLM_ENGINES and LLM_ENGINES[model_name]:
+                        # Try to get model family for testing
                         try:
-                            if hasattr(engine_class, "check_lib"):
-                                lib_available: bool = engine_class.check_lib()  # type: ignore[assignment]
-                                if not lib_available:
-                                    error_msg = (
-                                        f"Engine {engine_name} library is not available"
-                                    )
+                            from .llm.llm_family import match_llm
+
+                            llm_family = match_llm(model_name, None, None, None, None)
+                            if llm_family and llm_family.model_specs:
+                                llm_spec = llm_family.model_specs[0]
+                                quantization = llm_spec.quantization or "none"
+
+                                # Test each engine class for detailed error info
+                                for engine_class in llm_engine_classes:
+                                    try:
+                                        if hasattr(
+                                            engine_class, "match_json_with_reason"
+                                        ):
+                                            from .llm.match_result import MatchResult
+
+                                            result = (
+                                                engine_class.match_json_with_reason(
+                                                    llm_family, llm_spec, quantization
+                                                )
+                                            )
+                                            if not result.is_match:
+                                                detailed_error = {
+                                                    "error": result.reason,
+                                                    "error_type": result.error_type,
+                                                    "technical_details": result.technical_details,
+                                                }
+                                                break
+                                    except Exception:
+                                        # Fall back to next engine class
+                                        continue
+                        except Exception:
+                            # If we can't get model family, continue with basic checking
+                            pass
+
+                    if detailed_error:
+                        engine_params[engine_name] = detailed_error
+                    else:
+                        # Fallback to basic error checking for backward compatibility
+                        error_msg = None
+                        for engine_class in llm_engine_classes:
+                            try:
+                                if hasattr(engine_class, "check_lib"):
+                                    lib_available: bool = engine_class.check_lib()  # type: ignore[assignment]
+                                    if not lib_available:
+                                        error_msg = {
+                                            "error": f"Engine {engine_name} library is not available",
+                                            "error_type": "dependency_missing",
+                                        }
+                                        break
+                                else:
+                                    # If no check_lib method, try import check
+                                    module_name = engine_name.lower().replace(".", "")
+                                    if engine_name == "vLLM":
+                                        module_name = "vllm"
+                                    elif engine_name == "SGLang":
+                                        module_name = "sglang"
+                                    elif engine_name == "llama.cpp":
+                                        module_name = "llama_cpp"
+                                    elif engine_name == "MLX":
+                                        module_name = "mlx"
+                                    elif engine_name == "LMDEPLOY":
+                                        module_name = "lmdeploy"
+                                    elif engine_name == "Transformers":
+                                        module_name = "transformers"
+
+                                    importlib.import_module(module_name)
                                     break
-                            else:
-                                # If no check_lib method, try import check
-                                module_name = engine_name.lower().replace(".", "")
-                                if engine_name == "vLLM":
-                                    module_name = "vllm"
-                                elif engine_name == "SGLang":
-                                    module_name = "sglang"
-                                elif engine_name == "llama.cpp":
-                                    module_name = "llama_cpp"
-                                elif engine_name == "MLX":
-                                    module_name = "mlx"
-                                elif engine_name == "LMDEPLOY":
-                                    module_name = "lmdeploy"
-                                elif engine_name == "Transformers":
-                                    module_name = "transformers"
+                            except ImportError as e:
+                                error_msg = {
+                                    "error": f"Engine {engine_name} library is not installed: {str(e)}",
+                                    "error_type": "dependency_missing",
+                                }
+                            except Exception as e:
+                                error_msg = {
+                                    "error": f"Engine {engine_name} is not available: {str(e)}",
+                                    "error_type": "configuration_error",
+                                }
 
-                                importlib.import_module(module_name)
-                                break
-                        except ImportError as e:
-                            error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
-                        except Exception as e:
-                            error_msg = (
-                                f"Engine {engine_name} is not available: {str(e)}"
-                            )
+                        if error_msg is None:
+                            error_msg = {
+                                "error": f"Engine {engine_name} is not compatible with current model or environment",
+                                "error_type": "model_compatibility",
+                            }
 
-                    if error_msg is None:
-                        error_msg = f"Engine {engine_name} is not compatible with current model or environment"
-
-                    # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg
+                        engine_params[engine_name] = error_msg
 
                 except Exception as e:
-                    # If exception occurs during checking, return error message string
-                    engine_params[engine_name] = (
-                        f"Error checking engine {engine_name}: {str(e)}"
-                    )
+                    # If exception occurs during checking, return structured error
+                    engine_params[engine_name] = {
+                        "error": f"Error checking engine {engine_name}: {str(e)}",
+                        "error_type": "configuration_error",
+                    }
 
         # Filter out llm_class field
         for engine, params in engine_params.items():

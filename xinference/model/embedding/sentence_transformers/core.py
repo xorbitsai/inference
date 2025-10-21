@@ -439,5 +439,78 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+        from ..match_result import MatchResult
+
+        result = cls.match_json_with_reason(model_family, model_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_json_with_reason(
+        cls,
+        model_family: EmbeddingModelFamilyV2,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability
+        if not cls.check_lib():
+            return MatchResult.failure(
+                reason="Sentence Transformers library is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="sentence_transformers package not found in Python environment",
+            )
+
+        # Check model format compatibility
+        if model_spec.model_format not in ["pytorch"]:
+            return MatchResult.failure(
+                reason=f"Sentence Transformers only supports pytorch format, got: {model_spec.model_format}",
+                error_type=ErrorType.MODEL_FORMAT,
+                technical_details=f"Unsupported format: {model_spec.model_format}, required: pytorch",
+            )
+
+        # Check model dimensions compatibility
+        model_dimensions = model_family.dimensions
+        if model_dimensions > 1536:  # Very large embedding models
+            return MatchResult.failure(
+                reason=f"Large embedding model detected ({model_dimensions} dimensions)",
+                error_type=ErrorType.MODEL_COMPATIBILITY,
+                technical_details=f"Large embedding dimensions: {model_dimensions}",
+            )
+
+        # Check token limits
+        max_tokens = model_family.max_tokens
+        if max_tokens > 8192:  # Very high token limits
+            return MatchResult.failure(
+                reason=f"High token limit model detected (max_tokens: {max_tokens})",
+                error_type=ErrorType.CONFIGURATION_ERROR,
+                technical_details=f"High max_tokens: {max_tokens}",
+            )
+
+        # Check for special model requirements
+        model_name = model_family.model_name.lower()
+
+        # Check Qwen2 GTE models
+        if "gte" in model_name and "qwen2" in model_name:
+            # These models have specific requirements
+            if not hasattr(cls, "_check_qwen_gte_requirements"):
+                return MatchResult.failure(
+                    reason="Qwen2 GTE models require special handling",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                    technical_details="Qwen2 GTE model special requirements",
+                )
+
+        # Check Qwen3 models
+        if "qwen3" in model_name:
+            # Qwen3 has flash attention requirements
+            try:
+                # This would be checked during actual loading
+                pass
+            except Exception:
+                return MatchResult.failure(
+                    reason="Qwen3 embedding model may have compatibility issues",
+                    error_type=ErrorType.VERSION_REQUIREMENT,
+                    technical_details="Qwen3 model compatibility check",
+                )
+
+        return MatchResult.success()
