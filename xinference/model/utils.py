@@ -542,19 +542,24 @@ def get_engine_params_by_name(
                             pass
 
                     if detailed_error:
-                        engine_params[engine_name] = detailed_error
+                        # Convert error dict to string format for consistency
+                        error_parts = [detailed_error.get("error", "Unknown error")]
+                        if detailed_error.get("error_type"):
+                            error_parts.append(f"Type: {detailed_error['error_type']}")
+                        if detailed_error.get("technical_details"):
+                            error_parts.append(
+                                f"Details: {detailed_error['technical_details']}"
+                            )
+                        engine_params[engine_name] = " | ".join(error_parts)
                     else:
                         # Fallback to basic error checking for backward compatibility
-                        error_msg = None
+                        error_msg: Optional[str] = None
                         for engine_class in llm_engine_classes:
                             try:
                                 if hasattr(engine_class, "check_lib"):
                                     lib_available: bool = engine_class.check_lib()  # type: ignore[assignment]
                                     if not lib_available:
-                                        error_msg = {
-                                            "error": f"Engine {engine_name} library is not available",
-                                            "error_type": "dependency_missing",
-                                        }
+                                        error_msg = f"Engine {engine_name} library is not available (Type: dependency_missing)"
                                         break
                                 else:
                                     # If no check_lib method, try import check
@@ -575,30 +580,20 @@ def get_engine_params_by_name(
                                     importlib.import_module(module_name)
                                     break
                             except ImportError as e:
-                                error_msg = {
-                                    "error": f"Engine {engine_name} library is not installed: {str(e)}",
-                                    "error_type": "dependency_missing",
-                                }
+                                error_msg = f"Engine {engine_name} library is not installed: {str(e)} (Type: dependency_missing)"
                             except Exception as e:
-                                error_msg = {
-                                    "error": f"Engine {engine_name} is not available: {str(e)}",
-                                    "error_type": "configuration_error",
-                                }
+                                error_msg = f"Engine {engine_name} is not available: {str(e)} (Type: configuration_error)"
 
                         if error_msg is None:
-                            error_msg = {
-                                "error": f"Engine {engine_name} is not compatible with current model or environment",
-                                "error_type": "model_compatibility",
-                            }
+                            error_msg = f"Engine {engine_name} is not compatible with current model or environment (Type: model_compatibility)"
 
                         engine_params[engine_name] = error_msg
 
                 except Exception as e:
-                    # If exception occurs during checking, return structured error
-                    engine_params[engine_name] = {
-                        "error": f"Error checking engine {engine_name}: {str(e)}",
-                        "error_type": "configuration_error",
-                    }
+                    # If exception occurs during checking, return structured error as string
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)} (Type: configuration_error)"
+                    )
 
         # Filter out llm_class field
         for engine, params in engine_params.items():
@@ -606,7 +601,7 @@ def get_engine_params_by_name(
                 params, list
             ):  # Only process parameter lists of available engines
                 for param in params:
-                    if "llm_class" in param:
+                    if isinstance(param, dict) and "llm_class" in param:
                         del param["llm_class"]
 
         return engine_params
@@ -638,7 +633,7 @@ def get_engine_params_by_name(
             if engine_name not in engine_params:  # Engine not in available list
                 try:
                     embedding_engine_classes = EMBEDDING_SUPPORTED_ENGINES[engine_name]
-                    error_msg = None
+                    embedding_error_msg: Optional[str] = None
 
                     # Try to find specific error reasons
                     for embedding_engine_class in embedding_engine_classes:
@@ -646,7 +641,7 @@ def get_engine_params_by_name(
                             if hasattr(embedding_engine_class, "check_lib"):
                                 embedding_lib_available: bool = embedding_engine_class.check_lib()  # type: ignore[assignment]
                                 if not embedding_lib_available:
-                                    error_msg = (
+                                    embedding_error_msg = (
                                         f"Engine {engine_name} library is not available"
                                     )
                                     break
@@ -671,17 +666,17 @@ def get_engine_params_by_name(
                                 importlib.import_module(module_name)
                                 break
                         except ImportError as e:
-                            error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                            embedding_error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
                         except Exception as e:
-                            error_msg = (
+                            embedding_error_msg = (
                                 f"Engine {engine_name} is not available: {str(e)}"
                             )
 
-                    if error_msg is None:
-                        error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+                    if embedding_error_msg is None:
+                        embedding_error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg
+                    engine_params[engine_name] = embedding_error_msg
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
@@ -695,7 +690,7 @@ def get_engine_params_by_name(
                 params, list
             ):  # Only process parameter lists of available engines
                 for param in params:
-                    if "embedding_class" in param:
+                    if isinstance(param, dict) and "embedding_class" in param:
                         del param["embedding_class"]
 
         return engine_params
@@ -725,7 +720,7 @@ def get_engine_params_by_name(
             if engine_name not in engine_params:  # Engine not in available list
                 try:
                     rerank_engine_classes = RERANK_SUPPORTED_ENGINES[engine_name]
-                    error_msg = None
+                    rerank_error_msg: Optional[str] = None
 
                     # Try to find specific error reasons
                     for rerank_engine_class in rerank_engine_classes:
@@ -733,7 +728,7 @@ def get_engine_params_by_name(
                             if hasattr(rerank_engine_class, "check_lib"):
                                 rerank_lib_available: bool = rerank_engine_class.check_lib()  # type: ignore[assignment]
                                 if not rerank_lib_available:
-                                    error_msg = (
+                                    rerank_error_msg = (
                                         f"Engine {engine_name} library is not available"
                                     )
                                     break
@@ -758,17 +753,17 @@ def get_engine_params_by_name(
                                 importlib.import_module(module_name)
                                 break
                         except ImportError as e:
-                            error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
+                            rerank_error_msg = f"Engine {engine_name} library is not installed: {str(e)}"
                         except Exception as e:
-                            error_msg = (
+                            rerank_error_msg = (
                                 f"Engine {engine_name} is not available: {str(e)}"
                             )
 
-                    if error_msg is None:
-                        error_msg = f"Engine {engine_name} is not compatible with current model or environment"
+                    if rerank_error_msg is None:
+                        rerank_error_msg = f"Engine {engine_name} is not compatible with current model or environment"
 
                     # For unavailable engines, directly return error message string
-                    engine_params[engine_name] = error_msg
+                    engine_params[engine_name] = rerank_error_msg
 
                 except Exception as e:
                     # If exception occurs during checking, return error message string
@@ -782,7 +777,7 @@ def get_engine_params_by_name(
                 params, list
             ):  # Only process parameter lists of available engines
                 for param in params:
-                    if "rerank_class" in param:
+                    if isinstance(param, dict) and "rerank_class" in param:
                         del param["rerank_class"]
 
         return engine_params
