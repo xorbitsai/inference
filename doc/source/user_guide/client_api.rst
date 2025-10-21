@@ -137,6 +137,7 @@ Output:
 
     ChatCompletion(id='chatcmpl-ad2f383f-31c7-47d9-87b7-3abe928e629c', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(loc=94704, type='plus', time=10)\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_ad2f383f-31c7-47d9-87b7-3abe928e629c', function=Function(arguments='{"loc": 94704, "type": "plus", "time": 10}', name='uber_ride'), type='function')]))], created=1704687803, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
 
+.. _anthropic_client:
 
 Anthropic Client
 ========================
