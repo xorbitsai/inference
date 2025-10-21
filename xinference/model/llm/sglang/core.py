@@ -24,6 +24,7 @@ from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
 from xoscar.utils import get_next_port
 
+from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
@@ -342,7 +343,6 @@ class SGLANGModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -728,7 +728,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -860,7 +859,6 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match

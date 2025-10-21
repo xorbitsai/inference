@@ -21,6 +21,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Annotated, Dict, List, Literal, Optional, Union
 
+from .match_result import MatchResult
 from xoscar import extensible
 
 from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError

@@ -42,6 +42,7 @@ import xoscar as xo
 from packaging import version
 from typing_extensions import NotRequired
 
+from ..match_result import MatchResult, ErrorType
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import (
     ChatCompletion,
@@ -881,7 +882,6 @@ class VLLMModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -1460,7 +1460,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -1739,7 +1738,6 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -1748,7 +1746,6 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def match_json_with_reason(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
 
         # Use base class validation first
         base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
@@ -1816,7 +1813,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         if isinstance(llm_family, CustomLLMFamilyV2):
             if not is_vision_model_supported(
-                llm_family.model_family.lower(), VLLM_SUPPORTED_VISION_MODEL_LIST
+                llm_family.model_family.lower()
             ):
                 return MatchResult.failure(
                     reason=f"Custom vision model may not be fully supported by vLLM: {llm_family.model_family}",
@@ -1825,8 +1822,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
         else:
             if not is_vision_model_supported(
-                llm_family.model_name.lower(),
-                [s.lower() for s in VLLM_SUPPORTED_VISION_MODEL_LIST],
+                llm_family.model_name.lower()
             ):
                 return MatchResult.failure(
                     reason=f"Vision model may not be supported by vLLM: {llm_family.model_name}",

@@ -21,6 +21,7 @@ from typing import Iterator, List, Optional, Union
 
 from packaging import version
 
+from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
 from ..core import LLM, chat_context_var
@@ -86,7 +87,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match

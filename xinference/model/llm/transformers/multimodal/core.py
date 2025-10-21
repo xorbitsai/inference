@@ -39,21 +39,18 @@ class PytorchMultiModalModel(PytorchChatModel):
         """
         Update self._device
         """
-        pass
 
     @abstractmethod
     def load_processor(self):
         """
         Load self._processor and self._tokenizer
         """
-        pass
 
     @abstractmethod
     def load_multimodal_model(self):
         """
         Load self._model
         """
-        pass
 
     def load(self):
         self.decide_device()
@@ -71,7 +68,6 @@ class PytorchMultiModalModel(PytorchChatModel):
         actual parameters needed for inference,
         e.g. input_ids, attention_masks, etc.
         """
-        pass
 
     @abstractmethod
     def build_generate_kwargs(
@@ -82,7 +78,6 @@ class PytorchMultiModalModel(PytorchChatModel):
         Hyperparameters needed for generation,
         e.g. temperature, max_new_tokens, etc.
         """
-        pass
 
     @abstractmethod
     def build_streaming_iter(
@@ -95,7 +90,6 @@ class PytorchMultiModalModel(PytorchChatModel):
         The length of prompt token usually comes from the input_ids.
         In this interface you need to call the `build_inputs_from_messages` and `build_generate_kwargs`.
         """
-        pass
 
     def get_stop_strs(self) -> List[str]:
         return []

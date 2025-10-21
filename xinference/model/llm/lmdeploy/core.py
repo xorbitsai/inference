@@ -18,6 +18,7 @@ from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Un
 
 import torch
 
+from ..match_result import MatchResult
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
 from ..core import LLM
 from ..llm_family import LLMFamilyV2, LLMSpecV1
@@ -121,7 +122,6 @@ class LMDeployModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -189,7 +189,6 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match

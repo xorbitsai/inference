@@ -31,7 +31,7 @@ from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV2, LLMSpecV1
-    from .match_result import ErrorType, MatchResult
+    from .match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 

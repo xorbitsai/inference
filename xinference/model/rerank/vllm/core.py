@@ -2,6 +2,7 @@ import importlib.util
 import uuid
 from typing import List, Optional
 
+from ..match_result import MatchResult
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
@@ -149,7 +150,6 @@ class VLLMRerankModel(RerankModel):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(model_family, model_spec, quantization)
         return result.is_match

@@ -24,6 +24,7 @@ from typing import List, Optional, Union
 
 from packaging import version
 
+from ..match_result import MatchResult
 from ....types import Embedding
 from ...batch import BatchMixin
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -239,7 +240,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(model_family, model_spec, quantization)
         return result.is_match

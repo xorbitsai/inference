@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from ..match_result import MatchResult
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import is_flash_attn_available
@@ -341,7 +342,7 @@ class SentenceTransformerRerankModel(RerankModel):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> bool:
-        from ..match_result import MatchResult
+        pass
 
         result = cls.match_json_with_reason(model_family, model_spec, quantization)
         return result.is_match

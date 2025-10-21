@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
+from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....device_utils import (
     get_device_preferred_dtype,
@@ -500,7 +501,6 @@ class PytorchModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match

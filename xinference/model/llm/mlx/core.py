@@ -39,6 +39,7 @@ from typing import (
 
 import xoscar as xo
 
+from ..match_result import MatchResult
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....fields import max_tokens_field
 from ....types import (
@@ -411,7 +412,6 @@ class MLXModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -772,7 +772,6 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
 
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
@@ -858,8 +857,6 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        from ..match_result import MatchResult
-
         result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
 
