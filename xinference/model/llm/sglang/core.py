@@ -145,6 +145,7 @@ class SGLANGModel(LLM):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
+        self.allow_batch = True
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore

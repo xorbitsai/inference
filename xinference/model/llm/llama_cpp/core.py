@@ -48,6 +48,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         llamacpp_model_config: Optional[dict] = None,
     ):
         super().__init__(model_uid, model_family, model_path)
+        self.allow_batch = True
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None

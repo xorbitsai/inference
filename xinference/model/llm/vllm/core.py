@@ -321,6 +321,7 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         super().__init__(model_uid, model_family, model_path)
+        self.allow_batch = True
         self._model_config = model_config
         self._engine = None
         self.lora_modules = peft_model

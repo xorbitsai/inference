@@ -61,6 +61,7 @@ class LLM(abc.ABC):
         self.model_path = model_path
         self.reasoning_parser = None
         self.tool_parser = None
+        self.allow_batch = False
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:
