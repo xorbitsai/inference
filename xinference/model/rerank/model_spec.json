@@ -335,5 +335,36 @@
         }
       }
     ]
+  },
+  {
+    "version": 2,
+    "model_name": "jina-reranker-v3",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh",
+      "multilingual"
+    ],
+    "max_tokens": 131072,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-reranker-v3",
+            "model_revision": "7fa51ea4da62cb1b13ac263a1a41e20962a36c81",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-reranker-v3",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ]
   }
 ]
