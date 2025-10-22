@@ -198,6 +198,11 @@ class RegisterModelRequest(BaseModel):
     persist: bool
 
 
+class AddModelRequest(BaseModel):
+    model_type: str
+    model_json: Dict[str, Any]
+
+
 class BuildGradioInterfaceRequest(BaseModel):
     model_type: str
     model_name: str
@@ -896,6 +901,16 @@ class RESTfulAPI(CancelMixin):
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/models/add",
+            self.add_model,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:add"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -3122,6 +3137,37 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
+
+    async def add_model(self, request: Request) -> JSONResponse:
+        try:
+            # Parse request
+            raw_json = await request.json()
+            logger.info(f"[DEBUG] add_model API received raw JSON: {json.dumps(raw_json, indent=2)}")
+
+            body = AddModelRequest.parse_obj(raw_json)
+            model_type = body.model_type
+            model_json = body.model_json
+
+            logger.info(f"[DEBUG] Parsed request - model_type: {model_type}")
+            logger.info(f"[DEBUG] Parsed request - model_json keys: {list(model_json.keys())}")
+            logger.info(f"[DEBUG] model_name from JSON: {model_json.get('model_name', 'NOT_FOUND')}")
+
+            # Call supervisor
+            supervisor_ref = await self._get_supervisor_ref()
+            logger.info(f"[DEBUG] Got supervisor ref: {supervisor_ref}")
+
+            await supervisor_ref.add_model(model_type, model_json)
+
+            logger.info(f"[DEBUG] Supervisor add_model completed successfully")
+
+        except ValueError as re:
+            logger.error(f"[DEBUG] ValueError in add_model API: {re}", exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(f"[DEBUG] Unexpected error in add_model API: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        return JSONResponse(content={"message": f"Model added successfully for type: {model_type}"})
 
     async def list_model_registrations(
         self, model_type: str, detailed: bool = Query(False)
