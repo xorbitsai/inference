@@ -516,15 +516,11 @@ def get_engine_params_by_name(
                                 # Test each engine class for detailed error info
                                 for engine_class in llm_engine_classes:
                                     try:
-                                        if hasattr(
-                                            engine_class, "match_with_reason"
-                                        ):
+                                        if hasattr(engine_class, "match_with_reason"):
                                             pass
 
-                                            result = (
-                                                engine_class.match_with_reason(
-                                                    llm_family, llm_spec, quantization
-                                                )
+                                            result = engine_class.match_with_reason(
+                                                llm_family, llm_spec, quantization
                                             )
                                             if not result.is_match:
                                                 detailed_error = {
@@ -577,13 +573,9 @@ def get_engine_params_by_name(
                                         test_spec = test_family.model_specs[0]
 
                                         # Use the engine's match method if available
-                                        if hasattr(
-                                            engine_class, "match_with_reason"
-                                        ):
-                                            result = (
-                                                engine_class.match_with_reason(
-                                                    test_family, test_spec, "none"
-                                                )
+                                        if hasattr(engine_class, "match_with_reason"):
+                                            result = engine_class.match_with_reason(
+                                                test_family, test_spec, "none"
                                             )
                                             if result.is_match:
                                                 break  # Engine is available
