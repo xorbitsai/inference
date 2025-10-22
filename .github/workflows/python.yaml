@@ -83,8 +83,6 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: macos-13, python-version: 3.12 }
           - { os: windows-latest, python-version: 3.12 }
-          - { os: macos-13, python-version: 3.13 }
-          - { os: windows-latest, python-version: 3.13 }
         include:
           - { os: self-hosted, module: gpu, python-version: 3.9}
           - { os: macos-latest, module: metal, python-version: "3.10" }
