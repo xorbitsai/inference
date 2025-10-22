@@ -302,6 +302,8 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
 
 
 class VLLMModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -321,7 +323,6 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         super().__init__(model_uid, model_family, model_path)
-        self.allow_batch = True
         self._model_config = model_config
         self._engine = None
         self.lora_modules = peft_model

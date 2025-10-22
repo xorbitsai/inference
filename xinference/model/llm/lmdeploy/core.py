@@ -73,6 +73,8 @@ class LMDeployGenerateConfig(TypedDict, total=False):
 
 
 class LMDeployModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -82,7 +84,6 @@ class LMDeployModel(LLM):
         peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(model_uid, model_family, model_path)
-        self.allow_batch = True
         self._model_config: LMDeployModelConfig = self._sanitize_model_config(
             model_config
         )

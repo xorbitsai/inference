@@ -91,6 +91,8 @@ def register_non_default_model(*model_names: str):
 
 
 class PytorchModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -100,7 +102,6 @@ class PytorchModel(LLM):
         peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(model_uid, model_family, model_path)
-        self.allow_batch = True
         self._use_fast_tokenizer = True
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config

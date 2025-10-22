@@ -45,6 +45,8 @@ def get_llm_version_infos():
 
 
 class LLM(abc.ABC):
+    allow_batch = False
+
     def __init__(
         self,
         replica_model_uid: str,
@@ -61,7 +63,6 @@ class LLM(abc.ABC):
         self.model_path = model_path
         self.reasoning_parser = None
         self.tool_parser = None
-        self.allow_batch = False
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:

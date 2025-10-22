@@ -137,6 +137,8 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 
 
 class SGLANGModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -145,7 +147,6 @@ class SGLANGModel(LLM):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
-        self.allow_batch = True
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
