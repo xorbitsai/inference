@@ -241,11 +241,11 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         quantization: str,
     ) -> bool:
 
-        result = cls.match_json_with_reason(model_family, model_spec, quantization)
+        result = cls.match_with_reason(model_family, model_spec, quantization)
         return result.is_match
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls,
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,

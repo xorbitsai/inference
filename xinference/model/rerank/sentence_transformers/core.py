@@ -344,11 +344,11 @@ class SentenceTransformerRerankModel(RerankModel):
     ) -> bool:
         pass
 
-        result = cls.match_json_with_reason(model_family, model_spec, quantization)
+        result = cls.match_with_reason(model_family, model_spec, quantization)
         return result.is_match
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls,
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,

@@ -499,7 +499,7 @@ def get_engine_params_by_name(
                 try:
                     llm_engine_classes = SUPPORTED_ENGINES[engine_name]
 
-                    # Try to get detailed error information from engine's match_json_with_reason
+                    # Try to get detailed error information from engine's match_with_reason
                     detailed_error = None
 
                     # We need a sample model to test against, use the first available spec
@@ -517,12 +517,12 @@ def get_engine_params_by_name(
                                 for engine_class in llm_engine_classes:
                                     try:
                                         if hasattr(
-                                            engine_class, "match_json_with_reason"
+                                            engine_class, "match_with_reason"
                                         ):
                                             pass
 
                                             result = (
-                                                engine_class.match_json_with_reason(
+                                                engine_class.match_with_reason(
                                                     llm_family, llm_spec, quantization
                                                 )
                                             )
@@ -578,10 +578,10 @@ def get_engine_params_by_name(
 
                                         # Use the engine's match method if available
                                         if hasattr(
-                                            engine_class, "match_json_with_reason"
+                                            engine_class, "match_with_reason"
                                         ):
                                             result = (
-                                                engine_class.match_json_with_reason(
+                                                engine_class.match_with_reason(
                                                     test_family, test_spec, "none"
                                                 )
                                             )

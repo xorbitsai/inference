@@ -883,11 +883,11 @@ class VLLMModel(LLM):
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
 
-        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        result = cls.match_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> "MatchResult":
         from ..match_result import ErrorType, MatchResult
@@ -1461,17 +1461,17 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
 
-        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        result = cls.match_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> "MatchResult":
         from ..match_result import ErrorType, MatchResult
 
         # Use base class validation first
-        base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
+        base_result = super().match_with_reason(llm_family, llm_spec, quantization)
         if not base_result.is_match:
             return base_result
 
@@ -1739,16 +1739,16 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
 
-        result = cls.match_json_with_reason(llm_family, llm_spec, quantization)
+        result = cls.match_with_reason(llm_family, llm_spec, quantization)
         return result.is_match
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> "MatchResult":
 
         # Use base class validation first
-        base_result = super().match_json_with_reason(llm_family, llm_spec, quantization)
+        base_result = super().match_with_reason(llm_family, llm_spec, quantization)
         if not base_result.is_match:
             return base_result
 

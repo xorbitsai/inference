@@ -179,7 +179,7 @@ class EmbeddingModel(abc.ABC):
         pass
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls,
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,

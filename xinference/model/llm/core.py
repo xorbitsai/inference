@@ -161,7 +161,7 @@ class LLM(abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> "MatchResult":
         """
