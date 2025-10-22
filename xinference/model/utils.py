@@ -541,12 +541,10 @@ def get_engine_params_by_name(
                             pass
 
                     if detailed_error:
-                        # Convert error dict to array format with error, type, details fields
-                        engine_params[engine_name] = [
-                            f"error: {detailed_error.get('error') or 'Unknown error'}",
-                            f"type: {detailed_error.get('error_type') or 'unknown'}",
-                            f"details: {detailed_error.get('technical_details') or 'No additional details available'}",
-                        ]
+                        # Return only the error message without engine_name prefix (key already contains engine name)
+                        engine_params[engine_name] = (
+                            detailed_error.get("error") or "Unknown error"
+                        )
                     else:
                         # Fallback to basic error checking for backward compatibility
                         for engine_class in llm_engine_classes:
@@ -590,12 +588,11 @@ def get_engine_params_by_name(
                                             if result.is_match:
                                                 break  # Engine is available
                                             else:
-                                                # Create array format for match method errors
-                                                engine_params[engine_name] = [
-                                                    f"error: Engine {engine_name}: {result.reason}",
-                                                    f"type: {result.error_type or 'model_compatibility'}",
-                                                    f"details: Engine {engine_name} compatibility check failed: {result.reason}",
-                                                ]
+                                                # Return only the error message without engine_name prefix (key already contains engine name)
+                                                engine_params[engine_name] = (
+                                                    result.reason
+                                                    or "Unknown compatibility error"
+                                                )
                                                 break
                                         elif hasattr(engine_class, "match_json"):
                                             # Fallback to simple match method - use test data
@@ -612,49 +609,37 @@ def get_engine_params_by_name(
                                             )
 
                                     except ImportError as e:
-                                        engine_params[engine_name] = [
-                                            f"error: Engine {engine_name} library is not installed: {str(e)}",
-                                            f"type: dependency_missing",
-                                            f"details: Missing required dependency for {engine_name} engine: {str(e)}",
-                                        ]
+                                        engine_params[engine_name] = (
+                                            f"Engine {engine_name} library is not installed: {str(e)}"
+                                        )
                                         break
                                     except Exception as e:
-                                        engine_params[engine_name] = [
-                                            f"error: Engine {engine_name} is not available: {str(e)}",
-                                            f"type: configuration_error",
-                                            f"details: Configuration or environment issue preventing {engine_name} engine from working: {str(e)}",
-                                        ]
+                                        engine_params[engine_name] = (
+                                            f"Engine {engine_name} is not available: {str(e)}"
+                                        )
                                         break
                             except ImportError as e:
-                                engine_params[engine_name] = [
-                                    f"error: Engine {engine_name} library is not installed: {str(e)}",
-                                    f"type: dependency_missing",
-                                    f"details: Missing required dependency for {engine_name} engine: {str(e)}",
-                                ]
+                                engine_params[engine_name] = (
+                                    f"Engine {engine_name} library is not installed: {str(e)}"
+                                )
                                 break
                             except Exception as e:
-                                engine_params[engine_name] = [
-                                    f"error: Engine {engine_name} is not available: {str(e)}",
-                                    f"type: configuration_error",
-                                    f"details: Configuration or environment issue preventing {engine_name} engine from working: {str(e)}",
-                                ]
+                                engine_params[engine_name] = (
+                                    f"Engine {engine_name} is not available: {str(e)}"
+                                )
                                 break
 
                         # Only set default error if not already set by one of the exception handlers
                         if engine_name not in engine_params:
-                            engine_params[engine_name] = [
-                                f"error: Engine {engine_name} is not compatible with current model or environment",
-                                f"type: model_compatibility",
-                                f"details: The {engine_name} engine cannot handle the current model configuration",
-                            ]
+                            engine_params[engine_name] = (
+                                f"Engine {engine_name} is not compatible with current model or environment"
+                            )
 
                 except Exception as e:
-                    # If exception occurs during checking, return structured error as array
-                    engine_params[engine_name] = [
-                        f"error: Error checking engine {engine_name}: {str(e)}",
-                        f"type: configuration_error",
-                        f"details: An unexpected error occurred while checking {engine_name} engine availability: {str(e)}",
-                    ]
+                    # If exception occurs during checking, return simple string format
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
 
         # Filter out llm_class field
         for engine in engine_params.keys():
@@ -781,20 +766,16 @@ def get_engine_params_by_name(
                             "technical_details": f"The {engine_name} engine cannot handle the current embedding model configuration",
                         }
 
-                    # For unavailable engines, format error message as array like LLM
-                    engine_params[engine_name] = [
-                        f"error: {embedding_error_details.get('error') or 'Unknown error'}",
-                        f"type: {embedding_error_details.get('error_type') or 'unknown'}",
-                        f"details: {embedding_error_details.get('technical_details') or 'No additional details available'}",
-                    ]
+                    # For unavailable engines, return simple string format
+                    engine_params[engine_name] = (
+                        embedding_error_details.get("error") or "Unknown error"
+                    )
 
                 except Exception as e:
-                    # If exception occurs during checking, return structured error as array like LLM
-                    engine_params[engine_name] = [
-                        f"error: Error checking engine {engine_name}: {str(e)}",
-                        f"type: configuration_error",
-                        f"details: An unexpected error occurred while checking {engine_name} engine availability: {str(e)}",
-                    ]
+                    # If exception occurs during checking, return simple string format
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
 
         # Filter out embedding_class field
         for engine in engine_params.keys():
@@ -919,20 +900,16 @@ def get_engine_params_by_name(
                             "technical_details": f"The {engine_name} engine cannot handle the current rerank model configuration",
                         }
 
-                    # For unavailable engines, format error message as array like LLM
-                    engine_params[engine_name] = [
-                        f"error: {rerank_error_details.get('error') or 'Unknown error'}",
-                        f"type: {rerank_error_details.get('error_type') or 'unknown'}",
-                        f"details: {rerank_error_details.get('technical_details') or 'No additional details available'}",
-                    ]
+                    # For unavailable engines, return simple string format
+                    engine_params[engine_name] = (
+                        rerank_error_details.get("error") or "Unknown error"
+                    )
 
                 except Exception as e:
-                    # If exception occurs during checking, return structured error as array like LLM
-                    engine_params[engine_name] = [
-                        f"error: Error checking engine {engine_name}: {str(e)}",
-                        f"type: configuration_error",
-                        f"details: An unexpected error occurred while checking {engine_name} engine availability: {str(e)}",
-                    ]
+                    # If exception occurs during checking, return simple string format
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
 
         # Filter out rerank_class field
         for engine in engine_params.keys():
