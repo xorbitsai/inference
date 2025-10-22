@@ -22604,7 +22604,15 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1",
+        "#system_numpy#",
+        "qwen_omni_utils",
+        "soundfile"
+      ]
+    }
   },
   {
     "version": 2,
@@ -22673,6 +22681,14 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1",
+        "#system_numpy#",
+        "qwen_omni_utils",
+        "soundfile"
+      ]
+    }
   }
 ]
