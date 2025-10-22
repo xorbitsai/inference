@@ -172,13 +172,3 @@ msgstr ""
 "对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_"
 "virtualenv>`。"
 
-#~ msgid ""
-#~ "Scenario: You have 2 GPUs and need"
-#~ " 3 replicas Configuration: Replicas=3, "
-#~ "GPUs=2 Result: GPU0 runs 2 instances,"
-#~ " GPU1 runs 1 instance"
-#~ msgstr ""
-#~ "场景: 你有2张GPU，需要3个副本"
-#~ "配置: 副本数=3，GPU数量=2结果:"
-#~ " GPU0运行2个实例，GPU1运行1个实例"
-

@@ -21,7 +21,7 @@ When you have multiple GPU cards, each capable of hosting one model instance, yo
 - 2 GPUs, 2 instances: Each GPU runs one model instance
 - 4 GPUs, 4 instances: Each GPU runs one model instance
 
-.. versionadded:: v1.11.1
+.. versionadded:: v1.12.0
 
 Introduce a new environment variable:
 
