@@ -133,7 +133,7 @@ class RerankModel:
         pass
 
     @classmethod
-    def match_json_with_reason(
+    def match_with_reason(
         cls,
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
