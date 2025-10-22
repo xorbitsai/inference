@@ -45,6 +45,8 @@ def get_llm_version_infos():
 
 
 class LLM(abc.ABC):
+    allow_batch = False
+
     def __init__(
         self,
         replica_model_uid: str,
