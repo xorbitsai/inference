@@ -529,12 +529,21 @@ def get_engine_params_by_name(
                                                     "technical_details": result.technical_details,
                                                 }
                                                 break
-                                    except Exception:
-                                        # Fall back to next engine class
+                                    except Exception as e:
+                                        # Fall back to next engine class with clear error logging
+                                        logger.warning(
+                                            f"Engine class {engine_class.__name__} match_with_reason failed: {e}"
+                                        )
+                                        # Continue to try next engine class, but this is expected behavior for fallback
                                         continue
-                        except Exception:
-                            # If we can't get model family, continue with basic checking
-                            pass
+                        except Exception as e:
+                            # If we can't get model family, fail with clear error
+                            logger.error(
+                                f"Failed to get model family for {model_name} (LLM): {e}"
+                            )
+                            raise RuntimeError(
+                                f"Unable to process LLM model {model_name}: {e}"
+                            )
 
                     if detailed_error:
                         # Return only the error message without engine_name prefix (key already contains engine name)
