@@ -942,8 +942,12 @@ class SupervisorActor(xo.StatelessActor):
             model_type: Type of model (LLM, embedding, image, etc.)
             model_json: JSON configuration for the model
         """
-        logger.info(f"[DEBUG] Supervisor add_model called with model_type: {model_type}")
-        logger.info(f"[DEBUG] Supervisor add_model received JSON with keys: {list(model_json.keys())}")
+        logger.info(
+            f"[DEBUG] Supervisor add_model called with model_type: {model_type}"
+        )
+        logger.info(
+            f"[DEBUG] Supervisor add_model received JSON with keys: {list(model_json.keys())}"
+        )
         logger.info(f"[DEBUG] JSON content: {json.dumps(model_json, indent=2)}")
 
         # Validate model type
@@ -984,6 +988,7 @@ class SupervisorActor(xo.StatelessActor):
 
         # Validate model name format
         from ..model.utils import is_valid_model_name
+
         model_name = model_json["model_name"]
         logger.info(f"[DEBUG] Validating model name: {model_name}")
 
@@ -1004,16 +1009,22 @@ class SupervisorActor(xo.StatelessActor):
 
         # Parse the JSON into the appropriate model spec
         try:
-            logger.info(f"[DEBUG] Attempting to parse converted JSON with {model_spec_cls}")
+            logger.info(
+                f"[DEBUG] Attempting to parse converted JSON with {model_spec_cls}"
+            )
             model_spec = model_spec_cls.parse_obj(converted_model_json)
-            logger.info(f"[DEBUG] JSON parsing successful, model_spec created: {model_spec}")
+            logger.info(
+                f"[DEBUG] JSON parsing successful, model_spec created: {model_spec}"
+            )
         except Exception as e:
             logger.error(f"[DEBUG] JSON parsing failed: {e}", exc_info=True)
             raise ValueError(f"Invalid model JSON format: {str(e)}")
 
         # Check if model already exists
         try:
-            logger.info(f"[DEBUG] Checking if model '{model_spec.model_name}' already exists")
+            logger.info(
+                f"[DEBUG] Checking if model '{model_spec.model_name}' already exists"
+            )
             existing_model = await self.get_model_registration(
                 model_type, model_spec.model_name
             )
@@ -1038,7 +1049,10 @@ class SupervisorActor(xo.StatelessActor):
                 logger.error(f"[DEBUG] ValueError during model existence check: {e}")
                 raise e
         except Exception as ex:
-            logger.error(f"[DEBUG] Unexpected error checking model registration for '{model_spec.model_name}': {ex}", exc_info=True)
+            logger.error(
+                f"[DEBUG] Unexpected error checking model registration for '{model_spec.model_name}': {ex}",
+                exc_info=True,
+            )
             raise ValueError(f"Failed to validate model registration: {str(ex)}")
 
         # Register the model (persist=True for adding models)
@@ -1066,12 +1080,16 @@ class SupervisorActor(xo.StatelessActor):
 
             if not is_local:
                 logger.info(f"[DEBUG] Syncing model to workers")
+                # Convert back to JSON string for sync compatibility
+                model_json_str = json.dumps(converted_model_json)
                 await self._sync_register_model(
-                    model_type, converted_model_json, True, model_spec.model_name
+                    model_type, model_json_str, True, model_spec.model_name
                 )
                 logger.info(f"[DEBUG] Model synced to workers successfully")
 
-            logger.info(f"Successfully added model '{model_spec.model_name}' (type: {model_type})")
+            logger.info(
+                f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
+            )
             logger.info(f"[DEBUG] add_model process completed successfully")
 
         except ValueError as e:
@@ -1080,14 +1098,19 @@ class SupervisorActor(xo.StatelessActor):
             raise e
         except Exception as e:
             # Unexpected errors - attempt cleanup
-            logger.error(f"[DEBUG] Unexpected error during model registration: {e}", exc_info=True)
+            logger.error(
+                f"[DEBUG] Unexpected error during model registration: {e}",
+                exc_info=True,
+            )
             try:
                 logger.info(f"[DEBUG] Attempting cleanup of failed registration")
                 unregister_fn(model_spec.model_name, raise_error=False)
                 logger.info(f"[DEBUG] Cleanup completed successfully")
             except Exception as cleanup_error:
                 logger.warning(f"[DEBUG] Cleanup failed: {cleanup_error}")
-            raise ValueError(f"Failed to register model '{model_spec.model_name}': {str(e)}")
+            raise ValueError(
+                f"Failed to register model '{model_spec.model_name}': {str(e)}"
+            )
 
     def _convert_model_json_format(self, model_json: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1106,10 +1129,14 @@ class SupervisorActor(xo.StatelessActor):
                 break
 
         if not needs_conversion:
-            logger.info(f"[DEBUG] No conversion needed, JSON is already in expected format")
+            logger.info(
+                f"[DEBUG] No conversion needed, JSON is already in expected format"
+            )
             return model_json
 
-        logger.info(f"[DEBUG] Converting model_src nested structure to flattened format")
+        logger.info(
+            f"[DEBUG] Converting model_src nested structure to flattened format"
+        )
 
         converted = model_json.copy()
         converted_specs = []
@@ -1135,7 +1162,9 @@ class SupervisorActor(xo.StatelessActor):
                 hf_info = model_src["huggingface"]
                 quantizations = hf_info.get("quantizations", ["none"])
 
-                logger.info(f"[DEBUG] Found {len(quantizations)} quantizations for {model_format}")
+                logger.info(
+                    f"[DEBUG] Found {len(quantizations)} quantizations for {model_format}"
+                )
 
                 # Create separate specs for each quantization
                 for quant in quantizations:
@@ -1157,11 +1186,15 @@ class SupervisorActor(xo.StatelessActor):
                         if "model_id" in hf_info:
                             converted_spec["model_id"] = hf_info["model_id"]
                         if "model_file_name_template" in hf_info:
-                            converted_spec["model_file_name_template"] = hf_info["model_file_name_template"]
+                            converted_spec["model_file_name_template"] = hf_info[
+                                "model_file_name_template"
+                            ]
                         else:
                             # Default template
                             model_name = model_json["model_name"]
-                            converted_spec["model_file_name_template"] = f"{model_name}-{{quantization}}.gguf"
+                            converted_spec["model_file_name_template"] = (
+                                f"{model_name}-{{quantization}}.gguf"
+                            )
                     elif model_format in ["pytorch", "mlx"]:
                         if "model_id" in hf_info:
                             converted_spec["model_id"] = hf_info["model_id"]
@@ -1193,7 +1226,9 @@ class SupervisorActor(xo.StatelessActor):
 
             else:
                 # Unknown model source, skip or handle as error
-                logger.warning(f"[DEBUG] Unknown model source in spec: {list(model_src.keys())}")
+                logger.warning(
+                    f"[DEBUG] Unknown model source in spec: {list(model_src.keys())}"
+                )
                 # Keep original spec but add required fields
                 converted_spec = spec.copy()
                 if "quantization" not in converted_spec:
@@ -1201,7 +1236,9 @@ class SupervisorActor(xo.StatelessActor):
                 converted_specs.append(converted_spec)
 
         converted["model_specs"] = converted_specs
-        logger.info(f"[DEBUG] Conversion completed: {len(model_json['model_specs'])} -> {len(converted_specs)} specs")
+        logger.info(
+            f"[DEBUG] Conversion completed: {len(model_json['model_specs'])} -> {len(converted_specs)} specs"
+        )
 
         return converted
 
