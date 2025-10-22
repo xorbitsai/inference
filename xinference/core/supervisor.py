@@ -942,26 +942,14 @@ class SupervisorActor(xo.StatelessActor):
             model_type: Type of model (LLM, embedding, image, etc.)
             model_json: JSON configuration for the model
         """
-        logger.info(
-            f"[DEBUG] Supervisor add_model called with model_type: {model_type}"
-        )
-        logger.info(
-            f"[DEBUG] Supervisor add_model received JSON with keys: {list(model_json.keys())}"
-        )
-        logger.info(f"[DEBUG] JSON content: {json.dumps(model_json, indent=2)}")
-
         # Validate model type
         supported_types = list(self._custom_register_type_to_cls.keys())
-        logger.info(f"[DEBUG] Supported model types: {supported_types}")
 
         if model_type not in self._custom_register_type_to_cls:
-            logger.error(f"[DEBUG] Unsupported model type: {model_type}")
             raise ValueError(
                 f"Unsupported model type '{model_type}'. "
                 f"Supported types are: {', '.join(supported_types)}"
             )
-
-        logger.info(f"[DEBUG] Model type validation passed for: {model_type}")
 
         # Get the appropriate model class and register function
         (
@@ -971,143 +959,85 @@ class SupervisorActor(xo.StatelessActor):
             generate_fn,
         ) = self._custom_register_type_to_cls[model_type]
 
-        logger.info(f"[DEBUG] Got model spec class: {model_spec_cls}")
-        logger.info(f"[DEBUG] Got register function: {register_fn}")
-        logger.info(f"[DEBUG] Got unregister function: {unregister_fn}")
-        logger.info(f"[DEBUG] Got generate function: {generate_fn}")
-
-        # Validate required fields
-        required_fields = ["model_name", "model_specs"]
-        logger.info(f"[DEBUG] Checking required fields: {required_fields}")
-
+        # Validate required fields (only model_name is required)
+        required_fields = ["model_name"]
         for field in required_fields:
             if field not in model_json:
-                logger.error(f"[DEBUG] Missing required field: {field}")
                 raise ValueError(f"Missing required field: {field}")
-            logger.info(f"[DEBUG] Field {field} found: {type(model_json[field])}")
-
         # Validate model name format
         from ..model.utils import is_valid_model_name
 
         model_name = model_json["model_name"]
-        logger.info(f"[DEBUG] Validating model name: {model_name}")
 
         if not is_valid_model_name(model_name):
-            logger.error(f"[DEBUG] Invalid model name format: {model_name}")
             raise ValueError(f"Invalid model name format: {model_name}")
-
-        logger.info(f"[DEBUG] Model name validation passed")
 
         # Convert model hub JSON format to Xinference expected format
         try:
-            logger.info(f"[DEBUG] Converting model JSON format if needed...")
             converted_model_json = self._convert_model_json_format(model_json)
-            logger.info(f"[DEBUG] JSON conversion completed successfully")
         except Exception as e:
-            logger.error(f"[DEBUG] JSON conversion failed: {e}", exc_info=True)
             raise ValueError(f"Failed to convert model JSON format: {str(e)}")
 
         # Parse the JSON into the appropriate model spec
         try:
-            logger.info(
-                f"[DEBUG] Attempting to parse converted JSON with {model_spec_cls}"
-            )
             model_spec = model_spec_cls.parse_obj(converted_model_json)
-            logger.info(
-                f"[DEBUG] JSON parsing successful, model_spec created: {model_spec}"
-            )
         except Exception as e:
-            logger.error(f"[DEBUG] JSON parsing failed: {e}", exc_info=True)
             raise ValueError(f"Invalid model JSON format: {str(e)}")
 
         # Check if model already exists
         try:
-            logger.info(
-                f"[DEBUG] Checking if model '{model_spec.model_name}' already exists"
-            )
             existing_model = await self.get_model_registration(
                 model_type, model_spec.model_name
             )
-            logger.info(f"[DEBUG] Existing model check result: {existing_model}")
 
             if existing_model is not None:
-                logger.error(f"[DEBUG] Model already exists: {model_spec.model_name}")
                 raise ValueError(
                     f"Model '{model_spec.model_name}' already exists for type '{model_type}'. "
                     f"Please choose a different model name or remove the existing model first."
                 )
 
-            logger.info(f"[DEBUG] Model does not exist, can proceed with registration")
-
         except ValueError as e:
             if "not found" in str(e):
                 # Model doesn't exist, we can proceed
-                logger.info(f"[DEBUG] Model not found (expected): {e}")
                 pass
             else:
                 # Re-raise validation errors
-                logger.error(f"[DEBUG] ValueError during model existence check: {e}")
                 raise e
         except Exception as ex:
-            logger.error(
-                f"[DEBUG] Unexpected error checking model registration for '{model_spec.model_name}': {ex}",
-                exc_info=True,
-            )
             raise ValueError(f"Failed to validate model registration: {str(ex)}")
 
         # Register the model (persist=True for adding models)
         try:
-            logger.info(f"[DEBUG] Starting model registration process")
-            logger.info(f"[DEBUG] Calling register_fn with persist=True")
-
             register_fn(model_spec, persist=True)
-            logger.info(f"[DEBUG] register_fn completed successfully")
 
             # Record model version
-            logger.info(f"[DEBUG] Generating version info")
             version_info = generate_fn(model_spec)
-            logger.info(f"[DEBUG] Version info generated: {version_info}")
-
-            logger.info(f"[DEBUG] Recording model version to cache tracker")
             await self._cache_tracker_ref.record_model_version(
                 version_info, self.address
             )
-            logger.info(f"[DEBUG] Model version recorded successfully")
 
             # Sync to workers if not local deployment
             is_local = self.is_local_deployment()
-            logger.info(f"[DEBUG] Is local deployment: {is_local}")
-
             if not is_local:
-                logger.info(f"[DEBUG] Syncing model to workers")
                 # Convert back to JSON string for sync compatibility
                 model_json_str = json.dumps(converted_model_json)
                 await self._sync_register_model(
                     model_type, model_json_str, True, model_spec.model_name
                 )
-                logger.info(f"[DEBUG] Model synced to workers successfully")
 
             logger.info(
                 f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
             )
-            logger.info(f"[DEBUG] add_model process completed successfully")
 
         except ValueError as e:
             # Validation errors - don't need cleanup as model wasn't registered
-            logger.error(f"[DEBUG] Validation error during model registration: {e}")
             raise e
         except Exception as e:
             # Unexpected errors - attempt cleanup
-            logger.error(
-                f"[DEBUG] Unexpected error during model registration: {e}",
-                exc_info=True,
-            )
             try:
-                logger.info(f"[DEBUG] Attempting cleanup of failed registration")
                 unregister_fn(model_spec.model_name, raise_error=False)
-                logger.info(f"[DEBUG] Cleanup completed successfully")
             except Exception as cleanup_error:
-                logger.warning(f"[DEBUG] Cleanup failed: {cleanup_error}")
+                logger.warning(f"Cleanup failed: {cleanup_error}")
             raise ValueError(
                 f"Failed to register model '{model_spec.model_name}': {str(e)}"
             )
@@ -1118,8 +1048,22 @@ class SupervisorActor(xo.StatelessActor):
 
         The input format uses nested 'model_src' structure, but Xinference expects
         flattened fields at the spec level.
+
+        Also handles cases where model_specs field is missing by providing a default.
         """
-        logger.info(f"[DEBUG] Starting JSON format conversion")
+        # If model_specs is missing, provide a default minimal spec
+        if "model_specs" not in model_json or not model_json["model_specs"]:
+            # Create a minimal default spec
+            return {
+                **model_json,
+                "model_specs": [
+                    {
+                        "model_format": "pytorch",
+                        "model_size_in_billions": None,
+                        "quantization": "none",
+                    }
+                ],
+            }
 
         # Check if conversion is needed (detect model_src structure)
         needs_conversion = False
@@ -1129,14 +1073,7 @@ class SupervisorActor(xo.StatelessActor):
                 break
 
         if not needs_conversion:
-            logger.info(
-                f"[DEBUG] No conversion needed, JSON is already in expected format"
-            )
             return model_json
-
-        logger.info(
-            f"[DEBUG] Converting model_src nested structure to flattened format"
-        )
 
         converted = model_json.copy()
         converted_specs = []
@@ -1144,8 +1081,6 @@ class SupervisorActor(xo.StatelessActor):
         for spec in model_json["model_specs"]:
             model_format = spec["model_format"]
             model_size = spec["model_size_in_billions"]
-
-            logger.info(f"[DEBUG] Processing spec: {model_format} - {model_size}B")
 
             if "model_src" not in spec:
                 # No model_src, keep spec as is but ensure required fields
@@ -1161,10 +1096,6 @@ class SupervisorActor(xo.StatelessActor):
             if "huggingface" in model_src:
                 hf_info = model_src["huggingface"]
                 quantizations = hf_info.get("quantizations", ["none"])
-
-                logger.info(
-                    f"[DEBUG] Found {len(quantizations)} quantizations for {model_format}"
-                )
 
                 # Create separate specs for each quantization
                 for quant in quantizations:
@@ -1202,7 +1133,6 @@ class SupervisorActor(xo.StatelessActor):
                             converted_spec["model_revision"] = hf_info["model_revision"]
 
                     converted_specs.append(converted_spec)
-                    logger.debug(f"[DEBUG] Created spec: {model_format} - {quant}")
 
             elif "modelscope" in model_src:
                 # Handle ModelScope similarly
@@ -1227,7 +1157,7 @@ class SupervisorActor(xo.StatelessActor):
             else:
                 # Unknown model source, skip or handle as error
                 logger.warning(
-                    f"[DEBUG] Unknown model source in spec: {list(model_src.keys())}"
+                    f"Unknown model source in spec: {list(model_src.keys())}"
                 )
                 # Keep original spec but add required fields
                 converted_spec = spec.copy()
@@ -1236,9 +1166,6 @@ class SupervisorActor(xo.StatelessActor):
                 converted_specs.append(converted_spec)
 
         converted["model_specs"] = converted_specs
-        logger.info(
-            f"[DEBUG] Conversion completed: {len(model_json['model_specs'])} -> {len(converted_specs)} specs"
-        )
 
         return converted
 

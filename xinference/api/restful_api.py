@@ -3142,37 +3142,20 @@ class RESTfulAPI(CancelMixin):
         try:
             # Parse request
             raw_json = await request.json()
-            logger.info(
-                f"[DEBUG] add_model API received raw JSON: {json.dumps(raw_json, indent=2)}"
-            )
 
             body = AddModelRequest.parse_obj(raw_json)
             model_type = body.model_type
             model_json = body.model_json
 
-            logger.info(f"[DEBUG] Parsed request - model_type: {model_type}")
-            logger.info(
-                f"[DEBUG] Parsed request - model_json keys: {list(model_json.keys())}"
-            )
-            logger.info(
-                f"[DEBUG] model_name from JSON: {model_json.get('model_name', 'NOT_FOUND')}"
-            )
-
             # Call supervisor
             supervisor_ref = await self._get_supervisor_ref()
-            logger.info(f"[DEBUG] Got supervisor ref: {supervisor_ref}")
-
             await supervisor_ref.add_model(model_type, model_json)
 
-            logger.info(f"[DEBUG] Supervisor add_model completed successfully")
-
         except ValueError as re:
-            logger.error(f"[DEBUG] ValueError in add_model API: {re}", exc_info=True)
+            logger.error(f"ValueError in add_model API: {re}", exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
-            logger.error(
-                f"[DEBUG] Unexpected error in add_model API: {e}", exc_info=True
-            )
+            logger.error(f"Unexpected error in add_model API: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
         return JSONResponse(
