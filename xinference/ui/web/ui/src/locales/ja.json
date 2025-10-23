@@ -127,26 +127,19 @@
     "mustBeUnique": "{{key}} は一意でなければなりません",
     "addModel": "モデルを追加",
     "addModelDialog": {
-      "introPrefix": "モデルを追加するには",
-      "platformLinkText": "モデル管理プラットフォーム",
-      "introSuffix": "に基づき、対応するURLを入力してください",
-      "example": "例：{{modelName}} のモデル管理プラットフォーム上のURLは {{modelUrl}} です",
-      "urlLabel": "URL"
+      "introPrefix": "モデルを追加するには、",
+      "platformLinkText": "Xinference モデルセンター",
+      "introSuffix": "で対応するモデル名を入力してください。",
+      "modelName": "モデル名",
+      "modelName.tip": "モデル名を入力してください",
+      "placeholder": "例：qwen3（大文字と小文字を区別します）"
     },
-    "loginDialog": {
-      "title": "このモデルをダウンロードする権限がありません。ログイン後に再度お試しください",
-      "usernameOrEmail": "ユーザー名またはメールアドレス",
-      "password": "パスワード",
-      "login": "ログイン"
-    },
+    "update": "更新",
     "error": {
-      "cannotExtractModelId": "URLから model_id を抽出できません。入力内容を確認してください",
-      "downloadFailed": "ダウンロード失敗: {{status}} {{text}}",
-      "requestFailed": "リクエスト失敗",
-      "loginFailedText": "ログイン失敗: {{status}} {{text}}",
-      "noTokenAfterLogin": "ログインは成功しましたが、トークンを取得できませんでした",
-      "modelPrivate": "このモデルは非公開であり、ダウンロード権限が必要です。",
-      "noPermissionAfterLogin": "このアカウントにはモデルをダウンロードする権限がありません。管理者に連絡するか、別のアカウントを使用してください。"
+      "name_not_matched": "完全に一致するモデル名が見つかりません（大文字と小文字を区別します）",
+      "downloadFailed": "ダウンロードに失敗しました",
+      "requestFailed": "リクエストに失敗しました",
+      "json_parse_error": "JSON の解析に失敗しました"
     }
   },
 
