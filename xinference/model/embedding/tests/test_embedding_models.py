@@ -256,13 +256,17 @@ def test_register_fault_embedding():
     found_warning = False
     for warning in record:
         message = str(warning.message)
-        if ("has error" in message and
-            "Invalid model URI" in message and
-            "/new_data/cache/gte-Qwen2" in message):
+        if (
+            "has error" in message
+            and "Invalid model URI" in message
+            and "/new_data/cache/gte-Qwen2" in message
+        ):
             found_warning = True
             break
 
-    assert found_warning, f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
+    assert (
+        found_warning
+    ), f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
 
 
 def test_convert_ids_to_tokens():
