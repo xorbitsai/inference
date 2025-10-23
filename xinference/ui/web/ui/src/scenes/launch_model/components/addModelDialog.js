@@ -88,7 +88,7 @@ function AddModelDialog({ open, onClose }) {
       const res = await fetch(endPoint + '/v1/models/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_type: modelType, model_json: modelJson}),
+        body: JSON.stringify({ model_type: modelType, model_json: modelJson }),
       })
       const rawText = await res.text().catch(() => '')
       if (!res.ok) {
@@ -180,7 +180,12 @@ function AddModelDialog({ open, onClose }) {
         <Button onClick={onClose} disabled={loading}>
           {t('launchModel.cancel')}
         </Button>
-        <Button autoFocus type="submit" form="subscription-form" disabled={loading}>
+        <Button
+          autoFocus
+          type="submit"
+          form="subscription-form"
+          disabled={loading}
+        >
           {t('launchModel.confirm')}
         </Button>
       </DialogActions>

@@ -66,7 +66,7 @@ const LaunchModel = () => {
 
   const downloadModels = () => {
     setLoading(true)
-    console.log('modelType', modelType);
+    console.log('modelType', modelType)
   }
 
   return (
@@ -99,11 +99,13 @@ const LaunchModel = () => {
               value="/launch_model/custom/llm"
             />
           </TabList>
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
             <Box sx={{ display: 'flex', gap: 0 }}>
               <Select
                 value={modelType}
