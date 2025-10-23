@@ -249,9 +249,20 @@ def test_register_fault_embedding():
 
     with pytest.warns(UserWarning) as record:
         _install()
-    assert any(
-        "Invalid model URI /new_data/cache/gte-Qwen2" in str(r.message) for r in record
-    )
+
+    # Check for warning message containing the invalid model URI error
+    # The warning format is: "{user_defined_embedding_dir}/{f} has error, {e}"
+    # where e contains the ValueError message
+    found_warning = False
+    for warning in record:
+        message = str(warning.message)
+        if ("has error" in message and
+            "Invalid model URI" in message and
+            "/new_data/cache/gte-Qwen2" in message):
+            found_warning = True
+            break
+
+    assert found_warning, f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
 
 
 def test_convert_ids_to_tokens():
