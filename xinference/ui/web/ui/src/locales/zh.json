@@ -128,25 +128,18 @@
     "addModel": "添加模型",
     "addModelDialog": {
       "introPrefix": "添加模型需基于",
-      "platformLinkText": "模型管理平台",
-      "introSuffix": "，填写模型对应的 URL",
-      "example": "例：{{modelName}}在模型管理平台上对应的 URL 如下 {{modelUrl}}",
-      "urlLabel": "URL"
+      "platformLinkText": "Xinference 模型中心",
+      "introSuffix": "，填写模型对应的名称",
+      "modelName": "模型名称",
+      "modelName.tip": "请输入模型名称",
+      "placeholder": "例如：qwen3（需大小写完全匹配）"
     },
-    "loginDialog": {
-      "title": "暂无权限下载该模型，登录后重新尝试下载",
-      "usernameOrEmail": "用户名或邮箱",
-      "password": "密码",
-      "login": "登录"
-    },
+    "update": "更新",
     "error": {
-      "cannotExtractModelId": "无法从 URL 中提取 model_id，请检查输入",
-      "downloadFailed": "下载失败: {{status}} {{text}}",
+      "name_not_matched": "未找到完全匹配的模型名称（需大小写一致）",
+      "downloadFailed": "下载失败",
       "requestFailed": "请求失败",
-      "loginFailedText": "登录失败: {{status}} {{text}}",
-      "noTokenAfterLogin": "登录成功但未获取到 token",
-      "modelPrivate": "该模型为私有，需要具有下载权限。",
-      "noPermissionAfterLogin": "该登录账户暂无权限下载该模型，请联系管理员或更换账户。"
+      "json_parse_error": "JSON 解析失败"
     }
   },
 

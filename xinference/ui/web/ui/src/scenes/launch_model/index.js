@@ -1,6 +1,6 @@
 import Add from '@mui/icons-material/Add'
-import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Box, Button, Tab } from '@mui/material'
+import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab'
+import { Box, Button, MenuItem, Select, Tab } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
@@ -25,6 +25,8 @@ const LaunchModel = () => {
   )
   const [gpuAvailable, setGPUAvailable] = useState(-1)
   const [open, setOpen] = useState(false)
+  const [modelType, setModelType] = useState('llm')
+  const [loading, setLoading] = useState(false)
 
   const { setErrorMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
@@ -62,6 +64,11 @@ const LaunchModel = () => {
     }
   }, [cookie.token])
 
+  const downloadModels = () => {
+    setLoading(true)
+    console.log('modelType', modelType);
+  }
+
   return (
     <Box m="20px">
       <Title title={t('menu.launchModel')} />
@@ -92,13 +99,51 @@ const LaunchModel = () => {
               value="/launch_model/custom/llm"
             />
           </TabList>
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={() => setOpen(true)}
-          >
-            {t('launchModel.addModel')}
-          </Button>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <Box sx={{ display: 'flex', gap: 0 }}>
+              <Select
+                value={modelType}
+                onChange={(e) => setModelType(e.target.value)}
+                size="small"
+                sx={{
+                  borderTopRightRadius: 0,
+                  borderBottomRightRadius: 0,
+                  minWidth: 100,
+                }}
+              >
+                <MenuItem value="llm">LLM</MenuItem>
+                <MenuItem value="embedding">Embedding</MenuItem>
+                <MenuItem value="rerank">Rerank</MenuItem>
+                <MenuItem value="image">Image</MenuItem>
+                <MenuItem value="audio">Audio</MenuItem>
+                <MenuItem value="video">Video</MenuItem>
+              </Select>
+
+              <LoadingButton
+                variant="contained"
+                onClick={downloadModels}
+                loading={loading}
+                sx={{
+                  borderTopLeftRadius: 0,
+                  borderBottomLeftRadius: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t('launchModel.update')}
+              </LoadingButton>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => setOpen(true)}
+            >
+              {t('launchModel.addModel')}
+            </Button>
+          </Box>
         </Box>
         <TabPanel value="/launch_model/llm" sx={{ padding: 0 }}>
           <LaunchModelComponent
