@@ -1079,14 +1079,16 @@ class SupervisorActor(xo.StatelessActor):
         converted_specs = []
 
         for spec in model_json["model_specs"]:
-            model_format = spec["model_format"]
-            model_size = spec["model_size_in_billions"]
+            model_format = spec.get("model_format", "pytorch")
+            model_size = spec.get("model_size_in_billions")
 
             if "model_src" not in spec:
                 # No model_src, keep spec as is but ensure required fields
                 converted_spec = spec.copy()
                 if "quantization" not in converted_spec:
-                    converted_spec["quantization"] = "none"  # Default
+                    converted_spec["quantization"] = "none"
+                if "model_format" not in converted_spec:
+                    converted_spec["model_format"] = "pytorch"
                 converted_specs.append(converted_spec)
                 continue
 
@@ -1163,6 +1165,8 @@ class SupervisorActor(xo.StatelessActor):
                 converted_spec = spec.copy()
                 if "quantization" not in converted_spec:
                     converted_spec["quantization"] = "none"
+                if "model_format" not in converted_spec:
+                    converted_spec["model_format"] = "pytorch"
                 converted_specs.append(converted_spec)
 
         converted["model_specs"] = converted_specs
