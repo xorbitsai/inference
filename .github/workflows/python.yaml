@@ -169,6 +169,8 @@ jobs:
         working-directory: .
 
       - name: Clean up disk
+        if: |
+          (startsWith(matrix.os, 'ubuntu'))
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
