@@ -187,6 +187,7 @@ jobs:
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
+          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
         run: |
           if [ "$MODULE" == "gpu" ]; then
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio]"
