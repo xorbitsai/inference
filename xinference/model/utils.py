@@ -472,44 +472,454 @@ class CancellableDownloader:
 
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
-) -> Optional[Dict[str, List[dict]]]:
+) -> Optional[Dict[str, Union[List[Dict[str, Any]], str]]]:
+    engine_params: Dict[str, Union[List[Dict[str, Any]], str]] = {}
+
     if model_type == "LLM":
-        from .llm.llm_family import LLM_ENGINES
+        from .llm.llm_family import LLM_ENGINES, SUPPORTED_ENGINES
 
         if model_name not in LLM_ENGINES:
             return None
 
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine, params in engine_params.items():
+        # Get all supported engines, not just currently available ones
+        all_supported_engines = list(SUPPORTED_ENGINES.keys())
+
+        # First add currently available engine parameters
+        available_engines = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in available_engines.items():
             for param in params:
-                del param["llm_class"]
+                # Remove previous available attribute as available engines don't need this flag
+                if "available" in param:
+                    del param["available"]
+            engine_params[engine] = params
+
+        # Check unavailable engines with detailed error information
+        for engine_name in all_supported_engines:
+            if engine_name not in engine_params:  # Engine not in available list
+                try:
+                    llm_engine_classes = SUPPORTED_ENGINES[engine_name]
+
+                    # Try to get detailed error information from engine's match_with_reason
+                    detailed_error = None
+
+                    # We need a sample model to test against, use the first available spec
+                    if model_name in LLM_ENGINES and LLM_ENGINES[model_name]:
+                        # Try to get model family for testing
+                        try:
+                            from .llm.llm_family import match_llm
+
+                            llm_family = match_llm(model_name, None, None, None, None)
+                            if llm_family and llm_family.model_specs:
+                                llm_spec = llm_family.model_specs[0]
+                                quantization = llm_spec.quantization or "none"
+
+                                # Test each engine class for detailed error info
+                                for engine_class in llm_engine_classes:
+                                    try:
+                                        if hasattr(engine_class, "match_with_reason"):
+                                            pass
+
+                                            result = engine_class.match_with_reason(
+                                                llm_family, llm_spec, quantization
+                                            )
+                                            if not result.is_match:
+                                                detailed_error = {
+                                                    "error": result.reason,
+                                                    "error_type": result.error_type,
+                                                    "technical_details": result.technical_details,
+                                                }
+                                                break
+                                    except Exception as e:
+                                        # Fall back to next engine class with clear error logging
+                                        logger.warning(
+                                            f"Engine class {engine_class.__name__} match_with_reason failed: {e}"
+                                        )
+                                        # Continue to try next engine class, but this is expected behavior for fallback
+                                        continue
+                        except Exception as e:
+                            # If we can't get model family, fail with clear error
+                            logger.error(
+                                f"Failed to get model family for {model_name} (LLM): {e}"
+                            )
+                            raise RuntimeError(
+                                f"Unable to process LLM model {model_name}: {e}"
+                            )
+
+                    if detailed_error:
+                        # Return only the error message without engine_name prefix (key already contains engine name)
+                        engine_params[engine_name] = (
+                            detailed_error.get("error") or "Unknown error"
+                        )
+                    else:
+                        # Fallback to basic error checking for backward compatibility
+                        for engine_class in llm_engine_classes:
+                            try:
+                                if hasattr(engine_class, "check_lib"):
+                                    lib_available: bool = engine_class.check_lib()  # type: ignore[assignment]
+                                    if not lib_available:
+                                        break
+                                else:
+                                    # If no check_lib method, try to use engine's match method for compatibility check
+                                    # This provides more detailed and accurate error information
+                                    try:
+                                        # Create a minimal test spec if we don't have real model specs
+                                        from .llm.llm_family import (
+                                            LLMFamilyV2,
+                                            PytorchLLMSpecV2,
+                                        )
+
+                                        # Create a minimal test case
+                                        test_family = LLMFamilyV2(
+                                            model_name="test",
+                                            model_family="test",
+                                            model_specs=[
+                                                PytorchLLMSpecV2(
+                                                    model_format="pytorch",
+                                                    quantization="none",
+                                                )
+                                            ],
+                                        )
+                                        test_spec = test_family.model_specs[0]
+
+                                        # Use the engine's match method if available
+                                        if hasattr(engine_class, "match_with_reason"):
+                                            result = engine_class.match_with_reason(
+                                                test_family, test_spec, "none"
+                                            )
+                                            if result.is_match:
+                                                break  # Engine is available
+                                            else:
+                                                # Return only the error message without engine_name prefix (key already contains engine name)
+                                                engine_params[engine_name] = (
+                                                    result.reason
+                                                    or "Unknown compatibility error"
+                                                )
+                                                break
+                                        elif hasattr(engine_class, "match_json"):
+                                            # Fallback to simple match method - use test data
+                                            if engine_class.match_json(
+                                                test_family, test_spec, "none"
+                                            ):
+                                                break
+                                            else:
+                                                break
+                                        else:
+                                            # Final fallback: generic import check
+                                            raise ImportError(
+                                                "No compatibility check method available"
+                                            )
+
+                                    except ImportError as e:
+                                        engine_params[engine_name] = (
+                                            f"Engine {engine_name} library is not installed: {str(e)}"
+                                        )
+                                        break
+                                    except Exception as e:
+                                        engine_params[engine_name] = (
+                                            f"Engine {engine_name} is not available: {str(e)}"
+                                        )
+                                        break
+                            except ImportError as e:
+                                engine_params[engine_name] = (
+                                    f"Engine {engine_name} library is not installed: {str(e)}"
+                                )
+                                break
+                            except Exception as e:
+                                engine_params[engine_name] = (
+                                    f"Engine {engine_name} is not available: {str(e)}"
+                                )
+                                break
+
+                        # Only set default error if not already set by one of the exception handlers
+                        if engine_name not in engine_params:
+                            engine_params[engine_name] = (
+                                f"Engine {engine_name} is not compatible with current model or environment"
+                            )
+
+                except Exception as e:
+                    # If exception occurs during checking, return simple string format
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
+
+        # Filter out llm_class field
+        for engine in engine_params.keys():
+            if isinstance(
+                engine_params[engine], list
+            ):  # Only process parameter lists of available engines
+                for param in engine_params[engine]:  # type: ignore
+                    if isinstance(param, dict) and "llm_class" in param:
+                        del param["llm_class"]
 
         return engine_params
     elif model_type == "embedding":
-        from .embedding.embed_family import EMBEDDING_ENGINES
+        from .embedding.embed_family import (
+            EMBEDDING_ENGINES,
+        )
+        from .embedding.embed_family import (
+            SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
+        )
 
         if model_name not in EMBEDDING_ENGINES:
             return None
 
-        # filter embedding_class
-        engine_params = deepcopy(EMBEDDING_ENGINES[model_name])
-        for engine, params in engine_params.items():
+        # Get all supported engines, not just currently available ones
+        all_supported_engines = list(EMBEDDING_SUPPORTED_ENGINES.keys())
+
+        # First add currently available engine parameters
+        available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in available_engines.items():
             for param in params:
-                del param["embedding_class"]
+                # Remove previous available attribute as available engines don't need this flag
+                if "available" in param:
+                    del param["available"]
+            engine_params[engine] = params
+
+        # Check unavailable engines
+        for engine_name in all_supported_engines:
+            if engine_name not in engine_params:  # Engine not in available list
+                try:
+                    embedding_engine_classes = EMBEDDING_SUPPORTED_ENGINES[engine_name]
+                    embedding_error_details: Optional[Dict[str, str]] = None
+
+                    # Try to find specific error reasons
+                    for embedding_engine_class in embedding_engine_classes:
+                        try:
+                            if hasattr(embedding_engine_class, "check_lib"):
+                                embedding_lib_available: bool = embedding_engine_class.check_lib()  # type: ignore[assignment]
+                                if not embedding_lib_available:
+                                    embedding_error_details = {
+                                        "error": f"Engine {engine_name} library is not available",
+                                        "error_type": "dependency_missing",
+                                        "technical_details": f"The required library for {engine_name} engine is not installed or not accessible",
+                                    }
+                                    break
+                            else:
+                                # If no check_lib method, try to use engine's match method for compatibility check
+                                try:
+                                    from .embedding.core import (
+                                        EmbeddingModelFamilyV2,
+                                        TransformersEmbeddingSpecV1,
+                                    )
+
+                                    # Use the engine's match method if available
+                                    if hasattr(embedding_engine_class, "match"):
+                                        # Create a minimal test case
+                                        test_family = EmbeddingModelFamilyV2(
+                                            model_name="test",
+                                            model_specs=[
+                                                TransformersEmbeddingSpecV1(
+                                                    model_format="pytorch",
+                                                    quantization="none",
+                                                )
+                                            ],
+                                        )
+                                        test_spec = test_family.model_specs[0]
+
+                                        # Use the engine's match method to check compatibility
+                                        if embedding_engine_class.match(
+                                            test_family, test_spec, "none"
+                                        ):
+                                            break  # Engine is available
+                                        else:
+                                            embedding_error_details = {
+                                                "error": f"Engine {engine_name} is not compatible with current model or environment",
+                                                "error_type": "model_compatibility",
+                                                "technical_details": f"The {engine_name} engine cannot handle the current embedding model configuration",
+                                            }
+                                            break
+                                    else:
+                                        # Final fallback: generic import check
+                                        raise ImportError(
+                                            "No compatibility check method available"
+                                        )
+
+                                except ImportError as e:
+                                    embedding_error_details = {
+                                        "error": f"Engine {engine_name} library is not installed: {str(e)}",
+                                        "error_type": "dependency_missing",
+                                        "technical_details": f"Missing required dependency for {engine_name} engine: {str(e)}",
+                                    }
+                                except Exception as e:
+                                    embedding_error_details = {
+                                        "error": f"Engine {engine_name} is not available: {str(e)}",
+                                        "error_type": "configuration_error",
+                                        "technical_details": f"Configuration or environment issue preventing {engine_name} engine from working: {str(e)}",
+                                    }
+                                break
+                        except ImportError as e:
+                            embedding_error_details = {
+                                "error": f"Engine {engine_name} library is not installed: {str(e)}",
+                                "error_type": "dependency_missing",
+                                "technical_details": f"Missing required dependency for {engine_name} engine: {str(e)}",
+                            }
+                        except Exception as e:
+                            embedding_error_details = {
+                                "error": f"Engine {engine_name} is not available: {str(e)}",
+                                "error_type": "configuration_error",
+                                "technical_details": f"Configuration or environment issue preventing {engine_name} engine from working: {str(e)}",
+                            }
+
+                    if embedding_error_details is None:
+                        embedding_error_details = {
+                            "error": f"Engine {engine_name} is not compatible with current model or environment",
+                            "error_type": "model_compatibility",
+                            "technical_details": f"The {engine_name} engine cannot handle the current embedding model configuration",
+                        }
+
+                    # For unavailable engines, return simple string format
+                    engine_params[engine_name] = (
+                        embedding_error_details.get("error") or "Unknown error"
+                    )
+
+                except Exception as e:
+                    # If exception occurs during checking, return simple string format
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
+
+        # Filter out embedding_class field
+        for engine in engine_params.keys():
+            if isinstance(
+                engine_params[engine], list
+            ):  # Only process parameter lists of available engines
+                for param in engine_params[engine]:  # type: ignore
+                    if isinstance(param, dict) and "embedding_class" in param:
+                        del param["embedding_class"]
 
         return engine_params
     elif model_type == "rerank":
-        from .rerank.rerank_family import RERANK_ENGINES
+        from .rerank.rerank_family import (
+            RERANK_ENGINES,
+        )
+        from .rerank.rerank_family import SUPPORTED_ENGINES as RERANK_SUPPORTED_ENGINES
 
         if model_name not in RERANK_ENGINES:
             return None
 
-        # filter rerank_class
-        engine_params = deepcopy(RERANK_ENGINES[model_name])
-        for engine, params in engine_params.items():
+        # Get all supported engines, not just currently available ones
+        all_supported_engines = list(RERANK_SUPPORTED_ENGINES.keys())
+
+        # First add currently available engine parameters
+        available_engines = deepcopy(RERANK_ENGINES[model_name])
+        for engine, params in available_engines.items():
             for param in params:
-                del param["rerank_class"]
+                # Remove previous available attribute as available engines don't need this flag
+                if "available" in param:
+                    del param["available"]
+            engine_params[engine] = params
+
+        # Check unavailable engines
+        for engine_name in all_supported_engines:
+            if engine_name not in engine_params:  # Engine not in available list
+                try:
+                    rerank_engine_classes = RERANK_SUPPORTED_ENGINES[engine_name]
+                    rerank_error_details: Optional[Dict[str, str]] = None
+
+                    # Try to find specific error reasons
+                    for rerank_engine_class in rerank_engine_classes:
+                        try:
+                            if hasattr(rerank_engine_class, "check_lib"):
+                                rerank_lib_available: bool = rerank_engine_class.check_lib()  # type: ignore[assignment]
+                                if not rerank_lib_available:
+                                    rerank_error_details = {
+                                        "error": f"Engine {engine_name} library is not available",
+                                        "error_type": "dependency_missing",
+                                        "technical_details": f"The required library for {engine_name} engine is not installed or not accessible",
+                                    }
+                                    break
+                            else:
+                                # If no check_lib method, try to use engine's match method for compatibility check
+                                try:
+                                    from .rerank.core import (
+                                        RerankModelFamilyV2,
+                                        RerankSpecV1,
+                                    )
+
+                                    # Use the engine's match method if available
+                                    if hasattr(rerank_engine_class, "match"):
+                                        # Create a minimal test case
+                                        test_family = RerankModelFamilyV2(
+                                            model_name="test",
+                                            model_specs=[
+                                                RerankSpecV1(
+                                                    model_format="pytorch",
+                                                    quantization="none",
+                                                )
+                                            ],
+                                        )
+                                        test_spec = test_family.model_specs[0]
+
+                                        # Use the engine's match method to check compatibility
+                                        if rerank_engine_class.match(
+                                            test_family, test_spec, "none"
+                                        ):
+                                            break  # Engine is available
+                                        else:
+                                            rerank_error_details = {
+                                                "error": f"Engine {engine_name} is not compatible with current model or environment",
+                                                "error_type": "model_compatibility",
+                                                "technical_details": f"The {engine_name} engine cannot handle the current rerank model configuration",
+                                            }
+                                            break
+                                    else:
+                                        # Final fallback: generic import check
+                                        raise ImportError(
+                                            "No compatibility check method available"
+                                        )
+
+                                except ImportError as e:
+                                    rerank_error_details = {
+                                        "error": f"Engine {engine_name} library is not installed: {str(e)}",
+                                        "error_type": "dependency_missing",
+                                        "technical_details": f"Missing required dependency for {engine_name} engine: {str(e)}",
+                                    }
+                                except Exception as e:
+                                    rerank_error_details = {
+                                        "error": f"Engine {engine_name} is not available: {str(e)}",
+                                        "error_type": "configuration_error",
+                                        "technical_details": f"Configuration or environment issue preventing {engine_name} engine from working: {str(e)}",
+                                    }
+                                break
+                        except ImportError as e:
+                            rerank_error_details = {
+                                "error": f"Engine {engine_name} library is not installed: {str(e)}",
+                                "error_type": "dependency_missing",
+                                "technical_details": f"Missing required dependency for {engine_name} engine: {str(e)}",
+                            }
+                        except Exception as e:
+                            rerank_error_details = {
+                                "error": f"Engine {engine_name} is not available: {str(e)}",
+                                "error_type": "configuration_error",
+                                "technical_details": f"Configuration or environment issue preventing {engine_name} engine from working: {str(e)}",
+                            }
+
+                    if rerank_error_details is None:
+                        rerank_error_details = {
+                            "error": f"Engine {engine_name} is not compatible with current model or environment",
+                            "error_type": "model_compatibility",
+                            "technical_details": f"The {engine_name} engine cannot handle the current rerank model configuration",
+                        }
+
+                    # For unavailable engines, return simple string format
+                    engine_params[engine_name] = (
+                        rerank_error_details.get("error") or "Unknown error"
+                    )
+
+                except Exception as e:
+                    # If exception occurs during checking, return simple string format
+                    engine_params[engine_name] = (
+                        f"Error checking engine {engine_name}: {str(e)}"
+                    )
+
+        # Filter out rerank_class field
+        for engine in engine_params.keys():
+            if isinstance(
+                engine_params[engine], list
+            ):  # Only process parameter lists of available engines
+                for param in engine_params[engine]:  # type: ignore
+                    if isinstance(param, dict) and "rerank_class" in param:
+                        del param["rerank_class"]
 
         return engine_params
     else:

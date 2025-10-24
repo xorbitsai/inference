@@ -21,6 +21,7 @@ from ..._compat import BaseModel
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .match_result import MatchResult
 from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,46 @@ class RerankModel:
         quantization: str,
     ) -> bool:
         pass
+
+    @classmethod
+    def match_with_reason(
+        cls,
+        model_family: RerankModelFamilyV2,
+        model_spec: RerankSpecV1,
+        quantization: str,
+    ) -> "MatchResult":
+        """
+        Check if the engine can handle the given rerank model with detailed error information.
+
+        This method provides detailed failure reasons and suggestions when an engine
+        cannot handle a specific model configuration. The default implementation
+        falls back to the boolean match_json method for backward compatibility.
+
+        Args:
+            model_family: The rerank model family information
+            model_spec: The model specification
+            quantization: The quantization method
+
+        Returns:
+            MatchResult: Detailed match result with reasons and suggestions
+        """
+        from .match_result import ErrorType, MatchResult
+
+        # Default implementation for backward compatibility
+        if cls.match_json(model_family, model_spec, quantization):
+            return MatchResult.success()
+        else:
+            # Get basic reason based on common failure patterns
+            if not cls.check_lib():
+                return MatchResult.failure(
+                    reason=f"Required library for {cls.__name__} is not available",
+                    error_type=ErrorType.DEPENDENCY_MISSING,
+                )
+            else:
+                return MatchResult.failure(
+                    reason=f"Rerank model configuration is not compatible with {cls.__name__}",
+                    error_type=ErrorType.MODEL_COMPATIBILITY,
+                )
 
     @classmethod
     def match(

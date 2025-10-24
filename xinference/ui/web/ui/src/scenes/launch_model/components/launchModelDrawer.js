@@ -13,15 +13,11 @@ import {
   CircularProgress,
   Collapse,
   Drawer,
-  FormControl,
   FormControlLabel,
-  InputLabel,
   ListItemButton,
   ListItemText,
-  MenuItem,
   Radio,
   RadioGroup,
-  Select,
   Switch,
   TextField,
   Tooltip,
@@ -39,44 +35,10 @@ import DynamicFieldList from './dynamicFieldList'
 import getModelFormConfig from './modelFormConfig'
 import PasteDialog from './pasteDialog'
 import Progress from './progress'
+import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
 const modelEngineType = ['LLM', 'embedding', 'rerank']
-
-const SelectField = ({
-  label,
-  labelId,
-  name,
-  value,
-  onChange,
-  options = [],
-  disabled = false,
-  required = false,
-}) => (
-  <FormControl
-    variant="outlined"
-    margin="normal"
-    disabled={disabled}
-    required={required}
-    fullWidth
-  >
-    <InputLabel id={labelId}>{label}</InputLabel>
-    <Select
-      labelId={labelId}
-      name={name}
-      value={value}
-      onChange={onChange}
-      label={label}
-      className="textHighlight"
-    >
-      {options.map((item) => (
-        <MenuItem key={item.value || item} value={item.value || item}>
-          {item.label || item}
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-)
 
 const LaunchModelDrawer = ({
   modelData,
@@ -549,19 +511,32 @@ const LaunchModelDrawer = ({
 
   const engineItems = useMemo(() => {
     return engineOptions.map((engine) => {
-      const modelFormats = Array.from(
-        new Set(enginesObj[engine]?.map((item) => item.model_format))
-      )
+      const engineData = enginesObj[engine]
+      let modelFormats = []
+      let label = engine
+      let disabled = false
 
-      const relevantSpecs = modelData.model_specs.filter((spec) =>
-        modelFormats.includes(spec.model_format)
-      )
+      if (Array.isArray(engineData)) {
+        modelFormats = Array.from(
+          new Set(engineData.map((item) => item.model_format))
+        )
 
-      const cached = relevantSpecs.some((spec) => isCached(spec))
+        const relevantSpecs = modelData.model_specs.filter((spec) =>
+          modelFormats.includes(spec.model_format)
+        )
+
+        const cached = relevantSpecs.some((spec) => isCached(spec))
+
+        label = cached ? `${engine} ${t('launchModel.cached')}` : engine
+      } else if (typeof engineData === 'string') {
+        label = `${engine} (${engineData})`
+        disabled = true
+      }
 
       return {
         value: engine,
-        label: cached ? `${engine} ${t('launchModel.cached')}` : engine,
+        label,
+        disabled,
       }
     })
   }, [engineOptions, enginesObj, modelData])

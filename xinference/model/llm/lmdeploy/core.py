@@ -21,6 +21,7 @@ import torch
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
 from ..core import LLM
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..match_result import MatchResult
 from ..utils import ChatModelMixin, generate_chat_completion, generate_completion_chunk
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,21 @@ class LMDeployModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        return False
+
+        result = cls.match_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        return MatchResult.failure(
+            reason="LMDeploy base model does not support direct inference",
+            error_type=ErrorType.MODEL_COMPATIBILITY,
+            technical_details="LMDeploy base model class is not intended for direct use",
+        )
 
     def generate(
         self,
@@ -174,13 +189,51 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+
+        result = cls.match_with_reason(llm_family, llm_spec, quantization)
+        return result.is_match
+
+    @classmethod
+    def match_with_reason(
+        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
+    ) -> "MatchResult":
+        from ..match_result import ErrorType, MatchResult
+
+        # Check library availability first
+        if not LMDEPLOY_INSTALLED:
+            return MatchResult.failure(
+                reason="LMDeploy library is not installed",
+                error_type=ErrorType.DEPENDENCY_MISSING,
+                technical_details="lmdeploy package not found in Python environment",
+            )
+
+        # Check model format compatibility and quantization
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
+            # LMDeploy has specific AWQ quantization requirements
             if "4" not in quantization:
-                return False
+                return MatchResult.failure(
+                    reason=f"LMDeploy AWQ format requires 4-bit quantization, got: {quantization}",
+                    error_type=ErrorType.QUANTIZATION,
+                    technical_details=f"AWQ + {quantization} not supported by LMDeploy",
+                )
+
+        # Check model compatibility
         if llm_family.model_name not in LMDEPLOY_SUPPORTED_CHAT_MODELS:
-            return False
-        return LMDEPLOY_INSTALLED
+            return MatchResult.failure(
+                reason=f"Chat model not supported by LMDeploy: {llm_family.model_name}",
+                error_type=ErrorType.MODEL_COMPATIBILITY,
+                technical_details=f"Unsupported chat model: {llm_family.model_name}",
+            )
+
+        # Check model abilities - LMDeploy primarily supports chat models
+        if "chat" not in llm_family.model_ability:
+            return MatchResult.failure(
+                reason=f"LMDeploy Chat requires 'chat' ability, model has: {llm_family.model_ability}",
+                error_type=ErrorType.ABILITY_MISMATCH,
+                technical_details=f"Model abilities: {llm_family.model_ability}",
+            )
+
+        return MatchResult.success()
 
     async def async_chat(
         self,
