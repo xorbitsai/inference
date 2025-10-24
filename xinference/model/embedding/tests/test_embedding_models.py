@@ -258,7 +258,10 @@ def test_register_fault_embedding():
         message = str(warning.message)
         if (
             "has error" in message
-            and ("Invalid model URI" in message or "Model URI cannot be a relative path" in message)
+            and (
+                "Invalid model URI" in message
+                or "Model URI cannot be a relative path" in message
+            )
             and "/new_data/cache/gte-Qwen2" in message
         ):
             found_warning = True
