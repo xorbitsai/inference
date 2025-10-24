@@ -203,6 +203,10 @@ class AddModelRequest(BaseModel):
     model_json: Dict[str, Any]
 
 
+class UpdateModelRequest(BaseModel):
+    model_type: str
+
+
 class BuildGradioInterfaceRequest(BaseModel):
     model_type: str
     model_name: str
@@ -908,6 +912,16 @@ class RESTfulAPI(CancelMixin):
         self._router.add_api_route(
             "/v1/models/add",
             self.add_model,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:add"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/models/update_type",
+            self.update_model_type,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:add"])]
@@ -3190,6 +3204,47 @@ class RESTfulAPI(CancelMixin):
         )
         return JSONResponse(
             content={"message": f"Model added successfully for type: {model_type}"}
+        )
+
+    async def update_model_type(self, request: Request) -> JSONResponse:
+        try:
+            # Parse request
+            raw_json = await request.json()
+            logger.info(f"[DEBUG] Update model type API called with: {raw_json}")
+
+            body = UpdateModelRequest.parse_obj(raw_json)
+            model_type = body.model_type
+
+            logger.info(f"[DEBUG] Parsed model_type for update: {model_type}")
+
+            # Get supervisor reference
+            supervisor_ref = await self._get_supervisor_ref()
+
+            # Call supervisor to update model type
+            logger.info(
+                f"[DEBUG] Calling supervisor.update_model_type with model_type: {model_type}"
+            )
+            await supervisor_ref.update_model_type(model_type)
+            logger.info(f"[DEBUG] Supervisor.update_model_type completed successfully")
+
+        except ValueError as re:
+            logger.error(
+                f"[DEBUG] ValueError in update_model_type API: {re}", exc_info=True
+            )
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(
+                f"[DEBUG] Unexpected error in update_model_type API: {e}", exc_info=True
+            )
+            raise HTTPException(status_code=500, detail=str(e))
+
+        logger.info(
+            f"[DEBUG] Update model type API completed successfully for model_type: {model_type}"
+        )
+        return JSONResponse(
+            content={
+                "message": f"Model configurations updated successfully for type: {model_type}"
+            }
         )
 
     async def list_model_registrations(

@@ -1484,6 +1484,197 @@ class SupervisorActor(xo.StatelessActor):
             raise e
 
     @log_async(logger=logger)
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by downloading
+        the latest JSON from the remote API and storing it locally.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+        import json
+
+        import requests
+
+        logger.info(
+            f"[DEBUG SUPERVISOR] update_model_type called with model_type: {model_type}"
+        )
+
+        # Validate model type
+        normalized_model_type = "LLM" if model_type.lower() == "llm" else model_type
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        if normalized_model_type not in supported_types:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_model_type}"
+            )
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Use normalized model type for the rest of the function
+        model_type = normalized_model_type
+        logger.info(f"[DEBUG SUPERVISOR] Using model_type: '{model_type}' for update")
+
+        # Construct the URL to download JSON
+        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+        logger.info(f"[DEBUG SUPERVISOR] Downloading model configurations from: {url}")
+
+        try:
+            # Download JSON from remote API
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            # Parse JSON response
+            model_data = response.json()
+            logger.info(
+                f"[DEBUG SUPERVISOR] Successfully downloaded JSON for model type: {model_type}"
+            )
+            logger.info(f"[DEBUG SUPERVISOR] JSON data type: {type(model_data)}")
+
+            if isinstance(model_data, dict):
+                logger.info(
+                    f"[DEBUG SUPERVISOR] JSON data keys: {list(model_data.keys())}"
+                )
+            elif isinstance(model_data, list):
+                logger.info(
+                    f"[DEBUG SUPERVISOR] JSON data contains {len(model_data)} items"
+                )
+                if model_data:
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] First item keys: {list(model_data[0].keys()) if isinstance(model_data[0], dict) else 'Not a dict'}"
+                    )
+
+            # Store the JSON data using CacheManager
+            logger.info(f"[DEBUG SUPERVISOR] Storing model configurations...")
+            await self._store_model_configurations(model_type, model_data)
+            logger.info(f"[DEBUG SUPERVISOR] Model configurations stored successfully")
+
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Network error downloading model configurations: {e}"
+            )
+            raise ValueError(f"Failed to download model configurations: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"[DEBUG SUPERVISOR] JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unexpected error during model update: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model configurations: {str(e)}")
+
+    async def _store_model_configurations(self, model_type: str, model_data):
+        """
+        Store model configurations using the appropriate CacheManager.
+
+        Args:
+            model_type: Type of model
+            model_data: JSON data containing model configurations
+        """
+
+        logger.info(
+            f"[DEBUG SUPERVISOR] Storing configurations for model type: {model_type}"
+        )
+
+        try:
+            # Create a temporary model spec to get CacheManager instance
+            # We need to determine the appropriate model spec class for this model type
+            model_spec_cls, _, _, _ = self._custom_register_type_to_cls[model_type]
+
+            # Handle different response formats
+            if isinstance(model_data, dict):
+                # Single model configuration
+                logger.info(f"[DEBUG SUPERVISOR] Processing single model configuration")
+                await self._store_single_model_config(
+                    model_type, model_data, model_spec_cls
+                )
+            elif isinstance(model_data, list):
+                # Multiple model configurations
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Processing {len(model_data)} model configurations"
+                )
+                for i, model_config in enumerate(model_data):
+                    if isinstance(model_config, dict):
+                        logger.info(f"[DEBUG SUPERVISOR] Processing model config {i+1}")
+                        await self._store_single_model_config(
+                            model_type, model_config, model_spec_cls
+                        )
+                    else:
+                        logger.warning(
+                            f"[DEBUG SUPERVISOR] Skipping invalid model config {i+1}: not a dict"
+                        )
+            else:
+                raise ValueError(
+                    f"Invalid model data format: expected dict or list, got {type(model_data)}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Error storing model configurations: {e}",
+                exc_info=True,
+            )
+            raise
+
+    async def _store_single_model_config(
+        self, model_type: str, model_config: dict, model_spec_cls
+    ):
+        """
+        Store a single model configuration.
+
+        Args:
+            model_type: Type of model
+            model_config: Single model configuration dictionary
+            model_spec_cls: Model specification class
+        """
+        from ..model.cache_manager import CacheManager
+
+        # Ensure required fields are present
+        if "model_name" not in model_config:
+            logger.warning(
+                f"[DEBUG SUPERVISOR] Skipping model config without model_name: {model_config}"
+            )
+            return
+
+        model_name = model_config["model_name"]
+        logger.info(f"[DEBUG SUPERVISOR] Storing model: {model_name}")
+
+        # Validate model name format
+        from ..model.utils import is_valid_model_name
+
+        if not is_valid_model_name(model_name):
+            logger.warning(
+                f"[DEBUG SUPERVISOR] Skipping model with invalid name: {model_name}"
+            )
+            return
+
+        try:
+            # Convert model hub JSON format to Xinference expected format
+            converted_config = self._convert_model_json_format(model_config)
+            logger.info(f"[DEBUG SUPERVISOR] Converted model config for: {model_name}")
+
+            # Create model spec instance
+            model_spec = model_spec_cls.parse_obj(converted_config)
+            logger.info(f"[DEBUG SUPERVISOR] Created model spec for: {model_name}")
+
+            # Create CacheManager and store the configuration
+            cache_manager = CacheManager(model_spec)
+            cache_manager.register_custom_model(model_type)
+            logger.info(
+                f"[DEBUG SUPERVISOR] Stored model configuration for: {model_name}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Error storing model {model_name}: {e}",
+                exc_info=True,
+            )
+            # Continue with other models instead of failing completely
+            return
+
+    @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
