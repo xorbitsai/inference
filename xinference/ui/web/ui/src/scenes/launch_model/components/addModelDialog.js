@@ -13,7 +13,7 @@ import { ApiContext } from '../../../components/apiContext'
 
 const API_BASE_URL = 'https://model.xinference.io'
 
-function AddModelDialog({ open, onClose }) {
+const AddModelDialog = ({ open, onClose, onUpdateList }) => {
   const { t } = useTranslation()
   const [modelName, setModelName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -88,19 +88,15 @@ function AddModelDialog({ open, onClose }) {
       const res = await fetch(endPoint + '/v1/models/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_type: modelType, model_json: modelJson }),
+        body: JSON.stringify(modelJson),
       })
       const rawText = await res.text().catch(() => '')
       if (!res.ok) {
         setErrorMsg(rawText || `HTTP ${res.status}`)
         return
       }
-      try {
-        const data = JSON.parse(rawText)
-        console.log('本地 /v1/models/add 响应:', data)
-      } catch {
-        console.log('本地 /v1/models/add 原始响应:', rawText)
-      }
+      onClose(`/launch_model/${modelType}`)
+      onUpdateList(modelType)
     } catch (error) {
       console.error('Error:', error)
       if (error?.response?.status !== 403) {
@@ -133,7 +129,7 @@ function AddModelDialog({ open, onClose }) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} width={500}>
+    <Dialog open={open} onClose={() => onClose()} width={500}>
       <DialogTitle>{t('launchModel.addModel')}</DialogTitle>
       <DialogContent>
         <div
@@ -177,7 +173,7 @@ function AddModelDialog({ open, onClose }) {
         </div>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
+        <Button onClick={() => onClose()} disabled={loading}>
           {t('launchModel.cancel')}
         </Button>
         <Button
