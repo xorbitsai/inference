@@ -124,7 +124,23 @@
     "featured": "おすすめとお気に入り",
     "all": "すべて",
     "cancelledSuccessfully": "正常にキャンセルされました！",
-    "mustBeUnique": "{{key}} は一意でなければなりません"
+    "mustBeUnique": "{{key}} は一意でなければなりません",
+    "addModel": "モデルを追加",
+    "addModelDialog": {
+      "introPrefix": "モデルを追加するには、",
+      "platformLinkText": "Xinference モデルセンター",
+      "introSuffix": "で対応するモデル名を入力してください。",
+      "modelName": "モデル名",
+      "modelName.tip": "モデル名を入力してください",
+      "placeholder": "例：qwen3（大文字と小文字を区別します）"
+    },
+    "update": "更新",
+    "error": {
+      "name_not_matched": "完全に一致するモデル名が見つかりません（大文字と小文字を区別します）",
+      "downloadFailed": "ダウンロードに失敗しました",
+      "requestFailed": "リクエストに失敗しました",
+      "json_parse_error": "JSON の解析に失敗しました"
+    }
   },
 
   "runningModels": {

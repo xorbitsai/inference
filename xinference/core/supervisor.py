@@ -14,6 +14,7 @@
 
 import asyncio
 import itertools
+import json
 import os
 import signal
 import time
@@ -609,28 +610,94 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        logger.info(
+            f"[DEBUG SUPERVISOR] list_model_registrations called with model_type: {model_type}, detailed: {detailed}"
+        )
+
         ret = []
         if not self.is_local_deployment():
+            logger.info(f"[DEBUG SUPERVISOR] Not local deployment, checking workers...")
             workers = list(self._worker_address_to_worker.values())
             for worker in workers:
-                ret.extend(await worker.list_model_registrations(model_type, detailed))
+                worker_data = await worker.list_model_registrations(
+                    model_type, detailed
+                )
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Worker returned {len(worker_data)} models"
+                )
+                ret.extend(worker_data)
+        else:
+            logger.info(f"[DEBUG SUPERVISOR] Local deployment mode")
 
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
+            logger.info(f"[DEBUG SUPERVISOR] Processing LLM models")
+            logger.info(
+                f"[DEBUG SUPERVISOR] Found {len(BUILTIN_LLM_FAMILIES)} builtin LLM families"
+            )
+
             for family in BUILTIN_LLM_FAMILIES:
+                logger.debug(
+                    f"[DEBUG SUPERVISOR] Processing builtin LLM: {family.model_name}"
+                )
                 if detailed:
-                    ret.append(await self._to_llm_reg(family, True))
+                    reg_data = await self._to_llm_reg(family, True)
+                    logger.debug(
+                        f"[DEBUG SUPERVISOR] Builtin LLM reg data: {reg_data['model_name']}"
+                    )
+                    ret.append(reg_data)
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": True})
 
-            for family in get_user_defined_llm_families():
+            user_defined_families = get_user_defined_llm_families()
+            logger.info(
+                f"[DEBUG SUPERVISOR] Found {len(user_defined_families)} user-defined LLM families"
+            )
+
+            for family in user_defined_families:
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Processing user-defined LLM: {family.model_name}"
+                )
+
+                # Check if this model is persisted (added via add_model API)
+                # Persisted models from model hub should be treated as built-in
+                from ..model.cache_manager import CacheManager
+
+                cache_manager = CacheManager(family)
+
+                # If persist path exists, this model was added via add_model API and should be treated as built-in
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                    import os
+
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_custom_dir_prefix,
+                        "llm",
+                        f"{family.model_name}.json",
+                    )
+                    is_persisted_model = os.path.exists(potential_persist_path)
+
+                is_builtin = is_persisted_model  # Treat persisted models as built-in
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Model {family.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
+                )
+
                 if detailed:
-                    ret.append(await self._to_llm_reg(family, False))
+                    reg_data = await self._to_llm_reg(family, is_builtin)
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] User-defined LLM reg data: {reg_data['model_name']}, builtin: {reg_data.get('is_builtin', False)}"
+                    )
+                    ret.append(reg_data)
                 else:
-                    ret.append({"model_name": family.model_name, "is_builtin": False})
+                    ret.append(
+                        {"model_name": family.model_name, "is_builtin": is_builtin}
+                    )
 
             ret.sort(key=sort_helper)
+            logger.info(
+                f"[DEBUG SUPERVISOR] LLM: Returning {len(ret)} total models (builtin: {sum(1 for r in ret if r.get('is_builtin', False))}, custom: {sum(1 for r in ret if not r.get('is_builtin', False))})"
+            )
             return ret
         elif model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
@@ -645,13 +712,35 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_embeddings():
+                # Check if this model is persisted (added via add_model API)
+                from ..model.cache_manager import CacheManager
+
+                cache_manager = CacheManager(model_spec)
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                    import os
+
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_custom_dir_prefix,
+                        "embedding",
+                        f"{model_spec.model_name}.json",
+                    )
+                    is_persisted_model = os.path.exists(potential_persist_path)
+
+                is_builtin = is_persisted_model  # Treat persisted models as built-in
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Embedding model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
+                )
+
                 if detailed:
                     ret.append(
-                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
+                        await self._to_embedding_model_reg(
+                            model_spec, is_builtin=is_builtin
+                        )
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
+                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
                     )
 
             ret.sort(key=sort_helper)
@@ -670,13 +759,35 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_images():
+                # Check if this model is persisted (added via add_model API)
+                from ..model.cache_manager import CacheManager
+
+                cache_manager = CacheManager(model_spec)
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                    import os
+
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_custom_dir_prefix,
+                        "image",
+                        f"{model_spec.model_name}.json",
+                    )
+                    is_persisted_model = os.path.exists(potential_persist_path)
+
+                is_builtin = is_persisted_model  # Treat persisted models as built-in
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Image model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
+                )
+
                 if detailed:
                     ret.append(
-                        await self._to_image_model_reg(model_spec, is_builtin=False)
+                        await self._to_image_model_reg(
+                            model_spec, is_builtin=is_builtin
+                        )
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
+                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
                     )
 
             ret.sort(key=sort_helper)
@@ -695,13 +806,35 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_audios():
+                # Check if this model is persisted (added via add_model API)
+                from ..model.cache_manager import CacheManager
+
+                cache_manager = CacheManager(model_spec)
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                    import os
+
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_custom_dir_prefix,
+                        "audio",
+                        f"{model_spec.model_name}.json",
+                    )
+                    is_persisted_model = os.path.exists(potential_persist_path)
+
+                is_builtin = is_persisted_model  # Treat persisted models as built-in
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Audio model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
+                )
+
                 if detailed:
                     ret.append(
-                        await self._to_audio_model_reg(model_spec, is_builtin=False)
+                        await self._to_audio_model_reg(
+                            model_spec, is_builtin=is_builtin
+                        )
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
+                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
                     )
 
             ret.sort(key=sort_helper)
@@ -731,13 +864,35 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_reranks():
+                # Check if this model is persisted (added via add_model API)
+                from ..model.cache_manager import CacheManager
+
+                cache_manager = CacheManager(model_spec)
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                    import os
+
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_custom_dir_prefix,
+                        "rerank",
+                        f"{model_spec.model_name}.json",
+                    )
+                    is_persisted_model = os.path.exists(potential_persist_path)
+
+                is_builtin = is_persisted_model  # Treat persisted models as built-in
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Rerank model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
+                )
+
                 if detailed:
                     ret.append(
-                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
+                        await self._to_rerank_model_reg(
+                            model_spec, is_builtin=is_builtin
+                        )
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
+                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
                     )
 
             ret.sort(key=sort_helper)
@@ -748,13 +903,35 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
 
             for model_spec in get_flexible_models():
+                # Check if this model is persisted (added via add_model API)
+                from ..model.cache_manager import CacheManager
+
+                cache_manager = CacheManager(model_spec)
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                    import os
+
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_custom_dir_prefix,
+                        "flexible",
+                        f"{model_spec.model_name}.json",
+                    )
+                    is_persisted_model = os.path.exists(potential_persist_path)
+
+                is_builtin = is_persisted_model  # Treat persisted models as built-in
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Flexible model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
+                )
+
                 if detailed:
                     ret.append(
-                        await self._to_flexible_model_reg(model_spec, is_builtin=False)
+                        await self._to_flexible_model_reg(
+                            model_spec, is_builtin=is_builtin
+                        )
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
+                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
                     )
 
             ret.sort(key=sort_helper)
@@ -932,6 +1109,356 @@ class SupervisorActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    @log_async(logger=logger)
+    async def add_model(self, model_type: str, model_json: Dict[str, Any]):
+        """
+        Add a new model by parsing the provided JSON and registering it.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+            model_json: JSON configuration for the model
+        """
+        logger.info(
+            f"[DEBUG SUPERVISOR] add_model called with model_type: {model_type}"
+        )
+        logger.info(f"[DEBUG SUPERVISOR] model_json type: {type(model_json)}")
+        logger.info(
+            f"[DEBUG SUPERVISOR] model_json keys: {list(model_json.keys()) if isinstance(model_json, dict) else 'Not a dict'}"
+        )
+        if isinstance(model_json, dict):
+            logger.info(f"[DEBUG SUPERVISOR] model_json content: {model_json}")
+
+        # Validate model type (with case normalization)
+        supported_types = list(self._custom_register_type_to_cls.keys())
+        logger.info(f"[DEBUG SUPERVISOR] Supported model types: {supported_types}")
+        logger.info(f"[DEBUG SUPERVISOR] Received model_type: '{model_type}'")
+
+        # Try to normalize case (only convert 'llm' -> 'LLM', keep others as is)
+        normalized_model_type = "LLM" if model_type.lower() == "llm" else model_type
+        logger.info(
+            f"[DEBUG SUPERVISOR] Normalized model_type: '{normalized_model_type}'"
+        )
+
+        if normalized_model_type not in self._custom_register_type_to_cls:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_model_type} (original: {model_type})"
+            )
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Use normalized model type for the rest of the function
+        model_type = normalized_model_type
+        logger.info(
+            f"[DEBUG SUPERVISOR] Using model_type: '{model_type}' for registration"
+        )
+
+        # Get the appropriate model class and register function
+        (
+            model_spec_cls,
+            register_fn,
+            unregister_fn,
+            generate_fn,
+        ) = self._custom_register_type_to_cls[model_type]
+        logger.info(f"[DEBUG SUPERVISOR] Model spec class: {model_spec_cls}")
+        logger.info(f"[DEBUG SUPERVISOR] Register function: {register_fn}")
+        logger.info(f"[DEBUG SUPERVISOR] Unregister function: {unregister_fn}")
+        logger.info(f"[DEBUG SUPERVISOR] Generate function: {generate_fn}")
+
+        # Validate required fields (only model_name is required)
+        required_fields = ["model_name"]
+        logger.info(f"[DEBUG SUPERVISOR] Checking required fields: {required_fields}")
+        for field in required_fields:
+            if field not in model_json:
+                logger.error(f"[DEBUG SUPERVISOR] Missing required field: {field}")
+                raise ValueError(f"Missing required field: {field}")
+
+        # Validate model name format
+        from ..model.utils import is_valid_model_name
+
+        model_name = model_json["model_name"]
+        logger.info(f"[DEBUG SUPERVISOR] Extracted model_name: {model_name}")
+
+        if not is_valid_model_name(model_name):
+            logger.error(f"[DEBUG SUPERVISOR] Invalid model name format: {model_name}")
+            raise ValueError(f"Invalid model name format: {model_name}")
+
+        logger.info(f"[DEBUG SUPERVISOR] Model name validation passed")
+
+        # Convert model hub JSON format to Xinference expected format
+        logger.info(f"[DEBUG SUPERVISOR] Converting model JSON format...")
+        try:
+            converted_model_json = self._convert_model_json_format(model_json)
+            logger.info(
+                f"[DEBUG SUPERVISOR] Converted model JSON: {converted_model_json}"
+            )
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Format conversion failed: {str(e)}", exc_info=True
+            )
+            raise ValueError(f"Failed to convert model JSON format: {str(e)}")
+
+        # Parse the JSON into the appropriate model spec
+        logger.info(f"[DEBUG SUPERVISOR] Parsing model spec...")
+        try:
+            model_spec = model_spec_cls.parse_obj(converted_model_json)
+            logger.info(f"[DEBUG SUPERVISOR] Parsed model spec: {model_spec}")
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Model spec parsing failed: {str(e)}", exc_info=True
+            )
+            raise ValueError(f"Invalid model JSON format: {str(e)}")
+
+        # Check if model already exists
+        logger.info(f"[DEBUG SUPERVISOR] Checking if model already exists...")
+        try:
+            existing_model = await self.get_model_registration(
+                model_type, model_spec.model_name
+            )
+            logger.info(
+                f"[DEBUG SUPERVISOR] Existing model check result: {existing_model}"
+            )
+
+            if existing_model is not None:
+                logger.error(
+                    f"[DEBUG SUPERVISOR] Model already exists: {model_spec.model_name}"
+                )
+                raise ValueError(
+                    f"Model '{model_spec.model_name}' already exists for type '{model_type}'. "
+                    f"Please choose a different model name or remove the existing model first."
+                )
+
+        except ValueError as e:
+            if "not found" in str(e):
+                # Model doesn't exist, we can proceed
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Model doesn't exist yet, proceeding with registration"
+                )
+                pass
+            else:
+                # Re-raise validation errors
+                logger.error(
+                    f"[DEBUG SUPERVISOR] Validation error during model check: {str(e)}"
+                )
+                raise e
+        except Exception as ex:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unexpected error during model check: {str(ex)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to validate model registration: {str(ex)}")
+
+        # Register the model (persist=True for adding models)
+        logger.info(f"[DEBUG SUPERVISOR] Starting model registration...")
+        try:
+            logger.info(
+                f"[DEBUG SUPERVISOR] Calling register_fn with model_spec: {model_spec}, persist=True"
+            )
+            register_fn(model_spec, persist=True)
+            logger.info(f"[DEBUG SUPERVISOR] register_fn completed successfully")
+
+            # Record model version
+            logger.info(f"[DEBUG SUPERVISOR] Generating version info...")
+            version_info = generate_fn(model_spec)
+            logger.info(f"[DEBUG SUPERVISOR] Generated version_info: {version_info}")
+
+            logger.info(
+                f"[DEBUG SUPERVISOR] Recording model version in cache tracker..."
+            )
+            await self._cache_tracker_ref.record_model_version(
+                version_info, self.address
+            )
+            logger.info(f"[DEBUG SUPERVISOR] Cache tracker recording completed")
+
+            # Sync to workers if not local deployment
+            is_local = self.is_local_deployment()
+            logger.info(f"[DEBUG SUPERVISOR] Is local deployment: {is_local}")
+            if not is_local:
+                # Convert back to JSON string for sync compatibility
+                model_json_str = json.dumps(converted_model_json)
+                logger.info(f"[DEBUG SUPERVISOR] Syncing model to workers...")
+                await self._sync_register_model(
+                    model_type, model_json_str, True, model_spec.model_name
+                )
+                logger.info(f"[DEBUG SUPERVISOR] Model sync to workers completed")
+
+            logger.info(
+                f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
+            )
+
+        except ValueError as e:
+            # Validation errors - don't need cleanup as model wasn't registered
+            logger.error(f"[DEBUG SUPERVISOR] ValueError during registration: {str(e)}")
+            raise e
+        except Exception as e:
+            # Unexpected errors - attempt cleanup
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unexpected error during registration: {str(e)}",
+                exc_info=True,
+            )
+            try:
+                logger.info(f"[DEBUG SUPERVISOR] Attempting cleanup...")
+                unregister_fn(model_spec.model_name, raise_error=False)
+                logger.info(f"[DEBUG SUPERVISOR] Cleanup completed successfully")
+            except Exception as cleanup_error:
+                logger.warning(f"[DEBUG SUPERVISOR] Cleanup failed: {cleanup_error}")
+            raise ValueError(
+                f"Failed to register model '{model_spec.model_name}': {str(e)}"
+            )
+
+        logger.info(f"[DEBUG SUPERVISOR] add_model completed successfully")
+
+    def _convert_model_json_format(self, model_json: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert model hub JSON format to Xinference expected format.
+
+        The input format uses nested 'model_src' structure, but Xinference expects
+        flattened fields at the spec level.
+
+        Also handles cases where model_specs field is missing by providing a default.
+        """
+        logger.info(f"[DEBUG SUPERVISOR] _convert_model_json_format called")
+        logger.info(f"[DEBUG SUPERVISOR] Input model_json: {model_json}")
+
+        # If model_specs is missing, provide a default minimal spec
+        if "model_specs" not in model_json or not model_json["model_specs"]:
+            logger.info(
+                f"[DEBUG SUPERVISOR] model_specs missing or empty, creating default spec"
+            )
+            # Create a minimal default spec
+            default_spec = {
+                **model_json,
+                "model_specs": [
+                    {
+                        "model_format": "pytorch",
+                        "model_size_in_billions": None,
+                        "quantization": "none",
+                    }
+                ],
+            }
+            logger.info(f"[DEBUG SUPERVISOR] Created default spec: {default_spec}")
+            return default_spec
+
+        logger.info(
+            f"[DEBUG SUPERVISOR] Found model_specs: {model_json['model_specs']}"
+        )
+
+        # Check if conversion is needed (detect model_src structure)
+        needs_conversion = False
+        for i, spec in enumerate(model_json["model_specs"]):
+            logger.info(f"[DEBUG SUPERVISOR] Checking spec {i}: {spec}")
+            if "model_src" in spec:
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Found model_src in spec {i}, conversion needed"
+                )
+                needs_conversion = True
+                break
+
+        if not needs_conversion:
+            logger.info(
+                f"[DEBUG SUPERVISOR] No conversion needed, returning original model_json"
+            )
+            return model_json
+
+        converted = model_json.copy()
+        converted_specs = []
+
+        for spec in model_json["model_specs"]:
+            model_format = spec.get("model_format", "pytorch")
+            model_size = spec.get("model_size_in_billions")
+
+            if "model_src" not in spec:
+                # No model_src, keep spec as is but ensure required fields
+                converted_spec = spec.copy()
+                if "quantization" not in converted_spec:
+                    converted_spec["quantization"] = "none"
+                if "model_format" not in converted_spec:
+                    converted_spec["model_format"] = "pytorch"
+                converted_specs.append(converted_spec)
+                continue
+
+            model_src = spec["model_src"]
+
+            # Handle different model sources
+            if "huggingface" in model_src:
+                hf_info = model_src["huggingface"]
+                quantizations = hf_info.get("quantizations", ["none"])
+
+                # Create separate specs for each quantization
+                for quant in quantizations:
+                    converted_spec = {
+                        "model_format": model_format,
+                        "model_size_in_billions": model_size,
+                        "quantization": quant,
+                        "model_hub": "huggingface",
+                    }
+
+                    # Add common fields
+                    if "model_id" in hf_info:
+                        converted_spec["model_id"] = hf_info["model_id"]
+                    if "model_revision" in hf_info:
+                        converted_spec["model_revision"] = hf_info["model_revision"]
+
+                    # Format-specific fields
+                    if model_format == "ggufv2":
+                        if "model_id" in hf_info:
+                            converted_spec["model_id"] = hf_info["model_id"]
+                        if "model_file_name_template" in hf_info:
+                            converted_spec["model_file_name_template"] = hf_info[
+                                "model_file_name_template"
+                            ]
+                        else:
+                            # Default template
+                            model_name = model_json["model_name"]
+                            converted_spec["model_file_name_template"] = (
+                                f"{model_name}-{{quantization}}.gguf"
+                            )
+                    elif model_format in ["pytorch", "mlx"]:
+                        if "model_id" in hf_info:
+                            converted_spec["model_id"] = hf_info["model_id"]
+                        if "model_revision" in hf_info:
+                            converted_spec["model_revision"] = hf_info["model_revision"]
+
+                    converted_specs.append(converted_spec)
+
+            elif "modelscope" in model_src:
+                # Handle ModelScope similarly
+                ms_info = model_src["modelscope"]
+                quantizations = ms_info.get("quantizations", ["none"])
+
+                for quant in quantizations:
+                    converted_spec = {
+                        "model_format": model_format,
+                        "model_size_in_billions": model_size,
+                        "quantization": quant,
+                        "model_hub": "modelscope",
+                    }
+
+                    if "model_id" in ms_info:
+                        converted_spec["model_id"] = ms_info["model_id"]
+                    if "model_revision" in ms_info:
+                        converted_spec["model_revision"] = ms_info["model_revision"]
+
+                    converted_specs.append(converted_spec)
+
+            else:
+                # Unknown model source, skip or handle as error
+                logger.warning(
+                    f"Unknown model source in spec: {list(model_src.keys())}"
+                )
+                # Keep original spec but add required fields
+                converted_spec = spec.copy()
+                if "quantization" not in converted_spec:
+                    converted_spec["quantization"] = "none"
+                if "model_format" not in converted_spec:
+                    converted_spec["model_format"] = "pytorch"
+                converted_specs.append(converted_spec)
+
+        converted["model_specs"] = converted_specs
+
+        return converted
+
     async def _sync_register_model(
         self, model_type: str, model: str, persist: bool, model_name: str
     ):
@@ -955,6 +1482,197 @@ class SupervisorActor(xo.StatelessActor):
                 await worker.unregister_model(model_type, model_name)
                 logger.warning(f"finish unregister model: {model} for {name}")
             raise e
+
+    @log_async(logger=logger)
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by downloading
+        the latest JSON from the remote API and storing it locally.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+        import json
+
+        import requests
+
+        logger.info(
+            f"[DEBUG SUPERVISOR] update_model_type called with model_type: {model_type}"
+        )
+
+        # Validate model type
+        normalized_model_type = "LLM" if model_type.lower() == "llm" else model_type
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        if normalized_model_type not in supported_types:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_model_type}"
+            )
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Use normalized model type for the rest of the function
+        model_type = normalized_model_type
+        logger.info(f"[DEBUG SUPERVISOR] Using model_type: '{model_type}' for update")
+
+        # Construct the URL to download JSON
+        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+        logger.info(f"[DEBUG SUPERVISOR] Downloading model configurations from: {url}")
+
+        try:
+            # Download JSON from remote API
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            # Parse JSON response
+            model_data = response.json()
+            logger.info(
+                f"[DEBUG SUPERVISOR] Successfully downloaded JSON for model type: {model_type}"
+            )
+            logger.info(f"[DEBUG SUPERVISOR] JSON data type: {type(model_data)}")
+
+            if isinstance(model_data, dict):
+                logger.info(
+                    f"[DEBUG SUPERVISOR] JSON data keys: {list(model_data.keys())}"
+                )
+            elif isinstance(model_data, list):
+                logger.info(
+                    f"[DEBUG SUPERVISOR] JSON data contains {len(model_data)} items"
+                )
+                if model_data:
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] First item keys: {list(model_data[0].keys()) if isinstance(model_data[0], dict) else 'Not a dict'}"
+                    )
+
+            # Store the JSON data using CacheManager
+            logger.info(f"[DEBUG SUPERVISOR] Storing model configurations...")
+            await self._store_model_configurations(model_type, model_data)
+            logger.info(f"[DEBUG SUPERVISOR] Model configurations stored successfully")
+
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Network error downloading model configurations: {e}"
+            )
+            raise ValueError(f"Failed to download model configurations: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"[DEBUG SUPERVISOR] JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Unexpected error during model update: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model configurations: {str(e)}")
+
+    async def _store_model_configurations(self, model_type: str, model_data):
+        """
+        Store model configurations using the appropriate CacheManager.
+
+        Args:
+            model_type: Type of model
+            model_data: JSON data containing model configurations
+        """
+
+        logger.info(
+            f"[DEBUG SUPERVISOR] Storing configurations for model type: {model_type}"
+        )
+
+        try:
+            # Create a temporary model spec to get CacheManager instance
+            # We need to determine the appropriate model spec class for this model type
+            model_spec_cls, _, _, _ = self._custom_register_type_to_cls[model_type]
+
+            # Handle different response formats
+            if isinstance(model_data, dict):
+                # Single model configuration
+                logger.info(f"[DEBUG SUPERVISOR] Processing single model configuration")
+                await self._store_single_model_config(
+                    model_type, model_data, model_spec_cls
+                )
+            elif isinstance(model_data, list):
+                # Multiple model configurations
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Processing {len(model_data)} model configurations"
+                )
+                for i, model_config in enumerate(model_data):
+                    if isinstance(model_config, dict):
+                        logger.info(f"[DEBUG SUPERVISOR] Processing model config {i+1}")
+                        await self._store_single_model_config(
+                            model_type, model_config, model_spec_cls
+                        )
+                    else:
+                        logger.warning(
+                            f"[DEBUG SUPERVISOR] Skipping invalid model config {i+1}: not a dict"
+                        )
+            else:
+                raise ValueError(
+                    f"Invalid model data format: expected dict or list, got {type(model_data)}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Error storing model configurations: {e}",
+                exc_info=True,
+            )
+            raise
+
+    async def _store_single_model_config(
+        self, model_type: str, model_config: dict, model_spec_cls
+    ):
+        """
+        Store a single model configuration.
+
+        Args:
+            model_type: Type of model
+            model_config: Single model configuration dictionary
+            model_spec_cls: Model specification class
+        """
+        from ..model.cache_manager import CacheManager
+
+        # Ensure required fields are present
+        if "model_name" not in model_config:
+            logger.warning(
+                f"[DEBUG SUPERVISOR] Skipping model config without model_name: {model_config}"
+            )
+            return
+
+        model_name = model_config["model_name"]
+        logger.info(f"[DEBUG SUPERVISOR] Storing model: {model_name}")
+
+        # Validate model name format
+        from ..model.utils import is_valid_model_name
+
+        if not is_valid_model_name(model_name):
+            logger.warning(
+                f"[DEBUG SUPERVISOR] Skipping model with invalid name: {model_name}"
+            )
+            return
+
+        try:
+            # Convert model hub JSON format to Xinference expected format
+            converted_config = self._convert_model_json_format(model_config)
+            logger.info(f"[DEBUG SUPERVISOR] Converted model config for: {model_name}")
+
+            # Create model spec instance
+            model_spec = model_spec_cls.parse_obj(converted_config)
+            logger.info(f"[DEBUG SUPERVISOR] Created model spec for: {model_name}")
+
+            # Create CacheManager and store the configuration
+            cache_manager = CacheManager(model_spec)
+            cache_manager.register_custom_model(model_type)
+            logger.info(
+                f"[DEBUG SUPERVISOR] Stored model configuration for: {model_name}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"[DEBUG SUPERVISOR] Error storing model {model_name}: {e}",
+                exc_info=True,
+            )
+            # Continue with other models instead of failing completely
+            return
 
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):

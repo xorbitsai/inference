@@ -124,7 +124,23 @@
     "featured": "featured",
     "all": "all",
     "cancelledSuccessfully": "Cancelled Successfully!",
-    "mustBeUnique": "{{key}} must be unique"
+    "mustBeUnique": "{{key}} must be unique",
+    "addModel": "Add Model",
+    "addModelDialog": {
+      "introPrefix": "To add a model, please go to the",
+      "platformLinkText": "Xinference Model Hub",
+      "introSuffix": "and fill in the corresponding model name.",
+      "modelName": "Model Name",
+      "modelName.tip": "Please enter the model name",
+      "placeholder": "e.g. qwen3 (case-sensitive)"
+    },
+    "update": "Update",
+    "error": {
+      "name_not_matched": "No exact model name match found (case-sensitive)",
+      "downloadFailed": "Download failed",
+      "requestFailed": "Request failed",
+      "json_parse_error": "Failed to parse JSON"
+    }
   },
 
   "runningModels": {

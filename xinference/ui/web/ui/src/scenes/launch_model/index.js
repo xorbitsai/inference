@@ -1,6 +1,7 @@
-import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Box, Tab } from '@mui/material'
-import React, { useContext, useEffect, useState } from 'react'
+import Add from '@mui/icons-material/Add'
+import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab'
+import { Box, Button, MenuItem, Select, Tab } from '@mui/material'
+import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -11,6 +12,7 @@ import fetchWrapper from '../../components/fetchWrapper'
 import SuccessMessageSnackBar from '../../components/successMessageSnackBar'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
+import AddModelDialog from './components/addModelDialog'
 import { featureModels } from './data/data'
 import LaunchCustom from './launchCustom'
 import LaunchModelComponent from './LaunchModel'
@@ -22,13 +24,17 @@ const LaunchModel = () => {
       : '/launch_model/llm'
   )
   const [gpuAvailable, setGPUAvailable] = useState(-1)
+  const [open, setOpen] = useState(false)
+  const [modelType, setModelType] = useState('llm')
+  const [loading, setLoading] = useState(false)
 
   const { setErrorMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const LaunchModelRefs = useRef({})
 
-  const handleTabChange = (event, newValue) => {
+  const handleTabChange = (newValue) => {
     setValue(newValue)
     navigate(newValue)
     sessionStorage.setItem('modelType', newValue)
@@ -59,14 +65,56 @@ const LaunchModel = () => {
     }
   }, [cookie.token])
 
+  const updateList = (modelType) => {
+    LaunchModelRefs.current[modelType]?.update()
+  }
+
+  const handleClose = (value) => {
+    setOpen(false)
+    if (value) {
+      handleTabChange(value)
+    }
+  }
+
+  const updateModels = () => {
+    setLoading(true)
+    fetchWrapper
+      .post('/v1/models/update_type', { model_type: modelType })
+      .then(() => {
+        handleTabChange(`/launch_model/${modelType}`)
+        updateList(modelType)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        if (error.response.status !== 403 && error.response.status !== 401) {
+          setErrorMsg(error.message)
+        }
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }
+
   return (
     <Box m="20px">
       <Title title={t('menu.launchModel')} />
       <ErrorMessageSnackBar />
       <SuccessMessageSnackBar />
       <TabContext value={value}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <TabList value={value} onChange={handleTabChange} aria-label="tabs">
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <TabList
+            value={value}
+            onChange={(_, value) => handleTabChange(value)}
+            aria-label="tabs"
+          >
             <Tab label={t('model.languageModels')} value="/launch_model/llm" />
             <Tab
               label={t('model.embeddingModels')}
@@ -81,6 +129,53 @@ const LaunchModel = () => {
               value="/launch_model/custom/llm"
             />
           </TabList>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 0 }}>
+              <Select
+                value={modelType}
+                onChange={(e) => setModelType(e.target.value)}
+                size="small"
+                sx={{
+                  borderTopRightRadius: 0,
+                  borderBottomRightRadius: 0,
+                  minWidth: 100,
+                }}
+              >
+                <MenuItem value="llm">LLM</MenuItem>
+                <MenuItem value="embedding">Embedding</MenuItem>
+                <MenuItem value="rerank">Rerank</MenuItem>
+                <MenuItem value="image">Image</MenuItem>
+                <MenuItem value="audio">Audio</MenuItem>
+                <MenuItem value="video">Video</MenuItem>
+              </Select>
+
+              <LoadingButton
+                variant="contained"
+                onClick={updateModels}
+                loading={loading}
+                sx={{
+                  borderTopLeftRadius: 0,
+                  borderBottomLeftRadius: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t('launchModel.update')}
+              </LoadingButton>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => setOpen(true)}
+            >
+              {t('launchModel.addModel')}
+            </Button>
+          </Box>
         </Box>
         <TabPanel value="/launch_model/llm" sx={{ padding: 0 }}>
           <LaunchModelComponent
@@ -89,6 +184,7 @@ const LaunchModel = () => {
             featureModels={
               featureModels.find((item) => item.type === 'llm').feature_models
             }
+            ref={(ref) => (LaunchModelRefs.current.llm = ref)}
           />
         </TabPanel>
         <TabPanel value="/launch_model/embedding" sx={{ padding: 0 }}>
@@ -99,6 +195,7 @@ const LaunchModel = () => {
               featureModels.find((item) => item.type === 'embedding')
                 .feature_models
             }
+            ref={(ref) => (LaunchModelRefs.current.embedding = ref)}
           />
         </TabPanel>
         <TabPanel value="/launch_model/rerank" sx={{ padding: 0 }}>
@@ -109,6 +206,7 @@ const LaunchModel = () => {
               featureModels.find((item) => item.type === 'rerank')
                 .feature_models
             }
+            ref={(ref) => (LaunchModelRefs.current.rerank = ref)}
           />
         </TabPanel>
         <TabPanel value="/launch_model/image" sx={{ padding: 0 }}>
@@ -118,6 +216,7 @@ const LaunchModel = () => {
             featureModels={
               featureModels.find((item) => item.type === 'image').feature_models
             }
+            ref={(ref) => (LaunchModelRefs.current.image = ref)}
           />
         </TabPanel>
         <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
@@ -127,6 +226,7 @@ const LaunchModel = () => {
             featureModels={
               featureModels.find((item) => item.type === 'audio').feature_models
             }
+            ref={(ref) => (LaunchModelRefs.current.audio = ref)}
           />
         </TabPanel>
         <TabPanel value="/launch_model/video" sx={{ padding: 0 }}>
@@ -136,12 +236,20 @@ const LaunchModel = () => {
             featureModels={
               featureModels.find((item) => item.type === 'video').feature_models
             }
+            ref={(ref) => (LaunchModelRefs.current.video = ref)}
           />
         </TabPanel>
         <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>
+      {open && (
+        <AddModelDialog
+          onUpdateList={updateList}
+          open={open}
+          onClose={handleClose}
+        />
+      )}
     </Box>
   )
 }
