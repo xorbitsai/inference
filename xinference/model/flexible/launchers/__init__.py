@@ -11,8 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from .image_process_launcher import launcher as image_process
-from .modelscope_launcher import launcher as modelscope
-from .transformers_launcher import launcher as transformers
-from .yolo_launcher import launcher as yolo
