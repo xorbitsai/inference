@@ -88,7 +88,7 @@ const AddModelDialog = ({ open, onClose, onUpdateList }) => {
       const res = await fetch(endPoint + '/v1/models/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(modelJson),
+        body: JSON.stringify({ model_type: modelType, model_json: modelJson }),
       })
       const rawText = await res.text().catch(() => '')
       if (!res.ok) {
