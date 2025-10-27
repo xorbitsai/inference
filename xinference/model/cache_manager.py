@@ -16,7 +16,9 @@ class CacheManager:
         self._model_family = model_family
         self._v2_cache_dir_prefix = os.path.join(XINFERENCE_CACHE_DIR, "v2")
         self._v2_custom_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2")
-        self._v2_builtin_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin")
+        self._v2_builtin_dir_prefix = os.path.join(
+            XINFERENCE_MODEL_DIR, "v2", "builtin"
+        )
         os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
         os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
         os.makedirs(self._v2_builtin_dir_prefix, exist_ok=True)

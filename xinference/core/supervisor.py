@@ -183,13 +183,6 @@ class SupervisorActor(xo.StatelessActor):
             register_audio,
             unregister_audio,
         )
-        from ..model.video import (
-            CustomVideoModelFamilyV2,
-            generate_video_description,
-            get_video_model_descriptions,
-            register_video,
-            unregister_video,
-        )
         from ..model.embedding import (
             CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
@@ -224,6 +217,13 @@ class SupervisorActor(xo.StatelessActor):
             get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
+        )
+        from ..model.video import (
+            CustomVideoModelFamilyV2,
+            generate_video_description,
+            get_video_model_descriptions,
+            register_video,
+            unregister_video,
         )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
@@ -644,7 +644,11 @@ class SupervisorActor(xo.StatelessActor):
             logger.info(f"[DEBUG SUPERVISOR] Local deployment mode")
 
         if model_type.upper() == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families, register_builtin_model
+            from ..model.llm import (
+                BUILTIN_LLM_FAMILIES,
+                get_user_defined_llm_families,
+                register_builtin_model,
+            )
 
             logger.info(f"[DEBUG SUPERVISOR] Processing LLM models")
 
@@ -672,15 +676,18 @@ class SupervisorActor(xo.StatelessActor):
                         reg_data = await self._to_llm_reg(family, True)
                         ret.append(reg_data)
                     else:
-                        ret.append({"model_name": family.model_name, "is_builtin": True})
+                        ret.append(
+                            {"model_name": family.model_name, "is_builtin": True}
+                        )
 
                 ret.sort(key=sort_helper)
-            logger.info(
-                f"[DEBUG SUPERVISOR] LLM: Returning {len(ret)} total models"
-            )
+            logger.info(f"[DEBUG SUPERVISOR] LLM: Returning {len(ret)} total models")
             return ret
         elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS, register_builtin_model
+            from ..model.embedding import (
+                BUILTIN_EMBEDDING_MODELS,
+                register_builtin_model,
+            )
             from ..model.embedding.custom import get_user_defined_embeddings
 
             register_builtin_model()
@@ -869,10 +876,12 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
             for model_spec in get_user_defined_videos():
                 from ..model.cache_manager import CacheManager
+
                 cache_manager = CacheManager(model_spec)
                 is_persisted_model = False
                 if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
                     import os
+
                     potential_persist_path = os.path.join(
                         cache_manager._v2_builtin_dir_prefix,
                         "video",
@@ -1327,13 +1336,16 @@ class SupervisorActor(xo.StatelessActor):
         try:
             # Create CacheManager and store as built-in model
             from ..model.cache_manager import CacheManager
+
             cache_manager = CacheManager(model_spec)
             cache_manager.register_builtin_model(model_type.lower())
             logger.info(f"[DEBUG SUPERVISOR] Built-in model stored successfully")
 
             # Register in the model registry without persisting to avoid duplicate storage
             register_fn(model_spec, persist=False)
-            logger.info(f"[DEBUG SUPERVISOR] Model registry registration completed successfully")
+            logger.info(
+                f"[DEBUG SUPERVISOR] Model registry registration completed successfully"
+            )
 
             # Record model version
             logger.info(f"[DEBUG SUPERVISOR] Generating version info...")
@@ -1399,23 +1411,43 @@ class SupervisorActor(xo.StatelessActor):
         logger.info(f"[DEBUG SUPERVISOR] Input model_json: {model_json}")
 
         if model_json.get("model_id") is None and "model_src" in model_json:
-            logger.info(f"[DEBUG SUPERVISOR] model_id is null, attempting to extract from model_src")
+            logger.info(
+                f"[DEBUG SUPERVISOR] model_id is null, attempting to extract from model_src"
+            )
             model_src = model_json["model_src"]
 
             if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
                 model_json["model_id"] = model_src["huggingface"]["model_id"]
-                logger.info(f"[DEBUG SUPERVISOR] Extracted model_id from huggingface: {model_json['model_id']}")
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Extracted model_id from huggingface: {model_json['model_id']}"
+                )
             elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
                 model_json["model_id"] = model_src["modelscope"]["model_id"]
-                logger.info(f"[DEBUG SUPERVISOR] Extracted model_id from modelscope: {model_json['model_id']}")
+                logger.info(
+                    f"[DEBUG SUPERVISOR] Extracted model_id from modelscope: {model_json['model_id']}"
+                )
 
             if model_json.get("model_revision") is None:
-                if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
-                    model_json["model_revision"] = model_src["huggingface"]["model_revision"]
-                    logger.info(f"[DEBUG SUPERVISOR] Extracted model_revision from huggingface: {model_json['model_revision']}")
-                elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
-                    model_json["model_revision"] = model_src["modelscope"]["model_revision"]
-                    logger.info(f"[DEBUG SUPERVISOR] Extracted model_revision from modelscope: {model_json['model_revision']}")
+                if (
+                    "huggingface" in model_src
+                    and "model_revision" in model_src["huggingface"]
+                ):
+                    model_json["model_revision"] = model_src["huggingface"][
+                        "model_revision"
+                    ]
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Extracted model_revision from huggingface: {model_json['model_revision']}"
+                    )
+                elif (
+                    "modelscope" in model_src
+                    and "model_revision" in model_src["modelscope"]
+                ):
+                    model_json["model_revision"] = model_src["modelscope"][
+                        "model_revision"
+                    ]
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Extracted model_revision from modelscope: {model_json['model_revision']}"
+                    )
 
         # If model_specs is missing, provide a default minimal spec
         if "model_specs" not in model_json or not model_json["model_specs"]:
@@ -1622,7 +1654,9 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         model_type_for_operations = normalized_for_validation
-        logger.info(f"[DEBUG SUPERVISOR] Using model_type: '{model_type_for_operations}' for operations")
+        logger.info(
+            f"[DEBUG SUPERVISOR] Using model_type: '{model_type_for_operations}' for operations"
+        )
 
         # Construct the URL to download JSON
         url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
@@ -1654,41 +1688,68 @@ class SupervisorActor(xo.StatelessActor):
                     )
 
             # Store the JSON data using CacheManager as built-in models
-            logger.info(f"[DEBUG SUPERVISOR] Storing model configurations as built-in models...")
+            logger.info(
+                f"[DEBUG SUPERVISOR] Storing model configurations as built-in models..."
+            )
             await self._store_model_configurations(model_type, model_data)
-            logger.info(f"[DEBUG SUPERVISOR] Built-in model configurations stored successfully")
+            logger.info(
+                f"[DEBUG SUPERVISOR] Built-in model configurations stored successfully"
+            )
 
             # Dynamically reload built-in models to make them immediately available
-            logger.info(f"[DEBUG SUPERVISOR] Reloading built-in models for immediate availability...")
+            logger.info(
+                f"[DEBUG SUPERVISOR] Reloading built-in models for immediate availability..."
+            )
             try:
                 if model_type.lower() == "llm":
                     from ..model.llm import register_builtin_model
+
                     register_builtin_model()
                     logger.info(f"[DEBUG SUPERVISOR] LLM models reloaded successfully")
                 elif model_type.lower() == "embedding":
                     from ..model.embedding import register_builtin_model
+
                     register_builtin_model()
-                    logger.info(f"[DEBUG SUPERVISOR] Embedding models reloaded successfully")
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Embedding models reloaded successfully"
+                    )
                 elif model_type.lower() == "audio":
                     from ..model.audio import register_builtin_model
+
                     register_builtin_model()
-                    logger.info(f"[DEBUG SUPERVISOR] Audio models reloaded successfully")
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Audio models reloaded successfully"
+                    )
                 elif model_type.lower() == "image":
                     from ..model.image import register_builtin_model
+
                     register_builtin_model()
-                    logger.info(f"[DEBUG SUPERVISOR] Image models reloaded successfully")
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Image models reloaded successfully"
+                    )
                 elif model_type.lower() == "rerank":
                     from ..model.rerank import register_builtin_model
+
                     register_builtin_model()
-                    logger.info(f"[DEBUG SUPERVISOR] Rerank models reloaded successfully")
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Rerank models reloaded successfully"
+                    )
                 elif model_type.lower() == "video":
                     from ..model.video import register_builtin_model
+
                     register_builtin_model()
-                    logger.info(f"[DEBUG SUPERVISOR] Video models reloaded successfully")
+                    logger.info(
+                        f"[DEBUG SUPERVISOR] Video models reloaded successfully"
+                    )
                 else:
-                    logger.warning(f"[DEBUG SUPERVISOR] No dynamic loading available for model type: {model_type}")
+                    logger.warning(
+                        f"[DEBUG SUPERVISOR] No dynamic loading available for model type: {model_type}"
+                    )
             except Exception as reload_error:
-                logger.error(f"[DEBUG SUPERVISOR] Error reloading built-in models: {reload_error}", exc_info=True)
+                logger.error(
+                    f"[DEBUG SUPERVISOR] Error reloading built-in models: {reload_error}",
+                    exc_info=True,
+                )
                 # Don't fail the update if reload fails, just log the error
 
         except requests.exceptions.RequestException as e:
@@ -1732,7 +1793,9 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(f"Unsupported model type: {model_type}")
 
             model_spec_cls, _, _, _ = self._custom_register_type_to_cls[lookup_key]
-            logger.info(f"[DEBUG SUPERVISOR] Using model spec class: {model_spec_cls.__name__} with key: {lookup_key}")
+            logger.info(
+                f"[DEBUG SUPERVISOR] Using model spec class: {model_spec_cls.__name__} with key: {lookup_key}"
+            )
 
             # Handle different response formats
             if isinstance(model_data, dict):

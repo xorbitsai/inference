@@ -3173,13 +3173,17 @@ class RESTfulAPI(CancelMixin):
                 # Priority 1: Check if model_type is explicitly provided in the JSON
                 if "model_type" in model_json:
                     model_type = model_json["model_type"]
-                    logger.info(f"[DEBUG] Using explicit model_type from JSON: {model_type}")
+                    logger.info(
+                        f"[DEBUG] Using explicit model_type from JSON: {model_type}"
+                    )
                 else:
                     # model_type is required in the JSON when using unwrapped format
-                    logger.error(f"[DEBUG] model_type not provided in JSON, this is required")
+                    logger.error(
+                        f"[DEBUG] model_type not provided in JSON, this is required"
+                    )
                     raise HTTPException(
                         status_code=400,
-                        detail="model_type is required in the model JSON. Supported types: LLM, embedding, audio, image, video, rerank"
+                        detail="model_type is required in the model JSON. Supported types: LLM, embedding, audio, image, video, rerank",
                     )
 
             logger.info(f"[DEBUG] Parsed model_type: {model_type}")

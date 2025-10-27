@@ -77,7 +77,9 @@ def register_builtin_model():
                     with codecs.open(
                         os.path.join(builtin_rerank_dir, f), encoding="utf-8"
                     ) as fd:
-                        builtin_rerank_family = RerankModelFamilyV2.parse_obj(json.load(fd))
+                        builtin_rerank_family = RerankModelFamilyV2.parse_obj(
+                            json.load(fd)
+                        )
 
                         # Only register if model doesn't already exist
                         if builtin_rerank_family.model_name not in existing_model_names:

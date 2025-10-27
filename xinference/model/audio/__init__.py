@@ -77,20 +77,43 @@ def register_builtin_model():
                         model_data = json.load(fd)
 
                         # Apply conversion logic to handle null model_id and other issues
-                        if model_data.get("model_id") is None and "model_src" in model_data:
+                        if (
+                            model_data.get("model_id") is None
+                            and "model_src" in model_data
+                        ):
                             model_src = model_data["model_src"]
                             # Extract model_id from available sources
-                            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-                                model_data["model_id"] = model_src["huggingface"]["model_id"]
-                            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
-                                model_data["model_id"] = model_src["modelscope"]["model_id"]
+                            if (
+                                "huggingface" in model_src
+                                and "model_id" in model_src["huggingface"]
+                            ):
+                                model_data["model_id"] = model_src["huggingface"][
+                                    "model_id"
+                                ]
+                            elif (
+                                "modelscope" in model_src
+                                and "model_id" in model_src["modelscope"]
+                            ):
+                                model_data["model_id"] = model_src["modelscope"][
+                                    "model_id"
+                                ]
 
                             # Extract model_revision if available
                             if model_data.get("model_revision") is None:
-                                if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
-                                    model_data["model_revision"] = model_src["huggingface"]["model_revision"]
-                                elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
-                                    model_data["model_revision"] = model_src["modelscope"]["model_revision"]
+                                if (
+                                    "huggingface" in model_src
+                                    and "model_revision" in model_src["huggingface"]
+                                ):
+                                    model_data["model_revision"] = model_src[
+                                        "huggingface"
+                                    ]["model_revision"]
+                                elif (
+                                    "modelscope" in model_src
+                                    and "model_revision" in model_src["modelscope"]
+                                ):
+                                    model_data["model_revision"] = model_src[
+                                        "modelscope"
+                                    ]["model_revision"]
 
                         builtin_audio_family = AudioModelFamilyV2.parse_obj(model_data)
 

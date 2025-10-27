@@ -71,7 +71,9 @@ def register_builtin_model():
     registry = RegistryManager.get_registry("embedding")
     existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
 
-    builtin_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding")
+    builtin_embedding_dir = os.path.join(
+        XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding"
+    )
     if os.path.isdir(builtin_embedding_dir):
         for f in os.listdir(builtin_embedding_dir):
             if f.endswith(".json"):
@@ -79,12 +81,19 @@ def register_builtin_model():
                     with codecs.open(
                         os.path.join(builtin_embedding_dir, f), encoding="utf-8"
                     ) as fd:
-                        builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(json.load(fd))
+                        builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(
+                            json.load(fd)
+                        )
 
                         # Only register if model doesn't already exist
-                        if builtin_embedding_family.model_name not in existing_model_names:
+                        if (
+                            builtin_embedding_family.model_name
+                            not in existing_model_names
+                        ):
                             register_embedding(builtin_embedding_family, persist=False)
-                            existing_model_names.add(builtin_embedding_family.model_name)
+                            existing_model_names.add(
+                                builtin_embedding_family.model_name
+                            )
                 except Exception as e:
                     warnings.warn(f"{builtin_embedding_dir}/{f} has error, {e}")
 

@@ -54,17 +54,35 @@ class BuiltinVideoModelRegistry:
                     if model_data.get("model_id") is None and "model_src" in model_data:
                         model_src = model_data["model_src"]
                         # Extract model_id from available sources
-                        if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-                            model_data["model_id"] = model_src["huggingface"]["model_id"]
-                        elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+                        if (
+                            "huggingface" in model_src
+                            and "model_id" in model_src["huggingface"]
+                        ):
+                            model_data["model_id"] = model_src["huggingface"][
+                                "model_id"
+                            ]
+                        elif (
+                            "modelscope" in model_src
+                            and "model_id" in model_src["modelscope"]
+                        ):
                             model_data["model_id"] = model_src["modelscope"]["model_id"]
 
                         # Extract model_revision if available
                         if model_data.get("model_revision") is None:
-                            if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
-                                model_data["model_revision"] = model_src["huggingface"]["model_revision"]
-                            elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
-                                model_data["model_revision"] = model_src["modelscope"]["model_revision"]
+                            if (
+                                "huggingface" in model_src
+                                and "model_revision" in model_src["huggingface"]
+                            ):
+                                model_data["model_revision"] = model_src["huggingface"][
+                                    "model_revision"
+                                ]
+                            elif (
+                                "modelscope" in model_src
+                                and "model_revision" in model_src["modelscope"]
+                            ):
+                                model_data["model_revision"] = model_src["modelscope"][
+                                    "model_revision"
+                                ]
 
                     # Parse using CustomVideoModelFamilyV2
                     model = CustomVideoModelFamilyV2.parse_obj(model_data)
@@ -72,7 +90,9 @@ class BuiltinVideoModelRegistry:
                     logger.info(f"Loaded built-in video model: {model.model_name}")
 
                 except Exception as e:
-                    logger.warning(f"Failed to load built-in model from {filename}: {e}")
+                    logger.warning(
+                        f"Failed to load built-in model from {filename}: {e}"
+                    )
 
         return models
 
@@ -100,4 +120,6 @@ class BuiltinVideoModelRegistry:
                 logger.error(f"Failed to unregister built-in model {model_name}: {e}")
                 raise
         else:
-            logger.warning(f"Built-in video model {model_name} not found for unregistration")
+            logger.warning(
+                f"Built-in video model {model_name} not found for unregistration"
+            )

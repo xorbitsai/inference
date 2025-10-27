@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 from ..._compat import (
     Literal,
@@ -51,11 +51,13 @@ video_registry = VideoModelRegistry()
 
 def register_video(model_spec: CustomVideoModelFamilyV2, persist: bool = True):
     from ..custom import RegistryManager
+
     registry = RegistryManager.get_registry("video")
     registry.register(model_spec, persist)
 
     if persist:
         from ..custom import persist_user_model
+
         persist_user_model("video", model_spec)
 
 
@@ -64,10 +66,12 @@ def unregister_video(model_name: str, raise_error: bool = True):
 
     # Remove persisted file if exists
     from ..custom import unpersist_user_model
+
     unpersist_user_model("video", model_name)
 
 
 def get_user_defined_videos() -> List[CustomVideoModelFamilyV2]:
     from ..custom import RegistryManager
+
     registry = RegistryManager.get_registry("video")
     return registry.get_custom_models()

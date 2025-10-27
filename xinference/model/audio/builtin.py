@@ -56,7 +56,9 @@ class BuiltinAudioModelRegistry:
                     logger.info(f"Loaded built-in audio model: {model.model_name}")
 
                 except Exception as e:
-                    logger.warning(f"Failed to load built-in model from {filename}: {e}")
+                    logger.warning(
+                        f"Failed to load built-in model from {filename}: {e}"
+                    )
 
         return models
 

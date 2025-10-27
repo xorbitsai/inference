@@ -67,6 +67,7 @@ def register_builtin_model():
 
     # Use the builtin registry to load models
     from .builtin import BuiltinVideoModelRegistry
+
     builtin_registry = BuiltinVideoModelRegistry()
     builtin_models = builtin_registry.get_builtin_models()
 
