@@ -15,9 +15,12 @@
 import json
 import logging
 import os
-from typing import List
+from typing import TYPE_CHECKING, List
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .custom import ImageModelFamilyV2
 
 
 class BuiltinImageModelRegistry:
@@ -34,11 +37,11 @@ class BuiltinImageModelRegistry:
         self.builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "image")
         os.makedirs(self.builtin_dir, exist_ok=True)
 
-    def get_builtin_models(self) -> List:
+    def get_builtin_models(self) -> List["ImageModelFamilyV2"]:
         """Load all built-in image models from the builtin directory."""
         from .custom import ImageModelFamilyV2
 
-        models = []
+        models: List["ImageModelFamilyV2"] = []
 
         if not os.path.exists(self.builtin_dir):
             return models

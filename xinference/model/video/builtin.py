@@ -15,9 +15,12 @@
 import json
 import logging
 import os
-from typing import List
+from typing import TYPE_CHECKING, List
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .custom import CustomVideoModelFamilyV2
 
 
 class BuiltinVideoModelRegistry:
@@ -34,11 +37,11 @@ class BuiltinVideoModelRegistry:
         self.builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "video")
         os.makedirs(self.builtin_dir, exist_ok=True)
 
-    def get_builtin_models(self) -> List:
+    def get_builtin_models(self) -> List["CustomVideoModelFamilyV2"]:
         """Load all built-in video models from the builtin directory."""
         from .custom import CustomVideoModelFamilyV2
 
-        models = []
+        models: List["CustomVideoModelFamilyV2"] = []
 
         if not os.path.exists(self.builtin_dir):
             return models

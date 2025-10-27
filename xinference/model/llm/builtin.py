@@ -41,7 +41,7 @@ class BuiltinLLMModelRegistry:
         """Load all built-in LLM models from the builtin directory."""
         from ..llm.llm_family import LLMFamilyV2
 
-        models = []
+        models: List["LLMFamilyV2"] = []
 
         if not os.path.exists(self.builtin_dir):
             return models
