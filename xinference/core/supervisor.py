@@ -183,6 +183,13 @@ class SupervisorActor(xo.StatelessActor):
             register_audio,
             unregister_audio,
         )
+        from ..model.video import (
+            CustomVideoModelFamilyV2,
+            generate_video_description,
+            get_video_model_descriptions,
+            register_video,
+            unregister_video,
+        )
         from ..model.embedding import (
             CustomEmbeddingModelFamilyV2,
             generate_embedding_description,
@@ -250,6 +257,12 @@ class SupervisorActor(xo.StatelessActor):
                 unregister_audio,
                 generate_audio_description,
             ),
+            "video": (
+                CustomVideoModelFamilyV2,
+                register_video,
+                unregister_video,
+                generate_video_description,
+            ),
             "flexible": (
                 FlexibleModelSpec,
                 register_flexible_model,
@@ -265,6 +278,7 @@ class SupervisorActor(xo.StatelessActor):
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_video_model_descriptions())
         model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
@@ -629,13 +643,12 @@ class SupervisorActor(xo.StatelessActor):
         else:
             logger.info(f"[DEBUG SUPERVISOR] Local deployment mode")
 
-        if model_type == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+        if model_type.upper() == "LLM":
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families, register_builtin_model
 
             logger.info(f"[DEBUG SUPERVISOR] Processing LLM models")
-            logger.info(
-                f"[DEBUG SUPERVISOR] Found {len(BUILTIN_LLM_FAMILIES)} builtin LLM families"
-            )
+
+            register_builtin_model()
 
             for family in BUILTIN_LLM_FAMILIES:
                 logger.debug(
@@ -643,65 +656,34 @@ class SupervisorActor(xo.StatelessActor):
                 )
                 if detailed:
                     reg_data = await self._to_llm_reg(family, True)
-                    logger.debug(
-                        f"[DEBUG SUPERVISOR] Builtin LLM reg data: {reg_data['model_name']}"
-                    )
                     ret.append(reg_data)
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": True})
 
             user_defined_families = get_user_defined_llm_families()
-            logger.info(
-                f"[DEBUG SUPERVISOR] Found {len(user_defined_families)} user-defined LLM families"
-            )
+            builtin_names = {family.model_name for family in BUILTIN_LLM_FAMILIES}
 
             for family in user_defined_families:
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Processing user-defined LLM: {family.model_name}"
-                )
-
-                # Check if this model is persisted (added via add_model API)
-                # Persisted models from model hub should be treated as built-in
-                from ..model.cache_manager import CacheManager
-
-                cache_manager = CacheManager(family)
-
-                # If persist path exists, this model was added via add_model API and should be treated as built-in
-                is_persisted_model = False
-                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
-                    import os
-
-                    potential_persist_path = os.path.join(
-                        cache_manager._v2_custom_dir_prefix,
-                        "llm",
-                        f"{family.model_name}.json",
+                if family.model_name not in builtin_names:
+                    logger.debug(
+                        f"[DEBUG SUPERVISOR] Processing dynamic LLM: {family.model_name}"
                     )
-                    is_persisted_model = os.path.exists(potential_persist_path)
+                    if detailed:
+                        reg_data = await self._to_llm_reg(family, True)
+                        ret.append(reg_data)
+                    else:
+                        ret.append({"model_name": family.model_name, "is_builtin": True})
 
-                is_builtin = is_persisted_model  # Treat persisted models as built-in
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Model {family.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
-                )
-
-                if detailed:
-                    reg_data = await self._to_llm_reg(family, is_builtin)
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] User-defined LLM reg data: {reg_data['model_name']}, builtin: {reg_data.get('is_builtin', False)}"
-                    )
-                    ret.append(reg_data)
-                else:
-                    ret.append(
-                        {"model_name": family.model_name, "is_builtin": is_builtin}
-                    )
-
-            ret.sort(key=sort_helper)
+                ret.sort(key=sort_helper)
             logger.info(
-                f"[DEBUG SUPERVISOR] LLM: Returning {len(ret)} total models (builtin: {sum(1 for r in ret if r.get('is_builtin', False))}, custom: {sum(1 for r in ret if not r.get('is_builtin', False))})"
+                f"[DEBUG SUPERVISOR] LLM: Returning {len(ret)} total models"
             )
             return ret
         elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS, register_builtin_model
             from ..model.embedding.custom import get_user_defined_embeddings
+
+            register_builtin_model()
 
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
@@ -717,15 +699,25 @@ class SupervisorActor(xo.StatelessActor):
 
                 cache_manager = CacheManager(model_spec)
                 is_persisted_model = False
-                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
                     import os
 
                     potential_persist_path = os.path.join(
-                        cache_manager._v2_custom_dir_prefix,
+                        cache_manager._v2_builtin_dir_prefix,
                         "embedding",
                         f"{model_spec.model_name}.json",
                     )
-                    is_persisted_model = os.path.exists(potential_persist_path)
+                    if os.path.exists(potential_persist_path):
+                        is_persisted_model = True
+                    else:
+                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                            potential_custom_path = os.path.join(
+                                cache_manager._v2_custom_dir_prefix,
+                                "embedding",
+                                f"{model_spec.model_name}.json",
+                            )
+                            if os.path.exists(potential_custom_path):
+                                is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
                 logger.info(
@@ -746,8 +738,10 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS
+            from ..model.image import BUILTIN_IMAGE_MODELS, register_builtin_model
             from ..model.image.custom import get_user_defined_images
+
+            register_builtin_model()
 
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
@@ -759,20 +753,29 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_images():
-                # Check if this model is persisted (added via add_model API)
                 from ..model.cache_manager import CacheManager
 
                 cache_manager = CacheManager(model_spec)
                 is_persisted_model = False
-                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
                     import os
 
                     potential_persist_path = os.path.join(
-                        cache_manager._v2_custom_dir_prefix,
+                        cache_manager._v2_builtin_dir_prefix,
                         "image",
                         f"{model_spec.model_name}.json",
                     )
-                    is_persisted_model = os.path.exists(potential_persist_path)
+                    if os.path.exists(potential_persist_path):
+                        is_persisted_model = True
+                    else:
+                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                            potential_custom_path = os.path.join(
+                                cache_manager._v2_custom_dir_prefix,
+                                "image",
+                                f"{model_spec.model_name}.json",
+                            )
+                            if os.path.exists(potential_custom_path):
+                                is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
                 logger.info(
@@ -793,8 +796,10 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS
+            from ..model.audio import BUILTIN_AUDIO_MODELS, register_builtin_model
             from ..model.audio.custom import get_user_defined_audios
+
+            register_builtin_model()
 
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
@@ -806,20 +811,29 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_audios():
-                # Check if this model is persisted (added via add_model API)
                 from ..model.cache_manager import CacheManager
 
                 cache_manager = CacheManager(model_spec)
                 is_persisted_model = False
-                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
                     import os
 
                     potential_persist_path = os.path.join(
-                        cache_manager._v2_custom_dir_prefix,
+                        cache_manager._v2_builtin_dir_prefix,
                         "audio",
                         f"{model_spec.model_name}.json",
                     )
-                    is_persisted_model = os.path.exists(potential_persist_path)
+                    if os.path.exists(potential_persist_path):
+                        is_persisted_model = True
+                    else:
+                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                            potential_custom_path = os.path.join(
+                                cache_manager._v2_custom_dir_prefix,
+                                "audio",
+                                f"{model_spec.model_name}.json",
+                            )
+                            if os.path.exists(potential_custom_path):
+                                is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
                 logger.info(
@@ -840,7 +854,10 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video import BUILTIN_VIDEO_MODELS, register_builtin_model
+            from ..model.video.custom import get_user_defined_videos
+
+            register_builtin_model()
 
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
                 if detailed:
@@ -850,12 +867,51 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
-
+            for model_spec in get_user_defined_videos():
+                from ..model.cache_manager import CacheManager
+                cache_manager = CacheManager(model_spec)
+                is_persisted_model = False
+                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
+                    import os
+                    potential_persist_path = os.path.join(
+                        cache_manager._v2_builtin_dir_prefix,
+                        "video",
+                        f"{model_spec.model_name}.json",
+                    )
+                    if os.path.exists(potential_persist_path):
+                        is_persisted_model = True
+                    else:
+                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                            potential_custom_path = os.path.join(
+                                cache_manager._v2_custom_dir_prefix,
+                                "video",
+                                f"{model_spec.model_name}.json",
+                            )
+                            if os.path.exists(potential_custom_path):
+                                is_persisted_model = True
+                logger.debug(
+                    f"[DEBUG SUPERVISOR] Video model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_persisted_model}"
+                )
+                if detailed:
+                    ret.append(
+                        await self._to_video_model_reg(
+                            model_spec, is_builtin=is_persisted_model
+                        )
+                    )
+                else:
+                    ret.append(
+                        {
+                            "model_name": model_spec.model_name,
+                            "is_builtin": is_persisted_model,
+                        }
+                    )
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank import BUILTIN_RERANK_MODELS, register_builtin_model
             from ..model.rerank.custom import get_user_defined_reranks
+
+            register_builtin_model()
 
             for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
@@ -864,20 +920,29 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_reranks():
-                # Check if this model is persisted (added via add_model API)
                 from ..model.cache_manager import CacheManager
 
                 cache_manager = CacheManager(model_spec)
                 is_persisted_model = False
-                if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
                     import os
 
                     potential_persist_path = os.path.join(
-                        cache_manager._v2_custom_dir_prefix,
+                        cache_manager._v2_builtin_dir_prefix,
                         "rerank",
                         f"{model_spec.model_name}.json",
                     )
-                    is_persisted_model = os.path.exists(potential_persist_path)
+                    if os.path.exists(potential_persist_path):
+                        is_persisted_model = True
+                    else:
+                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
+                            potential_custom_path = os.path.join(
+                                cache_manager._v2_custom_dir_prefix,
+                                "rerank",
+                                f"{model_spec.model_name}.json",
+                            )
+                            if os.path.exists(potential_custom_path):
+                                is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
                 logger.info(
@@ -903,7 +968,6 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
 
             for model_spec in get_flexible_models():
-                # Check if this model is persisted (added via add_model API)
                 from ..model.cache_manager import CacheManager
 
                 cache_manager = CacheManager(model_spec)
@@ -949,7 +1013,7 @@ class SupervisorActor(xo.StatelessActor):
                 if f is not None:
                     return f
 
-        if model_type == "LLM":
+        if model_type.upper() == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
             for f in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families():
@@ -1014,6 +1078,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.custom import get_user_defined_videos
 
             if model_name in BUILTIN_VIDEO_MODELS:
                 return [
@@ -1021,6 +1086,10 @@ class SupervisorActor(xo.StatelessActor):
                     for x in BUILTIN_VIDEO_MODELS[model_name]
                     if x.model_hub == "huggingface"
                 ][0]
+            else:
+                for f in get_user_defined_videos():
+                    if f.model_name == model_name:
+                        return f
             raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -1133,8 +1202,13 @@ class SupervisorActor(xo.StatelessActor):
         logger.info(f"[DEBUG SUPERVISOR] Supported model types: {supported_types}")
         logger.info(f"[DEBUG SUPERVISOR] Received model_type: '{model_type}'")
 
-        # Try to normalize case (only convert 'llm' -> 'LLM', keep others as is)
-        normalized_model_type = "LLM" if model_type.lower() == "llm" else model_type
+        normalized_model_type = model_type
+
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_model_type = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_model_type = "llm"
+
         logger.info(
             f"[DEBUG SUPERVISOR] Normalized model_type: '{normalized_model_type}'"
         )
@@ -1249,14 +1323,17 @@ class SupervisorActor(xo.StatelessActor):
             )
             raise ValueError(f"Failed to validate model registration: {str(ex)}")
 
-        # Register the model (persist=True for adding models)
-        logger.info(f"[DEBUG SUPERVISOR] Starting model registration...")
+        logger.info(f"[DEBUG SUPERVISOR] Storing single model as built-in...")
         try:
-            logger.info(
-                f"[DEBUG SUPERVISOR] Calling register_fn with model_spec: {model_spec}, persist=True"
-            )
-            register_fn(model_spec, persist=True)
-            logger.info(f"[DEBUG SUPERVISOR] register_fn completed successfully")
+            # Create CacheManager and store as built-in model
+            from ..model.cache_manager import CacheManager
+            cache_manager = CacheManager(model_spec)
+            cache_manager.register_builtin_model(model_type.lower())
+            logger.info(f"[DEBUG SUPERVISOR] Built-in model stored successfully")
+
+            # Register in the model registry without persisting to avoid duplicate storage
+            register_fn(model_spec, persist=False)
+            logger.info(f"[DEBUG SUPERVISOR] Model registry registration completed successfully")
 
             # Record model version
             logger.info(f"[DEBUG SUPERVISOR] Generating version info...")
@@ -1321,6 +1398,25 @@ class SupervisorActor(xo.StatelessActor):
         logger.info(f"[DEBUG SUPERVISOR] _convert_model_json_format called")
         logger.info(f"[DEBUG SUPERVISOR] Input model_json: {model_json}")
 
+        if model_json.get("model_id") is None and "model_src" in model_json:
+            logger.info(f"[DEBUG SUPERVISOR] model_id is null, attempting to extract from model_src")
+            model_src = model_json["model_src"]
+
+            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
+                model_json["model_id"] = model_src["huggingface"]["model_id"]
+                logger.info(f"[DEBUG SUPERVISOR] Extracted model_id from huggingface: {model_json['model_id']}")
+            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+                model_json["model_id"] = model_src["modelscope"]["model_id"]
+                logger.info(f"[DEBUG SUPERVISOR] Extracted model_id from modelscope: {model_json['model_id']}")
+
+            if model_json.get("model_revision") is None:
+                if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
+                    model_json["model_revision"] = model_src["huggingface"]["model_revision"]
+                    logger.info(f"[DEBUG SUPERVISOR] Extracted model_revision from huggingface: {model_json['model_revision']}")
+                elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
+                    model_json["model_revision"] = model_src["modelscope"]["model_revision"]
+                    logger.info(f"[DEBUG SUPERVISOR] Extracted model_revision from modelscope: {model_json['model_revision']}")
+
         # If model_specs is missing, provide a default minimal spec
         if "model_specs" not in model_json or not model_json["model_specs"]:
             logger.info(
@@ -1375,6 +1471,10 @@ class SupervisorActor(xo.StatelessActor):
                     converted_spec["quantization"] = "none"
                 if "model_format" not in converted_spec:
                     converted_spec["model_format"] = "pytorch"
+                if "model_file_name_template" not in converted_spec:
+                    converted_spec["model_file_name_template"] = "model.bin"
+                if "model_hub" not in converted_spec and "model_id" in converted_spec:
+                    converted_spec["model_hub"] = "huggingface"
                 converted_specs.append(converted_spec)
                 continue
 
@@ -1419,6 +1519,7 @@ class SupervisorActor(xo.StatelessActor):
                             converted_spec["model_id"] = hf_info["model_id"]
                         if "model_revision" in hf_info:
                             converted_spec["model_revision"] = hf_info["model_revision"]
+                        converted_spec["model_file_name_template"] = "pytorch_model.bin"
 
                     converted_specs.append(converted_spec)
 
@@ -1439,6 +1540,7 @@ class SupervisorActor(xo.StatelessActor):
                         converted_spec["model_id"] = ms_info["model_id"]
                     if "model_revision" in ms_info:
                         converted_spec["model_revision"] = ms_info["model_revision"]
+                    converted_spec["model_file_name_template"] = "pytorch_model.bin"
 
                     converted_specs.append(converted_spec)
 
@@ -1453,6 +1555,8 @@ class SupervisorActor(xo.StatelessActor):
                     converted_spec["quantization"] = "none"
                 if "model_format" not in converted_spec:
                     converted_spec["model_format"] = "pytorch"
+                if "model_file_name_template" not in converted_spec:
+                    converted_spec["model_file_name_template"] = "model.bin"
                 converted_specs.append(converted_spec)
 
         converted["model_specs"] = converted_specs
@@ -1500,22 +1604,25 @@ class SupervisorActor(xo.StatelessActor):
             f"[DEBUG SUPERVISOR] update_model_type called with model_type: {model_type}"
         )
 
-        # Validate model type
-        normalized_model_type = "LLM" if model_type.lower() == "llm" else model_type
         supported_types = list(self._custom_register_type_to_cls.keys())
 
-        if normalized_model_type not in supported_types:
+        normalized_for_validation = model_type
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_for_validation = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_for_validation = "llm"
+
+        if normalized_for_validation not in supported_types:
             logger.error(
-                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_model_type}"
+                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_for_validation}"
             )
             raise ValueError(
                 f"Unsupported model type '{model_type}'. "
                 f"Supported types are: {', '.join(supported_types)}"
             )
 
-        # Use normalized model type for the rest of the function
-        model_type = normalized_model_type
-        logger.info(f"[DEBUG SUPERVISOR] Using model_type: '{model_type}' for update")
+        model_type_for_operations = normalized_for_validation
+        logger.info(f"[DEBUG SUPERVISOR] Using model_type: '{model_type_for_operations}' for operations")
 
         # Construct the URL to download JSON
         url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
@@ -1546,10 +1653,43 @@ class SupervisorActor(xo.StatelessActor):
                         f"[DEBUG SUPERVISOR] First item keys: {list(model_data[0].keys()) if isinstance(model_data[0], dict) else 'Not a dict'}"
                     )
 
-            # Store the JSON data using CacheManager
-            logger.info(f"[DEBUG SUPERVISOR] Storing model configurations...")
+            # Store the JSON data using CacheManager as built-in models
+            logger.info(f"[DEBUG SUPERVISOR] Storing model configurations as built-in models...")
             await self._store_model_configurations(model_type, model_data)
-            logger.info(f"[DEBUG SUPERVISOR] Model configurations stored successfully")
+            logger.info(f"[DEBUG SUPERVISOR] Built-in model configurations stored successfully")
+
+            # Dynamically reload built-in models to make them immediately available
+            logger.info(f"[DEBUG SUPERVISOR] Reloading built-in models for immediate availability...")
+            try:
+                if model_type.lower() == "llm":
+                    from ..model.llm import register_builtin_model
+                    register_builtin_model()
+                    logger.info(f"[DEBUG SUPERVISOR] LLM models reloaded successfully")
+                elif model_type.lower() == "embedding":
+                    from ..model.embedding import register_builtin_model
+                    register_builtin_model()
+                    logger.info(f"[DEBUG SUPERVISOR] Embedding models reloaded successfully")
+                elif model_type.lower() == "audio":
+                    from ..model.audio import register_builtin_model
+                    register_builtin_model()
+                    logger.info(f"[DEBUG SUPERVISOR] Audio models reloaded successfully")
+                elif model_type.lower() == "image":
+                    from ..model.image import register_builtin_model
+                    register_builtin_model()
+                    logger.info(f"[DEBUG SUPERVISOR] Image models reloaded successfully")
+                elif model_type.lower() == "rerank":
+                    from ..model.rerank import register_builtin_model
+                    register_builtin_model()
+                    logger.info(f"[DEBUG SUPERVISOR] Rerank models reloaded successfully")
+                elif model_type.lower() == "video":
+                    from ..model.video import register_builtin_model
+                    register_builtin_model()
+                    logger.info(f"[DEBUG SUPERVISOR] Video models reloaded successfully")
+                else:
+                    logger.warning(f"[DEBUG SUPERVISOR] No dynamic loading available for model type: {model_type}")
+            except Exception as reload_error:
+                logger.error(f"[DEBUG SUPERVISOR] Error reloading built-in models: {reload_error}", exc_info=True)
+                # Don't fail the update if reload fails, just log the error
 
         except requests.exceptions.RequestException as e:
             logger.error(
@@ -1568,10 +1708,10 @@ class SupervisorActor(xo.StatelessActor):
 
     async def _store_model_configurations(self, model_type: str, model_data):
         """
-        Store model configurations using the appropriate CacheManager.
+        Store model configurations using the appropriate CacheManager as built-in models.
 
         Args:
-            model_type: Type of model
+            model_type: Type of model (as provided by user, e.g., "llm")
             model_data: JSON data containing model configurations
         """
 
@@ -1582,7 +1722,17 @@ class SupervisorActor(xo.StatelessActor):
         try:
             # Create a temporary model spec to get CacheManager instance
             # We need to determine the appropriate model spec class for this model type
-            model_spec_cls, _, _, _ = self._custom_register_type_to_cls[model_type]
+            lookup_key = None
+            for key in self._custom_register_type_to_cls.keys():
+                if key.lower() == model_type.lower():
+                    lookup_key = key
+                    break
+
+            if lookup_key is None:
+                raise ValueError(f"Unsupported model type: {model_type}")
+
+            model_spec_cls, _, _, _ = self._custom_register_type_to_cls[lookup_key]
+            logger.info(f"[DEBUG SUPERVISOR] Using model spec class: {model_spec_cls.__name__} with key: {lookup_key}")
 
             # Handle different response formats
             if isinstance(model_data, dict):
@@ -1622,7 +1772,7 @@ class SupervisorActor(xo.StatelessActor):
         self, model_type: str, model_config: dict, model_spec_cls
     ):
         """
-        Store a single model configuration.
+        Store a single model configuration as built-in model.
 
         Args:
             model_type: Type of model
@@ -1659,11 +1809,11 @@ class SupervisorActor(xo.StatelessActor):
             model_spec = model_spec_cls.parse_obj(converted_config)
             logger.info(f"[DEBUG SUPERVISOR] Created model spec for: {model_name}")
 
-            # Create CacheManager and store the configuration
+            # Create CacheManager and store the configuration as built-in model
             cache_manager = CacheManager(model_spec)
-            cache_manager.register_custom_model(model_type)
+            cache_manager.register_builtin_model(model_type)
             logger.info(
-                f"[DEBUG SUPERVISOR] Stored model configuration for: {model_name}"
+                f"[DEBUG SUPERVISOR] Stored built-in model configuration for: {model_name}"
             )
 
         except Exception as e:

@@ -128,6 +128,31 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
 
 
+def register_builtin_model():
+    from ...constants import XINFERENCE_MODEL_DIR
+    from ..custom import RegistryManager
+
+    registry = RegistryManager.get_registry("llm")
+    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+
+    builtin_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
+    if os.path.isdir(builtin_llm_dir):
+        for f in os.listdir(builtin_llm_dir):
+            if f.endswith(".json"):
+                try:
+                    with codecs.open(
+                        os.path.join(builtin_llm_dir, f), encoding="utf-8"
+                    ) as fd:
+                        builtin_llm_family = LLMFamilyV2.parse_raw(fd.read())
+
+                        # Only register if model doesn't already exist
+                        if builtin_llm_family.model_name not in existing_model_names:
+                            register_llm(builtin_llm_family, persist=False)
+                            existing_model_names.add(builtin_llm_family.model_name)
+                except Exception as e:
+                    warnings.warn(f"{builtin_llm_dir}/{f} has error, {e}")
+
+
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), json_filename)
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):

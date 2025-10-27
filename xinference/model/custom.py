@@ -118,6 +118,7 @@ class RegistryManager:
         from .image.custom import ImageModelRegistry
         from .llm.custom import LLMModelRegistry
         from .rerank.custom import RerankModelRegistry
+        from .video.custom import VideoModelRegistry
 
         if model_type not in cls._instances:
             if model_type == "rerank":
@@ -126,6 +127,8 @@ class RegistryManager:
                 cls._instances[model_type] = ImageModelRegistry()
             elif model_type == "audio":
                 cls._instances[model_type] = AudioModelRegistry()
+            elif model_type == "video":
+                cls._instances[model_type] = VideoModelRegistry()
             elif model_type == "llm":
                 cls._instances[model_type] = LLMModelRegistry()
             elif model_type == "flexible":

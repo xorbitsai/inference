@@ -63,6 +63,30 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
 
+def register_builtin_model():
+    from ..custom import RegistryManager
+
+    registry = RegistryManager.get_registry("rerank")
+    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+
+    builtin_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "rerank")
+    if os.path.isdir(builtin_rerank_dir):
+        for f in os.listdir(builtin_rerank_dir):
+            if f.endswith(".json"):
+                try:
+                    with codecs.open(
+                        os.path.join(builtin_rerank_dir, f), encoding="utf-8"
+                    ) as fd:
+                        builtin_rerank_family = RerankModelFamilyV2.parse_obj(json.load(fd))
+
+                        # Only register if model doesn't already exist
+                        if builtin_rerank_family.model_name not in existing_model_names:
+                            register_rerank(builtin_rerank_family, persist=False)
+                            existing_model_names.add(builtin_rerank_family.model_name)
+                except Exception as e:
+                    warnings.warn(f"{builtin_rerank_dir}/{f} has error, {e}")
+
+
 def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
     model_name = model_family.model_name
     engines: Dict[str, List[Dict[str, Any]]] = RERANK_ENGINES.get(

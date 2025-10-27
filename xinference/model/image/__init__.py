@@ -55,6 +55,31 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_image_dir}/{f} has error, {e}")
 
 
+def register_builtin_model():
+    from ...constants import XINFERENCE_MODEL_DIR
+    from ..custom import RegistryManager
+
+    registry = RegistryManager.get_registry("image")
+    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+
+    builtin_image_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "image")
+    if os.path.isdir(builtin_image_dir):
+        for f in os.listdir(builtin_image_dir):
+            if f.endswith(".json"):
+                try:
+                    with codecs.open(
+                        os.path.join(builtin_image_dir, f), encoding="utf-8"
+                    ) as fd:
+                        builtin_image_family = ImageModelFamilyV2.parse_obj(json.load(fd))
+
+                        # Only register if model doesn't already exist
+                        if builtin_image_family.model_name not in existing_model_names:
+                            register_image(builtin_image_family, persist=False)
+                            existing_model_names.add(builtin_image_family.model_name)
+                except Exception as e:
+                    warnings.warn(f"{builtin_image_dir}/{f} has error, {e}")
+
+
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_IMAGE_MODELS)
 

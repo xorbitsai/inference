@@ -15,6 +15,7 @@
 import codecs
 import json
 import os
+import warnings
 
 from ..utils import flatten_model_src
 from .core import (
@@ -24,6 +25,57 @@ from .core import (
     generate_video_description,
     get_video_model_descriptions,
 )
+from .custom import (
+    CustomVideoModelFamilyV2,
+    get_user_defined_videos,
+    register_video,
+    unregister_video,
+)
+
+
+def register_custom_model():
+    from ...constants import XINFERENCE_MODEL_DIR
+    from ..custom import migrate_from_v1_to_v2
+
+    # migrate from v1 to v2 first
+    migrate_from_v1_to_v2("video", CustomVideoModelFamilyV2)
+
+    user_defined_video_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "video")
+    if os.path.isdir(user_defined_video_dir):
+        for f in os.listdir(user_defined_video_dir):
+            try:
+                with codecs.open(
+                    os.path.join(user_defined_video_dir, f), encoding="utf-8"
+                ) as fd:
+                    user_defined_video_family = CustomVideoModelFamilyV2.parse_obj(
+                        json.load(fd)
+                    )
+                    register_video(user_defined_video_family, persist=False)
+            except Exception as e:
+                warnings.warn(f"{user_defined_video_dir}/{f} has error, {e}")
+
+
+def register_builtin_model():
+    """
+    Dynamically load built-in video models from builtin/video directory.
+    This function is called every time model list is requested,
+    ensuring real-time updates without server restart.
+    """
+    from ..custom import RegistryManager
+
+    registry = RegistryManager.get_registry("video")
+    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+
+    # Use the builtin registry to load models
+    from .builtin import BuiltinVideoModelRegistry
+    builtin_registry = BuiltinVideoModelRegistry()
+    builtin_models = builtin_registry.get_builtin_models()
+
+    for model in builtin_models:
+        # Only register if model doesn't already exist
+        if model.model_name not in existing_model_names:
+            register_video(model, persist=False)
+            existing_model_names.add(model.model_name)
 
 
 def _install():

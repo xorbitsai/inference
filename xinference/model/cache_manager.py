@@ -16,8 +16,10 @@ class CacheManager:
         self._model_family = model_family
         self._v2_cache_dir_prefix = os.path.join(XINFERENCE_CACHE_DIR, "v2")
         self._v2_custom_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2")
+        self._v2_builtin_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin")
         os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
         os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
+        os.makedirs(self._v2_builtin_dir_prefix, exist_ok=True)
         self._cache_dir = os.path.join(
             self._v2_cache_dir_prefix, self._model_family.model_name.replace(".", "_")
         )
@@ -109,9 +111,21 @@ class CacheManager:
         return self._cache()
 
     def register_custom_model(self, model_type: str):
+        model_type_dir = model_type.lower()
         persist_path = os.path.join(
             self._v2_custom_dir_prefix,
-            model_type,
+            model_type_dir,
+            f"{self._model_family.model_name}.json",
+        )
+        os.makedirs(os.path.dirname(persist_path), exist_ok=True)
+        with open(persist_path, mode="w") as fd:
+            fd.write(self._model_family.json())
+
+    def register_builtin_model(self, model_type: str):
+        model_type_dir = model_type.lower()
+        persist_path = os.path.join(
+            self._v2_builtin_dir_prefix,
+            model_type_dir,
             f"{self._model_family.model_name}.json",
         )
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
@@ -119,9 +133,10 @@ class CacheManager:
             fd.write(self._model_family.json())
 
     def unregister_custom_model(self, model_type: str):
+        model_type_dir = model_type.lower()
         persist_path = os.path.join(
             self._v2_custom_dir_prefix,
-            model_type,
+            model_type_dir,
             f"{self._model_family.model_name}.json",
         )
         if os.path.exists(persist_path):
