@@ -264,7 +264,7 @@ def test_register_fault_embedding():
     with open(file_path, "w") as f:
         json.dump(data, f, indent=4)
 
-    # Debug: Verify file was created
+        # Debug: Verify file was created
     print(f"DEBUG: File exists after writing: {os.path.exists(file_path)}")
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
@@ -302,10 +302,8 @@ def test_register_fault_embedding():
         # Restore original warning handler
         warnings.showwarning = old_showwarning
 
-        # Now run with pytest.warns to capture the official warnings
-        with pytest.warns(UserWarning) as record:
+        # Now run with pytest.warns to capture the official warningswith pytest.warns(UserWarning) as record:
             _install()
-
         print(f"DEBUG: pytest.warns captured {len(record)} warnings")
         for i, warning in enumerate(record):
             print(f"DEBUG: pytest warning {i+1}: {warning.message}")
@@ -319,8 +317,8 @@ def test_register_fault_embedding():
             print(f"DEBUG: Checking warning message: {message}")
             if (
                 "has error" in message
-                and (
-                    "Invalid model URI" in message
+                and(
+            "Invalid model URI " in message
                     or "Model URI cannot be a relative path" in message
                 )
                 and "/new_data/cache/gte-Qwen2" in message
@@ -331,9 +329,9 @@ def test_register_fault_embedding():
 
         assert (
             found_warning
-        ), f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
-
-    finally:
+        ), f"Expected warning about invalid model URI not found. Warnings: {[str(w.message)
+            for w in record]}"
+        finally:
         # Restore original warning handler
         warnings.showwarning = old_showwarning
 
@@ -344,6 +342,10 @@ def test_register_fault_embedding():
     if os.path.exists(file_path):
         os.remove(file_path)
         print("DEBUG: Test file cleaned up")
+    finally:
+        # Clean up the test file to avoid interference with subsequent test runs
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 def test_convert_ids_to_tokens():
