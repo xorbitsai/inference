@@ -78,6 +78,7 @@ jobs:
         module: [ "xinference" ]
         exclude:
           - { os: macos-13, python-version: 3.10 }
+          - { os: macos-13, python-version: 3.9 }
           - { os: macos-13, python-version: 3.11 }
           - { os: macos-13, python-version: 3.12 }
           - { os: macos-13, python-version: 3.13 }
@@ -88,9 +89,14 @@ jobs:
           - { os: windows-latest, python-version: 3.10 }
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
-        include:
-          - { os: self-hosted, module: gpu, python-version: 3.9}
-          - { os: macos-latest, module: metal, python-version: "3.10" }
+          - { os: windows-latest, python-version: 3.9 }
+          - { os: ubuntu-latest, python-version: 3.9 }
+          - { os: ubuntu-latest, python-version: 3.10 }
+          - { os: ubuntu-latest, python-version: 3.11 }
+          - { os: ubuntu-latest, python-version: 3.12 }
+#        include:
+#          - { os: self-hosted, module: gpu, python-version: 3.9}
+#          - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
       - name: Check out code
