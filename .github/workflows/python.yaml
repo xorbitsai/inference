@@ -78,7 +78,6 @@ jobs:
         module: [ "xinference" ]
         exclude:
           - { os: macos-13, python-version: 3.10 }
-          - { os: macos-13, python-version: 3.9 }
           - { os: macos-13, python-version: 3.11 }
           - { os: macos-13, python-version: 3.12 }
           - { os: macos-13, python-version: 3.13 }
@@ -329,7 +328,7 @@ jobs:
               --ignore xinference/model/llm/sglang \
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/client/tests/test_async_client.py \
-              xinference/model/embedding/tests/test_embedding_models.py
+              xinference
           
           fi
         working-directory: .
