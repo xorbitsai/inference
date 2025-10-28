@@ -39,6 +39,7 @@ class BuiltinImageModelRegistry:
 
     def get_builtin_models(self) -> List["ImageModelFamilyV2"]:
         """Load all built-in image models from the builtin directory."""
+        from . import convert_image_model_format
         from .custom import ImageModelFamilyV2
 
         models: List["ImageModelFamilyV2"] = []
@@ -46,8 +47,40 @@ class BuiltinImageModelRegistry:
         if not os.path.exists(self.builtin_dir):
             return models
 
+        # First, try to load from complete JSON file
+        complete_json_path = os.path.join(self.builtin_dir, "image_models.json")
+        if os.path.exists(complete_json_path):
+            try:
+                with open(complete_json_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                for model_data in data:
+                    try:
+                        # Convert format to handle missing required fields
+                        converted = convert_image_model_format(model_data)
+                        model = ImageModelFamilyV2.parse_obj(converted)
+                        models.append(model)
+                        logger.info(
+                            f"Loaded built-in image model from complete JSON: {model.model_name}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to parse model {model_data.get('model_name', 'Unknown')} from complete JSON: {e}"
+                        )
+
+                logger.info(
+                    f"Loaded {len(models)} built-in image models from complete JSON"
+                )
+                return models
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load complete JSON {complete_json_path}: {e}"
+                )
+
+        # Fallback to loading individual JSON files
         for filename in os.listdir(self.builtin_dir):
-            if filename.endswith(".json"):
+            if filename.endswith(".json") and filename != "image_models.json":
                 file_path = os.path.join(self.builtin_dir, filename)
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:

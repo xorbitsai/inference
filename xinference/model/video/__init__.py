@@ -14,10 +14,54 @@
 
 import codecs
 import json
+import logging
 import os
 import warnings
+from typing import Any, Dict
 
 from ..utils import flatten_model_src
+
+logger = logging.getLogger(__name__)
+
+
+def convert_video_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert video model hub JSON format to Xinference expected format.
+    """
+    logger.debug(
+        f"convert_video_model_format called for: {model_json.get('model_name', 'Unknown')}"
+    )
+
+    # Ensure required fields for video models
+    converted = model_json.copy()
+
+    # Add missing required fields
+    if "version" not in converted:
+        converted["version"] = 2
+    if "model_lang" not in converted:
+        converted["model_lang"] = ["en"]
+
+    # Handle model_specs
+    if "model_specs" not in converted or not converted["model_specs"]:
+        converted["model_specs"] = [
+            {
+                "model_format": "pytorch",
+                "model_size_in_billions": None,
+                "quantization": "none",
+                "model_hub": "huggingface",
+            }
+        ]
+    else:
+        # Ensure each spec has required fields
+        for spec in converted["model_specs"]:
+            if "quantization" not in spec:
+                spec["quantization"] = "none"
+            if "model_hub" not in spec:
+                spec["model_hub"] = "huggingface"
+
+    return converted
+
+
 from .core import (
     BUILTIN_VIDEO_MODELS,
     VIDEO_MODEL_DESCRIPTIONS,
@@ -74,7 +118,10 @@ def register_builtin_model():
     for model in builtin_models:
         # Only register if model doesn't already exist
         if model.model_name not in existing_model_names:
-            register_video(model, persist=False)
+            # Add to BUILTIN_VIDEO_MODELS directly for proper builtin registration
+            if model.model_name not in BUILTIN_VIDEO_MODELS:
+                BUILTIN_VIDEO_MODELS[model.model_name] = []
+            BUILTIN_VIDEO_MODELS[model.model_name].append(model)
             existing_model_names.add(model.model_name)
 
 

@@ -46,56 +46,103 @@ class BuiltinVideoModelRegistry:
         if not os.path.exists(self.builtin_dir):
             return models
 
-        for filename in os.listdir(self.builtin_dir):
-            if filename.endswith(".json"):
-                file_path = os.path.join(self.builtin_dir, filename)
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        model_data = json.load(f)
+        # First, try to load from the complete JSON file
+        complete_json_path = os.path.join(self.builtin_dir, "video_models.json")
+        if os.path.exists(complete_json_path):
+            try:
+                with open(complete_json_path, "r", encoding="utf-8") as f:
+                    model_data = json.load(f)
 
-                    # Apply conversion logic to handle null model_id and other issues
-                    if model_data.get("model_id") is None and "model_src" in model_data:
-                        model_src = model_data["model_src"]
-                        # Extract model_id from available sources
+                # Handle different formats
+                models_to_process = []
+                if isinstance(model_data, list):
+                    # Multiple models in a list
+                    models_to_process = model_data
+                elif isinstance(model_data, dict):
+                    # Single model
+                    if "model_name" in model_data:
+                        models_to_process = [model_data]
+                    else:
+                        # Models dict - extract models
+                        for key, value in model_data.items():
+                            if isinstance(value, dict) and "model_name" in value:
+                                models_to_process.append(value)
+
+                # Process all models from the complete JSON
+                for model_data in models_to_process:
+                    try:
+                        # Convert format if needed
+                        from xinference.model.video import convert_video_model_format
+
+                        converted_data = convert_video_model_format(model_data)
+                        model = CustomVideoModelFamilyV2.parse_obj(converted_data)
+                        models.append(model)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to parse model {model_data.get('model_name', 'Unknown')}: {e}"
+                        )
+
+                logger.info(
+                    f"Successfully loaded {len(models)} video models from complete JSON"
+                )
+
+            except Exception as e:
+                logger.warning(
+                    f"Error loading complete JSON file {complete_json_path}: {e}"
+                )
+                # Fall back to individual files if complete JSON loading fails
+
+        # Fall back: load individual JSON files (backward compatibility)
+        individual_files = [
+            f
+            for f in os.listdir(self.builtin_dir)
+            if f.endswith(".json") and f != "video_models.json"
+        ]
+        for filename in individual_files:
+            file_path = os.path.join(self.builtin_dir, filename)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    model_data = json.load(f)
+
+                # Apply conversion logic to handle null model_id and other issues
+                if model_data.get("model_id") is None and "model_src" in model_data:
+                    model_src = model_data["model_src"]
+                    # Extract model_id from available sources
+                    if (
+                        "huggingface" in model_src
+                        and "model_id" in model_src["huggingface"]
+                    ):
+                        model_data["model_id"] = model_src["huggingface"]["model_id"]
+                    elif (
+                        "modelscope" in model_src
+                        and "model_id" in model_src["modelscope"]
+                    ):
+                        model_data["model_id"] = model_src["modelscope"]["model_id"]
+
+                    # Extract model_revision if available
+                    if model_data.get("model_revision") is None:
                         if (
                             "huggingface" in model_src
-                            and "model_id" in model_src["huggingface"]
+                            and "model_revision" in model_src["huggingface"]
                         ):
-                            model_data["model_id"] = model_src["huggingface"][
-                                "model_id"
+                            model_data["model_revision"] = model_src["huggingface"][
+                                "model_revision"
                             ]
                         elif (
                             "modelscope" in model_src
-                            and "model_id" in model_src["modelscope"]
+                            and "model_revision" in model_src["modelscope"]
                         ):
-                            model_data["model_id"] = model_src["modelscope"]["model_id"]
+                            model_data["model_revision"] = model_src["modelscope"][
+                                "model_revision"
+                            ]
 
-                        # Extract model_revision if available
-                        if model_data.get("model_revision") is None:
-                            if (
-                                "huggingface" in model_src
-                                and "model_revision" in model_src["huggingface"]
-                            ):
-                                model_data["model_revision"] = model_src["huggingface"][
-                                    "model_revision"
-                                ]
-                            elif (
-                                "modelscope" in model_src
-                                and "model_revision" in model_src["modelscope"]
-                            ):
-                                model_data["model_revision"] = model_src["modelscope"][
-                                    "model_revision"
-                                ]
+                # Parse using CustomVideoModelFamilyV2
+                model = CustomVideoModelFamilyV2.parse_obj(model_data)
+                models.append(model)
+                logger.info(f"Loaded built-in video model: {model.model_name}")
 
-                    # Parse using CustomVideoModelFamilyV2
-                    model = CustomVideoModelFamilyV2.parse_obj(model_data)
-                    models.append(model)
-                    logger.info(f"Loaded built-in video model: {model.model_name}")
-
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to load built-in model from {filename}: {e}"
-                    )
+            except Exception as e:
+                logger.warning(f"Failed to load built-in model from {filename}: {e}")
 
         return models
 

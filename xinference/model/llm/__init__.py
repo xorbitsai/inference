@@ -13,10 +13,72 @@
 # limitations under the License.
 import codecs
 import json
+import logging
 import os
 import warnings
+from typing import Any, Dict
 
 from ..utils import flatten_quantizations
+
+logger = logging.getLogger(__name__)
+
+
+def convert_model_json_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert model hub JSON format to Xinference expected format.
+
+    This is a standalone version of the conversion logic from supervisor.py.
+    """
+    logger.debug(
+        f"convert_model_json_format called for: {model_json.get('model_name', 'Unknown')}"
+    )
+
+    # If model_specs is missing, provide a default minimal spec
+    if "model_specs" not in model_json or not model_json["model_specs"]:
+        logger.debug("model_specs missing or empty, creating default spec")
+        return {
+            **model_json,
+            "version": 2,  # Add missing required field
+            "model_lang": ["en"],  # Add missing required field
+            "model_specs": [
+                {
+                    "model_format": "pytorch",
+                    "model_size_in_billions": None,
+                    "quantization": "none",
+                    "model_file_name_template": "model.bin",
+                    "model_hub": "huggingface",
+                }
+            ],
+        }
+
+    converted = model_json.copy()
+    converted_specs = []
+
+    # Ensure required top-level fields
+    if "version" not in converted:
+        converted["version"] = 2
+    if "model_lang" not in converted:
+        converted["model_lang"] = ["en"]
+
+    for spec in model_json["model_specs"]:
+        model_format = spec.get("model_format", "pytorch")
+        model_size = spec.get("model_size_in_billions")
+
+        # Ensure required fields
+        converted_spec = spec.copy()
+        if "quantization" not in converted_spec:
+            converted_spec["quantization"] = "none"
+        if "model_file_name_template" not in converted_spec:
+            converted_spec["model_file_name_template"] = "model.bin"
+        if "model_hub" not in converted_spec:
+            converted_spec["model_hub"] = "huggingface"
+
+        converted_specs.append(converted_spec)
+
+    converted["model_specs"] = converted_specs
+    return converted
+
+
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -129,6 +191,8 @@ def register_custom_model():
 
 
 def register_builtin_model():
+    import json
+
     from ...constants import XINFERENCE_MODEL_DIR
     from ..custom import RegistryManager
 
@@ -137,20 +201,73 @@ def register_builtin_model():
 
     builtin_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
     if os.path.isdir(builtin_llm_dir):
-        for f in os.listdir(builtin_llm_dir):
-            if f.endswith(".json"):
-                try:
-                    with codecs.open(
-                        os.path.join(builtin_llm_dir, f), encoding="utf-8"
-                    ) as fd:
-                        builtin_llm_family = LLMFamilyV2.parse_raw(fd.read())
+        # First, try to load from the complete JSON file
+        complete_json_path = os.path.join(builtin_llm_dir, "llm_models.json")
+        if os.path.exists(complete_json_path):
+            try:
+                with codecs.open(complete_json_path, encoding="utf-8") as fd:
+                    model_data = json.load(fd)
+
+                # Handle different formats
+                models_to_register = []
+                if isinstance(model_data, list):
+                    # Multiple models in a list
+                    models_to_register = model_data
+                elif isinstance(model_data, dict):
+                    # Single model
+                    if "model_name" in model_data:
+                        models_to_register = [model_data]
+                    else:
+                        # Models dict - extract models
+                        for key, value in model_data.items():
+                            if isinstance(value, dict) and "model_name" in value:
+                                models_to_register.append(value)
+
+                # Register all models from the complete JSON
+                for model_data in models_to_register:
+                    try:
+                        # Convert model hub JSON format to Xinference expected format
+                        converted_data = convert_model_json_format(model_data)
+                        builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
 
                         # Only register if model doesn't already exist
                         if builtin_llm_family.model_name not in existing_model_names:
                             register_llm(builtin_llm_family, persist=False)
                             existing_model_names.add(builtin_llm_family.model_name)
-                except Exception as e:
-                    warnings.warn(f"{builtin_llm_dir}/{f} has error, {e}")
+                    except Exception as e:
+                        warnings.warn(
+                            f"Error parsing model {model_data.get('model_name', 'Unknown')} from complete JSON: {e}"
+                        )
+
+                logger.info(
+                    f"Successfully registered {len(models_to_register)} models from complete JSON"
+                )
+
+            except Exception as e:
+                warnings.warn(
+                    f"Error loading complete JSON file {complete_json_path}: {e}"
+                )
+                # Fall back to individual files if complete JSON loading fails
+
+        # Fall back: load individual JSON files (backward compatibility)
+        individual_files = [
+            f
+            for f in os.listdir(builtin_llm_dir)
+            if f.endswith(".json") and f != "llm_models.json"
+        ]
+        for f in individual_files:
+            try:
+                with codecs.open(
+                    os.path.join(builtin_llm_dir, f), encoding="utf-8"
+                ) as fd:
+                    builtin_llm_family = LLMFamilyV2.parse_raw(fd.read())
+
+                    # Only register if model doesn't already exist
+                    if builtin_llm_family.model_name not in existing_model_names:
+                        register_llm(builtin_llm_family, persist=False)
+                        existing_model_names.add(builtin_llm_family.model_name)
+            except Exception as e:
+                warnings.warn(f"{builtin_llm_dir}/{f} has error, {e}")
 
 
 def load_model_family_from_json(json_filename, target_families):

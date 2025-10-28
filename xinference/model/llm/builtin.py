@@ -46,22 +46,94 @@ class BuiltinLLMModelRegistry:
         if not os.path.exists(self.builtin_dir):
             return models
 
-        for filename in os.listdir(self.builtin_dir):
-            if filename.endswith(".json"):
-                file_path = os.path.join(self.builtin_dir, filename)
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        model_data = json.load(f)
+        # First, try to load the complete JSON file if it exists
+        complete_json_path = os.path.join(self.builtin_dir, "llm_models.json")
+        if os.path.exists(complete_json_path):
+            try:
+                with open(complete_json_path, "r", encoding="utf-8") as f:
+                    model_data = json.load(f)
 
-                    # Parse using LLMFamilyV2 (no model_family validation required)
-                    model = LLMFamilyV2.parse_obj(model_data)
-                    models.append(model)
-                    logger.info(f"Loaded built-in LLM model: {model.model_name}")
+                # Handle different formats
+                if isinstance(model_data, list):
+                    # Multiple models in a list
+                    for item in model_data:
+                        if isinstance(item, dict):
+                            try:
+                                model = LLMFamilyV2.parse_obj(item)
+                                models.append(model)
+                                logger.info(
+                                    f"Loaded built-in LLM model from complete JSON: {model.model_name}"
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to parse model from complete JSON: {e}"
+                                )
+                elif isinstance(model_data, dict):
+                    # Single model or models dict
+                    if "model_name" in model_data:
+                        # Single model
+                        try:
+                            model = LLMFamilyV2.parse_obj(model_data)
+                            models.append(model)
+                            logger.info(
+                                f"Loaded built-in LLM model from complete JSON: {model.model_name}"
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to parse single model from complete JSON: {e}"
+                            )
+                    else:
+                        # Models dict - try to extract models
+                        for key, value in model_data.items():
+                            if isinstance(value, dict) and "model_name" in value:
+                                try:
+                                    model = LLMFamilyV2.parse_obj(value)
+                                    models.append(model)
+                                    logger.info(
+                                        f"Loaded built-in LLM model from complete JSON: {model.model_name}"
+                                    )
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to parse model {key} from complete JSON: {e}"
+                                    )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to load built-in model from {filename}: {e}"
-                    )
+                logger.info(
+                    f"Successfully loaded {len(models)} models from complete JSON file"
+                )
+                return models
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load complete JSON file {complete_json_path}: {e}"
+                )
+                # Fall back to individual files if complete JSON loading fails
+
+        # Fall back: load individual JSON files (backward compatibility)
+        individual_files = [
+            f
+            for f in os.listdir(self.builtin_dir)
+            if f.endswith(".json") and f != "llm_models.json"
+        ]
+        if individual_files:
+            logger.info(
+                f"Loading {len(individual_files)} individual model files for backward compatibility"
+            )
+
+        for filename in individual_files:
+            file_path = os.path.join(self.builtin_dir, filename)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    model_data = json.load(f)
+
+                # Parse using LLMFamilyV2 (no model_family validation required)
+                model = LLMFamilyV2.parse_obj(model_data)
+                models.append(model)
+                logger.info(
+                    f"Loaded built-in LLM model from individual file: {model.model_name}"
+                )
+
+            except Exception as e:
+                logger.warning(f"Failed to load built-in model from {filename}: {e}")
 
         return models
 

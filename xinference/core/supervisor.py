@@ -1769,60 +1769,42 @@ class SupervisorActor(xo.StatelessActor):
 
     async def _store_model_configurations(self, model_type: str, model_data):
         """
-        Store model configurations using the appropriate CacheManager as built-in models.
-
+        Store model configurations as a complete JSON file without splitting.
         Args:
             model_type: Type of model (as provided by user, e.g., "llm")
             model_data: JSON data containing model configurations
         """
-
         logger.info(
             f"[DEBUG SUPERVISOR] Storing configurations for model type: {model_type}"
         )
-
         try:
-            # Create a temporary model spec to get CacheManager instance
-            # We need to determine the appropriate model spec class for this model type
-            lookup_key = None
-            for key in self._custom_register_type_to_cls.keys():
-                if key.lower() == model_type.lower():
-                    lookup_key = key
-                    break
+            import json
+            import os
 
-            if lookup_key is None:
-                raise ValueError(f"Unsupported model type: {model_type}")
+            from ..constants import XINFERENCE_MODEL_DIR
 
-            model_spec_cls, _, _, _ = self._custom_register_type_to_cls[lookup_key]
-            logger.info(
-                f"[DEBUG SUPERVISOR] Using model spec class: {model_spec_cls.__name__} with key: {lookup_key}"
+            # Create the built-in directory structure
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type.lower()
+            )
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Store the complete JSON as a single file
+            json_file_path = os.path.join(
+                builtin_dir, f"{model_type.lower()}_models.json"
             )
 
-            # Handle different response formats
-            if isinstance(model_data, dict):
-                # Single model configuration
-                logger.info(f"[DEBUG SUPERVISOR] Processing single model configuration")
-                await self._store_single_model_config(
-                    model_type, model_data, model_spec_cls
-                )
-            elif isinstance(model_data, list):
-                # Multiple model configurations
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Processing {len(model_data)} model configurations"
-                )
-                for i, model_config in enumerate(model_data):
-                    if isinstance(model_config, dict):
-                        logger.info(f"[DEBUG SUPERVISOR] Processing model config {i+1}")
-                        await self._store_single_model_config(
-                            model_type, model_config, model_spec_cls
-                        )
-                    else:
-                        logger.warning(
-                            f"[DEBUG SUPERVISOR] Skipping invalid model config {i+1}: not a dict"
-                        )
-            else:
-                raise ValueError(
-                    f"Invalid model data format: expected dict or list, got {type(model_data)}"
-                )
+            logger.info(
+                f"[DEBUG SUPERVISOR] Storing complete JSON to: {json_file_path}"
+            )
+
+            # Save the complete JSON data
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(model_data, f, indent=2, ensure_ascii=False)
+
+            logger.info(
+                f"[DEBUG SUPERVISOR] Successfully stored complete JSON for {model_type} containing {len(model_data) if isinstance(model_data, list) else 1} model configurations"
+            )
 
         except Exception as e:
             logger.error(
@@ -1830,62 +1812,6 @@ class SupervisorActor(xo.StatelessActor):
                 exc_info=True,
             )
             raise
-
-    async def _store_single_model_config(
-        self, model_type: str, model_config: dict, model_spec_cls
-    ):
-        """
-        Store a single model configuration as built-in model.
-
-        Args:
-            model_type: Type of model
-            model_config: Single model configuration dictionary
-            model_spec_cls: Model specification class
-        """
-        from ..model.cache_manager import CacheManager
-
-        # Ensure required fields are present
-        if "model_name" not in model_config:
-            logger.warning(
-                f"[DEBUG SUPERVISOR] Skipping model config without model_name: {model_config}"
-            )
-            return
-
-        model_name = model_config["model_name"]
-        logger.info(f"[DEBUG SUPERVISOR] Storing model: {model_name}")
-
-        # Validate model name format
-        from ..model.utils import is_valid_model_name
-
-        if not is_valid_model_name(model_name):
-            logger.warning(
-                f"[DEBUG SUPERVISOR] Skipping model with invalid name: {model_name}"
-            )
-            return
-
-        try:
-            # Convert model hub JSON format to Xinference expected format
-            converted_config = self._convert_model_json_format(model_config)
-            logger.info(f"[DEBUG SUPERVISOR] Converted model config for: {model_name}")
-
-            # Create model spec instance
-            model_spec = model_spec_cls.parse_obj(converted_config)
-            logger.info(f"[DEBUG SUPERVISOR] Created model spec for: {model_name}")
-
-            # Create CacheManager and store the configuration as built-in model
-            cache_manager = CacheManager(model_spec)
-            cache_manager.register_builtin_model(model_type)
-            logger.info(
-                f"[DEBUG SUPERVISOR] Stored built-in model configuration for: {model_name}"
-            )
-
-        except Exception as e:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Error storing model {model_name}: {e}",
-                exc_info=True,
-            )
-            # Continue with other models instead of failing completely
-            return
 
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):

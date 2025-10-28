@@ -14,11 +14,54 @@
 
 import codecs
 import json
+import logging
 import os
 import warnings
 from typing import Any, Dict, List
 
 from ..utils import flatten_quantizations
+
+logger = logging.getLogger(__name__)
+
+
+def convert_embedding_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert embedding model hub JSON format to Xinference expected format.
+    """
+    logger.debug(
+        f"convert_embedding_model_format called for: {model_json.get('model_name', 'Unknown')}"
+    )
+
+    # Ensure required fields for embedding models
+    converted = model_json.copy()
+
+    # Add missing required fields based on EmbeddingModelFamilyV2 requirements
+    if "version" not in converted:
+        converted["version"] = 2
+    if "model_lang" not in converted:
+        converted["model_lang"] = ["en"]
+
+    # Handle model_specs
+    if "model_specs" not in converted or not converted["model_specs"]:
+        converted["model_specs"] = [
+            {
+                "model_format": "pytorch",
+                "model_size_in_billions": None,
+                "quantization": "none",
+                "model_hub": "huggingface",
+            }
+        ]
+    else:
+        # Ensure each spec has required fields
+        for spec in converted["model_specs"]:
+            if "quantization" not in spec:
+                spec["quantization"] = "none"
+            if "model_hub" not in spec:
+                spec["model_hub"] = "huggingface"
+
+    return converted
+
+
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
     EmbeddingModelFamilyV2,
@@ -65,6 +108,8 @@ def register_custom_model():
 
 
 def register_builtin_model():
+    import json
+
     from ...constants import XINFERENCE_MODEL_DIR
     from ..custom import RegistryManager
 
@@ -75,14 +120,39 @@ def register_builtin_model():
         XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding"
     )
     if os.path.isdir(builtin_embedding_dir):
-        for f in os.listdir(builtin_embedding_dir):
-            if f.endswith(".json"):
-                try:
-                    with codecs.open(
-                        os.path.join(builtin_embedding_dir, f), encoding="utf-8"
-                    ) as fd:
+        # First, try to load from the complete JSON file
+        complete_json_path = os.path.join(
+            builtin_embedding_dir, "embedding_models.json"
+        )
+        if os.path.exists(complete_json_path):
+            try:
+                with codecs.open(complete_json_path, encoding="utf-8") as fd:
+                    model_data = json.load(fd)
+
+                # Handle different formats
+                models_to_register = []
+                if isinstance(model_data, list):
+                    # Multiple models in a list
+                    models_to_register = model_data
+                elif isinstance(model_data, dict):
+                    # Single model
+                    if "model_name" in model_data:
+                        models_to_register = [model_data]
+                    else:
+                        # Models dict - extract models
+                        for key, value in model_data.items():
+                            if isinstance(value, dict) and "model_name" in value:
+                                models_to_register.append(value)
+
+                # Register all models from the complete JSON
+                from .embed_family import BUILTIN_EMBEDDING_MODELS
+
+                for model_data in models_to_register:
+                    try:
+                        # Convert format if needed (embedding models might have different requirements)
+                        converted_data = convert_embedding_model_format(model_data)
                         builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(
-                            json.load(fd)
+                            converted_data
                         )
 
                         # Only register if model doesn't already exist
@@ -90,12 +160,54 @@ def register_builtin_model():
                             builtin_embedding_family.model_name
                             not in existing_model_names
                         ):
-                            register_embedding(builtin_embedding_family, persist=False)
+                            # Add to BUILTIN_EMBEDDING_MODELS directly for proper builtin registration
+                            BUILTIN_EMBEDDING_MODELS[
+                                builtin_embedding_family.model_name
+                            ] = builtin_embedding_family
                             existing_model_names.add(
                                 builtin_embedding_family.model_name
                             )
-                except Exception as e:
-                    warnings.warn(f"{builtin_embedding_dir}/{f} has error, {e}")
+                    except Exception as e:
+                        warnings.warn(
+                            f"Error parsing embedding model {model_data.get('model_name', 'Unknown')}: {e}"
+                        )
+
+                logger.info(
+                    f"Successfully registered {len(models_to_register)} embedding models from complete JSON"
+                )
+
+            except Exception as e:
+                warnings.warn(
+                    f"Error loading complete JSON file {complete_json_path}: {e}"
+                )
+                # Fall back to individual files if complete JSON loading fails
+
+        # Fall back: load individual JSON files (backward compatibility)
+        individual_files = [
+            f
+            for f in os.listdir(builtin_embedding_dir)
+            if f.endswith(".json") and f != "embedding_models.json"
+        ]
+        if individual_files:
+            from .embed_family import BUILTIN_EMBEDDING_MODELS
+        for f in individual_files:
+            try:
+                with codecs.open(
+                    os.path.join(builtin_embedding_dir, f), encoding="utf-8"
+                ) as fd:
+                    builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(
+                        json.load(fd)
+                    )
+
+                    # Only register if model doesn't already exist
+                    if builtin_embedding_family.model_name not in existing_model_names:
+                        # Add to BUILTIN_EMBEDDING_MODELS directly for proper builtin registration
+                        BUILTIN_EMBEDDING_MODELS[
+                            builtin_embedding_family.model_name
+                        ] = builtin_embedding_family
+                        existing_model_names.add(builtin_embedding_family.model_name)
+            except Exception as e:
+                warnings.warn(f"{builtin_embedding_dir}/{f} has error, {e}")
 
 
 def check_format_with_engine(model_format, engine):

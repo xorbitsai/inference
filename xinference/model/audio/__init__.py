@@ -14,14 +14,63 @@
 
 import codecs
 import json
+import logging
 import os
 import platform
 import sys
 import warnings
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
+
+logger = logging.getLogger(__name__)
+
+
+def convert_audio_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert audio model hub JSON format to Xinference expected format.
+    """
+    logger.debug(
+        f"convert_audio_model_format called for: {model_json.get('model_name', 'Unknown')}"
+    )
+
+    # Apply conversion logic to handle null model_id and other issues
+    if model_json.get("model_id") is None and "model_src" in model_json:
+        model_src = model_json["model_src"]
+        # Extract model_id from available sources
+        if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
+            model_json["model_id"] = model_src["huggingface"]["model_id"]
+        elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+            model_json["model_id"] = model_src["modelscope"]["model_id"]
+
+        # Extract model_revision if available
+        if model_json.get("model_revision") is None:
+            if (
+                "huggingface" in model_src
+                and "model_revision" in model_src["huggingface"]
+            ):
+                model_json["model_revision"] = model_src["huggingface"][
+                    "model_revision"
+                ]
+            elif (
+                "modelscope" in model_src
+                and "model_revision" in model_src["modelscope"]
+            ):
+                model_json["model_revision"] = model_src["modelscope"]["model_revision"]
+
+    # Ensure required fields for audio models
+    if "version" not in model_json:
+        model_json["version"] = 2
+    if "model_lang" not in model_json:
+        model_json["model_lang"] = [
+            "en",
+            "zh",
+        ]  # Audio models often support multiple languages
+
+    return model_json
+
+
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
     AudioModelFamilyV2,
@@ -68,61 +117,126 @@ def register_builtin_model():
 
     builtin_audio_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "audio")
     if os.path.isdir(builtin_audio_dir):
-        for f in os.listdir(builtin_audio_dir):
-            if f.endswith(".json"):
-                try:
-                    with codecs.open(
-                        os.path.join(builtin_audio_dir, f), encoding="utf-8"
-                    ) as fd:
-                        model_data = json.load(fd)
+        # First, try to load from the complete JSON file
+        complete_json_path = os.path.join(builtin_audio_dir, "audio_models.json")
+        if os.path.exists(complete_json_path):
+            try:
+                with codecs.open(complete_json_path, encoding="utf-8") as fd:
+                    model_data = json.load(fd)
 
+                # Handle different formats
+                models_to_register = []
+                if isinstance(model_data, list):
+                    # Multiple models in a list
+                    models_to_register = model_data
+                elif isinstance(model_data, dict):
+                    # Single model
+                    if "model_name" in model_data:
+                        models_to_register = [model_data]
+                    else:
+                        # Models dict - extract models
+                        for key, value in model_data.items():
+                            if isinstance(value, dict) and "model_name" in value:
+                                models_to_register.append(value)
+
+                # Register all models from the complete JSON
+                for model_data in models_to_register:
+                    try:
                         # Apply conversion logic to handle null model_id and other issues
-                        if (
-                            model_data.get("model_id") is None
-                            and "model_src" in model_data
-                        ):
-                            model_src = model_data["model_src"]
-                            # Extract model_id from available sources
-                            if (
-                                "huggingface" in model_src
-                                and "model_id" in model_src["huggingface"]
-                            ):
-                                model_data["model_id"] = model_src["huggingface"][
-                                    "model_id"
-                                ]
-                            elif (
-                                "modelscope" in model_src
-                                and "model_id" in model_src["modelscope"]
-                            ):
-                                model_data["model_id"] = model_src["modelscope"][
-                                    "model_id"
-                                ]
-
-                            # Extract model_revision if available
-                            if model_data.get("model_revision") is None:
-                                if (
-                                    "huggingface" in model_src
-                                    and "model_revision" in model_src["huggingface"]
-                                ):
-                                    model_data["model_revision"] = model_src[
-                                        "huggingface"
-                                    ]["model_revision"]
-                                elif (
-                                    "modelscope" in model_src
-                                    and "model_revision" in model_src["modelscope"]
-                                ):
-                                    model_data["model_revision"] = model_src[
-                                        "modelscope"
-                                    ]["model_revision"]
-
-                        builtin_audio_family = AudioModelFamilyV2.parse_obj(model_data)
+                        converted_data = convert_audio_model_format(model_data)
+                        builtin_audio_family = AudioModelFamilyV2.parse_obj(
+                            converted_data
+                        )
 
                         # Only register if model doesn't already exist
                         if builtin_audio_family.model_name not in existing_model_names:
-                            register_audio(builtin_audio_family, persist=False)
+                            # Add to BUILTIN_AUDIO_MODELS directly for proper builtin registration
+                            if (
+                                builtin_audio_family.model_name
+                                not in BUILTIN_AUDIO_MODELS
+                            ):
+                                BUILTIN_AUDIO_MODELS[
+                                    builtin_audio_family.model_name
+                                ] = []
+                            BUILTIN_AUDIO_MODELS[
+                                builtin_audio_family.model_name
+                            ].append(builtin_audio_family)
                             existing_model_names.add(builtin_audio_family.model_name)
-                except Exception as e:
-                    warnings.warn(f"{builtin_audio_dir}/{f} has error, {e}")
+                    except Exception as e:
+                        warnings.warn(
+                            f"Error parsing audio model {model_data.get('model_name', 'Unknown')}: {e}"
+                        )
+
+                logger.info(
+                    f"Successfully registered {len(models_to_register)} audio models from complete JSON"
+                )
+
+            except Exception as e:
+                warnings.warn(
+                    f"Error loading complete JSON file {complete_json_path}: {e}"
+                )
+                # Fall back to individual files if complete JSON loading fails
+
+        # Fall back: load individual JSON files (backward compatibility)
+        individual_files = [
+            f
+            for f in os.listdir(builtin_audio_dir)
+            if f.endswith(".json") and f != "audio_models.json"
+        ]
+        for f in individual_files:
+            try:
+                with codecs.open(
+                    os.path.join(builtin_audio_dir, f), encoding="utf-8"
+                ) as fd:
+                    model_data = json.load(fd)
+
+                    # Apply conversion logic to handle null model_id and other issues
+                    if model_data.get("model_id") is None and "model_src" in model_data:
+                        model_src = model_data["model_src"]
+                        # Extract model_id from available sources
+                        if (
+                            "huggingface" in model_src
+                            and "model_id" in model_src["huggingface"]
+                        ):
+                            model_data["model_id"] = model_src["huggingface"][
+                                "model_id"
+                            ]
+                        elif (
+                            "modelscope" in model_src
+                            and "model_id" in model_src["modelscope"]
+                        ):
+                            model_data["model_id"] = model_src["modelscope"]["model_id"]
+
+                        # Extract model_revision if available
+                        if model_data.get("model_revision") is None:
+                            if (
+                                "huggingface" in model_src
+                                and "model_revision" in model_src["huggingface"]
+                            ):
+                                model_data["model_revision"] = model_src["huggingface"][
+                                    "model_revision"
+                                ]
+                            elif (
+                                "modelscope" in model_src
+                                and "model_revision" in model_src["modelscope"]
+                            ):
+                                model_data["model_revision"] = model_src["modelscope"][
+                                    "model_revision"
+                                ]
+
+                    builtin_audio_family = AudioModelFamilyV2.parse_obj(model_data)
+
+                    # Only register if model doesn't already exist
+                    if builtin_audio_family.model_name not in existing_model_names:
+                        # Add to BUILTIN_AUDIO_MODELS directly for proper builtin registration
+                        if builtin_audio_family.model_name not in BUILTIN_AUDIO_MODELS:
+                            BUILTIN_AUDIO_MODELS[builtin_audio_family.model_name] = []
+                        BUILTIN_AUDIO_MODELS[builtin_audio_family.model_name].append(
+                            builtin_audio_family
+                        )
+                        existing_model_names.add(builtin_audio_family.model_name)
+            except Exception as e:
+                warnings.warn(f"{builtin_audio_dir}/{f} has error, {e}")
 
 
 def _need_filter(spec: dict):
