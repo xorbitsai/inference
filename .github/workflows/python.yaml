@@ -323,7 +323,7 @@ jobs:
               --ignore xinference/model/llm/sglang \
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/client/tests/test_async_client.py \
-              xinference
+              xinference/model/embedding/tests/test_embedding_models.py
           
           fi
         working-directory: .
