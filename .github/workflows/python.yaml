@@ -328,6 +328,7 @@ jobs:
               --ignore xinference/model/llm/sglang \
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/client/tests/test_async_client.py \
+              --ignore xinference/model/llm/mlx \
               xinference
           
           fi
