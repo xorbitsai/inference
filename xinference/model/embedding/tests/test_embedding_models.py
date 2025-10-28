@@ -222,11 +222,25 @@ def test_register_custom_embedding():
 
 
 def test_register_fault_embedding():
+    import warnings
+
+    # Set up detailed logging - use print for debug since pytest captures logs
+    print("=== DEBUG: Starting test_register_fault_embedding ===")
+
     from ....constants import XINFERENCE_MODEL_DIR
     from .. import _install
 
-    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding"), exist_ok=True)
-    file_path = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding/GTE.json")
+    # Debug: Show XINFERENCE_MODEL_DIR
+    embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding")
+    print(f"DEBUG: XINFERENCE_MODEL_DIR: {XINFERENCE_MODEL_DIR}")
+    print(f"DEBUG: Embedding dir: {embedding_dir}")
+
+    os.makedirs(embedding_dir, exist_ok=True)
+    file_path = os.path.join(embedding_dir, "GTE.json")
+
+    # Debug: Show file path
+    print(f"DEBUG: Test file path: {file_path}")
+
     data = {
         "model_name": "GTE",
         "model_hub": "huggingface",
@@ -244,32 +258,92 @@ def test_register_fault_embedding():
         ],
     }
 
+    # Debug: Show the data being written
+    print(f"DEBUG: Test data being written: {json.dumps(data, indent=2)}")
+
     with open(file_path, "w") as f:
         json.dump(data, f, indent=4)
 
-    with pytest.warns(UserWarning) as record:
+    # Debug: Verify file was created
+    print(f"DEBUG: File exists after writing: {os.path.exists(file_path)}")
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f:
+            print(f"DEBUG: File content: {f.read()}")
+
+    # Capture all warnings
+    all_warnings = []
+
+    def custom_warning_handler(
+        message, category, filename, lineno, file=None, line=None
+    ):
+        warning_info = {
+            "message": str(message),
+            "category": category.__name__,
+            "filename": filename,
+            "lineno": lineno,
+        }
+        all_warnings.append(warning_info)
+        print(f"DEBUG: Warning captured: {warning_info}")
+
+    # Set up custom warning handler
+    old_showwarning = warnings.showwarning
+    warnings.showwarning = custom_warning_handler
+
+    try:
+        print("DEBUG: Starting _install() call...")
         _install()
+        print("DEBUG: _install() call completed.")
 
-    # Check for warning message containing the invalid model URI error
-    # The warning format is: "{user_defined_embedding_dir}/{f} has error, {e}"
-    # where e contains the ValueError message
-    found_warning = False
-    for warning in record:
-        message = str(warning.message)
-        if (
-            "has error" in message
-            and (
-                "Invalid model URI" in message
-                or "Model URI cannot be a relative path" in message
-            )
-            and "/new_data/cache/gte-Qwen2" in message
-        ):
-            found_warning = True
-            break
+        # Debug: Show all captured warnings
+        print(f"DEBUG: Total warnings captured: {len(all_warnings)}")
+        for i, warning in enumerate(all_warnings):
+            print(f"DEBUG: Warning {i+1}: {warning}")
 
-    assert (
-        found_warning
-    ), f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
+        # Restore original warning handler
+        warnings.showwarning = old_showwarning
+
+        # Now run with pytest.warns to capture the official warnings
+        with pytest.warns(UserWarning) as record:
+            _install()
+
+        print(f"DEBUG: pytest.warns captured {len(record)} warnings")
+        for i, warning in enumerate(record):
+            print(f"DEBUG: pytest warning {i+1}: {warning.message}")
+
+        # Check for warning message containing the invalid model URI error
+        # The warning format is: "{user_defined_embedding_dir}/{f} has error, {e}"
+        # where e contains the ValueError message
+        found_warning = False
+        for warning in record:
+            message = str(warning.message)
+            print(f"DEBUG: Checking warning message: {message}")
+            if (
+                "has error" in message
+                and (
+                    "Invalid model URI" in message
+                    or "Model URI cannot be a relative path" in message
+                )
+                and "/new_data/cache/gte-Qwen2" in message
+            ):
+                found_warning = True
+                print(f"DEBUG: Found matching warning: {message}")
+                break
+
+        assert (
+            found_warning
+        ), f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
+
+    finally:
+        # Restore original warning handler
+        warnings.showwarning = old_showwarning
+
+    # Debug: Check if file still exists after test
+    print(f"DEBUG: File exists after test: {os.path.exists(file_path)}")
+
+    # Clean up
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        print("DEBUG: Test file cleaned up")
 
 
 def test_convert_ids_to_tokens():
