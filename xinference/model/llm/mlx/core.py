@@ -18,7 +18,6 @@ import importlib
 import importlib.util
 import logging
 import pathlib
-import platform
 import sys
 import threading
 import time
@@ -51,7 +50,6 @@ from ....types import (
 )
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
-from ..match_result import MatchResult
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -405,73 +403,32 @@ class MLXModel(LLM):
         self._context_length = get_context_length(config)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_lm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("mlx_lm") is not None
+            else "mlx_lm library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-
-        result = cls.match_with_reason(llm_family, llm_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
-        # Check platform compatibility first - MLX only works on Apple Silicon
-        if sys.platform != "darwin" or platform.processor() != "arm":
-            return MatchResult.failure(
-                reason="MLX engine only works on Apple Silicon Macs (macOS with ARM processor)",
-                error_type=ErrorType.OS_REQUIREMENT,
-                technical_details=f"Current platform: {sys.platform}, processor: {platform.processor()}, required: darwin + arm",
-            )
-
-        # Check library availability (only if platform is compatible)
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="MLX library (mlx_lm) is not installed",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="mlx_lm package not found in Python environment",
-            )
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         if llm_spec.model_format not in ["mlx"]:
-            return MatchResult.failure(
-                reason=f"MLX engine only supports MLX format, got: {llm_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Unsupported format: {llm_spec.model_format}, required: mlx",
-            )
-
-        # Check model abilities - MLX supports generation but not chat/vision in this base class
-        if "generate" not in llm_family.model_ability:
-            return MatchResult.failure(
-                reason=f"MLX engine requires 'generate' ability, model has: {llm_family.model_ability}",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Model abilities: {llm_family.model_ability}",
-            )
-
-        # MLX base model doesn't support chat or vision
-        if "chat" in llm_family.model_ability or "vision" in llm_family.model_ability:
-            return MatchResult.failure(
-                reason="MLX base model does not support chat or vision abilities",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Unsupported abilities for base MLX: {[a for a in llm_family.model_ability if a in ['chat', 'vision']]}",
-            )
+            return f"MLX engine only supports MLX format, got: {llm_spec.model_format}"
 
         # Check memory constraints for Apple Silicon
         model_size = float(str(llm_spec.model_size_in_billions))
         if model_size > 70:  # Large models may be problematic
-            return MatchResult.failure(
-                reason=f"MLX may have memory limitations with very large models ({model_size}B parameters)",
-                error_type=ErrorType.MODEL_COMPATIBILITY,
-                technical_details=f"Large model size: {model_size}B on Apple Silicon",
-            )
+            return f"MLX may have memory limitations with very large models ({model_size}B parameters)"
 
-        return MatchResult.success()
+        return True
 
     def _get_prompt_cache(
         self, prompt, lora_name: Optional[str] = None, model: Any = None
@@ -771,39 +728,13 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-
-        result = cls.match_with_reason(llm_family, llm_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
-        # Use base class validation first
-        base_result = super().match_with_reason(llm_family, llm_spec, quantization)
-        if not base_result.is_match:
+    ) -> Union[bool, str]:
+        # First run base class checks
+        base_result = super().match_json(llm_family, llm_spec, quantization)
+        if base_result != True:
             return base_result
 
-        # Check chat ability
-        if "chat" not in llm_family.model_ability:
-            return MatchResult.failure(
-                reason=f"MLX Chat requires 'chat' ability, model has: {llm_family.model_ability}",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Model abilities: {llm_family.model_ability}",
-            )
-
-        # MLX Chat doesn't support vision
-        if "vision" in llm_family.model_ability:
-            return MatchResult.failure(
-                reason="MLX Chat model does not support vision abilities",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Vision ability not supported in MLXChatModel",
-            )
-
-        return MatchResult.success()
+        return True
 
     def chat(
         self,
@@ -850,59 +781,27 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_vlm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("mlx_vlm") is not None
+            else "mlx_vlm library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        result = cls.match_with_reason(llm_family, llm_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
-        # Check platform compatibility first - MLX only works on Apple Silicon
-        if sys.platform != "darwin" or platform.processor() != "arm":
-            return MatchResult.failure(
-                reason="MLX Vision engine only works on Apple Silicon Macs (macOS with ARM processor)",
-                error_type=ErrorType.OS_REQUIREMENT,
-                technical_details=f"Current platform: {sys.platform}, processor: {platform.processor()}, required: darwin + arm",
-            )
-
-        # Check library availability (only if platform is compatible) - MLX Vision uses mlx_vlm
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="MLX Vision library (mlx_vlm) is not installed",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="mlx_vlm package not found in Python environment",
-            )
+    ) -> Union[bool, str]:
+        # Check library availability first - MLX Vision uses mlx_vlm
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         if llm_spec.model_format not in ["mlx"]:
-            return MatchResult.failure(
-                reason=f"MLX Vision engine only supports MLX format, got: {llm_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Unsupported format: {llm_spec.model_format}, required: mlx",
-            )
+            return f"MLX Vision engine only supports MLX format, got: {llm_spec.model_format}"
 
-        # Check vision ability
-        if "vision" not in llm_family.model_ability:
-            return MatchResult.failure(
-                reason=f"MLX Vision requires 'vision' ability, model has: {llm_family.model_ability}",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Model abilities: {llm_family.model_ability}",
-            )
-
-        # Check for distributed inference limitations
-        # MLX Vision models don't support distributed inference
-        # This could be checked here if needed
-
-        return MatchResult.success()
+        return True
 
     def _load_model(self, **kwargs):
         try:

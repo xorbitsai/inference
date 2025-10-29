@@ -151,8 +151,12 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("vllm") is not None
+            else "vllm library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -160,12 +164,17 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
         if model_spec.model_format in ["pytorch"]:
             prefix = model_family.model_name.split("-", 1)[0]
             if prefix in SUPPORTED_MODELS_PREFIXES:
                 return True
-        return False
+        return f"VLLM Embedding engine only supports pytorch format models with supported prefixes, got format: {model_spec.model_format}, model: {model_family.model_name}"
 
     def wait_for_load(self):
         # set context length after engine inited

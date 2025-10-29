@@ -1,11 +1,10 @@
 import importlib.util
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
-from ..match_result import MatchResult
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
@@ -140,8 +139,12 @@ class VLLMRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("vllm") is not None
+            else "vllm library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -149,35 +152,15 @@ class VLLMRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-
-        result = cls.match_with_reason(model_family, model_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls,
-        model_family: RerankModelFamilyV2,
-        model_spec: RerankSpecV1,
-        quantization: str,
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
+    ) -> Union[bool, str]:
         # Check library availability
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="vLLM library is not installed for reranking",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="vllm package not found in Python environment",
-            )
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         if model_spec.model_format not in ["pytorch"]:
-            return MatchResult.failure(
-                reason=f"vLLM reranking only supports pytorch format, got: {model_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Unsupported format: {model_spec.model_format}, required: pytorch",
-            )
+            return f"vLLM reranking only supports pytorch format, got: {model_spec.model_format}"
 
         # Check model name prefix matching
         if model_spec.model_format == "pytorch":
@@ -187,33 +170,17 @@ class VLLMRerankModel(RerankModel):
                 if prefix.lower() not in [p.lower() for p in SUPPORTED_MODELS_PREFIXES]:
                     # Special handling for Qwen3 models
                     if "qwen3" not in model_family.model_name.lower():
-                        return MatchResult.failure(
-                            reason=f"Model family prefix not supported by vLLM reranking: {prefix}",
-                            error_type=ErrorType.MODEL_COMPATIBILITY,
-                            technical_details=f"Unsupported prefix: {prefix}",
-                        )
+                        return f"Model family prefix not supported by vLLM reranking: {prefix}"
             except (IndexError, AttributeError):
-                return MatchResult.failure(
-                    reason="Unable to parse model family name for vLLM compatibility check",
-                    error_type=ErrorType.CONFIGURATION_ERROR,
-                    technical_details=f"Model name parsing failed: {model_family.model_name}",
-                )
+                return f"Unable to parse model family name for vLLM compatibility check: {model_family.model_name}"
 
         # Check rerank-specific requirements
         if not hasattr(model_family, "model_name"):
-            return MatchResult.failure(
-                reason="Rerank model family requires model name specification for vLLM",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details="Missing model_name in vLLM rerank model family",
-            )
+            return "Rerank model family requires model name specification for vLLM"
 
         # Check max tokens limit for vLLM reranking performance
         max_tokens = model_family.max_tokens
         if max_tokens and max_tokens > 4096:  # vLLM has stricter limits
-            return MatchResult.failure(
-                reason=f"High max_tokens limit for vLLM reranking model: {max_tokens}",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details=f"High max_tokens for vLLM reranking: {max_tokens}",
-            )
+            return f"High max_tokens limit for vLLM reranking model: {max_tokens}, may cause performance issues"
 
-        return MatchResult.success()
+        return True

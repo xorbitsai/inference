@@ -23,7 +23,6 @@ from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
-from ..match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
@@ -430,8 +429,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("sentence_transformers") is not None
+            else "sentence_transformers library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -439,53 +442,25 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-
-        result = cls.match_with_reason(model_family, model_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls,
-        model_family: EmbeddingModelFamilyV2,
-        model_spec: EmbeddingSpecV1,
-        quantization: str,
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
+    ) -> Union[bool, str]:
         # Check library availability
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="Sentence Transformers library is not installed",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="sentence_transformers package not found in Python environment",
-            )
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         if model_spec.model_format not in ["pytorch"]:
-            return MatchResult.failure(
-                reason=f"Sentence Transformers only supports pytorch format, got: {model_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Unsupported format: {model_spec.model_format}, required: pytorch",
-            )
+            return f"Sentence Transformers only supports pytorch format, got: {model_spec.model_format}"
 
         # Check model dimensions compatibility
         model_dimensions = model_family.dimensions
         if model_dimensions > 1536:  # Very large embedding models
-            return MatchResult.failure(
-                reason=f"Large embedding model detected ({model_dimensions} dimensions)",
-                error_type=ErrorType.MODEL_COMPATIBILITY,
-                technical_details=f"Large embedding dimensions: {model_dimensions}",
-            )
+            return f"Large embedding model detected ({model_dimensions} dimensions), may have performance issues"
 
         # Check token limits
         max_tokens = model_family.max_tokens
         if max_tokens > 8192:  # Very high token limits
-            return MatchResult.failure(
-                reason=f"High token limit model detected (max_tokens: {max_tokens})",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details=f"High max_tokens: {max_tokens}",
-            )
+            return f"High token limit model detected (max_tokens: {max_tokens}), may cause memory issues"
 
         # Check for special model requirements
         model_name = model_family.model_name.lower()
@@ -494,23 +469,16 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         if "gte" in model_name and "qwen2" in model_name:
             # These models have specific requirements
             if not hasattr(cls, "_check_qwen_gte_requirements"):
-                return MatchResult.failure(
-                    reason="Qwen2 GTE models require special handling",
-                    error_type=ErrorType.MODEL_COMPATIBILITY,
-                    technical_details="Qwen2 GTE model special requirements",
-                )
+                return "Qwen2 GTE models require special handling"
 
         # Check Qwen3 models
         if "qwen3" in model_name:
-            # Qwen3 has flash attention requirements
+            # Qwen3 has flash attention requirements - basic check
             try:
-                # This would be checked during actual loading
                 pass
-            except Exception:
-                return MatchResult.failure(
-                    reason="Qwen3 embedding model may have compatibility issues",
-                    error_type=ErrorType.VERSION_REQUIREMENT,
-                    technical_details="Qwen3 model compatibility check",
-                )
 
-        return MatchResult.success()
+                # This would be checked during actual loading
+            except Exception:
+                return "Qwen3 embedding model may have compatibility issues"
+
+        return True

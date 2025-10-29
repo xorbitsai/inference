@@ -27,7 +27,6 @@ from packaging import version
 from ....types import Embedding
 from ...batch import BatchMixin
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
-from ..match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 
@@ -230,8 +229,12 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         return Embedding(**r)  # type: ignore
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("xllamacpp") is not None
+            else "xllamacpp library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -239,52 +242,24 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-
-        result = cls.match_with_reason(model_family, model_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls,
-        model_family: EmbeddingModelFamilyV2,
-        model_spec: EmbeddingSpecV1,
-        quantization: str,
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
+    ) -> Union[bool, str]:
         # Check library availability
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="llama.cpp library (xllamacpp) is not installed for embedding",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="xllamacpp package not found in Python environment",
-            )
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         if model_spec.model_format not in ["ggufv2"]:
-            return MatchResult.failure(
-                reason=f"llama.cpp embedding only supports GGUF v2 format, got: {model_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Unsupported format: {model_spec.model_format}, required: ggufv2",
-            )
+            return f"llama.cpp embedding only supports GGUF v2 format, got: {model_spec.model_format}"
 
         # Check embedding-specific requirements
         if not hasattr(model_spec, "model_file_name_template"):
-            return MatchResult.failure(
-                reason="GGUF embedding model requires proper file configuration",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details="Missing model_file_name_template for GGUF embedding",
-            )
+            return "GGUF embedding model requires proper file configuration (missing model_file_name_template)"
 
         # Check model dimensions for llama.cpp compatibility
         model_dimensions = model_family.dimensions
         if model_dimensions > 4096:  # llama.cpp may have limitations
-            return MatchResult.failure(
-                reason=f"Large embedding model may have compatibility issues with llama.cpp ({model_dimensions} dimensions)",
-                error_type=ErrorType.MODEL_COMPATIBILITY,
-                technical_details=f"Large embedding dimensions: {model_dimensions}",
-            )
+            return f"Large embedding model may have compatibility issues with llama.cpp ({model_dimensions} dimensions)"
 
         # Check platform-specific considerations
         import platform
@@ -293,10 +268,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
 
         # llama.cpp works across platforms but may have performance differences
         if current_platform == "Windows":
-            return MatchResult.failure(
-                reason="llama.cpp embedding may have limited performance on Windows",
-                error_type=ErrorType.OS_REQUIREMENT,
-                technical_details=f"Windows platform: {current_platform}",
-            )
+            return "llama.cpp embedding may have limited performance on Windows"
 
-        return MatchResult.success()
+        return True

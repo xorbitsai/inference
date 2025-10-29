@@ -16,7 +16,7 @@ import importlib.util
 import logging
 import threading
 import uuid
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -31,7 +31,6 @@ from ..core import (
     RerankModelFamilyV2,
     RerankSpecV1,
 )
-from ..match_result import MatchResult
 from ..utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
@@ -332,8 +331,12 @@ class SentenceTransformerRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("sentence_transformers") is not None
+            else "sentence_transformers library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -341,44 +344,19 @@ class SentenceTransformerRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-        pass
-
-        result = cls.match_with_reason(model_family, model_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls,
-        model_family: RerankModelFamilyV2,
-        model_spec: RerankSpecV1,
-        quantization: str,
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
+    ) -> Union[bool, str]:
         # Check library availability
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="Sentence Transformers library is not installed for reranking",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="sentence_transformers package not found in Python environment",
-            )
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         if model_spec.model_format not in ["pytorch"]:
-            return MatchResult.failure(
-                reason=f"Sentence Transformers reranking only supports pytorch format, got: {model_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Unsupported format: {model_spec.model_format}, required: pytorch",
-            )
+            return f"Sentence Transformers reranking only supports pytorch format, got: {model_spec.model_format}"
 
         # Check rerank-specific requirements
         if not hasattr(model_family, "model_name"):
-            return MatchResult.failure(
-                reason="Rerank model family requires model name specification",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details="Missing model_name in rerank model family",
-            )
+            return "Rerank model family requires model name specification"
 
         # Check model type compatibility
         if model_family.type and model_family.type not in [
@@ -389,27 +367,15 @@ class SentenceTransformerRerankModel(RerankModel):
             "LLM-based",
             "LLM-based layerwise",
         ]:
-            return MatchResult.failure(
-                reason=f"Model type '{model_family.type}' may not be compatible with reranking engines",
-                error_type=ErrorType.MODEL_COMPATIBILITY,
-                technical_details=f"Model type: {model_family.type}",
-            )
+            return f"Model type '{model_family.type}' may not be compatible with reranking engines"
 
         # Check max tokens limit for reranking performance
         max_tokens = model_family.max_tokens
         if max_tokens and max_tokens > 8192:  # High token limits for reranking
-            return MatchResult.failure(
-                reason=f"High max_tokens limit for reranking model: {max_tokens}",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details=f"High max_tokens for reranking: {max_tokens}",
-            )
+            return f"High max_tokens limit for reranking model: {max_tokens}, may cause performance issues"
 
         # Check language compatibility
         if not model_family.language or len(model_family.language) == 0:
-            return MatchResult.failure(
-                reason="Rerank model language information is missing",
-                error_type=ErrorType.CONFIGURATION_ERROR,
-                technical_details="Missing language information in rerank model",
-            )
+            return "Rerank model language information is missing"
 
-        return MatchResult.success()
+        return True

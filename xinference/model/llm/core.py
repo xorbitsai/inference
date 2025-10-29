@@ -31,7 +31,6 @@ from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV2, LLMSpecV1
-    from .match_result import MatchResult
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +70,7 @@ class LLM(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> bool:
+    def check_lib(cls) -> Union[bool, str]:
         raise NotImplementedError
 
     @staticmethod
@@ -149,53 +148,18 @@ class LLM(abc.ABC):
     def match(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not cls.check_lib():
+        lib_result = cls.check_lib()
+        if lib_result != True:
             return False
-        return cls.match_json(llm_family, llm_spec, quantization)
+        match_result = cls.match_json(llm_family, llm_spec, quantization)
+        return match_result == True
 
     @classmethod
     @abstractmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, str]:
         raise NotImplementedError
-
-    @classmethod
-    def match_with_reason(
-        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> "MatchResult":
-        """
-        Check if the engine can handle the given model with detailed error information.
-
-        This method provides detailed failure reasons and suggestions when an engine
-        cannot handle a specific model configuration. The default implementation
-        falls back to the boolean match_json method for backward compatibility.
-
-        Args:
-            llm_family: The model family information
-            llm_spec: The model specification
-            quantization: The quantization method
-
-        Returns:
-            MatchResult: Detailed match result with reasons and suggestions
-        """
-        from .match_result import ErrorType, MatchResult
-
-        # Default implementation for backward compatibility
-        if cls.match_json(llm_family, llm_spec, quantization):
-            return MatchResult.success()
-        else:
-            # Get basic reason based on common failure patterns
-            if not cls.check_lib():
-                return MatchResult.failure(
-                    reason=f"Required library for {cls.__name__} is not available",
-                    error_type=ErrorType.DEPENDENCY_MISSING,
-                )
-            else:
-                return MatchResult.failure(
-                    reason=f"Model configuration is not compatible with {cls.__name__}",
-                    error_type=ErrorType.MODEL_COMPATIBILITY,
-                )
 
     def prepare_parse_reasoning_content(
         self, reasoning_content: bool, enable_thinking: bool = True

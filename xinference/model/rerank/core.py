@@ -15,13 +15,12 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from ..._compat import BaseModel
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .match_result import MatchResult
 from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
 
 logger = logging.getLogger(__name__)
@@ -119,7 +118,7 @@ class RerankModel:
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> bool:
+    def check_lib(cls) -> Union[bool, str]:
         pass
 
     @classmethod
@@ -129,48 +128,8 @@ class RerankModel:
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, str]:
         pass
-
-    @classmethod
-    def match_with_reason(
-        cls,
-        model_family: RerankModelFamilyV2,
-        model_spec: RerankSpecV1,
-        quantization: str,
-    ) -> "MatchResult":
-        """
-        Check if the engine can handle the given rerank model with detailed error information.
-
-        This method provides detailed failure reasons and suggestions when an engine
-        cannot handle a specific model configuration. The default implementation
-        falls back to the boolean match_json method for backward compatibility.
-
-        Args:
-            model_family: The rerank model family information
-            model_spec: The model specification
-            quantization: The quantization method
-
-        Returns:
-            MatchResult: Detailed match result with reasons and suggestions
-        """
-        from .match_result import ErrorType, MatchResult
-
-        # Default implementation for backward compatibility
-        if cls.match_json(model_family, model_spec, quantization):
-            return MatchResult.success()
-        else:
-            # Get basic reason based on common failure patterns
-            if not cls.check_lib():
-                return MatchResult.failure(
-                    reason=f"Required library for {cls.__name__} is not available",
-                    error_type=ErrorType.DEPENDENCY_MISSING,
-                )
-            else:
-                return MatchResult.failure(
-                    reason=f"Rerank model configuration is not compatible with {cls.__name__}",
-                    error_type=ErrorType.MODEL_COMPATIBILITY,
-                )
 
     @classmethod
     def match(
@@ -178,13 +137,15 @@ class RerankModel:
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ):
+    ) -> bool:
         """
         Return if the model_spec can be matched.
         """
-        if not cls.check_lib():
+        lib_result = cls.check_lib()
+        if lib_result != True:
             return False
-        return cls.match_json(model_family, model_spec, quantization)
+        match_result = cls.match_json(model_family, model_spec, quantization)
+        return match_result == True
 
     @staticmethod
     def _get_tokenizer(model_path):

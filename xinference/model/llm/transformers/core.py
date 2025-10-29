@@ -40,7 +40,6 @@ from ...scheduler.request import InferenceRequest
 from ...utils import select_device
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
-from ..match_result import MatchResult
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
@@ -494,78 +493,33 @@ class PytorchModel(LLM):
             del self._tokenizer
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("transformers") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("transformers") is not None
+            else "transformers library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-
-        result = cls.match_with_reason(llm_family, llm_spec, quantization)
-        return result.is_match
-
-    @classmethod
-    def match_with_reason(
-        cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> "MatchResult":
-        from ..match_result import ErrorType, MatchResult
-
+    ) -> Union[bool, str]:
         # Check library availability
-        if not cls.check_lib():
-            return MatchResult.failure(
-                reason="Transformers library is not installed",
-                error_type=ErrorType.DEPENDENCY_MISSING,
-                technical_details="transformers or torch package not found",
-            )
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
 
         # Check model format compatibility
         supported_formats = ["pytorch", "gptq", "awq", "bnb"]
         if llm_spec.model_format not in supported_formats:
-            return MatchResult.failure(
-                reason=f"Transformers does not support model format: {llm_spec.model_format}",
-                error_type=ErrorType.MODEL_FORMAT,
-                technical_details=f"Transformers unsupported format: {llm_spec.model_format}",
-            )
+            return f"Transformers does not support model format: {llm_spec.model_format}, supported formats: {', '.join(supported_formats)}"
 
         # Check for models that shouldn't use Transformers by default
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
-            return MatchResult.failure(
-                reason=f"Model {model_family} is not recommended for Transformers engine",
-                error_type=ErrorType.MODEL_COMPATIBILITY,
-                technical_details=f"Model in NON_DEFAULT_MODEL_LIST: {model_family}",
-            )
+            return f"Model {model_family} is not recommended for Transformers engine, has specialized engine preference"
 
-        # Check model abilities with flexible logic
-        # Transformers can handle models with various text processing capabilities
-        has_text_capability = (
-            "generate" in llm_family.model_ability
-            or "chat" in llm_family.model_ability
-            or "reasoning" in llm_family.model_ability
-            or "tools" in llm_family.model_ability
-        )
-
-        if not has_text_capability:
-            return MatchResult.failure(
-                reason=f"Transformers engine requires text processing capabilities, model has: {llm_family.model_ability}",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Model abilities: {llm_family.model_ability}",
-            )
-
-        # Check for highly specialized models that might not work well with generic Transformers engine
-        specialized_abilities = ["embedding", "rerank", "audio", "vision"]
-        has_specialized = any(
-            ability in llm_family.model_ability for ability in specialized_abilities
-        )
-        if has_specialized and not has_text_capability:
-            return MatchResult.failure(
-                reason=f"Model requires specialized engine for its abilities: {llm_family.model_ability}",
-                error_type=ErrorType.ABILITY_MISMATCH,
-                technical_details=f"Specialized abilities detected: {[a for a in llm_family.model_ability if a in specialized_abilities]}",
-            )
-
-        return MatchResult.success()
+        return True
 
     def build_prefill_attention_mask(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
@@ -1022,8 +976,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             return False
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
-            return False
-        if "chat" not in llm_family.model_ability:
             return False
         return True
 
