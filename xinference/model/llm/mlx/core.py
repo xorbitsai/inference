@@ -423,6 +423,14 @@ class MLXModel(LLM):
         if llm_spec.model_format not in ["mlx"]:
             return f"MLX engine only supports MLX format, got: {llm_spec.model_format}"
 
+        # Base MLX model should not handle chat or vision models
+        # Those should be handled by MLXChatModel and MLXVisionModel respectively
+        model_abilities = getattr(llm_family, "model_ability", [])
+        if "chat" in model_abilities:
+            return False  # Let MLXChatModel handle this
+        if "vision" in model_abilities:
+            return False  # Let MLXVisionModel handle this
+
         # Check memory constraints for Apple Silicon
         model_size = float(str(llm_spec.model_size_in_billions))
         if model_size > 70:  # Large models may be problematic
@@ -729,10 +737,28 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, str]:
-        # First run base class checks
-        base_result = super().match_json(llm_family, llm_spec, quantization)
-        if base_result != True:
-            return base_result
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
+        if llm_spec.model_format not in ["mlx"]:
+            return f"MLX Chat engine only supports MLX format, got: {llm_spec.model_format}"
+
+        # Check that this model has chat ability
+        model_abilities = getattr(llm_family, "model_ability", [])
+        if "chat" not in model_abilities:
+            return False  # Not a chat model
+
+        # MLX Chat doesn't support vision
+        if "vision" in model_abilities:
+            return False  # Let MLXVisionModel handle this
+
+        # Check memory constraints for Apple Silicon
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Large models may be problematic
+            return f"MLX Chat may have memory limitations with very large models ({model_size}B parameters)"
 
         return True
 
@@ -800,6 +826,16 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         # Check model format compatibility
         if llm_spec.model_format not in ["mlx"]:
             return f"MLX Vision engine only supports MLX format, got: {llm_spec.model_format}"
+
+        # Check that this model has vision ability
+        model_abilities = getattr(llm_family, "model_ability", [])
+        if "vision" not in model_abilities:
+            return False  # Not a vision model
+
+        # Check memory constraints for Apple Silicon
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Large models may be problematic
+            return f"MLX Vision may have memory limitations with very large models ({model_size}B parameters)"
 
         return True
 
