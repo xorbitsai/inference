@@ -59,6 +59,10 @@ const model_ability_options = [
     ],
   },
   {
+    type: 'image',
+    options: ['ocr'],
+  },
+  {
     type: 'audio',
     options: ['text2audio', 'audio2text'],
   },
@@ -76,7 +80,7 @@ const messages = [
 const model_family_options = [
   {
     type: 'image',
-    options: ['stable_diffusion'],
+    options: ['stable_diffusion', 'ocr'],
   },
   {
     type: 'audio',
