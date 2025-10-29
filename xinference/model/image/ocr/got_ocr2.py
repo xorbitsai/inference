@@ -75,19 +75,21 @@ class GotOCR2Model:
         """Patch DynamicCache to add missing attributes"""
         import transformers.cache_utils as cache_utils
 
-        if hasattr(cache_utils, 'DynamicCache'):
+        if hasattr(cache_utils, "DynamicCache"):
             original_init = cache_utils.DynamicCache.__init__
 
             def patched_init(self, *args, **kwargs):
                 original_init(self, *args, **kwargs)
                 # Add seen_tokens attribute if it doesn't exist
-                if not hasattr(self, 'seen_tokens'):
+                if not hasattr(self, "seen_tokens"):
                     self.seen_tokens = 0
                 # Add get_max_length method if it doesn't exist
-                if not hasattr(self, 'get_max_length'):
+                if not hasattr(self, "get_max_length"):
+
                     def get_max_length(self):
                         # Return a reasonable default or calculate from existing attributes
-                        return getattr(self, 'max_length', 2048)
+                        return getattr(self, "max_length", 2048)
+
                     self.get_max_length = get_max_length.__get__(self, type(self))
 
             # Apply the patch
@@ -98,7 +100,8 @@ class GotOCR2Model:
         """Patch generation config to fix parameter issues"""
         try:
             import transformers.generation.configuration_utils as config_utils
-            if hasattr(config_utils, 'GenerationConfig'):
+
+            if hasattr(config_utils, "GenerationConfig"):
                 # Add any missing attributes if needed
                 logger.info("Checked generation config for GOT-OCR2")
         except Exception as e:
@@ -108,13 +111,17 @@ class GotOCR2Model:
         """Patch LlamaFlashAttention compatibility if needed"""
         try:
             import transformers.models.llama.modeling_llama as llama_module
-            if not hasattr(llama_module, 'LlamaFlashAttention2'):
+
+            if not hasattr(llama_module, "LlamaFlashAttention2"):
                 # Create dummy class for compatibility
                 class DummyLlamaFlashAttention2:
                     def __init__(self, *args, **kwargs):
                         pass
+
                 llama_module.LlamaFlashAttention2 = DummyLlamaFlashAttention2
-                logger.info("Added LlamaFlashAttention2 compatibility patch for GOT-OCR2")
+                logger.info(
+                    "Added LlamaFlashAttention2 compatibility patch for GOT-OCR2"
+                )
         except Exception as e:
             logger.warning(f"Failed to patch LlamaFlashAttention: {e}")
 
