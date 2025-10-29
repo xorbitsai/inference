@@ -597,9 +597,7 @@ def get_engine_params_by_name(
                                     try:
                                         # Create a minimal test spec if we don't have real model specs
                                         from .llm.llm_family import (
-                                            AwqLLMSpecV2,
-                                            GgmlLLMSpecV2,
-                                            GptqLLMSpecV2,
+                                            LlamaCppLLMSpecV2,
                                             LLMFamilyV2,
                                             MLXLLMSpecV2,
                                             PytorchLLMSpecV2,
@@ -618,18 +616,10 @@ def get_engine_params_by_name(
                                             or "llamacpp" in engine_name_lower
                                         ):
                                             # GGML/llama.cpp engines need GGML format
-                                            test_spec_class = GgmlLLMSpecV2
-                                            model_format = "ggmlv3"
-                                        elif "gptq" in engine_name_lower:
-                                            # GPTQ engines need GPTQ format
-                                            test_spec_class = GptqLLMSpecV2
-                                            model_format = "gptq"
-                                        elif "awq" in engine_name_lower:
-                                            # AWQ engines need AWQ format
-                                            test_spec_class = AwqLLMSpecV2
-                                            model_format = "awq"
+                                            test_spec_class = LlamaCppLLMSpecV2
+                                            model_format = "ggufv2"
                                         else:
-                                            # Default to PyTorch format
+                                            # Default to PyTorch format (supports gptq, awq, fp8, bnb)
                                             test_spec_class = PytorchLLMSpecV2
                                             model_format = "pytorch"
 
