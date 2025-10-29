@@ -728,7 +728,9 @@ def get_engine_params_by_name(
 
         return engine_params
     elif model_type == "embedding":
-        from .embedding.embed_family import EMBEDDING_ENGINES
+        from .embedding.embed_family import (
+            EMBEDDING_ENGINES,
+        )
         from .embedding.embed_family import (
             SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
         )
