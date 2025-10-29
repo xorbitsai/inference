@@ -448,7 +448,7 @@ class SGLANGModel(LLM):
                     f"Custom model family may not be fully supported by SGLang: {llm_family.model_family}"
                 )
         else:
-            if not is_model_supported(
+            if not llm_family.model_name or not is_model_supported(
                 llm_family.model_name.lower(),
                 [s.lower() for s in SGLANG_SUPPORTED_MODELS],
             ):
@@ -797,7 +797,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             return False
 
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if not is_chat_model_supported(
+            if not llm_family.model_family or not is_chat_model_supported(
                 llm_family.model_family.lower(), SGLANG_SUPPORTED_CHAT_MODELS
             ):
                 # Instead of hard rejection, give a warning but allow usage
@@ -805,7 +805,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                     f"Custom chat model may not be fully supported by SGLang: {llm_family.model_family}"
                 )
         else:
-            if not is_chat_model_supported(
+            if not llm_family.model_name or not is_chat_model_supported(
                 llm_family.model_name.lower(),
                 [s.lower() for s in SGLANG_SUPPORTED_CHAT_MODELS],
             ):
@@ -944,7 +944,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             return False
 
         if isinstance(llm_family, CustomLLMFamilyV2):
-            if not is_vision_model_supported(
+            if not llm_family.model_family or not is_vision_model_supported(
                 llm_family.model_family.lower(), SGLANG_SUPPORTED_VISION_MODEL_LIST
             ):
                 # Instead of hard rejection, give a warning but allow usage
@@ -952,7 +952,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                     f"Custom vision model may not be fully supported by SGLang: {llm_family.model_family}"
                 )
         else:
-            if not is_vision_model_supported(
+            if not llm_family.model_name or not is_vision_model_supported(
                 llm_family.model_name.lower(),
                 [s.lower() for s in SGLANG_SUPPORTED_VISION_MODEL_LIST],
             ):
