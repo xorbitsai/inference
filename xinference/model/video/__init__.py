@@ -41,6 +41,29 @@ def convert_video_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
     if "model_lang" not in converted:
         converted["model_lang"] = ["en"]
 
+    # Handle missing model_id and model_revision
+    if converted.get("model_id") is None and "model_src" in converted:
+        model_src = converted["model_src"]
+        # Extract model_id from available sources
+        if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
+            converted["model_id"] = model_src["huggingface"]["model_id"]
+        elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+            converted["model_id"] = model_src["modelscope"]["model_id"]
+
+    if converted.get("model_revision") is None and "model_src" in converted:
+        model_src = converted["model_src"]
+        # Extract model_revision if available
+        if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
+            converted["model_revision"] = model_src["huggingface"]["model_revision"]
+        elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
+            converted["model_revision"] = model_src["modelscope"]["model_revision"]
+
+    # Set defaults if still missing
+    if converted.get("model_id") is None:
+        converted["model_id"] = converted.get("model_name", "unknown")
+    if converted.get("model_revision") is None:
+        converted["model_revision"] = "main"
+
     # Handle model_specs
     if "model_specs" not in converted or not converted["model_specs"]:
         converted["model_specs"] = [
@@ -104,29 +127,24 @@ def register_builtin_model():
     This function is called every time model list is requested,
     ensuring real-time updates without server restart.
     """
-    from ..custom import RegistryManager
+    from ..utils import load_complete_builtin_models
 
-    registry = RegistryManager.get_registry("video")
-    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+    # Use unified loading function
+    loaded_count = load_complete_builtin_models(
+        model_type="video",
+        builtin_registry=BUILTIN_VIDEO_MODELS,
+        convert_format_func=convert_video_model_format,
+        model_class=VideoModelFamilyV2,
+    )
 
-    # Use the builtin registry to load models
-    from .builtin import BuiltinVideoModelRegistry
-
-    builtin_registry = BuiltinVideoModelRegistry()
-    builtin_models = builtin_registry.get_builtin_models()
-
-    for model in builtin_models:
-        # Only register if model doesn't already exist
-        if model.model_name not in existing_model_names:
-            # Add to BUILTIN_VIDEO_MODELS directly for proper builtin registration
-            if model.model_name not in BUILTIN_VIDEO_MODELS:
-                BUILTIN_VIDEO_MODELS[model.model_name] = []
-            BUILTIN_VIDEO_MODELS[model.model_name].append(model)
-            existing_model_names.add(model.model_name)
+    logger.info(f"Successfully loaded {loaded_count} video models from complete JSON")
 
 
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_VIDEO_MODELS)
+
+    # Load models from complete JSON file (from update_model_type)
+    register_builtin_model()
 
     # register model description
     for model_name, model_specs in BUILTIN_VIDEO_MODELS.items():

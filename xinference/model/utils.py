@@ -709,3 +709,92 @@ def cache_clean(fn):
         return _async_wrapper
     else:
         return _wrapper
+
+
+def load_complete_builtin_models(
+    model_type: str, builtin_registry: dict, convert_format_func=None, model_class=None
+):
+    """
+    Load complete JSON files for built-in models in a unified way.
+
+    Args:
+        model_type: Model type (llm, embedding, audio, image, video, rerank)
+        builtin_registry: Built-in model registry dictionary
+        convert_format_func: Format conversion function (optional)
+        model_class: Model class (optional)
+
+    Returns:
+        int: Number of successfully loaded models
+    """
+    import codecs
+    import json
+    import logging
+
+    from ..constants import XINFERENCE_MODEL_DIR
+
+    logger = logging.getLogger(__name__)
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type)
+    complete_json_path = os.path.join(builtin_dir, f"{model_type}_models.json")
+
+    if not os.path.exists(complete_json_path):
+        logger.debug(f"Complete JSON file not found: {complete_json_path}")
+        return 0
+
+    try:
+        with codecs.open(complete_json_path, encoding="utf-8") as fd:
+            model_data = json.load(fd)
+
+        models_to_register = []
+        if isinstance(model_data, list):
+            models_to_register = model_data
+        elif isinstance(model_data, dict):
+            if "model_name" in model_data:
+                models_to_register = [model_data]
+            else:
+                for key, value in model_data.items():
+                    if isinstance(value, dict) and "model_name" in value:
+                        models_to_register.append(value)
+
+        loaded_count = 0
+        for data in models_to_register:
+            try:
+                # Apply format conversion function (if provided)
+                if convert_format_func:
+                    data = convert_format_func(data)
+
+                # Create model instance (if model class is provided)
+                if model_class:
+                    model = model_class.parse_obj(data)
+                    model_name = model.model_name
+                else:
+                    model_name = data.get("model_name", "unknown")
+                    model = data
+
+                # Add to registry based on model type
+                if model_type in ["audio", "image", "video", "llm"]:
+                    # These model types use list structure: dict[model_name] = [model1, model2, ...]
+                    if model_name not in builtin_registry:
+                        builtin_registry[model_name] = [model]
+                    else:
+                        builtin_registry[model_name].append(model)
+                else:
+                    # embedding, rerank use single model structure: dict[model_name] = model
+                    builtin_registry[model_name] = model
+
+                loaded_count += 1
+                logger.info(f"Loaded {model_type} builtin model: {model_name}")
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load {model_type} model {data.get('model_name', 'Unknown')}: {e}"
+                )
+
+        logger.info(
+            f"Successfully loaded {loaded_count} {model_type} models from complete JSON"
+        )
+        return loaded_count
+
+    except Exception as e:
+        logger.error(f"Failed to load complete JSON {complete_json_path}: {e}")
+        return 0

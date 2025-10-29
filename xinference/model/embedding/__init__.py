@@ -108,106 +108,20 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    import json
+    from ..utils import load_complete_builtin_models
+    from .embed_family import BUILTIN_EMBEDDING_MODELS
 
-    from ...constants import XINFERENCE_MODEL_DIR
-    from ..custom import RegistryManager
-
-    registry = RegistryManager.get_registry("embedding")
-    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
-
-    builtin_embedding_dir = os.path.join(
-        XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding"
+    # Use unified loading function
+    loaded_count = load_complete_builtin_models(
+        model_type="embedding",
+        builtin_registry=BUILTIN_EMBEDDING_MODELS,
+        convert_format_func=convert_embedding_model_format,
+        model_class=EmbeddingModelFamilyV2,
     )
-    if os.path.isdir(builtin_embedding_dir):
-        # First, try to load from the complete JSON file
-        complete_json_path = os.path.join(
-            builtin_embedding_dir, "embedding_models.json"
-        )
-        if os.path.exists(complete_json_path):
-            try:
-                with codecs.open(complete_json_path, encoding="utf-8") as fd:
-                    model_data = json.load(fd)
 
-                # Handle different formats
-                models_to_register = []
-                if isinstance(model_data, list):
-                    # Multiple models in a list
-                    models_to_register = model_data
-                elif isinstance(model_data, dict):
-                    # Single model
-                    if "model_name" in model_data:
-                        models_to_register = [model_data]
-                    else:
-                        # Models dict - extract models
-                        for key, value in model_data.items():
-                            if isinstance(value, dict) and "model_name" in value:
-                                models_to_register.append(value)
-
-                # Register all models from the complete JSON
-                from .embed_family import BUILTIN_EMBEDDING_MODELS
-
-                for model_data in models_to_register:
-                    try:
-                        # Convert format if needed (embedding models might have different requirements)
-                        converted_data = convert_embedding_model_format(model_data)
-                        builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(
-                            converted_data
-                        )
-
-                        # Only register if model doesn't already exist
-                        if (
-                            builtin_embedding_family.model_name
-                            not in existing_model_names
-                        ):
-                            # Add to BUILTIN_EMBEDDING_MODELS directly for proper builtin registration
-                            BUILTIN_EMBEDDING_MODELS[
-                                builtin_embedding_family.model_name
-                            ] = builtin_embedding_family
-                            existing_model_names.add(
-                                builtin_embedding_family.model_name
-                            )
-                    except Exception as e:
-                        warnings.warn(
-                            f"Error parsing embedding model {model_data.get('model_name', 'Unknown')}: {e}"
-                        )
-
-                logger.info(
-                    f"Successfully registered {len(models_to_register)} embedding models from complete JSON"
-                )
-
-            except Exception as e:
-                warnings.warn(
-                    f"Error loading complete JSON file {complete_json_path}: {e}"
-                )
-                # Fall back to individual files if complete JSON loading fails
-
-        # Fall back: load individual JSON files (backward compatibility)
-        individual_files = [
-            f
-            for f in os.listdir(builtin_embedding_dir)
-            if f.endswith(".json") and f != "embedding_models.json"
-        ]
-        if individual_files:
-            from .embed_family import BUILTIN_EMBEDDING_MODELS
-        for f in individual_files:
-            try:
-                with codecs.open(
-                    os.path.join(builtin_embedding_dir, f), encoding="utf-8"
-                ) as fd:
-                    builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(
-                        json.load(fd)
-                    )
-
-                    # Only register if model doesn't already exist
-                    if builtin_embedding_family.model_name not in existing_model_names:
-                        # Add to BUILTIN_EMBEDDING_MODELS directly for proper builtin registration
-                        BUILTIN_EMBEDDING_MODELS[
-                            builtin_embedding_family.model_name
-                        ] = builtin_embedding_family
-                        existing_model_names.add(builtin_embedding_family.model_name)
-            except Exception as e:
-                warnings.warn(f"{builtin_embedding_dir}/{f} has error, {e}")
+    logger.info(
+        f"Successfully loaded {loaded_count} embedding models from complete JSON"
+    )
 
 
 def check_format_with_engine(model_format, engine):

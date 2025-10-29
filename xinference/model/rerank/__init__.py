@@ -107,90 +107,17 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    import json
+    from ..utils import load_complete_builtin_models
 
-    from ..custom import RegistryManager
+    # Use unified loading function
+    loaded_count = load_complete_builtin_models(
+        model_type="rerank",
+        builtin_registry=BUILTIN_RERANK_MODELS,
+        convert_format_func=convert_rerank_model_format,
+        model_class=RerankModelFamilyV2,
+    )
 
-    registry = RegistryManager.get_registry("rerank")
-    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
-
-    builtin_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "rerank")
-    if os.path.isdir(builtin_rerank_dir):
-        # First, try to load from the complete JSON file
-        complete_json_path = os.path.join(builtin_rerank_dir, "rerank_models.json")
-        if os.path.exists(complete_json_path):
-            try:
-                with codecs.open(complete_json_path, encoding="utf-8") as fd:
-                    model_data = json.load(fd)
-
-                # Handle different formats
-                models_to_register = []
-                if isinstance(model_data, list):
-                    # Multiple models in a list
-                    models_to_register = model_data
-                elif isinstance(model_data, dict):
-                    # Single model
-                    if "model_name" in model_data:
-                        models_to_register = [model_data]
-                    else:
-                        # Models dict - extract models
-                        for key, value in model_data.items():
-                            if isinstance(value, dict) and "model_name" in value:
-                                models_to_register.append(value)
-
-                # Register all models from the complete JSON
-                for model_data in models_to_register:
-                    try:
-                        # Convert format if needed
-                        converted_data = convert_rerank_model_format(model_data)
-                        builtin_rerank_family = RerankModelFamilyV2.parse_obj(
-                            converted_data
-                        )
-
-                        # Only register if model doesn't already exist
-                        if builtin_rerank_family.model_name not in existing_model_names:
-                            # Add to BUILTIN_RERANK_MODELS directly for proper builtin registration
-                            BUILTIN_RERANK_MODELS[builtin_rerank_family.model_name] = (
-                                builtin_rerank_family
-                            )
-                            existing_model_names.add(builtin_rerank_family.model_name)
-                    except Exception as e:
-                        warnings.warn(
-                            f"Error parsing rerank model {model_data.get('model_name', 'Unknown')}: {e}"
-                        )
-
-                logger.info(
-                    f"Successfully registered {len(models_to_register)} rerank models from complete JSON"
-                )
-
-            except Exception as e:
-                warnings.warn(
-                    f"Error loading complete JSON file {complete_json_path}: {e}"
-                )
-                # Fall back to individual files if complete JSON loading fails
-
-        # Fall back: load individual JSON files (backward compatibility)
-        individual_files = [
-            f
-            for f in os.listdir(builtin_rerank_dir)
-            if f.endswith(".json") and f != "rerank_models.json"
-        ]
-        for f in individual_files:
-            try:
-                with codecs.open(
-                    os.path.join(builtin_rerank_dir, f), encoding="utf-8"
-                ) as fd:
-                    builtin_rerank_family = RerankModelFamilyV2.parse_obj(json.load(fd))
-
-                    # Only register if model doesn't already exist
-                    if builtin_rerank_family.model_name not in existing_model_names:
-                        # Add to BUILTIN_RERANK_MODELS directly for proper builtin registration
-                        BUILTIN_RERANK_MODELS[builtin_rerank_family.model_name] = (
-                            builtin_rerank_family
-                        )
-                        existing_model_names.add(builtin_rerank_family.model_name)
-            except Exception as e:
-                warnings.warn(f"{builtin_rerank_dir}/{f} has error, {e}")
+    logger.info(f"Successfully loaded {loaded_count} rerank models from complete JSON")
 
 
 def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):

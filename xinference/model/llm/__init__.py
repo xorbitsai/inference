@@ -191,83 +191,58 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    import json
+    from ..utils import load_complete_builtin_models
 
-    from ...constants import XINFERENCE_MODEL_DIR
-    from ..custom import RegistryManager
+    # Use unified loading function, but LLM needs special handling
+    loaded_count = load_complete_builtin_models(
+        model_type="llm",
+        builtin_registry={},  # Temporarily use empty dict, we handle it manually
+        convert_format_func=convert_model_json_format,
+        model_class=LLMFamilyV2,
+    )
 
-    registry = RegistryManager.get_registry("llm")
-    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+    # Manually handle LLM's special registration logic
+    if loaded_count > 0:
+        from ...constants import XINFERENCE_MODEL_DIR
+        from ..custom import RegistryManager
 
-    builtin_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
-    if os.path.isdir(builtin_llm_dir):
-        # First, try to load from the complete JSON file
+        registry = RegistryManager.get_registry("llm")
+        existing_model_names = {
+            spec.model_name for spec in registry.get_custom_models()
+        }
+
+        builtin_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
         complete_json_path = os.path.join(builtin_llm_dir, "llm_models.json")
+
         if os.path.exists(complete_json_path):
-            try:
-                with codecs.open(complete_json_path, encoding="utf-8") as fd:
-                    model_data = json.load(fd)
+            with codecs.open(complete_json_path, encoding="utf-8") as fd:
+                model_data = json.load(fd)
 
-                # Handle different formats
-                models_to_register = []
-                if isinstance(model_data, list):
-                    # Multiple models in a list
-                    models_to_register = model_data
-                elif isinstance(model_data, dict):
-                    # Single model
-                    if "model_name" in model_data:
-                        models_to_register = [model_data]
-                    else:
-                        # Models dict - extract models
-                        for key, value in model_data.items():
-                            if isinstance(value, dict) and "model_name" in value:
-                                models_to_register.append(value)
+            models_to_register = []
+            if isinstance(model_data, list):
+                models_to_register = model_data
+            elif isinstance(model_data, dict):
+                if "model_name" in model_data:
+                    models_to_register = [model_data]
+                else:
+                    for key, value in model_data.items():
+                        if isinstance(value, dict) and "model_name" in value:
+                            models_to_register.append(value)
 
-                # Register all models from the complete JSON
-                for model_data in models_to_register:
-                    try:
-                        # Convert model hub JSON format to Xinference expected format
-                        converted_data = convert_model_json_format(model_data)
-                        builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
+            for model_data in models_to_register:
+                try:
+                    converted_data = convert_model_json_format(model_data)
+                    builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
 
-                        # Only register if model doesn't already exist
-                        if builtin_llm_family.model_name not in existing_model_names:
-                            register_llm(builtin_llm_family, persist=False)
-                            existing_model_names.add(builtin_llm_family.model_name)
-                    except Exception as e:
-                        warnings.warn(
-                            f"Error parsing model {model_data.get('model_name', 'Unknown')} from complete JSON: {e}"
-                        )
-
-                logger.info(
-                    f"Successfully registered {len(models_to_register)} models from complete JSON"
-                )
-
-            except Exception as e:
-                warnings.warn(
-                    f"Error loading complete JSON file {complete_json_path}: {e}"
-                )
-                # Fall back to individual files if complete JSON loading fails
-
-        # Fall back: load individual JSON files (backward compatibility)
-        individual_files = [
-            f
-            for f in os.listdir(builtin_llm_dir)
-            if f.endswith(".json") and f != "llm_models.json"
-        ]
-        for f in individual_files:
-            try:
-                with codecs.open(
-                    os.path.join(builtin_llm_dir, f), encoding="utf-8"
-                ) as fd:
-                    builtin_llm_family = LLMFamilyV2.parse_raw(fd.read())
-
-                    # Only register if model doesn't already exist
                     if builtin_llm_family.model_name not in existing_model_names:
                         register_llm(builtin_llm_family, persist=False)
                         existing_model_names.add(builtin_llm_family.model_name)
-            except Exception as e:
-                warnings.warn(f"{builtin_llm_dir}/{f} has error, {e}")
+                except Exception as e:
+                    warnings.warn(
+                        f"Error parsing model {model_data.get('model_name', 'Unknown')}: {e}"
+                    )
+
+    logger.info(f"Successfully loaded {loaded_count} llm models from complete JSON")
 
 
 def load_model_family_from_json(json_filename, target_families):
