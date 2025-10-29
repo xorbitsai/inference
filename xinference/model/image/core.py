@@ -196,7 +196,6 @@ def create_image_model_instance(
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         return create_ocr_model_instance(
             model_uid=model_uid,
-            model_name=model_name,
             model_spec=model_spec,
             model_path=model_path,
             **kwargs,

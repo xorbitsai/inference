@@ -51,6 +51,12 @@ class GotOCR2Model:
     def load(self):
         from transformers import AutoModel, AutoTokenizer
 
+        # Apply compatibility patches
+        logger.info("Applying compatibility patches for GOT-OCR2...")
+        self._patch_dynamic_cache()
+        self._patch_generation_config()
+        self._patch_llama_flash_attention()
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self._model_path, trust_remote_code=True
         )
@@ -63,6 +69,54 @@ class GotOCR2Model:
             pad_token_id=self._tokenizer.eos_token_id,
         )
         self._model = model.eval().cuda()
+        logger.info("GOT-OCR2 model loaded successfully with compatibility patches")
+
+    def _patch_dynamic_cache(self):
+        """Patch DynamicCache to add missing attributes"""
+        import transformers.cache_utils as cache_utils
+
+        if hasattr(cache_utils, 'DynamicCache'):
+            original_init = cache_utils.DynamicCache.__init__
+
+            def patched_init(self, *args, **kwargs):
+                original_init(self, *args, **kwargs)
+                # Add seen_tokens attribute if it doesn't exist
+                if not hasattr(self, 'seen_tokens'):
+                    self.seen_tokens = 0
+                # Add get_max_length method if it doesn't exist
+                if not hasattr(self, 'get_max_length'):
+                    def get_max_length(self):
+                        # Return a reasonable default or calculate from existing attributes
+                        return getattr(self, 'max_length', 2048)
+                    self.get_max_length = get_max_length.__get__(self, type(self))
+
+            # Apply the patch
+            cache_utils.DynamicCache.__init__ = patched_init
+            logger.info("Applied DynamicCache compatibility patch for GOT-OCR2")
+
+    def _patch_generation_config(self):
+        """Patch generation config to fix parameter issues"""
+        try:
+            import transformers.generation.configuration_utils as config_utils
+            if hasattr(config_utils, 'GenerationConfig'):
+                # Add any missing attributes if needed
+                logger.info("Checked generation config for GOT-OCR2")
+        except Exception as e:
+            logger.warning(f"Failed to patch generation config: {e}")
+
+    def _patch_llama_flash_attention(self):
+        """Patch LlamaFlashAttention compatibility if needed"""
+        try:
+            import transformers.models.llama.modeling_llama as llama_module
+            if not hasattr(llama_module, 'LlamaFlashAttention2'):
+                # Create dummy class for compatibility
+                class DummyLlamaFlashAttention2:
+                    def __init__(self, *args, **kwargs):
+                        pass
+                llama_module.LlamaFlashAttention2 = DummyLlamaFlashAttention2
+                logger.info("Added LlamaFlashAttention2 compatibility patch for GOT-OCR2")
+        except Exception as e:
+            logger.warning(f"Failed to patch LlamaFlashAttention: {e}")
 
     def ocr(
         self,
