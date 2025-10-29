@@ -108,7 +108,17 @@ def empty_cache():
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     if torch.backends.mps.is_available():
-        torch.mps.empty_cache()
+        try:
+            torch.mps.empty_cache()
+        except RuntimeError as e:
+            # Handle known MPS memory management issues in PyTorch 3.13+
+            if "invalid low watermark ratio" in str(e):
+                # This is a known issue with PyTorch 3.13+ on macOS.
+                # We can safely ignore this error as it doesn't affect functionality.
+                pass
+            else:
+                # Re-raise other RuntimeErrors
+                raise
     if is_xpu_available():
         torch.xpu.empty_cache()
     if is_npu_available():
