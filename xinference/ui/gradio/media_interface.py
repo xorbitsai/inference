@@ -63,9 +63,7 @@ class MediaInterface:
         )
 
     def build(self) -> gr.Blocks:
-        if self.model_type == "image":
-            assert "stable_diffusion" in self.model_family
-
+        # Remove the stable_diffusion restriction to support OCR models
         interface = self.build_main_interface()
         interface.queue()
         # Gradio initiates the queue during a startup event, but since the app has already been
@@ -1233,9 +1231,98 @@ class MediaInterface:
 
         return tts_ui
 
+    def ocr_interface(self) -> "gr.Blocks":
+        def extract_text_from_image(
+            image: "PIL.Image.Image",
+            ocr_type: str = "ocr",
+            progress=gr.Progress(),
+        ) -> str:
+            from ...client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            assert hasattr(model, "ocr")
+
+            # Convert PIL image to bytes
+            import io
+
+            buffered = io.BytesIO()
+            if image.mode == "RGBA" or image.mode == "CMYK":
+                image = image.convert("RGB")
+            image.save(buffered, format="PNG")
+            image_bytes = buffered.getvalue()
+
+            progress(0.1, desc="Processing image for OCR")
+
+            # Call the OCR method with bytes instead of PIL Image
+            response = model.ocr(
+                image=image_bytes,
+                ocr_type=ocr_type,
+            )
+
+            progress(0.8, desc="Extracting text")
+            progress(1.0, desc="OCR complete")
+
+            return response if response else "No text extracted from the image."
+
+        with gr.Blocks() as ocr_interface:
+            gr.Markdown(f"### OCR Text Extraction with {self.model_name}")
+
+            with gr.Row():
+                with gr.Column(scale=1):
+                    image_input = gr.Image(
+                        type="pil",
+                        label="Upload Image for OCR",
+                        interactive=True,
+                        height=400,
+                    )
+
+                    gr.Markdown(f"**Current OCR Model:** {self.model_name}")
+
+                    ocr_type = gr.Dropdown(
+                        choices=["ocr", "format"],
+                        value="ocr",
+                        label="OCR Type",
+                        info="Choose OCR processing type",
+                    )
+
+                    extract_btn = gr.Button("Extract Text", variant="primary")
+
+                with gr.Column(scale=1):
+                    text_output = gr.Textbox(
+                        label="Extracted Text",
+                        lines=20,
+                        placeholder="Extracted text will appear here...",
+                        interactive=True,
+                        show_copy_button=True,
+                    )
+
+            # Examples section
+            gr.Markdown("### Examples")
+            gr.Examples(
+                examples=[
+                    # You can add example image paths here if needed
+                ],
+                inputs=[image_input],
+                label="Example Images",
+            )
+
+            # Extract button click event
+            extract_btn.click(
+                fn=extract_text_from_image,
+                inputs=[image_input, ocr_type],
+                outputs=[text_output],
+            )
+
+        return ocr_interface
+
     def build_main_interface(self) -> "gr.Blocks":
         if self.model_type == "image":
-            title = f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨"
+            if "ocr" in self.model_ability:
+                title = f"🔍 Xinference OCR: {self.model_name} 🔍"
+            else:
+                title = f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨"
         elif self.model_type == "video":
             title = f"🎨 Xinference Video Generation: {self.model_name} 🎨"
         else:
@@ -1266,6 +1353,9 @@ class MediaInterface:
                     </div>
                     """
             )
+            if "ocr" in self.model_ability:
+                with gr.Tab("OCR"):
+                    self.ocr_interface()
             if "text2image" in self.model_ability:
                 with gr.Tab("Text to Image"):
                     self.text2image_interface()
