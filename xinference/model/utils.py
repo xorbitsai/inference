@@ -506,33 +506,59 @@ def get_engine_params_by_name(
                     if model_name in LLM_ENGINES and LLM_ENGINES[model_name]:
                         # Try to get model family for testing
                         try:
-                            from .llm.llm_family import match_llm
+                            pass
 
-                            llm_family = match_llm(model_name, None, None, None, None)
+                            # Get the full model family instead of a single spec
+                            from .llm.llm_family import BUILTIN_LLM_FAMILIES
+
+                            llm_family = None
+                            for family in BUILTIN_LLM_FAMILIES:
+                                if model_name == family.model_name:
+                                    llm_family = family
+                                    break
+
                             if llm_family and llm_family.model_specs:
-                                llm_spec = llm_family.model_specs[0]
-                                quantization = llm_spec.quantization or "none"
 
                                 # Test each engine class for detailed error info
                                 for engine_class in llm_engine_classes:
                                     try:
-                                        if hasattr(engine_class, "match_with_reason"):
-                                            pass
+                                        engine_compatible = False
+                                        error_details = None
 
-                                            result = engine_class.match_with_reason(
-                                                llm_family, llm_spec, quantization
+                                        # Try each model spec to find one compatible with this engine
+                                        for llm_spec in llm_family.model_specs:
+                                            quantization = (
+                                                llm_spec.quantization or "none"
                                             )
-                                            if not result.is_match:
-                                                detailed_error = {
-                                                    "error": result.reason,
-                                                    "error_type": result.error_type,
-                                                    "technical_details": result.technical_details,
-                                                }
-                                                break
+
+                                            if hasattr(engine_class, "match_json"):
+                                                match_result = engine_class.match_json(
+                                                    llm_family, llm_spec, quantization
+                                                )
+                                                if match_result == True:
+                                                    engine_compatible = True
+                                                    break  # Found compatible spec
+                                                else:
+                                                    # Save error details, but continue trying other specs
+                                                    error_details = {
+                                                        "error": (
+                                                            match_result
+                                                            if isinstance(
+                                                                match_result, str
+                                                            )
+                                                            else "Engine is not compatible"
+                                                        ),
+                                                        "error_type": "model_compatibility",
+                                                        "technical_details": f"The {engine_class.__name__} engine cannot handle the current model configuration: {llm_spec.model_format} format",
+                                                    }
+
+                                        if not engine_compatible and error_details:
+                                            detailed_error = error_details
+                                            break
                                     except Exception as e:
                                         # Fall back to next engine class with clear error logging
                                         logger.warning(
-                                            f"Engine class {engine_class.__name__} match_with_reason failed: {e}"
+                                            f"Engine class {engine_class.__name__} match_json failed: {e}"
                                         )
                                         # Continue to try next engine class, but this is expected behavior for fallback
                                         continue
@@ -555,8 +581,15 @@ def get_engine_params_by_name(
                         for engine_class in llm_engine_classes:
                             try:
                                 if hasattr(engine_class, "check_lib"):
-                                    lib_available: bool = engine_class.check_lib()  # type: ignore[assignment]
-                                    if not lib_available:
+                                    lib_result = engine_class.check_lib()
+                                    if lib_result != True:
+                                        # If check_lib returns a string, it's an error message
+                                        error_msg = (
+                                            lib_result
+                                            if isinstance(lib_result, str)
+                                            else f"Engine {engine_name} library check failed"
+                                        )
+                                        engine_params[engine_name] = error_msg
                                         break
                                 else:
                                     # If no check_lib method, try to use engine's match method for compatibility check
@@ -564,17 +597,49 @@ def get_engine_params_by_name(
                                     try:
                                         # Create a minimal test spec if we don't have real model specs
                                         from .llm.llm_family import (
+                                            AwqLLMSpecV2,
+                                            GgmlLLMSpecV2,
+                                            GptqLLMSpecV2,
                                             LLMFamilyV2,
+                                            MLXLLMSpecV2,
                                             PytorchLLMSpecV2,
                                         )
 
-                                        # Create a minimal test case
+                                        # Create appropriate test spec based on engine class
+                                        engine_name_lower = (
+                                            engine_class.__name__.lower()
+                                        )
+                                        if "mlx" in engine_name_lower:
+                                            # MLX engines need MLX format
+                                            test_spec_class = MLXLLMSpecV2
+                                            model_format = "mlx"
+                                        elif (
+                                            "ggml" in engine_name_lower
+                                            or "llamacpp" in engine_name_lower
+                                        ):
+                                            # GGML/llama.cpp engines need GGML format
+                                            test_spec_class = GgmlLLMSpecV2
+                                            model_format = "ggmlv3"
+                                        elif "gptq" in engine_name_lower:
+                                            # GPTQ engines need GPTQ format
+                                            test_spec_class = GptqLLMSpecV2
+                                            model_format = "gptq"
+                                        elif "awq" in engine_name_lower:
+                                            # AWQ engines need AWQ format
+                                            test_spec_class = AwqLLMSpecV2
+                                            model_format = "awq"
+                                        else:
+                                            # Default to PyTorch format
+                                            test_spec_class = PytorchLLMSpecV2
+                                            model_format = "pytorch"
+
+                                        # Create a minimal test case with appropriate format
                                         test_family = LLMFamilyV2(
                                             model_name="test",
                                             model_family="test",
                                             model_specs=[
-                                                PytorchLLMSpecV2(
-                                                    model_format="pytorch",
+                                                test_spec_class(
+                                                    model_format=model_format,
                                                     quantization="none",
                                                 )
                                             ],
@@ -597,11 +662,21 @@ def get_engine_params_by_name(
                                                 break
                                         elif hasattr(engine_class, "match_json"):
                                             # Fallback to simple match method - use test data
-                                            if engine_class.match_json(
+                                            match_result = engine_class.match_json(
                                                 test_family, test_spec, "none"
-                                            ):
-                                                break
+                                            )
+                                            if match_result == True:
+                                                break  # Engine is available
                                             else:
+                                                # Get detailed error information
+                                                error_message = (
+                                                    match_result
+                                                    if isinstance(match_result, str)
+                                                    else f"Engine {engine_name} is not compatible with current model or environment"
+                                                )
+                                                engine_params[engine_name] = (
+                                                    error_message
+                                                )
                                                 break
                                         else:
                                             # Final fallback: generic import check
@@ -653,9 +728,7 @@ def get_engine_params_by_name(
 
         return engine_params
     elif model_type == "embedding":
-        from .embedding.embed_family import (
-            EMBEDDING_ENGINES,
-        )
+        from .embedding.embed_family import EMBEDDING_ENGINES
         from .embedding.embed_family import (
             SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
         )
@@ -716,14 +789,23 @@ def get_engine_params_by_name(
                                         )
                                         test_spec = test_family.model_specs[0]
 
-                                        # Use the engine's match method to check compatibility
-                                        if embedding_engine_class.match(
-                                            test_family, test_spec, "none"
-                                        ):
+                                        # Use the engine's match_json method to check compatibility and get detailed error
+                                        match_result = (
+                                            embedding_engine_class.match_json(
+                                                test_family, test_spec, "none"
+                                            )
+                                        )
+                                        if match_result == True:
                                             break  # Engine is available
                                         else:
+                                            # Get detailed error information
+                                            error_message = (
+                                                match_result
+                                                if isinstance(match_result, str)
+                                                else f"Engine {engine_name} is not compatible with current model or environment"
+                                            )
                                             embedding_error_details = {
-                                                "error": f"Engine {engine_name} is not compatible with current model or environment",
+                                                "error": error_message,
                                                 "error_type": "model_compatibility",
                                                 "technical_details": f"The {engine_name} engine cannot handle the current embedding model configuration",
                                             }
@@ -789,9 +871,7 @@ def get_engine_params_by_name(
 
         return engine_params
     elif model_type == "rerank":
-        from .rerank.rerank_family import (
-            RERANK_ENGINES,
-        )
+        from .rerank.rerank_family import RERANK_ENGINES
         from .rerank.rerank_family import SUPPORTED_ENGINES as RERANK_SUPPORTED_ENGINES
 
         if model_name not in RERANK_ENGINES:
@@ -850,14 +930,21 @@ def get_engine_params_by_name(
                                         )
                                         test_spec = test_family.model_specs[0]
 
-                                        # Use the engine's match method to check compatibility
-                                        if rerank_engine_class.match(
+                                        # Use the engine's match_json method to check compatibility and get detailed error
+                                        match_result = rerank_engine_class.match_json(
                                             test_family, test_spec, "none"
-                                        ):
+                                        )
+                                        if match_result == True:
                                             break  # Engine is available
                                         else:
+                                            # Get detailed error information
+                                            error_message = (
+                                                match_result
+                                                if isinstance(match_result, str)
+                                                else f"Engine {engine_name} is not compatible with current model or environment"
+                                            )
                                             rerank_error_details = {
-                                                "error": f"Engine {engine_name} is not compatible with current model or environment",
+                                                "error": error_message,
                                                 "error_type": "model_compatibility",
                                                 "technical_details": f"The {engine_name} engine cannot handle the current rerank model configuration",
                                             }
