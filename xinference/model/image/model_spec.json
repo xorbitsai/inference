@@ -929,27 +929,12 @@
     }
   },
   {
+    "version": 2,
     "model_name": "DeepSeek-OCR",
-    "model_description": "DeepSeek-OCR: Contexts Optical Compression",
+    "model_family": "ocr",
     "model_ability": [
       "ocr"
     ],
-    "model_family": "ocr",
-    "controlnet": [],
-    "model_src": {
-      "huggingface": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "master"
-      }
-    },
-    "default_model_config": {},
-    "default_generate_config": {},
-    "cache_config": {},
-    "version": 2,
     "virtualenv": {
       "packages": [
         "torch==2.6.0",
@@ -965,7 +950,18 @@
         "Pillow",
         "numpy",
         "flash-attn==2.7.3"
-      ]
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "deepseek-ai/DeepSeek-OCR",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "deepseek-ai/DeepSeek-OCR",
+        "model_revision": "master"
+      }
     }
   }
 ]
