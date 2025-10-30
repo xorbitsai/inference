@@ -536,16 +536,16 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         return response_data
 
     def ocr(
-          self,
-          image: Union[str, bytes],
-          prompt: str = "<image>\nFree OCR.",
-          model_size: str = "gundam",
-          test_compress: bool = False,
-          save_results: bool = False,
-          save_dir: Optional[str] = None,
-          eval_mode: bool = False,
-          **kwargs
-      ):
+        self,
+        image: Union[str, bytes],
+        prompt: str = "<image>\nFree OCR.",
+        model_size: str = "gundam",
+        test_compress: bool = False,
+        save_results: bool = False,
+        save_dir: Optional[str] = None,
+        eval_mode: bool = False,
+        **kwargs,
+    ):
         """
         Perform OCR on an image with enhanced features.
 
@@ -583,7 +583,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "save_results": save_results,
             "save_dir": save_dir,
             "eval_mode": eval_mode,
-            **kwargs
+            **kwargs,
         }
 
         params = {
@@ -611,7 +611,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         save_results: bool = True,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         Perform OCR with visualization (bounding boxes and annotations).
@@ -668,7 +668,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         response_data = response.json()
         return response_data
-
 
 
 class RESTfulVideoModelHandle(RESTfulModelHandle):

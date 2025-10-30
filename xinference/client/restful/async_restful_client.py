@@ -607,7 +607,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         save_results: bool = False,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         Perform OCR on an image with enhanced features.
@@ -646,7 +646,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "save_results": save_results,
             "save_dir": save_dir,
             "eval_mode": eval_mode,
-            **kwargs
+            **kwargs,
         }
 
         params = {
@@ -676,7 +676,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         save_results: bool = True,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         Perform OCR with visualization (bounding boxes and annotations).

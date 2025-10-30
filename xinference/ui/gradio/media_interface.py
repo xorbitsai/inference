@@ -1268,8 +1268,12 @@ class MediaInterface:
                 prompt = "<image>\nFree OCR. Extract all text content from the image."
 
             try:
-                logger.info(f"Starting OCR processing - Type: {ocr_type}, Model Size: {model_size}")
-                logger.info(f"Image info: {image.size if image else 'None'}, Mode: {image.mode if image else 'None'}")
+                logger.info(
+                    f"Starting OCR processing - Type: {ocr_type}, Model Size: {model_size}"
+                )
+                logger.info(
+                    f"Image info: {image.size if image else 'None'}, Mode: {image.mode if image else 'None'}"
+                )
 
                 if enable_visualization and hasattr(model, "visualize_ocr"):
                     # Use visualization method
@@ -1293,7 +1297,9 @@ class MediaInterface:
                         if response.get("success"):
                             text_result = response.get("text", "No text extracted")
                         else:
-                            error_msg = response.get("error", "OCR visualization failed")
+                            error_msg = response.get(
+                                "error", "OCR visualization failed"
+                            )
                             # Return formatted error message for Markdown
                             error_md = f"**错误**: {error_msg}"
                             return error_md, "", ""
@@ -1316,9 +1322,15 @@ class MediaInterface:
                         text_result = text_result  # Keep as plain text, Markdown will render it normally
 
                         # Add compression info if available
-                    if isinstance(response, dict) and test_compress and "compression_ratio" in response:
+                    if (
+                        isinstance(response, dict)
+                        and test_compress
+                        and "compression_ratio" in response
+                    ):
                         compression_info = f"\n\n--- 压缩比信息 ---\n"
-                        compression_info += f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += (
+                            f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        )
                         compression_info += f"有效图像 Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
                         compression_info += f"输出文本 Tokens: {response.get('output_text_tokens', 'N/A')}\n"
                         text_result += compression_info
@@ -1329,7 +1341,9 @@ class MediaInterface:
                         viz_info = response.get("visualization", {})
                         if viz_info.get("has_annotations"):
                             viz_text = f"\n\n--- 可视化信息 ---\n"
-                            viz_text += f"边界框数量: {viz_info.get('num_bounding_boxes', 0)}\n"
+                            viz_text += (
+                                f"边界框数量: {viz_info.get('num_bounding_boxes', 0)}\n"
+                            )
                             viz_text += f"提取图像数量: {viz_info.get('num_extracted_images', 0)}\n"
                             text_result += viz_text
 
@@ -1355,7 +1369,9 @@ class MediaInterface:
 
                     # Debug: Log response type and content
                     logger.info(f"Standard OCR response type: {type(response)}")
-                    logger.info(f"Standard OCR response content: {str(response)[:200]}...")
+                    logger.info(
+                        f"Standard OCR response content: {str(response)[:200]}..."
+                    )
 
                     # Format response - handle both string and dict responses
                     if isinstance(response, dict):
@@ -1406,9 +1422,15 @@ class MediaInterface:
                         text_result = text_result
 
                     # Add compression info if available
-                    if isinstance(response, dict) and test_compress and "compression_ratio" in response:
+                    if (
+                        isinstance(response, dict)
+                        and test_compress
+                        and "compression_ratio" in response
+                    ):
                         compression_info = f"\n\n--- 压缩比信息 ---\n"
-                        compression_info += f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += (
+                            f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        )
                         compression_info += f"有效图像 Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
                         compression_info += f"输出文本 Tokens: {response.get('output_text_tokens', 'N/A')}\n"
                         text_result += compression_info
@@ -1418,6 +1440,7 @@ class MediaInterface:
             except Exception as e:
                 logger.error(f"OCR processing error: {e}")
                 import traceback
+
                 error_details = traceback.format_exc()
                 logger.error(f"Full traceback: {error_details}")
                 # Show error in markdown format for better visibility
@@ -1485,7 +1508,6 @@ class MediaInterface:
                         info="Save OCR results to files (if supported)",
                     )
 
-                    
                     extract_btn = gr.Button("Extract Text", variant="primary")
 
                 with gr.Column(scale=1):
@@ -1496,7 +1518,7 @@ class MediaInterface:
                         text_output = gr.Markdown(
                             value="提取的文本将在这里显示...",
                             elem_classes="output-text",
-                            container=False
+                            container=False,
                         )
 
                     # Additional info outputs (hidden by default)
@@ -1540,7 +1562,14 @@ class MediaInterface:
             # Extract button click event
             extract_btn.click(
                 fn=extract_text_from_image,
-                inputs=[image_input, ocr_type, model_size, test_compress, enable_visualization, save_results],
+                inputs=[
+                    image_input,
+                    ocr_type,
+                    model_size,
+                    test_compress,
+                    enable_visualization,
+                    save_results,
+                ],
                 outputs=[text_output, viz_info_output, file_info_output],
             )
 
