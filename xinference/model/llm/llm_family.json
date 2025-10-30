@@ -22909,6 +22909,7 @@
     "model_specs": [
       {
         "model_size_in_billions": 230,
+        "activated_size_in_billions": 3,
         "model_format": "pytorch",
         "model_src": {
           "huggingface": {
@@ -22921,6 +22922,52 @@
             "model_id": "MiniMax/MiniMax-M2",
             "quantizations": [
               "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 230,
+        "activated_size_in_billions": 3,
+        "model_format": "awq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "QuantTrio/MiniMax-M2-AWQ",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "tclf90/MiniMax-M2-AWQ",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 230,
+        "activated_size_in_billions": 3,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/MiniMax-M2-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/MiniMax-M2-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
             ]
           }
         }
