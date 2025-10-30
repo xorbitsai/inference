@@ -607,7 +607,6 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         save_results: bool = False,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        clean_annotations: bool = False,
         **kwargs
     ):
         """
@@ -647,7 +646,6 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             "save_results": save_results,
             "save_dir": save_dir,
             "eval_mode": eval_mode,
-            "clean_annotations": clean_annotations,
             **kwargs
         }
 

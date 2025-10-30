@@ -1239,7 +1239,6 @@ class MediaInterface:
             test_compress: bool = False,
             enable_visualization: bool = False,
             save_results: bool = False,
-            clean_annotations: bool = False,
             progress=gr.Progress(),
         ) -> Union[str, Tuple[str, str, str]]:
             from ...client import RESTfulClient
@@ -1261,10 +1260,12 @@ class MediaInterface:
             progress(0.1, desc="Processing image for OCR")
 
             # Prepare prompt based on OCR type
-            if ocr_type == "format":
-                prompt = "<image>\n<|grounding|>Convert the document to markdown."
-            else:
-                prompt = "<image>\nFree OCR."
+            if ocr_type == "markdown":
+                prompt = "<image>\nConvert this document to clean markdown format. Extract the text content and format it properly using markdown syntax. Do not include any coordinate annotations or special formatting markers."
+            elif ocr_type == "format":
+                prompt = "<image>\n<|grounding|>Convert the document to markdown with structure annotations. Include coordinate information for text regions and maintain the document structure."
+            else:  # ocr
+                prompt = "<image>\nFree OCR. Extract all text content from the image."
 
             try:
                 if enable_visualization and hasattr(model, "visualize_ocr"):
@@ -1285,28 +1286,43 @@ class MediaInterface:
                             text_result = response.get("text", "No text extracted")
                         else:
                             error_msg = response.get("error", "OCR visualization failed")
-                            return f"Error: {error_msg}", "", ""
+                            # Return formatted error message for Markdown
+                            error_md = f"**错误**: {error_msg}"
+                            return error_md, "", ""
                     elif isinstance(response, str):
                         # Handle string response from original model
                         text_result = response
                     else:
                         text_result = str(response)
 
+                    # Check if the result looks like Markdown and format it properly
+                    if ocr_type == "markdown" and isinstance(text_result, str):
+                        # Already in Markdown format, keep as is
+                        pass
+                    elif ocr_type == "format" and isinstance(text_result, str):
+                        # For format mode, keep annotations but format as code block
+                        if "<|ref|>" in text_result:
+                            text_result = f"```\n{text_result}\n```"
+                    elif ocr_type == "ocr" and isinstance(text_result, str):
+                        # For plain text, format as a simple block
+                        text_result = text_result  # Keep as plain text, Markdown will render it normally
+
                         # Add compression info if available
                     if isinstance(response, dict) and test_compress and "compression_ratio" in response:
-                        text_result += f"\n\n--- Compression Info ---\n"
-                        text_result += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
-                        text_result += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
-                        text_result += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        compression_info = f"\n\n--- 压缩比信息 ---\n"
+                        compression_info += f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += f"有效图像 Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        compression_info += f"输出文本 Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        text_result += compression_info
 
                     # Add visualization info
                     viz_info = {}
                     if isinstance(response, dict):
                         viz_info = response.get("visualization", {})
                         if viz_info.get("has_annotations"):
-                            viz_text = f"\n\n--- Visualization Info ---\n"
-                            viz_text += f"Bounding Boxes: {viz_info.get('num_bounding_boxes', 0)}\n"
-                            viz_text += f"Extracted Images: {viz_info.get('num_extracted_images', 0)}\n"
+                            viz_text = f"\n\n--- 可视化信息 ---\n"
+                            viz_text += f"边界框数量: {viz_info.get('num_bounding_boxes', 0)}\n"
+                            viz_text += f"提取图像数量: {viz_info.get('num_extracted_images', 0)}\n"
                             text_result += viz_text
 
                         saved_files = response.get("saved_files", {})
@@ -1324,7 +1340,6 @@ class MediaInterface:
                         test_compress=test_compress,
                         save_results=save_results,
                         eval_mode=True,
-                        clean_annotations=clean_annotations,
                     )
 
                     progress(0.8, desc="Extracting text")
@@ -1335,19 +1350,33 @@ class MediaInterface:
                             text_result = response.get("text", "No text extracted")
                         else:
                             error_msg = response.get("error", "OCR failed")
-                            return f"Error: {error_msg}", "", ""
+                            error_md = f"**错误**: {error_msg}"
+                            return error_md, "", ""
                     elif isinstance(response, str):
                         # Handle string response from original model
                         text_result = response
                     else:
                         text_result = str(response)
 
+                    # Format based on OCR type
+                    if ocr_type == "markdown" and isinstance(text_result, str):
+                        # Markdown mode - keep as is for proper rendering
+                        pass
+                    elif ocr_type == "format" and isinstance(text_result, str):
+                        # Format mode - show annotations in code block
+                        if "<|ref|>" in text_result:
+                            text_result = f"```text\n{text_result}\n```"
+                    elif ocr_type == "ocr" and isinstance(text_result, str):
+                        # Plain text mode - keep as plain text
+                        text_result = text_result
+
                     # Add compression info if available
                     if isinstance(response, dict) and test_compress and "compression_ratio" in response:
-                        text_result += f"\n\n--- Compression Info ---\n"
-                        text_result += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
-                        text_result += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
-                        text_result += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        compression_info = f"\n\n--- 压缩比信息 ---\n"
+                        compression_info += f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += f"有效图像 Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        compression_info += f"输出文本 Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        text_result += compression_info
 
                     return text_result, "", ""
 
@@ -1381,16 +1410,16 @@ class MediaInterface:
                     )
 
                     ocr_type = gr.Dropdown(
-                        choices=["ocr", "format"],
+                        choices=["ocr", "format", "markdown"],
                         value="ocr",
-                        label="OCR Type",
-                        info="ocr: Basic text extraction, format: Document formatting",
+                        label="Output Format",
+                        info="ocr: 纯文本提取, format: 结构化文档(含标注), markdown: 标准Markdown格式",
                     )
 
                     enable_visualization = gr.Checkbox(
                         label="Enable Visualization",
                         value=False,
-                        info="Generate bounding boxes and annotations (requires document formatting)",
+                        info="Generate bounding boxes and annotations (仅适用于format模式)",
                     )
 
                     test_compress = gr.Checkbox(
@@ -1405,22 +1434,19 @@ class MediaInterface:
                         info="Save OCR results to files (if supported)",
                     )
 
-                    clean_annotations = gr.Checkbox(
-                        label="Clean Annotations",
-                        value=True,
-                        info="Remove annotation tags and return plain text",
-                    )
-
+                    
                     extract_btn = gr.Button("Extract Text", variant="primary")
 
                 with gr.Column(scale=1):
-                    text_output = gr.Textbox(
-                        label="Extracted Text",
-                        lines=20,
-                        placeholder="Extracted text will appear here...",
-                        interactive=True,
-                        show_copy_button=True,
-                    )
+                    # Create a bordered container for the output
+                    with gr.Group(elem_classes="output-container"):
+                        gr.Markdown("### 📄 提取结果")
+
+                        text_output = gr.Markdown(
+                            value="提取的文本将在这里显示...",
+                            elem_classes="output-text",
+                            container=False
+                        )
 
                     # Additional info outputs (hidden by default)
                     viz_info_output = gr.Textbox(
@@ -1463,7 +1489,7 @@ class MediaInterface:
             # Extract button click event
             extract_btn.click(
                 fn=extract_text_from_image,
-                inputs=[image_input, ocr_type, model_size, test_compress, enable_visualization, save_results, clean_annotations],
+                inputs=[image_input, ocr_type, model_size, test_compress, enable_visualization, save_results],
                 outputs=[text_output, viz_info_output, file_info_output],
             )
 
@@ -1489,6 +1515,87 @@ class MediaInterface:
                         align-items: center;
                         padding: 0px;
                         color: #9ea4b0 !important;
+                    }
+
+                    .output-container {
+                        border: 1px solid #e0e0e0;
+                        border-radius: 8px;
+                        padding: 16px;
+                        background-color: #f8f9fa;
+                        margin: 8px 0;
+                    }
+
+                    .output-text {
+                        background-color: white;
+                        border: 1px solid #dee2e6;
+                        border-radius: 6px;
+                        padding: 16px;
+                        min-height: 200px;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        line-height: 1.6;
+                    }
+
+                    .output-text h1, .output-text h2, .output-text h3,
+                    .output-text h4, .output-text h5, .output-text h6 {
+                        margin-top: 0.5em !important;
+                        margin-bottom: 0.5em !important;
+                        color: #2d3748 !important;
+                    }
+
+                    .output-text p {
+                        margin: 0.5em 0 !important;
+                    }
+
+                    .output-text pre {
+                        background-color: #f6f8fa !important;
+                        border: 1px solid #e9ecef !important;
+                        border-radius: 4px !important;
+                        padding: 12px !important;
+                        margin: 8px 0 !important;
+                    }
+
+                    .output-text code {
+                        background-color: #e9ecef !important;
+                        padding: 2px 4px !important;
+                        border-radius: 3px !important;
+                        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+                    }
+
+                    .output-text ul, .output-text ol {
+                        margin: 0.5em 0 !important;
+                        padding-left: 20px !important;
+                    }
+
+                    .output-text blockquote {
+                        border-left: 4px solid #6c757d !important;
+                        padding-left: 16px !important;
+                        margin: 0.5em 0 !important;
+                        color: #6c757d !important;
+                        background-color: #f8f9fa !important;
+                    }
+
+                    .output-text table {
+                        border-collapse: collapse !important;
+                        width: 100% !important;
+                        margin: 8px 0 !important;
+                    }
+
+                    .output-text th, .output-text td {
+                        border: 1px solid #dee2e6 !important;
+                        padding: 8px 12px !important;
+                        text-align: left !important;
+                    }
+
+                    .output-text th {
+                        background-color: #f8f9fa !important;
+                        font-weight: bold !important;
+                    }
+
+                    /* 确保 Markdown 正确显示 */
+                    .output-text .katex-display {
+                        display: block !important;
+                        text-align: center !important;
+                        margin: 1em 0 !important;
                     }
                     """,
             analytics_enabled=False,

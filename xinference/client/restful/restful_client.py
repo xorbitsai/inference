@@ -544,7 +544,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
           save_results: bool = False,
           save_dir: Optional[str] = None,
           eval_mode: bool = False,
-          clean_annotations: bool = False,
           **kwargs
       ):
         """
@@ -566,8 +565,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             Directory to save results.
         eval_mode: bool, optional
             Whether to use evaluation mode.
-        clean_annotations: bool, optional
-            Whether to clean annotation tags and return plain text.
         **kwargs
             Additional parameters.
 
@@ -586,7 +583,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "save_results": save_results,
             "save_dir": save_dir,
             "eval_mode": eval_mode,
-            "clean_annotations": clean_annotations,
             **kwargs
         }
 

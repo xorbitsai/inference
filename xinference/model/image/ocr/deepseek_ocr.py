@@ -433,7 +433,6 @@ class DeepSeekOCRModel:
         save_results: bool = False,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        clean_annotations: bool = False,
         **kwargs,
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -447,7 +446,6 @@ class DeepSeekOCRModel:
             save_results: Whether to save results to files
             save_dir: Directory to save results (required if save_results=True)
             eval_mode: Whether to use evaluation mode
-            clean_annotations: Whether to clean annotation tags and return plain text
             **kwargs: Additional parameters
 
         Returns:
@@ -465,13 +463,13 @@ class DeepSeekOCRModel:
         # Handle single image input
         if isinstance(image, PIL.Image.Image):
             return self._ocr_single(
-                image, prompt, model_size, test_compress, save_results, save_dir, eval_mode, clean_annotations, **kwargs
+                image, prompt, model_size, test_compress, save_results, save_dir, eval_mode, **kwargs
             )
         # Handle batch image input
         elif isinstance(image, list):
             return [
                 self._ocr_single(
-                    img, prompt, model_size, test_compress, save_results, save_dir, eval_mode, clean_annotations, **kwargs
+                    img, prompt, model_size, test_compress, save_results, save_dir, eval_mode, **kwargs
                 ) for img in image
             ]
         else:
@@ -656,7 +654,6 @@ class DeepSeekOCRModel:
         save_results: bool = False,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        clean_annotations: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
         """Perform OCR on a single image with all enhanced features."""
@@ -699,16 +696,9 @@ class DeepSeekOCRModel:
                     eval_mode=eval_mode,
                 )
 
-                # Clean annotations if requested
-                cleaned_text = result
-                annotations_cleaned = False
-                if clean_annotations and isinstance(result, str):
-                    cleaned_text = clean_ocr_annotations(result)
-                    annotations_cleaned = True
-
                 # Prepare response
                 response = {
-                    "text": cleaned_text,
+                    "text": result,
                     "model": "deepseek-ocr",
                     "success": True,
                     "model_size": model_size,
@@ -716,11 +706,6 @@ class DeepSeekOCRModel:
                     "image_size": model_config.image_size,
                     "crop_mode": model_config.crop_mode,
                 }
-
-                # Add annotation info if cleaned
-                if annotations_cleaned:
-                    response["annotations_cleaned"] = True
-                    response["raw_text"] = result
 
                 # Add compression info if tested
                 if test_compress:
