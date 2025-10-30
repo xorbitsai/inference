@@ -30,8 +30,12 @@ from transformers.cache_utils import (
     DynamicCache,
     EncoderDecoderCache,
     OffloadedCache,
-    QuantizedCacheConfig,
+    QuantizedCache,
     StaticCache,
+    SlidingWindowCache,
+    SinkCache,
+    HybridCache,
+    HybridChunkedCache,
 )
 from transformers.configuration_utils import PretrainedConfig
 from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
@@ -55,13 +59,10 @@ from transformers.generation.candidate_generator import (
     AssistedCandidateGeneratorDifferentTokenizers,
     CandidateGenerator,
     PromptLookupCandidateGenerator,
-    _crop_past_key_values,
     _prepare_attention_mask,
     _prepare_token_type_ids,
 )
 from transformers.generation.configuration_utils import (
-    NEED_SETUP_CACHE_CLASSES_MAPPING,
-    QUANT_BACKEND_CLASSES_MAPPING,
     GenerationConfig,
     GenerationMode,
 )
@@ -110,6 +111,70 @@ if TYPE_CHECKING:
     from transformers.generation.streamers import BaseStreamer
 
 logger = logging.get_logger(__name__)
+
+# Compatibility with transformers 4.57.1+
+# These mappings are needed for the removed constants
+NEED_SETUP_CACHE_CLASSES_MAPPING = {
+    "auto": Cache,
+    "dynamic": DynamicCache,
+    "static": StaticCache,
+    "offloaded": OffloadedCache,
+    "sliding_window": SlidingWindowCache,
+    "sink": SinkCache,
+    "hybrid": HybridCache,
+    "hybrid_chunked": HybridChunkedCache,
+}
+
+# Mapping for quantized cache backends
+QUANT_BACKEND_CLASSES_MAPPING = {
+    "quanto": QuantizedCache,
+    "hqq": QuantizedCache,
+}
+
+# Compatibility class for removed QuantizedCacheConfig
+class QuantizedCacheConfig:
+    def __init__(self, backend: str = "quanto", nbits: int = 4,
+                 axis_key: int = 0, axis_value: int = 0,
+                 q_group_size: int = 64, residual_length: int = 128):
+        self.backend = backend
+        self.nbits = nbits
+        self.axis_key = axis_key
+        self.axis_value = axis_value
+        self.q_group_size = q_group_size
+        self.residual_length = residual_length
+
+# Compatibility function for removed _crop_past_key_values
+def _crop_past_key_values(model, past_key_values, max_length):
+    """
+    Crop past key values to a maximum length.
+    This is a compatibility function for the removed _crop_past_key_values.
+    """
+    if past_key_values is None:
+        return past_key_values
+
+    # If past_key_values is a Cache object
+    if hasattr(past_key_values, 'crop'):
+        return past_key_values.crop(max_length)
+
+    # If it's a tuple of tensors (legacy format)
+    if isinstance(past_key_values, tuple):
+        cropped_past_key_values = []
+        for layer_past_key_values in past_key_values:
+            if isinstance(layer_past_key_values, tuple) and len(layer_past_key_values) == 2:
+                # Standard format: (key, value)
+                key, value = layer_past_key_values
+                if key.shape[-2] > max_length:
+                    key = key[..., :max_length, :]
+                if value.shape[-2] > max_length:
+                    value = value[..., :max_length, :]
+                cropped_past_key_values.append((key, value))
+            else:
+                # Other formats, just append as is
+                cropped_past_key_values.append(layer_past_key_values)
+        return tuple(cropped_past_key_values)
+
+    # For other cache types, return as is
+    return past_key_values
 
 if is_accelerate_available():
     from accelerate.hooks import AlignDevicesHook, add_hook_to_module
@@ -1002,7 +1067,8 @@ class GenerationMixin:
                     device=device,
                 )
             )
-        if generation_config.forced_decoder_ids is not None:
+        # Compatibility with transformers 4.57.1+: forced_decoder_ids has been removed
+        if hasattr(generation_config, 'forced_decoder_ids') and generation_config.forced_decoder_ids is not None:
             # TODO (sanchit): move this exception to GenerationConfig.validate() when TF & FLAX are aligned with PT
             raise ValueError(
                 "You have explicitly specified `forced_decoder_ids`. Please remove the `forced_decoder_ids` argument "

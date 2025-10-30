@@ -137,6 +137,8 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 
 
 class SGLANGModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,

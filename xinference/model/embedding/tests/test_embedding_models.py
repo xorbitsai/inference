@@ -222,11 +222,16 @@ def test_register_custom_embedding():
 
 
 def test_register_fault_embedding():
+    import warnings
+
     from ....constants import XINFERENCE_MODEL_DIR
     from .. import _install
 
-    os.makedirs(os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding"), exist_ok=True)
-    file_path = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding/GTE.json")
+    embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "embedding")
+
+    os.makedirs(embedding_dir, exist_ok=True)
+    file_path = os.path.join(embedding_dir, "GTE.json")
+
     data = {
         "model_name": "GTE",
         "model_hub": "huggingface",
@@ -247,11 +252,53 @@ def test_register_fault_embedding():
     with open(file_path, "w") as f:
         json.dump(data, f, indent=4)
 
-    with pytest.warns(UserWarning) as record:
+    all_warnings = []
+
+    def custom_warning_handler(
+        message, category, filename, lineno, file=None, line=None
+    ):
+        warning_info = {
+            "message": str(message),
+            "category": category.__name__,
+            "filename": filename,
+            "lineno": lineno,
+        }
+        all_warnings.append(warning_info)
+
+    old_showwarning = warnings.showwarning
+    warnings.showwarning = custom_warning_handler
+
+    try:
         _install()
-    assert any(
-        "Invalid model URI /new_data/cache/gte-Qwen2" in str(r.message) for r in record
-    )
+
+        warnings.showwarning = old_showwarning
+
+        with pytest.warns(UserWarning) as record:
+            _install()
+
+        found_warning = False
+        for warning in record:
+            message = str(warning.message)
+            if (
+                "has error" in message
+                and (
+                    "Invalid model URI" in message
+                    or "Model URI cannot be a relative path" in message
+                )
+                and "/new_data/cache/gte-Qwen2" in message
+            ):
+                found_warning = True
+                break
+
+        assert (
+            found_warning
+        ), f"Expected warning about invalid model URI not found. Warnings: {[str(w.message) for w in record]}"
+
+    finally:
+        warnings.showwarning = old_showwarning
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
 
 
 def test_convert_ids_to_tokens():

@@ -159,12 +159,14 @@ def create_ocr_model_instance(
     model_spec: ImageModelFamilyV2,
     model_path: Optional[str] = None,
     **kwargs,
-) -> GotOCR2Model:
+):
     from .cache_manager import ImageCacheManager
 
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         model_path = cache_manager.cache()
+
+    # Use GOT-OCR2 for all OCR models
     model = GotOCR2Model(
         model_uid,
         model_path,
@@ -194,7 +196,6 @@ def create_image_model_instance(
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         return create_ocr_model_instance(
             model_uid=model_uid,
-            model_name=model_name,
             model_spec=model_spec,
             model_path=model_path,
             **kwargs,

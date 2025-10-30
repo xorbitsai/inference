@@ -102,9 +102,9 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
 
         kwargs = self.apply_bnb_quantization()
         llm_family = self.model_family.model_family or self.model_family.model_name
-        if "qwen2.5" in llm_family:
+        if "qwen2.5" in llm_family.lower():
             model_cls = Qwen2_5_VLForConditionalGeneration
-        elif "qwen3" in llm_family:
+        elif "qwen3" in llm_family.lower():
             model_cls = AutoModelForImageTextToText
         else:
             model_cls = Qwen2VLForConditionalGeneration

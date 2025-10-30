@@ -91,6 +91,8 @@ def register_non_default_model(*model_names: str):
 
 
 class PytorchModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,

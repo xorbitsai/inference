@@ -376,9 +376,6 @@ const LaunchModelDrawer = ({
       if (error?.response?.status !== 403) {
         setErrorMsg(error.message)
       }
-    } finally {
-      stopPolling()
-      setIsCallingApi(false)
     }
   }
 
@@ -1140,10 +1137,11 @@ const LaunchModelDrawer = ({
                   isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
                 )}
                 disabled={
-                  !areRequiredFieldsFilled ||
-                  isLoading ||
-                  isCallingApi ||
-                  checkDynamicFieldComplete.some((item) => !item.isComplete)
+                  !isShowCancel &&
+                  (!areRequiredFieldsFilled ||
+                    isLoading ||
+                    isCallingApi ||
+                    checkDynamicFieldComplete.some((item) => !item.isComplete))
                 }
                 onClick={() => {
                   if (isShowCancel) {

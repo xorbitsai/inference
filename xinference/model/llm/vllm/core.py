@@ -302,6 +302,8 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
 
 
 class VLLMModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,

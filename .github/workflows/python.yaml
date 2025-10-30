@@ -74,16 +74,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ "ubuntu-latest", "macos-13", "windows-latest" ]
-        python-version: [ "3.9", "3.10", "3.11", "3.12" ]
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
         module: [ "xinference" ]
         exclude:
           - { os: macos-13, python-version: 3.10 }
           - { os: macos-13, python-version: 3.11 }
+          - { os: macos-13, python-version: 3.12 }
+          - { os: macos-13, python-version: 3.13 }
           - { os: windows-latest, python-version: 3.10 }
           - { os: windows-latest, python-version: 3.11 }
+          - { os: windows-latest, python-version: 3.12 }
         include:
           - { os: self-hosted, module: gpu, python-version: 3.9}
           - { os: macos-latest, module: metal, python-version: "3.10" }
+          - { os: macos-latest, python-version: "3.13" }
 
     steps:
       - name: Check out code
@@ -99,15 +103,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
 
-      # Important for python == 3.12
+      # Important for python == 3.12 and 3.13
       - name: Update pip and setuptools
-        if: ${{ matrix.python-version == '3.12' }}
+        if: ${{ matrix.python-version == '3.12' || matrix.python-version == '3.13' }}
         run: |
           python -m pip install -U pip setuptools
 
+      # Install torch for Python 3.13 using nightly builds
+      - name: Install torch for Python 3.13
+        if: ${{ matrix.python-version == '3.13'}}
+        run: |
+          python -m pip install torch torchvision torchaudio
+
       - name: Install numpy
         if: |
-          (startsWith(matrix.os, 'macos') && (matrix.python-version == '3.12' || matrix.python-version == '3.9')) || 
+          (startsWith(matrix.os, 'macos') && (matrix.python-version == '3.13' || matrix.python-version == '3.9')) || 
           (startsWith(matrix.os, 'windows') && matrix.python-version == '3.9')
         run: |
           python -m pip install "numpy<2"
@@ -139,7 +149,9 @@ jobs:
             pip install "transformers<4.49"
             pip install attrdict
             pip install "timm>=0.9.16"
-            pip install torch torchvision
+            if [ "${{ matrix.python-version }}" != "3.13" ]; then
+              pip install torch torchvision
+            fi
             pip install accelerate
             pip install sentencepiece
             pip install transformers_stream_generator
@@ -158,9 +170,22 @@ jobs:
           fi
         working-directory: .
 
+      - name: Clean up disk
+        if: |
+          (startsWith(matrix.os, 'ubuntu'))
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          df -h 
+
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
+          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
+          PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
         run: |
           if [ "$MODULE" == "gpu" ]; then
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio]"
@@ -296,6 +321,7 @@ jobs:
               --ignore xinference/model/llm/sglang \
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/client/tests/test_async_client.py \
+              --ignore xinference/model/llm/mlx \
               xinference
           
           fi

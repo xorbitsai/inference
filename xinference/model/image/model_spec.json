@@ -734,7 +734,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.37.2",
+        "transformers==4.47.1",
         "httpx==0.24.0",
         "deepspeed==0.12.3",
         "peft==0.4.0",
@@ -870,7 +870,15 @@
           "Q6_K",
           "Q8_0"
         ],
-        "gguf_model_file_name_template": "Qwen-Image-Edit-2509-{quantization}.gguf"
+        "gguf_model_file_name_template": "Qwen-Image-Edit-2509-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32",
+          "8steps-V1.0-bf16",
+          "8steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-{lightning_version}.safetensors"
       },
       "modelscope": {
         "model_id": "Qwen/Qwen-Image-Edit-2509",
@@ -891,7 +899,15 @@
           "Q6_K",
           "Q8_0"
         ],
-        "gguf_model_file_name_template": "Qwen-Image-Edit-2509-{quantization}.gguf"
+        "gguf_model_file_name_template": "Qwen-Image-Edit-2509-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32",
+          "8steps-V1.0-bf16",
+          "8steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-{lightning_version}.safetensors"
       }
     },
     "default_model_config": {
@@ -910,6 +926,42 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "DeepSeek-OCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "torch==2.6.0",
+        "torchvision==0.21.0",
+        "torchaudio==2.6.0",
+        "transformers==4.46.3",
+        "tokenizers==0.20.3",
+        "PyMuPDF",
+        "img2pdf",
+        "einops",
+        "easydict",
+        "addict",
+        "Pillow",
+        "numpy",
+        "flash-attn==2.7.3"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "deepseek-ai/DeepSeek-OCR",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "deepseek-ai/DeepSeek-OCR",
+        "model_revision": "master"
+      }
     }
   }
 ]
