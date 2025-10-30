@@ -598,11 +598,62 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         await _release_response(response)
         return response_data
 
-    async def ocr(self, image: Union[str, bytes], **kwargs):
+    async def ocr(
+        self,
+        image: Union[str, bytes],
+        prompt: str = "<image>\nFree OCR.",
+        model_size: str = "gundam",
+        test_compress: bool = False,
+        save_results: bool = False,
+        save_dir: Optional[str] = None,
+        eval_mode: bool = False,
+        clean_annotations: bool = False,
+        **kwargs
+    ):
+        """
+        Perform OCR on an image with enhanced features.
+
+        Parameters
+        ----------
+        image: Union[str, bytes]
+            The image file or bytes to process.
+        prompt: str, optional
+            OCR prompt to guide the model.
+        model_size: str, optional
+            Model size configuration (tiny/small/base/large/gundam).
+        test_compress: bool, optional
+            Whether to test compression ratio.
+        save_results: bool, optional
+            Whether to save results to files.
+        save_dir: str, optional
+            Directory to save results.
+        eval_mode: bool, optional
+            Whether to use evaluation mode.
+        **kwargs
+            Additional parameters.
+
+        Returns
+        -------
+        dict
+            OCR results with enhanced information.
+        """
         url = f"{self._base_url}/v1/images/ocr"
+
+        # Combine all parameters into kwargs
+        all_kwargs = {
+            "prompt": prompt,
+            "model_size": model_size,
+            "test_compress": test_compress,
+            "save_results": save_results,
+            "save_dir": save_dir,
+            "eval_mode": eval_mode,
+            "clean_annotations": clean_annotations,
+            **kwargs
+        }
+
         params = {
             "model": self._model_uid,
-            "kwargs": json.dumps(kwargs),
+            "kwargs": json.dumps(all_kwargs),
         }
         params = _filter_params(params)
         files: List[Any] = []
@@ -613,6 +664,75 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to ocr the images, detail: {await _get_error_string(response)}"
+            )
+
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
+    async def visualize_ocr(
+        self,
+        image: Union[str, bytes],
+        prompt: str = "<image>\n<|grounding|>Convert the document to markdown.",
+        model_size: str = "gundam",
+        save_results: bool = True,
+        save_dir: Optional[str] = None,
+        eval_mode: bool = False,
+        **kwargs
+    ):
+        """
+        Perform OCR with visualization (bounding boxes and annotations).
+
+        Parameters
+        ----------
+        image: Union[str, bytes]
+            The image file or bytes to process.
+        prompt: str, optional
+            OCR prompt with grounding for visualization.
+        model_size: str, optional
+            Model size configuration (tiny/small/base/large/gundam).
+        save_results: bool, optional
+            Whether to save results with annotations.
+        save_dir: str, optional
+            Directory to save results.
+        eval_mode: bool, optional
+            Whether to use evaluation mode.
+        **kwargs
+            Additional parameters.
+
+        Returns
+        -------
+        dict
+            OCR results with visualization information.
+        """
+        url = f"{self._base_url}/v1/images/ocr/visualize"
+
+        # Prepare form data
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "model_size": model_size,
+            "save_results": save_results,
+            "eval_mode": eval_mode,
+        }
+
+        if save_dir:
+            params["save_dir"] = save_dir
+
+        if kwargs:
+            params["kwargs"] = json.dumps(kwargs)
+
+        params = _filter_params(params)
+
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+
+        response = await self.session.post(url, data=files, headers=self.auth_headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to visualize OCR the images, detail: {await _get_error_string(response)}"
             )
 
         response_data = await response.json()

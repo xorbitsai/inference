@@ -1235,8 +1235,13 @@ class MediaInterface:
         def extract_text_from_image(
             image: "PIL.Image.Image",
             ocr_type: str = "ocr",
+            model_size: str = "gundam",
+            test_compress: bool = False,
+            enable_visualization: bool = False,
+            save_results: bool = False,
+            clean_annotations: bool = False,
             progress=gr.Progress(),
-        ) -> str:
+        ) -> Union[str, Tuple[str, str, str]]:
             from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -1255,19 +1260,106 @@ class MediaInterface:
 
             progress(0.1, desc="Processing image for OCR")
 
-            # Call the OCR method with bytes instead of PIL Image
-            response = model.ocr(
-                image=image_bytes,
-                ocr_type=ocr_type,
-            )
+            # Prepare prompt based on OCR type
+            if ocr_type == "format":
+                prompt = "<image>\n<|grounding|>Convert the document to markdown."
+            else:
+                prompt = "<image>\nFree OCR."
 
-            progress(0.8, desc="Extracting text")
-            progress(1.0, desc="OCR complete")
+            try:
+                if enable_visualization and hasattr(model, "visualize_ocr"):
+                    # Use visualization method
+                    response = model.visualize_ocr(
+                        image=image_bytes,
+                        prompt=prompt,
+                        model_size=model_size,
+                        save_results=save_results,
+                        eval_mode=True,
+                    )
 
-            return response if response else "No text extracted from the image."
+                    progress(0.8, desc="Processing visualization")
+
+                    # Format response - handle both string and dict responses
+                    if isinstance(response, dict):
+                        if response.get("success"):
+                            text_result = response.get("text", "No text extracted")
+                        else:
+                            error_msg = response.get("error", "OCR visualization failed")
+                            return f"Error: {error_msg}", "", ""
+                    elif isinstance(response, str):
+                        # Handle string response from original model
+                        text_result = response
+                    else:
+                        text_result = str(response)
+
+                        # Add compression info if available
+                    if isinstance(response, dict) and test_compress and "compression_ratio" in response:
+                        text_result += f"\n\n--- Compression Info ---\n"
+                        text_result += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
+                        text_result += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        text_result += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+
+                    # Add visualization info
+                    viz_info = {}
+                    if isinstance(response, dict):
+                        viz_info = response.get("visualization", {})
+                        if viz_info.get("has_annotations"):
+                            viz_text = f"\n\n--- Visualization Info ---\n"
+                            viz_text += f"Bounding Boxes: {viz_info.get('num_bounding_boxes', 0)}\n"
+                            viz_text += f"Extracted Images: {viz_info.get('num_extracted_images', 0)}\n"
+                            text_result += viz_text
+
+                        saved_files = response.get("saved_files", {})
+                    else:
+                        saved_files = {}
+
+                    # Return text and visualization info
+                    return text_result, str(viz_info), str(saved_files)
+                else:
+                    # Standard OCR branch
+                    response = model.ocr(
+                        image=image_bytes,
+                        prompt=prompt,
+                        model_size=model_size,
+                        test_compress=test_compress,
+                        save_results=save_results,
+                        eval_mode=True,
+                        clean_annotations=clean_annotations,
+                    )
+
+                    progress(0.8, desc="Extracting text")
+
+                    # Format response - handle both string and dict responses
+                    if isinstance(response, dict):
+                        if response.get("success"):
+                            text_result = response.get("text", "No text extracted")
+                        else:
+                            error_msg = response.get("error", "OCR failed")
+                            return f"Error: {error_msg}", "", ""
+                    elif isinstance(response, str):
+                        # Handle string response from original model
+                        text_result = response
+                    else:
+                        text_result = str(response)
+
+                    # Add compression info if available
+                    if isinstance(response, dict) and test_compress and "compression_ratio" in response:
+                        text_result += f"\n\n--- Compression Info ---\n"
+                        text_result += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
+                        text_result += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        text_result += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+
+                    return text_result, "", ""
+
+            except Exception as e:
+                logger.error(f"OCR processing error: {e}")
+                return f"Error: {str(e)}", "", ""
+
+            finally:
+                progress(1.0, desc="OCR complete")
 
         with gr.Blocks() as ocr_interface:
-            gr.Markdown(f"### OCR Text Extraction with {self.model_name}")
+            gr.Markdown(f"### Enhanced OCR Text Extraction with {self.model_name}")
 
             with gr.Row():
                 with gr.Column(scale=1):
@@ -1280,11 +1372,43 @@ class MediaInterface:
 
                     gr.Markdown(f"**Current OCR Model:** {self.model_name}")
 
+                    # Model configuration options
+                    model_size = gr.Dropdown(
+                        choices=["tiny", "small", "base", "large", "gundam"],
+                        value="gundam",
+                        label="Model Size",
+                        info="Choose model size configuration",
+                    )
+
                     ocr_type = gr.Dropdown(
                         choices=["ocr", "format"],
                         value="ocr",
                         label="OCR Type",
-                        info="Choose OCR processing type",
+                        info="ocr: Basic text extraction, format: Document formatting",
+                    )
+
+                    enable_visualization = gr.Checkbox(
+                        label="Enable Visualization",
+                        value=False,
+                        info="Generate bounding boxes and annotations (requires document formatting)",
+                    )
+
+                    test_compress = gr.Checkbox(
+                        label="Test Compression Ratio",
+                        value=False,
+                        info="Analyze image compression performance",
+                    )
+
+                    save_results = gr.Checkbox(
+                        label="Save Results",
+                        value=False,
+                        info="Save OCR results to files (if supported)",
+                    )
+
+                    clean_annotations = gr.Checkbox(
+                        label="Clean Annotations",
+                        value=True,
+                        info="Remove annotation tags and return plain text",
                     )
 
                     extract_btn = gr.Button("Extract Text", variant="primary")
@@ -1297,6 +1421,34 @@ class MediaInterface:
                         interactive=True,
                         show_copy_button=True,
                     )
+
+                    # Additional info outputs (hidden by default)
+                    viz_info_output = gr.Textbox(
+                        label="Visualization Info",
+                        lines=5,
+                        visible=False,
+                        interactive=False,
+                    )
+
+                    file_info_output = gr.Textbox(
+                        label="File Info",
+                        lines=3,
+                        visible=False,
+                        interactive=False,
+                    )
+
+            # Toggle visibility of additional outputs
+            def toggle_additional_outputs(enable_viz):
+                return {
+                    viz_info_output: gr.update(visible=enable_viz),
+                    file_info_output: gr.update(visible=enable_viz),
+                }
+
+            enable_visualization.change(
+                fn=toggle_additional_outputs,
+                inputs=[enable_visualization],
+                outputs=[viz_info_output, file_info_output],
+            )
 
             # Examples section
             gr.Markdown("### Examples")
@@ -1311,8 +1463,8 @@ class MediaInterface:
             # Extract button click event
             extract_btn.click(
                 fn=extract_text_from_image,
-                inputs=[image_input, ocr_type],
-                outputs=[text_output],
+                inputs=[image_input, ocr_type, model_size, test_compress, enable_visualization, save_results, clean_annotations],
+                outputs=[text_output, viz_info_output, file_info_output],
             )
 
         return ocr_interface
