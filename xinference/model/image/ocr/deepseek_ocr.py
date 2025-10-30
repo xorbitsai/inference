@@ -13,12 +13,9 @@
 # limitations under the License.
 
 import logging
-import math
 import os
 import re
 import tempfile
-from abc import ABC
-from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -26,7 +23,6 @@ import PIL.Image
 import torch
 import torch.nn as nn
 from torchvision import transforms
-from torchvision.transforms.functional import InterpolationMode
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
@@ -55,7 +51,9 @@ class DeepSeekOCRModelSize:
         }
 
         if size_type in self._config_map:
-            self.name, self.base_size, self.image_size, self.crop_mode = self._config_map[size_type]
+            self.name, self.base_size, self.image_size, self.crop_mode = (
+                self._config_map[size_type]
+            )
         else:
             # Default to Gundam
             self.name, self.base_size, self.image_size, self.crop_mode = self.GUNDAM
@@ -85,11 +83,14 @@ def load_image(image_path: str) -> Optional[PIL.Image.Image]:
 
 
 def find_closest_aspect_ratio(
-    aspect_ratio: float, target_ratios: List[Tuple[int, int]],
-    width: int, height: int, image_size: int
+    aspect_ratio: float,
+    target_ratios: List[Tuple[int, int]],
+    width: int,
+    height: int,
+    image_size: int,
 ) -> Tuple[int, int]:
     """Find the closest aspect ratio to target."""
-    best_ratio_diff = float('inf')
+    best_ratio_diff = float("inf")
     best_ratio = (1, 1)
     area = width * height
 
@@ -107,20 +108,24 @@ def find_closest_aspect_ratio(
 
 
 def dynamic_preprocess(
-    image: PIL.Image.Image, min_num: int = 2, max_num: int = 9,
-    image_size: int = 640, use_thumbnail: bool = False
+    image: PIL.Image.Image,
+    min_num: int = 2,
+    max_num: int = 9,
+    image_size: int = 640,
+    use_thumbnail: bool = False,
 ) -> Tuple[List[PIL.Image.Image], Tuple[int, int]]:
     """Dynamically preprocess image by cropping."""
     orig_width, orig_height = image.size
     aspect_ratio = orig_width / orig_height
 
     # Calculate target ratios
-    target_ratios = set(
-        (i, j) for n in range(min_num, max_num + 1)
+    target_ratios = [
+        (i, j)
+        for n in range(min_num, max_num + 1)
         for i in range(1, n + 1)
         for j in range(1, n + 1)
         if i * j <= max_num and i * j >= min_num
-    )
+    ]
     target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
 
     # Find the closest aspect ratio
@@ -142,7 +147,7 @@ def dynamic_preprocess(
             (i % (target_width // image_size)) * image_size,
             (i // (target_width // image_size)) * image_size,
             ((i % (target_width // image_size)) + 1) * image_size,
-            ((i // (target_width // image_size)) + 1) * image_size
+            ((i // (target_width // image_size)) + 1) * image_size,
         )
         split_img = resized_img.crop(box)
         processed_images.append(split_img)
@@ -156,15 +161,18 @@ def dynamic_preprocess(
     return processed_images, target_aspect_ratio
 
 
-def normalize_transform(mean: Optional[Tuple[float, float, float]], std: Optional[Tuple[float, float, float]]):
+def normalize_transform(
+    mean: Optional[Union[Tuple[float, float, float], List[float]]],
+    std: Optional[Union[Tuple[float, float, float], List[float]]],
+):
     """Create normalization transform."""
     if mean is None and std is None:
         return None
     elif mean is None and std is not None:
-        mean = [0.] * len(std)
+        mean = [0.0] * len(std)
         return transforms.Normalize(mean=mean, std=std)
     elif mean is not None and std is None:
-        std = [1.] * len(mean)
+        std = [1.0] * len(mean)
         return transforms.Normalize(mean=mean, std=std)
     else:
         return transforms.Normalize(mean=mean, std=std)
@@ -177,7 +185,7 @@ class BasicImageTransform:
         self,
         mean: Optional[Tuple[float, float, float]] = (0.5, 0.5, 0.5),
         std: Optional[Tuple[float, float, float]] = (0.5, 0.5, 0.5),
-        normalize: bool = True
+        normalize: bool = True,
     ):
         self.mean = mean
         self.std = std
@@ -199,20 +207,22 @@ class BasicImageTransform:
 
 def re_match(text: str) -> Tuple[List[Tuple], List[str], List[str]]:
     """Extract references and detections from text."""
-    pattern = r'(<\|ref\|>(.*?)<\|/ref\|><\|det\|>(.*?)<\|/det\|>)'
+    pattern = r"(<\|ref\|>(.*?)<\|/ref\|><\|det\|>(.*?)<\|/det\|>)"
     matches = re.findall(pattern, text, re.DOTALL)
 
     mathes_image = []
     mathes_other = []
     for a_match in matches:
-        if '<|ref|>image<|/ref|>' in a_match[0]:
+        if "<|ref|>image<|/ref|>" in a_match[0]:
             mathes_image.append(a_match[0])
         else:
             mathes_other.append(a_match[0])
     return matches, mathes_image, mathes_other
 
 
-def extract_coordinates_and_label(ref_text: Tuple, image_width: int, image_height: int) -> Optional[Tuple]:
+def extract_coordinates_and_label(
+    ref_text: Tuple, image_width: int, image_height: int
+) -> Optional[Tuple]:
     """Extract coordinates and label from reference text."""
     try:
         label_type = ref_text[1]
@@ -224,14 +234,16 @@ def extract_coordinates_and_label(ref_text: Tuple, image_width: int, image_heigh
     return (label_type, cor_list)
 
 
-def draw_bounding_boxes(image: PIL.Image.Image, refs: List[Tuple], output_path: str) -> PIL.Image.Image:
+def draw_bounding_boxes(
+    image: PIL.Image.Image, refs: List[Tuple], output_path: str
+) -> PIL.Image.Image:
     """Draw bounding boxes on image with labels."""
     image_width, image_height = image.size
 
     img_draw = image.copy()
     draw = PIL.ImageDraw.Draw(img_draw)
 
-    overlay = PIL.Image.new('RGBA', img_draw.size, (0, 0, 0, 0))
+    overlay = PIL.Image.new("RGBA", img_draw.size, (0, 0, 0, 0))
     draw2 = PIL.ImageDraw.Draw(overlay)
 
     # Use default font
@@ -248,7 +260,11 @@ def draw_bounding_boxes(image: PIL.Image.Image, refs: List[Tuple], output_path: 
             if result:
                 label_type, points_list = result
 
-                color = (np.random.randint(0, 200), np.random.randint(0, 200), np.random.randint(0, 255))
+                color = (
+                    np.random.randint(0, 200),
+                    np.random.randint(0, 200),
+                    np.random.randint(0, 255),
+                )
                 color_a = color + (20,)
 
                 for points in points_list:
@@ -260,7 +276,7 @@ def draw_bounding_boxes(image: PIL.Image.Image, refs: List[Tuple], output_path: 
                     x2 = int(x2 / 999 * image_width)
                     y2 = int(y2 / 999 * image_height)
 
-                    if label_type == 'image':
+                    if label_type == "image":
                         try:
                             cropped = image.crop((x1, y1, x2, y2))
                             cropped.save(f"{output_path}/images/{img_idx}.jpg")
@@ -269,12 +285,22 @@ def draw_bounding_boxes(image: PIL.Image.Image, refs: List[Tuple], output_path: 
                         img_idx += 1
 
                     try:
-                        if label_type == 'title':
+                        if label_type == "title":
                             draw.rectangle([x1, y1, x2, y2], outline=color, width=4)
-                            draw2.rectangle([x1, y1, x2, y2], fill=color_a, outline=(0, 0, 0, 0), width=1)
+                            draw2.rectangle(
+                                [x1, y1, x2, y2],
+                                fill=color_a,
+                                outline=(0, 0, 0, 0),
+                                width=1,
+                            )
                         else:
                             draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
-                            draw2.rectangle([x1, y1, x2, y2], fill=color_a, outline=(0, 0, 0, 0), width=1)
+                            draw2.rectangle(
+                                [x1, y1, x2, y2],
+                                fill=color_a,
+                                outline=(0, 0, 0, 0),
+                                width=1,
+                            )
 
                         if font:
                             text_x = x1
@@ -285,11 +311,18 @@ def draw_bounding_boxes(image: PIL.Image.Image, refs: List[Tuple], output_path: 
                             text_height = text_bbox[3] - text_bbox[1]
 
                             draw.rectangle(
-                                [text_x, text_y, text_x + text_width, text_y + text_height],
-                                fill=(255, 255, 255, 30)
+                                [
+                                    text_x,
+                                    text_y,
+                                    text_x + text_width,
+                                    text_y + text_height,
+                                ],
+                                fill=(255, 255, 255, 30),
                             )
 
-                            draw.text((text_x, text_y), label_type, font=font, fill=color)
+                            draw.text(
+                                (text_x, text_y), label_type, font=font, fill=color
+                            )
                     except Exception as e:
                         logger.error(f"Error drawing text: {e}")
                         pass
@@ -301,7 +334,9 @@ def draw_bounding_boxes(image: PIL.Image.Image, refs: List[Tuple], output_path: 
     return img_draw
 
 
-def process_image_with_refs(image: PIL.Image.Image, ref_texts: List[Tuple], output_path: str) -> PIL.Image.Image:
+def process_image_with_refs(
+    image: PIL.Image.Image, ref_texts: List[Tuple], output_path: str
+) -> PIL.Image.Image:
     """Process image with reference texts and draw bounding boxes."""
     result_image = draw_bounding_boxes(image, ref_texts, output_path)
     return result_image
@@ -323,13 +358,13 @@ def clean_ocr_annotations(text: str) -> str:
         return str(text)
 
     # Pattern to match the full annotation blocks
-    annotation_pattern = r'<\|ref\|>.*?<\|/ref\|><\|det\|>\[\[.*?\]\]<\|/det\|>'
+    annotation_pattern = r"<\|ref\|>.*?<\|/ref\|><\|det\|>\[\[.*?\]\]<\|/det\|>"
 
     # Remove all annotation blocks
-    cleaned_text = re.sub(annotation_pattern, '', text, flags=re.DOTALL)
+    cleaned_text = re.sub(annotation_pattern, "", text, flags=re.DOTALL)
 
     # Clean up extra whitespace and line breaks
-    cleaned_text = re.sub(r'\n\s*\n', '\n', cleaned_text.strip())
+    cleaned_text = re.sub(r"\n\s*\n", "\n", cleaned_text.strip())
 
     return cleaned_text
 
@@ -348,7 +383,9 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
         return []
 
     # Pattern to extract text and coordinates
-    block_pattern = r'<\|ref\|>(.*?)<\|/ref\|><\|det\|>\[\[(.*?)\]\]<\|/det\|>(.*?)(?=<\|ref\|>|$)'
+    block_pattern = (
+        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>\[\[(.*?)\]\]<\|/det\|>(.*?)(?=<\|ref\|>|$)"
+    )
 
     blocks = []
     for match in re.finditer(block_pattern, text, re.DOTALL):
@@ -359,12 +396,14 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
         try:
             coords = eval(f"[{coords_str}]")  # Convert string coordinates to list
             if isinstance(coords, list) and len(coords) > 0:
-                blocks.append({
-                    'label_type': label_type,
-                    'coordinates': coords,
-                    'text': content,
-                    'bbox': coords[0] if len(coords) == 1 else coords
-                })
+                blocks.append(
+                    {
+                        "label_type": label_type,
+                        "coordinates": coords,
+                        "text": content,
+                        "bbox": coords[0] if len(coords) == 1 else coords,
+                    }
+                )
         except:
             # Skip if coordinates can't be parsed
             continue
@@ -408,17 +447,29 @@ class DeepSeekOCRModel:
                 trust_remote_code=True,
                 use_fast=False,
             )
-            model = AutoModel.from_pretrained(
-                self._model_path,
-                trust_remote_code=True,
-                low_cpu_mem_usage=True,
-                device_map="cuda" if self._device != "cpu" else "cpu",
-                use_safetensors=True,
-                pad_token_id=self._tokenizer.eos_token_id,
-            )
-            self._model = model.eval()
             if self._device != "cpu":
-                self._model = self._model.cuda()
+                # Use CUDA if available
+                model = AutoModel.from_pretrained(
+                    self._model_path,
+                    trust_remote_code=True,
+                    low_cpu_mem_usage=True,
+                    device_map="auto",
+                    use_safetensors=True,
+                    pad_token_id=self._tokenizer.eos_token_id,
+                )
+                self._model = model.eval()
+            else:
+                # Force CPU-only execution
+                model = AutoModel.from_pretrained(
+                    self._model_path,
+                    trust_remote_code=True,
+                    low_cpu_mem_usage=True,
+                    device_map="cpu",
+                    use_safetensors=True,
+                    pad_token_id=self._tokenizer.eos_token_id,
+                    torch_dtype=torch.float32,  # Use float32 for CPU
+                )
+                self._model = model.eval()
             logger.info("DeepSeek-OCR model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load DeepSeek-OCR model: {e}")
@@ -463,14 +514,29 @@ class DeepSeekOCRModel:
         # Handle single image input
         if isinstance(image, PIL.Image.Image):
             return self._ocr_single(
-                image, prompt, model_size, test_compress, save_results, save_dir, eval_mode, **kwargs
+                image,
+                prompt,
+                model_size,
+                test_compress,
+                save_results,
+                save_dir,
+                eval_mode,
+                **kwargs,
             )
         # Handle batch image input
         elif isinstance(image, list):
             return [
                 self._ocr_single(
-                    img, prompt, model_size, test_compress, save_results, save_dir, eval_mode, **kwargs
-                ) for img in image
+                    img,
+                    prompt,
+                    model_size,
+                    test_compress,
+                    save_results,
+                    save_dir,
+                    eval_mode,
+                    **kwargs,
+                )
+                for img in image
             ]
         else:
             raise ValueError("Input must be a PIL Image or list of PIL Images")
@@ -513,7 +579,8 @@ class DeepSeekOCRModel:
             return [
                 self._visualize_single(
                     img, prompt, model_size, save_results, save_dir, eval_mode, **kwargs
-                ) for img in image
+                )
+                for img in image
             ]
         else:
             raise ValueError("Input must be a PIL Image or list of PIL Images")
@@ -526,7 +593,7 @@ class DeepSeekOCRModel:
         save_results: bool,
         save_dir: Optional[str],
         eval_mode: bool,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Perform OCR with visualization for a single image."""
         # Convert image to RGB if needed
@@ -540,6 +607,9 @@ class DeepSeekOCRModel:
         if save_results and save_dir:
             os.makedirs(save_dir, exist_ok=True)
             os.makedirs(f"{save_dir}/images", exist_ok=True)
+
+        if self._model is None:
+            raise RuntimeError("Model is not loaded. Call load() method first.")
 
         try:
             # Save image to temporary file
@@ -573,22 +643,26 @@ class DeepSeekOCRModel:
 
                         # Process image with references
                         if matches_ref:
-                            result_image = process_image_with_refs(image.copy(), matches_ref, save_dir)
+                            result_image = process_image_with_refs(
+                                image.copy(), matches_ref, save_dir
+                            )
                             result_image.save(f"{save_dir}/result_with_boxes.jpg")
 
                             # Process image references in text
                             processed_text = result
                             for idx, match_image in enumerate(matches_images):
                                 processed_text = processed_text.replace(
-                                    match_image, f'![](images/{idx}.jpg)\n'
+                                    match_image, f"![](images/{idx}.jpg)\n"
                                 )
 
                             # Remove other reference markers
                             for idx, match_other in enumerate(matches_other):
-                                processed_text = processed_text.replace(match_other, '')
+                                processed_text = processed_text.replace(match_other, "")
 
                             # Save processed text as markdown
-                            with open(f"{save_dir}/result.mmd", "w", encoding="utf-8") as f:
+                            with open(
+                                f"{save_dir}/result.mmd", "w", encoding="utf-8"
+                            ) as f:
                                 f.write(processed_text)
 
                             visualization_info = {
@@ -602,7 +676,7 @@ class DeepSeekOCRModel:
                         else:
                             visualization_info = {
                                 "has_annotations": False,
-                                "message": "No annotations found in OCR result"
+                                "message": "No annotations found in OCR result",
                             }
                     except Exception as e:
                         logger.error(f"Error processing visualization: {e}")
@@ -624,8 +698,16 @@ class DeepSeekOCRModel:
                 if save_results and save_dir:
                     response["saved_files"] = {
                         "output_dir": save_dir,
-                        "result_file": f"{save_dir}/result.mmd" if os.path.exists(f"{save_dir}/result.mmd") else None,
-                        "annotated_image": f"{save_dir}/result_with_boxes.jpg" if os.path.exists(f"{save_dir}/result_with_boxes.jpg") else None,
+                        "result_file": (
+                            f"{save_dir}/result.mmd"
+                            if os.path.exists(f"{save_dir}/result.mmd")
+                            else None
+                        ),
+                        "annotated_image": (
+                            f"{save_dir}/result_with_boxes.jpg"
+                            if os.path.exists(f"{save_dir}/result_with_boxes.jpg")
+                            else None
+                        ),
                     }
 
                 return response
@@ -654,7 +736,7 @@ class DeepSeekOCRModel:
         save_results: bool = False,
         save_dir: Optional[str] = None,
         eval_mode: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Perform OCR on a single image with all enhanced features."""
         # Convert image to RGB if needed
@@ -710,15 +792,23 @@ class DeepSeekOCRModel:
                 # Add compression info if tested
                 if test_compress:
                     # Calculate compression ratio (simplified version)
-                    if hasattr(self._model, '_last_compression_info'):
+                    if hasattr(self._model, "_last_compression_info"):
                         response.update(self._model._last_compression_info)
 
                 # Add file info if saved
                 if save_results and save_dir:
                     response["saved_files"] = {
                         "output_dir": save_dir,
-                        "result_file": f"{save_dir}/result.mmd" if os.path.exists(f"{save_dir}/result.mmd") else None,
-                        "annotated_image": f"{save_dir}/result_with_boxes.jpg" if os.path.exists(f"{save_dir}/result_with_boxes.jpg") else None,
+                        "result_file": (
+                            f"{save_dir}/result.mmd"
+                            if os.path.exists(f"{save_dir}/result.mmd")
+                            else None
+                        ),
+                        "annotated_image": (
+                            f"{save_dir}/result_with_boxes.jpg"
+                            if os.path.exists(f"{save_dir}/result_with_boxes.jpg")
+                            else None
+                        ),
                     }
 
                 return response

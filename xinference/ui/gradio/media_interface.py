@@ -1268,8 +1268,12 @@ class MediaInterface:
                 prompt = "<image>\nFree OCR. Extract all text content from the image."
 
             try:
+                logger.info(f"Starting OCR processing - Type: {ocr_type}, Model Size: {model_size}")
+                logger.info(f"Image info: {image.size if image else 'None'}, Mode: {image.mode if image else 'None'}")
+
                 if enable_visualization and hasattr(model, "visualize_ocr"):
                     # Use visualization method
+                    logger.info("Using visualization method")
                     response = model.visualize_ocr(
                         image=image_bytes,
                         prompt=prompt,
@@ -1279,6 +1283,10 @@ class MediaInterface:
                     )
 
                     progress(0.8, desc="Processing visualization")
+
+                    # Debug: Log response type and content
+                    logger.info(f"Visualization response type: {type(response)}")
+                    logger.info(f"Visualization response: {response}")
 
                     # Format response - handle both string and dict responses
                     if isinstance(response, dict):
@@ -1333,6 +1341,7 @@ class MediaInterface:
                     return text_result, str(viz_info), str(saved_files)
                 else:
                     # Standard OCR branch
+                    logger.info("Using standard OCR branch (not visualization)")
                     response = model.ocr(
                         image=image_bytes,
                         prompt=prompt,
@@ -1344,10 +1353,36 @@ class MediaInterface:
 
                     progress(0.8, desc="Extracting text")
 
+                    # Debug: Log response type and content
+                    logger.info(f"Standard OCR response type: {type(response)}")
+                    logger.info(f"Standard OCR response content: {str(response)[:200]}...")
+
                     # Format response - handle both string and dict responses
                     if isinstance(response, dict):
                         if response.get("success"):
                             text_result = response.get("text", "No text extracted")
+
+                            # Debug: Check if text is empty
+                            if not text_result or not text_result.strip():
+                                logger.warning("OCR returned empty text")
+                                logger.warning(f"Full response: {response}")
+                                # Return a helpful message instead of empty result
+                                text_result = """**OCR 识别完成，但未检测到文本内容**
+
+可能的原因：
+- 图片中文字不清晰或分辨率不足
+- 图片格式不支持
+- 模型无法识别图片中的文字
+
+**建议：**
+- 尝试上传更清晰的图片
+- 确保图片中的文字清晰可辨
+- 如果是手写文字，可能效果不佳
+
+**技术信息：**
+- 模型状态: 正常
+- 图片尺寸: 原始 {image.size if image else 'Unknown'}, 处理后 {response.get('image_size', 'Unknown')}
+- 处理模式: {response.get('model_size', 'Unknown')}"""
                         else:
                             error_msg = response.get("error", "OCR failed")
                             error_md = f"**错误**: {error_msg}"
@@ -1382,7 +1417,23 @@ class MediaInterface:
 
             except Exception as e:
                 logger.error(f"OCR processing error: {e}")
-                return f"Error: {str(e)}", "", ""
+                import traceback
+                error_details = traceback.format_exc()
+                logger.error(f"Full traceback: {error_details}")
+                # Show error in markdown format for better visibility
+                error_msg = f"""**OCR Processing Error**
+
+```
+{str(e)}
+```
+
+**Debug Info:**
+- OCR Type: {ocr_type}
+- Model Size: {model_size}
+- Image Mode: {image.mode if image else 'None'}
+- Image Size: {image.size if image else 'None'}
+"""
+                return error_msg, "", ""
 
             finally:
                 progress(1.0, desc="OCR complete")
