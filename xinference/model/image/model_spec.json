@@ -927,5 +927,41 @@
       ],
       "no_build_isolation": true
     }
+  },
+  {
+    "version": 2,
+    "model_name": "DeepSeek-OCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "torch==2.6.0",
+        "torchvision==0.21.0",
+        "torchaudio==2.6.0",
+        "transformers==4.46.3",
+        "tokenizers==0.20.3",
+        "PyMuPDF",
+        "img2pdf",
+        "einops",
+        "easydict",
+        "addict",
+        "Pillow",
+        "numpy",
+        "flash-attn==2.7.3"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "deepseek-ai/DeepSeek-OCR",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "deepseek-ai/DeepSeek-OCR",
+        "model_revision": "master"
+      }
+    }
   }
 ]
