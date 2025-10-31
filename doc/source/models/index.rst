@@ -254,3 +254,4 @@ Model Usage
    virtualenv
    lora
    model_memory
+   model_addition_update
