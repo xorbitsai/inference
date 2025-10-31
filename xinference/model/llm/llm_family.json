@@ -22896,7 +22896,7 @@
   {
     "model_name": "MiniMax-M2",
     "model_description": "MiniMax-M2, a Mini model built for Max coding & agentic workflows.",
-    "context_length": 40960000,
+    "context_length": 196608,
     "model_lang": [
       "en",
       "zh"
