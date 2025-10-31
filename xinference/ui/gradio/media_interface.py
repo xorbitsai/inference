@@ -1311,7 +1311,26 @@ class MediaInterface:
 
                     # Check if the result looks like Markdown and format it properly
                     if ocr_type == "markdown" and isinstance(text_result, str):
-                        # Already in Markdown format, keep as is
+                        # Markdown mode - process LaTeX formulas for better rendering
+                        try:
+                            from .utils.latex import process_ocr_latex
+
+                            if "\\" in text_result and (
+                                "\\[" in text_result
+                                or "\\(" in text_result
+                                or "$" in text_result
+                            ):
+                                # Process LaTeX formulas for Markdown compatibility
+                                text_result = process_ocr_latex(
+                                    text_result, output_format="markdown"
+                                )
+                                logger.info(
+                                    "Applied LaTeX processing for Markdown rendering (visualization)"
+                                )
+                        except ImportError:
+                            logger.warning(
+                                "LaTeX processing utils not available, using raw text"
+                            )
                         pass
                     elif ocr_type == "format" and isinstance(text_result, str):
                         # For format mode, keep annotations but format as code block
@@ -1411,7 +1430,26 @@ class MediaInterface:
 
                     # Format based on OCR type
                     if ocr_type == "markdown" and isinstance(text_result, str):
-                        # Markdown mode - keep as is for proper rendering
+                        # Markdown mode - process LaTeX formulas for better rendering
+                        try:
+                            from .utils.latex import process_ocr_latex
+
+                            if "\\" in text_result and (
+                                "\\[" in text_result
+                                or "\\(" in text_result
+                                or "$" in text_result
+                            ):
+                                # Process LaTeX formulas for Markdown compatibility
+                                text_result = process_ocr_latex(
+                                    text_result, output_format="markdown"
+                                )
+                                logger.info(
+                                    "Applied LaTeX processing for Markdown rendering"
+                                )
+                        except ImportError:
+                            logger.warning(
+                                "LaTeX processing utils not available, using raw text"
+                            )
                         pass
                     elif ocr_type == "format" and isinstance(text_result, str):
                         # Format mode - show annotations in code block
