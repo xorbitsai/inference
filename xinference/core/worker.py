@@ -272,6 +272,12 @@ class WorkerActor(xo.StatelessActor):
             register_rerank,
             unregister_rerank,
         )
+        from ..model.video import (
+            CustomVideoModelFamilyV2,
+            generate_video_description,
+            register_video,
+            unregister_video,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
@@ -309,6 +315,12 @@ class WorkerActor(xo.StatelessActor):
                 register_flexible_model,
                 unregister_flexible_model,
                 generate_flexible_model_description,
+            ),
+            "video": (
+                CustomVideoModelFamilyV2,
+                register_video,
+                unregister_video,
+                generate_video_description,
             ),
         }
 
@@ -651,6 +663,701 @@ class WorkerActor(xo.StatelessActor):
             unregister_fn(model_name, False)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_async(logger=logger)
+    async def add_model(self, model_type: str, model_json: Dict[str, Any]):
+        """
+        Add a new model by parsing the provided JSON and registering it.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+            model_json: JSON configuration for the model
+        """
+        logger.info(
+            f"[DEBUG WORKER] add_model called with model_type: {model_type}"
+        )
+        logger.info(f"[DEBUG WORKER] model_json type: {type(model_json)}")
+        logger.info(
+            f"[DEBUG WORKER] model_json keys: {list(model_json.keys()) if isinstance(model_json, dict) else 'Not a dict'}"
+        )
+        if isinstance(model_json, dict):
+            logger.info(f"[DEBUG WORKER] model_json content: {model_json}")
+
+        # Validate model type (with case normalization)
+        supported_types = list(self._custom_register_type_to_cls.keys())
+        logger.info(f"[DEBUG WORKER] Supported model types: {supported_types}")
+        logger.info(f"[DEBUG WORKER] Received model_type: '{model_type}'")
+
+        normalized_model_type = model_type
+
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_model_type = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_model_type = "llm"
+
+        logger.info(
+            f"[DEBUG WORKER] Normalized model_type: '{normalized_model_type}'"
+        )
+
+        if normalized_model_type not in self._custom_register_type_to_cls:
+            logger.error(
+                f"[DEBUG WORKER] Unsupported model type: {normalized_model_type} (original: {model_type})"
+            )
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Use normalized model type for the rest of the function
+        model_type = normalized_model_type
+        logger.info(
+            f"[DEBUG WORKER] Using model_type: '{model_type}' for registration"
+        )
+
+        # Get the appropriate model class and register function
+        (
+            model_spec_cls,
+            register_fn,
+            unregister_fn,
+            generate_fn,
+        ) = self._custom_register_type_to_cls[model_type]
+        logger.info(f"[DEBUG WORKER] Model spec class: {model_spec_cls}")
+        logger.info(f"[DEBUG WORKER] Register function: {register_fn}")
+        logger.info(f"[DEBUG WORKER] Unregister function: {unregister_fn}")
+        logger.info(f"[DEBUG WORKER] Generate function: {generate_fn}")
+
+        # Validate required fields (only model_name is required)
+        required_fields = ["model_name"]
+        logger.info(f"[DEBUG WORKER] Checking required fields: {required_fields}")
+        for field in required_fields:
+            if field not in model_json:
+                logger.error(f"[DEBUG WORKER] Missing required field: {field}")
+                raise ValueError(f"Missing required field: {field}")
+
+        # Validate model name format
+        from ..model.utils import is_valid_model_name
+
+        model_name = model_json["model_name"]
+        logger.info(f"[DEBUG WORKER] Extracted model_name: {model_name}")
+
+        if not is_valid_model_name(model_name):
+            logger.error(f"[DEBUG WORKER] Invalid model name format: {model_name}")
+            raise ValueError(f"Invalid model name format: {model_name}")
+
+        logger.info(f"[DEBUG WORKER] Model name validation passed")
+
+        # Convert model hub JSON format to Xinference expected format
+        logger.info(f"[DEBUG WORKER] Converting model JSON format...")
+        try:
+            converted_model_json = self._convert_model_json_format(model_json)
+            logger.info(
+                f"[DEBUG WORKER] Converted model JSON: {converted_model_json}"
+            )
+        except Exception as e:
+            logger.error(
+                f"[DEBUG WORKER] Format conversion failed: {str(e)}", exc_info=True
+            )
+            raise ValueError(f"Failed to convert model JSON format: {str(e)}")
+
+        # Parse the JSON into the appropriate model spec
+        logger.info(f"[DEBUG WORKER] Parsing model spec...")
+        try:
+            model_spec = model_spec_cls.parse_obj(converted_model_json)
+            logger.info(f"[DEBUG WORKER] Parsed model spec: {model_spec}")
+        except Exception as e:
+            logger.error(
+                f"[DEBUG WORKER] Model spec parsing failed: {str(e)}", exc_info=True
+            )
+            raise ValueError(f"Invalid model JSON format: {str(e)}")
+
+        # Check if model already exists
+        logger.info(f"[DEBUG WORKER] Checking if model already exists...")
+        try:
+            existing_models = await self.list_model_registrations(model_type)
+            existing_model = None
+            for model in existing_models:
+                if model["model_name"] == model_spec.model_name:
+                    existing_model = model
+                    break
+
+            logger.info(
+                f"[DEBUG WORKER] Existing model check result: {existing_model}"
+            )
+
+            if existing_model is not None:
+                logger.error(
+                    f"[DEBUG WORKER] Model already exists: {model_spec.model_name}"
+                )
+                raise ValueError(
+                    f"Model '{model_spec.model_name}' already exists for type '{model_type}'. "
+                    f"Please choose a different model name or remove the existing model first."
+                )
+
+        except ValueError as e:
+            if "not found" in str(e):
+                # Model doesn't exist, we can proceed
+                logger.info(
+                    f"[DEBUG WORKER] Model doesn't exist yet, proceeding with registration"
+                )
+                pass
+            else:
+                # Re-raise validation errors
+                logger.error(
+                    f"[DEBUG WORKER] Validation error during model check: {str(e)}"
+                )
+                raise e
+        except Exception as ex:
+            logger.error(
+                f"[DEBUG WORKER] Unexpected error during model check: {str(ex)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to validate model registration: {str(ex)}")
+
+        logger.info(f"[DEBUG WORKER] Storing model as built-in...")
+        try:
+            # Store model using the same logic as update_model_type for consistency
+            import json
+            from ..constants import XINFERENCE_MODEL_DIR
+
+            model_type_lower = model_type.lower()
+            builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower)
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+            logger.info(f"[DEBUG WORKER] Builtin directory: {builtin_dir}")
+
+            # Use correct storage: save each model as a separate JSON file
+            # This follows the CacheManager.register_builtin_model pattern
+            model_dict = model_spec.dict()
+            logger.info(f"[DEBUG WORKER] Model dict: {model_dict}")
+
+            # Create individual model file path
+            model_file_path = os.path.join(builtin_dir, f"{model_spec.model_name}.json")
+
+            # Check if model already exists
+            if os.path.exists(model_file_path):
+                logger.warning(f"[DEBUG WORKER] Model {model_spec.model_name} already exists at {model_file_path}")
+                # Continue with registration even if it exists
+            else:
+                logger.info(f"[DEBUG WORKER] Creating new model file: {model_file_path}")
+
+            # Save the model as a separate JSON file
+            with open(model_file_path, 'w', encoding='utf-8') as f:
+                json.dump(model_dict, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"[DEBUG WORKER] Successfully saved model to {model_file_path}")
+            logger.info(f"[DEBUG WORKER] File exists after save: {os.path.exists(model_file_path)}")
+
+            # Register in the model registry without persisting to avoid duplicate storage
+            register_fn(model_spec, persist=False)
+            logger.info(
+                f"[DEBUG WORKER] Model registry registration completed successfully"
+            )
+
+            # Record model version
+            logger.info(f"[DEBUG WORKER] Generating version info...")
+            version_info = generate_fn(model_spec)
+            logger.info(f"[DEBUG WORKER] Generated version_info: {version_info}")
+
+            logger.info(
+                f"[DEBUG WORKER] Recording model version in cache tracker..."
+            )
+            await self._cache_tracker_ref.record_model_version(
+                version_info, self.address
+            )
+            logger.info(f"[DEBUG WORKER] Cache tracker recording completed")
+
+            logger.info(
+                f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
+            )
+
+        except ValueError as e:
+            # Validation errors - don't need cleanup as model wasn't registered
+            logger.error(f"[DEBUG WORKER] ValueError during registration: {str(e)}")
+            raise e
+        except Exception as e:
+            # Unexpected errors - attempt cleanup
+            logger.error(
+                f"[DEBUG WORKER] Unexpected error during registration: {str(e)}",
+                exc_info=True,
+            )
+            try:
+                logger.info(f"[DEBUG WORKER] Attempting cleanup...")
+                unregister_fn(model_spec.model_name, raise_error=False)
+                logger.info(f"[DEBUG WORKER] Cleanup completed successfully")
+            except Exception as cleanup_error:
+                logger.warning(f"[DEBUG WORKER] Cleanup failed: {cleanup_error}")
+            raise ValueError(
+                f"Failed to register model '{model_spec.model_name}': {str(e)}"
+            )
+
+        logger.info(f"[DEBUG WORKER] add_model completed successfully")
+
+    def _convert_model_json_format(self, model_json: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert model hub JSON format to Xinference expected format.
+
+        The input format uses nested 'model_src' structure, but Xinference expects
+        flattened fields at the spec level.
+
+        For LLM/embedding/rerank models: uses model_specs structure
+        For image/audio/video models: uses flat structure with direct fields
+        """
+        logger.info(f"[DEBUG WORKER] _convert_model_json_format called")
+        logger.info(f"[DEBUG WORKER] Input model_json: {model_json}")
+
+        # Determine if this is an image/audio/video model (flat structure) or LLM/embedding/rerank (model_specs structure)
+        flat_model_types = ["image", "audio", "video"]
+        model_type = None
+
+        # Try to determine model type from context or model_ability
+        if "model_ability" in model_json:
+            abilities = model_json["model_ability"]
+            if isinstance(abilities, list):
+                if "text2img" in abilities or "image2image" in abilities or "ocr" in abilities:
+                    model_type = "image"
+                elif "auto-speech" in abilities or "text-to-speech" in abilities:
+                    model_type = "audio"
+                elif "text-to-video" in abilities:
+                    model_type = "video"
+
+        logger.info(f"[DEBUG WORKER] Determined model type: {model_type}")
+
+        if model_type in flat_model_types:
+            # Handle image/audio/video models with flat structure
+            logger.info(f"[DEBUG WORKER] Processing {model_type} model with flat structure")
+
+            if "model_src" in model_json:
+                model_src = model_json["model_src"]
+
+                # Extract fields from model_src to top level
+                if "huggingface" in model_src:
+                    hf_data = model_src["huggingface"]
+
+                    if "model_id" in hf_data and model_json.get("model_id") is None:
+                        model_json["model_id"] = hf_data["model_id"]
+                        logger.info(f"[DEBUG WORKER] Extracted model_id: {model_json['model_id']}")
+
+                    if "model_revision" in hf_data and model_json.get("model_revision") is None:
+                        model_json["model_revision"] = hf_data["model_revision"]
+                        logger.info(f"[DEBUG WORKER] Extracted model_revision: {model_json['model_revision']}")
+
+                # Remove model_src field as it's not needed in the final format
+                del model_json["model_src"]
+                logger.info(f"[DEBUG WORKER] Removed model_src field")
+
+            # Set required defaults for image models
+            if model_json.get("model_hub") is None:
+                model_json["model_hub"] = "huggingface"
+                logger.info(f"[DEBUG WORKER] Added default model_hub: huggingface")
+
+            # Add null fields for completeness based on builtin image model structure
+            null_fields = [
+                "cache_config", "controlnet", "gguf_model_id", "gguf_quantizations",
+                "gguf_model_file_name_template", "lightning_model_id", "lightning_versions",
+                "lightning_model_file_name_template", "model_uri"
+            ]
+            for field in null_fields:
+                if field not in model_json:
+                    model_json[field] = None
+
+            # Add empty dict fields if missing
+            dict_fields = ["default_model_config", "default_generate_config"]
+            for field in dict_fields:
+                if field not in model_json:
+                    model_json[field] = {}
+
+        else:
+            # Handle LLM/embedding/rerank models with model_specs structure
+            logger.info(f"[DEBUG WORKER] Processing model with model_specs structure")
+
+            # Handle model_specs - if multiple formats are provided, select the first one
+            if "model_specs" in model_json and isinstance(model_json["model_specs"], list):
+                if len(model_json["model_specs"]) > 1:
+                    logger.info(
+                        f"[DEBUG WORKER] Multiple model specs found ({len(model_json['model_specs'])}), "
+                        f"selecting the first one for validation"
+                    )
+                    # For add_model, we'll use the first spec as the primary one
+                    # The other specs will be ignored for this registration
+                    model_json["model_specs"] = [model_json["model_specs"][0]]
+                    logger.info(f"[DEBUG WORKER] Selected model spec: {model_json['model_specs'][0]}")
+
+                # Fix missing quantization field for pytorch/mlx specs
+                spec = model_json["model_specs"][0]
+                if "quantization" not in spec:
+                    model_format = spec.get("model_format", "")
+                    if model_format in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
+                        # Extract quantization from model_src if available
+                        if "model_src" in spec and "huggingface" in spec["model_src"]:
+                            quantizations = spec["model_src"]["huggingface"].get("quantizations", [])
+                            if quantizations:
+                                spec["quantization"] = quantizations[0]  # Use first quantization
+                                logger.info(f"[DEBUG WORKER] Added quantization: {spec['quantization']}")
+                            else:
+                                spec["quantization"] = "none"  # Default quantization
+                                logger.info(f"[DEBUG WORKER] Added default quantization: none")
+                        else:
+                            spec["quantization"] = "none"  # Default quantization
+                            logger.info(f"[DEBUG WORKER] Added default quantization: none")
+                    elif model_format == "mlx":
+                        # Extract quantization from model_src if available
+                        if "model_src" in spec and "huggingface" in spec["model_src"]:
+                            quantizations = spec["model_src"]["huggingface"].get("quantizations", [])
+                            if quantizations:
+                                spec["quantization"] = quantizations[0]  # Use first quantization
+                                logger.info(f"[DEBUG WORKER] Added MLX quantization: {spec['quantization']}")
+                            else:
+                                spec["quantization"] = "4bit"  # Default for MLX
+                                logger.info(f"[DEBUG WORKER] Added default MLX quantization: 4bit")
+                        else:
+                            spec["quantization"] = "4bit"  # Default for MLX
+                            logger.info(f"[DEBUG WORKER] Added default MLX quantization: 4bit")
+                    elif model_format == "ggufv2":
+                        # GGUF models need to extract quantization from filename template
+                        if "model_file_name_template" in spec:
+                            template = spec["model_file_name_template"]
+                            if "{quantization}" in template:
+                                # This is handled by the GGUF spec, just log
+                                logger.info(f"[DEBUG WORKER] GGUF model has quantization template")
+                            else:
+                                # Try to extract from model_id or set default
+                                spec["quantization"] = "Q4_K_M"  # Common GGUF quantization
+                                logger.info(f"[DEBUG WORKER] Added default GGUF quantization: Q4_K_M")
+                        else:
+                            spec["quantization"] = "Q4_K_M"  # Default for GGUF
+                            logger.info(f"[DEBUG WORKER] Added default GGUF quantization: Q4_K_M")
+
+                # Add missing required fields for LLM-style specs
+                if "model_hub" not in spec:
+                    spec["model_hub"] = "huggingface"
+                    logger.info(f"[DEBUG WORKER] Added model_hub: huggingface")
+
+                if "model_id" not in spec:
+                    if "model_src" in spec and "huggingface" in spec["model_src"]:
+                        spec["model_id"] = spec["model_src"]["huggingface"]["model_id"]
+                        logger.info(f"[DEBUG WORKER] Added model_id: {spec['model_id']}")
+
+                if "model_revision" not in spec:
+                    if "model_src" in spec and "huggingface" in spec["model_src"]:
+                        spec["model_revision"] = spec["model_src"]["huggingface"]["model_revision"]
+                        logger.info(f"[DEBUG WORKER] Added model_revision: {spec['model_revision']}")
+
+                # Remove model_src from spec as it's not needed in the final format
+                if "model_src" in spec:
+                    del spec["model_src"]
+                    logger.info(f"[DEBUG WORKER] Removed model_src field from spec")
+
+                logger.info(f"[DEBUG WORKER] Fixed model spec: {spec}")
+
+        # Handle legacy top-level model_src for backward compatibility
+        if model_json.get("model_id") is None and "model_src" in model_json:
+            logger.info(
+                f"[DEBUG WORKER] model_id is null, attempting to extract from model_src"
+            )
+            model_src = model_json["model_src"]
+
+            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
+                model_json["model_id"] = model_src["huggingface"]["model_id"]
+                logger.info(
+                    f"[DEBUG WORKER] Extracted model_id from huggingface: {model_json['model_id']}"
+                )
+            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+                model_json["model_id"] = model_src["modelscope"]["model_id"]
+                logger.info(
+                    f"[DEBUG WORKER] Extracted model_id from modelscope: {model_json['model_id']}"
+                )
+
+            if model_json.get("model_revision") is None:
+                if (
+                    "huggingface" in model_src
+                    and "model_revision" in model_src["huggingface"]
+                ):
+                    model_json["model_revision"] = model_src["huggingface"][
+                        "model_revision"
+                    ]
+                    logger.info(
+                        f"[DEBUG WORKER] Extracted model_revision from huggingface: {model_json['model_revision']}"
+                    )
+                elif (
+                    "modelscope" in model_src
+                    and "model_revision" in model_src["modelscope"]
+                ):
+                    model_json["model_revision"] = model_src["modelscope"][
+                        "model_revision"
+                    ]
+                    logger.info(
+                        f"[DEBUG WORKER] Extracted model_revision from modelscope: {model_json['model_revision']}"
+                    )
+
+            # Remove top-level model_src field as it's not needed in the final format
+            del model_json["model_src"]
+            logger.info(f"[DEBUG WORKER] Removed top-level model_src field")
+
+        logger.info(f"[DEBUG WORKER] Final model_json: {model_json}")
+        return model_json
+
+    @log_async(logger=logger)
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by downloading
+        the latest JSON from the remote API and storing it locally.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+        import json
+        import requests
+
+        logger.info(
+            f"[DEBUG WORKER] update_model_type called with model_type: {model_type}"
+        )
+
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        normalized_for_validation = model_type
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_for_validation = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_for_validation = "llm"
+
+        if normalized_for_validation not in supported_types:
+            logger.error(
+                f"[DEBUG WORKER] Unsupported model type: {normalized_for_validation}"
+            )
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        model_type_for_operations = normalized_for_validation
+        logger.info(
+            f"[DEBUG WORKER] Using model_type: '{model_type_for_operations}' for operations"
+        )
+
+        # Construct the URL to download JSON
+        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+        logger.info(f"[DEBUG WORKER] Downloading model configurations from: {url}")
+
+        try:
+            # Download JSON from remote API
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            # Parse JSON response
+            model_data = response.json()
+            logger.info(
+                f"[DEBUG WORKER] Successfully downloaded JSON for model type: {model_type}"
+            )
+            logger.info(f"[DEBUG WORKER] JSON data type: {type(model_data)}")
+
+            if isinstance(model_data, dict):
+                logger.info(
+                    f"[DEBUG WORKER] JSON data keys: {list(model_data.keys())}"
+                )
+            elif isinstance(model_data, list):
+                logger.info(
+                    f"[DEBUG WORKER] JSON data contains {len(model_data)} items"
+                )
+                if model_data:
+                    logger.info(
+                        f"[DEBUG WORKER] First item keys: {list(model_data[0].keys()) if isinstance(model_data[0], dict) else 'Not a dict'}"
+                    )
+
+            # Store the JSON data using CacheManager as built-in models
+            logger.info(
+                f"[DEBUG WORKER] Storing model configurations as built-in models..."
+            )
+            await self._store_complete_model_configurations(model_type, model_data)
+            logger.info(
+                f"[DEBUG WORKER] Built-in model configurations stored successfully"
+            )
+
+            # Dynamically reload built-in models to make them immediately available
+            logger.info(
+                f"[DEBUG WORKER] Reloading built-in models for immediate availability..."
+            )
+            try:
+                if model_type.lower() == "llm":
+                    from ..model.llm import register_builtin_model
+
+                    register_builtin_model()
+                    logger.info(f"[DEBUG WORKER] LLM models reloaded successfully")
+                elif model_type.lower() == "embedding":
+                    from ..model.embedding import register_builtin_model
+
+                    register_builtin_model()
+                    logger.info(
+                        f"[DEBUG WORKER] Embedding models reloaded successfully"
+                    )
+                elif model_type.lower() == "audio":
+                    from ..model.audio import register_builtin_model
+
+                    register_builtin_model()
+                    logger.info(
+                        f"[DEBUG WORKER] Audio models reloaded successfully"
+                    )
+                elif model_type.lower() == "image":
+                    from ..model.image import register_builtin_model
+
+                    register_builtin_model()
+                    logger.info(
+                        f"[DEBUG WORKER] Image models reloaded successfully"
+                    )
+                elif model_type.lower() == "rerank":
+                    from ..model.rerank import register_builtin_model
+
+                    register_builtin_model()
+                    logger.info(
+                        f"[DEBUG WORKER] Rerank models reloaded successfully"
+                    )
+                elif model_type.lower() == "video":
+                    from ..model.video import register_builtin_model
+
+                    register_builtin_model()
+                    logger.info(
+                        f"[DEBUG WORKER] Video models reloaded successfully"
+                    )
+                else:
+                    logger.warning(
+                        f"[DEBUG WORKER] No dynamic loading available for model type: {model_type}"
+                    )
+            except Exception as reload_error:
+                logger.error(
+                    f"[DEBUG WORKER] Error reloading built-in models: {reload_error}",
+                    exc_info=True,
+                )
+                # Don't fail the update if reload fails, just log the error
+
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"[DEBUG WORKER] Network error downloading model configurations: {e}"
+            )
+            raise ValueError(f"Failed to download model configurations: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"[DEBUG WORKER] JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"[DEBUG WORKER] Unexpected error during model update: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model configurations: {str(e)}")
+
+    async def _store_model_configurations(self, model_type: str, model_data):
+        """
+        Store model configurations as separate JSON files (one per model).
+        This follows the same pattern as CacheManager.register_builtin_model.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing model configurations (can be single dict or list)
+        """
+        logger.info(
+            f"[DEBUG WORKER] Storing configurations for model type: {model_type}"
+        )
+
+        import json
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            # Ensure model_data is a list for consistent processing
+            if isinstance(model_data, dict):
+                models_to_store = [model_data]
+            elif isinstance(model_data, list):
+                models_to_store = model_data
+            else:
+                raise ValueError(f"Invalid model_data type: {type(model_data)}")
+
+            model_type_lower = model_type.lower()
+            builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower)
+
+            logger.info(f"[DEBUG WORKER] Using builtin dir: {builtin_dir}")
+            logger.info(f"[DEBUG WORKER] Storing {len(models_to_store)} model(s) as separate files")
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+            logger.info(f"[DEBUG WORKER] Directory created/verified: {builtin_dir}")
+
+            # Store each model as a separate JSON file
+            for model_dict in models_to_store:
+                if not isinstance(model_dict, dict):
+                    logger.warning(f"[DEBUG WORKER] Skipping invalid model data: {model_dict}")
+                    continue
+
+                model_name = model_dict.get("model_name")
+                if not model_name:
+                    logger.warning(f"[DEBUG WORKER] Skipping model without model_name: {model_dict}")
+                    continue
+
+                # Create file path using model name (same as CacheManager pattern)
+                json_file_path = os.path.join(builtin_dir, f"{model_name}.json")
+
+                logger.info(f"[DEBUG WORKER] Storing model '{model_name}' at: {json_file_path}")
+
+                # Store the model as a separate JSON file
+                with open(json_file_path, 'w', encoding='utf-8') as f:
+                    json.dump(model_dict, f, indent=2, ensure_ascii=False)
+
+                logger.info(f"[DEBUG WORKER] Successfully stored model '{model_name}'")
+                logger.info(f"[DEBUG WORKER] File exists after writing: {os.path.exists(json_file_path)}")
+
+            logger.info(
+                f"[DEBUG WORKER] Successfully stored {len(models_to_store)} model configuration(s) in {builtin_dir}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"[DEBUG WORKER] Error storing model configurations: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store model configurations: {str(e)}")
+
+    async def _store_complete_model_configurations(self, model_type: str, model_data):
+        """
+        Store complete model configurations as a unified JSON file.
+        This is used by update_model_type to preserve the original JSON structure.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing model configurations (complete array)
+        """
+        logger.info(
+            f"[DEBUG WORKER] Storing complete configurations for model type: {model_type}"
+        )
+
+        import json
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+
+            # Use the unified JSON file path (same as original update_model_type logic)
+            builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower)
+            json_file_path = os.path.join(builtin_dir, f"{model_type_lower}_models.json")
+
+            logger.info(f"[DEBUG WORKER] Using builtin dir: {builtin_dir}")
+            logger.info(f"[DEBUG WORKER] Storing complete JSON file at: {json_file_path}")
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+            logger.info(f"[DEBUG WORKER] Directory created/verified: {builtin_dir}")
+
+            # Store the complete JSON file (preserving original structure)
+            with open(json_file_path, 'w', encoding='utf-8') as f:
+                json.dump(model_data, f, indent=2, ensure_ascii=False)
+
+            logger.info(
+                f"[DEBUG WORKER] Successfully stored complete model configurations in {json_file_path}"
+            )
+            logger.info(f"[DEBUG WORKER] File exists after writing: {os.path.exists(json_file_path)}")
+
+        except Exception as e:
+            logger.error(
+                f"[DEBUG WORKER] Error storing complete model configurations: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store complete model configurations: {str(e)}")
 
     @log_async(logger=logger)
     async def list_model_registrations(

@@ -1190,7 +1190,7 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def add_model(self, model_type: str, model_json: Dict[str, Any]):
         """
-        Add a new model by parsing the provided JSON and registering it.
+        Add a new model by forwarding the request to all workers.
 
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
@@ -1199,204 +1199,30 @@ class SupervisorActor(xo.StatelessActor):
         logger.info(
             f"[DEBUG SUPERVISOR] add_model called with model_type: {model_type}"
         )
-        logger.info(f"[DEBUG SUPERVISOR] model_json type: {type(model_json)}")
-        logger.info(
-            f"[DEBUG SUPERVISOR] model_json keys: {list(model_json.keys()) if isinstance(model_json, dict) else 'Not a dict'}"
-        )
-        if isinstance(model_json, dict):
-            logger.info(f"[DEBUG SUPERVISOR] model_json content: {model_json}")
+        logger.info(f"[DEBUG SUPERVISOR] Forwarding add_model request to all workers")
 
-        # Validate model type (with case normalization)
-        supported_types = list(self._custom_register_type_to_cls.keys())
-        logger.info(f"[DEBUG SUPERVISOR] Supported model types: {supported_types}")
-        logger.info(f"[DEBUG SUPERVISOR] Received model_type: '{model_type}'")
-
-        normalized_model_type = model_type
-
-        if model_type.lower() == "llm" and "LLM" in supported_types:
-            normalized_model_type = "LLM"
-        elif model_type.lower() == "llm" and "llm" in supported_types:
-            normalized_model_type = "llm"
-
-        logger.info(
-            f"[DEBUG SUPERVISOR] Normalized model_type: '{normalized_model_type}'"
-        )
-
-        if normalized_model_type not in self._custom_register_type_to_cls:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_model_type} (original: {model_type})"
-            )
-            raise ValueError(
-                f"Unsupported model type '{model_type}'. "
-                f"Supported types are: {', '.join(supported_types)}"
-            )
-
-        # Use normalized model type for the rest of the function
-        model_type = normalized_model_type
-        logger.info(
-            f"[DEBUG SUPERVISOR] Using model_type: '{model_type}' for registration"
-        )
-
-        # Get the appropriate model class and register function
-        (
-            model_spec_cls,
-            register_fn,
-            unregister_fn,
-            generate_fn,
-        ) = self._custom_register_type_to_cls[model_type]
-        logger.info(f"[DEBUG SUPERVISOR] Model spec class: {model_spec_cls}")
-        logger.info(f"[DEBUG SUPERVISOR] Register function: {register_fn}")
-        logger.info(f"[DEBUG SUPERVISOR] Unregister function: {unregister_fn}")
-        logger.info(f"[DEBUG SUPERVISOR] Generate function: {generate_fn}")
-
-        # Validate required fields (only model_name is required)
-        required_fields = ["model_name"]
-        logger.info(f"[DEBUG SUPERVISOR] Checking required fields: {required_fields}")
-        for field in required_fields:
-            if field not in model_json:
-                logger.error(f"[DEBUG SUPERVISOR] Missing required field: {field}")
-                raise ValueError(f"Missing required field: {field}")
-
-        # Validate model name format
-        from ..model.utils import is_valid_model_name
-
-        model_name = model_json["model_name"]
-        logger.info(f"[DEBUG SUPERVISOR] Extracted model_name: {model_name}")
-
-        if not is_valid_model_name(model_name):
-            logger.error(f"[DEBUG SUPERVISOR] Invalid model name format: {model_name}")
-            raise ValueError(f"Invalid model name format: {model_name}")
-
-        logger.info(f"[DEBUG SUPERVISOR] Model name validation passed")
-
-        # Convert model hub JSON format to Xinference expected format
-        logger.info(f"[DEBUG SUPERVISOR] Converting model JSON format...")
         try:
-            converted_model_json = self._convert_model_json_format(model_json)
-            logger.info(
-                f"[DEBUG SUPERVISOR] Converted model JSON: {converted_model_json}"
-            )
-        except Exception as e:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Format conversion failed: {str(e)}", exc_info=True
-            )
-            raise ValueError(f"Failed to convert model JSON format: {str(e)}")
+            # Forward the add_model request to all workers
+            tasks = []
+            for worker_address, worker_ref in self._worker_address_to_worker.items():
+                logger.info(f"[DEBUG SUPERVISOR] Forwarding add_model to worker: {worker_address}")
+                tasks.append(worker_ref.add_model(model_type, model_json))
 
-        # Parse the JSON into the appropriate model spec
-        logger.info(f"[DEBUG SUPERVISOR] Parsing model spec...")
-        try:
-            model_spec = model_spec_cls.parse_obj(converted_model_json)
-            logger.info(f"[DEBUG SUPERVISOR] Parsed model spec: {model_spec}")
-        except Exception as e:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Model spec parsing failed: {str(e)}", exc_info=True
-            )
-            raise ValueError(f"Invalid model JSON format: {str(e)}")
-
-        # Check if model already exists
-        logger.info(f"[DEBUG SUPERVISOR] Checking if model already exists...")
-        try:
-            existing_model = await self.get_model_registration(
-                model_type, model_spec.model_name
-            )
-            logger.info(
-                f"[DEBUG SUPERVISOR] Existing model check result: {existing_model}"
-            )
-
-            if existing_model is not None:
-                logger.error(
-                    f"[DEBUG SUPERVISOR] Model already exists: {model_spec.model_name}"
-                )
-                raise ValueError(
-                    f"Model '{model_spec.model_name}' already exists for type '{model_type}'. "
-                    f"Please choose a different model name or remove the existing model first."
-                )
-
-        except ValueError as e:
-            if "not found" in str(e):
-                # Model doesn't exist, we can proceed
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Model doesn't exist yet, proceeding with registration"
-                )
-                pass
+            # Wait for all workers to complete the operation
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+                logger.info(f"[DEBUG SUPERVISOR] All workers completed add_model operation")
             else:
-                # Re-raise validation errors
-                logger.error(
-                    f"[DEBUG SUPERVISOR] Validation error during model check: {str(e)}"
-                )
-                raise e
-        except Exception as ex:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Unexpected error during model check: {str(ex)}",
-                exc_info=True,
-            )
-            raise ValueError(f"Failed to validate model registration: {str(ex)}")
+                logger.warning(f"[DEBUG SUPERVISOR] No workers available to forward add_model request")
 
-        logger.info(f"[DEBUG SUPERVISOR] Storing single model as built-in...")
-        try:
-            # Create CacheManager and store as built-in model
-            from ..model.cache_manager import CacheManager
+            logger.info(f"[DEBUG SUPERVISOR] add_model completed successfully")
 
-            cache_manager = CacheManager(model_spec)
-            cache_manager.register_builtin_model(model_type.lower())
-            logger.info(f"[DEBUG SUPERVISOR] Built-in model stored successfully")
-
-            # Register in the model registry without persisting to avoid duplicate storage
-            register_fn(model_spec, persist=False)
-            logger.info(
-                f"[DEBUG SUPERVISOR] Model registry registration completed successfully"
-            )
-
-            # Record model version
-            logger.info(f"[DEBUG SUPERVISOR] Generating version info...")
-            version_info = generate_fn(model_spec)
-            logger.info(f"[DEBUG SUPERVISOR] Generated version_info: {version_info}")
-
-            logger.info(
-                f"[DEBUG SUPERVISOR] Recording model version in cache tracker..."
-            )
-            await self._cache_tracker_ref.record_model_version(
-                version_info, self.address
-            )
-            logger.info(f"[DEBUG SUPERVISOR] Cache tracker recording completed")
-
-            # Sync to workers if not local deployment
-            is_local = self.is_local_deployment()
-            logger.info(f"[DEBUG SUPERVISOR] Is local deployment: {is_local}")
-            if not is_local:
-                # Convert back to JSON string for sync compatibility
-                model_json_str = json.dumps(converted_model_json)
-                logger.info(f"[DEBUG SUPERVISOR] Syncing model to workers...")
-                await self._sync_register_model(
-                    model_type, model_json_str, True, model_spec.model_name
-                )
-                logger.info(f"[DEBUG SUPERVISOR] Model sync to workers completed")
-
-            logger.info(
-                f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
-            )
-
-        except ValueError as e:
-            # Validation errors - don't need cleanup as model wasn't registered
-            logger.error(f"[DEBUG SUPERVISOR] ValueError during registration: {str(e)}")
-            raise e
         except Exception as e:
-            # Unexpected errors - attempt cleanup
             logger.error(
-                f"[DEBUG SUPERVISOR] Unexpected error during registration: {str(e)}",
+                f"[DEBUG SUPERVISOR] Error during add_model forwarding: {str(e)}",
                 exc_info=True,
             )
-            try:
-                logger.info(f"[DEBUG SUPERVISOR] Attempting cleanup...")
-                unregister_fn(model_spec.model_name, raise_error=False)
-                logger.info(f"[DEBUG SUPERVISOR] Cleanup completed successfully")
-            except Exception as cleanup_error:
-                logger.warning(f"[DEBUG SUPERVISOR] Cleanup failed: {cleanup_error}")
-            raise ValueError(
-                f"Failed to register model '{model_spec.model_name}': {str(e)}"
-            )
-
-        logger.info(f"[DEBUG SUPERVISOR] add_model completed successfully")
+            raise ValueError(f"Failed to add model: {str(e)}")
 
     def _convert_model_json_format(self, model_json: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1622,150 +1448,39 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def update_model_type(self, model_type: str):
         """
-        Update model configurations for a specific model type by downloading
-        the latest JSON from the remote API and storing it locally.
+        Update model configurations for a specific model type by forwarding
+        the request to all workers.
 
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
         """
-        import json
-
-        import requests
-
         logger.info(
             f"[DEBUG SUPERVISOR] update_model_type called with model_type: {model_type}"
         )
-
-        supported_types = list(self._custom_register_type_to_cls.keys())
-
-        normalized_for_validation = model_type
-        if model_type.lower() == "llm" and "LLM" in supported_types:
-            normalized_for_validation = "LLM"
-        elif model_type.lower() == "llm" and "llm" in supported_types:
-            normalized_for_validation = "llm"
-
-        if normalized_for_validation not in supported_types:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Unsupported model type: {normalized_for_validation}"
-            )
-            raise ValueError(
-                f"Unsupported model type '{model_type}'. "
-                f"Supported types are: {', '.join(supported_types)}"
-            )
-
-        model_type_for_operations = normalized_for_validation
-        logger.info(
-            f"[DEBUG SUPERVISOR] Using model_type: '{model_type_for_operations}' for operations"
-        )
-
-        # Construct the URL to download JSON
-        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
-        logger.info(f"[DEBUG SUPERVISOR] Downloading model configurations from: {url}")
+        logger.info(f"[DEBUG SUPERVISOR] Forwarding update_model_type request to all workers")
 
         try:
-            # Download JSON from remote API
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
+            # Forward the update_model_type request to all workers
+            tasks = []
+            for worker_address, worker_ref in self._worker_address_to_worker.items():
+                logger.info(f"[DEBUG SUPERVISOR] Forwarding update_model_type to worker: {worker_address}")
+                tasks.append(worker_ref.update_model_type(model_type))
 
-            # Parse JSON response
-            model_data = response.json()
-            logger.info(
-                f"[DEBUG SUPERVISOR] Successfully downloaded JSON for model type: {model_type}"
-            )
-            logger.info(f"[DEBUG SUPERVISOR] JSON data type: {type(model_data)}")
+            # Wait for all workers to complete the operation
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+                logger.info(f"[DEBUG SUPERVISOR] All workers completed update_model_type operation")
+            else:
+                logger.warning(f"[DEBUG SUPERVISOR] No workers available to forward update_model_type request")
 
-            if isinstance(model_data, dict):
-                logger.info(
-                    f"[DEBUG SUPERVISOR] JSON data keys: {list(model_data.keys())}"
-                )
-            elif isinstance(model_data, list):
-                logger.info(
-                    f"[DEBUG SUPERVISOR] JSON data contains {len(model_data)} items"
-                )
-                if model_data:
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] First item keys: {list(model_data[0].keys()) if isinstance(model_data[0], dict) else 'Not a dict'}"
-                    )
+            logger.info(f"[DEBUG SUPERVISOR] update_model_type completed successfully")
 
-            # Store the JSON data using CacheManager as built-in models
-            logger.info(
-                f"[DEBUG SUPERVISOR] Storing model configurations as built-in models..."
-            )
-            await self._store_model_configurations(model_type, model_data)
-            logger.info(
-                f"[DEBUG SUPERVISOR] Built-in model configurations stored successfully"
-            )
-
-            # Dynamically reload built-in models to make them immediately available
-            logger.info(
-                f"[DEBUG SUPERVISOR] Reloading built-in models for immediate availability..."
-            )
-            try:
-                if model_type.lower() == "llm":
-                    from ..model.llm import register_builtin_model
-
-                    register_builtin_model()
-                    logger.info(f"[DEBUG SUPERVISOR] LLM models reloaded successfully")
-                elif model_type.lower() == "embedding":
-                    from ..model.embedding import register_builtin_model
-
-                    register_builtin_model()
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Embedding models reloaded successfully"
-                    )
-                elif model_type.lower() == "audio":
-                    from ..model.audio import register_builtin_model
-
-                    register_builtin_model()
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Audio models reloaded successfully"
-                    )
-                elif model_type.lower() == "image":
-                    from ..model.image import register_builtin_model
-
-                    register_builtin_model()
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Image models reloaded successfully"
-                    )
-                elif model_type.lower() == "rerank":
-                    from ..model.rerank import register_builtin_model
-
-                    register_builtin_model()
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Rerank models reloaded successfully"
-                    )
-                elif model_type.lower() == "video":
-                    from ..model.video import register_builtin_model
-
-                    register_builtin_model()
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Video models reloaded successfully"
-                    )
-                else:
-                    logger.warning(
-                        f"[DEBUG SUPERVISOR] No dynamic loading available for model type: {model_type}"
-                    )
-            except Exception as reload_error:
-                logger.error(
-                    f"[DEBUG SUPERVISOR] Error reloading built-in models: {reload_error}",
-                    exc_info=True,
-                )
-                # Don't fail the update if reload fails, just log the error
-
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                f"[DEBUG SUPERVISOR] Network error downloading model configurations: {e}"
-            )
-            raise ValueError(f"Failed to download model configurations: {str(e)}")
-        except json.JSONDecodeError as e:
-            logger.error(f"[DEBUG SUPERVISOR] JSON decode error: {e}")
-            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
         except Exception as e:
             logger.error(
-                f"[DEBUG SUPERVISOR] Unexpected error during model update: {e}",
+                f"[DEBUG SUPERVISOR] Error during update_model_type forwarding: {str(e)}",
                 exc_info=True,
             )
-            raise ValueError(f"Failed to update model configurations: {str(e)}")
+            raise ValueError(f"Failed to update model type: {str(e)}")
 
     async def _store_model_configurations(self, model_type: str, model_data):
         """
