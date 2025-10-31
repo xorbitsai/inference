@@ -540,31 +540,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         image: Union[str, bytes],
         **kwargs,
     ):
-        """
-        Perform OCR on an image.
-
-        Parameters
-        ----------
-        image: Union[str, bytes]
-            The image file or bytes to process.
-        **kwargs
-            Additional parameters to pass to the model.
-            For DeepSeek-OCR, supported parameters include:
-            - prompt: OCR prompt
-            - model_size: Model size (tiny/small/base/large/gundam)
-            - test_compress: Whether to test compression ratio
-            - save_results: Whether to save results to files
-            - save_dir: Directory to save results
-            - eval_mode: Whether to use evaluation mode
-
-        Returns
-        -------
-        Union[str, dict]
-            OCR results. The format depends on the model implementation.
-        """
         url = f"{self._base_url}/v1/images/ocr"
-
-        # Pass all parameters through kwargs
         params = {
             "model": self._model_uid,
             "kwargs": json.dumps(kwargs),
