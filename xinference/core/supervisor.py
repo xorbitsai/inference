@@ -1233,41 +1233,6 @@ class SupervisorActor(xo.StatelessActor):
             )
             raise ValueError(f"Failed to update model type: {str(e)}")
 
-    async def _store_model_configurations(self, model_type: str, model_data):
-        """
-        Store model configurations as a complete JSON file without splitting.
-        Args:
-            model_type: Type of model (as provided by user, e.g., "llm")
-            model_data: JSON data containing model configurations
-        """
-        try:
-            import json
-            import os
-
-            from ..constants import XINFERENCE_MODEL_DIR
-
-            # Create the built-in directory structure
-            builtin_dir = os.path.join(
-                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type.lower()
-            )
-            os.makedirs(builtin_dir, exist_ok=True)
-
-            # Store the complete JSON as a single file
-            json_file_path = os.path.join(
-                builtin_dir, f"{model_type.lower()}_models.json"
-            )
-
-            # Save the complete JSON data
-            with open(json_file_path, "w", encoding="utf-8") as f:
-                json.dump(model_data, f, indent=2, ensure_ascii=False)
-
-        except Exception as e:
-            logger.error(
-                f"Error storing model configurations: {e}",
-                exc_info=True,
-            )
-            raise
-
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
