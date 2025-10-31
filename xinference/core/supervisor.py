@@ -14,7 +14,6 @@
 
 import asyncio
 import itertools
-import json
 import os
 import signal
 import time
@@ -624,24 +623,14 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
-        logger.info(
-            f"[DEBUG SUPERVISOR] list_model_registrations called with model_type: {model_type}, detailed: {detailed}"
-        )
-
         ret = []
         if not self.is_local_deployment():
-            logger.info(f"[DEBUG SUPERVISOR] Not local deployment, checking workers...")
             workers = list(self._worker_address_to_worker.values())
             for worker in workers:
                 worker_data = await worker.list_model_registrations(
                     model_type, detailed
                 )
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Worker returned {len(worker_data)} models"
-                )
                 ret.extend(worker_data)
-        else:
-            logger.info(f"[DEBUG SUPERVISOR] Local deployment mode")
 
         if model_type.upper() == "LLM":
             from ..model.llm import (
@@ -650,14 +639,9 @@ class SupervisorActor(xo.StatelessActor):
                 register_builtin_model,
             )
 
-            logger.info(f"[DEBUG SUPERVISOR] Processing LLM models")
-
             register_builtin_model()
 
             for family in BUILTIN_LLM_FAMILIES:
-                logger.debug(
-                    f"[DEBUG SUPERVISOR] Processing builtin LLM: {family.model_name}"
-                )
                 if detailed:
                     reg_data = await self._to_llm_reg(family, True)
                     ret.append(reg_data)
@@ -669,9 +653,6 @@ class SupervisorActor(xo.StatelessActor):
 
             for family in user_defined_families:
                 if family.model_name not in builtin_names:
-                    logger.debug(
-                        f"[DEBUG SUPERVISOR] Processing dynamic LLM: {family.model_name}"
-                    )
                     if detailed:
                         reg_data = await self._to_llm_reg(family, True)
                         ret.append(reg_data)
@@ -681,7 +662,6 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                 ret.sort(key=sort_helper)
-            logger.info(f"[DEBUG SUPERVISOR] LLM: Returning {len(ret)} total models")
             return ret
         elif model_type == "embedding":
             from ..model.embedding import (
@@ -727,9 +707,6 @@ class SupervisorActor(xo.StatelessActor):
                                 is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Embedding model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
-                )
 
                 if detailed:
                     ret.append(
@@ -785,9 +762,6 @@ class SupervisorActor(xo.StatelessActor):
                                 is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Image model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
-                )
 
                 if detailed:
                     ret.append(
@@ -843,9 +817,6 @@ class SupervisorActor(xo.StatelessActor):
                                 is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Audio model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
-                )
 
                 if detailed:
                     ret.append(
@@ -898,9 +869,6 @@ class SupervisorActor(xo.StatelessActor):
                             )
                             if os.path.exists(potential_custom_path):
                                 is_persisted_model = True
-                logger.debug(
-                    f"[DEBUG SUPERVISOR] Video model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_persisted_model}"
-                )
                 if detailed:
                     ret.append(
                         await self._to_video_model_reg(
@@ -954,9 +922,6 @@ class SupervisorActor(xo.StatelessActor):
                                 is_persisted_model = True
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Rerank model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
-                )
 
                 if detailed:
                     ret.append(
@@ -992,9 +957,6 @@ class SupervisorActor(xo.StatelessActor):
                     is_persisted_model = os.path.exists(potential_persist_path)
 
                 is_builtin = is_persisted_model  # Treat persisted models as built-in
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Flexible model {model_spec.model_name} persisted: {is_persisted_model}, treating as builtin: {is_builtin}"
-                )
 
                 if detailed:
                     ret.append(
@@ -1196,230 +1158,25 @@ class SupervisorActor(xo.StatelessActor):
             model_type: Type of model (LLM, embedding, image, etc.)
             model_json: JSON configuration for the model
         """
-        logger.info(
-            f"[DEBUG SUPERVISOR] add_model called with model_type: {model_type}"
-        )
-        logger.info(f"[DEBUG SUPERVISOR] Forwarding add_model request to all workers")
 
         try:
             # Forward the add_model request to all workers
             tasks = []
             for worker_address, worker_ref in self._worker_address_to_worker.items():
-                logger.info(f"[DEBUG SUPERVISOR] Forwarding add_model to worker: {worker_address}")
                 tasks.append(worker_ref.add_model(model_type, model_json))
 
             # Wait for all workers to complete the operation
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
-                logger.info(f"[DEBUG SUPERVISOR] All workers completed add_model operation")
             else:
-                logger.warning(f"[DEBUG SUPERVISOR] No workers available to forward add_model request")
-
-            logger.info(f"[DEBUG SUPERVISOR] add_model completed successfully")
+                logger.warning(f"No workers available to forward add_model request")
 
         except Exception as e:
             logger.error(
-                f"[DEBUG SUPERVISOR] Error during add_model forwarding: {str(e)}",
+                f"Error during add_model forwarding: {str(e)}",
                 exc_info=True,
             )
             raise ValueError(f"Failed to add model: {str(e)}")
-
-    def _convert_model_json_format(self, model_json: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert model hub JSON format to Xinference expected format.
-
-        The input format uses nested 'model_src' structure, but Xinference expects
-        flattened fields at the spec level.
-
-        Also handles cases where model_specs field is missing by providing a default.
-        """
-        logger.info(f"[DEBUG SUPERVISOR] _convert_model_json_format called")
-        logger.info(f"[DEBUG SUPERVISOR] Input model_json: {model_json}")
-
-        if model_json.get("model_id") is None and "model_src" in model_json:
-            logger.info(
-                f"[DEBUG SUPERVISOR] model_id is null, attempting to extract from model_src"
-            )
-            model_src = model_json["model_src"]
-
-            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-                model_json["model_id"] = model_src["huggingface"]["model_id"]
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Extracted model_id from huggingface: {model_json['model_id']}"
-                )
-            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
-                model_json["model_id"] = model_src["modelscope"]["model_id"]
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Extracted model_id from modelscope: {model_json['model_id']}"
-                )
-
-            if model_json.get("model_revision") is None:
-                if (
-                    "huggingface" in model_src
-                    and "model_revision" in model_src["huggingface"]
-                ):
-                    model_json["model_revision"] = model_src["huggingface"][
-                        "model_revision"
-                    ]
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Extracted model_revision from huggingface: {model_json['model_revision']}"
-                    )
-                elif (
-                    "modelscope" in model_src
-                    and "model_revision" in model_src["modelscope"]
-                ):
-                    model_json["model_revision"] = model_src["modelscope"][
-                        "model_revision"
-                    ]
-                    logger.info(
-                        f"[DEBUG SUPERVISOR] Extracted model_revision from modelscope: {model_json['model_revision']}"
-                    )
-
-        # If model_specs is missing, provide a default minimal spec
-        if "model_specs" not in model_json or not model_json["model_specs"]:
-            logger.info(
-                f"[DEBUG SUPERVISOR] model_specs missing or empty, creating default spec"
-            )
-            # Create a minimal default spec
-            default_spec = {
-                **model_json,
-                "model_specs": [
-                    {
-                        "model_format": "pytorch",
-                        "model_size_in_billions": None,
-                        "quantization": "none",
-                    }
-                ],
-            }
-            logger.info(f"[DEBUG SUPERVISOR] Created default spec: {default_spec}")
-            return default_spec
-
-        logger.info(
-            f"[DEBUG SUPERVISOR] Found model_specs: {model_json['model_specs']}"
-        )
-
-        # Check if conversion is needed (detect model_src structure)
-        needs_conversion = False
-        for i, spec in enumerate(model_json["model_specs"]):
-            logger.info(f"[DEBUG SUPERVISOR] Checking spec {i}: {spec}")
-            if "model_src" in spec:
-                logger.info(
-                    f"[DEBUG SUPERVISOR] Found model_src in spec {i}, conversion needed"
-                )
-                needs_conversion = True
-                break
-
-        if not needs_conversion:
-            logger.info(
-                f"[DEBUG SUPERVISOR] No conversion needed, returning original model_json"
-            )
-            return model_json
-
-        converted = model_json.copy()
-        converted_specs = []
-
-        for spec in model_json["model_specs"]:
-            model_format = spec.get("model_format", "pytorch")
-            model_size = spec.get("model_size_in_billions")
-
-            if "model_src" not in spec:
-                # No model_src, keep spec as is but ensure required fields
-                converted_spec = spec.copy()
-                if "quantization" not in converted_spec:
-                    converted_spec["quantization"] = "none"
-                if "model_format" not in converted_spec:
-                    converted_spec["model_format"] = "pytorch"
-                if "model_file_name_template" not in converted_spec:
-                    converted_spec["model_file_name_template"] = "model.bin"
-                if "model_hub" not in converted_spec and "model_id" in converted_spec:
-                    converted_spec["model_hub"] = "huggingface"
-                converted_specs.append(converted_spec)
-                continue
-
-            model_src = spec["model_src"]
-
-            # Handle different model sources
-            if "huggingface" in model_src:
-                hf_info = model_src["huggingface"]
-                quantizations = hf_info.get("quantizations", ["none"])
-
-                # Create separate specs for each quantization
-                for quant in quantizations:
-                    converted_spec = {
-                        "model_format": model_format,
-                        "model_size_in_billions": model_size,
-                        "quantization": quant,
-                        "model_hub": "huggingface",
-                    }
-
-                    # Add common fields
-                    if "model_id" in hf_info:
-                        converted_spec["model_id"] = hf_info["model_id"]
-                    if "model_revision" in hf_info:
-                        converted_spec["model_revision"] = hf_info["model_revision"]
-
-                    # Format-specific fields
-                    if model_format == "ggufv2":
-                        if "model_id" in hf_info:
-                            converted_spec["model_id"] = hf_info["model_id"]
-                        if "model_file_name_template" in hf_info:
-                            converted_spec["model_file_name_template"] = hf_info[
-                                "model_file_name_template"
-                            ]
-                        else:
-                            # Default template
-                            model_name = model_json["model_name"]
-                            converted_spec["model_file_name_template"] = (
-                                f"{model_name}-{{quantization}}.gguf"
-                            )
-                    elif model_format in ["pytorch", "mlx"]:
-                        if "model_id" in hf_info:
-                            converted_spec["model_id"] = hf_info["model_id"]
-                        if "model_revision" in hf_info:
-                            converted_spec["model_revision"] = hf_info["model_revision"]
-                        converted_spec["model_file_name_template"] = "pytorch_model.bin"
-
-                    converted_specs.append(converted_spec)
-
-            elif "modelscope" in model_src:
-                # Handle ModelScope similarly
-                ms_info = model_src["modelscope"]
-                quantizations = ms_info.get("quantizations", ["none"])
-
-                for quant in quantizations:
-                    converted_spec = {
-                        "model_format": model_format,
-                        "model_size_in_billions": model_size,
-                        "quantization": quant,
-                        "model_hub": "modelscope",
-                    }
-
-                    if "model_id" in ms_info:
-                        converted_spec["model_id"] = ms_info["model_id"]
-                    if "model_revision" in ms_info:
-                        converted_spec["model_revision"] = ms_info["model_revision"]
-                    converted_spec["model_file_name_template"] = "pytorch_model.bin"
-
-                    converted_specs.append(converted_spec)
-
-            else:
-                # Unknown model source, skip or handle as error
-                logger.warning(
-                    f"Unknown model source in spec: {list(model_src.keys())}"
-                )
-                # Keep original spec but add required fields
-                converted_spec = spec.copy()
-                if "quantization" not in converted_spec:
-                    converted_spec["quantization"] = "none"
-                if "model_format" not in converted_spec:
-                    converted_spec["model_format"] = "pytorch"
-                if "model_file_name_template" not in converted_spec:
-                    converted_spec["model_file_name_template"] = "model.bin"
-                converted_specs.append(converted_spec)
-
-        converted["model_specs"] = converted_specs
-
-        return converted
 
     async def _sync_register_model(
         self, model_type: str, model: str, persist: bool, model_name: str
@@ -1454,30 +1211,24 @@ class SupervisorActor(xo.StatelessActor):
         Args:
             model_type: Type of model (LLM, embedding, image, etc.)
         """
-        logger.info(
-            f"[DEBUG SUPERVISOR] update_model_type called with model_type: {model_type}"
-        )
-        logger.info(f"[DEBUG SUPERVISOR] Forwarding update_model_type request to all workers")
 
         try:
             # Forward the update_model_type request to all workers
             tasks = []
             for worker_address, worker_ref in self._worker_address_to_worker.items():
-                logger.info(f"[DEBUG SUPERVISOR] Forwarding update_model_type to worker: {worker_address}")
                 tasks.append(worker_ref.update_model_type(model_type))
 
             # Wait for all workers to complete the operation
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
-                logger.info(f"[DEBUG SUPERVISOR] All workers completed update_model_type operation")
             else:
-                logger.warning(f"[DEBUG SUPERVISOR] No workers available to forward update_model_type request")
-
-            logger.info(f"[DEBUG SUPERVISOR] update_model_type completed successfully")
+                logger.warning(
+                    f"No workers available to forward update_model_type request"
+                )
 
         except Exception as e:
             logger.error(
-                f"[DEBUG SUPERVISOR] Error during update_model_type forwarding: {str(e)}",
+                f"Error during update_model_type forwarding: {str(e)}",
                 exc_info=True,
             )
             raise ValueError(f"Failed to update model type: {str(e)}")
@@ -1489,9 +1240,6 @@ class SupervisorActor(xo.StatelessActor):
             model_type: Type of model (as provided by user, e.g., "llm")
             model_data: JSON data containing model configurations
         """
-        logger.info(
-            f"[DEBUG SUPERVISOR] Storing configurations for model type: {model_type}"
-        )
         try:
             import json
             import os
@@ -1509,21 +1257,13 @@ class SupervisorActor(xo.StatelessActor):
                 builtin_dir, f"{model_type.lower()}_models.json"
             )
 
-            logger.info(
-                f"[DEBUG SUPERVISOR] Storing complete JSON to: {json_file_path}"
-            )
-
             # Save the complete JSON data
             with open(json_file_path, "w", encoding="utf-8") as f:
                 json.dump(model_data, f, indent=2, ensure_ascii=False)
 
-            logger.info(
-                f"[DEBUG SUPERVISOR] Successfully stored complete JSON for {model_type} containing {len(model_data) if isinstance(model_data, list) else 1} model configurations"
-            )
-
         except Exception as e:
             logger.error(
-                f"[DEBUG SUPERVISOR] Error storing model configurations: {e}",
+                f"Error storing model configurations: {e}",
                 exc_info=True,
             )
             raise
