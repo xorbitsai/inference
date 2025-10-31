@@ -13,13 +13,18 @@
 # limitations under the License.
 
 import importlib.util
+import inspect
 import logging
+from collections import defaultdict
 from typing import List, Optional, Union, no_type_check
 
 import numpy as np
 import torch
+from xoscar import extensible
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ....utils import make_hashable
+from ...batch import BatchMixin
 from ...utils import is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
@@ -27,7 +32,11 @@ logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
-class SentenceTransformerEmbeddingModel(EmbeddingModel):
+class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
+    def __init__(self, *args, **kwargs) -> None:
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding)  # type: ignore
+
     def load(self):
         # TODO: load model
         try:
@@ -128,6 +137,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
 
+    @extensible
     def create_embedding(
         self,
         sentences: Union[str, List[str]],
@@ -422,6 +432,72 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         self._clean_cache_if_needed(all_token_nums)
 
         return result
+
+    @create_embedding.batch  # type: ignore
+    def create_embedding(self, args_list, kwargs_list):
+        grouped = defaultdict(lambda: {"sentences": [], "offsets": [], "kwargs": None})
+
+        # 1. Group by kwargs hash
+        for args, kwargs in zip(args_list, kwargs_list):
+            sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
+            if isinstance(sentences, str):
+                sentences = [sentences]
+
+            key = make_hashable(extra_kwargs)
+            group = grouped[key]
+            group["kwargs"] = extra_kwargs  # same for all in this group
+
+            current_offset = len(group["sentences"])
+            group["offsets"].append((current_offset, len(sentences)))
+            group["sentences"].extend(sentences)
+
+        results_with_index = []
+
+        # 2. Process each group separately
+        for key, group in grouped.items():
+            sentences = group["sentences"]
+            kwargs = group["kwargs"]
+            offsets = group["offsets"]
+            indices = group["indices"]
+
+            embedding_list = self._model.embed(sentences, **kwargs)
+            usage = {"total_tokens": len(sentences)}
+            model_uid = kwargs.get("model", "unknown")
+
+            # 3. Split and attach original index
+            for (offset, n), idx in zip(offsets, indices):
+                data = embedding_list[offset : offset + n]
+                result = Embedding(
+                    object="list",
+                    model=model_uid,
+                    model_replica=self._model_uid,
+                    data=data,
+                    usage=usage,
+                )
+                results_with_index.append((idx, result))
+
+        # 4. Sort by original call order
+        results_with_index.sort(key=lambda x: x[0])
+        results = [r for _, r in results_with_index]
+        return results
+
+    def _extract_sentences_kwargs(self, args, kwargs):
+        bound = inspect.signature(self.create_embedding).bind(*args, **kwargs)
+        bound.apply_defaults()
+
+        sentences = bound.arguments["sentences"]
+        extra_kwargs = {
+            k: v for k, v in bound.arguments.items() if k not in ("self", "sentences")
+        }
+
+        return sentences, extra_kwargs
+
+    def _get_batch_size(self, *args, **kwargs) -> int:
+        sentences = self._extract_sentences_kwargs(args, kwargs)[0]
+        if isinstance(sentences, list):
+            return len(sentences)
+        else:
+            return 1
 
     @classmethod
     def check_lib(cls) -> bool:
