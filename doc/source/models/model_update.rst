@@ -1,8 +1,10 @@
-.. _model_addition_update:
+.. _model_update:
 
-===================================
-Model Addition and Update Features
-===================================
+============
+Model Update
+============
+.. versionadded:: v1.12.0
+
 This section briefly introduces two common operations on the "Launch Model" page: updating model lists and adding models. They correspond to the "Type Selection + Update" and "Add Model" buttons at the top of the page, facilitating quick refresh of models of a certain type or adding new models locally.
 
 Update Models (Launch Model Page)

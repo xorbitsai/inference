@@ -16,4 +16,4 @@ Getting Started
    troubleshooting
    environments
    release_notes
-   ../models/model_addition_update
+   ../models/model_update

@@ -1,0 +1,396 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-10-31 17:30+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/models/model_update.rst:5
+msgid "Model Update"
+msgstr "模型更新"
+
+#: ../../source/models/model_update.rst:8
+msgid ""
+"This section briefly introduces two common operations on the \"Launch "
+"Model\" page: updating model lists and adding models. They correspond to "
+"the \"Type Selection + Update\" and \"Add Model\" buttons at the top of "
+"the page, facilitating quick refresh of models of a certain type or "
+"adding new models locally."
+msgstr "本节简要介绍了“启动模型”页面上的两个常见操作：更新模型列表和添加模型。它们分别对应页面顶部的“类型选择 + 更新”和“添加模型”按钮，用于快速刷新某一类型的模型或在本地添加新模型。"
+
+#: ../../source/models/model_update.rst:11
+msgid "Update Models (Launch Model Page)"
+msgstr "更新模型（启动模型页面）"
+
+#: ../../source/models/model_update.rst:13
+msgid ""
+"Operation Location: \"Type Selection\" dropdown and \"Update\" button at "
+"the top right of the page."
+msgstr "操作位置：页面右上角的“类型选择”下拉框和“更新”按钮。"
+
+#: ../../source/models/model_update.rst:14
+#: ../../source/models/model_update.rst:22
+msgid "Usage:"
+msgstr "使用方法："
+
+#: ../../source/models/model_update.rst:15
+msgid ""
+"Select a model type from the dropdown (such as llm, embedding, rerank, "
+"image, audio, video)."
+msgstr "从下拉框中选择模型类型（例如 llm、embedding、rerank、image、audio、video）。"
+
+#: ../../source/models/model_update.rst:16
+msgid ""
+"Click the \"Update\" button, the page will send an update request to the "
+"backend, then automatically jump to the corresponding Tab and refresh the"
+" model list of that type."
+msgstr "点击“更新”按钮，页面将向后端发送更新请求，然后自动跳转到对应的标签页并刷新该类型的模型列表。"
+
+#: ../../source/models/model_update.rst:19
+msgid "Add Model (Launch Model Page)"
+msgstr "添加模型（启动模型页面）"
+
+#: ../../source/models/model_update.rst:21
+msgid "Operation Location: \"Add Model\" button at the top right of the page."
+msgstr "操作位置：页面右上角的“添加模型”按钮。"
+
+#: ../../source/models/model_update.rst:23
+msgid "Click \"Add Model\" to open the add dialog."
+msgstr "点击“添加模型”以打开添加对话框。"
+
+#: ../../source/models/model_update.rst:24
+msgid "Complete the model addition process in the dialog."
+msgstr "在对话框中完成模型添加流程。"
+
+#: ../../source/models/model_update.rst:25
+msgid ""
+"After successful addition, the page will jump to the corresponding type "
+"Tab to immediately view the latest model list."
+msgstr "添加成功后，页面将跳转到对应类型的标签页，并立即显示最新的模型列表。"
+
+#: ../../source/models/model_update.rst:28
+msgid "Xinference Models Hub User Guide"
+msgstr "Xinference 模型中心用户指南"
+
+#: ../../source/models/model_update.rst:31
+msgid "Overview"
+msgstr "概述"
+
+#: ../../source/models/model_update.rst:33
+msgid ""
+"Xinference Models Hub is a full-stack platform for managing and sharing "
+"models. It provides a comprehensive solution for model registration, "
+"browsing, review workflows, and collaborative model management."
+msgstr "Xinference 模型中心是一个用于管理和共享模型的全栈平台，提供了模型注册、浏览、审核流程和协作管理的完整解决方案。"
+
+#: ../../source/models/model_update.rst:37
+msgid "Quick Start"
+msgstr "快速开始"
+
+#: ../../source/models/model_update.rst:40
+msgid "User Registration and Login"
+msgstr "用户注册与登录"
+
+#: ../../source/models/model_update.rst:42
+msgid "**Registration**"
+msgstr "**注册**"
+
+#: ../../source/models/model_update.rst:44
+msgid "Open the website registration page"
+msgstr "打开网站注册页面"
+
+#: ../../source/models/model_update.rst:45
+msgid "Fill in the necessary information and submit"
+msgstr "填写必要的信息并提交"
+
+#: ../../source/models/model_update.rst:47
+msgid "**Login**"
+msgstr "**登录**"
+
+#: ../../source/models/model_update.rst:49
+msgid "Open the website login page"
+msgstr "打开网站登录页面"
+
+#: ../../source/models/model_update.rst:50
+msgid "After successful login, you will be redirected to the model list page"
+msgstr "登录成功后，将跳转到模型列表页面"
+
+#: ../../source/models/model_update.rst:52
+msgid "**Password Reset**"
+msgstr "**重置密码**"
+
+#: ../../source/models/model_update.rst:54
+msgid "Click the \"Forgot Password\" link on the login page"
+msgstr "点击登录页面的“忘记密码”链接"
+
+#: ../../source/models/model_update.rst:55
+msgid "Follow the instructions in the email to reset your password"
+msgstr "按照邮件中的说明重置密码"
+
+#: ../../source/models/model_update.rst:57
+msgid "**Logout**"
+msgstr "**退出登录**"
+
+#: ../../source/models/model_update.rst:59
+msgid "Click the avatar in the top right corner of the page"
+msgstr "点击页面右上角的头像"
+
+#: ../../source/models/model_update.rst:60
+msgid "Select \"Logout\" from the dropdown menu"
+msgstr "在下拉菜单中选择“退出登录”"
+
+#: ../../source/models/model_update.rst:63
+msgid "Core Features"
+msgstr "核心功能"
+
+#: ../../source/models/model_update.rst:66
+msgid "Browse Models"
+msgstr "浏览模型"
+
+#: ../../source/models/model_update.rst:68
+msgid "**Model List (Homepage)**"
+msgstr "**模型列表（首页）**"
+
+#: ../../source/models/model_update.rst:70
+msgid "**Function:** Browse available models, click any model to view details"
+msgstr "**功能：** 浏览可用模型，点击任意模型查看详情"
+
+#: ../../source/models/model_update.rst:71
+msgid "**Location:** \"Models\" menu in the website navigation bar"
+msgstr "**位置：** 网站导航栏中的“模型”菜单"
+
+#: ../../source/models/model_update.rst:74
+msgid "Some advanced models are only visible to authorized users."
+msgstr "部分高级模型仅对授权用户可见。"
+
+#: ../../source/models/model_update.rst:76
+msgid "**Model Details and Documentation**"
+msgstr "**模型详情与文档**"
+
+#: ../../source/models/model_update.rst:78
+msgid "**Function:** View detailed information about models"
+msgstr "**功能：** 查看模型的详细信息"
+
+#: ../../source/models/model_update.rst:79
+msgid ""
+"**Default Display:** \"README\" tab - view model description, usage "
+"instructions, and notes"
+msgstr "**默认显示：** “README” 标签页 - 查看模型描述、使用说明和注意事项"
+
+#: ../../source/models/model_update.rst:80
+msgid "**Other Tabs:** Settings (authorized users), review status"
+msgstr "**其他标签页：** 设置（仅授权用户）、审核状态"
+
+#: ../../source/models/model_update.rst:83
+msgid "User Center"
+msgstr "用户中心"
+
+#: ../../source/models/model_update.rst:85
+msgid "**Function:** View and manage personal information"
+msgstr "**功能：** 查看并管理个人信息"
+
+#: ../../source/models/model_update.rst:86
+msgid ""
+"**Location:** Click the avatar in the top right corner, select \"User "
+"Center\""
+msgstr "**位置：** 点击右上角头像，选择“用户中心”"
+
+#: ../../source/models/model_update.rst:87
+msgid "**Content:** Personal profile settings"
+msgstr "**内容：** 个人资料设置"
+
+#: ../../source/models/model_update.rst:90
+msgid "Model Management (Authorized Users)"
+msgstr "模型管理（授权用户）"
+
+#: ../../source/models/model_update.rst:93
+msgid "Model Registration"
+msgstr "模型注册"
+
+#: ../../source/models/model_update.rst:95
+msgid "**Function:** Submit new models to the platform"
+msgstr "**功能：** 向平台提交新模型"
+
+#: ../../source/models/model_update.rst:96
+msgid ""
+"**Location:** Click the avatar in the top right corner, select \"Model "
+"Registration\""
+msgstr "**位置：** 点击右上角头像，选择“模型注册”"
+
+#: ../../source/models/model_update.rst:97
+#: ../../source/models/model_update.rst:120
+msgid "**Required Permissions:**"
+msgstr "**所需权限：**"
+
+#: ../../source/models/model_update.rst:99
+#: ../../source/models/model_update.rst:122
+msgid "**Private Models:** Model registration permission"
+msgstr "**私有模型：** 需要模型注册权限"
+
+#: ../../source/models/model_update.rst:100
+msgid "**Public Models:** Public model registration permission"
+msgstr "**公共模型：** 需要公共模型注册权限"
+
+#: ../../source/models/model_update.rst:101
+msgid "**Enterprise Models:** Enterprise model registration permission"
+msgstr "**企业模型：** 需要企业模型注册权限"
+
+#: ../../source/models/model_update.rst:103
+#: ../../source/models/model_update.rst:155
+msgid "**Operation Process:**"
+msgstr "**操作流程：**"
+
+#: ../../source/models/model_update.rst:105
+msgid "Fill in basic model information"
+msgstr "填写模型的基本信息"
+
+#: ../../source/models/model_update.rst:106
+msgid ""
+"Fill in Readme (can be automatically obtained by clicking the Get Readme "
+"button)"
+msgstr "填写 Readme（可通过点击“获取 Readme”按钮自动获取）"
+
+#: ../../source/models/model_update.rst:107
+msgid "Submit (to register public models, enable the Public Model parameter)"
+msgstr "提交（如需注册公共模型，请启用“公共模型”参数）"
+
+#: ../../source/models/model_update.rst:109
+#: ../../source/models/model_update.rst:138
+msgid "**Notes:**"
+msgstr "**注意事项：**"
+
+#: ../../source/models/model_update.rst:111
+msgid "Regular users can only register private models"
+msgstr "普通用户仅可注册私有模型"
+
+#: ../../source/models/model_update.rst:112
+msgid ""
+"Public model registration requires review, and can be used publicly after"
+" approval (no review needed if you have public model registration "
+"permission)"
+msgstr "公共模型注册需要审核，通过后才能公开使用（若具有公共模型注册权限则无需审核）。"
+
+#: ../../source/models/model_update.rst:113
+msgid ""
+"Enterprise model registration requires enabling the Public Model "
+"parameter first"
+msgstr "企业模型注册需先启用“公共模型”参数。"
+
+#: ../../source/models/model_update.rst:116
+msgid "My Models"
+msgstr "我的模型"
+
+#: ../../source/models/model_update.rst:118
+msgid ""
+"**Function:** View models associated with your account (models you "
+"registered)"
+msgstr "**功能：** 查看与你账户相关的模型（即你注册的模型）"
+
+#: ../../source/models/model_update.rst:119
+msgid ""
+"**Location:** Click the avatar in the top right corner, select \"My "
+"Models\""
+msgstr "**位置：** 点击右上角头像，选择“我的模型”"
+
+#: ../../source/models/model_update.rst:123
+msgid "**Public Models:** Model registration permission"
+msgstr "**公共模型：** 需要模型注册权限"
+
+#: ../../source/models/model_update.rst:124
+msgid "**Enterprise Models:** Model registration permission"
+msgstr "**企业模型：** 需要模型注册权限"
+
+#: ../../source/models/model_update.rst:127
+msgid "Model Maintenance"
+msgstr "模型维护"
+
+#: ../../source/models/model_update.rst:129
+msgid "**Function:** Modify and manage existing models"
+msgstr "**功能：** 修改和管理已有模型"
+
+#: ../../source/models/model_update.rst:130
+msgid "**Location:** Click the \"Settings\" icon on the model details page"
+msgstr "**位置：** 在模型详情页点击“设置”图标"
+
+#: ../../source/models/model_update.rst:132
+msgid "**Permission Requirements:**"
+msgstr "**权限要求：**"
+
+#: ../../source/models/model_update.rst:134
+msgid ""
+"**Private Models:** Model ownership or any public model management "
+"permission"
+msgstr "**私有模型：** 需拥有模型所有权或公共模型管理权限"
+
+#: ../../source/models/model_update.rst:135
+msgid ""
+"**Advanced Models:** Advanced model update, delete, or expiration "
+"permission"
+msgstr "**高级模型：** 需具备高级模型更新、删除或过期管理权限"
+
+#: ../../source/models/model_update.rst:136
+msgid "**Public Models:** Public model update, delete, or expiration permission"
+msgstr "**公共模型：** 需具备公共模型更新、删除或过期管理权限"
+
+#: ../../source/models/model_update.rst:140
+msgid ""
+"Updating JSON or modifying expiration attributes of public models will "
+"automatically create a PR to the xorbitsai/inference repository"
+msgstr "更新公共模型的 JSON 或修改过期属性时，将自动创建一个 PR 提交到 xorbitsai/inference 仓库。"
+
+#: ../../source/models/model_update.rst:143
+msgid "Review Workflow"
+msgstr "审核流程"
+
+#: ../../source/models/model_update.rst:145
+msgid "**For Model Submitters:**"
+msgstr "**针对模型提交者：**"
+
+#: ../../source/models/model_update.rst:147
+msgid "Submit models for review"
+msgstr "提交模型以进行审核"
+
+#: ../../source/models/model_update.rst:148
+msgid "Check review status on the model details page"
+msgstr "在模型详情页查看审核状态"
+
+#: ../../source/models/model_update.rst:149
+msgid "Make modifications based on reviewer feedback if needed"
+msgstr "如有需要，根据审核者的反馈进行修改"
+
+#: ../../source/models/model_update.rst:151
+msgid "**For Reviewers:**"
+msgstr "**针对审核者：**"
+
+#: ../../source/models/model_update.rst:153
+msgid ""
+"**Required Permissions:** Model review list permission, model review "
+"permission"
+msgstr "**所需权限：** 模型审核列表权限、模型审核权限"
+
+#: ../../source/models/model_update.rst:157
+msgid "Enter the review queue page"
+msgstr "进入审核队列页面"
+
+#: ../../source/models/model_update.rst:158
+msgid "Evaluate model quality and compliance"
+msgstr "评估模型质量与合规性"
+
+#: ../../source/models/model_update.rst:159
+msgid "Approve or reject and provide feedback"
+msgstr "批准或拒绝模型，并提供反馈意见"
+
