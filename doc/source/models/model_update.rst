@@ -7,6 +7,10 @@ Model Update
 
 This section briefly introduces two common operations on the "Launch Model" page: updating model lists and adding models. They correspond to the "Type Selection + Update" and "Add Model" buttons at the top of the page, facilitating quick refresh of models of a certain type or adding new models locally.
 
+.. raw:: html
+
+    <img class="align-center" alt="model update interface" src="../_static/model_update.png" style="background-color: transparent", width="95%">
+
 Update Models (Launch Model Page)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -32,6 +36,8 @@ Overview
 
 Xinference Models Hub is a full-stack platform for managing and sharing models.
 It provides a comprehensive solution for model registration, browsing, review workflows, and collaborative model management.
+
+You can visit the Models Hub at: https://model.xinference.io
 
 Quick Start
 -----------

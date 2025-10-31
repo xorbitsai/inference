@@ -250,8 +250,8 @@ Model Usage
    model_abilities/index
    builtin/index
    custom
+   model_update
    sources/sources
    virtualenv
    lora
    model_memory
-   model_update
