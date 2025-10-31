@@ -538,57 +538,36 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
     def ocr(
         self,
         image: Union[str, bytes],
-        prompt: str = "<image>\nFree OCR.",
-        model_size: str = "gundam",
-        test_compress: bool = False,
-        save_results: bool = False,
-        save_dir: Optional[str] = None,
-        eval_mode: bool = False,
         **kwargs,
     ):
         """
-        Perform OCR on an image with enhanced features.
+        Perform OCR on an image.
 
         Parameters
         ----------
         image: Union[str, bytes]
             The image file or bytes to process.
-        prompt: str, optional
-            OCR prompt to guide the model.
-        model_size: str, optional
-            Model size configuration (tiny/small/base/large/gundam).
-        test_compress: bool, optional
-            Whether to test compression ratio.
-        save_results: bool, optional
-            Whether to save results to files.
-        save_dir: str, optional
-            Directory to save results.
-        eval_mode: bool, optional
-            Whether to use evaluation mode.
         **kwargs
-            Additional parameters.
+            Additional parameters to pass to the model.
+            For DeepSeek-OCR, supported parameters include:
+            - prompt: OCR prompt
+            - model_size: Model size (tiny/small/base/large/gundam)
+            - test_compress: Whether to test compression ratio
+            - save_results: Whether to save results to files
+            - save_dir: Directory to save results
+            - eval_mode: Whether to use evaluation mode
 
         Returns
         -------
-        dict
-            OCR results with enhanced information.
+        Union[str, dict]
+            OCR results. The format depends on the model implementation.
         """
         url = f"{self._base_url}/v1/images/ocr"
 
-        # Combine all parameters into kwargs
-        all_kwargs = {
-            "prompt": prompt,
-            "model_size": model_size,
-            "test_compress": test_compress,
-            "save_results": save_results,
-            "save_dir": save_dir,
-            "eval_mode": eval_mode,
-            **kwargs,
-        }
-
+        # Pass all parameters through kwargs
         params = {
             "model": self._model_uid,
-            "kwargs": json.dumps(all_kwargs),
+            "kwargs": json.dumps(kwargs),
         }
         files: List[Any] = []
         for key, value in params.items():
@@ -598,72 +577,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to ocr the images, detail: {_get_error_string(response)}"
-            )
-
-        response_data = response.json()
-        return response_data
-
-    def visualize_ocr(
-        self,
-        image: Union[str, bytes],
-        prompt: str = "<image>\n<|grounding|>Convert the document to markdown.",
-        model_size: str = "gundam",
-        save_results: bool = True,
-        save_dir: Optional[str] = None,
-        eval_mode: bool = False,
-        **kwargs,
-    ):
-        """
-        Perform OCR with visualization (bounding boxes and annotations).
-
-        Parameters
-        ----------
-        image: Union[str, bytes]
-            The image file or bytes to process.
-        prompt: str, optional
-            OCR prompt with grounding for visualization.
-        model_size: str, optional
-            Model size configuration (tiny/small/base/large/gundam).
-        save_results: bool, optional
-            Whether to save results with annotations.
-        save_dir: str, optional
-            Directory to save results.
-        eval_mode: bool, optional
-            Whether to use evaluation mode.
-        **kwargs
-            Additional parameters.
-
-        Returns
-        -------
-        dict
-            OCR results with visualization information.
-        """
-        url = f"{self._base_url}/v1/images/ocr/visualize"
-
-        # Prepare form data
-        params = {
-            "model": self._model_uid,
-            "prompt": prompt,
-            "model_size": model_size,
-            "save_results": save_results,
-            "eval_mode": eval_mode,
-        }
-
-        if save_dir:
-            params["save_dir"] = save_dir
-
-        if kwargs:
-            params["kwargs"] = json.dumps(kwargs)
-
-        files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-
-        response = self.session.post(url, files=files, headers=self.auth_headers)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to visualize OCR the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

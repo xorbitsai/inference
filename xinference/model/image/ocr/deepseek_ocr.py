@@ -648,12 +648,6 @@ class DeepSeekOCRModel:
     def ocr(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
-        prompt: str = "<image>\nFree OCR.",
-        model_size: str = "gundam",
-        test_compress: bool = False,
-        save_results: bool = False,
-        save_dir: Optional[str] = None,
-        eval_mode: bool = False,
         **kwargs,
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -661,18 +655,48 @@ class DeepSeekOCRModel:
 
         Args:
             image: PIL Image or list of PIL Images
-            prompt: OCR prompt, defaults to "<image>\nFree OCR."
-            model_size: Model size configuration (tiny/small/base/large/gundam)
-            test_compress: Whether to test compression ratio
-            save_results: Whether to save results to files
-            save_dir: Directory to save results (required if save_results=True)
-            eval_mode: Whether to use evaluation mode
-            **kwargs: Additional parameters
+            **kwargs: Additional parameters including:
+                - prompt: OCR prompt (default: "<image>\nFree OCR.")
+                - model_size: Model size (default: "gundam")
+                - test_compress: Whether to test compression ratio (default: False)
+                - save_results: Whether to save results (default: False)
+                - save_dir: Directory to save results
+                - eval_mode: Whether to use evaluation mode (default: False)
 
         Returns:
             OCR results as dict or list of dicts
         """
         logger.info("DeepSeek-OCR kwargs: %s", kwargs)
+
+        # Set default values for DeepSeek-OCR specific parameters
+        prompt = kwargs.get("prompt", "<image>\nFree OCR.")
+        model_size = kwargs.get("model_size", "gundam")
+        test_compress = kwargs.get("test_compress", False)
+        save_results = kwargs.get("save_results", False)
+        save_dir = kwargs.get("save_dir", None)
+        eval_mode = kwargs.get("eval_mode", False)
+
+        # Smart detection: Check if this should be a visualization request
+        # Visualization is triggered when:
+        # 1. prompt contains grounding keywords
+        # 2. save_results is True (default behavior for visualization)
+        # 3. Explicit visualization parameters are provided
+        is_visualization_request = (
+            "grounding" in prompt.lower()
+            or "convert" in prompt.lower()
+            or "markdown" in prompt.lower()
+            or save_results
+            or any(
+                key in kwargs
+                for key in ["save_results", "output_format", "annotations", "visualize"]
+            )
+        )
+
+        if is_visualization_request:
+            logger.info("Detected visualization request, delegating to visualize_ocr")
+            # Delegate to visualize_ocr for visualization functionality
+            # Pass all parameters through kwargs to avoid duplication
+            return self.visualize_ocr(image=image, **kwargs)
 
         if self._model is None or self._tokenizer is None:
             raise RuntimeError("Model not loaded. Please call load() first.")

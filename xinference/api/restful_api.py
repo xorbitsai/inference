@@ -740,16 +740,6 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
-            "/v1/images/ocr/visualize",
-            self.create_ocr_visualize,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
             "/v1/images/edits",
             self.create_image_edits,
             methods=["POST"],
@@ -2311,83 +2301,6 @@ class RESTfulAPI(CancelMixin):
             return Response(content=text, media_type="text/plain")
         except asyncio.CancelledError:
             err_str = f"The request has been cancelled: {request_id}"
-            logger.error(err_str)
-            await self._report_error_event(model_uid, err_str)
-            raise HTTPException(status_code=409, detail=err_str)
-        except Exception as e:
-            e = await self._get_model_last_error(model_ref.uid, e)
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            self.handle_request_limit_error(e)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def create_ocr_visualize(
-        self,
-        model: str = Form(...),
-        image: UploadFile = File(media_type="application/octet-stream"),
-        prompt: str = Form("<image>\n<|grounding|>Convert the document to markdown."),
-        model_size: str = Form("gundam"),
-        save_results: bool = Form(True),
-        save_dir: Optional[str] = Form(None),
-        eval_mode: bool = Form(False),
-        kwargs: Optional[str] = Form(None),
-    ) -> Response:
-        """
-        Perform OCR with visualization support.
-
-        Args:
-            model: Model UID
-            image: Image file
-            prompt: OCR prompt with grounding
-            model_size: Model size configuration
-            save_results: Whether to save results
-            save_dir: Directory to save results
-            eval_mode: Whether to use evaluation mode
-            kwargs: Additional parameters
-
-        Returns:
-            JSON response with OCR results and visualization info
-        """
-        model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
-
-        request_id = None
-        try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
-            else:
-                parsed_kwargs = {}
-
-            request_id = parsed_kwargs.get("request_id")
-            self._add_running_task(request_id)
-
-            im = Image.open(image.file)
-
-            # Call visualize_ocr method
-            result = await model_ref.visualize_ocr(
-                image=im,
-                prompt=prompt,
-                model_size=model_size,
-                save_results=save_results,
-                save_dir=save_dir,
-                eval_mode=eval_mode,
-                **parsed_kwargs,
-            )
-
-            # Return JSON response
-            return Response(content=json.dumps(result), media_type="application/json")
-
-        except asyncio.CancelledError:
-            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
