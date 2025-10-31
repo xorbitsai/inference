@@ -67,7 +67,11 @@ class RerankModelRegistry(ModelRegistry):
             cache_manager.unregister_custom_model(self.model_type)
 
 
-def get_user_defined_reranks() -> List[CustomRerankModelFamilyV2]:
+def get_registered_reranks() -> List[CustomRerankModelFamilyV2]:
+    """
+    Get all rerank families registered in the registry (both user-defined and editor-defined).
+    This excludes hardcoded builtin models.
+    """
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("rerank")

@@ -100,9 +100,9 @@ def match_audio(
 ) -> AudioModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS
-    from .custom import get_user_defined_audios
+    from .custom import get_registered_audios
 
-    for model_spec in get_user_defined_audios():
+    for model_spec in get_registered_audios():
         if model_spec.model_name == model_name:
             return model_spec
 

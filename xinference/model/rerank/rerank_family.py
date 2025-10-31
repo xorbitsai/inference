@@ -36,14 +36,14 @@ def match_rerank(
     ] = None,
 ) -> "RerankModelFamilyV2":
     from ..utils import download_from_modelscope
-    from .custom import get_user_defined_reranks
+    from .custom import get_registered_reranks
 
     target_family = None
 
     if model_name in BUILTIN_RERANK_MODELS:
         target_family = BUILTIN_RERANK_MODELS[model_name]
     else:
-        for model_family in get_user_defined_reranks():
+        for model_family in get_registered_reranks():
             if model_name == model_family.model_name:
                 target_family = model_family
                 break

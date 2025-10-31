@@ -94,6 +94,7 @@ from .core import (
 )
 from .custom import (
     CustomVideoModelFamilyV2,
+    get_registered_videos,
     register_video,
     unregister_video,
 )

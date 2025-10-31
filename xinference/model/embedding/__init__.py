@@ -70,7 +70,7 @@ from .core import (
 )
 from .custom import (
     CustomEmbeddingModelFamilyV2,
-    get_user_defined_embeddings,
+    get_registered_embeddings,
     register_embedding,
     unregister_embedding,
 )
@@ -211,7 +211,7 @@ def _install():
     register_custom_model()
 
     # register model description
-    for ud_embedding in get_user_defined_embeddings():
+    for ud_embedding in get_registered_embeddings():
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )

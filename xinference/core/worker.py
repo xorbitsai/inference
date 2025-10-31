@@ -1203,41 +1203,41 @@ class WorkerActor(xo.StatelessActor):
             return item.get("model_name").lower()
 
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import get_registered_llm_families
 
             ret = []
 
-            for family in get_user_defined_llm_families():
+            for family in get_registered_llm_families():
                 ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
-            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.embedding.custom import get_registered_embeddings
 
             ret = []
 
-            for model_spec in get_user_defined_embeddings():
+            for model_spec in get_registered_embeddings():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
-            from ..model.image.custom import get_user_defined_images
+            from ..model.image.custom import get_registered_images
 
             ret = []
 
-            for model_spec in get_user_defined_images():
+            for model_spec in get_registered_images():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
-            from ..model.audio.custom import get_user_defined_audios
+            from ..model.audio.custom import get_registered_audios
 
             ret = []
 
-            for model_spec in get_user_defined_audios():
+            for model_spec in get_registered_audios():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
@@ -1245,11 +1245,11 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "video":
             return []
         elif model_type == "rerank":
-            from ..model.rerank.custom import get_user_defined_reranks
+            from ..model.rerank.custom import get_registered_reranks
 
             ret = []
 
-            for model_spec in get_user_defined_reranks():
+            for model_spec in get_registered_reranks():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
@@ -1270,35 +1270,35 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import get_registered_llm_families
 
-            for f in get_user_defined_llm_families():
+            for f in get_registered_llm_families():
                 if f.model_name == model_name:
                     return f
         elif model_type == "embedding":
-            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.embedding.custom import get_registered_embeddings
 
-            for f in get_user_defined_embeddings():
+            for f in get_registered_embeddings():
                 if f.model_name == model_name:
                     return f
         elif model_type == "image":
-            from ..model.image.custom import get_user_defined_images
+            from ..model.image.custom import get_registered_images
 
-            for f in get_user_defined_images():
+            for f in get_registered_images():
                 if f.model_name == model_name:
                     return f
         elif model_type == "audio":
-            from ..model.audio.custom import get_user_defined_audios
+            from ..model.audio.custom import get_registered_audios
 
-            for f in get_user_defined_audios():
+            for f in get_registered_audios():
                 if f.model_name == model_name:
                     return f
         elif model_type == "video":
             return None
         elif model_type == "rerank":
-            from ..model.rerank.custom import get_user_defined_reranks
+            from ..model.rerank.custom import get_registered_reranks
 
-            for f in get_user_defined_reranks():
+            for f in get_registered_reranks():
                 if f.model_name == model_name:
                     return f
         return None

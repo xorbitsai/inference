@@ -83,7 +83,11 @@ class AudioModelRegistry(ModelRegistry):
         self.builtin_models = list(BUILTIN_AUDIO_MODELS.keys())
 
 
-def get_user_defined_audios() -> List[CustomAudioModelFamilyV2]:
+def get_registered_audios() -> List[CustomAudioModelFamilyV2]:
+    """
+    Get all audio families registered in the registry (both user-defined and editor-defined).
+    This excludes hardcoded builtin models.
+    """
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("audio")

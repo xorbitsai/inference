@@ -479,9 +479,9 @@ def match_llm(
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
     """
-    from .custom import get_user_defined_llm_families
+    from .custom import get_registered_llm_families
 
-    user_defined_llm_families = get_user_defined_llm_families()
+    user_defined_llm_families = get_registered_llm_families()
 
     def _match_quantization(q: Union[str, None], quant: str):
         # Currently, the quantization name could include both uppercase and lowercase letters,

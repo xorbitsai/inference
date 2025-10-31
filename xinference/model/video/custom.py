@@ -63,7 +63,11 @@ def unregister_video(model_name: str, raise_error: bool = True):
     registry.unregister(model_name, raise_error)
 
 
-def get_user_defined_videos() -> List[CustomVideoModelFamilyV2]:
+def get_registered_videos() -> List[CustomVideoModelFamilyV2]:
+    """
+    Get all video families registered in the registry (both user-defined and editor-defined).
+    This excludes hardcoded builtin models.
+    """
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("video")

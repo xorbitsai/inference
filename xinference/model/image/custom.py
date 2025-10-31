@@ -43,7 +43,11 @@ class ImageModelRegistry(ModelRegistry):
         self.builtin_models = list(BUILTIN_IMAGE_MODELS.keys())
 
 
-def get_user_defined_images() -> List[ImageModelFamilyV2]:
+def get_registered_images() -> List[ImageModelFamilyV2]:
+    """
+    Get all image families registered in the registry (both user-defined and editor-defined).
+    This excludes hardcoded builtin models.
+    """
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("image")

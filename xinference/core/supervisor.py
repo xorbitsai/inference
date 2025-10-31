@@ -441,6 +441,51 @@ class SupervisorActor(xo.StatelessActor):
             )
         return specs, list(download_hubs)
 
+    def _is_model_from_builtin_dir(self, model_name: str, model_type: str) -> bool:
+        """
+        Check if a model comes from the builtin directory (added via update_model_type)
+        or from the custom directory (true user custom models).
+        """
+        import os
+
+        from xinference.constants import XINFERENCE_MODEL_DIR
+
+        # Check builtin directory (update_model_type models)
+        builtin_dir = os.path.join(
+            XINFERENCE_MODEL_DIR, "v2", "builtin", model_type.lower()
+        )
+        builtin_file = os.path.join(builtin_dir, f"{model_name}.json")
+
+        if os.path.exists(builtin_file):
+            return True
+
+        # Also check unified JSON file for models added via update_model_type
+        unified_json = os.path.join(builtin_dir, f"{model_type.lower()}_models.json")
+        if os.path.exists(unified_json):
+            import json
+
+            try:
+                with open(unified_json, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                # Check if model_name exists in this JSON file
+                if isinstance(data, list):
+                    return any(model.get("model_name") == model_name for model in data)
+                elif isinstance(data, dict):
+                    if data.get("model_name") == model_name:
+                        return True
+                    else:
+                        # Check dict values
+                        return any(
+                            isinstance(value, dict)
+                            and value.get("model_name") == model_name
+                            for value in data.values()
+                        )
+            except Exception:
+                pass
+
+        return False
+
     async def _to_llm_reg(
         self, llm_family: "LLMFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
@@ -635,12 +680,13 @@ class SupervisorActor(xo.StatelessActor):
         if model_type.upper() == "LLM":
             from ..model.llm import (
                 BUILTIN_LLM_FAMILIES,
-                get_user_defined_llm_families,
+                get_registered_llm_families,
                 register_builtin_model,
             )
 
             register_builtin_model()
 
+            # 1. Hardcoded built-in models
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
                     reg_data = await self._to_llm_reg(family, True)
@@ -648,18 +694,31 @@ class SupervisorActor(xo.StatelessActor):
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": True})
 
-            user_defined_families = get_user_defined_llm_families()
+            # 2. Registered models (user-defined + editor-defined)
+            registered_families = get_registered_llm_families()
             builtin_names = {family.model_name for family in BUILTIN_LLM_FAMILIES}
 
-            for family in user_defined_families:
+            for family in registered_families:
+                # If model is not in hardcoded list, it might be editor-defined, need to check source
                 if family.model_name not in builtin_names:
-                    if detailed:
-                        reg_data = await self._to_llm_reg(family, True)
-                        ret.append(reg_data)
-                    else:
-                        ret.append(
-                            {"model_name": family.model_name, "is_builtin": True}
-                        )
+                    # Check if it comes from builtin directory (added via update_model_type)
+                    if self._is_model_from_builtin_dir(family.model_name, "llm"):
+                        # This is an editor-defined model, should be marked as builtin=True
+                        if detailed:
+                            reg_data = await self._to_llm_reg(family, True)
+                            ret.append(reg_data)
+                        else:
+                            ret.append(
+                                {"model_name": family.model_name, "is_builtin": True}
+                            )
+                        continue
+
+                # True user-defined model, mark as builtin=False
+                if detailed:
+                    reg_data = await self._to_llm_reg(family, False)
+                    ret.append(reg_data)
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
 
                 ret.sort(key=sort_helper)
             return ret
@@ -668,10 +727,11 @@ class SupervisorActor(xo.StatelessActor):
                 BUILTIN_EMBEDDING_MODELS,
                 register_builtin_model,
             )
-            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.embedding.custom import get_registered_embeddings
 
             register_builtin_model()
 
+            # 1. Hardcoded built-in models
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
                     ret.append(
@@ -680,53 +740,52 @@ class SupervisorActor(xo.StatelessActor):
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
-            for model_spec in get_user_defined_embeddings():
-                # Check if this model is persisted (added via add_model API)
-                from ..model.cache_manager import CacheManager
+            # 2. Registered models (user-defined + editor-defined)
+            registered_models = get_registered_embeddings()
+            builtin_names = set(BUILTIN_EMBEDDING_MODELS.keys())
 
-                cache_manager = CacheManager(model_spec)
-                is_persisted_model = False
-                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
-                    import os
-
-                    potential_persist_path = os.path.join(
-                        cache_manager._v2_builtin_dir_prefix,
-                        "embedding",
-                        f"{model_spec.model_name}.json",
-                    )
-                    if os.path.exists(potential_persist_path):
-                        is_persisted_model = True
-                    else:
-                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
-                            potential_custom_path = os.path.join(
-                                cache_manager._v2_custom_dir_prefix,
-                                "embedding",
-                                f"{model_spec.model_name}.json",
+            for model_spec in registered_models:
+                # If model is not in hardcoded list, it might be editor-defined, need to check source
+                if model_spec.model_name not in builtin_names:
+                    # Check if it comes from builtin directory (added via update_model_type)
+                    if self._is_model_from_builtin_dir(
+                        model_spec.model_name, "embedding"
+                    ):
+                        # This is an editor-defined model, should be marked as builtin=True
+                        if detailed:
+                            ret.append(
+                                await self._to_embedding_model_reg(
+                                    model_spec, is_builtin=True
+                                )
                             )
-                            if os.path.exists(potential_custom_path):
-                                is_persisted_model = True
+                        else:
+                            ret.append(
+                                {
+                                    "model_name": model_spec.model_name,
+                                    "is_builtin": True,
+                                }
+                            )
+                        continue
 
-                is_builtin = is_persisted_model  # Treat persisted models as built-in
-
+                # True user-defined model, mark as builtin=False
                 if detailed:
                     ret.append(
-                        await self._to_embedding_model_reg(
-                            model_spec, is_builtin=is_builtin
-                        )
+                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
+                        {"model_name": model_spec.model_name, "is_builtin": False}
                     )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS, register_builtin_model
-            from ..model.image.custom import get_user_defined_images
+            from ..model.image.custom import get_registered_images
 
             register_builtin_model()
 
+            # 1. Hardcoded built-in models
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
@@ -736,52 +795,50 @@ class SupervisorActor(xo.StatelessActor):
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
-            for model_spec in get_user_defined_images():
-                from ..model.cache_manager import CacheManager
+            # 2. Registered models (user-defined + editor-defined)
+            registered_models = get_registered_images()
+            builtin_names = set(BUILTIN_IMAGE_MODELS.keys())
 
-                cache_manager = CacheManager(model_spec)
-                is_persisted_model = False
-                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
-                    import os
-
-                    potential_persist_path = os.path.join(
-                        cache_manager._v2_builtin_dir_prefix,
-                        "image",
-                        f"{model_spec.model_name}.json",
-                    )
-                    if os.path.exists(potential_persist_path):
-                        is_persisted_model = True
-                    else:
-                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
-                            potential_custom_path = os.path.join(
-                                cache_manager._v2_custom_dir_prefix,
-                                "image",
-                                f"{model_spec.model_name}.json",
+            for model_spec in registered_models:
+                # If model is not in hardcoded list, it might be editor-defined, need to check source
+                if model_spec.model_name not in builtin_names:
+                    # Check if it comes from builtin directory (added via update_model_type)
+                    if self._is_model_from_builtin_dir(model_spec.model_name, "image"):
+                        # This is an editor-defined model, should be marked as builtin=True
+                        if detailed:
+                            ret.append(
+                                await self._to_image_model_reg(
+                                    model_spec, is_builtin=True
+                                )
                             )
-                            if os.path.exists(potential_custom_path):
-                                is_persisted_model = True
+                        else:
+                            ret.append(
+                                {
+                                    "model_name": model_spec.model_name,
+                                    "is_builtin": True,
+                                }
+                            )
+                        continue
 
-                is_builtin = is_persisted_model  # Treat persisted models as built-in
-
+                # True user-defined model, mark as builtin=False
                 if detailed:
                     ret.append(
-                        await self._to_image_model_reg(
-                            model_spec, is_builtin=is_builtin
-                        )
+                        await self._to_image_model_reg(model_spec, is_builtin=False)
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
+                        {"model_name": model_spec.model_name, "is_builtin": False}
                     )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS, register_builtin_model
-            from ..model.audio.custom import get_user_defined_audios
+            from ..model.audio.custom import get_registered_audios
 
             register_builtin_model()
 
+            # 1. Hardcoded built-in models
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
@@ -791,52 +848,50 @@ class SupervisorActor(xo.StatelessActor):
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
-            for model_spec in get_user_defined_audios():
-                from ..model.cache_manager import CacheManager
+            # 2. Registered models (user-defined + editor-defined)
+            registered_models = get_registered_audios()
+            builtin_names = set(BUILTIN_AUDIO_MODELS.keys())
 
-                cache_manager = CacheManager(model_spec)
-                is_persisted_model = False
-                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
-                    import os
-
-                    potential_persist_path = os.path.join(
-                        cache_manager._v2_builtin_dir_prefix,
-                        "audio",
-                        f"{model_spec.model_name}.json",
-                    )
-                    if os.path.exists(potential_persist_path):
-                        is_persisted_model = True
-                    else:
-                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
-                            potential_custom_path = os.path.join(
-                                cache_manager._v2_custom_dir_prefix,
-                                "audio",
-                                f"{model_spec.model_name}.json",
+            for model_spec in registered_models:
+                # If model is not in hardcoded list, it might be editor-defined, need to check source
+                if model_spec.model_name not in builtin_names:
+                    # Check if it comes from builtin directory (added via update_model_type)
+                    if self._is_model_from_builtin_dir(model_spec.model_name, "audio"):
+                        # This is an editor-defined model, should be marked as builtin=True
+                        if detailed:
+                            ret.append(
+                                await self._to_audio_model_reg(
+                                    model_spec, is_builtin=True
+                                )
                             )
-                            if os.path.exists(potential_custom_path):
-                                is_persisted_model = True
+                        else:
+                            ret.append(
+                                {
+                                    "model_name": model_spec.model_name,
+                                    "is_builtin": True,
+                                }
+                            )
+                        continue
 
-                is_builtin = is_persisted_model  # Treat persisted models as built-in
-
+                # True user-defined model, mark as builtin=False
                 if detailed:
                     ret.append(
-                        await self._to_audio_model_reg(
-                            model_spec, is_builtin=is_builtin
-                        )
+                        await self._to_audio_model_reg(model_spec, is_builtin=False)
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
+                        {"model_name": model_spec.model_name, "is_builtin": False}
                     )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS, register_builtin_model
-            from ..model.video.custom import get_user_defined_videos
+            from ..model.video.custom import get_registered_videos
 
             register_builtin_model()
 
+            # 1. Hardcoded built-in models
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
@@ -845,93 +900,89 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
-            for model_spec in get_user_defined_videos():
-                from ..model.cache_manager import CacheManager
 
-                cache_manager = CacheManager(model_spec)
-                is_persisted_model = False
-                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
-                    import os
+            # 2. Registered models (user-defined + editor-defined)
+            registered_models = get_registered_videos()
+            builtin_names = set(BUILTIN_VIDEO_MODELS.keys())
 
-                    potential_persist_path = os.path.join(
-                        cache_manager._v2_builtin_dir_prefix,
-                        "video",
-                        f"{model_spec.model_name}.json",
-                    )
-                    if os.path.exists(potential_persist_path):
-                        is_persisted_model = True
-                    else:
-                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
-                            potential_custom_path = os.path.join(
-                                cache_manager._v2_custom_dir_prefix,
-                                "video",
-                                f"{model_spec.model_name}.json",
+            for model_spec in registered_models:
+                # If model is not in hardcoded list, it might be editor-defined, need to check source
+                if model_spec.model_name not in builtin_names:
+                    # Check if it comes from builtin directory (added via update_model_type)
+                    if self._is_model_from_builtin_dir(model_spec.model_name, "video"):
+                        # This is an editor-defined model, should be marked as builtin=True
+                        if detailed:
+                            ret.append(
+                                await self._to_video_model_reg(
+                                    model_spec, is_builtin=True
+                                )
                             )
-                            if os.path.exists(potential_custom_path):
-                                is_persisted_model = True
+                        else:
+                            ret.append(
+                                {
+                                    "model_name": model_spec.model_name,
+                                    "is_builtin": True,
+                                }
+                            )
+                        continue
+
+                # True user-defined model, mark as builtin=False
                 if detailed:
                     ret.append(
-                        await self._to_video_model_reg(
-                            model_spec, is_builtin=is_persisted_model
-                        )
+                        await self._to_video_model_reg(model_spec, is_builtin=False)
                     )
                 else:
                     ret.append(
-                        {
-                            "model_name": model_spec.model_name,
-                            "is_builtin": is_persisted_model,
-                        }
+                        {"model_name": model_spec.model_name, "is_builtin": False}
                     )
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS, register_builtin_model
-            from ..model.rerank.custom import get_user_defined_reranks
+            from ..model.rerank.custom import get_registered_reranks
 
             register_builtin_model()
 
+            # 1. Hardcoded built-in models
             for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
                     ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
-            for model_spec in get_user_defined_reranks():
-                from ..model.cache_manager import CacheManager
+            # 2. Registered models (user-defined + editor-defined)
+            registered_models = get_registered_reranks()
+            builtin_names = set(BUILTIN_RERANK_MODELS.keys())
 
-                cache_manager = CacheManager(model_spec)
-                is_persisted_model = False
-                if hasattr(cache_manager, "_v2_builtin_dir_prefix"):
-                    import os
-
-                    potential_persist_path = os.path.join(
-                        cache_manager._v2_builtin_dir_prefix,
-                        "rerank",
-                        f"{model_spec.model_name}.json",
-                    )
-                    if os.path.exists(potential_persist_path):
-                        is_persisted_model = True
-                    else:
-                        if hasattr(cache_manager, "_v2_custom_dir_prefix"):
-                            potential_custom_path = os.path.join(
-                                cache_manager._v2_custom_dir_prefix,
-                                "rerank",
-                                f"{model_spec.model_name}.json",
+            for model_spec in registered_models:
+                # If model is not in hardcoded list, it might be editor-defined, need to check source
+                if model_spec.model_name not in builtin_names:
+                    # Check if it comes from builtin directory (added via update_model_type)
+                    if self._is_model_from_builtin_dir(model_spec.model_name, "rerank"):
+                        # This is an editor-defined model, should be marked as builtin=True
+                        if detailed:
+                            ret.append(
+                                await self._to_rerank_model_reg(
+                                    model_spec, is_builtin=True
+                                )
                             )
-                            if os.path.exists(potential_custom_path):
-                                is_persisted_model = True
+                        else:
+                            ret.append(
+                                {
+                                    "model_name": model_spec.model_name,
+                                    "is_builtin": True,
+                                }
+                            )
+                        continue
 
-                is_builtin = is_persisted_model  # Treat persisted models as built-in
-
+                # True user-defined model, mark as builtin=False
                 if detailed:
                     ret.append(
-                        await self._to_rerank_model_reg(
-                            model_spec, is_builtin=is_builtin
-                        )
+                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
                     )
                 else:
                     ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": is_builtin}
+                        {"model_name": model_spec.model_name, "is_builtin": False}
                     )
 
             ret.sort(key=sort_helper)
@@ -985,26 +1036,26 @@ class SupervisorActor(xo.StatelessActor):
                     return f
 
         if model_type.upper() == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_registered_llm_families
 
-            for f in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families():
+            for f in BUILTIN_LLM_FAMILIES + get_registered_llm_families():
                 if f.model_name == model_name:
                     return f
 
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
-            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.embedding.custom import get_registered_embeddings
 
             for f in (
-                list(BUILTIN_EMBEDDING_MODELS.values()) + get_user_defined_embeddings()
+                list(BUILTIN_EMBEDDING_MODELS.values()) + get_registered_embeddings()
             ):
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.custom import get_user_defined_images
+            from ..model.image.custom import get_registered_images
 
             if model_name in BUILTIN_IMAGE_MODELS:
                 return [
@@ -1013,13 +1064,13 @@ class SupervisorActor(xo.StatelessActor):
                     if x.model_hub == "huggingface"
                 ][0]
             else:
-                for f in get_user_defined_images():
+                for f in get_registered_images():
                     if f.model_name == model_name:
                         return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS
-            from ..model.audio.custom import get_user_defined_audios
+            from ..model.audio.custom import get_registered_audios
 
             if model_name in BUILTIN_AUDIO_MODELS:
                 return [
@@ -1028,15 +1079,15 @@ class SupervisorActor(xo.StatelessActor):
                     if x.model_hub == "huggingface"
                 ][0]
             else:
-                for f in get_user_defined_audios():
+                for f in get_registered_audios():
                     if f.model_name == model_name:
                         return f
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
-            from ..model.rerank.custom import get_user_defined_reranks
+            from ..model.rerank.custom import get_registered_reranks
 
-            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+            for f in list(BUILTIN_RERANK_MODELS.values()) + get_registered_reranks():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
@@ -1049,7 +1100,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS
-            from ..model.video.custom import get_user_defined_videos
+            from ..model.video.custom import get_registered_videos
 
             if model_name in BUILTIN_VIDEO_MODELS:
                 return [
@@ -1058,7 +1109,7 @@ class SupervisorActor(xo.StatelessActor):
                     if x.model_hub == "huggingface"
                 ][0]
             else:
-                for f in get_user_defined_videos():
+                for f in get_registered_videos():
                     if f.model_name == model_name:
                         return f
             raise ValueError(f"Model {model_name} not found")

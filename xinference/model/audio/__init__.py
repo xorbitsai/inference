@@ -79,7 +79,7 @@ from .core import (
 )
 from .custom import (
     CustomAudioModelFamilyV2,
-    get_user_defined_audios,
+    get_registered_audios,
     register_audio,
     unregister_audio,
 )
@@ -143,7 +143,7 @@ def _install():
     register_custom_model()
 
     # register model description
-    for ud_audio in get_user_defined_audios():
+    for ud_audio in get_registered_audios():
         AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
 

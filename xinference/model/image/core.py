@@ -121,9 +121,9 @@ def match_diffusion(
 ) -> ImageModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS
-    from .custom import get_user_defined_images
+    from .custom import get_registered_images
 
-    for model_spec in get_user_defined_images():
+    for model_spec in get_registered_images():
         if model_spec.model_name == model_name:
             return model_spec
 

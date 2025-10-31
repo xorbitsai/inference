@@ -94,7 +94,7 @@ from .core import (
 )
 from .custom import (
     CustomImageModelFamilyV2,
-    get_user_defined_images,
+    get_registered_images,
     register_image,
     unregister_image,
 )
@@ -240,7 +240,7 @@ def _install():
 
     register_custom_model()
 
-    for ud_image in get_user_defined_images():
+    for ud_image in get_registered_images():
         IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))
 
 

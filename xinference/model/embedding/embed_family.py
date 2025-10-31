@@ -37,14 +37,14 @@ def match_embedding(
     ] = None,
 ) -> "EmbeddingModelFamilyV2":
     from ..utils import download_from_modelscope
-    from .custom import get_user_defined_embeddings
+    from .custom import get_registered_embeddings
 
     target_family = None
 
     if model_name in BUILTIN_EMBEDDING_MODELS:
         target_family = BUILTIN_EMBEDDING_MODELS[model_name]
     else:
-        for model_family in get_user_defined_embeddings():
+        for model_family in get_registered_embeddings():
             if model_name == model_family.model_name:
                 target_family = model_family
                 break
