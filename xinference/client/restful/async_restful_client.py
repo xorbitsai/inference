@@ -598,11 +598,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         await _release_response(response)
         return response_data
 
-    async def ocr(
-        self,
-        image: Union[str, bytes],
-        **kwargs,
-    ):
+    async def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
         params = {
             "model": self._model_uid,

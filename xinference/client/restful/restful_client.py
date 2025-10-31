@@ -535,11 +535,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
-    def ocr(
-        self,
-        image: Union[str, bytes],
-        **kwargs,
-    ):
+    def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
         params = {
             "model": self._model_uid,
