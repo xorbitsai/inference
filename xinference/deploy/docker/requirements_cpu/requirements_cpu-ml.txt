@@ -7,7 +7,6 @@ transformers_stream_generator
 accelerate>=0.28.0
 bitsandbytes
 tiktoken>=0.6.0
-gptqmodel
 autoawq!=0.2.6
 optimum
 peft
