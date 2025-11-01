@@ -61,34 +61,13 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_video_dir}/{f} has error, {e}")
 
 
-def register_builtin_model():
-    """
-    Dynamically load built-in video models from builtin/video directory.
-    This function is called every time model list is requested,
-    ensuring real-time updates without server restart.
-    """
-    # Use unified function for video models
-    from ..utils import flatten_model_src, register_builtin_models_unified
-
-    def video_convert_func(model_json):
-        """Video-specific conversion function"""
-        flattened_list = flatten_model_src(model_json)
-        return flattened_list[0] if flattened_list else model_json
-
-    loaded_count = register_builtin_models_unified(
-        model_type="video",
-        flatten_func=flatten_model_src,
-        model_class=VideoModelFamilyV2,
-        builtin_registry=BUILTIN_VIDEO_MODELS,
-        custom_convert_func=video_convert_func,
-    )
-
-
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_VIDEO_MODELS)
 
     # Load models from complete JSON file (from update_model_type)
-    register_builtin_model()
+    from ..utils import register_video_builtin_models
+
+    register_video_builtin_models()
 
     # register model description
     for model_name, model_specs in BUILTIN_VIDEO_MODELS.items():

@@ -909,29 +909,29 @@ class WorkerActor(xo.StatelessActor):
             # Dynamically reload built-in models to make them immediately available
             try:
                 if model_type.lower() == "llm":
-                    from ..model.llm import register_builtin_model
+                    from ..model.utils import register_llm_builtin_models
 
-                    register_builtin_model()
+                    register_llm_builtin_models()
                 elif model_type.lower() == "embedding":
-                    from ..model.embedding import register_builtin_model
+                    from ..model.utils import register_embedding_builtin_models
 
-                    register_builtin_model()
+                    register_embedding_builtin_models()
                 elif model_type.lower() == "audio":
-                    from ..model.audio import register_builtin_model
+                    from ..model.utils import register_audio_builtin_models
 
-                    register_builtin_model()
+                    register_audio_builtin_models()
                 elif model_type.lower() == "image":
-                    from ..model.image import register_builtin_model
+                    from ..model.utils import register_image_builtin_models
 
-                    register_builtin_model()
+                    register_image_builtin_models()
                 elif model_type.lower() == "rerank":
-                    from ..model.rerank import register_builtin_model
+                    from ..model.utils import register_rerank_builtin_models
 
-                    register_builtin_model()
+                    register_rerank_builtin_models()
                 elif model_type.lower() == "video":
-                    from ..model.video import register_builtin_model
+                    from ..model.utils import register_video_builtin_models
 
-                    register_builtin_model()
+                    register_video_builtin_models()
                 else:
                     logger.warning(
                         f"No dynamic loading available for model type: {model_type}"

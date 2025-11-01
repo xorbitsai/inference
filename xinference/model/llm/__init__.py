@@ -134,46 +134,6 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
 
 
-def register_builtin_model():
-    # Use unified function for LLM models
-    from ..custom import RegistryManager
-    from ..utils import flatten_quantizations, register_builtin_models_unified
-    from .custom import register_llm
-
-    def llm_special_handling(registry, model_type):
-        """Handle LLM's special registration logic"""
-        registry_mgr = RegistryManager.get_registry("llm")
-        existing_model_names = {
-            spec.model_name for spec in registry_mgr.get_custom_models()
-        }
-
-        for model_name, model_families in registry.items():
-            for model_family in model_families:
-                if model_family.model_name not in existing_model_names:
-                    try:
-                        register_llm(model_family, persist=False)
-                        existing_model_names.add(model_family.model_name)
-                    except ValueError as e:
-                        # Capture conflict errors and output warnings instead of raising exceptions
-                        import warnings
-
-                        warnings.warn(str(e))
-                    except Exception as e:
-                        import warnings
-
-                        warnings.warn(
-                            f"Error registering LLM model {model_family.model_name}: {e}"
-                        )
-
-    loaded_count = register_builtin_models_unified(
-        model_type="llm",
-        flatten_func=flatten_quantizations,
-        model_class=LLMFamilyV2,
-        builtin_registry={},  # Special handling
-        special_handling=llm_special_handling,
-    )
-
-
 def load_model_family_from_json(json_filename, target_families):
     json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), json_filename)
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):

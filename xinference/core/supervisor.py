@@ -681,10 +681,10 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.llm import (
                 BUILTIN_LLM_FAMILIES,
                 get_registered_llm_families,
-                register_builtin_model,
             )
+            from ..model.utils import register_llm_builtin_models
 
-            register_builtin_model()
+            register_llm_builtin_models()
 
             # 1. Hardcoded built-in models
             for family in BUILTIN_LLM_FAMILIES:
@@ -723,13 +723,11 @@ class SupervisorActor(xo.StatelessActor):
                 ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
-            from ..model.embedding import (
-                BUILTIN_EMBEDDING_MODELS,
-                register_builtin_model,
-            )
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_registered_embeddings
+            from ..model.utils import register_embedding_builtin_models
 
-            register_builtin_model()
+            register_embedding_builtin_models()
 
             # 1. Hardcoded built-in models
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
@@ -780,10 +778,11 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS, register_builtin_model
+            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_registered_images
+            from ..model.utils import register_image_builtin_models
 
-            register_builtin_model()
+            register_image_builtin_models()
 
             # 1. Hardcoded built-in models
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
@@ -833,10 +832,11 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS, register_builtin_model
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_registered_audios
+            from ..model.utils import register_audio_builtin_models
 
-            register_builtin_model()
+            register_audio_builtin_models()
 
             # 1. Hardcoded built-in models
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
@@ -886,10 +886,11 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            from ..model.video import BUILTIN_VIDEO_MODELS, register_builtin_model
+            from ..model.utils import register_video_builtin_models
+            from ..model.video import BUILTIN_VIDEO_MODELS
             from ..model.video.custom import get_registered_videos
 
-            register_builtin_model()
+            register_video_builtin_models()
 
             # 1. Hardcoded built-in models
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
@@ -938,10 +939,11 @@ class SupervisorActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS, register_builtin_model
+            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_registered_reranks
+            from ..model.utils import register_rerank_builtin_models
 
-            register_builtin_model()
+            register_rerank_builtin_models()
 
             # 1. Hardcoded built-in models
             for model_name, family in BUILTIN_RERANK_MODELS.items():

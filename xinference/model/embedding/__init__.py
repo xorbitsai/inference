@@ -69,46 +69,6 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 
-def register_builtin_model():
-    # Use unified function for embedding models
-    from ..utils import flatten_quantizations, register_builtin_models_unified
-    from .embed_family import BUILTIN_EMBEDDING_MODELS
-
-    def embedding_special_handling(registry, model_type):
-        """Handle embedding's special registration logic"""
-        from ..custom import RegistryManager
-
-        registry_mgr = RegistryManager.get_registry("embedding")
-        existing_model_names = {
-            spec.model_name for spec in registry_mgr.get_custom_models()
-        }
-
-        for model_name, model_family in BUILTIN_EMBEDDING_MODELS.items():
-            if model_family.model_name not in existing_model_names:
-                try:
-                    register_embedding(model_family, persist=False)
-                    existing_model_names.add(model_family.model_name)
-                except ValueError as e:
-                    # Capture conflict errors and output warnings instead of raising exceptions
-                    import warnings
-
-                    warnings.warn(str(e))
-                except Exception as e:
-                    import warnings
-
-                    warnings.warn(
-                        f"Error registering embedding model {model_family.model_name}: {e}"
-                    )
-
-    loaded_count = register_builtin_models_unified(
-        model_type="embedding",
-        flatten_func=flatten_quantizations,
-        model_class=EmbeddingModelFamilyV2,
-        builtin_registry=BUILTIN_EMBEDDING_MODELS,
-        special_handling=embedding_special_handling,
-    )
-
-
 def check_format_with_engine(model_format, engine):
     if model_format in ["ggufv2"] and engine not in ["llama.cpp"]:
         return False

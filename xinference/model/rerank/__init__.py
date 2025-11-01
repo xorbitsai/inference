@@ -68,18 +68,6 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
 
-def register_builtin_model():
-    # Use unified function for rerank models
-    from ..utils import flatten_quantizations, register_builtin_models_unified
-
-    loaded_count = register_builtin_models_unified(
-        model_type="rerank",
-        flatten_func=flatten_quantizations,
-        model_class=RerankModelFamilyV2,
-        builtin_registry=BUILTIN_RERANK_MODELS,
-    )
-
-
 def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
     model_name = model_family.model_name
     engines: Dict[str, List[Dict[str, Any]]] = RERANK_ENGINES.get(
