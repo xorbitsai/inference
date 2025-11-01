@@ -68,7 +68,7 @@ def register_builtin_model():
     ensuring real-time updates without server restart.
     """
     # Use unified function for video models
-    from ..utils import register_builtin_models_unified, flatten_model_src
+    from ..utils import flatten_model_src, register_builtin_models_unified
 
     def video_convert_func(model_json):
         """Video-specific conversion function"""

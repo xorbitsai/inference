@@ -817,35 +817,31 @@ def load_complete_builtin_models(
 
 def register_builtin_models_unified(
     model_type: str,
-    flatten_func: callable,
-    model_class: type,
-    builtin_registry: dict,
-    custom_convert_func: callable = None,
-    custom_defaults: dict = None,
-    special_handling: callable = None,
+    flatten_func: Callable,
+    model_class: Type,
+    builtin_registry: Dict[str, Any],
+    custom_convert_func: Optional[Callable] = None,
+    custom_defaults: Optional[Dict[str, Any]] = None,
+    special_handling: Optional[Callable] = None,
 ):
     """
-    统一的内置模型注册函数
+    Unified builtin model registration function
 
     Args:
-        model_type: 模型类型 ('llm', 'embedding', 'rerank', 'audio', 'image', 'video')
-        flatten_func: 扁平化函数 (flatten_quantizations 或 flatten_model_src)
-        model_class: 模型类 (如 LLMFamilyV2)
-        builtin_registry: 内置模型注册表
-        custom_convert_func: 自定义转换函数 (可选)
-        custom_defaults: 自定义默认值 (可选，用于Audio模型)
-        special_handling: 特殊处理函数 (可选，用于Image/LLM模型)
+        model_type: Model type ('llm', 'embedding', 'rerank', 'audio', 'image', 'video')
+        flatten_func: Flatten function (flatten_quantizations or flatten_model_src)
+        model_class: Model class (e.g. LLMFamilyV2)
+        builtin_registry: Builtin model registry
+        custom_convert_func: Custom conversion function (optional)
+        custom_defaults: Custom default values (optional, for Audio models)
+        special_handling: Special handling function (optional, for Image/LLM models)
 
     Returns:
-        int: 成功加载的模型数量
+        int: Number of successfully loaded models
     """
-    import codecs
-    import json
-    from ..constants import XINFERENCE_MODEL_DIR
-
     logger = logging.getLogger(__name__)
 
-    # 默认转换函数
+    # Default conversion function
     def default_convert_func(model_json):
         if "model_specs" not in model_json:
             return model_json
@@ -860,10 +856,10 @@ def register_builtin_models_unified(
         result["model_specs"] = flattened_specs
         return result
 
-    # 使用自定义转换函数或默认函数
+    # Use custom conversion function or default function
     convert_func = custom_convert_func or default_convert_func
 
-    # 使用统一的加载函数
+    # Use unified loading function
     loaded_count = load_complete_builtin_models(
         model_type=model_type,
         builtin_registry=builtin_registry,
@@ -871,32 +867,36 @@ def register_builtin_models_unified(
         model_class=model_class,
     )
 
-    # 应用自定义默认值 (用于Audio模型)
-    if custom_defaults and loaded_count > 0:
+    # Apply custom defaults (for Audio models)
+    if custom_defaults is not None and loaded_count > 0:
         _apply_custom_defaults(builtin_registry, custom_defaults, model_type)
 
-    # 执行特殊处理 (用于Image/LLM模型)
-    if special_handling and loaded_count > 0:
+    # Execute special handling (for Image/LLM models)
+    if special_handling is not None and loaded_count > 0:
         special_handling(builtin_registry, model_type)
 
-    logger.info(f"Successfully loaded {loaded_count} {model_type} models using unified function")
+    logger.info(
+        f"Successfully loaded {loaded_count} {model_type} models using unified function"
+    )
     return loaded_count
 
 
-def _apply_custom_defaults(registry: dict, defaults: dict, model_type: str):
+def _apply_custom_defaults(
+    registry: Dict[str, Any], defaults: Dict[str, Any], model_type: str
+):
     """
-    应用自定义默认值到模型规格
+    Apply custom defaults to model specifications
 
     Args:
-        registry: 模型注册表
-        defaults: 默认值字典
-        model_type: 模型类型
+        registry: Model registry
+        defaults: Default values dictionary
+        model_type: Model type
     """
     for model_name, model_specs in registry.items():
         if isinstance(model_specs, list):
-            # 对于使用列表结构的模型类型 (audio, image, video, llm)
+            # For model types using list structure (audio, image, video, llm)
             for spec in model_specs:
-                if hasattr(spec, '__dict__'):
+                if hasattr(spec, "__dict__"):
                     for key, value in defaults.items():
                         if not hasattr(spec, key):
                             setattr(spec, key, value)
@@ -905,8 +905,8 @@ def _apply_custom_defaults(registry: dict, defaults: dict, model_type: str):
                         if key not in spec:
                             spec[key] = value
         else:
-            # 对于使用单一结构的模型类型 (embedding, rerank)
-            if hasattr(model_specs, '__dict__'):
+            # For model types using single structure (embedding, rerank)
+            if hasattr(model_specs, "__dict__"):
                 for key, value in defaults.items():
                     if not hasattr(model_specs, key):
                         setattr(model_specs, key, value)

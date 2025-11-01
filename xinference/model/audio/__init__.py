@@ -67,18 +67,81 @@ def register_custom_model():
 
 def register_builtin_model():
     # Use unified function for audio models
-    from ..utils import register_builtin_models_unified, flatten_model_src
+    from ..utils import flatten_model_src, register_builtin_models_unified
+
+    def convert_audio_model_format(model_json):
+        """
+        Convert audio model hub JSON format to Xinference expected format.
+        Add missing required fields for AudioModelFamilyV2.
+        """
+        converted = model_json.copy()
+
+        # Apply conversion logic to handle null model_id and other issues
+        if converted.get("model_id") is None and "model_src" in converted:
+            model_src = converted["model_src"]
+            # Extract model_id from available sources
+            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
+                converted["model_id"] = model_src["huggingface"]["model_id"]
+            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+                converted["model_id"] = model_src["modelscope"]["model_id"]
+
+        # Extract model_revision if available
+        if converted.get("model_revision") is None and "model_src" in converted:
+            model_src = converted["model_src"]
+            if (
+                "huggingface" in model_src
+                and "model_revision" in model_src["huggingface"]
+            ):
+                converted["model_revision"] = model_src["huggingface"]["model_revision"]
+            elif (
+                "modelscope" in model_src
+                and "model_revision" in model_src["modelscope"]
+            ):
+                converted["model_revision"] = model_src["modelscope"]["model_revision"]
+
+        return converted
+
+    def audio_special_handling(registry, model_type):
+        """Handle audio's special registration logic"""
+        from ..custom import RegistryManager
+        from .custom import register_audio
+
+        registry_mgr = RegistryManager.get_registry("audio")
+        existing_model_names = {
+            spec.model_name for spec in registry_mgr.get_custom_models()
+        }
+
+        for model_name, model_families in BUILTIN_AUDIO_MODELS.items():
+            for model_family in model_families:
+                if model_family.model_name not in existing_model_names:
+                    try:
+                        # Actually register model to RegistryManager
+                        register_audio(model_family, persist=False)
+                        existing_model_names.add(model_family.model_name)
+                    except ValueError as e:
+                        # Capture conflict errors and output warnings instead of raising exceptions
+                        import warnings
+
+                        warnings.warn(str(e))
+                    except Exception as e:
+                        import warnings
+
+                        warnings.warn(
+                            f"Error registering audio model {model_family.model_name}: {e}"
+                        )
 
     loaded_count = register_builtin_models_unified(
         model_type="audio",
         flatten_func=flatten_model_src,
-        model_class=AudioModelFamilyV2,
+        model_class=CustomAudioModelFamilyV2,
         builtin_registry=BUILTIN_AUDIO_MODELS,
+        custom_convert_func=convert_audio_model_format,
         custom_defaults={
             "multilingual": True,
             "model_lang": ["en", "zh"],
             "version": 2,
-        }
+        },
+        special_handling=audio_special_handling,
     )
 
 

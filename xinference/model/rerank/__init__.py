@@ -70,7 +70,7 @@ def register_custom_model():
 
 def register_builtin_model():
     # Use unified function for rerank models
-    from ..utils import register_builtin_models_unified, flatten_quantizations
+    from ..utils import flatten_quantizations, register_builtin_models_unified
 
     loaded_count = register_builtin_models_unified(
         model_type="rerank",

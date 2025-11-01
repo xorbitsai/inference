@@ -63,30 +63,67 @@ def register_custom_model():
 
 def register_builtin_model():
     # Use unified function for image models
-    from ..utils import register_builtin_models_unified, flatten_model_src
+    from ..utils import flatten_model_src, register_builtin_models_unified
+
+    def convert_image_model_format(model_json):
+        """
+        Convert image model hub JSON format to Xinference expected format.
+        Add missing required fields for ImageModelFamilyV2.
+        """
+        converted = model_json.copy()
+
+        # Add missing required fields from model_src if they exist
+        if "model_src" in converted and "huggingface" in converted["model_src"]:
+            hf_info = converted["model_src"]["huggingface"]
+            if "model_id" in hf_info and "model_id" not in converted:
+                converted["model_id"] = hf_info["model_id"]
+            if "model_revision" in hf_info and "model_revision" not in converted:
+                converted["model_revision"] = hf_info["model_revision"]
+
+        # Add other missing required fields with defaults
+        if "version" not in converted:
+            converted["version"] = 2
+        if "model_lang" not in converted:
+            converted["model_lang"] = ["en"]
+
+        return converted
 
     def image_special_handling(registry, model_type):
         """Handle image's special registration logic"""
         from ...constants import XINFERENCE_MODEL_DIR
         from ..custom import RegistryManager
+        from .custom import register_image
 
         registry_mgr = RegistryManager.get_registry("image")
-        existing_model_names = {spec.model_name for spec in registry_mgr.get_custom_models()}
+        existing_model_names = {
+            spec.model_name for spec in registry_mgr.get_custom_models()
+        }
 
         for model_name, model_families in BUILTIN_IMAGE_MODELS.items():
             for model_family in model_families:
                 if model_family.model_name not in existing_model_names:
-                    # Update model descriptions for the new builtin model
-                    IMAGE_MODEL_DESCRIPTIONS.update(
-                        generate_image_description(model_family)
-                    )
-                    existing_model_names.add(model_family.model_name)
+                    try:
+                        # Actually register model to RegistryManager
+                        register_image(model_family, persist=False)
+                        existing_model_names.add(model_family.model_name)
+                    except ValueError as e:
+                        # Capture conflict errors and output warnings instead of raising exceptions
+                        import warnings
+
+                        warnings.warn(str(e))
+                    except Exception as e:
+                        import warnings
+
+                        warnings.warn(
+                            f"Error registering image model {model_family.model_name}: {e}"
+                        )
 
     loaded_count = register_builtin_models_unified(
         model_type="image",
         flatten_func=flatten_model_src,
-        model_class=ImageModelFamilyV2,
+        model_class=CustomImageModelFamilyV2,
         builtin_registry=BUILTIN_IMAGE_MODELS,
+        custom_convert_func=convert_image_model_format,
         special_handling=image_special_handling,
     )
 

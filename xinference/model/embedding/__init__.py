@@ -71,7 +71,7 @@ def register_custom_model():
 
 def register_builtin_model():
     # Use unified function for embedding models
-    from ..utils import register_builtin_models_unified, flatten_quantizations
+    from ..utils import flatten_quantizations, register_builtin_models_unified
     from .embed_family import BUILTIN_EMBEDDING_MODELS
 
     def embedding_special_handling(registry, model_type):
@@ -89,12 +89,16 @@ def register_builtin_model():
                     register_embedding(model_family, persist=False)
                     existing_model_names.add(model_family.model_name)
                 except ValueError as e:
-                    # 捕获冲突错误并输出警告，而不是抛出异常
+                    # Capture conflict errors and output warnings instead of raising exceptions
                     import warnings
+
                     warnings.warn(str(e))
                 except Exception as e:
                     import warnings
-                    warnings.warn(f"Error registering embedding model {model_family.model_name}: {e}")
+
+                    warnings.warn(
+                        f"Error registering embedding model {model_family.model_name}: {e}"
+                    )
 
     loaded_count = register_builtin_models_unified(
         model_type="embedding",

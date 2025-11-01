@@ -136,8 +136,8 @@ def register_custom_model():
 
 def register_builtin_model():
     # Use unified function for LLM models
-    from ..utils import register_builtin_models_unified, flatten_quantizations
     from ..custom import RegistryManager
+    from ..utils import flatten_quantizations, register_builtin_models_unified
     from .custom import register_llm
 
     def llm_special_handling(registry, model_type):
@@ -154,12 +154,16 @@ def register_builtin_model():
                         register_llm(model_family, persist=False)
                         existing_model_names.add(model_family.model_name)
                     except ValueError as e:
-                        # 捕获冲突错误并输出警告，而不是抛出异常
+                        # Capture conflict errors and output warnings instead of raising exceptions
                         import warnings
+
                         warnings.warn(str(e))
                     except Exception as e:
                         import warnings
-                        warnings.warn(f"Error registering LLM model {model_family.model_name}: {e}")
+
+                        warnings.warn(
+                            f"Error registering LLM model {model_family.model_name}: {e}"
+                        )
 
     loaded_count = register_builtin_models_unified(
         model_type="llm",
