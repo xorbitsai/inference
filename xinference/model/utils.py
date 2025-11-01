@@ -614,7 +614,9 @@ def flatten_quantizations(input_json: dict):
                         # Remove potential suffixes
                         if "-GGUF" in model_name:
                             model_name = model_name.replace("-GGUF", "")
-                        record["model_file_name_template"] = f"{model_name.lower()}-{{quantization}}.gguf"
+                        record["model_file_name_template"] = (
+                            f"{model_name.lower()}-{{quantization}}.gguf"
+                        )
 
             flattened.append(record)
     return flattened

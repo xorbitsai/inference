@@ -24,67 +24,6 @@ from ..utils import flatten_model_src
 logger = logging.getLogger(__name__)
 
 
-def convert_video_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert video model hub JSON format to Xinference expected format.
-    """
-    logger.debug(
-        f"convert_video_model_format called for: {model_json.get('model_name', 'Unknown')}"
-    )
-
-    # Ensure required fields for video models
-    converted = model_json.copy()
-
-    # Add missing required fields
-    if "version" not in converted:
-        converted["version"] = 2
-    if "model_lang" not in converted:
-        converted["model_lang"] = ["en"]
-
-    # Handle missing model_id and model_revision
-    if converted.get("model_id") is None and "model_src" in converted:
-        model_src = converted["model_src"]
-        # Extract model_id from available sources
-        if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-            converted["model_id"] = model_src["huggingface"]["model_id"]
-        elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
-            converted["model_id"] = model_src["modelscope"]["model_id"]
-
-    if converted.get("model_revision") is None and "model_src" in converted:
-        model_src = converted["model_src"]
-        # Extract model_revision if available
-        if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
-            converted["model_revision"] = model_src["huggingface"]["model_revision"]
-        elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
-            converted["model_revision"] = model_src["modelscope"]["model_revision"]
-
-    # Set defaults if still missing
-    if converted.get("model_id") is None:
-        converted["model_id"] = converted.get("model_name", "unknown")
-    if converted.get("model_revision") is None:
-        converted["model_revision"] = "main"
-
-    # Handle model_specs
-    if "model_specs" not in converted or not converted["model_specs"]:
-        converted["model_specs"] = [
-            {
-                "model_format": "pytorch",
-                "model_size_in_billions": None,
-                "quantization": "none",
-                "model_hub": "huggingface",
-            }
-        ]
-    else:
-        # Ensure each spec has required fields
-        for spec in converted["model_specs"]:
-            if "quantization" not in spec:
-                spec["quantization"] = "none"
-            if "model_hub" not in spec:
-                spec["model_hub"] = "huggingface"
-
-    return converted
-
-
 from .core import (
     BUILTIN_VIDEO_MODELS,
     VIDEO_MODEL_DESCRIPTIONS,
@@ -128,13 +67,15 @@ def register_builtin_model():
     This function is called every time model list is requested,
     ensuring real-time updates without server restart.
     """
-    from ..utils import load_complete_builtin_models
+    # Use unified loading function with flatten_model_src
+    from ..utils import flatten_model_src, load_complete_builtin_models
 
-    # Use unified loading function
     loaded_count = load_complete_builtin_models(
         model_type="video",
         builtin_registry=BUILTIN_VIDEO_MODELS,
-        convert_format_func=convert_video_model_format,
+        convert_format_func=lambda x: (
+            flatten_model_src(x)[0] if flatten_model_src(x) else x
+        ),
         model_class=VideoModelFamilyV2,
     )
 

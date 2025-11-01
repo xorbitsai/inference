@@ -24,44 +24,6 @@ from ..utils import flatten_quantizations
 logger = logging.getLogger(__name__)
 
 
-def convert_embedding_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert embedding model hub JSON format to Xinference expected format.
-    """
-    logger.debug(
-        f"convert_embedding_model_format called for: {model_json.get('model_name', 'Unknown')}"
-    )
-
-    # Ensure required fields for embedding models
-    converted = model_json.copy()
-
-    # Add missing required fields based on EmbeddingModelFamilyV2 requirements
-    if "version" not in converted:
-        converted["version"] = 2
-    if "model_lang" not in converted:
-        converted["model_lang"] = ["en"]
-
-    # Handle model_specs
-    if "model_specs" not in converted or not converted["model_specs"]:
-        converted["model_specs"] = [
-            {
-                "model_format": "pytorch",
-                "model_size_in_billions": None,
-                "quantization": "none",
-                "model_hub": "huggingface",
-            }
-        ]
-    else:
-        # Ensure each spec has required fields
-        for spec in converted["model_specs"]:
-            if "quantization" not in spec:
-                spec["quantization"] = "none"
-            if "model_hub" not in spec:
-                spec["model_hub"] = "huggingface"
-
-    return converted
-
-
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
     EmbeddingModelFamilyV2,
@@ -108,16 +70,89 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    from ..utils import load_complete_builtin_models
+    # Use unified loading function with flatten_quantizations for embedding models
+    from ..utils import flatten_quantizations, load_complete_builtin_models
     from .embed_family import BUILTIN_EMBEDDING_MODELS
 
-    # Use unified loading function
+    def convert_embedding_with_quantizations(model_json):
+        if "model_specs" not in model_json:
+            return model_json
+
+        # Process each model_spec with flatten_quantizations (like builtin embedding loading)
+        result = model_json.copy()
+        flattened_specs = []
+        for spec in result["model_specs"]:
+            if "model_src" in spec:
+                flattened_specs.extend(flatten_quantizations(spec))
+            else:
+                flattened_specs.append(spec)
+        result["model_specs"] = flattened_specs
+
+        return result
+
     loaded_count = load_complete_builtin_models(
         model_type="embedding",
-        builtin_registry=BUILTIN_EMBEDDING_MODELS,
-        convert_format_func=convert_embedding_model_format,
+        builtin_registry={},  # Temporarily use empty dict, we handle it manually
+        convert_format_func=convert_embedding_with_quantizations,
         model_class=EmbeddingModelFamilyV2,
     )
+
+    # Manually handle embedding's special registration logic
+    if loaded_count > 0:
+        from ...constants import XINFERENCE_MODEL_DIR
+        from ..custom import RegistryManager
+
+        registry = RegistryManager.get_registry("embedding")
+        existing_model_names = {
+            spec.model_name for spec in registry.get_custom_models()
+        }
+
+        builtin_embedding_dir = os.path.join(
+            XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding"
+        )
+        complete_json_path = os.path.join(
+            builtin_embedding_dir, "embedding_models.json"
+        )
+
+        if os.path.exists(complete_json_path):
+            with codecs.open(complete_json_path, encoding="utf-8") as fd:
+                model_data = json.load(fd)
+
+            models_to_register = []
+            if isinstance(model_data, list):
+                models_to_register = model_data
+            elif isinstance(model_data, dict):
+                if "model_name" in model_data:
+                    models_to_register = [model_data]
+                else:
+                    for key, value in model_data.items():
+                        if isinstance(value, dict) and "model_name" in value:
+                            models_to_register.append(value)
+
+            for model_data in models_to_register:
+                try:
+                    from ..utils import flatten_quantizations
+
+                    converted_data = model_data.copy()
+                    if "model_specs" in converted_data:
+                        flattened_specs = []
+                        for spec in converted_data["model_specs"]:
+                            if "model_src" in spec:
+                                flattened_specs.extend(flatten_quantizations(spec))
+                            else:
+                                flattened_specs.append(spec)
+                        converted_data["model_specs"] = flattened_specs
+                    builtin_embedding_family = EmbeddingModelFamilyV2.parse_obj(
+                        converted_data
+                    )
+
+                    if builtin_embedding_family.model_name not in existing_model_names:
+                        register_embedding(builtin_embedding_family, persist=False)
+                        existing_model_names.add(builtin_embedding_family.model_name)
+                except Exception as e:
+                    warnings.warn(
+                        f"Error parsing model {model_data.get('model_name', 'Unknown')}: {e}"
+                    )
 
     logger.info(
         f"Successfully loaded {loaded_count} embedding models from complete JSON"

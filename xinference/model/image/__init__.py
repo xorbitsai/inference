@@ -24,67 +24,6 @@ from ..utils import flatten_model_src
 logger = logging.getLogger(__name__)
 
 
-def convert_image_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert image model hub JSON format to Xinference expected format.
-    """
-    logger.debug(
-        f"convert_image_model_format called for: {model_json.get('model_name', 'Unknown')}"
-    )
-
-    # Ensure required fields for image models
-    converted = model_json.copy()
-
-    # Add missing required fields
-    if "version" not in converted:
-        converted["version"] = 2
-    if "model_lang" not in converted:
-        converted["model_lang"] = ["en"]
-
-    # Handle missing model_id and model_revision
-    if converted.get("model_id") is None and "model_src" in converted:
-        model_src = converted["model_src"]
-        # Extract model_id from available sources
-        if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-            converted["model_id"] = model_src["huggingface"]["model_id"]
-        elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
-            converted["model_id"] = model_src["modelscope"]["model_id"]
-
-    if converted.get("model_revision") is None and "model_src" in converted:
-        model_src = converted["model_src"]
-        # Extract model_revision if available
-        if "huggingface" in model_src and "model_revision" in model_src["huggingface"]:
-            converted["model_revision"] = model_src["huggingface"]["model_revision"]
-        elif "modelscope" in model_src and "model_revision" in model_src["modelscope"]:
-            converted["model_revision"] = model_src["modelscope"]["model_revision"]
-
-    # Set defaults if still missing
-    if converted.get("model_id") is None:
-        converted["model_id"] = converted.get("model_name", "unknown")
-    if converted.get("model_revision") is None:
-        converted["model_revision"] = "main"
-
-    # Handle model_specs
-    if "model_specs" not in converted or not converted["model_specs"]:
-        converted["model_specs"] = [
-            {
-                "model_format": "pytorch",
-                "model_size_in_billions": None,
-                "quantization": "none",
-                "model_hub": "huggingface",
-            }
-        ]
-    else:
-        # Ensure each spec has required fields
-        for spec in converted["model_specs"]:
-            if "quantization" not in spec:
-                spec["quantization"] = "none"
-            if "model_hub" not in spec:
-                spec["model_hub"] = "huggingface"
-
-    return converted
-
-
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
@@ -158,8 +97,13 @@ def register_builtin_model():
                 # Register all models from the complete JSON
                 for model_data in models_to_register:
                     try:
-                        # Convert format if needed
-                        converted_data = convert_image_model_format(model_data)
+                        # Convert format using flatten_model_src
+                        from ..utils import flatten_model_src
+
+                        flattened_list = flatten_model_src(model_data)
+                        converted_data = (
+                            flattened_list[0] if flattened_list else model_data
+                        )
                         builtin_image_family = ImageModelFamilyV2.parse_obj(
                             converted_data
                         )

@@ -25,44 +25,6 @@ from ..utils import flatten_quantizations
 logger = logging.getLogger(__name__)
 
 
-def convert_rerank_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert rerank model hub JSON format to Xinference expected format.
-    """
-    logger.debug(
-        f"convert_rerank_model_format called for: {model_json.get('model_name', 'Unknown')}"
-    )
-
-    # Ensure required fields for rerank models
-    converted = model_json.copy()
-
-    # Add missing required fields
-    if "version" not in converted:
-        converted["version"] = 2
-    if "model_lang" not in converted:
-        converted["model_lang"] = ["en"]
-
-    # Handle model_specs
-    if "model_specs" not in converted or not converted["model_specs"]:
-        converted["model_specs"] = [
-            {
-                "model_format": "pytorch",
-                "model_size_in_billions": None,
-                "quantization": "none",
-                "model_hub": "huggingface",
-            }
-        ]
-    else:
-        # Ensure each spec has required fields
-        for spec in converted["model_specs"]:
-            if "quantization" not in spec:
-                spec["quantization"] = "none"
-            if "model_hub" not in spec:
-                spec["model_hub"] = "huggingface"
-
-    return converted
-
-
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
@@ -107,15 +69,79 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    from ..utils import load_complete_builtin_models
+    # Use unified loading function with flatten_quantizations for rerank models
+    from ..utils import flatten_quantizations, load_complete_builtin_models
 
-    # Use unified loading function
+    def convert_rerank_with_quantizations(model_json):
+        if "model_specs" not in model_json:
+            return model_json
+
+        # Process each model_spec with flatten_quantizations (like builtin rerank loading)
+        result = model_json.copy()
+        flattened_specs = []
+        for spec in result["model_specs"]:
+            if "model_src" in spec:
+                flattened_specs.extend(flatten_quantizations(spec))
+            else:
+                flattened_specs.append(spec)
+        result["model_specs"] = flattened_specs
+
+        return result
+
     loaded_count = load_complete_builtin_models(
         model_type="rerank",
-        builtin_registry=BUILTIN_RERANK_MODELS,
-        convert_format_func=convert_rerank_model_format,
+        builtin_registry={},  # Temporarily use empty dict, we handle it manually
+        convert_format_func=convert_rerank_with_quantizations,
         model_class=RerankModelFamilyV2,
     )
+
+    # Manually handle rerank's special registration logic
+    if loaded_count > 0:
+        builtin_rerank_dir = os.path.join(
+            XINFERENCE_MODEL_DIR, "v2", "builtin", "rerank"
+        )
+        complete_json_path = os.path.join(builtin_rerank_dir, "rerank_models.json")
+
+        if os.path.exists(complete_json_path):
+            with codecs.open(complete_json_path, encoding="utf-8") as fd:
+                model_data = json.load(fd)
+
+            models_to_register = []
+            if isinstance(model_data, list):
+                models_to_register = model_data
+            elif isinstance(model_data, dict):
+                if "model_name" in model_data:
+                    models_to_register = [model_data]
+                else:
+                    for key, value in model_data.items():
+                        if isinstance(value, dict) and "model_name" in value:
+                            models_to_register.append(value)
+
+            for model_data in models_to_register:
+                try:
+                    from ..utils import flatten_quantizations
+
+                    converted_data = model_data.copy()
+                    if "model_specs" in converted_data:
+                        flattened_specs = []
+                        for spec in converted_data["model_specs"]:
+                            if "model_src" in spec:
+                                flattened_specs.extend(flatten_quantizations(spec))
+                            else:
+                                flattened_specs.append(spec)
+                        converted_data["model_specs"] = flattened_specs
+                    builtin_rerank_family = RerankModelFamilyV2.parse_obj(
+                        converted_data
+                    )
+
+                    if builtin_rerank_family.model_name not in BUILTIN_RERANK_MODELS:
+                        BUILTIN_RERANK_MODELS[builtin_rerank_family.model_name] = (
+                            builtin_rerank_family
+                        )
+                except Exception as e:
+                    warnings.warn(
+                        f"Error parsing model {model_data.get('model_name', 'Unknown')}: {e}"
+                    )
 
     logger.info(f"Successfully loaded {loaded_count} rerank models from complete JSON")
 

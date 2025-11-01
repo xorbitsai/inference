@@ -727,10 +727,15 @@ class WorkerActor(xo.StatelessActor):
             if "model_src" in model_json:
                 # Simple flat format with model_src at top level
                 flattened_list = flatten_model_src(model_json)
-                converted_model_json = flattened_list[0] if flattened_list else model_json
-            elif "model_specs" in model_json and isinstance(model_json["model_specs"], list):
+                converted_model_json = (
+                    flattened_list[0] if flattened_list else model_json
+                )
+            elif "model_specs" in model_json and isinstance(
+                model_json["model_specs"], list
+            ):
                 # LLM/embedding/rerank format with model_specs
                 from ..model.utils import flatten_quantizations
+
                 converted_model_json = model_json.copy()
 
                 # Process all model_specs using flatten_quantizations - exactly like builtin models
@@ -747,7 +752,9 @@ class WorkerActor(xo.StatelessActor):
                 # Use all flattened specs like builtin models
                 if flattened_specs:
                     converted_model_json["model_specs"] = flattened_specs
-                    logger.info(f"Processed {len(flattened_specs)} model specifications for {model_name}")
+                    logger.info(
+                        f"Processed {len(flattened_specs)} model specifications for {model_name}"
+                    )
             else:
                 # Already flattened format, use as-is
                 converted_model_json = model_json
@@ -857,7 +864,6 @@ class WorkerActor(xo.StatelessActor):
                 f"Failed to register model '{model_spec.model_name}': {str(e)}"
             )
 
-    
     @log_async(logger=logger)
     async def update_model_type(self, model_type: str):
         """

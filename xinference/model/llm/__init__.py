@@ -23,8 +23,6 @@ from ..utils import flatten_quantizations
 logger = logging.getLogger(__name__)
 
 
-
-
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -137,10 +135,9 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    from ..utils import load_complete_builtin_models
-
     # Use unified loading function with flatten_quantizations for LLM
-    from ..utils import flatten_quantizations
+    from ..utils import flatten_quantizations, load_complete_builtin_models
+
     def convert_llm_with_quantizations(model_json):
         if "model_specs" not in model_json:
             return model_json
@@ -194,9 +191,17 @@ def register_builtin_model():
 
             for model_data in models_to_register:
                 try:
-                    from ..utils import flatten_model_src
-                    flattened_list = flatten_model_src(model_data)
-                    converted_data = flattened_list[0] if flattened_list else model_data
+                    from ..utils import flatten_quantizations
+
+                    converted_data = model_data.copy()
+                    if "model_specs" in converted_data:
+                        flattened_specs = []
+                        for spec in converted_data["model_specs"]:
+                            if "model_src" in spec:
+                                flattened_specs.extend(flatten_quantizations(spec))
+                            else:
+                                flattened_specs.append(spec)
+                        converted_data["model_specs"] = flattened_specs
                     builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
 
                     if builtin_llm_family.model_name not in existing_model_names:

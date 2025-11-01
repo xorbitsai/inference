@@ -27,50 +27,6 @@ from ..utils import flatten_model_src
 logger = logging.getLogger(__name__)
 
 
-def convert_audio_model_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert audio model hub JSON format to Xinference expected format.
-    """
-    logger.debug(
-        f"convert_audio_model_format called for: {model_json.get('model_name', 'Unknown')}"
-    )
-
-    # Apply conversion logic to handle null model_id and other issues
-    if model_json.get("model_id") is None and "model_src" in model_json:
-        model_src = model_json["model_src"]
-        # Extract model_id from available sources
-        if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-            model_json["model_id"] = model_src["huggingface"]["model_id"]
-        elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
-            model_json["model_id"] = model_src["modelscope"]["model_id"]
-
-        # Extract model_revision if available
-        if model_json.get("model_revision") is None:
-            if (
-                "huggingface" in model_src
-                and "model_revision" in model_src["huggingface"]
-            ):
-                model_json["model_revision"] = model_src["huggingface"][
-                    "model_revision"
-                ]
-            elif (
-                "modelscope" in model_src
-                and "model_revision" in model_src["modelscope"]
-            ):
-                model_json["model_revision"] = model_src["modelscope"]["model_revision"]
-
-    # Ensure required fields for audio models
-    if "version" not in model_json:
-        model_json["version"] = 2
-    if "model_lang" not in model_json:
-        model_json["model_lang"] = [
-            "en",
-            "zh",
-        ]  # Audio models often support multiple languages
-
-    return model_json
-
-
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
     AudioModelFamilyV2,
@@ -110,13 +66,30 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    from ..utils import load_complete_builtin_models
+    # Use unified loading function with flatten_model_src + audio-specific defaults
+    from ..utils import flatten_model_src, load_complete_builtin_models
 
-    # Use unified loading function
+    def convert_audio_with_flatten(model_json):
+        flattened_list = flatten_model_src(model_json)
+        if not flattened_list:
+            return model_json
+
+        result = flattened_list[0]
+
+        # Add required defaults for audio models
+        if "multilingual" not in result:
+            result["multilingual"] = True
+        if "model_lang" not in result:
+            result["model_lang"] = ["en", "zh"]
+        if "version" not in result:
+            result["version"] = 2
+
+        return result
+
     loaded_count = load_complete_builtin_models(
         model_type="audio",
         builtin_registry=BUILTIN_AUDIO_MODELS,
-        convert_format_func=convert_audio_model_format,
+        convert_format_func=convert_audio_with_flatten,
         model_class=AudioModelFamilyV2,
     )
 
