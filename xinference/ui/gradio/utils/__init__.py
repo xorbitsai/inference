@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2025 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .deepseek_ocr import DeepSeekOCRModel
-from .got_ocr2 import GotOCR2Model
+"""Utilities for Gradio UI components."""
 
-__all__ = ["DeepSeekOCRModel", "GotOCR2Model"]
+from .latex import clean_latex_syntax, process_latex_formulas, process_ocr_latex
+
+__all__ = ["process_latex_formulas", "clean_latex_syntax", "process_ocr_latex"]
