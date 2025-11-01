@@ -1301,7 +1301,7 @@ class MediaInterface:
                                 "error", "OCR visualization failed"
                             )
                             # Return formatted error message for Markdown
-                            error_md = f"**错误**: {error_msg}"
+                            error_md = f"**Error**: {error_msg}"
                             return error_md, "", ""
                     elif isinstance(response, str):
                         # Handle string response from original model
@@ -1346,12 +1346,12 @@ class MediaInterface:
                         and test_compress
                         and "compression_ratio" in response
                     ):
-                        compression_info = f"\n\n--- 压缩比信息 ---\n"
-                        compression_info += (
-                            f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info = (
+                            f"\n\n--- Compression Ratio Information ---\n"
                         )
-                        compression_info += f"有效图像 Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
-                        compression_info += f"输出文本 Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        compression_info += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        compression_info += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
                         text_result += compression_info
 
                     # Add visualization info
@@ -1359,11 +1359,9 @@ class MediaInterface:
                     if isinstance(response, dict):
                         viz_info = response.get("visualization", {})
                         if viz_info.get("has_annotations"):
-                            viz_text = f"\n\n--- 可视化信息 ---\n"
-                            viz_text += (
-                                f"边界框数量: {viz_info.get('num_bounding_boxes', 0)}\n"
-                            )
-                            viz_text += f"提取图像数量: {viz_info.get('num_extracted_images', 0)}\n"
+                            viz_text = f"\n\n--- Visualization Information ---\n"
+                            viz_text += f"Number of Bounding Boxes: {viz_info.get('num_bounding_boxes', 0)}\n"
+                            viz_text += f"Number of Extracted Images: {viz_info.get('num_extracted_images', 0)}\n"
                             text_result += viz_text
 
                         saved_files = response.get("saved_files", {})
@@ -1402,25 +1400,25 @@ class MediaInterface:
                                 logger.warning("OCR returned empty text")
                                 logger.warning(f"Full response: {response}")
                                 # Return a helpful message instead of empty result
-                                text_result = """**OCR 识别完成，但未检测到文本内容**
+                                text_result = """**OCR Recognition Complete, No Text Detected**
 
-可能的原因：
-- 图片中文字不清晰或分辨率不足
-- 图片格式不支持
-- 模型无法识别图片中的文字
+**Possible Reasons:**
+- Text in image is unclear or insufficient resolution
+- Image format not supported
+- Model unable to recognize text in image
 
-**建议：**
-- 尝试上传更清晰的图片
-- 确保图片中的文字清晰可辨
-- 如果是手写文字，可能效果不佳
+**Suggestions:**
+- Try uploading a clearer image
+- Ensure text in image is clear and legible
+- Handwritten text may have poor results
 
-**技术信息：**
-- 模型状态: 正常
-- 图片尺寸: 原始 {image.size if image else 'Unknown'}, 处理后 {response.get('image_size', 'Unknown')}
-- 处理模式: {response.get('model_size', 'Unknown')}"""
+**Technical Information:**
+- Model Status: Normal
+- Image Size: Original {image.size if image else 'Unknown'}, Processed {response.get('image_size', 'Unknown')}
+- Processing Mode: {response.get('model_size', 'Unknown')}"""
                         else:
                             error_msg = response.get("error", "OCR failed")
-                            error_md = f"**错误**: {error_msg}"
+                            error_md = f"**Error**: {error_msg}"
                             return error_md, "", ""
                     elif isinstance(response, str):
                         # Handle string response from original model
@@ -1465,12 +1463,12 @@ class MediaInterface:
                         and test_compress
                         and "compression_ratio" in response
                     ):
-                        compression_info = f"\n\n--- 压缩比信息 ---\n"
-                        compression_info += (
-                            f"压缩比: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info = (
+                            f"\n\n--- Compression Ratio Information ---\n"
                         )
-                        compression_info += f"有效图像 Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
-                        compression_info += f"输出文本 Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        compression_info += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        compression_info += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
                         text_result += compression_info
 
                     return text_result, "", ""
@@ -1525,13 +1523,13 @@ class MediaInterface:
                         choices=["ocr", "format", "markdown"],
                         value="ocr",
                         label="Output Format",
-                        info="ocr: 纯文本提取, format: 结构化文档(含标注), markdown: 标准Markdown格式",
+                        info="ocr: Plain text extraction, format: Structured document (with annotations), markdown: Standard Markdown format",
                     )
 
                     enable_visualization = gr.Checkbox(
                         label="Enable Visualization",
                         value=False,
-                        info="Generate bounding boxes and annotations (仅适用于format模式)",
+                        info="Generate bounding boxes and annotations (only applicable to format mode)",
                     )
 
                     test_compress = gr.Checkbox(
@@ -1551,10 +1549,10 @@ class MediaInterface:
                 with gr.Column(scale=1):
                     # Create a bordered container for the output
                     with gr.Group(elem_classes="output-container"):
-                        gr.Markdown("### 📄 提取结果")
+                        gr.Markdown("### 📄 Extraction Results")
 
                         text_output = gr.Markdown(
-                            value="提取的文本将在这里显示...",
+                            value="Extracted text will be displayed here...",
                             elem_classes="output-text",
                             container=False,
                         )
@@ -1709,7 +1707,7 @@ class MediaInterface:
                         font-weight: bold !important;
                     }
 
-                    /* 确保 Markdown 正确显示 */
+                    /* Ensure Markdown displays correctly */
                     .output-text .katex-display {
                         display: block !important;
                         text-align: center !important;
