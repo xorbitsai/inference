@@ -599,57 +599,16 @@ class DeepSeekOCRModel:
                 image, prompt, model_size, save_results, save_dir, eval_mode, **kwargs
             )
 
-            # Apply LaTeX post-processing if LaTeX is detected
-            if isinstance(result, dict) and "text" in result:
-                text = result["text"]
-                latex_detected = "\\" in text and (
-                    "\\[" in text or "\\(" in text or "$" in text
+            # Apply LaTeX post-processing using unified function
+            try:
+                from ...ui.gradio.utils.latex import process_ocr_result_with_latex
+
+                result = process_ocr_result_with_latex(
+                    result, output_format="markdown", debug_info=True
                 )
-                if latex_detected:
-                    # Import LaTeX processing functions from new location
-                    try:
-                        from ...ui.gradio.utils.latex import (
-                            clean_latex_syntax,
-                            process_latex_formulas,
-                        )
-                    except ImportError:
-                        # Fallback if import fails
-                        clean_latex_syntax = lambda x: x
-                        process_latex_formulas = lambda x, output_format=None: x
-
-                    processed_text = clean_latex_syntax(text)
-                    processed_text = process_latex_formulas(
-                        processed_text, output_format="markdown"
-                    )
-                    result["text"] = processed_text
-
-                    # Debug info
-                    print("🧮 LaTeX Formula Processing (Visualize OCR):")
-                    original_block_formulas = len(
-                        re.findall(r"\\\[(.*?)\\\]", text, re.DOTALL)
-                    )
-                    original_inline_dollar = len(
-                        re.findall(r"\$(.*?)\$", text, re.DOTALL)
-                    )
-                    original_inline_paren = len(
-                        re.findall(r"\\\((.*?)\\\)", text, re.DOTALL)
-                    )
-                    converted_inline = len(
-                        re.findall(r"\$(.*?)\$", processed_text, re.DOTALL)
-                    )
-                    print(
-                        f"  - Original block formulas (\\[...\\]): {original_block_formulas}"
-                    )
-                    print(
-                        f"  - Original inline formulas ($...$): {original_inline_dollar}"
-                    )
-                    print(
-                        f"  - Original inline formulas (\\(...\\)): {original_inline_paren}"
-                    )
-                    print(f"  - Final inline formulas ($...$): {converted_inline}")
-                    print(
-                        f"  - Format: Markdown-compatible ($...$ for inline, $$...$$ for block)"
-                    )
+            except ImportError:
+                # Fallback: no LaTeX processing if import fails
+                pass
 
             return result
         # Handle batch image input
@@ -660,34 +619,16 @@ class DeepSeekOCRModel:
                     img, prompt, model_size, save_results, save_dir, eval_mode, **kwargs
                 )
 
-                # Apply LaTeX post-processing if LaTeX is detected
-                if isinstance(result, dict) and "text" in result:
-                    text = result["text"]
-                    latex_detected = "\\" in text and (
-                        "\\[" in text or "\\(" in text or "$" in text
+                # Apply LaTeX post-processing using unified function
+                try:
+                    from ...ui.gradio.utils.latex import process_ocr_result_with_latex
+
+                    result = process_ocr_result_with_latex(
+                        result, output_format="markdown", debug_info=False
                     )
-                    if latex_detected:
-                        # Import LaTeX processing functions from new location
-                        try:
-                            from ...ui.gradio.utils.latex import (
-                                clean_latex_syntax,
-                                process_latex_formulas,
-                            )
-                        except ImportError:
-                            # Fallback if import fails
-                            clean_latex_syntax = lambda x: x
-                            process_latex_formulas = lambda x, output_format=None: x
-
-                        processed_text = clean_latex_syntax(text)
-                        processed_text = process_latex_formulas(
-                            processed_text, output_format="markdown"
-                        )
-                        result["text"] = processed_text
-
-                        # Debug info for batch
-                        print(
-                            f"🧮 LaTeX Processing for batch image: Formulas detected and processed"
-                        )
+                except ImportError:
+                    # Fallback: no LaTeX processing if import fails
+                    pass
 
                 results.append(result)
             return results
@@ -887,53 +828,28 @@ class DeepSeekOCRModel:
                     eval_mode=eval_mode,
                 )
 
-                # Apply LaTeX post-processing if LaTeX is detected
-                latex_detected = "\\" in result and (
-                    "\\[" in result or "\\(" in result or "$" in result
-                )
-                processed_result = result
-                if latex_detected:
-                    # Import LaTeX processing functions from new location
-                    try:
-                        from ...ui.gradio.utils.latex import (
-                            clean_latex_syntax,
-                            process_latex_formulas,
-                        )
-                    except ImportError:
-                        # Fallback if import fails
-                        clean_latex_syntax = lambda x: x
-                        process_latex_formulas = lambda x, output_format=None: x
+                # Apply LaTeX post-processing using unified function
+                try:
+                    from ...ui.gradio.utils.latex import process_ocr_result_with_latex
 
-                    processed_result = clean_latex_syntax(result)
-                    processed_result = process_latex_formulas(
-                        processed_result, output_format="markdown"
+                    # Process the result and extract LaTeX info
+                    processed_result = process_ocr_result_with_latex(
+                        result, output_format="markdown", debug_info=True
                     )
 
-                # Debug: Print LaTeX processing info
-                print("🧮 LaTeX Formula Processing:")
-                original_block_formulas = len(
-                    re.findall(r"\\\[(.*?)\\\]", result, re.DOTALL)
-                )
-                original_inline_dollar = len(
-                    re.findall(r"\$(.*?)\$", result, re.DOTALL)
-                )
-                original_inline_paren = len(
-                    re.findall(r"\\\((.*?)\\\)", result, re.DOTALL)
-                )
-                converted_inline = len(
-                    re.findall(r"\$(.*?)\$", processed_result, re.DOTALL)
-                )
-                print(
-                    f"  - Original block formulas (\\[...\\]): {original_block_formulas}"
-                )
-                print(f"  - Original inline formulas ($...$): {original_inline_dollar}")
-                print(
-                    f"  - Original inline formulas (\\(...\\)): {original_inline_paren}"
-                )
-                print(f"  - Final inline formulas ($...$): {converted_inline}")
-                print(
-                    f"  - Format: Markdown-compatible ($...$ for inline, $$...$$ for block)"
-                )
+                    # Extract text and LaTeX info
+                    if isinstance(processed_result, dict):
+                        latex_info = processed_result.get("latex_processing")
+                        processed_result = processed_result.get("text", result)
+                    else:
+                        processed_result = (
+                            processed_result if processed_result else result
+                        )
+                        latex_info = None
+
+                except ImportError:
+                    processed_result = result
+                    latex_info = None
 
                 # Prepare response
                 response = {
@@ -947,14 +863,8 @@ class DeepSeekOCRModel:
                 }
 
                 # Include LaTeX processing info in response
-                if latex_detected:
-                    response["latex_processing"] = {
-                        "detected": True,
-                        "original_block_formulas": original_block_formulas,
-                        "original_inline_formulas": original_inline_dollar
-                        + original_inline_paren,
-                        "processed": True,
-                    }
+                if latex_info:
+                    response["latex_processing"] = latex_info
 
                 # Add compression info if tested
                 if test_compress:

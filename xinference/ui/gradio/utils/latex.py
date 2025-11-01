@@ -21,6 +21,7 @@ HTML, and pure LaTeX.
 """
 
 import re
+from typing import Any, Dict, Union
 
 
 def process_latex_formulas(text: str, output_format: str = "markdown") -> str:
@@ -217,3 +218,125 @@ def process_ocr_latex(text: str, output_format: str = "markdown") -> str:
     processed_text = process_latex_formulas(cleaned_text, output_format)
 
     return processed_text
+
+
+def contains_latex(text: str) -> bool:
+    """
+    Detect if text contains LaTeX formulas.
+
+    Args:
+        text: The text to check for LaTeX formulas
+
+    Returns:
+        True if the text contains LaTeX formulas, False otherwise
+    """
+    if not text:
+        return False
+
+    # Check for common LaTeX indicators
+    latex_indicators = [
+        r"\\\[.*?\\\]",  # Block formulas \[...\]
+        r"\\\(.*?\\\)",  # Inline formulas \(...\)
+        r"\$.*?\$",  # Inline formulas $...$
+        r"\$\$.*?\$\$",  # Block formulas $$...$$
+        r"\\begin\{.*?\}",  # LaTeX environments
+        r"\\[a-zA-Z]+\{",  # LaTeX commands with arguments
+        r"\\[a-zA-Z]+",  # Simple LaTeX commands
+    ]
+
+    for pattern in latex_indicators:
+        if re.search(pattern, text):
+            return True
+
+    return False
+
+
+def process_ocr_result_with_latex(
+    result: Union[str, Dict[str, Any]],
+    output_format: str = "markdown",
+    debug_info: bool = False,
+) -> Union[str, Dict[str, Any]]:
+    """
+    Process OCR results, applying LaTeX formatting if needed.
+
+    This is a unified function to handle both LaTeX detection and processing
+    for OCR results, supporting both string and dict formats.
+
+    Args:
+        result: OCR result, either as string or dict with 'text' key
+        output_format: Target format ("markdown", "html", "latex", "gradio")
+        debug_info: Whether to print debug information about LaTeX processing
+
+    Returns:
+        Processed result with LaTeX formulas formatted appropriately
+    """
+    # Handle dict format (from visualize_ocr and other methods)
+    if isinstance(result, dict):
+        if "text" not in result:
+            return result
+
+        text = result["text"]
+        if not contains_latex(text):
+            return result
+
+        # Process LaTeX
+        processed_text = process_ocr_latex(text, output_format)
+
+        # Create new result dict with processed text
+        processed_result = result.copy()
+        processed_result["text"] = processed_text
+        processed_result["latex_processing"] = {
+            "latex_detected": True,
+            "output_format": output_format,
+        }
+
+        if debug_info:
+            print("🧮 LaTeX Formula Processing:")
+            original_block_formulas = len(re.findall(r"\\\[(.*?)\\\]", text, re.DOTALL))
+            original_inline_dollar = len(re.findall(r"\$(.*?)\$", text, re.DOTALL))
+            original_inline_paren = len(re.findall(r"\\\((.*?)\\\)", text, re.DOTALL))
+            converted_inline = len(re.findall(r"\$(.*?)\$", processed_text, re.DOTALL))
+
+            print(f"  - Original block formulas (\\[...\\]): {original_block_formulas}")
+            print(f"  - Original inline formulas ($...$): {original_inline_dollar}")
+            print(f"  - Original inline formulas (\\(...\\)): {original_inline_paren}")
+            print(f"  - Final inline formulas ($...$): {converted_inline}")
+            print(
+                f"  - Format: Markdown-compatible ($...$ for inline, $$...$$ for block)"
+            )
+
+        return processed_result
+
+    # Handle string format
+    else:
+        # Ensure result is treated as string
+        text_result = str(result)
+
+        if not contains_latex(text_result):
+            return result
+
+        if debug_info:
+            print("🧮 LaTeX Formula Processing:")
+            original_block_formulas = len(
+                re.findall(r"\\\[(.*?)\\\]", text_result, re.DOTALL)
+            )
+            original_inline_dollar = len(
+                re.findall(r"\$(.*?)\$", text_result, re.DOTALL)
+            )
+            original_inline_paren = len(
+                re.findall(r"\\\((.*?)\\\)", text_result, re.DOTALL)
+            )
+
+        processed_text = process_ocr_latex(text_result, output_format)
+
+        if debug_info:
+            converted_inline = len(re.findall(r"\$(.*?)\$", processed_text, re.DOTALL))
+            print(f"  - Original block formulas (\\[...\\]): {original_block_formulas}")
+            print(f"  - Original inline formulas ($...$): {original_inline_dollar}")
+            print(f"  - Original inline formulas (\\(...\\)): {original_inline_paren}")
+            print(f"  - Final inline formulas ($...$): {converted_inline}")
+            print(
+                f"  - Format: Markdown-compatible ($...$ for inline, $$...$$ for block)"
+            )
+
+        return processed_text
