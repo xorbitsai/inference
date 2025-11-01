@@ -114,14 +114,18 @@ class LMDeployModel(LLM):
         raise ValueError("LMDEPLOY engine has not supported generate yet.")
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("lmdeploy") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("lmdeploy") is not None
+            else "lmdeploy library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        return False
+    ) -> Union[bool, str]:
+        return "LMDeploy base model does not support direct inference, use specific LMDeploy model classes"
 
     def generate(
         self,
@@ -173,14 +177,23 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility and quantization
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
+            # LMDeploy has specific AWQ quantization requirements
             if "4" not in quantization:
-                return False
+                return f"LMDeploy AWQ format requires 4-bit quantization, got: {quantization}"
+
+        # Check model compatibility
         if llm_family.model_name not in LMDEPLOY_SUPPORTED_CHAT_MODELS:
-            return False
-        return LMDEPLOY_INSTALLED
+            return f"Chat model not supported by LMDeploy: {llm_family.model_name}"
+
+        return True
 
     async def async_chat(
         self,

@@ -79,20 +79,33 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return llamacpp_model_config
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("xllamacpp") is not None
+            else "xllamacpp library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
         if llm_spec.model_format not in ["ggufv2"]:
-            return False
-        if (
-            "chat" not in llm_family.model_ability
-            and "generate" not in llm_family.model_ability
-        ):
-            return False
+            return (
+                f"llama.cpp only supports GGUF v2 format, got: {llm_spec.model_format}"
+            )
+
+        # Check memory requirements (basic heuristic)
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Very large models
+            return f"llama.cpp may struggle with very large models ({model_size}B parameters)"
+
         return True
 
     def load(self):

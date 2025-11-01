@@ -493,20 +493,32 @@ class PytorchModel(LLM):
             del self._tokenizer
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("transformers") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("transformers") is not None
+            else "transformers library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+    ) -> Union[bool, str]:
+        # Check library availability
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
+        supported_formats = ["pytorch", "gptq", "awq", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return f"Transformers does not support model format: {llm_spec.model_format}, supported formats: {', '.join(supported_formats)}"
+
+        # Check for models that shouldn't use Transformers by default
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
-            return False
-        if "generate" not in llm_family.model_ability:
-            return False
+            return f"Model {model_family} is not recommended for Transformers engine, has specialized engine preference"
+
         return True
 
     def build_prefill_attention_mask(
@@ -964,8 +976,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             return False
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
-            return False
-        if "chat" not in llm_family.model_ability:
             return False
         return True
 

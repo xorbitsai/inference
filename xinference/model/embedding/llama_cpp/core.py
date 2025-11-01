@@ -225,8 +225,12 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         return Embedding(**r)  # type: ignore
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("xllamacpp") is not None
+            else "xllamacpp library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -234,7 +238,32 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
         if model_spec.model_format not in ["ggufv2"]:
-            return False
+            return f"llama.cpp embedding only supports GGUF v2 format, got: {model_spec.model_format}"
+
+        # Check embedding-specific requirements
+        if not hasattr(model_spec, "model_file_name_template"):
+            return "GGUF embedding model requires proper file configuration (missing model_file_name_template)"
+
+        # Check model dimensions for llama.cpp compatibility
+        model_dimensions = model_family.dimensions
+        if model_dimensions > 4096:  # llama.cpp may have limitations
+            return f"Large embedding model may have compatibility issues with llama.cpp ({model_dimensions} dimensions)"
+
+        # Check platform-specific considerations
+        import platform
+
+        current_platform = platform.system()
+
+        # llama.cpp works across platforms but may have performance differences
+        if current_platform == "Windows":
+            return "llama.cpp embedding may have limited performance on Windows"
+
         return True

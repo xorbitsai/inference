@@ -61,6 +61,7 @@ def test_qwen3_vllm(setup):
         model_name="Qwen3-Reranker-0.6B",
         model_type="rerank",
         model_engine="vllm",
+        max_num_batched_tokens=81920,  # Allow larger batch size for Qwen3
     )
 
     model = client.get_model(model_uid)

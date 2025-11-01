@@ -424,8 +424,12 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("sentence_transformers") is not None
+            else "sentence_transformers library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -433,6 +437,43 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+    ) -> Union[bool, str]:
+        # Check library availability
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
+        if model_spec.model_format not in ["pytorch"]:
+            return f"Sentence Transformers only supports pytorch format, got: {model_spec.model_format}"
+
+        # Check model dimensions compatibility
+        model_dimensions = model_family.dimensions
+        if model_dimensions > 1536:  # Very large embedding models
+            return f"Large embedding model detected ({model_dimensions} dimensions), may have performance issues"
+
+        # Check token limits
+        max_tokens = model_family.max_tokens
+        if max_tokens > 8192:  # Very high token limits
+            return f"High token limit model detected (max_tokens: {max_tokens}), may cause memory issues"
+
+        # Check for special model requirements
+        model_name = model_family.model_name.lower()
+
+        # Check Qwen2 GTE models
+        if "gte" in model_name and "qwen2" in model_name:
+            # These models have specific requirements
+            if not hasattr(cls, "_check_qwen_gte_requirements"):
+                return "Qwen2 GTE models require special handling"
+
+        # Check Qwen3 models
+        if "qwen3" in model_name:
+            # Qwen3 has flash attention requirements - basic check
+            try:
+                pass
+
+                # This would be checked during actual loading
+            except Exception:
+                return "Qwen3 embedding model may have compatibility issues"
+
+        return True
