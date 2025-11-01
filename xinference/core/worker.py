@@ -719,9 +719,38 @@ class WorkerActor(xo.StatelessActor):
             logger.error(f"Invalid model name format: {model_name}")
             raise ValueError(f"Invalid model name format: {model_name}")
 
-        # Convert model hub JSON format to Xinference expected format
+        # Convert model hub JSON format to Xinference expected format using flatten_model_src
         try:
-            converted_model_json = self._convert_model_json_format(model_json)
+            from ..model.utils import flatten_model_src
+
+            # Check different model format types
+            if "model_src" in model_json:
+                # Simple flat format with model_src at top level
+                flattened_list = flatten_model_src(model_json)
+                converted_model_json = flattened_list[0] if flattened_list else model_json
+            elif "model_specs" in model_json and isinstance(model_json["model_specs"], list):
+                # LLM/embedding/rerank format with model_specs
+                from ..model.utils import flatten_quantizations
+                converted_model_json = model_json.copy()
+
+                # Process all model_specs using flatten_quantizations - exactly like builtin models
+                flattened_specs = []
+                for spec in converted_model_json["model_specs"]:
+                    if "model_src" in spec:
+                        # Use flatten_quantizations like builtin LLM loading
+                        quantized_specs = flatten_quantizations(spec)
+                        if quantized_specs:
+                            flattened_specs.extend(quantized_specs)
+                    else:
+                        flattened_specs.append(spec)
+
+                # Use all flattened specs like builtin models
+                if flattened_specs:
+                    converted_model_json["model_specs"] = flattened_specs
+                    logger.info(f"Processed {len(flattened_specs)} model specifications for {model_name}")
+            else:
+                # Already flattened format, use as-is
+                converted_model_json = model_json
         except Exception as e:
             logger.error(f"Format conversion failed: {str(e)}", exc_info=True)
             raise ValueError(f"Failed to convert model JSON format: {str(e)}")
@@ -828,187 +857,7 @@ class WorkerActor(xo.StatelessActor):
                 f"Failed to register model '{model_spec.model_name}': {str(e)}"
             )
 
-    def _convert_model_json_format(self, model_json: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert model hub JSON format to Xinference expected format.
-
-        The input format uses nested 'model_src' structure, but Xinference expects
-        flattened fields at the spec level.
-
-        For LLM/embedding/rerank models: uses model_specs structure
-        For image/audio/video models: uses flat structure with direct fields
-        """
-        # Determine if this is an image/audio/video model (flat structure) or LLM/embedding/rerank (model_specs structure)
-        flat_model_types = ["image", "audio", "video"]
-        model_type = None
-
-        # Try to determine model type from context or model_ability
-        if "model_ability" in model_json:
-            abilities = model_json["model_ability"]
-            if isinstance(abilities, list):
-                if (
-                    "text2img" in abilities
-                    or "image2image" in abilities
-                    or "ocr" in abilities
-                ):
-                    model_type = "image"
-                elif "auto-speech" in abilities or "text-to-speech" in abilities:
-                    model_type = "audio"
-                elif "text-to-video" in abilities:
-                    model_type = "video"
-
-        if model_type in flat_model_types:
-            # Handle image/audio/video models with flat structure
-
-            if "model_src" in model_json:
-                model_src = model_json["model_src"]
-
-                # Extract fields from model_src to top level
-                if "huggingface" in model_src:
-                    hf_data = model_src["huggingface"]
-
-                    if "model_id" in hf_data and model_json.get("model_id") is None:
-                        model_json["model_id"] = hf_data["model_id"]
-
-                    if (
-                        "model_revision" in hf_data
-                        and model_json.get("model_revision") is None
-                    ):
-                        model_json["model_revision"] = hf_data["model_revision"]
-
-                # Remove model_src field as it's not needed in the final format
-                del model_json["model_src"]
-
-            # Set required defaults for image models
-            if model_json.get("model_hub") is None:
-                model_json["model_hub"] = "huggingface"
-
-            # Add null fields for completeness based on builtin image model structure
-            null_fields = [
-                "cache_config",
-                "controlnet",
-                "gguf_model_id",
-                "gguf_quantizations",
-                "gguf_model_file_name_template",
-                "lightning_model_id",
-                "lightning_versions",
-                "lightning_model_file_name_template",
-                "model_uri",
-            ]
-            for field in null_fields:
-                if field not in model_json:
-                    model_json[field] = None
-
-            # Add empty dict fields if missing
-            dict_fields = ["default_model_config", "default_generate_config"]
-            for field in dict_fields:
-                if field not in model_json:
-                    model_json[field] = {}
-
-        else:
-            # Handle LLM/embedding/rerank models with model_specs structure
-
-            # Handle model_specs - if multiple formats are provided, select the first one
-            if "model_specs" in model_json and isinstance(
-                model_json["model_specs"], list
-            ):
-                if len(model_json["model_specs"]) > 1:
-                    # For add_model, we'll use the first spec as the primary one
-                    # The other specs will be ignored for this registration
-                    model_json["model_specs"] = [model_json["model_specs"][0]]
-
-                # Fix missing quantization field for pytorch/mlx specs
-                spec = model_json["model_specs"][0]
-                if "quantization" not in spec:
-                    model_format = spec.get("model_format", "")
-                    if model_format in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-                        # Extract quantization from model_src if available
-                        if "model_src" in spec and "huggingface" in spec["model_src"]:
-                            quantizations = spec["model_src"]["huggingface"].get(
-                                "quantizations", []
-                            )
-                            if quantizations:
-                                spec["quantization"] = quantizations[
-                                    0
-                                ]  # Use first quantization
-                            else:
-                                spec["quantization"] = "none"  # Default quantization
-                        else:
-                            spec["quantization"] = "none"  # Default quantization
-                    elif model_format == "mlx":
-                        # Extract quantization from model_src if available
-                        if "model_src" in spec and "huggingface" in spec["model_src"]:
-                            quantizations = spec["model_src"]["huggingface"].get(
-                                "quantizations", []
-                            )
-                            if quantizations:
-                                spec["quantization"] = quantizations[
-                                    0
-                                ]  # Use first quantization
-                            else:
-                                spec["quantization"] = "4bit"  # Default for MLX
-                        else:
-                            spec["quantization"] = "4bit"  # Default for MLX
-                    elif model_format == "ggufv2":
-                        # GGUF models need to extract quantization from filename template
-                        if "model_file_name_template" in spec:
-                            template = spec["model_file_name_template"]
-                            if "{quantization}" not in template:
-                                # Try to extract from model_id or set default
-                                spec["quantization"] = (
-                                    "Q4_K_M"  # Common GGUF quantization
-                                )
-                        else:
-                            spec["quantization"] = "Q4_K_M"  # Default for GGUF
-
-                # Add missing required fields for LLM-style specs
-                if "model_hub" not in spec:
-                    spec["model_hub"] = "huggingface"
-
-                if "model_id" not in spec:
-                    if "model_src" in spec and "huggingface" in spec["model_src"]:
-                        spec["model_id"] = spec["model_src"]["huggingface"]["model_id"]
-
-                if "model_revision" not in spec:
-                    if "model_src" in spec and "huggingface" in spec["model_src"]:
-                        spec["model_revision"] = spec["model_src"]["huggingface"][
-                            "model_revision"
-                        ]
-
-                # Remove model_src from spec as it's not needed in the final format
-                if "model_src" in spec:
-                    del spec["model_src"]
-
-        # Handle legacy top-level model_src for backward compatibility
-        if model_json.get("model_id") is None and "model_src" in model_json:
-            model_src = model_json["model_src"]
-
-            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
-                model_json["model_id"] = model_src["huggingface"]["model_id"]
-            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
-                model_json["model_id"] = model_src["modelscope"]["model_id"]
-
-            if model_json.get("model_revision") is None:
-                if (
-                    "huggingface" in model_src
-                    and "model_revision" in model_src["huggingface"]
-                ):
-                    model_json["model_revision"] = model_src["huggingface"][
-                        "model_revision"
-                    ]
-                elif (
-                    "modelscope" in model_src
-                    and "model_revision" in model_src["modelscope"]
-                ):
-                    model_json["model_revision"] = model_src["modelscope"][
-                        "model_revision"
-                    ]
-
-            # Remove top-level model_src field as it's not needed in the final format
-            del model_json["model_src"]
-
-        return model_json
-
+    
     @log_async(logger=logger)
     async def update_model_type(self, model_type: str):
         """

@@ -603,6 +603,19 @@ def flatten_quantizations(input_json: dict):
                 if key != "quantizations":
                     record[key] = value
 
+            # Add required defaults for ggufv2 format if model_file_name_template is missing
+            if "model_format" in record and record["model_format"] == "ggufv2":
+                if "model_file_name_template" not in record:
+                    # Generate default template from model_id
+                    model_id = record.get("model_id", "")
+                    if model_id:
+                        # Extract model name from model_id (last part after /)
+                        model_name = model_id.split("/")[-1]
+                        # Remove potential suffixes
+                        if "-GGUF" in model_name:
+                            model_name = model_name.replace("-GGUF", "")
+                        record["model_file_name_template"] = f"{model_name.lower()}-{{quantization}}.gguf"
+
             flattened.append(record)
     return flattened
 

@@ -23,60 +23,6 @@ from ..utils import flatten_quantizations
 logger = logging.getLogger(__name__)
 
 
-def convert_model_json_format(model_json: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert model hub JSON format to Xinference expected format.
-
-    This is a standalone version of the conversion logic from supervisor.py.
-    """
-    logger.debug(
-        f"convert_model_json_format called for: {model_json.get('model_name', 'Unknown')}"
-    )
-
-    # If model_specs is missing, provide a default minimal spec
-    if "model_specs" not in model_json or not model_json["model_specs"]:
-        logger.debug("model_specs missing or empty, creating default spec")
-        return {
-            **model_json,
-            "version": 2,  # Add missing required field
-            "model_lang": ["en"],  # Add missing required field
-            "model_specs": [
-                {
-                    "model_format": "pytorch",
-                    "model_size_in_billions": None,
-                    "quantization": "none",
-                    "model_file_name_template": "model.bin",
-                    "model_hub": "huggingface",
-                }
-            ],
-        }
-
-    converted = model_json.copy()
-    converted_specs = []
-
-    # Ensure required top-level fields
-    if "version" not in converted:
-        converted["version"] = 2
-    if "model_lang" not in converted:
-        converted["model_lang"] = ["en"]
-
-    for spec in model_json["model_specs"]:
-        model_format = spec.get("model_format", "pytorch")
-        model_size = spec.get("model_size_in_billions")
-
-        # Ensure required fields
-        converted_spec = spec.copy()
-        if "quantization" not in converted_spec:
-            converted_spec["quantization"] = "none"
-        if "model_file_name_template" not in converted_spec:
-            converted_spec["model_file_name_template"] = "model.bin"
-        if "model_hub" not in converted_spec:
-            converted_spec["model_hub"] = "huggingface"
-
-        converted_specs.append(converted_spec)
-
-    converted["model_specs"] = converted_specs
-    return converted
 
 
 from .core import (
@@ -193,11 +139,28 @@ def register_custom_model():
 def register_builtin_model():
     from ..utils import load_complete_builtin_models
 
-    # Use unified loading function, but LLM needs special handling
+    # Use unified loading function with flatten_quantizations for LLM
+    from ..utils import flatten_quantizations
+    def convert_llm_with_quantizations(model_json):
+        if "model_specs" not in model_json:
+            return model_json
+
+        # Process each model_spec with flatten_quantizations (like builtin LLM loading)
+        result = model_json.copy()
+        flattened_specs = []
+        for spec in result["model_specs"]:
+            if "model_src" in spec:
+                flattened_specs.extend(flatten_quantizations(spec))
+            else:
+                flattened_specs.append(spec)
+        result["model_specs"] = flattened_specs
+
+        return result
+
     loaded_count = load_complete_builtin_models(
         model_type="llm",
         builtin_registry={},  # Temporarily use empty dict, we handle it manually
-        convert_format_func=convert_model_json_format,
+        convert_format_func=convert_llm_with_quantizations,
         model_class=LLMFamilyV2,
     )
 
@@ -231,7 +194,9 @@ def register_builtin_model():
 
             for model_data in models_to_register:
                 try:
-                    converted_data = convert_model_json_format(model_data)
+                    from ..utils import flatten_model_src
+                    flattened_list = flatten_model_src(model_data)
+                    converted_data = flattened_list[0] if flattened_list else model_data
                     builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
 
                     if builtin_llm_family.model_name not in existing_model_names:
