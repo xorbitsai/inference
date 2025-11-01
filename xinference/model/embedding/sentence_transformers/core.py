@@ -137,8 +137,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
 
-    @extensible
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,
@@ -433,23 +432,34 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         return result
 
+    @extensible
+    def create_embedding(
+        self,
+        sentences: Union[str, List[str]],
+        **kwargs,
+    ):
+        return self._create_embedding(sentences, **kwargs)
+
     @create_embedding.batch  # type: ignore
     def create_embedding(self, args_list, kwargs_list):
-        grouped = defaultdict(lambda: {"sentences": [], "offsets": [], "kwargs": None})
+        grouped = defaultdict(
+            lambda: {"sentences": [], "offsets": [], "kwargs": None, "indices": []}
+        )
 
         # 1. Group by kwargs hash
-        for args, kwargs in zip(args_list, kwargs_list):
+        for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
             sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
             if isinstance(sentences, str):
                 sentences = [sentences]
 
             key = make_hashable(extra_kwargs)
             group = grouped[key]
-            group["kwargs"] = extra_kwargs  # same for all in this group
+            group["kwargs"] = extra_kwargs
 
             current_offset = len(group["sentences"])
             group["offsets"].append((current_offset, len(sentences)))
             group["sentences"].extend(sentences)
+            group["indices"].append(i)  # remember original position
 
         results_with_index = []
 
@@ -460,13 +470,13 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             offsets = group["offsets"]
             indices = group["indices"]
 
-            embedding_list = self._model.embed(sentences, **kwargs)
+            embedding_list = self._create_embedding(sentences, **kwargs)
             usage = {"total_tokens": len(sentences)}
             model_uid = kwargs.get("model", "unknown")
 
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
-                data = embedding_list[offset : offset + n]
+                data = embedding_list["data"][offset : offset + n]
                 result = Embedding(
                     object="list",
                     model=model_uid,
@@ -482,14 +492,37 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         return results
 
     def _extract_sentences_kwargs(self, args, kwargs):
-        bound = inspect.signature(self.create_embedding).bind(*args, **kwargs)
+        """
+        Extract the 'sentences' argument and remaining kwargs from (*args, **kwargs)
+        for a given function.
+
+        This uses inspect.signature(func).bind_partial() to automatically match
+        both positional and keyword arguments, while handling bound methods
+        (functions with 'self' as the first parameter).
+
+        Args:
+            func: The target function whose parameters define how to bind args/kwargs.
+            args: The positional arguments passed to the function.
+            kwargs: The keyword arguments passed to the function.
+
+        Returns:
+            A tuple (sentences, extra_kwargs), where:
+              - sentences: The extracted 'sentences' argument (never None).
+              - extra_kwargs: Remaining keyword arguments excluding 'sentences'.
+
+        Raises:
+            KeyError: If 'sentences' argument is not found.
+            TypeError: If args/kwargs do not match the function signature.
+        """
+        sig = inspect.signature(self._create_embedding)
+        bound = sig.bind_partial(*args, **kwargs)
         bound.apply_defaults()
 
-        sentences = bound.arguments["sentences"]
-        extra_kwargs = {
-            k: v for k, v in bound.arguments.items() if k not in ("self", "sentences")
-        }
+        if "sentences" not in bound.arguments:
+            raise KeyError("'sentences' argument not found in args/kwargs")
 
+        sentences = bound.arguments["sentences"]
+        extra_kwargs = {k: v for k, v in kwargs.items() if k != "sentences"}
         return sentences, extra_kwargs
 
     def _get_batch_size(self, *args, **kwargs) -> int:
