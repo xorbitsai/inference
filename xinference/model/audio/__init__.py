@@ -66,34 +66,20 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    # Use unified loading function with flatten_model_src + audio-specific defaults
-    from ..utils import flatten_model_src, load_complete_builtin_models
+    # Use unified function for audio models
+    from ..utils import register_builtin_models_unified, flatten_model_src
 
-    def convert_audio_with_flatten(model_json):
-        flattened_list = flatten_model_src(model_json)
-        if not flattened_list:
-            return model_json
-
-        result = flattened_list[0]
-
-        # Add required defaults for audio models
-        if "multilingual" not in result:
-            result["multilingual"] = True
-        if "model_lang" not in result:
-            result["model_lang"] = ["en", "zh"]
-        if "version" not in result:
-            result["version"] = 2
-
-        return result
-
-    loaded_count = load_complete_builtin_models(
+    loaded_count = register_builtin_models_unified(
         model_type="audio",
-        builtin_registry=BUILTIN_AUDIO_MODELS,
-        convert_format_func=convert_audio_with_flatten,
+        flatten_func=flatten_model_src,
         model_class=AudioModelFamilyV2,
+        builtin_registry=BUILTIN_AUDIO_MODELS,
+        custom_defaults={
+            "multilingual": True,
+            "model_lang": ["en", "zh"],
+            "version": 2,
+        }
     )
-
-    logger.info(f"Successfully loaded {loaded_count} audio models from complete JSON")
 
 
 def _need_filter(spec: dict):

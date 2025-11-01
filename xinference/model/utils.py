@@ -813,3 +813,104 @@ def load_complete_builtin_models(
     except Exception as e:
         logger.error(f"Failed to load complete JSON {complete_json_path}: {e}")
         return 0
+
+
+def register_builtin_models_unified(
+    model_type: str,
+    flatten_func: callable,
+    model_class: type,
+    builtin_registry: dict,
+    custom_convert_func: callable = None,
+    custom_defaults: dict = None,
+    special_handling: callable = None,
+):
+    """
+    统一的内置模型注册函数
+
+    Args:
+        model_type: 模型类型 ('llm', 'embedding', 'rerank', 'audio', 'image', 'video')
+        flatten_func: 扁平化函数 (flatten_quantizations 或 flatten_model_src)
+        model_class: 模型类 (如 LLMFamilyV2)
+        builtin_registry: 内置模型注册表
+        custom_convert_func: 自定义转换函数 (可选)
+        custom_defaults: 自定义默认值 (可选，用于Audio模型)
+        special_handling: 特殊处理函数 (可选，用于Image/LLM模型)
+
+    Returns:
+        int: 成功加载的模型数量
+    """
+    import codecs
+    import json
+    from ..constants import XINFERENCE_MODEL_DIR
+
+    logger = logging.getLogger(__name__)
+
+    # 默认转换函数
+    def default_convert_func(model_json):
+        if "model_specs" not in model_json:
+            return model_json
+
+        result = model_json.copy()
+        flattened_specs = []
+        for spec in result["model_specs"]:
+            if "model_src" in spec:
+                flattened_specs.extend(flatten_func(spec))
+            else:
+                flattened_specs.append(spec)
+        result["model_specs"] = flattened_specs
+        return result
+
+    # 使用自定义转换函数或默认函数
+    convert_func = custom_convert_func or default_convert_func
+
+    # 使用统一的加载函数
+    loaded_count = load_complete_builtin_models(
+        model_type=model_type,
+        builtin_registry=builtin_registry,
+        convert_format_func=convert_func,
+        model_class=model_class,
+    )
+
+    # 应用自定义默认值 (用于Audio模型)
+    if custom_defaults and loaded_count > 0:
+        _apply_custom_defaults(builtin_registry, custom_defaults, model_type)
+
+    # 执行特殊处理 (用于Image/LLM模型)
+    if special_handling and loaded_count > 0:
+        special_handling(builtin_registry, model_type)
+
+    logger.info(f"Successfully loaded {loaded_count} {model_type} models using unified function")
+    return loaded_count
+
+
+def _apply_custom_defaults(registry: dict, defaults: dict, model_type: str):
+    """
+    应用自定义默认值到模型规格
+
+    Args:
+        registry: 模型注册表
+        defaults: 默认值字典
+        model_type: 模型类型
+    """
+    for model_name, model_specs in registry.items():
+        if isinstance(model_specs, list):
+            # 对于使用列表结构的模型类型 (audio, image, video, llm)
+            for spec in model_specs:
+                if hasattr(spec, '__dict__'):
+                    for key, value in defaults.items():
+                        if not hasattr(spec, key):
+                            setattr(spec, key, value)
+                elif isinstance(spec, dict):
+                    for key, value in defaults.items():
+                        if key not in spec:
+                            spec[key] = value
+        else:
+            # 对于使用单一结构的模型类型 (embedding, rerank)
+            if hasattr(model_specs, '__dict__'):
+                for key, value in defaults.items():
+                    if not hasattr(model_specs, key):
+                        setattr(model_specs, key, value)
+            elif isinstance(model_specs, dict):
+                for key, value in defaults.items():
+                    if key not in model_specs:
+                        model_specs[key] = value

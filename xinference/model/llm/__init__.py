@@ -135,84 +135,39 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    # Use unified loading function with flatten_quantizations for LLM
-    from ..utils import flatten_quantizations, load_complete_builtin_models
+    # Use unified function for LLM models
+    from ..utils import register_builtin_models_unified, flatten_quantizations
+    from ..custom import RegistryManager
+    from .custom import register_llm
 
-    def convert_llm_with_quantizations(model_json):
-        if "model_specs" not in model_json:
-            return model_json
-
-        # Process each model_spec with flatten_quantizations (like builtin LLM loading)
-        result = model_json.copy()
-        flattened_specs = []
-        for spec in result["model_specs"]:
-            if "model_src" in spec:
-                flattened_specs.extend(flatten_quantizations(spec))
-            else:
-                flattened_specs.append(spec)
-        result["model_specs"] = flattened_specs
-
-        return result
-
-    loaded_count = load_complete_builtin_models(
-        model_type="llm",
-        builtin_registry={},  # Temporarily use empty dict, we handle it manually
-        convert_format_func=convert_llm_with_quantizations,
-        model_class=LLMFamilyV2,
-    )
-
-    # Manually handle LLM's special registration logic
-    if loaded_count > 0:
-        from ...constants import XINFERENCE_MODEL_DIR
-        from ..custom import RegistryManager
-
-        registry = RegistryManager.get_registry("llm")
+    def llm_special_handling(registry, model_type):
+        """Handle LLM's special registration logic"""
+        registry_mgr = RegistryManager.get_registry("llm")
         existing_model_names = {
-            spec.model_name for spec in registry.get_custom_models()
+            spec.model_name for spec in registry_mgr.get_custom_models()
         }
 
-        builtin_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
-        complete_json_path = os.path.join(builtin_llm_dir, "llm_models.json")
+        for model_name, model_families in registry.items():
+            for model_family in model_families:
+                if model_family.model_name not in existing_model_names:
+                    try:
+                        register_llm(model_family, persist=False)
+                        existing_model_names.add(model_family.model_name)
+                    except ValueError as e:
+                        # 捕获冲突错误并输出警告，而不是抛出异常
+                        import warnings
+                        warnings.warn(str(e))
+                    except Exception as e:
+                        import warnings
+                        warnings.warn(f"Error registering LLM model {model_family.model_name}: {e}")
 
-        if os.path.exists(complete_json_path):
-            with codecs.open(complete_json_path, encoding="utf-8") as fd:
-                model_data = json.load(fd)
-
-            models_to_register = []
-            if isinstance(model_data, list):
-                models_to_register = model_data
-            elif isinstance(model_data, dict):
-                if "model_name" in model_data:
-                    models_to_register = [model_data]
-                else:
-                    for key, value in model_data.items():
-                        if isinstance(value, dict) and "model_name" in value:
-                            models_to_register.append(value)
-
-            for model_data in models_to_register:
-                try:
-                    from ..utils import flatten_quantizations
-
-                    converted_data = model_data.copy()
-                    if "model_specs" in converted_data:
-                        flattened_specs = []
-                        for spec in converted_data["model_specs"]:
-                            if "model_src" in spec:
-                                flattened_specs.extend(flatten_quantizations(spec))
-                            else:
-                                flattened_specs.append(spec)
-                        converted_data["model_specs"] = flattened_specs
-                    builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
-
-                    if builtin_llm_family.model_name not in existing_model_names:
-                        register_llm(builtin_llm_family, persist=False)
-                        existing_model_names.add(builtin_llm_family.model_name)
-                except Exception as e:
-                    warnings.warn(
-                        f"Error parsing model {model_data.get('model_name', 'Unknown')}: {e}"
-                    )
-
-    logger.info(f"Successfully loaded {loaded_count} llm models from complete JSON")
+    loaded_count = register_builtin_models_unified(
+        model_type="llm",
+        flatten_func=flatten_quantizations,
+        model_class=LLMFamilyV2,
+        builtin_registry={},  # Special handling
+        special_handling=llm_special_handling,
+    )
 
 
 def load_model_family_from_json(json_filename, target_families):

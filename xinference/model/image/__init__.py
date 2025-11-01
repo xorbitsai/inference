@@ -62,113 +62,33 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    import json
+    # Use unified function for image models
+    from ..utils import register_builtin_models_unified, flatten_model_src
 
-    from ...constants import XINFERENCE_MODEL_DIR
-    from ..custom import RegistryManager
+    def image_special_handling(registry, model_type):
+        """Handle image's special registration logic"""
+        from ...constants import XINFERENCE_MODEL_DIR
+        from ..custom import RegistryManager
 
-    registry = RegistryManager.get_registry("image")
-    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
+        registry_mgr = RegistryManager.get_registry("image")
+        existing_model_names = {spec.model_name for spec in registry_mgr.get_custom_models()}
 
-    builtin_image_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "image")
-    if os.path.isdir(builtin_image_dir):
-        # First, try to load from the complete JSON file
-        complete_json_path = os.path.join(builtin_image_dir, "image_models.json")
-        if os.path.exists(complete_json_path):
-            try:
-                with codecs.open(complete_json_path, encoding="utf-8") as fd:
-                    model_data = json.load(fd)
+        for model_name, model_families in BUILTIN_IMAGE_MODELS.items():
+            for model_family in model_families:
+                if model_family.model_name not in existing_model_names:
+                    # Update model descriptions for the new builtin model
+                    IMAGE_MODEL_DESCRIPTIONS.update(
+                        generate_image_description(model_family)
+                    )
+                    existing_model_names.add(model_family.model_name)
 
-                # Handle different formats
-                models_to_register = []
-                if isinstance(model_data, list):
-                    # Multiple models in a list
-                    models_to_register = model_data
-                elif isinstance(model_data, dict):
-                    # Single model
-                    if "model_name" in model_data:
-                        models_to_register = [model_data]
-                    else:
-                        # Models dict - extract models
-                        for key, value in model_data.items():
-                            if isinstance(value, dict) and "model_name" in value:
-                                models_to_register.append(value)
-
-                # Register all models from the complete JSON
-                for model_data in models_to_register:
-                    try:
-                        # Convert format using flatten_model_src
-                        from ..utils import flatten_model_src
-
-                        flattened_list = flatten_model_src(model_data)
-                        converted_data = (
-                            flattened_list[0] if flattened_list else model_data
-                        )
-                        builtin_image_family = ImageModelFamilyV2.parse_obj(
-                            converted_data
-                        )
-
-                        # Only register if model doesn't already exist
-                        if builtin_image_family.model_name not in existing_model_names:
-                            # Add to BUILTIN_IMAGE_MODELS directly for proper builtin registration
-                            if (
-                                builtin_image_family.model_name
-                                not in BUILTIN_IMAGE_MODELS
-                            ):
-                                BUILTIN_IMAGE_MODELS[
-                                    builtin_image_family.model_name
-                                ] = []
-                            BUILTIN_IMAGE_MODELS[
-                                builtin_image_family.model_name
-                            ].append(builtin_image_family)
-                            # Update model descriptions for the new builtin model
-                            IMAGE_MODEL_DESCRIPTIONS.update(
-                                generate_image_description(builtin_image_family)
-                            )
-                            existing_model_names.add(builtin_image_family.model_name)
-                    except Exception as e:
-                        warnings.warn(
-                            f"Error parsing image model {model_data.get('model_name', 'Unknown')}: {e}"
-                        )
-
-                logger.info(
-                    f"Successfully registered {len(models_to_register)} image models from complete JSON"
-                )
-
-            except Exception as e:
-                warnings.warn(
-                    f"Error loading complete JSON file {complete_json_path}: {e}"
-                )
-                # Fall back to individual files if complete JSON loading fails
-
-        # Fall back: load individual JSON files (backward compatibility)
-        individual_files = [
-            f
-            for f in os.listdir(builtin_image_dir)
-            if f.endswith(".json") and f != "image_models.json"
-        ]
-        for f in individual_files:
-            try:
-                with codecs.open(
-                    os.path.join(builtin_image_dir, f), encoding="utf-8"
-                ) as fd:
-                    builtin_image_family = ImageModelFamilyV2.parse_obj(json.load(fd))
-
-                    # Only register if model doesn't already exist
-                    if builtin_image_family.model_name not in existing_model_names:
-                        # Add to BUILTIN_IMAGE_MODELS directly for proper builtin registration
-                        if builtin_image_family.model_name not in BUILTIN_IMAGE_MODELS:
-                            BUILTIN_IMAGE_MODELS[builtin_image_family.model_name] = []
-                        BUILTIN_IMAGE_MODELS[builtin_image_family.model_name].append(
-                            builtin_image_family
-                        )
-                        # Update model descriptions for the new builtin model
-                        IMAGE_MODEL_DESCRIPTIONS.update(
-                            generate_image_description(builtin_image_family)
-                        )
-                        existing_model_names.add(builtin_image_family.model_name)
-            except Exception as e:
-                warnings.warn(f"{builtin_image_dir}/{f} has error, {e}")
+    loaded_count = register_builtin_models_unified(
+        model_type="image",
+        flatten_func=flatten_model_src,
+        model_class=ImageModelFamilyV2,
+        builtin_registry=BUILTIN_IMAGE_MODELS,
+        special_handling=image_special_handling,
+    )
 
 
 def _install():

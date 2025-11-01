@@ -69,81 +69,15 @@ def register_custom_model():
 
 
 def register_builtin_model():
-    # Use unified loading function with flatten_quantizations for rerank models
-    from ..utils import flatten_quantizations, load_complete_builtin_models
+    # Use unified function for rerank models
+    from ..utils import register_builtin_models_unified, flatten_quantizations
 
-    def convert_rerank_with_quantizations(model_json):
-        if "model_specs" not in model_json:
-            return model_json
-
-        # Process each model_spec with flatten_quantizations (like builtin rerank loading)
-        result = model_json.copy()
-        flattened_specs = []
-        for spec in result["model_specs"]:
-            if "model_src" in spec:
-                flattened_specs.extend(flatten_quantizations(spec))
-            else:
-                flattened_specs.append(spec)
-        result["model_specs"] = flattened_specs
-
-        return result
-
-    loaded_count = load_complete_builtin_models(
+    loaded_count = register_builtin_models_unified(
         model_type="rerank",
-        builtin_registry={},  # Temporarily use empty dict, we handle it manually
-        convert_format_func=convert_rerank_with_quantizations,
+        flatten_func=flatten_quantizations,
         model_class=RerankModelFamilyV2,
+        builtin_registry=BUILTIN_RERANK_MODELS,
     )
-
-    # Manually handle rerank's special registration logic
-    if loaded_count > 0:
-        builtin_rerank_dir = os.path.join(
-            XINFERENCE_MODEL_DIR, "v2", "builtin", "rerank"
-        )
-        complete_json_path = os.path.join(builtin_rerank_dir, "rerank_models.json")
-
-        if os.path.exists(complete_json_path):
-            with codecs.open(complete_json_path, encoding="utf-8") as fd:
-                model_data = json.load(fd)
-
-            models_to_register = []
-            if isinstance(model_data, list):
-                models_to_register = model_data
-            elif isinstance(model_data, dict):
-                if "model_name" in model_data:
-                    models_to_register = [model_data]
-                else:
-                    for key, value in model_data.items():
-                        if isinstance(value, dict) and "model_name" in value:
-                            models_to_register.append(value)
-
-            for model_data in models_to_register:
-                try:
-                    from ..utils import flatten_quantizations
-
-                    converted_data = model_data.copy()
-                    if "model_specs" in converted_data:
-                        flattened_specs = []
-                        for spec in converted_data["model_specs"]:
-                            if "model_src" in spec:
-                                flattened_specs.extend(flatten_quantizations(spec))
-                            else:
-                                flattened_specs.append(spec)
-                        converted_data["model_specs"] = flattened_specs
-                    builtin_rerank_family = RerankModelFamilyV2.parse_obj(
-                        converted_data
-                    )
-
-                    if builtin_rerank_family.model_name not in BUILTIN_RERANK_MODELS:
-                        BUILTIN_RERANK_MODELS[builtin_rerank_family.model_name] = (
-                            builtin_rerank_family
-                        )
-                except Exception as e:
-                    warnings.warn(
-                        f"Error parsing model {model_data.get('model_name', 'Unknown')}: {e}"
-                    )
-
-    logger.info(f"Successfully loaded {loaded_count} rerank models from complete JSON")
 
 
 def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):

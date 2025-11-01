@@ -67,19 +67,21 @@ def register_builtin_model():
     This function is called every time model list is requested,
     ensuring real-time updates without server restart.
     """
-    # Use unified loading function with flatten_model_src
-    from ..utils import flatten_model_src, load_complete_builtin_models
+    # Use unified function for video models
+    from ..utils import register_builtin_models_unified, flatten_model_src
 
-    loaded_count = load_complete_builtin_models(
+    def video_convert_func(model_json):
+        """Video-specific conversion function"""
+        flattened_list = flatten_model_src(model_json)
+        return flattened_list[0] if flattened_list else model_json
+
+    loaded_count = register_builtin_models_unified(
         model_type="video",
-        builtin_registry=BUILTIN_VIDEO_MODELS,
-        convert_format_func=lambda x: (
-            flatten_model_src(x)[0] if flatten_model_src(x) else x
-        ),
+        flatten_func=flatten_model_src,
         model_class=VideoModelFamilyV2,
+        builtin_registry=BUILTIN_VIDEO_MODELS,
+        custom_convert_func=video_convert_func,
     )
-
-    logger.info(f"Successfully loaded {loaded_count} video models from complete JSON")
 
 
 def _install():
