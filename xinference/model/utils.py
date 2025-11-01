@@ -603,6 +603,21 @@ def flatten_quantizations(input_json: dict):
                 if key != "quantizations":
                     record[key] = value
 
+            # Add required defaults for ggufv2 format if model_file_name_template is missing
+            if "model_format" in record and record["model_format"] == "ggufv2":
+                if "model_file_name_template" not in record:
+                    # Generate default template from model_id
+                    model_id = record.get("model_id", "")
+                    if model_id:
+                        # Extract model name from model_id (last part after /)
+                        model_name = model_id.split("/")[-1]
+                        # Remove potential suffixes
+                        if "-GGUF" in model_name:
+                            model_name = model_name.replace("-GGUF", "")
+                        record["model_file_name_template"] = (
+                            f"{model_name.lower()}-{{quantization}}.gguf"
+                        )
+
             flattened.append(record)
     return flattened
 
@@ -709,3 +724,446 @@ def cache_clean(fn):
         return _async_wrapper
     else:
         return _wrapper
+
+
+def load_complete_builtin_models(
+    model_type: str, builtin_registry: dict, convert_format_func=None, model_class=None
+):
+    """
+    Load complete JSON files for built-in models in a unified way.
+
+    Args:
+        model_type: Model type (llm, embedding, audio, image, video, rerank)
+        builtin_registry: Built-in model registry dictionary
+        convert_format_func: Format conversion function (optional)
+        model_class: Model class (optional)
+
+    Returns:
+        int: Number of successfully loaded models
+    """
+    import codecs
+    import json
+    import logging
+
+    from ..constants import XINFERENCE_MODEL_DIR
+
+    logger = logging.getLogger(__name__)
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type)
+    complete_json_path = os.path.join(builtin_dir, f"{model_type}_models.json")
+
+    if not os.path.exists(complete_json_path):
+        logger.debug(f"Complete JSON file not found: {complete_json_path}")
+        return 0
+
+    try:
+        with codecs.open(complete_json_path, encoding="utf-8") as fd:
+            model_data = json.load(fd)
+
+        models_to_register = []
+        if isinstance(model_data, list):
+            models_to_register = model_data
+        elif isinstance(model_data, dict):
+            if "model_name" in model_data:
+                models_to_register = [model_data]
+            else:
+                for key, value in model_data.items():
+                    if isinstance(value, dict) and "model_name" in value:
+                        models_to_register.append(value)
+
+        loaded_count = 0
+        for data in models_to_register:
+            try:
+                # Apply format conversion function (if provided)
+                if convert_format_func:
+                    data = convert_format_func(data)
+
+                # Create model instance (if model class is provided)
+                if model_class:
+                    model = model_class.parse_obj(data)
+                    model_name = model.model_name
+                else:
+                    model_name = data.get("model_name", "unknown")
+                    model = data
+
+                # Add to registry based on model type
+                if model_type in ["audio", "image", "video", "llm"]:
+                    # These model types use list structure: dict[model_name] = [model1, model2, ...]
+                    if model_name not in builtin_registry:
+                        builtin_registry[model_name] = [model]
+                    else:
+                        builtin_registry[model_name].append(model)
+                else:
+                    # embedding, rerank use single model structure: dict[model_name] = model
+                    builtin_registry[model_name] = model
+
+                loaded_count += 1
+                logger.info(f"Loaded {model_type} builtin model: {model_name}")
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load {model_type} model {data.get('model_name', 'Unknown')}: {e}"
+                )
+
+        logger.info(
+            f"Successfully loaded {loaded_count} {model_type} models from complete JSON"
+        )
+        return loaded_count
+
+    except Exception as e:
+        logger.error(f"Failed to load complete JSON {complete_json_path}: {e}")
+        return 0
+
+
+def register_builtin_models_unified(
+    model_type: str,
+    flatten_func: Callable,
+    model_class: Type,
+    builtin_registry: Dict[str, Any],
+    custom_convert_func: Optional[Callable] = None,
+    custom_defaults: Optional[Dict[str, Any]] = None,
+    special_handling: Optional[Callable] = None,
+):
+    """
+    Unified builtin model registration function
+
+    Args:
+        model_type: Model type ('llm', 'embedding', 'rerank', 'audio', 'image', 'video')
+        flatten_func: Flatten function (flatten_quantizations or flatten_model_src)
+        model_class: Model class (e.g. LLMFamilyV2)
+        builtin_registry: Builtin model registry
+        custom_convert_func: Custom conversion function (optional)
+        custom_defaults: Custom default values (optional, for Audio models)
+        special_handling: Special handling function (optional, for Image/LLM models)
+
+    Returns:
+        int: Number of successfully loaded models
+    """
+    logger = logging.getLogger(__name__)
+
+    # Default conversion function
+    def default_convert_func(model_json):
+        if "model_specs" not in model_json:
+            return model_json
+
+        result = model_json.copy()
+        flattened_specs = []
+        for spec in result["model_specs"]:
+            if "model_src" in spec:
+                flattened_specs.extend(flatten_func(spec))
+            else:
+                flattened_specs.append(spec)
+        result["model_specs"] = flattened_specs
+        return result
+
+    # Use custom conversion function or default function
+    convert_func = custom_convert_func or default_convert_func
+
+    # Use unified loading function
+    loaded_count = load_complete_builtin_models(
+        model_type=model_type,
+        builtin_registry=builtin_registry,
+        convert_format_func=convert_func,
+        model_class=model_class,
+    )
+
+    # Apply custom defaults (for Audio models)
+    if custom_defaults is not None and loaded_count > 0:
+        _apply_custom_defaults(builtin_registry, custom_defaults, model_type)
+
+    # Execute special handling (for Image/LLM models)
+    if special_handling is not None and loaded_count > 0:
+        special_handling(builtin_registry, model_type)
+
+    logger.info(
+        f"Successfully loaded {loaded_count} {model_type} models using unified function"
+    )
+    return loaded_count
+
+
+def _apply_custom_defaults(
+    registry: Dict[str, Any], defaults: Dict[str, Any], model_type: str
+):
+    """
+    Apply custom defaults to model specifications
+
+    Args:
+        registry: Model registry
+        defaults: Default values dictionary
+        model_type: Model type
+    """
+    for model_name, model_specs in registry.items():
+        if isinstance(model_specs, list):
+            # For model types using list structure (audio, image, video, llm)
+            for spec in model_specs:
+                if hasattr(spec, "__dict__"):
+                    for key, value in defaults.items():
+                        if not hasattr(spec, key):
+                            setattr(spec, key, value)
+                elif isinstance(spec, dict):
+                    for key, value in defaults.items():
+                        if key not in spec:
+                            spec[key] = value
+        else:
+            # For model types using single structure (embedding, rerank)
+            if hasattr(model_specs, "__dict__"):
+                for key, value in defaults.items():
+                    if not hasattr(model_specs, key):
+                        setattr(model_specs, key, value)
+            elif isinstance(model_specs, dict):
+                for key, value in defaults.items():
+                    if key not in model_specs:
+                        model_specs[key] = value
+
+
+def register_audio_builtin_models():
+    """Register builtin audio models using unified function"""
+    from ..model.custom import RegistryManager
+    from .audio import BUILTIN_AUDIO_MODELS
+    from .audio.custom import CustomAudioModelFamilyV2, register_audio
+
+    def convert_audio_model_format(model_json):
+        """
+        Convert audio model hub JSON format to Xinference expected format.
+        Add missing required fields for AudioModelFamilyV2.
+        """
+        converted = model_json.copy()
+
+        # Apply conversion logic to handle null model_id and other issues
+        if converted.get("model_id") is None and "model_src" in converted:
+            model_src = converted["model_src"]
+            # Extract model_id from available sources
+            if "huggingface" in model_src and "model_id" in model_src["huggingface"]:
+                converted["model_id"] = model_src["huggingface"]["model_id"]
+            elif "modelscope" in model_src and "model_id" in model_src["modelscope"]:
+                converted["model_id"] = model_src["modelscope"]["model_id"]
+
+        # Extract model_revision if available
+        if converted.get("model_revision") is None and "model_src" in converted:
+            model_src = converted["model_src"]
+            if (
+                "huggingface" in model_src
+                and "model_revision" in model_src["huggingface"]
+            ):
+                converted["model_revision"] = model_src["huggingface"]["model_revision"]
+            elif (
+                "modelscope" in model_src
+                and "model_revision" in model_src["modelscope"]
+            ):
+                converted["model_revision"] = model_src["modelscope"]["model_revision"]
+
+        return converted
+
+    def audio_special_handling(registry, model_type):
+        """Handle audio's special registration logic"""
+        registry_mgr = RegistryManager.get_registry("audio")
+        existing_model_names = {
+            spec.model_name for spec in registry_mgr.get_custom_models()
+        }
+
+        for model_name, model_families in BUILTIN_AUDIO_MODELS.items():
+            for model_family in model_families:
+                if model_family.model_name not in existing_model_names:
+                    try:
+                        # Actually register model to RegistryManager
+                        register_audio(model_family, persist=False)
+                        existing_model_names.add(model_family.model_name)
+                    except ValueError as e:
+                        # Capture conflict errors and output warnings instead of raising exceptions
+                        import warnings
+
+                        warnings.warn(str(e))
+                    except Exception as e:
+                        import warnings
+
+                        warnings.warn(
+                            f"Error registering audio model {model_family.model_name}: {e}"
+                        )
+
+    return register_builtin_models_unified(
+        model_type="audio",
+        flatten_func=flatten_model_src,
+        model_class=CustomAudioModelFamilyV2,
+        builtin_registry=BUILTIN_AUDIO_MODELS,
+        custom_convert_func=convert_audio_model_format,
+        custom_defaults={
+            "multilingual": True,
+            "model_lang": ["en", "zh"],
+            "version": 2,
+        },
+        special_handling=audio_special_handling,
+    )
+
+
+def register_llm_builtin_models():
+    """Register builtin LLM models using unified function"""
+    from ..model.custom import RegistryManager
+    from .llm import LLMFamilyV2, register_llm
+
+    def llm_special_handling(registry, model_type):
+        """Handle LLM's special registration logic"""
+        registry_mgr = RegistryManager.get_registry("llm")
+        existing_model_names = {
+            spec.model_name for spec in registry_mgr.get_custom_models()
+        }
+
+        for model_name, model_families in registry.items():
+            for model_family in model_families:
+                if model_family.model_name not in existing_model_names:
+                    try:
+                        register_llm(model_family, persist=False)
+                        existing_model_names.add(model_family.model_name)
+                    except ValueError as e:
+                        # Capture conflict errors and output warnings instead of raising exceptions
+                        import warnings
+
+                        warnings.warn(str(e))
+                    except Exception as e:
+                        import warnings
+
+                        warnings.warn(
+                            f"Error registering LLM model {model_family.model_name}: {e}"
+                        )
+
+    return register_builtin_models_unified(
+        model_type="llm",
+        flatten_func=flatten_quantizations,
+        model_class=LLMFamilyV2,
+        builtin_registry={},  # Special handling
+        special_handling=llm_special_handling,
+    )
+
+
+def register_embedding_builtin_models():
+    """Register builtin embedding models using unified function"""
+    from ..model.custom import RegistryManager
+    from .embedding.core import EmbeddingModelFamilyV2
+    from .embedding.custom import register_embedding
+    from .embedding.embed_family import BUILTIN_EMBEDDING_MODELS
+
+    def embedding_special_handling(registry, model_type):
+        """Handle embedding's special registration logic"""
+        registry_mgr = RegistryManager.get_registry("embedding")
+        existing_model_names = {
+            spec.model_name for spec in registry_mgr.get_custom_models()
+        }
+
+        for model_name, model_family in BUILTIN_EMBEDDING_MODELS.items():
+            if model_family.model_name not in existing_model_names:
+                try:
+                    register_embedding(model_family, persist=False)
+                    existing_model_names.add(model_family.model_name)
+                except ValueError as e:
+                    # Capture conflict errors and output warnings instead of raising exceptions
+                    import warnings
+
+                    warnings.warn(str(e))
+                except Exception as e:
+                    import warnings
+
+                    warnings.warn(
+                        f"Error registering embedding model {model_family.model_name}: {e}"
+                    )
+
+    return register_builtin_models_unified(
+        model_type="embedding",
+        flatten_func=flatten_quantizations,
+        model_class=EmbeddingModelFamilyV2,
+        builtin_registry=BUILTIN_EMBEDDING_MODELS,
+        special_handling=embedding_special_handling,
+    )
+
+
+def register_image_builtin_models():
+    """Register builtin image models using unified function"""
+    from ..model.custom import RegistryManager
+    from .image import BUILTIN_IMAGE_MODELS
+    from .image.custom import CustomImageModelFamilyV2, register_image
+
+    def convert_image_model_format(model_json):
+        """
+        Convert image model hub JSON format to Xinference expected format.
+        Add missing required fields for ImageModelFamilyV2.
+        """
+        converted = model_json.copy()
+
+        # Add missing required fields from model_src if they exist
+        if "model_src" in converted and "huggingface" in converted["model_src"]:
+            hf_info = converted["model_src"]["huggingface"]
+            if "model_id" in hf_info and "model_id" not in converted:
+                converted["model_id"] = hf_info["model_id"]
+            if "model_revision" in hf_info and "model_revision" not in converted:
+                converted["model_revision"] = hf_info["model_revision"]
+
+        # Add other missing required fields with defaults
+        if "version" not in converted:
+            converted["version"] = 2
+        if "model_lang" not in converted:
+            converted["model_lang"] = ["en"]
+
+        return converted
+
+    def image_special_handling(registry, model_type):
+        """Handle image's special registration logic"""
+        registry_mgr = RegistryManager.get_registry("image")
+        existing_model_names = {
+            spec.model_name for spec in registry_mgr.get_custom_models()
+        }
+
+        for model_name, model_families in BUILTIN_IMAGE_MODELS.items():
+            for model_family in model_families:
+                if model_family.model_name not in existing_model_names:
+                    try:
+                        # Actually register model to RegistryManager
+                        register_image(model_family, persist=False)
+                        existing_model_names.add(model_family.model_name)
+                    except ValueError as e:
+                        # Capture conflict errors and output warnings instead of raising exceptions
+                        import warnings
+
+                        warnings.warn(str(e))
+                    except Exception as e:
+                        import warnings
+
+                        warnings.warn(
+                            f"Error registering image model {model_family.model_name}: {e}"
+                        )
+
+    return register_builtin_models_unified(
+        model_type="image",
+        flatten_func=flatten_model_src,
+        model_class=CustomImageModelFamilyV2,
+        builtin_registry=BUILTIN_IMAGE_MODELS,
+        custom_convert_func=convert_image_model_format,
+        special_handling=image_special_handling,
+    )
+
+
+def register_video_builtin_models():
+    """Register builtin video models using unified function"""
+    from .video import BUILTIN_VIDEO_MODELS, VideoModelFamilyV2
+
+    def video_convert_func(model_json):
+        """Video-specific conversion function"""
+        flattened_list = flatten_model_src(model_json)
+        return flattened_list[0] if flattened_list else model_json
+
+    return register_builtin_models_unified(
+        model_type="video",
+        flatten_func=flatten_model_src,
+        model_class=VideoModelFamilyV2,
+        builtin_registry=BUILTIN_VIDEO_MODELS,
+        custom_convert_func=video_convert_func,
+    )
+
+
+def register_rerank_builtin_models():
+    """Register builtin rerank models using unified function"""
+    from .rerank import BUILTIN_RERANK_MODELS, RerankModelFamilyV2
+
+    return register_builtin_models_unified(
+        model_type="rerank",
+        flatten_func=flatten_quantizations,
+        model_class=RerankModelFamilyV2,
+        builtin_registry=BUILTIN_RERANK_MODELS,
+    )

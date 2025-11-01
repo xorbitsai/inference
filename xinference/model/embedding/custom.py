@@ -69,7 +69,11 @@ class EmbeddingModelRegistry(ModelRegistry):
             cache_manager.unregister_custom_model(self.model_type)
 
 
-def get_user_defined_embeddings() -> List[EmbeddingModelFamilyV2]:
+def get_registered_embeddings() -> List[EmbeddingModelFamilyV2]:
+    """
+    Get all embedding families registered in the registry (both user-defined and editor-defined).
+    This excludes hardcoded builtin models.
+    """
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("embedding")

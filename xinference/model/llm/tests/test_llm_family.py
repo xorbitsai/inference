@@ -207,7 +207,11 @@ def test_cache_from_uri_local():
 
 
 def test_custom_llm():
-    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
+    from ..custom import get_registered_llm_families as get_user_defined_llm_families
+    from ..custom import (
+        register_llm,
+        unregister_llm,
+    )
 
     spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
@@ -239,7 +243,11 @@ def test_custom_llm():
 
 def test_persistent_custom_llm():
     from ....constants import XINFERENCE_MODEL_DIR
-    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
+    from ..custom import get_registered_llm_families as get_user_defined_llm_families
+    from ..custom import (
+        register_llm,
+        unregister_llm,
+    )
 
     spec = LlamaCppLLMSpecV2(
         model_format="ggufv2",
@@ -663,7 +671,11 @@ def test_quert_engine_SGLang():
 
 
 def test_query_engine_general():
-    from ..custom import get_user_defined_llm_families, register_llm, unregister_llm
+    from ..custom import get_registered_llm_families as get_user_defined_llm_families
+    from ..custom import (
+        register_llm,
+        unregister_llm,
+    )
     from ..llama_cpp.core import XllamaCppModel
     from ..llm_family import LLM_ENGINES, check_engine_by_spec_parameters
 

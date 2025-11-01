@@ -14,12 +14,17 @@
 
 import codecs
 import json
+import logging
 import os
 import warnings
 from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_quantizations
+
+logger = logging.getLogger(__name__)
+
+
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
@@ -28,7 +33,7 @@ from .core import (
 )
 from .custom import (
     CustomRerankModelFamilyV2,
-    get_user_defined_reranks,
+    get_registered_reranks,
     register_rerank,
     unregister_rerank,
 )
@@ -127,5 +132,5 @@ def _install():
     register_custom_model()
 
     # register model description
-    for ud_rerank in get_user_defined_reranks():
+    for ud_rerank in get_registered_reranks():
         RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))

@@ -14,10 +14,16 @@
 
 import codecs
 import json
+import logging
 import os
 import warnings
+from typing import Any, Dict
 
 from ..utils import flatten_model_src
+
+logger = logging.getLogger(__name__)
+
+
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
@@ -27,7 +33,7 @@ from .core import (
 )
 from .custom import (
     CustomImageModelFamilyV2,
-    get_user_defined_images,
+    get_registered_images,
     register_image,
     unregister_image,
 )
@@ -58,6 +64,11 @@ def register_custom_model():
 def _install():
     load_model_family_from_json("model_spec.json", BUILTIN_IMAGE_MODELS)
 
+    # Load models from complete JSON file (from update_model_type)
+    from ..utils import register_image_builtin_models
+
+    register_image_builtin_models()
+
     # register model description
     for model_name, model_specs in BUILTIN_IMAGE_MODELS.items():
         model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
@@ -65,7 +76,7 @@ def _install():
 
     register_custom_model()
 
-    for ud_image in get_user_defined_images():
+    for ud_image in get_registered_images():
         IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))
 
 

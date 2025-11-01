@@ -67,7 +67,11 @@ class LLMModelRegistry(ModelRegistry):
             cache_manager.unregister_custom_model(self.model_type)
 
 
-def get_user_defined_llm_families():
+def get_registered_llm_families():
+    """
+    Get all LLM families registered in the registry (both user-defined and editor-defined).
+    This excludes hardcoded builtin models.
+    """
     from ..custom import RegistryManager
 
     registry = RegistryManager.get_registry("llm")

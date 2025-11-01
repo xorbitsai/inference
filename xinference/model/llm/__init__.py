@@ -13,17 +13,23 @@
 # limitations under the License.
 import codecs
 import json
+import logging
 import os
 import warnings
+from typing import Any, Dict
 
 from ..utils import flatten_quantizations
+
+logger = logging.getLogger(__name__)
+
+
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
     generate_llm_version_info,
     get_llm_version_infos,
 )
-from .custom import get_user_defined_llm_families, register_llm, unregister_llm
+from .custom import get_registered_llm_families, register_llm, unregister_llm
 from .llm_family import (
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
@@ -210,5 +216,5 @@ def _install():
     register_custom_model()
 
     # register model description
-    for ud_llm in get_user_defined_llm_families():
+    for ud_llm in get_registered_llm_families():
         LLM_VERSION_INFOS.update(generate_llm_version_info(ud_llm))

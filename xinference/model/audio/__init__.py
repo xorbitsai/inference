@@ -14,14 +14,19 @@
 
 import codecs
 import json
+import logging
 import os
 import platform
 import sys
 import warnings
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
+
+logger = logging.getLogger(__name__)
+
+
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
     AudioModelFamilyV2,
@@ -30,7 +35,7 @@ from .core import (
 )
 from .custom import (
     CustomAudioModelFamilyV2,
-    get_user_defined_audios,
+    get_registered_audios,
     register_audio,
     unregister_audio,
 )
@@ -80,7 +85,7 @@ def _install():
     register_custom_model()
 
     # register model description
-    for ud_audio in get_user_defined_audios():
+    for ud_audio in get_registered_audios():
         AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
 

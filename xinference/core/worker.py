@@ -272,6 +272,12 @@ class WorkerActor(xo.StatelessActor):
             register_rerank,
             unregister_rerank,
         )
+        from ..model.video import (
+            CustomVideoModelFamilyV2,
+            generate_video_description,
+            register_video,
+            unregister_video,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
@@ -309,6 +315,12 @@ class WorkerActor(xo.StatelessActor):
                 register_flexible_model,
                 unregister_flexible_model,
                 generate_flexible_model_description,
+            ),
+            "video": (
+                CustomVideoModelFamilyV2,
+                register_video,
+                unregister_video,
+                generate_video_description,
             ),
         }
 
@@ -653,6 +665,391 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
+    async def add_model(self, model_type: str, model_json: Dict[str, Any]):
+        """
+        Add a new model by parsing the provided JSON and registering it.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+            model_json: JSON configuration for the model
+        """
+        # Validate model type (with case normalization)
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        normalized_model_type = model_type
+
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_model_type = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_model_type = "llm"
+
+        if normalized_model_type not in self._custom_register_type_to_cls:
+            logger.error(
+                f"Unsupported model type: {normalized_model_type} (original: {model_type})"
+            )
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Use normalized model type for the rest of the function
+        model_type = normalized_model_type
+
+        # Get the appropriate model class and register function
+        (
+            model_spec_cls,
+            register_fn,
+            unregister_fn,
+            generate_fn,
+        ) = self._custom_register_type_to_cls[model_type]
+
+        # Validate required fields (only model_name is required)
+        required_fields = ["model_name"]
+        for field in required_fields:
+            if field not in model_json:
+                logger.error(f"Missing required field: {field}")
+                raise ValueError(f"Missing required field: {field}")
+
+        # Validate model name format
+        from ..model.utils import is_valid_model_name
+
+        model_name = model_json["model_name"]
+
+        if not is_valid_model_name(model_name):
+            logger.error(f"Invalid model name format: {model_name}")
+            raise ValueError(f"Invalid model name format: {model_name}")
+
+        # Convert model hub JSON format to Xinference expected format using flatten_model_src
+        try:
+            from ..model.utils import flatten_model_src
+
+            # Check different model format types
+            if "model_src" in model_json:
+                # Simple flat format with model_src at top level
+                flattened_list = flatten_model_src(model_json)
+                converted_model_json = (
+                    flattened_list[0] if flattened_list else model_json
+                )
+            elif "model_specs" in model_json and isinstance(
+                model_json["model_specs"], list
+            ):
+                # LLM/embedding/rerank format with model_specs
+                from ..model.utils import flatten_quantizations
+
+                converted_model_json = model_json.copy()
+
+                # Process all model_specs using flatten_quantizations - exactly like builtin models
+                flattened_specs = []
+                for spec in converted_model_json["model_specs"]:
+                    if "model_src" in spec:
+                        # Use flatten_quantizations like builtin LLM loading
+                        quantized_specs = flatten_quantizations(spec)
+                        if quantized_specs:
+                            flattened_specs.extend(quantized_specs)
+                    else:
+                        flattened_specs.append(spec)
+
+                # Use all flattened specs like builtin models
+                if flattened_specs:
+                    converted_model_json["model_specs"] = flattened_specs
+                    logger.info(
+                        f"Processed {len(flattened_specs)} model specifications for {model_name}"
+                    )
+            else:
+                # Already flattened format, use as-is
+                converted_model_json = model_json
+        except Exception as e:
+            logger.error(f"Format conversion failed: {str(e)}", exc_info=True)
+            raise ValueError(f"Failed to convert model JSON format: {str(e)}")
+
+        # Parse the JSON into the appropriate model spec
+        try:
+            model_spec = model_spec_cls.parse_obj(converted_model_json)
+        except Exception as e:
+            logger.error(f"Model spec parsing failed: {str(e)}", exc_info=True)
+            raise ValueError(f"Invalid model JSON format: {str(e)}")
+
+        # Check if model already exists
+        try:
+            existing_models = await self.list_model_registrations(model_type)
+            existing_model = None
+            for model in existing_models:
+                if model["model_name"] == model_spec.model_name:
+                    existing_model = model
+                    break
+
+            if existing_model is not None:
+                logger.error(f"Model already exists: {model_spec.model_name}")
+                raise ValueError(
+                    f"Model '{model_spec.model_name}' already exists for type '{model_type}'. "
+                    f"Please choose a different model name or remove the existing model first."
+                )
+
+        except ValueError as e:
+            if "not found" in str(e):
+                # Model doesn't exist, we can proceed
+                pass
+            else:
+                # Re-raise validation errors
+                logger.error(f"Validation error during model check: {str(e)}")
+                raise e
+        except Exception as ex:
+            logger.error(
+                f"Unexpected error during model check: {str(ex)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to validate model registration: {str(ex)}")
+
+        try:
+            # Store model using the same logic as update_model_type for consistency
+            import json
+
+            from ..constants import XINFERENCE_MODEL_DIR
+
+            model_type_lower = model_type.lower()
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Use correct storage: save each model as a separate JSON file
+            # This follows the CacheManager.register_builtin_model pattern
+            model_dict = model_spec.dict()
+
+            # Create individual model file path
+            model_file_path = os.path.join(builtin_dir, f"{model_spec.model_name}.json")
+
+            # Check if model already exists
+            if os.path.exists(model_file_path):
+                logger.warning(
+                    f"Model {model_spec.model_name} already exists at {model_file_path}"
+                )
+                # Continue with registration even if it exists
+
+            # Save the model as a separate JSON file
+            with open(model_file_path, "w", encoding="utf-8") as f:
+                json.dump(model_dict, f, indent=2, ensure_ascii=False)
+
+            # Register in the model registry without persisting to avoid duplicate storage
+            register_fn(model_spec, persist=False)
+
+            # Record model version
+            version_info = generate_fn(model_spec)
+
+            await self._cache_tracker_ref.record_model_version(
+                version_info, self.address
+            )
+
+            logger.info(
+                f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
+            )
+
+        except ValueError as e:
+            # Validation errors - don't need cleanup as model wasn't registered
+            logger.error(f"ValueError during registration: {str(e)}")
+            raise e
+        except Exception as e:
+            # Unexpected errors - attempt cleanup
+            logger.error(
+                f"Unexpected error during registration: {str(e)}",
+                exc_info=True,
+            )
+            try:
+                unregister_fn(model_spec.model_name, raise_error=False)
+            except Exception as cleanup_error:
+                logger.warning(f"Cleanup failed: {cleanup_error}")
+            raise ValueError(
+                f"Failed to register model '{model_spec.model_name}': {str(e)}"
+            )
+
+    @log_async(logger=logger)
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by downloading
+        the latest JSON from the remote API and storing it locally.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+        import json
+
+        import requests
+
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        normalized_for_validation = model_type
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_for_validation = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_for_validation = "llm"
+
+        if normalized_for_validation not in supported_types:
+            logger.error(f"Unsupported model type: {normalized_for_validation}")
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Construct the URL to download JSON
+        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+
+        try:
+            # Download JSON from remote API
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            # Parse JSON response
+            model_data = response.json()
+
+            # Store the JSON data using CacheManager as built-in models
+            await self._store_complete_model_configurations(model_type, model_data)
+
+            # Dynamically reload built-in models to make them immediately available
+            try:
+                if model_type.lower() == "llm":
+                    from ..model.utils import register_llm_builtin_models
+
+                    register_llm_builtin_models()
+                elif model_type.lower() == "embedding":
+                    from ..model.utils import register_embedding_builtin_models
+
+                    register_embedding_builtin_models()
+                elif model_type.lower() == "audio":
+                    from ..model.utils import register_audio_builtin_models
+
+                    register_audio_builtin_models()
+                elif model_type.lower() == "image":
+                    from ..model.utils import register_image_builtin_models
+
+                    register_image_builtin_models()
+                elif model_type.lower() == "rerank":
+                    from ..model.utils import register_rerank_builtin_models
+
+                    register_rerank_builtin_models()
+                elif model_type.lower() == "video":
+                    from ..model.utils import register_video_builtin_models
+
+                    register_video_builtin_models()
+                else:
+                    logger.warning(
+                        f"No dynamic loading available for model type: {model_type}"
+                    )
+            except Exception as reload_error:
+                logger.error(
+                    f"Error reloading built-in models: {reload_error}",
+                    exc_info=True,
+                )
+                # Don't fail the update if reload fails, just log the error
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error downloading model configurations: {e}")
+            raise ValueError(f"Failed to download model configurations: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"Unexpected error during model update: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model configurations: {str(e)}")
+
+    async def _store_model_configurations(self, model_type: str, model_data):
+        """
+        Store model configurations as separate JSON files (one per model).
+        This follows the same pattern as CacheManager.register_builtin_model.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing model configurations (can be single dict or list)
+        """
+        import json
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            # Ensure model_data is a list for consistent processing
+            if isinstance(model_data, dict):
+                models_to_store = [model_data]
+            elif isinstance(model_data, list):
+                models_to_store = model_data
+            else:
+                raise ValueError(f"Invalid model_data type: {type(model_data)}")
+
+            model_type_lower = model_type.lower()
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Store each model as a separate JSON file
+            for model_dict in models_to_store:
+                if not isinstance(model_dict, dict):
+                    logger.warning(f"Skipping invalid model data: {model_dict}")
+                    continue
+
+                model_name = model_dict.get("model_name")
+                if not model_name:
+                    logger.warning(f"Skipping model without model_name: {model_dict}")
+                    continue
+
+                # Create file path using model name (same as CacheManager pattern)
+                json_file_path = os.path.join(builtin_dir, f"{model_name}.json")
+
+                # Store the model as a separate JSON file
+                with open(json_file_path, "w", encoding="utf-8") as f:
+                    json.dump(model_dict, f, indent=2, ensure_ascii=False)
+
+        except Exception as e:
+            logger.error(
+                f"Error storing model configurations: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store model configurations: {str(e)}")
+
+    async def _store_complete_model_configurations(self, model_type: str, model_data):
+        """
+        Store complete model configurations as a unified JSON file.
+        This is used by update_model_type to preserve the original JSON structure.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing model configurations (complete array)
+        """
+        import json
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+
+            # Use the unified JSON file path (same as original update_model_type logic)
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+            json_file_path = os.path.join(
+                builtin_dir, f"{model_type_lower}_models.json"
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Store the complete JSON file (preserving original structure)
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(model_data, f, indent=2, ensure_ascii=False)
+
+        except Exception as e:
+            logger.error(
+                f"Error storing complete model configurations: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store complete model configurations: {str(e)}")
+
+    @log_async(logger=logger)
     async def list_model_registrations(
         self, model_type: str, detailed: bool = False
     ) -> List[Dict[str, Any]]:
@@ -661,41 +1058,41 @@ class WorkerActor(xo.StatelessActor):
             return item.get("model_name").lower()
 
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import get_registered_llm_families
 
             ret = []
 
-            for family in get_user_defined_llm_families():
+            for family in get_registered_llm_families():
                 ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
-            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.embedding.custom import get_registered_embeddings
 
             ret = []
 
-            for model_spec in get_user_defined_embeddings():
+            for model_spec in get_registered_embeddings():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
-            from ..model.image.custom import get_user_defined_images
+            from ..model.image.custom import get_registered_images
 
             ret = []
 
-            for model_spec in get_user_defined_images():
+            for model_spec in get_registered_images():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
-            from ..model.audio.custom import get_user_defined_audios
+            from ..model.audio.custom import get_registered_audios
 
             ret = []
 
-            for model_spec in get_user_defined_audios():
+            for model_spec in get_registered_audios():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
@@ -703,11 +1100,11 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "video":
             return []
         elif model_type == "rerank":
-            from ..model.rerank.custom import get_user_defined_reranks
+            from ..model.rerank.custom import get_registered_reranks
 
             ret = []
 
-            for model_spec in get_user_defined_reranks():
+            for model_spec in get_registered_reranks():
                 ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
@@ -728,35 +1125,35 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import get_registered_llm_families
 
-            for f in get_user_defined_llm_families():
+            for f in get_registered_llm_families():
                 if f.model_name == model_name:
                     return f
         elif model_type == "embedding":
-            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.embedding.custom import get_registered_embeddings
 
-            for f in get_user_defined_embeddings():
+            for f in get_registered_embeddings():
                 if f.model_name == model_name:
                     return f
         elif model_type == "image":
-            from ..model.image.custom import get_user_defined_images
+            from ..model.image.custom import get_registered_images
 
-            for f in get_user_defined_images():
+            for f in get_registered_images():
                 if f.model_name == model_name:
                     return f
         elif model_type == "audio":
-            from ..model.audio.custom import get_user_defined_audios
+            from ..model.audio.custom import get_registered_audios
 
-            for f in get_user_defined_audios():
+            for f in get_registered_audios():
                 if f.model_name == model_name:
                     return f
         elif model_type == "video":
             return None
         elif model_type == "rerank":
-            from ..model.rerank.custom import get_user_defined_reranks
+            from ..model.rerank.custom import get_registered_reranks
 
-            for f in get_user_defined_reranks():
+            for f in get_registered_reranks():
                 if f.model_name == model_name:
                     return f
         return None
