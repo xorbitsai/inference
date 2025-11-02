@@ -1235,8 +1235,12 @@ class MediaInterface:
         def extract_text_from_image(
             image: "PIL.Image.Image",
             ocr_type: str = "ocr",
+            model_size: str = "gundam",
+            test_compress: bool = False,
+            enable_visualization: bool = False,
+            save_results: bool = False,
             progress=gr.Progress(),
-        ) -> str:
+        ) -> Union[str, Tuple[str, str, str]]:
             from ...client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -1255,19 +1259,246 @@ class MediaInterface:
 
             progress(0.1, desc="Processing image for OCR")
 
-            # Call the OCR method with bytes instead of PIL Image
-            response = model.ocr(
-                image=image_bytes,
-                ocr_type=ocr_type,
-            )
+            # Prepare prompt based on OCR type
+            if ocr_type == "markdown":
+                prompt = "<image>\nConvert this document to clean markdown format. Extract the text content and format it properly using markdown syntax. Do not include any coordinate annotations or special formatting markers."
+            elif ocr_type == "format":
+                prompt = "<image>\n<|grounding|>Convert the document to markdown with structure annotations. Include coordinate information for text regions and maintain the document structure."
+            else:  # ocr
+                prompt = "<image>\nFree OCR. Extract all text content from the image."
 
-            progress(0.8, desc="Extracting text")
-            progress(1.0, desc="OCR complete")
+            try:
+                logger.info(
+                    f"Starting OCR processing - Type: {ocr_type}, Model Size: {model_size}"
+                )
+                logger.info(
+                    f"Image info: {image.size if image else 'None'}, Mode: {image.mode if image else 'None'}"
+                )
 
-            return response if response else "No text extracted from the image."
+                if enable_visualization and hasattr(model, "visualize_ocr"):
+                    # Use visualization method
+                    logger.info("Using visualization method")
+                    response = model.visualize_ocr(
+                        image=image_bytes,
+                        prompt=prompt,
+                        model_size=model_size,
+                        save_results=save_results,
+                        eval_mode=True,
+                    )
+
+                    progress(0.8, desc="Processing visualization")
+
+                    # Debug: Log response type and content
+                    logger.info(f"Visualization response type: {type(response)}")
+                    logger.info(f"Visualization response: {response}")
+
+                    # Format response - handle both string and dict responses
+                    if isinstance(response, dict):
+                        if response.get("success"):
+                            text_result = response.get("text", "No text extracted")
+                        else:
+                            error_msg = response.get(
+                                "error", "OCR visualization failed"
+                            )
+                            # Return formatted error message for Markdown
+                            error_md = f"**Error**: {error_msg}"
+                            return error_md, "", ""
+                    elif isinstance(response, str):
+                        # Handle string response from original model
+                        text_result = response
+                    else:
+                        text_result = str(response)
+
+                    # Check if the result looks like Markdown and format it properly
+                    if ocr_type == "markdown" and isinstance(text_result, str):
+                        # Markdown mode - process LaTeX formulas for better rendering
+                        try:
+                            from .utils.latex import process_ocr_latex
+
+                            if "\\" in text_result and (
+                                "\\[" in text_result
+                                or "\\(" in text_result
+                                or "$" in text_result
+                            ):
+                                # Process LaTeX formulas for Markdown compatibility
+                                text_result = process_ocr_latex(
+                                    text_result, output_format="markdown"
+                                )
+                                logger.info(
+                                    "Applied LaTeX processing for Markdown rendering (visualization)"
+                                )
+                        except ImportError:
+                            logger.warning(
+                                "LaTeX processing utils not available, using raw text"
+                            )
+                        pass
+                    elif ocr_type == "format" and isinstance(text_result, str):
+                        # For format mode, keep annotations but format as code block
+                        if "<|ref|>" in text_result:
+                            text_result = f"```\n{text_result}\n```"
+                    elif ocr_type == "ocr" and isinstance(text_result, str):
+                        # For plain text, format as a simple block
+                        text_result = text_result  # Keep as plain text, Markdown will render it normally
+
+                        # Add compression info if available
+                    if (
+                        isinstance(response, dict)
+                        and test_compress
+                        and "compression_ratio" in response
+                    ):
+                        compression_info = (
+                            f"\n\n--- Compression Ratio Information ---\n"
+                        )
+                        compression_info += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        compression_info += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        text_result += compression_info
+
+                    # Add visualization info
+                    viz_info = {}
+                    if isinstance(response, dict):
+                        viz_info = response.get("visualization", {})
+                        if viz_info.get("has_annotations"):
+                            viz_text = f"\n\n--- Visualization Information ---\n"
+                            viz_text += f"Number of Bounding Boxes: {viz_info.get('num_bounding_boxes', 0)}\n"
+                            viz_text += f"Number of Extracted Images: {viz_info.get('num_extracted_images', 0)}\n"
+                            text_result += viz_text
+
+                        saved_files = response.get("saved_files", {})
+                    else:
+                        saved_files = {}
+
+                    # Return text and visualization info
+                    return text_result, str(viz_info), str(saved_files)
+                else:
+                    # Standard OCR branch
+                    logger.info("Using standard OCR branch (not visualization)")
+                    response = model.ocr(
+                        image=image_bytes,
+                        prompt=prompt,
+                        model_size=model_size,
+                        test_compress=test_compress,
+                        save_results=save_results,
+                        eval_mode=True,
+                    )
+
+                    progress(0.8, desc="Extracting text")
+
+                    # Debug: Log response type and content
+                    logger.info(f"Standard OCR response type: {type(response)}")
+                    logger.info(
+                        f"Standard OCR response content: {str(response)[:200]}..."
+                    )
+
+                    # Format response - handle both string and dict responses
+                    if isinstance(response, dict):
+                        if response.get("success"):
+                            text_result = response.get("text", "No text extracted")
+
+                            # Debug: Check if text is empty
+                            if not text_result or not text_result.strip():
+                                logger.warning("OCR returned empty text")
+                                logger.warning(f"Full response: {response}")
+                                # Return a helpful message instead of empty result
+                                text_result = """**OCR Recognition Complete, No Text Detected**
+
+**Possible Reasons:**
+- Text in image is unclear or insufficient resolution
+- Image format not supported
+- Model unable to recognize text in image
+
+**Suggestions:**
+- Try uploading a clearer image
+- Ensure text in image is clear and legible
+- Handwritten text may have poor results
+
+**Technical Information:**
+- Model Status: Normal
+- Image Size: Original {image.size if image else 'Unknown'}, Processed {response.get('image_size', 'Unknown')}
+- Processing Mode: {response.get('model_size', 'Unknown')}"""
+                        else:
+                            error_msg = response.get("error", "OCR failed")
+                            error_md = f"**Error**: {error_msg}"
+                            return error_md, "", ""
+                    elif isinstance(response, str):
+                        # Handle string response from original model
+                        text_result = response
+                    else:
+                        text_result = str(response)
+
+                    # Format based on OCR type
+                    if ocr_type == "markdown" and isinstance(text_result, str):
+                        # Markdown mode - process LaTeX formulas for better rendering
+                        try:
+                            from .utils.latex import process_ocr_latex
+
+                            if "\\" in text_result and (
+                                "\\[" in text_result
+                                or "\\(" in text_result
+                                or "$" in text_result
+                            ):
+                                # Process LaTeX formulas for Markdown compatibility
+                                text_result = process_ocr_latex(
+                                    text_result, output_format="markdown"
+                                )
+                                logger.info(
+                                    "Applied LaTeX processing for Markdown rendering"
+                                )
+                        except ImportError:
+                            logger.warning(
+                                "LaTeX processing utils not available, using raw text"
+                            )
+                        pass
+                    elif ocr_type == "format" and isinstance(text_result, str):
+                        # Format mode - show annotations in code block
+                        if "<|ref|>" in text_result:
+                            text_result = f"```text\n{text_result}\n```"
+                    elif ocr_type == "ocr" and isinstance(text_result, str):
+                        # Plain text mode - keep as plain text
+                        text_result = text_result
+
+                    # Add compression info if available
+                    if (
+                        isinstance(response, dict)
+                        and test_compress
+                        and "compression_ratio" in response
+                    ):
+                        compression_info = (
+                            f"\n\n--- Compression Ratio Information ---\n"
+                        )
+                        compression_info += f"Compression Ratio: {response.get('compression_ratio', 'N/A')}\n"
+                        compression_info += f"Valid Image Tokens: {response.get('valid_image_tokens', 'N/A')}\n"
+                        compression_info += f"Output Text Tokens: {response.get('output_text_tokens', 'N/A')}\n"
+                        text_result += compression_info
+
+                    return text_result, "", ""
+
+            except Exception as e:
+                logger.error(f"OCR processing error: {e}")
+                import traceback
+
+                error_details = traceback.format_exc()
+                logger.error(f"Full traceback: {error_details}")
+                # Show error in markdown format for better visibility
+                error_msg = f"""**OCR Processing Error**
+
+```
+{str(e)}
+```
+
+**Debug Info:**
+- OCR Type: {ocr_type}
+- Model Size: {model_size}
+- Image Mode: {image.mode if image else 'None'}
+- Image Size: {image.size if image else 'None'}
+"""
+                return error_msg, "", ""
+
+            finally:
+                progress(1.0, desc="OCR complete")
 
         with gr.Blocks() as ocr_interface:
-            gr.Markdown(f"### OCR Text Extraction with {self.model_name}")
+            gr.Markdown(f"### Enhanced OCR Text Extraction with {self.model_name}")
 
             with gr.Row():
                 with gr.Column(scale=1):
@@ -1280,23 +1511,79 @@ class MediaInterface:
 
                     gr.Markdown(f"**Current OCR Model:** {self.model_name}")
 
+                    # Model configuration options
+                    model_size = gr.Dropdown(
+                        choices=["tiny", "small", "base", "large", "gundam"],
+                        value="gundam",
+                        label="Model Size",
+                        info="Choose model size configuration",
+                    )
+
                     ocr_type = gr.Dropdown(
-                        choices=["ocr", "format"],
+                        choices=["ocr", "format", "markdown"],
                         value="ocr",
-                        label="OCR Type",
-                        info="Choose OCR processing type",
+                        label="Output Format",
+                        info="ocr: Plain text extraction, format: Structured document (with annotations), markdown: Standard Markdown format",
+                    )
+
+                    enable_visualization = gr.Checkbox(
+                        label="Enable Visualization",
+                        value=False,
+                        info="Generate bounding boxes and annotations (only applicable to format mode)",
+                    )
+
+                    test_compress = gr.Checkbox(
+                        label="Test Compression Ratio",
+                        value=False,
+                        info="Analyze image compression performance",
+                    )
+
+                    save_results = gr.Checkbox(
+                        label="Save Results",
+                        value=False,
+                        info="Save OCR results to files (if supported)",
                     )
 
                     extract_btn = gr.Button("Extract Text", variant="primary")
 
                 with gr.Column(scale=1):
-                    text_output = gr.Textbox(
-                        label="Extracted Text",
-                        lines=20,
-                        placeholder="Extracted text will appear here...",
-                        interactive=True,
-                        show_copy_button=True,
+                    # Create a bordered container for the output
+                    with gr.Group(elem_classes="output-container"):
+                        gr.Markdown("### 📄 Extraction Results")
+
+                        text_output = gr.Markdown(
+                            value="Extracted text will be displayed here...",
+                            elem_classes="output-text",
+                            container=False,
+                        )
+
+                    # Additional info outputs (hidden by default)
+                    viz_info_output = gr.Textbox(
+                        label="Visualization Info",
+                        lines=5,
+                        visible=False,
+                        interactive=False,
                     )
+
+                    file_info_output = gr.Textbox(
+                        label="File Info",
+                        lines=3,
+                        visible=False,
+                        interactive=False,
+                    )
+
+            # Toggle visibility of additional outputs
+            def toggle_additional_outputs(enable_viz):
+                return {
+                    viz_info_output: gr.update(visible=enable_viz),
+                    file_info_output: gr.update(visible=enable_viz),
+                }
+
+            enable_visualization.change(
+                fn=toggle_additional_outputs,
+                inputs=[enable_visualization],
+                outputs=[viz_info_output, file_info_output],
+            )
 
             # Examples section
             gr.Markdown("### Examples")
@@ -1311,8 +1598,15 @@ class MediaInterface:
             # Extract button click event
             extract_btn.click(
                 fn=extract_text_from_image,
-                inputs=[image_input, ocr_type],
-                outputs=[text_output],
+                inputs=[
+                    image_input,
+                    ocr_type,
+                    model_size,
+                    test_compress,
+                    enable_visualization,
+                    save_results,
+                ],
+                outputs=[text_output, viz_info_output, file_info_output],
             )
 
         return ocr_interface
@@ -1337,6 +1631,87 @@ class MediaInterface:
                         align-items: center;
                         padding: 0px;
                         color: #9ea4b0 !important;
+                    }
+
+                    .output-container {
+                        border: 1px solid #e0e0e0;
+                        border-radius: 8px;
+                        padding: 16px;
+                        background-color: #f8f9fa;
+                        margin: 8px 0;
+                    }
+
+                    .output-text {
+                        background-color: white;
+                        border: 1px solid #dee2e6;
+                        border-radius: 6px;
+                        padding: 16px;
+                        min-height: 200px;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        line-height: 1.6;
+                    }
+
+                    .output-text h1, .output-text h2, .output-text h3,
+                    .output-text h4, .output-text h5, .output-text h6 {
+                        margin-top: 0.5em !important;
+                        margin-bottom: 0.5em !important;
+                        color: #2d3748 !important;
+                    }
+
+                    .output-text p {
+                        margin: 0.5em 0 !important;
+                    }
+
+                    .output-text pre {
+                        background-color: #f6f8fa !important;
+                        border: 1px solid #e9ecef !important;
+                        border-radius: 4px !important;
+                        padding: 12px !important;
+                        margin: 8px 0 !important;
+                    }
+
+                    .output-text code {
+                        background-color: #e9ecef !important;
+                        padding: 2px 4px !important;
+                        border-radius: 3px !important;
+                        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+                    }
+
+                    .output-text ul, .output-text ol {
+                        margin: 0.5em 0 !important;
+                        padding-left: 20px !important;
+                    }
+
+                    .output-text blockquote {
+                        border-left: 4px solid #6c757d !important;
+                        padding-left: 16px !important;
+                        margin: 0.5em 0 !important;
+                        color: #6c757d !important;
+                        background-color: #f8f9fa !important;
+                    }
+
+                    .output-text table {
+                        border-collapse: collapse !important;
+                        width: 100% !important;
+                        margin: 8px 0 !important;
+                    }
+
+                    .output-text th, .output-text td {
+                        border: 1px solid #dee2e6 !important;
+                        padding: 8px 12px !important;
+                        text-align: left !important;
+                    }
+
+                    .output-text th {
+                        background-color: #f8f9fa !important;
+                        font-weight: bold !important;
+                    }
+
+                    /* Ensure Markdown displays correctly */
+                    .output-text .katex-display {
+                        display: block !important;
+                        text-align: center !important;
+                        margin: 1em 0 !important;
                     }
                     """,
             analytics_enabled=False,
