@@ -14,9 +14,12 @@
 
 import asyncio
 import inspect
+import logging
 import types
 
 from xoscar.batch import _ExtensibleWrapper
+
+logger = logging.getLogger(__name__)
 
 
 class BatchMixin:
@@ -26,7 +29,8 @@ class BatchMixin:
     def __init__(self, func: _ExtensibleWrapper):
         self._queue: asyncio.Queue = asyncio.Queue()
         self._func = func
-        setattr(self, func.func.__name__, types.MethodType(self._wrap_method(), self))
+        self._func_name = func.func.__name__
+        setattr(self, self._func_name, types.MethodType(self._wrap_method(), self))
 
         self._is_process_batch_running = False
 
@@ -43,31 +47,44 @@ class BatchMixin:
 
     async def _process_batch(self):
         while True:
-            # wait until there is object to process
+            # Wait until at least one item is available
             (first_args, first_kwargs), first_future = await self._queue.get()
 
             delays = [self._func.delay(*first_args, **first_kwargs)]
             size = self._get_batch_size(*first_args, **first_kwargs)
             futures = [first_future]
 
-            while not self._queue.empty() and size <= self.batch_size:
-                (args, kwargs), future = await self._queue.get()
-                size += self._get_batch_size(*args, **kwargs)
-                delays.append(self._func.delay(*args, **kwargs))
-                futures.append(future)
+            # Try to gather more items into the same batch within a short timeout window
+            while size <= self.batch_size:
+                try:
+                    # Wait for a new request for a short time window (e.g. 3ms)
+                    # This allows batching multiple requests that arrive close in time.
+                    (args, kwargs), future = await asyncio.wait_for(
+                        self._queue.get(), timeout=0.003
+                    )
+                    size += self._get_batch_size(*args, **kwargs)
+                    delays.append(self._func.delay(*args, **kwargs))
+                    futures.append(future)
+                except asyncio.TimeoutError:
+                    # No new items arrived within the timeout window,
+                    # stop collecting and start processing the current batch.
+                    break
+
+            logger.debug("Calling batch %s with %d size", self._func_name, size)
 
             try:
                 results = self._func.batch(*delays)
                 if inspect.isawaitable(results):
                     results = await results
-            except Exception as e:  # noqa: E722
-                # Failed, set exception to all futures
+            except Exception as e:  # Handle errors for the entire batch
                 for fut in futures:
                     fut.set_exception(e)
             else:
+                # Ensure the number of results matches the number of input futures
                 assert len(results) == len(
                     futures
                 ), f"#results should be equal to #futures, got {len(results)} and {len(futures)}"
+                # Deliver the results to the corresponding waiting callers
                 for fut, result in zip(futures, results):
                     fut.set_result(result)
 
