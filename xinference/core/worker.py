@@ -279,6 +279,16 @@ class WorkerActor(xo.StatelessActor):
             unregister_video,
         )
 
+        # Load persisted models on startup
+        try:
+            from ..model.utils import load_persisted_models_to_registry
+
+            loaded_count = load_persisted_models_to_registry()
+            if loaded_count > 0:
+                logger.info(f"Loaded {loaded_count} persisted models on startup")
+        except Exception as e:
+            logger.warning(f"Failed to load persisted models on startup: {e}")
+
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
                 CustomLLMFamilyV2,

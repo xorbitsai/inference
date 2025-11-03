@@ -813,3 +813,118 @@ def load_complete_builtin_models(
     except Exception as e:
         logger.error(f"Failed to load complete JSON {complete_json_path}: {e}")
         return 0
+
+
+def load_persisted_models_to_registry():
+    """
+    Scan and load all persisted user models into the registry.
+    This function should be called when Worker starts up.
+    """
+    import json
+    import logging
+    import os
+
+    logger = logging.getLogger(__name__)
+    from ..constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin")
+
+    if not os.path.exists(builtin_dir):
+        logger.info(f"Builtin models directory not found: {builtin_dir}")
+        return 0
+
+    loaded_count = 0
+
+    # Iterate through all model types
+    for model_type in ["llm", "embedding", "image", "audio", "video", "rerank"]:
+        type_dir = os.path.join(builtin_dir, model_type)
+        if not os.path.isdir(type_dir):
+            continue
+
+        logger.info(f"Loading {model_type} models from {type_dir}")
+
+        # Scan individual model files
+        for model_file in os.listdir(type_dir):
+            if model_file.endswith(".json") and not model_file.endswith("_models.json"):
+                try:
+                    model_path = os.path.join(type_dir, model_file)
+                    with open(model_path, "r", encoding="utf-8") as f:
+                        model_data = json.load(f)
+
+                    # Call the corresponding registration function
+                    success = register_model_by_type(model_type, model_data)
+                    if success:
+                        loaded_count += 1
+                        logger.info(f"✓ Loaded {model_type} model: {model_file}")
+                    else:
+                        logger.warning(
+                            f"✗ Failed to load {model_type} model: {model_file}"
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error loading model {model_file}: {e}")
+
+    logger.info(f"Total loaded {loaded_count} persisted models")
+    return loaded_count
+
+
+def register_model_by_type(model_type, model_data):
+    """
+    Call the appropriate registration function based on model type.
+    """
+    try:
+        if model_type == "llm":
+            from .llm import register_llm
+            from .llm.llm_family import LLMFamilyV2
+
+            model_spec = LLMFamilyV2.parse_obj(model_data)
+            register_llm(model_spec, persist=False)
+            return True
+
+        elif model_type == "embedding":
+            from .embedding import register_embedding
+            from .embedding.core import EmbeddingModelFamilyV2
+
+            model_spec = EmbeddingModelFamilyV2.parse_obj(model_data)
+            register_embedding(model_spec, persist=False)
+            return True
+
+        elif model_type == "image":
+            from .image import register_image
+            from .image.custom import CustomImageModelFamilyV2
+
+            model_spec = CustomImageModelFamilyV2.parse_obj(model_data)
+            register_image(model_spec, persist=False)
+            return True
+
+        elif model_type == "audio":
+            from .audio import register_audio
+            from .audio.custom import CustomAudioModelFamilyV2
+
+            model_spec = CustomAudioModelFamilyV2.parse_obj(model_data)
+            register_audio(model_spec, persist=False)
+            return True
+
+        elif model_type == "video":
+            from .video import register_video
+            from .video.custom import CustomVideoModelFamilyV2
+
+            model_spec = CustomVideoModelFamilyV2.parse_obj(model_data)
+            register_video(model_spec, persist=False)
+            return True
+
+        elif model_type == "rerank":
+            from .rerank import register_rerank
+            from .rerank.custom import CustomRerankModelFamilyV2
+
+            model_spec = CustomRerankModelFamilyV2.parse_obj(model_data)
+            register_rerank(model_spec, persist=False)
+            return True
+
+        else:
+            logger.warning(f"Unknown model type: {model_type}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Error registering {model_type} model: {e}")
+        return False

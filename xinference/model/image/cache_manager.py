@@ -116,3 +116,32 @@ class ImageCacheManager(CacheManager):
             raise NotImplementedError
 
         return full_path
+
+    @staticmethod
+    def is_model_from_builtin_dir(model_name: str, model_type: str) -> bool:
+        """
+        Check if a model comes from the builtin directory for image models.
+        """
+        return CacheManager.is_model_from_builtin_dir(model_name, model_type)
+
+    @staticmethod
+    def resolve_model_source(
+        model_name: str, model_type: str, builtin_model_names=None
+    ) -> str:
+        """
+        Resolve the source of an image model.
+        """
+        return CacheManager.resolve_model_source(
+            model_name, model_type, builtin_model_names
+        )
+
+    @staticmethod
+    def is_builtin_model(
+        model_name: str, model_type: str, builtin_model_names=None
+    ) -> bool:
+        """
+        Determine if an image model should be considered builtin.
+        """
+        return CacheManager.is_builtin_model(
+            model_name, model_type, builtin_model_names
+        )

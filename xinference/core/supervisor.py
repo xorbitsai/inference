@@ -46,6 +46,7 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..model.cache_manager import CacheManager
 from ..model.utils import get_engine_params_by_name
 from ..types import PeftModelConfig
 from .metrics import record_metrics
@@ -116,6 +117,13 @@ class SupervisorActor(xo.StatelessActor):
         self._uptime = None
         self._lock = asyncio.Lock()
 
+    def _log_debug(self, message: str):
+        """Helper method to log debug information."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug(f"[SupervisorActor] {message}")
+
     @classmethod
     def default_uid(cls) -> str:
         return "supervisor"
@@ -134,6 +142,19 @@ class SupervisorActor(xo.StatelessActor):
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             # Run _check_dead_nodes() in a dedicated thread.
             from ..isolation import Isolation
+        # Load persisted models on startup
+        try:
+            from ..model.utils import load_persisted_models_to_registry
+
+            loaded_count = load_persisted_models_to_registry()
+            if loaded_count > 0:
+                logger.info(
+                    f"Supervisor loaded {loaded_count} persisted models on startup"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Supervisor failed to load persisted models on startup: {e}"
+            )
 
             self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
             self._isolation.start()
@@ -441,224 +462,318 @@ class SupervisorActor(xo.StatelessActor):
             )
         return specs, list(download_hubs)
 
-    def _is_model_from_builtin_dir(self, model_name: str, model_type: str) -> bool:
+    async def _to_model_reg(
+        self,
+        model_family,
+        is_builtin: bool,
+        cache_manager_class=None,
+        use_spec_dicts: bool = False,
+        cache_status: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         """
-        Check if a model comes from the builtin directory (added via update_model_type)
-        or from the custom directory (true user custom models).
+        Generic helper function to convert model family to registration format.
+
+        Args:
+            model_family: The model family object (LLM, embedding, image, etc.)
+            is_builtin: Whether the model is builtin
+            cache_manager_class: CacheManager class to use (required if use_spec_dicts=False)
+            use_spec_dicts: Whether to use _get_spec_dicts() to get model_specs and download_hubs
+            cache_status: Explicit cache_status value (used if use_spec_dicts=False)
+
+        Returns:
+            Dictionary with model registration information
         """
-        import os
+        instance_cnt = await self.get_instance_count(model_family.model_name)
+        version_cnt = await self.get_model_version_count(model_family.model_name)
 
-        from xinference.constants import XINFERENCE_MODEL_DIR
+        if self.is_local_deployment():
+            # Local deployment - include additional fields
+            if use_spec_dicts:
+                # For LLM/Embedding/Rerank - use spec_dicts
+                _family = model_family.copy()
+                specs, download_hubs = self._get_spec_dicts(
+                    _family, cache_manager_class
+                )
+                res = {
+                    **model_family.dict(),
+                    "is_builtin": is_builtin,
+                    "model_specs": specs,
+                    "download_hubs": download_hubs,
+                }
+            else:
+                # For Image/Audio/Video - use cache status
+                if cache_manager_class:
+                    cache_manager = cache_manager_class(model_family)
+                    actual_cache_status = cache_manager.get_cache_status()
+                else:
+                    actual_cache_status = (
+                        cache_status if cache_status is not None else True
+                    )
 
-        # Check builtin directory (update_model_type models)
-        builtin_dir = os.path.join(
-            XINFERENCE_MODEL_DIR, "v2", "builtin", model_type.lower()
-        )
-        builtin_file = os.path.join(builtin_dir, f"{model_name}.json")
+                res = {
+                    **model_family.dict(),
+                    "cache_status": actual_cache_status,
+                    "is_builtin": is_builtin,
+                }
+        else:
+            # Remote deployment - basic info only
+            res = {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+            }
 
-        if os.path.exists(builtin_file):
-            return True
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
 
-        # Also check unified JSON file for models added via update_model_type
-        unified_json = os.path.join(builtin_dir, f"{model_type.lower()}_models.json")
-        if os.path.exists(unified_json):
-            import json
+    async def _collect_model_registrations(
+        self,
+        builtin_models,
+        register_builtin_func,
+        get_registered_func,
+        cache_manager_class,
+        to_model_reg_func,
+        detailed: bool = False,
+        is_dict_builtins: bool = False,
+        builtin_transform_func=None,
+        model_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Generic helper function to collect model registrations for any model type.
 
-            try:
-                with open(unified_json, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+        Args:
+            builtin_models: Collection of builtin models (can be list, dict, etc.)
+            register_builtin_func: Function to register builtin models
+            get_registered_func: Function to get registered models
+            cache_manager_class: CacheManager class for checking model source
+            to_model_reg_func: Function to convert model to registration format
+            detailed: Whether to include detailed information
+            is_dict_builtins: Whether builtin_models is a dict (for embedding/rerank style)
+            builtin_transform_func: Optional function to transform builtin model data (for image/audio with download_hubs)
+            model_type: The model type string (e.g., "llm", "embedding")
 
-                # Check if model_name exists in this JSON file
-                if isinstance(data, list):
-                    return any(model.get("model_name") == model_name for model in data)
-                elif isinstance(data, dict):
-                    if data.get("model_name") == model_name:
-                        return True
-                    else:
-                        # Check dict values
-                        return any(
-                            isinstance(value, dict)
-                            and value.get("model_name") == model_name
-                            for value in data.values()
+        Returns:
+            List of model registration dictionaries
+        """
+        ret = []
+
+        # Register builtin models
+        register_builtin_func()
+
+        # Get names of hardcoded builtin models
+        if is_dict_builtins:
+            builtin_names = set(builtin_models.keys())
+        else:
+            builtin_names = {model_obj.model_name for model_obj in builtin_models}
+
+        # Process all models (builtin + registered)
+        all_models = []
+
+        # Add builtin models
+        if is_dict_builtins:
+            for model_name, model_obj in builtin_models.items():
+                all_models.append(
+                    (model_obj, True, "builtin")
+                )  # (model_obj, is_builtin, source)
+        else:
+            for model_obj in builtin_models:
+                all_models.append((model_obj, True, "builtin"))
+
+        # Add registered models
+        registered_models = get_registered_func()
+        for model_obj in registered_models:
+            model_name = getattr(model_obj, "model_name", None)
+            if model_name is None:
+                continue
+
+            # Use unified source resolution logic with debug info
+            source = cache_manager_class.resolve_model_source(model_name, builtin_names)
+            is_builtin = source != "user"
+
+            # Debug: Log model source determination for testing
+            self._log_debug(
+                f"[MODEL_SOURCE_DEBUG] Model: {model_name}, Type: {model_type}, Source: {source}, Is_builtin: {is_builtin}"
+            )
+
+            all_models.append((model_obj, is_builtin, source))
+
+        # Process all models
+        for model_obj, is_builtin, source in all_models:
+            # Debug: Check what we have
+            self._log_debug(
+                f"[DEBUG] Processing model_obj: type={type(model_obj)}, is_builtin={is_builtin}, source={source}"
+            )
+
+            # Initialize actual_model_obj
+            actual_model_obj = model_obj
+
+            # Apply transform functions for builtin models (needed for both detailed and non-detailed modes)
+            if source == "builtin" and builtin_transform_func:
+                if is_dict_builtins:
+                    model_name = getattr(model_obj, "model_name", None)
+                    if model_name:
+                        # Apply transformation for dict-style builtins
+                        families = builtin_models.get(model_name)
+                        self._log_debug(
+                            f"[DEBUG] Transform: model_name={model_name}, families type={type(families)}"
                         )
-            except Exception:
-                pass
+                        actual_model_obj = builtin_transform_func(model_name, families)
+                        self._log_debug(
+                            f"[DEBUG] Transform result: type={type(actual_model_obj)}, model_name={getattr(actual_model_obj, 'model_name', 'NO_NAME')}"
+                        )
+                    else:
+                        actual_model_obj = model_obj
+                else:
+                    # For list-style builtins, we don't have model_name and builtin_models
+                    # In this case, model_obj should already be the correct format
+                    # Debug: Check the type of model_obj
+                    self._log_debug(
+                        f"[DEBUG] model_obj type: {type(model_obj)}, value: {model_obj}"
+                    )
+                    actual_model_obj = model_obj
 
-        return False
+            # Critical check: ensure actual_model_obj is not a list
+            if isinstance(actual_model_obj, list):
+                # This should not happen, but if it does, we need to handle it
+                print(f"ERROR: actual_model_obj is a list: {actual_model_obj}")
+                self._log_debug(
+                    f"[ERROR] actual_model_obj is a list: {actual_model_obj}"
+                )
+                # Try to get the first item if it's a list
+                if len(actual_model_obj) > 0:
+                    actual_model_obj = actual_model_obj[0]
+                else:
+                    continue
+
+            if detailed:
+                reg_data = await to_model_reg_func(
+                    actual_model_obj, is_builtin=is_builtin
+                )
+
+                # Apply post-transform if needed (for download_hubs)
+                if hasattr(builtin_transform_func, "post_transform"):
+                    if is_dict_builtins and model_name:
+                        reg_data = builtin_transform_func.post_transform(
+                            model_name, builtin_models.get(model_name), reg_data
+                        )
+                    else:
+                        # For list-style builtins, we may not have the right data for post-transform
+                        # Skip post-transform in this case to avoid errors
+                        pass
+
+                ret.append(reg_data)
+            else:
+                # Non-detailed mode - use actual_model_obj which should have model_name after transformation
+                model_name = getattr(actual_model_obj, "model_name", None)
+                self._log_debug(
+                    f"[NON-DETAILED] First attempt: model_name={model_name}, actual_model_obj type={type(actual_model_obj)}"
+                )
+
+                if not model_name:
+                    # Fallback to original model_obj if actual_model_obj doesn't have model_name
+                    model_name = getattr(model_obj, "model_name", None)
+                    self._log_debug(
+                        f"[NON-DETAILED] Fallback: model_name={model_name}, model_obj type={type(model_obj)}"
+                    )
+
+                if not model_name:
+                    # Last resort: try to extract from the first element if model_obj is a list (shouldn't happen now)
+                    if isinstance(model_obj, list) and len(model_obj) > 0:
+                        model_name = getattr(model_obj[0], "model_name", "unknown")
+                        self._log_debug(
+                            f"[NON-DETAILED] Last resort list: model_name={model_name}"
+                        )
+                    else:
+                        model_name = "unknown"
+                        self._log_debug(f"[NON-DETAILED] Final unknown")
+
+                self._log_debug(f"[NON-DETAILED] Final model_name: {model_name}")
+                ret.append({"model_name": model_name, "is_builtin": is_builtin})
+
+        return ret
 
     async def _to_llm_reg(
         self, llm_family: "LLMFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.llm.cache_manager import LLMCacheManager
 
-        instance_cnt = await self.get_instance_count(llm_family.model_name)
-        version_cnt = await self.get_model_version_count(llm_family.model_name)
-
-        if self.is_local_deployment():
-            # TODO: does not work when the supervisor and worker are running on separate nodes.
-            _llm_family = llm_family.copy()
-            specs, download_hubs = self._get_spec_dicts(_llm_family, LLMCacheManager)
-            res = {
-                **llm_family.dict(),
-                "is_builtin": is_builtin,
-                "model_specs": specs,
-                "download_hubs": download_hubs,
-            }
-        else:
-            res = {**llm_family.dict(), "is_builtin": is_builtin}
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=llm_family,
+            is_builtin=is_builtin,
+            cache_manager_class=LLMCacheManager,
+            use_spec_dicts=True,
+        )
 
     async def _to_embedding_model_reg(
         self, model_family: "EmbeddingModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.embedding.cache_manager import EmbeddingCacheManager
 
-        instance_cnt = await self.get_instance_count(model_family.model_name)
-        version_cnt = await self.get_model_version_count(model_family.model_name)
-
-        if self.is_local_deployment():
-            _family = model_family.copy()
-            # TODO: does not work when the supervisor and worker are running on separate nodes.
-            specs, download_hubs = self._get_spec_dicts(_family, EmbeddingCacheManager)
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-                "model_specs": specs,
-                "download_hubs": download_hubs,
-            }
-        else:
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-            }
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=model_family,
+            is_builtin=is_builtin,
+            cache_manager_class=EmbeddingCacheManager,
+            use_spec_dicts=True,
+        )
 
     async def _to_rerank_model_reg(
         self, model_family: "RerankModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.rerank.cache_manager import RerankCacheManager
 
-        instance_cnt = await self.get_instance_count(model_family.model_name)
-        version_cnt = await self.get_model_version_count(model_family.model_name)
-
-        if self.is_local_deployment():
-            _family = model_family.copy()
-            # TODO: does not work when the supervisor and worker are running on separate nodes.
-            specs, download_hubs = self._get_spec_dicts(_family, RerankCacheManager)
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-                "model_specs": specs,
-                "download_hubs": download_hubs,
-            }
-        else:
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-            }
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=model_family,
+            is_builtin=is_builtin,
+            cache_manager_class=RerankCacheManager,
+            use_spec_dicts=True,
+        )
 
     async def _to_image_model_reg(
         self, model_family: "ImageModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.image.cache_manager import ImageCacheManager
 
-        instance_cnt = await self.get_instance_count(model_family.model_name)
-        version_cnt = await self.get_model_version_count(model_family.model_name)
-
-        if self.is_local_deployment():
-            # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_manager = ImageCacheManager(model_family)
-            res = {
-                **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
-                "is_builtin": is_builtin,
-            }
-        else:
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-            }
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=model_family,
+            is_builtin=is_builtin,
+            cache_manager_class=ImageCacheManager,
+            use_spec_dicts=False,
+        )
 
     async def _to_audio_model_reg(
         self, model_family: "AudioModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.cache_manager import CacheManager
+        from ..model.audio.cache_manager import AudioCacheManager
 
-        instance_cnt = await self.get_instance_count(model_family.model_name)
-        version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
-
-        if self.is_local_deployment():
-            # TODO: does not work when the supervisor and worker are running on separate nodes.
-            res = {
-                **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
-                "is_builtin": is_builtin,
-            }
-        else:
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-            }
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=model_family,
+            is_builtin=is_builtin,
+            cache_manager_class=AudioCacheManager,
+            use_spec_dicts=False,
+        )
 
     async def _to_video_model_reg(
         self, model_family: "VideoModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.cache_manager import CacheManager
+        from ..model.video.cache_manager import VideoCacheManager
 
-        instance_cnt = await self.get_instance_count(model_family.model_name)
-        version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
-
-        if self.is_local_deployment():
-            # TODO: does not work when the supervisor and worker are running on separate nodes.
-            res = {
-                **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
-                "is_builtin": is_builtin,
-            }
-        else:
-            res = {
-                **model_family.dict(),
-                "is_builtin": is_builtin,
-            }
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=model_family,
+            is_builtin=is_builtin,
+            cache_manager_class=VideoCacheManager,
+            use_spec_dicts=False,
+        )
 
     async def _to_flexible_model_reg(
         self, model_spec: "FlexibleModelSpec", is_builtin: bool
     ) -> Dict[str, Any]:
-        instance_cnt = await self.get_instance_count(model_spec.model_name)
-        version_cnt = await self.get_model_version_count(model_spec.model_name)
-
-        if self.is_local_deployment():
-            res = {
-                **model_spec.dict(),
-                "cache_status": True,
-                "is_builtin": is_builtin,
-            }
-        else:
-            res = {
-                **model_spec.dict(),
-                "is_builtin": is_builtin,
-            }
-        res["model_version_count"] = version_cnt
-        res["model_instance_count"] = instance_cnt
-        return res
+        return await self._to_model_reg(
+            model_family=model_spec,
+            is_builtin=is_builtin,
+            cache_manager_class=None,
+            use_spec_dicts=False,
+            cache_status=True,
+        )
 
     @log_async(logger=logger)
     async def list_model_registrations(
@@ -683,308 +798,173 @@ class SupervisorActor(xo.StatelessActor):
                 get_registered_llm_families,
                 register_builtin_model,
             )
+            from ..model.llm.cache_manager import LLMCacheManager
 
-            register_builtin_model()
-
-            # 1. Hardcoded built-in models
-            for family in BUILTIN_LLM_FAMILIES:
-                if detailed:
-                    reg_data = await self._to_llm_reg(family, True)
-                    ret.append(reg_data)
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": True})
-
-            # 2. Registered models (user-defined + editor-defined)
-            registered_families = get_registered_llm_families()
-            builtin_names = {family.model_name for family in BUILTIN_LLM_FAMILIES}
-
-            for family in registered_families:
-                # If model is not in hardcoded list, it might be editor-defined, need to check source
-                if family.model_name not in builtin_names:
-                    # Check if it comes from builtin directory (added via update_model_type)
-                    if self._is_model_from_builtin_dir(family.model_name, "llm"):
-                        # This is an editor-defined model, should be marked as builtin=True
-                        if detailed:
-                            reg_data = await self._to_llm_reg(family, True)
-                            ret.append(reg_data)
-                        else:
-                            ret.append(
-                                {"model_name": family.model_name, "is_builtin": True}
-                            )
-                        continue
-
-                # True user-defined model, mark as builtin=False
-                if detailed:
-                    reg_data = await self._to_llm_reg(family, False)
-                    ret.append(reg_data)
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": False})
-
-                ret.sort(key=sort_helper)
+            model_regs = await self._collect_model_registrations(
+                builtin_models=BUILTIN_LLM_FAMILIES,
+                register_builtin_func=register_builtin_model,
+                get_registered_func=get_registered_llm_families,
+                cache_manager_class=LLMCacheManager,
+                to_model_reg_func=self._to_llm_reg,
+                detailed=detailed,
+                is_dict_builtins=False,
+                model_type="llm",
+            )
+            ret.extend(model_regs)
+            ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
             from ..model.embedding import (
                 BUILTIN_EMBEDDING_MODELS,
                 register_builtin_model,
             )
+            from ..model.embedding.cache_manager import EmbeddingCacheManager
             from ..model.embedding.custom import get_registered_embeddings
 
-            register_builtin_model()
-
-            # 1. Hardcoded built-in models
-            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(family, is_builtin=True)
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            # 2. Registered models (user-defined + editor-defined)
-            registered_models = get_registered_embeddings()
-            builtin_names = set(BUILTIN_EMBEDDING_MODELS.keys())
-
-            for model_spec in registered_models:
-                # If model is not in hardcoded list, it might be editor-defined, need to check source
-                if model_spec.model_name not in builtin_names:
-                    # Check if it comes from builtin directory (added via update_model_type)
-                    if self._is_model_from_builtin_dir(
-                        model_spec.model_name, "embedding"
-                    ):
-                        # This is an editor-defined model, should be marked as builtin=True
-                        if detailed:
-                            ret.append(
-                                await self._to_embedding_model_reg(
-                                    model_spec, is_builtin=True
-                                )
-                            )
-                        else:
-                            ret.append(
-                                {
-                                    "model_name": model_spec.model_name,
-                                    "is_builtin": True,
-                                }
-                            )
-                        continue
-
-                # True user-defined model, mark as builtin=False
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
+            model_regs = await self._collect_model_registrations(
+                builtin_models=BUILTIN_EMBEDDING_MODELS,
+                register_builtin_func=register_builtin_model,
+                get_registered_func=get_registered_embeddings,
+                cache_manager_class=EmbeddingCacheManager,
+                to_model_reg_func=self._to_embedding_model_reg,
+                detailed=detailed,
+                is_dict_builtins=True,
+                model_type="embedding",
+            )
+            ret.extend(model_regs)
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS, register_builtin_model
+            from ..model.image.cache_manager import ImageCacheManager
             from ..model.image.custom import get_registered_images
 
-            register_builtin_model()
+            class ImageTransformFunc:
+                def __init__(self):
+                    self.post_transform = self.image_post_transform
 
-            # 1. Hardcoded built-in models
-            for model_name, families in BUILTIN_IMAGE_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_image_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                def __call__(self, model_name, families):
+                    """Transform function for image models to select huggingface family and add download_hubs"""
+                    if isinstance(families, list):
+                        return [x for x in families if x.model_hub == "huggingface"][0]
+                    else:
+                        # For single model objects
+                        return families
 
-            # 2. Registered models (user-defined + editor-defined)
-            registered_models = get_registered_images()
-            builtin_names = set(BUILTIN_IMAGE_MODELS.keys())
+                def image_post_transform(self, model_name, families, reg_data):
+                    """Post-transform function for image models to add download_hubs"""
+                    if isinstance(families, list):
+                        reg_data["download_hubs"] = [x.model_hub for x in families]
+                    return reg_data
 
-            for model_spec in registered_models:
-                # If model is not in hardcoded list, it might be editor-defined, need to check source
-                if model_spec.model_name not in builtin_names:
-                    # Check if it comes from builtin directory (added via update_model_type)
-                    if self._is_model_from_builtin_dir(model_spec.model_name, "image"):
-                        # This is an editor-defined model, should be marked as builtin=True
-                        if detailed:
-                            ret.append(
-                                await self._to_image_model_reg(
-                                    model_spec, is_builtin=True
-                                )
-                            )
-                        else:
-                            ret.append(
-                                {
-                                    "model_name": model_spec.model_name,
-                                    "is_builtin": True,
-                                }
-                            )
-                        continue
+            image_transform_func = ImageTransformFunc()
 
-                # True user-defined model, mark as builtin=False
-                if detailed:
-                    ret.append(
-                        await self._to_image_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
+            model_regs = await self._collect_model_registrations(
+                builtin_models=BUILTIN_IMAGE_MODELS,
+                register_builtin_func=register_builtin_model,
+                get_registered_func=get_registered_images,
+                cache_manager_class=ImageCacheManager,
+                to_model_reg_func=self._to_image_model_reg,
+                detailed=detailed,
+                is_dict_builtins=True,
+                builtin_transform_func=image_transform_func,
+                model_type="image",
+            )
+            ret.extend(model_regs)
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS, register_builtin_model
+            from ..model.audio.cache_manager import AudioCacheManager
             from ..model.audio.custom import get_registered_audios
 
-            register_builtin_model()
+            class AudioTransformFunc:
+                def __init__(self):
+                    self.post_transform = self.audio_post_transform
 
-            # 1. Hardcoded built-in models
-            for model_name, families in BUILTIN_AUDIO_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_audio_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                def __call__(self, model_name, families):
+                    """Transform function for audio models to select huggingface family"""
+                    if isinstance(families, list):
+                        return [x for x in families if x.model_hub == "huggingface"][0]
+                    else:
+                        return families
 
-            # 2. Registered models (user-defined + editor-defined)
-            registered_models = get_registered_audios()
-            builtin_names = set(BUILTIN_AUDIO_MODELS.keys())
+                def audio_post_transform(self, model_name, families, reg_data):
+                    """Post-transform function for audio models to add download_hubs"""
+                    if isinstance(families, list):
+                        reg_data["download_hubs"] = [x.model_hub for x in families]
+                    return reg_data
 
-            for model_spec in registered_models:
-                # If model is not in hardcoded list, it might be editor-defined, need to check source
-                if model_spec.model_name not in builtin_names:
-                    # Check if it comes from builtin directory (added via update_model_type)
-                    if self._is_model_from_builtin_dir(model_spec.model_name, "audio"):
-                        # This is an editor-defined model, should be marked as builtin=True
-                        if detailed:
-                            ret.append(
-                                await self._to_audio_model_reg(
-                                    model_spec, is_builtin=True
-                                )
-                            )
-                        else:
-                            ret.append(
-                                {
-                                    "model_name": model_spec.model_name,
-                                    "is_builtin": True,
-                                }
-                            )
-                        continue
+            audio_transform_func = AudioTransformFunc()
 
-                # True user-defined model, mark as builtin=False
-                if detailed:
-                    ret.append(
-                        await self._to_audio_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
+            model_regs = await self._collect_model_registrations(
+                builtin_models=BUILTIN_AUDIO_MODELS,
+                register_builtin_func=register_builtin_model,
+                get_registered_func=get_registered_audios,
+                cache_manager_class=AudioCacheManager,
+                to_model_reg_func=self._to_audio_model_reg,
+                detailed=detailed,
+                is_dict_builtins=True,
+                builtin_transform_func=audio_transform_func,
+                model_type="audio",
+            )
+            ret.extend(model_regs)
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS, register_builtin_model
+            from ..model.video.cache_manager import VideoCacheManager
             from ..model.video.custom import get_registered_videos
 
-            register_builtin_model()
+            class VideoTransformFunc:
+                def __init__(self):
+                    self.post_transform = self.video_post_transform
 
-            # 1. Hardcoded built-in models
-            for model_name, families in BUILTIN_VIDEO_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_video_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                def __call__(self, model_name, families):
+                    """Transform function for video models to select huggingface family"""
+                    if isinstance(families, list):
+                        return [x for x in families if x.model_hub == "huggingface"][0]
+                    else:
+                        return families
 
-            # 2. Registered models (user-defined + editor-defined)
-            registered_models = get_registered_videos()
-            builtin_names = set(BUILTIN_VIDEO_MODELS.keys())
+                def video_post_transform(self, model_name, families, reg_data):
+                    """Post-transform function for video models to add download_hubs"""
+                    if isinstance(families, list):
+                        reg_data["download_hubs"] = [x.model_hub for x in families]
+                    return reg_data
 
-            for model_spec in registered_models:
-                # If model is not in hardcoded list, it might be editor-defined, need to check source
-                if model_spec.model_name not in builtin_names:
-                    # Check if it comes from builtin directory (added via update_model_type)
-                    if self._is_model_from_builtin_dir(model_spec.model_name, "video"):
-                        # This is an editor-defined model, should be marked as builtin=True
-                        if detailed:
-                            ret.append(
-                                await self._to_video_model_reg(
-                                    model_spec, is_builtin=True
-                                )
-                            )
-                        else:
-                            ret.append(
-                                {
-                                    "model_name": model_spec.model_name,
-                                    "is_builtin": True,
-                                }
-                            )
-                        continue
+            video_transform_func = VideoTransformFunc()
 
-                # True user-defined model, mark as builtin=False
-                if detailed:
-                    ret.append(
-                        await self._to_video_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
+            model_regs = await self._collect_model_registrations(
+                builtin_models=BUILTIN_VIDEO_MODELS,
+                register_builtin_func=register_builtin_model,
+                get_registered_func=get_registered_videos,
+                cache_manager_class=VideoCacheManager,
+                to_model_reg_func=self._to_video_model_reg,
+                detailed=detailed,
+                is_dict_builtins=True,
+                builtin_transform_func=video_transform_func,
+                model_type="video",
+            )
+            ret.extend(model_regs)
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS, register_builtin_model
+            from ..model.rerank.cache_manager import RerankCacheManager
             from ..model.rerank.custom import get_registered_reranks
 
-            register_builtin_model()
-
-            # 1. Hardcoded built-in models
-            for model_name, family in BUILTIN_RERANK_MODELS.items():
-                if detailed:
-                    ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            # 2. Registered models (user-defined + editor-defined)
-            registered_models = get_registered_reranks()
-            builtin_names = set(BUILTIN_RERANK_MODELS.keys())
-
-            for model_spec in registered_models:
-                # If model is not in hardcoded list, it might be editor-defined, need to check source
-                if model_spec.model_name not in builtin_names:
-                    # Check if it comes from builtin directory (added via update_model_type)
-                    if self._is_model_from_builtin_dir(model_spec.model_name, "rerank"):
-                        # This is an editor-defined model, should be marked as builtin=True
-                        if detailed:
-                            ret.append(
-                                await self._to_rerank_model_reg(
-                                    model_spec, is_builtin=True
-                                )
-                            )
-                        else:
-                            ret.append(
-                                {
-                                    "model_name": model_spec.model_name,
-                                    "is_builtin": True,
-                                }
-                            )
-                        continue
-
-                # True user-defined model, mark as builtin=False
-                if detailed:
-                    ret.append(
-                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
+            model_regs = await self._collect_model_registrations(
+                builtin_models=BUILTIN_RERANK_MODELS,
+                register_builtin_func=register_builtin_model,
+                get_registered_func=get_registered_reranks,
+                cache_manager_class=RerankCacheManager,
+                to_model_reg_func=self._to_rerank_model_reg,
+                detailed=detailed,
+                is_dict_builtins=True,
+                model_type="rerank",
+            )
+            ret.extend(model_regs)
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "flexible":
@@ -993,8 +973,6 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
 
             for model_spec in get_flexible_models():
-                from ..model.cache_manager import CacheManager
-
                 cache_manager = CacheManager(model_spec)
                 is_persisted_model = False
                 if hasattr(cache_manager, "_v2_custom_dir_prefix"):
@@ -1210,19 +1188,44 @@ class SupervisorActor(xo.StatelessActor):
             model_json: JSON configuration for the model
         """
 
+        model_name = model_json.get("model_name", "unknown")
+        self._log_debug(
+            f"[ADD_MODEL_DEBUG] Adding model: {model_name}, type: {model_type}"
+        )
+        self._log_debug(f"[ADD_MODEL_DEBUG] Model JSON: {model_json}")
+
         try:
             # Forward the add_model request to all workers
             tasks = []
             for worker_address, worker_ref in self._worker_address_to_worker.items():
+                self._log_debug(
+                    f"[ADD_MODEL_DEBUG] Forwarding to worker: {worker_address}"
+                )
                 tasks.append(worker_ref.add_model(model_type, model_json))
 
             # Wait for all workers to complete the operation
             if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        self._log_debug(
+                            f"[ADD_MODEL_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} failed: {result}"
+                        )
+                    else:
+                        self._log_debug(
+                            f"[ADD_MODEL_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} succeeded"
+                        )
             else:
                 logger.warning(f"No workers available to forward add_model request")
 
+            self._log_debug(
+                f"[ADD_MODEL_DEBUG] Successfully completed add_model for: {model_name}"
+            )
+
         except Exception as e:
+            self._log_debug(
+                f"[ADD_MODEL_DEBUG] Failed to add model {model_name}: {str(e)}"
+            )
             logger.error(
                 f"Error during add_model forwarding: {str(e)}",
                 exc_info=True,
@@ -1263,21 +1266,47 @@ class SupervisorActor(xo.StatelessActor):
             model_type: Type of model (LLM, embedding, image, etc.)
         """
 
+        self._log_debug(
+            f"[UPDATE_MODEL_TYPE_DEBUG] Starting update_model_type for: {model_type}"
+        )
+        self._log_debug(
+            f"[UPDATE_MODEL_TYPE_DEBUG] Available workers: {list(self._worker_address_to_worker.keys())}"
+        )
+
         try:
             # Forward the update_model_type request to all workers
             tasks = []
             for worker_address, worker_ref in self._worker_address_to_worker.items():
+                self._log_debug(
+                    f"[UPDATE_MODEL_TYPE_DEBUG] Forwarding update_model_type to worker: {worker_address}"
+                )
                 tasks.append(worker_ref.update_model_type(model_type))
 
             # Wait for all workers to complete the operation
             if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        self._log_debug(
+                            f"[UPDATE_MODEL_TYPE_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} failed: {result}"
+                        )
+                    else:
+                        self._log_debug(
+                            f"[UPDATE_MODEL_TYPE_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} succeeded"
+                        )
             else:
                 logger.warning(
                     f"No workers available to forward update_model_type request"
                 )
 
+            self._log_debug(
+                f"[UPDATE_MODEL_TYPE_DEBUG] Successfully completed update_model_type for: {model_type}"
+            )
+
         except Exception as e:
+            self._log_debug(
+                f"[UPDATE_MODEL_TYPE_DEBUG] Failed to update model type {model_type}: {str(e)}"
+            )
             logger.error(
                 f"Error during update_model_type forwarding: {str(e)}",
                 exc_info=True,

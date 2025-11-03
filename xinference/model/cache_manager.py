@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from typing import TYPE_CHECKING
@@ -156,3 +157,108 @@ class CacheManager:
                 logger.warning(
                     f"Cache directory is not a soft link, please remove it manually."
                 )
+
+    @staticmethod
+    def is_model_from_builtin_dir(model_name: str, model_type: str) -> bool:
+        """
+        Check if a model comes from the builtin directory (added via update_model_type)
+        or from the custom directory (true user custom models).
+
+        This method encapsulates the logic for parsing builtin model metadata
+        and determining if a model was added through the update_model_type mechanism.
+
+        Args:
+            model_name: Name of the model to check
+            model_type: Type of the model (e.g., "llm", "embedding", "image")
+
+        Returns:
+            True if model is from builtin directory (added via update_model_type),
+            False if model is from custom directory or not found.
+        """
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        # Check builtin directory (update_model_type models)
+        builtin_dir = os.path.join(
+            XINFERENCE_MODEL_DIR, "v2", "builtin", model_type.lower()
+        )
+        builtin_file = os.path.join(builtin_dir, f"{model_name}.json")
+
+        if os.path.exists(builtin_file):
+            return True
+
+        # Also check unified JSON file for models added via update_model_type
+        unified_json = os.path.join(builtin_dir, f"{model_type.lower()}_models.json")
+        if os.path.exists(unified_json):
+            try:
+                with open(unified_json, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                # Check if model_name exists in this JSON file
+                if isinstance(data, list):
+                    return any(model.get("model_name") == model_name for model in data)
+                elif isinstance(data, dict):
+                    if data.get("model_name") == model_name:
+                        return True
+                    else:
+                        # Check dict values
+                        return any(
+                            isinstance(value, dict)
+                            and value.get("model_name") == model_name
+                            for value in data.values()
+                        )
+            except Exception:
+                # If JSON parsing fails, assume model is not from builtin dir
+                pass
+
+        return False
+
+    @staticmethod
+    def resolve_model_source(
+        model_name: str, model_type: str, builtin_model_names=None
+    ) -> str:
+        """
+        Resolve the source of a model with unified logic.
+
+        This method provides a single source of truth for determining model sources,
+        replacing scattered logic across the codebase.
+
+        Args:
+            model_name: Name of the model to check
+            model_type: Type of the model (e.g., "llm", "embedding", "image")
+            builtin_model_names: Set of hardcoded builtin model names (for checking builtin status)
+
+        Returns:
+            "builtin" - Hardcoded builtin models (in code)
+            "editor_builtin" - Models added via update_model_type mechanism
+            "user" - True user-defined models (custom directory)
+        """
+        # 1. Check if it's a hardcoded builtin model
+        if builtin_model_names and model_name in builtin_model_names:
+            return "builtin"
+
+        # 2. Check if it's an editor-defined model (via update_model_type)
+        if CacheManager.is_model_from_builtin_dir(model_name, model_type):
+            return "editor_builtin"
+
+        # 3. Otherwise it's a user-defined model
+        return "user"
+
+    @staticmethod
+    def is_builtin_model(
+        model_name: str, model_type: str, builtin_model_names=None
+    ) -> bool:
+        """
+        Determine if a model should be considered builtin.
+
+        Args:
+            model_name: Name of the model to check
+            model_type: Type of the model
+            builtin_model_names: Set of hardcoded builtin model names
+
+        Returns:
+            True if model is builtin (hardcoded or editor-defined), False if user-defined
+        """
+        source = CacheManager.resolve_model_source(
+            model_name, model_type, builtin_model_names
+        )
+        return source != "user"
