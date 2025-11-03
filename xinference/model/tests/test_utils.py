@@ -68,6 +68,12 @@ def test_tqdm_patch():
 
 
 async def test_download_hugginface():
+    import os
+
+    # Skip network-intensive tests on CI to avoid timeout issues
+    if os.environ.get("CI"):
+        pytest.skip("Skip network-intensive download test on CI to avoid timeout")
+
     from ..llm import BUILTIN_LLM_FAMILIES
     from ..llm.cache_manager import LLMCacheManager as CacheManager
 
@@ -119,6 +125,12 @@ async def test_download_hugginface():
 
 
 async def test_download_modelscope():
+    import os
+
+    # Skip network-intensive tests on CI to avoid timeout issues
+    if os.environ.get("CI"):
+        pytest.skip("Skip network-intensive download test on CI to avoid timeout")
+
     from ..llm import BUILTIN_LLM_FAMILIES
     from ..llm.cache_manager import LLMCacheManager as CacheManager
 

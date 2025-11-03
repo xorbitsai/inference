@@ -46,11 +46,10 @@ class Qwen2Model(_Qwen2Model, DistributedModelMixin):
 
         pipeline_rank = self.rank
         pipeline_size = self.world_size
-        if mask is None:
-            mask = create_attention_mask(h, cache)
 
         if cache is None:
             cache = [None] * self.num_layers
+        mask = create_attention_mask(h, cache[0])
 
         # Receive from the previous process in the pipeline
 

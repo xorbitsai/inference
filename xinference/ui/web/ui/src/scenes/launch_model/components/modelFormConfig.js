@@ -88,7 +88,6 @@ export default function getModelFormConfig({
           },
         },
         disabled: !formData.quantization,
-        required: true,
         visible: !!['ggufv2', 'ggmlv3'].includes(formData.model_format),
       },
       {
@@ -101,6 +100,8 @@ export default function getModelFormConfig({
             min: 1,
           },
         },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
         disabled: !formData.quantization,
         visible: true,
       },
@@ -133,6 +134,11 @@ export default function getModelFormConfig({
             name: 'request_limits',
             label: t('launchModel.requestLimits.optional'),
             type: 'number',
+            inputProps: {
+              inputProps: {
+                min: 1,
+              },
+            },
             error:
               !!formData.request_limits &&
               !/^[1-9]\d*$/.test(formData.request_limits),
@@ -149,6 +155,8 @@ export default function getModelFormConfig({
                 min: 1,
               },
             },
+            error: !!formData.n_worker && !/^[1-9]\d*$/.test(formData.n_worker),
+            helperText: t('launchModel.enterIntegerGreaterThanZero'),
             visible:
               !!formData.model_engine &&
               enginesWithNWorker.includes(formData.model_engine),
@@ -309,6 +317,8 @@ export default function getModelFormConfig({
             min: 1,
           },
         },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
         disabled: !formData.quantization,
       },
       {
@@ -350,6 +360,21 @@ export default function getModelFormConfig({
         name: 'model_path',
         label: t('launchModel.modelPath.optional'),
         type: 'input',
+        visible: true,
+      },
+      {
+        name: 'request_limits',
+        label: t('launchModel.requestLimits.optional'),
+        type: 'number',
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error:
+          !!formData.request_limits &&
+          !/^[1-9]\d*$/.test(formData.request_limits),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
       {
@@ -444,6 +469,8 @@ export default function getModelFormConfig({
             min: 1,
           },
         },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
       },
       {
         name: 'n_gpu',
@@ -484,6 +511,21 @@ export default function getModelFormConfig({
         name: 'model_path',
         label: t('launchModel.modelPath.optional'),
         type: 'input',
+        visible: true,
+      },
+      {
+        name: 'request_limits',
+        label: t('launchModel.requestLimits.optional'),
+        type: 'number',
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error:
+          !!formData.request_limits &&
+          !/^[1-9]\d*$/.test(formData.request_limits),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
       {
@@ -559,6 +601,8 @@ export default function getModelFormConfig({
             min: 1,
           },
         },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
       },
       {
         name: 'n_gpu',
@@ -620,6 +664,21 @@ export default function getModelFormConfig({
         label: t('launchModel.lightningModelPath.optional'),
         type: 'input',
         visible: !!modelData.lightning_versions,
+      },
+      {
+        name: 'request_limits',
+        label: t('launchModel.requestLimits.optional'),
+        type: 'number',
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error:
+          !!formData.request_limits &&
+          !/^[1-9]\d*$/.test(formData.request_limits),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
+        visible: true,
       },
       {
         name: 'cpu_offload',
@@ -707,6 +766,8 @@ export default function getModelFormConfig({
             min: 1,
           },
         },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
       },
       {
         name: 'n_gpu',
@@ -741,6 +802,21 @@ export default function getModelFormConfig({
         name: 'model_path',
         label: t('launchModel.modelPath.optional'),
         type: 'input',
+        visible: true,
+      },
+      {
+        name: 'request_limits',
+        label: t('launchModel.requestLimits.optional'),
+        type: 'number',
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error:
+          !!formData.request_limits &&
+          !/^[1-9]\d*$/.test(formData.request_limits),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
       {
@@ -816,6 +892,8 @@ export default function getModelFormConfig({
             min: 1,
           },
         },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
       },
       {
         name: 'n_gpu',
@@ -850,6 +928,21 @@ export default function getModelFormConfig({
         name: 'model_path',
         label: t('launchModel.modelPath.optional'),
         type: 'input',
+        visible: true,
+      },
+      {
+        name: 'request_limits',
+        label: t('launchModel.requestLimits.optional'),
+        type: 'number',
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error:
+          !!formData.request_limits &&
+          !/^[1-9]\d*$/.test(formData.request_limits),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
       {
@@ -890,6 +983,125 @@ export default function getModelFormConfig({
             visible: true,
           },
         ],
+      },
+      {
+        name: 'nested_section_virtualEnv',
+        label: t('launchModel.virtualEnvConfig'),
+        type: 'collapse',
+        visible: true,
+        children: [
+          {
+            name: 'enable_virtual_env',
+            label: t('launchModel.modelVirtualEnv'),
+            type: 'radio',
+            options: [
+              { label: 'Unset', value: 'unset' },
+              { label: 'False', value: false },
+              { label: 'True', value: true },
+            ],
+            default: 'unset',
+            visible: true,
+          },
+          {
+            name: 'virtual_env_packages',
+            label: t('launchModel.virtualEnvPackage'),
+            type: 'dynamicField',
+            mode: 'value',
+            valuePlaceholder: 'value',
+            visible: true,
+          },
+        ],
+      },
+      {
+        name: 'nested_section_env',
+        label: t('launchModel.envVariableConfig'),
+        type: 'collapse',
+        visible: true,
+        children: [
+          {
+            name: 'envs',
+            label: t('launchModel.envVariable'),
+            type: 'dynamicField',
+            mode: 'key-value',
+            keyPlaceholder: 'key',
+            valuePlaceholder: 'value',
+            visible: true,
+          },
+        ],
+      },
+      {
+        name: 'custom',
+        label: t('launchModel.additionalParametersForInferenceEngine'),
+        type: 'dynamicField',
+        mode: 'key-value',
+        keyPlaceholder: 'key',
+        valuePlaceholder: 'value',
+        visible: true,
+      },
+    ],
+    flexible: [
+      {
+        name: 'model_uid',
+        label: t('launchModel.modelUID.optional'),
+        type: 'input',
+        visible: true,
+      },
+      {
+        name: 'replica',
+        label: t('launchModel.replica'),
+        type: 'number',
+        visible: true,
+        default: 1,
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error: !!formData.replica && !/^[1-9]\d*$/.test(formData.replica),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
+      },
+      {
+        name: 'n_gpu',
+        label: t('launchModel.device'),
+        type: 'select',
+        default: gpuAvailable === 0 ? 'CPU' : 'GPU',
+        options: getNGPURange('audio'),
+        visible: true,
+      },
+      {
+        name: 'gpu_idx',
+        label: t('launchModel.GPUIdx'),
+        type: 'input',
+        error: !!formData.gpu_idx && !/^\d+(?:,\d+)*$/.test(formData.gpu_idx),
+        helperText: t('launchModel.enterCommaSeparatedNumbers'),
+        visible: !!formData.n_gpu && formData.n_gpu === 'GPU',
+      },
+      {
+        name: 'worker_ip',
+        label: t('launchModel.workerIp.optional'),
+        type: 'input',
+        visible: true,
+      },
+      {
+        name: 'model_path',
+        label: t('launchModel.modelPath.optional'),
+        type: 'input',
+        visible: true,
+      },
+      {
+        name: 'request_limits',
+        label: t('launchModel.requestLimits.optional'),
+        type: 'number',
+        inputProps: {
+          inputProps: {
+            min: 1,
+          },
+        },
+        error:
+          !!formData.request_limits &&
+          !/^[1-9]\d*$/.test(formData.request_limits),
+        helperText: t('launchModel.enterIntegerGreaterThanZero'),
+        visible: true,
       },
       {
         name: 'nested_section_virtualEnv',

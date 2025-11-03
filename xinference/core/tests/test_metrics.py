@@ -124,6 +124,7 @@ async def test_disable_metrics_exporter_server(disable_metrics, setup_cluster):
         requests.get(metrics_exporter_address)
 
 
+@pytest.mark.timeout(300)  # 5 minutes timeout to prevent hanging in Python 3.13
 async def test_metrics_exporter_data(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 

@@ -206,10 +206,6 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         super().__init__()
 
-        from ..model.llm.llama_cpp.core import XllamaCppModel
-        from ..model.llm.lmdeploy.core import LMDeployModel
-        from ..model.llm.sglang.core import SGLANGModel
-        from ..model.llm.transformers.core import PytorchModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._supervisor_address = supervisor_address
@@ -223,12 +219,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._pending_requests: asyncio.Queue = asyncio.Queue()
         self._handle_pending_requests_task = None
         self._lock = (
-            None
-            if isinstance(
-                self._model,
-                (PytorchModel, VLLMModel, SGLANGModel, LMDeployModel, XllamaCppModel),
-            )
-            else asyncio.locks.Lock()
+            None if getattr(self._model, "allow_batch", False) else asyncio.locks.Lock()
         )
         self._worker_ref = None
         self._progress_tracker_ref = None

@@ -108,21 +108,79 @@ Missing ``model_engine`` parameter when launching LLM models
 Since version ``v0.11.0``, launching LLM models requires an additional ``model_engine`` parameter.
 For specific information, please refer to :ref:`here <about_model_engine>`.
 
-Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 library.
-================================================================================================================
+Resolving MKL Threading Layer Conflicts
+========================================
 
-When start Xinference server and you hit the error "ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be inspected. Please check the logs for more details. "
+When starting the Xinference server, you may encounter the error: ``ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be inspected. Please check the logs for more details.``
 
-The logs shows the error, ``"Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 library. Try to import numpy first or set the threading layer accordingly. Set MKL_SERVICE_FORCE_INTEL to force it."``
-
-This is mostly because your NumPy is installed by conda and conda's Numpy is built with Intel MKL optimizations, which is causing a conflict with the GNU OpenMP library (libgomp) that's already loaded in the environment.
+The underlying cause shown in the logs is:
 
 .. code-block:: text
 
-    MKL_THREADING_LAYER=GNU xinference-local
+   Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 library.
+   Try to import numpy first or set the threading layer accordingly. Set MKL_SERVICE_FORCE_INTEL to force it.
 
-Setting ``MKL_THREADING_LAYER=GNU`` forces Intel's Math Kernel Library to use GNU's OpenMP implementation instead of Intel's own implementation.
+This typically occurs when NumPy was installed via conda. Conda's NumPy is built with Intel MKL optimizations, which conflicts with the GNU OpenMP library (libgomp) already loaded in your environment.
 
-Or you can uninstall conda's numpy and reinstall with pip.
+Solution 1: Override the Threading Layer
+-----------------------------------------
 
-On a related subject, if you use vllm, do not install pytorch with conda, check https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html for detailed information.
+Force Intel's Math Kernel Library to use GNU's OpenMP implementation:
+
+.. code-block:: bash
+
+   MKL_THREADING_LAYER=GNU xinference-local
+
+Solution 2: Reinstall NumPy with pip
+-------------------------------------
+
+Uninstall conda's NumPy and reinstall using pip:
+
+.. code-block:: bash
+
+   pip uninstall -y numpy && pip install numpy
+   #Or just --force-reinstall
+   pip install --force-reinstall numpy
+
+Related Note: vLLM and PyTorch
+-------------------------------
+
+If you're using vLLM, avoid installing PyTorch with conda. Refer to the official vLLM installation guide for GPU-specific instructions: https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html
+
+Configuring PyPI Mirrors to Speed Up Package Installation
+==========================================================
+
+If you're in Mainland China, using a PyPI mirror can significantly speed up package installation. Here are some commonly used mirrors:
+
+- Tsinghua University: ``https://pypi.tuna.tsinghua.edu.cn/simple``
+- Alibaba Cloud: ``https://mirrors.aliyun.com/pypi/simple/``
+- Tencent Cloud: ``https://mirrors.cloud.tencent.com/pypi/simple``
+
+However, be aware that some packages may not be available on certain mirrors. For example, if you're installing ``xinference[audio]`` using only the Aliyun mirror, the installation may fail.
+
+This happens because ``num2words``, a dependency used by ``MeloTTS``, is not available on the Aliyun mirror. As a result, ``pip install xinference[audio]`` will resolve to older versions like ``xinference==1.2.0`` and ``xoscar==0.8.0`` (as of Oct 27, 2025).
+
+These older versions are incompatible and will produce the error: ``MainActorPool.append_sub_pool() got an unexpected keyword argument 'start_method'``
+
+.. code-block:: bash
+
+   curl -s https://mirrors.aliyun.com/pypi/simple/num2words/ | grep -i "num2words"
+   # Returns NOTHING! But it works on Tsinghua or Tencent mirrors.
+   # uv pip install "xinference[audio]" will then install the following packages (as of Oct 27, 2025):
+   + x-transformers==2.10.2
+   + xinference==1.2.0
+   + xoscar==0.8.0
+
+To avoid this issue when installing the xinference audio package, use multiple mirrors:
+
+.. code-block:: bash
+
+   uv pip install xinference[audio] --index-url https://mirrors.aliyun.com/pypi/simple --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+   # Optional: Set this globally in your uv config
+   mkdir -p ~/.config/uv
+   cat >> ~/.config/uv/uv.toml << EOF
+   [tool.uv]
+   index-url = "https://mirrors.aliyun.com/pypi/simple"
+   extra-index-url = ["https://pypi.tuna.tsinghua.edu.cn/simple"]
+   EOF

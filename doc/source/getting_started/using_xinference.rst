@@ -326,6 +326,9 @@ The following OpenAI APIs are supported:
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
 
+Xinference also supports Anthropic API via base url ``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code and so forth.
+Refer to :ref:`anthropic client <anthropic_client>` for more details.
+
 Manage Models
 -------------
 

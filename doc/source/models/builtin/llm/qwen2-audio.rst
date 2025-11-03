@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2-Audio-7B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-Audio-7B>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-Audio-7B>`__
 

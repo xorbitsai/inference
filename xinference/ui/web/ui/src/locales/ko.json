@@ -162,6 +162,7 @@
     "stop": "중지",
     "reasoningStartTag": "추론 시작 태그",
     "reasoningEndTag": "추론 종료 태그",
+    "toolParser": "도구 파서",
     "launcher": "런처",
     "launcherArguments": "런처 인수 (선택)",
     "edit": "편집",

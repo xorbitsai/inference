@@ -39,7 +39,6 @@ const ModelCard = ({
   modelData,
   modelType,
   is_custom = false,
-  onHandlecustomDelete,
   onGetCollectionArr,
   onUpdate,
   onClick,
@@ -239,7 +238,7 @@ const ModelCard = ({
           }/${modelData.model_name}`
         )
         .then(() => {
-          onHandlecustomDelete(modelData.model_name)
+          onUpdate(subType[3] === 'llm' ? 'LLM' : subType[3])
           setIsDeleteCustomModel(false)
         })
         .catch((error) => {

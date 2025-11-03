@@ -463,9 +463,9 @@ class TestVLLMChatModel:
                     }
                 ],
                 "usage": {
-                    "prompt_tokens": -1,
-                    "completion_tokens": -1,
-                    "total_tokens": -1,
+                    "completion_tokens": 91,
+                    "prompt_tokens": 159,
+                    "total_tokens": 250,
                 },
             },
         ]

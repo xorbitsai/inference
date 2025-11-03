@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-04-28 18:35+0800\n"
+"POT-Creation-Date: 2025-10-28 13:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -206,61 +206,123 @@ msgstr ""
 " 。具体信息请参考 :ref:`这里 <about_model_engine>` 。"
 
 #: ../../source/getting_started/troubleshooting.rst:112
-msgid ""
-"Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL is "
-"incompatible with libgomp-a34b3233.so.1 library."
-msgstr ""
-"错误：mkl-service + Intel(R) MKL：MKL_THREADING_LAYER=INTEL 与 libgomp-a34b3233.so.1 库不兼容。"
+msgid "Resolving MKL Threading Layer Conflicts"
+msgstr "解决 MKL 线程层冲突"
 
 #: ../../source/getting_started/troubleshooting.rst:114
 msgid ""
-"When start Xinference server and you hit the error \"ValueError: Model "
-"architectures ['Qwen2ForCausalLM'] failed to be inspected. Please check "
-"the logs for more details. \""
+"When starting the Xinference server, you may encounter the error: "
+"``ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be "
+"inspected. Please check the logs for more details.``"
 msgstr ""
-"在启动 Xinference 服务器时，如果遇到错误：“ValueError: Model architectures "
-"['Qwen2ForCausalLM'] failed to be inspected. Please check the logs for more details.”"
+"在启动 Xinference 服务器时，如果遇到错误：``ValueError: Model "
+"architectures ['Qwen2ForCausalLM'] failed to be inspected. . Please check the logs for more details.``"
 
 #: ../../source/getting_started/troubleshooting.rst:116
-msgid ""
-"The logs shows the error, ``\"Error: mkl-service + Intel(R) MKL: "
-"MKL_THREADING_LAYER=INTEL is incompatible with libgomp-a34b3233.so.1 "
-"library. Try to import numpy first or set the threading layer "
-"accordingly. Set MKL_SERVICE_FORCE_INTEL to force it.\"``"
-msgstr ""
-"日志中显示错误：Error: mkl-service + Intel(R) MKL: MKL_THREADING_LAYER=INTEL "
-"is incompatible with libgomp-a34b3233.so.1 library. Try to import numpy first "
-"or set the threading layer accordingly. Set MKL_SERVICE_FORCE_INTEL to force it."
+msgid "The underlying cause shown in the logs is:"
+msgstr "日志中显示的根本原因是："
 
-
-#: ../../source/getting_started/troubleshooting.rst:118
+#: ../../source/getting_started/troubleshooting.rst:123
 msgid ""
-"This is mostly because your NumPy is installed by conda and conda's Numpy"
-" is built with Intel MKL optimizations, which is causing a conflict with "
-"the GNU OpenMP library (libgomp) that's already loaded in the "
-"environment."
+"This typically occurs when NumPy was installed via conda. Conda's NumPy "
+"is built with Intel MKL optimizations, which conflicts with the GNU "
+"OpenMP library (libgomp) already loaded in your environment."
 msgstr ""
-"这通常是因为你的 NumPy 是通过 conda 安装的，而 conda 的 NumPy 是使用 Intel MKL 优化构建的，"
-"这导致它与环境中已加载的 GNU OpenMP 库（libgomp）产生冲突。"
-
-#: ../../source/getting_started/troubleshooting.rst:124
-msgid ""
-"Setting ``MKL_THREADING_LAYER=GNU`` forces Intel's Math Kernel Library to"
-" use GNU's OpenMP implementation instead of Intel's own implementation."
-msgstr ""
-"设置 MKL_THREADING_LAYER=GNU 可以强制 Intel 数学核心库（MKL）使用 GNU 的 OpenMP 实现，而不是使用 Intel 自己的实现。"
+"这通常是因为你的 NumPy 是通过 conda 安装的，而 conda 的 NumPy 是使用 "
+"Intel MKL 优化构建的，这导致它与环境中已加载的 GNU OpenMP 库（libgomp）"
+"产生冲突。"
 
 #: ../../source/getting_started/troubleshooting.rst:126
-msgid "Or you can uninstall conda's numpy and reinstall with pip."
-msgstr ""
-"或者你也可以卸载 conda 安装的 numpy，然后使用 pip 重新安装。"
+msgid "Solution 1: Override the Threading Layer"
+msgstr "解决方案 1：重写线程层"
 
 #: ../../source/getting_started/troubleshooting.rst:128
-msgid ""
-"On a related subject, if you use vllm, do not install pytorch with conda,"
-" check "
-"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html for "
-"detailed information."
+msgid "Force Intel's Math Kernel Library to use GNU's OpenMP implementation:"
 msgstr ""
-"相关地，如果你使用 vllm，不要通过 conda 安装 pytorch，详细信息请参考：https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html 。"
+"设置 MKL_THREADING_LAYER=GNU 可以强制 Intel 数学核心库（MKL）使用 GNU 的 "
+"OpenMP 实现："
+
+#: ../../source/getting_started/troubleshooting.rst:135
+msgid "Solution 2: Reinstall NumPy with pip"
+msgstr "解决方案 2：使用 pip 重新安装 NumPy"
+
+#: ../../source/getting_started/troubleshooting.rst:137
+msgid "Uninstall conda's NumPy and reinstall using pip:"
+msgstr "卸载 conda 安装的 numpy，然后使用 pip 重新安装。"
+
+#: ../../source/getting_started/troubleshooting.rst:146
+msgid "Related Note: vLLM and PyTorch"
+msgstr "相关说明：vLLM 与 PyTorch"
+
+#: ../../source/getting_started/troubleshooting.rst:148
+msgid ""
+"If you're using vLLM, avoid installing PyTorch with conda. Refer to the "
+"official vLLM installation guide for GPU-specific instructions: "
+"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+msgstr ""
+"如果你在使用 vLLM，请避免通过 conda 安装 PyTorch。有关特定 GPU 的安装说明，"
+"请参阅 vLLM 官方安装指南："
+"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+
+#: ../../source/getting_started/troubleshooting.rst:151
+msgid "Configuring PyPI Mirrors to Speed Up Package Installation"
+msgstr "配置 PyPI 镜像以加快软件包安装速度"
+
+#: ../../source/getting_started/troubleshooting.rst:153
+msgid ""
+"If you're in Mainland China, using a PyPI mirror can significantly speed "
+"up package installation. Here are some commonly used mirrors:"
+msgstr ""
+"如果你在中国大陆，使用 PyPI 镜像可以显著加快软件包的安装速度。"
+"以下是一些常用的镜像源："
+
+#: ../../source/getting_started/troubleshooting.rst:155
+msgid "Tsinghua University: ``https://pypi.tuna.tsinghua.edu.cn/simple``"
+msgstr "清华大学镜像：``https://pypi.tuna.tsinghua.edu.cn/simple``"
+
+#: ../../source/getting_started/troubleshooting.rst:156
+msgid "Alibaba Cloud: ``https://mirrors.aliyun.com/pypi/simple/``"
+msgstr "阿里云镜像：``https://mirrors.aliyun.com/pypi/simple/``"
+
+#: ../../source/getting_started/troubleshooting.rst:157
+msgid "Tencent Cloud: ``https://mirrors.cloud.tencent.com/pypi/simple``"
+msgstr "腾讯云镜像：``https://mirrors.cloud.tencent.com/pypi/simple``"
+
+#: ../../source/getting_started/troubleshooting.rst:159
+msgid ""
+"However, be aware that some packages may not be available on certain "
+"mirrors. For example, if you're installing ``xinference[audio]`` using "
+"only the Aliyun mirror, the installation may fail."
+msgstr ""
+"但请注意，某些镜像源上可能缺少部分软件包。"
+"例如，如果你仅使用阿里云镜像安装 ``xinference[audio]``，安装可能会失败。"
+
+#: ../../source/getting_started/troubleshooting.rst:161
+msgid ""
+"This happens because ``num2words``, a dependency used by ``MeloTTS``, is "
+"not available on the Aliyun mirror. As a result, ``pip install "
+"xinference[audio]`` will resolve to older versions like "
+"``xinference==1.2.0`` and ``xoscar==0.8.0`` (as of Oct 27, 2025)."
+msgstr ""
+"这是因为 ``MeloTTS`` 所依赖的 ``num2words`` 软件包在阿里云镜像上不可用。"
+"因此，在执行 ``pip install xinference[audio]`` 时，"
+"可能会回退安装旧版本，如 ``xinference==1.2.0`` 和 ``xoscar==0.8.0`` （截至 2025 年 10 月 27 日）。"
+
+#: ../../source/getting_started/troubleshooting.rst:163
+msgid ""
+"These older versions are incompatible and will produce the error: "
+"``MainActorPool.append_sub_pool() got an unexpected keyword argument "
+"'start_method'``"
+msgstr ""
+"这些旧版本不兼容，会导致以下错误："
+"``MainActorPool.append_sub_pool() got an unexpected keyword argument 'start_method'``"
+
+#: ../../source/getting_started/troubleshooting.rst:174
+msgid ""
+"To avoid this issue when installing the xinference audio package, use "
+"multiple mirrors:"
+msgstr ""
+"为避免在安装 xinference 音频包时出现此问题，"
+"建议同时使用多个镜像源："
+
 

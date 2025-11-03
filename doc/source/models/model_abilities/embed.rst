@@ -124,3 +124,9 @@ Does Embeddings API provides integration method for LangChain?
 
 Yes, you can refer to the related sections in LangChain's respective official Xinference documentation.
 Here is the link: `Text Embedding Models: Xinference <https://python.langchain.com/docs/integrations/text_embedding/xinference>`_ 
+
+
+Does Embeddings API support hrbrid model?
+-----------------------------------------------------------------------------------
+
+Yes, you can use ``flag`` as the engine to deploy the model and call Embeddings API by setting the extra parameter ``return_parse=True`` which will return sparse vectors.

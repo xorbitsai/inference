@@ -26,6 +26,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.
 
+   * - :ref:`baichuan-m2 <models_llm_baichuan-m2>`
+     - chat, reasoning, hybrid, tools
+     - 131072
+     - Baichuan-M2-32B is Baichuan AI's medical-enhanced reasoning model, the second medical model released by Baichuan. Designed for real-world medical reasoning tasks, this model builds upon Qwen2.5-32B with an innovative Large Verifier System. Through domain-specific fine-tuning on real-world medical questions, it achieves breakthrough medical performance while maintaining strong general capabilities.
+
    * - :ref:`code-llama <models_llm_code-llama>`
      - generate
      - 100000
@@ -346,6 +351,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - MiniCPM-V 2.6 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters.
 
+   * - :ref:`minicpm-v-4.5 <models_llm_minicpm-v-4.5>`
+     - chat, vision
+     - 32768
+     - MiniCPM-V 4.5 is an improved version in the MiniCPM-V series with enhanced multimodal capabilities and better performance.
+
    * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
      - chat
      - 32768
@@ -536,10 +546,40 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - We introduce the updated version of the Qwen3-235B-A22B non-thinking mode, named Qwen3-235B-A22B-Instruct-2507
 
+   * - :ref:`qwen3-next-instruct <models_llm_qwen3-next-instruct>`
+     - chat, tools
+     - 262144
+     - Qwen3-Next-80B-A3B is the first installment in the Qwen3-Next series
+
+   * - :ref:`qwen3-next-thinking <models_llm_qwen3-next-thinking>`
+     - chat, reasoning, tools
+     - 262144
+     - Qwen3-Next-80B-A3B is the first installment in the Qwen3-Next series
+
+   * - :ref:`qwen3-omni-instruct <models_llm_qwen3-omni-instruct>`
+     - chat, vision, audio, omni, tools
+     - 262144
+     - Qwen3-Omni is the natively end-to-end multilingual omni-modal foundation models. It processes text, images, audio, and video, and delivers real-time streaming responses in both text and natural speech. We introduce several architectural upgrades to improve performance and efficiency.
+
+   * - :ref:`qwen3-omni-thinking <models_llm_qwen3-omni-thinking>`
+     - chat, vision, audio, omni, reasoning, tools
+     - 262144
+     - Qwen3-Omni is the natively end-to-end multilingual omni-modal foundation models. It processes text, images, audio, and video, and delivers real-time streaming responses in both text and natural speech. We introduce several architectural upgrades to improve performance and efficiency.
+
    * - :ref:`qwen3-thinking <models_llm_qwen3-thinking>`
      - chat, reasoning, tools
      - 262144
      - we have continued to scale the thinking capability of Qwen3-235B-A22B, improving both the quality and depth of reasoning
+
+   * - :ref:`qwen3-vl-instruct <models_llm_qwen3-vl-instruct>`
+     - chat, vision, tools
+     - 262144
+     - Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
+
+   * - :ref:`qwen3-vl-thinking <models_llm_qwen3-vl-thinking>`
+     - chat, vision, reasoning, tools
+     - 262144
+     - Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
 
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
@@ -670,6 +710,8 @@ The following is a list of built-in LLM in Xinference:
   
    baichuan-2-chat
   
+   baichuan-m2
+  
    code-llama
   
    code-llama-instruct
@@ -798,6 +840,8 @@ The following is a list of built-in LLM in Xinference:
   
    minicpm-v-2.6
   
+   minicpm-v-4.5
+  
    minicpm3-4b
   
    minicpm4
@@ -874,7 +918,19 @@ The following is a list of built-in LLM in Xinference:
   
    qwen3-instruct
   
+   qwen3-next-instruct
+  
+   qwen3-next-thinking
+  
+   qwen3-omni-instruct
+  
+   qwen3-omni-thinking
+  
    qwen3-thinking
+  
+   qwen3-vl-instruct
+  
+   qwen3-vl-thinking
   
    qwenlong-l1
   

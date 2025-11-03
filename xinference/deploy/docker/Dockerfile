@@ -38,6 +38,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel&& \
     pip install -i "$PIP_INDEX" transformers==4.53.2 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.4.6.post5 && \
     pip install WeTextProcessing==1.0.4.1 --no-deps && \
+    pip install -i "$PIP_INDEX" wetext && \
     pip install importlib_resources && \
     pip install -i "$PIP_INDEX" sgl-kernel==0.1.8 && \
     pip install torch==2.7.1 && \
@@ -63,6 +64,8 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
     /opt/conda/bin/conda clean --all -y
+
+ENV LD_LIBRARY_PATH=/opt/conda/envs/ffmpeg-env/lib:$LD_LIBRARY_PATH
 
 # Overwrite the entrypoint of vllm's base image
 ENTRYPOINT []

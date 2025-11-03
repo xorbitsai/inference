@@ -59,6 +59,10 @@ const model_ability_options = [
     ],
   },
   {
+    type: 'image',
+    options: ['ocr'],
+  },
+  {
     type: 'audio',
     options: ['text2audio', 'audio2text'],
   },
@@ -76,7 +80,7 @@ const messages = [
 const model_family_options = [
   {
     type: 'image',
-    options: ['stable_diffusion'],
+    options: ['stable_diffusion', 'ocr'],
   },
   {
     type: 'audio',
@@ -560,6 +564,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       'stop',
       'reasoning_start_tag',
       'reasoning_end_tag',
+      'tool_parser',
     ]
     fieldsToDelete.forEach((key) => delete obj[key])
 
@@ -592,6 +597,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       obj.reasoning_end_tag = ''
     }
 
+    if (
+      currentAbilities.includes('tools') &&
+      ability !== 'tools' &&
+      ability !== 'chat'
+    ) {
+      delete obj.tool_parser
+    }
+
     if (isRemoving) {
       const updatedAbilities =
         ability === 'chat'
@@ -599,6 +612,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               (item) => !chatRelatedAbilities.includes(item)
             )
           : currentAbilities.filter((item) => item !== ability)
+
+      if (ability === 'tools') {
+        delete obj.tool_parser
+      }
 
       setFormData({
         ...obj,
@@ -613,6 +630,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     if (ability === 'reasoning') {
       obj.reasoning_start_tag = ''
       obj.reasoning_end_tag = ''
+    }
+
+    if (ability === 'tools') {
+      obj.tool_parser = ''
     }
 
     if (
@@ -655,6 +676,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           chat_template: data?.chat_template || null,
           stop_token_ids: data?.stop_token_ids || [],
           stop: data?.stop || [],
+        }
+
+        if (formData.model_ability.includes('tools')) {
+          form_data.tool_parser = data?.tool_parser || ''
         }
 
         if (formData.model_ability.includes('reasoning')) {
@@ -1495,6 +1520,24 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   setFormData({
                     ...formData,
                     reasoning_end_tag: event.target.value,
+                  })
+                }
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* tool_parser */}
+          {formData.model_ability?.includes('tools') && (
+            <>
+              <TextField
+                label={t('registerModel.toolParser')}
+                value={formData.tool_parser}
+                size="small"
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    tool_parser: event.target.value,
                   })
                 }
               />

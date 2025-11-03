@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
+# Configure MPS memory management to avoid "invalid low watermark ratio" error in PyTorch 3.13+
+if os.environ.get("PYTORCH_MPS_HIGH_WATERMARK_RATIO") is None:
+    os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "1.0"
+if os.environ.get("PYTORCH_MPS_LOW_WATERMARK_RATIO") is None:
+    os.environ["PYTORCH_MPS_LOW_WATERMARK_RATIO"] = "0.2"
+
 from . import _version
 
 __version__ = _version.get_versions()["version"]

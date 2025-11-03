@@ -162,6 +162,7 @@
     "stop": "停止",
     "reasoningStartTag": "推理开始标签",
     "reasoningEndTag": "推理结束标签",
+    "toolParser": "工具解析器",
     "launcher": "启动器",
     "launcherArguments": "启动器参数（可选）",
     "edit": "编辑",

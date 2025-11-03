@@ -73,6 +73,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     stream: bool
     stream_options: Optional[Union[dict, None]]
     json_schema: Optional[dict]
+    response_format: dict
 
 
 try:
@@ -136,6 +137,8 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 
 
 class SGLANGModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -317,13 +320,16 @@ class SGLANGModel(LLM):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
-        json_schema = (
-            generate_config.pop("response_format", {})  # type: ignore
-            .pop("json_schema", {})
-            .pop("schema", {})
-        )
-        if json_schema:
-            generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
+        response_format = generate_config.pop("response_format", None)
+        if response_format:
+            json_schema_config = response_format.pop("json_schema", None)
+            json_schema = None
+            if "schema_" in json_schema_config:
+                json_schema = json_schema_config.pop("schema_")
+            elif "schema" in json_schema_config:
+                json_schema = json_schema_config.pop("schema")
+            if json_schema:
+                generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
 
         return generate_config
 
@@ -356,22 +362,38 @@ class SGLANGModel(LLM):
 
     @staticmethod
     def _convert_state_to_completion_chunk(
-        request_id: str, model: str, output_text: str
+        request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> CompletionChunk:
+        finish_reason_raw = meta_info.get("finish_reason", None)
+        finish_reason: Optional[str] = None
+        if isinstance(finish_reason_raw, dict) and "type" in finish_reason_raw:
+            finish_reason = (
+                str(finish_reason_raw["type"])
+                if finish_reason_raw["type"] is not None
+                else None
+            )
+        elif isinstance(finish_reason_raw, str):
+            finish_reason = finish_reason_raw
         choices: List[CompletionChoice] = [
             CompletionChoice(
                 text=output_text,
                 index=0,
                 logprobs=None,
-                finish_reason=None,
+                finish_reason=finish_reason,
             )
         ]
+        usage = CompletionUsage(
+            prompt_tokens=meta_info["prompt_tokens"],
+            completion_tokens=meta_info["completion_tokens"],
+            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
+        )
         chunk = CompletionChunk(
             id=request_id,
             object="text_completion",
             created=int(time.time()),
             model=model,
             choices=choices,
+            usage=usage,
         )
         return chunk
 
@@ -379,12 +401,22 @@ class SGLANGModel(LLM):
     def _convert_state_to_completion(
         request_id: str, model: str, output_text: str, meta_info: Dict
     ) -> Completion:
+        finish_reason_raw = meta_info.get("finish_reason", None)
+        finish_reason: Optional[str] = None
+        if isinstance(finish_reason_raw, dict) and "type" in finish_reason_raw:
+            finish_reason = (
+                str(finish_reason_raw["type"])
+                if finish_reason_raw["type"] is not None
+                else None
+            )
+        elif isinstance(finish_reason_raw, str):
+            finish_reason = finish_reason_raw
         choices = [
             CompletionChoice(
                 text=output_text,
                 index=0,
                 logprobs=None,
-                finish_reason=None,
+                finish_reason=finish_reason,
             )
         ]
 
@@ -513,7 +545,10 @@ class SGLANGModel(LLM):
                     prompt, image_data, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
-                        request_id, self.model_uid, output_text=out
+                        request_id,
+                        self.model_uid,
+                        output_text=out,
+                        meta_info=meta_info,
                     )
                     complete_response += out
                     finish_reason = meta_info["finish_reason"]

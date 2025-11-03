@@ -32,7 +32,8 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
             model_format="pytorch",
             model_id="BAAI/bge-small-en-v1.5",
             quantization="none",
-            model_hub="modelscope",
+            # use huggingface in ci
+            # model_hub="modelscope",
         )
     ],
 )

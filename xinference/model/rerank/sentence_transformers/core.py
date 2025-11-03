@@ -81,6 +81,7 @@ class SentenceTransformerRerankModel(RerankModel):
         if (
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
+            and "jina-reranker-v3" not in self.model_family.model_name.lower()
         ):
             try:
                 import sentence_transformers
@@ -109,7 +110,10 @@ class SentenceTransformerRerankModel(RerankModel):
             )
             if self._use_fp16:
                 self._model.model.half()
-        elif "qwen3" in self.model_family.model_name.lower():
+        elif (
+            "qwen3" in self.model_family.model_name.lower()
+            or "jina-reranker-v3" in self.model_family.model_name.lower()
+        ):
             # qwen3-reranker
             # now we use transformers
             # TODO: support engines for rerank models
@@ -225,6 +229,7 @@ class SentenceTransformerRerankModel(RerankModel):
         if (
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
+            and "jina-reranker-v3" not in self.model_family.model_name.lower()
         ):
             logger.debug("Passing processed sentences: %s", sentence_combinations)
             similarity_scores = self._model.predict(
@@ -235,7 +240,10 @@ class SentenceTransformerRerankModel(RerankModel):
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
-        elif "qwen3" in self.model_family.model_name.lower():
+        elif (
+            "qwen3" in self.model_family.model_name.lower()
+            or "jina-reranker-v3" in self.model_family.model_name.lower()
+        ):
 
             def format_instruction(instruction, query, doc):
                 if instruction is None:

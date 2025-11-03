@@ -1190,5 +1190,75 @@
       ],
       "no_build_isolation": true
     }
+  },
+  {
+    "version": 2,
+    "model_name": "gme-Qwen2-VL-2B-Instruct",
+    "dimensions": 1536,
+    "max_tokens": 32768,
+    "language": [
+      "en",
+      "zh"
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "transformers==4.51.3"
+      ]
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Alibaba-NLP/gme-Qwen2-VL-2B-Instruct",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "iic/gme-Qwen2-VL-2B-Instruct",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "version": 2,
+    "model_name": "gme-Qwen2-VL-7B-Instruct",
+    "dimensions": 3584,
+    "max_tokens": 32768,
+    "language": [
+      "en",
+      "zh"
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "transformers==4.51.3"
+      ]
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Alibaba-NLP/gme-Qwen2-VL-7B-Instruct",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "iic/gme-Qwen2-VL-7B-Instruct",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ]
   }
 ]

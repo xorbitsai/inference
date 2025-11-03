@@ -1,0 +1,65 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-10-21 12:57+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/getting_started/release_notes.rst:4
+#: ../../source/getting_started/release_notes.rst:10
+msgid "Release Notes"
+msgstr "版本发布说明"
+
+#: ../../source/getting_started/release_notes.rst:6
+msgid ""
+"This page provides a version-by-version index of Xinference release "
+"notes. For detailed updates, please visit the corresponding links below."
+msgstr ""
+"本页面提供 Xinference 各版本的发布说明索引。有关详细更新，请访问对应的链接。"
+
+#: ../../source/getting_started/release_notes.rst:10
+msgid "Version"
+msgstr "版本"
+
+#: ../../source/getting_started/release_notes.rst:12
+msgid "v1.11.0.post1"
+msgstr ""
+
+#: ../../source/getting_started/release_notes.rst:12
+msgid ""
+"`View release notes "
+"<https://xinference.io/release_notes/v1.11.0.post1.html>`_"
+msgstr ""
+"`查看版本说明 "
+"<https://xinference.cn/release_notes/v1.11.0.post1.html>`_"
+
+#: ../../source/getting_started/release_notes.rst:14
+msgid "v1.10.1"
+msgstr ""
+
+#: ../../source/getting_started/release_notes.rst:14
+msgid "`View release notes <https://xinference.io/release_notes/v1.10.1.html>`_"
+msgstr ""
+"`查看版本说明 "
+"<https://xinference.cn/release_notes/v1.10.1.html>`_"
+
+#: ../../source/getting_started/release_notes.rst:19
+msgid ""
+"For older versions and source history, see our GitHub releases page: "
+"https://github.com/xorbitsai/inference/releases"
+msgstr ""
+"更多历史版本及源代码，请访问 GitHub Releases：https://github.com/xorbitsai/inference/releases"

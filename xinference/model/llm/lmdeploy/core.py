@@ -73,6 +73,8 @@ class LMDeployGenerateConfig(TypedDict, total=False):
 
 
 class LMDeployModel(LLM):
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,

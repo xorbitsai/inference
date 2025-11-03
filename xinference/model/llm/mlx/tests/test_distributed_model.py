@@ -37,6 +37,7 @@ class ModelActor(xo.StatelessActor):
         import mlx.core as mx
         from mlx_lm.utils import load_model, load_tokenizer
 
+        from ..distributed_models.core import SafeKVCache
         from ..distributed_models.qwen2 import Model, ModelArgs
 
         get_class = lambda *_, **__: (Model, ModelArgs)
@@ -59,6 +60,13 @@ class ModelActor(xo.StatelessActor):
         self.tokenizer = load_tokenizer(
             Path(self.model_path), {}, eos_token_ids=config.get("eos_token_id", None)
         )
+
+        # Patch the model's make_cache method to use SafeKVCache
+        def make_safe_cache():
+            num_layers = len(model.layers)
+            return [SafeKVCache() for _ in range(num_layers)]
+
+        self.model.make_cache = make_safe_cache
 
     async def load(self):
         return await asyncio.to_thread(self._load)

@@ -15,3 +15,4 @@ Getting Started
    using_kubernetes
    troubleshooting
    environments
+   release_notes

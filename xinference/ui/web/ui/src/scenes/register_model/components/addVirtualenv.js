@@ -1,7 +1,7 @@
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { Button, TextField } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const AddVirtualenv = ({ virtualenv, onChangeVirtualenv, scrollRef }) => {
@@ -11,8 +11,18 @@ const AddVirtualenv = ({ virtualenv, onChangeVirtualenv, scrollRef }) => {
     virtualenv.packages.map(() => `${Date.now()}-${Math.random()}`)
   )
 
+  const prevPackagesLenRef = useRef(virtualenv.packages.length)
+
   useEffect(() => {
-    handleScrollBottom()
+    const newLen = virtualenv.packages.length
+    if (newLen > prevPackagesLenRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      })
+    }
+    prevPackagesLenRef.current = newLen
+
     setPackageKeys((prevKeys) => {
       const lengthDiff = virtualenv.packages.length - prevKeys.length
 
@@ -30,13 +40,6 @@ const AddVirtualenv = ({ virtualenv, onChangeVirtualenv, scrollRef }) => {
       return prevKeys
     })
   }, [virtualenv.packages])
-
-  const handleScrollBottom = () => {
-    scrollRef.current.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
-    })
-  }
 
   return (
     <div>
