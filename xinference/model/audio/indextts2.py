@@ -56,13 +56,25 @@ class Indextts2:
         use_fp16 = self._kwargs.get("use_fp16", False)
         use_deepspeed = self._kwargs.get("use_deepspeed", False)
 
-        logger.info("Loading IndexTTS2 model...")
+        # Handle small model directory for offline deployment
+        small_models_config = (
+            self._model_spec.default_model_config
+            if getattr(self._model_spec, "default_model_config", None)
+            else {}
+        )
+        small_models_config.update(self._kwargs)
+
+        small_models_dir = small_models_config.get("small_models_dir")
+        logger.info(
+            f"Loading IndexTTS2 model... (small_models_dir: {small_models_dir})"
+        )
         self._model = IndexTTS2(
             cfg_path=config_path,
             model_dir=self._model_path,
             use_fp16=use_fp16,
             device=self._device,
             use_deepspeed=use_deepspeed,
+            small_models_dir=small_models_dir,
         )
 
     def speech(

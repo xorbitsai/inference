@@ -43,6 +43,7 @@ class IndexTTS2:
         device=None,
         use_cuda_kernel=None,
         use_deepspeed=False,
+        small_models_dir=None,
     ):
         """
         Args:
@@ -52,7 +53,16 @@ class IndexTTS2:
             device (str): device to use (e.g., 'cuda:0', 'cpu'). If None, it will be set automatically based on the availability of CUDA or MPS.
             use_cuda_kernel (None | bool): whether to use BigVGan custom fused activation CUDA kernel, only for CUDA device.
             use_deepspeed (bool): whether to use DeepSpeed or not.
+            small_models_dir (str): path to directory containing small models for offline deployment.
         """
+
+        def get_small_model_path(model_name):
+            """Helper function to get small model path from small_models_dir"""
+            if small_models_dir is not None:
+                model_path = os.path.join(small_models_dir, model_name)
+                if os.path.exists(model_path):
+                    return model_path
+            return None
         if device is not None:
             self.device = device
             self.use_fp16 = False if device == "cpu" else use_fp16
@@ -129,9 +139,13 @@ class IndexTTS2:
                 print(f"{e!r}")
                 self.use_cuda_kernel = False
 
-        self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(
-            "facebook/w2v-bert-2.0"
-        )
+        w2v_bert_path = get_small_model_path("w2v-bert-2.0")
+        if w2v_bert_path is not None:
+            self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(w2v_bert_path)
+            print(f">> w2v-bert model loaded from local path: {w2v_bert_path}")
+        else:
+            self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained("facebook/w2v-bert-2.0")
+            print(">> w2v-bert model loaded from huggingface: facebook/w2v-bert-2.0")
         self.semantic_model, self.semantic_mean, self.semantic_std = (
             build_semantic_model(os.path.join(self.model_dir, self.cfg.w2v_stat))
         )
@@ -141,9 +155,15 @@ class IndexTTS2:
         self.semantic_std = self.semantic_std.to(self.device)
 
         semantic_codec = build_semantic_codec(self.cfg.semantic_codec)
-        semantic_code_ckpt = hf_hub_download(
-            "amphion/MaskGCT", filename="semantic_codec/model.safetensors"
-        )
+        semantic_codec_path = get_small_model_path("semantic_codec")
+        if semantic_codec_path is not None:
+            semantic_code_ckpt = os.path.join(semantic_codec_path, "model.safetensors")
+            if not os.path.exists(semantic_code_ckpt):
+                raise FileNotFoundError(f"semantic_codec model file not found: {semantic_code_ckpt}")
+            print(f">> semantic_codec model loaded from local path: {semantic_code_ckpt}")
+        else:
+            semantic_code_ckpt = hf_hub_download("amphion/MaskGCT", filename="semantic_codec/model.safetensors")
+            print(">> semantic_codec model loaded from huggingface: amphion/MaskGCT")
         safetensors.torch.load_model(semantic_codec, semantic_code_ckpt)
         self.semantic_codec = semantic_codec.to(self.device)
         self.semantic_codec.eval()
@@ -167,9 +187,17 @@ class IndexTTS2:
         print(">> s2mel weights restored from:", s2mel_path)
 
         # load campplus_model
-        campplus_ckpt_path = hf_hub_download(
-            "funasr/campplus", filename="campplus_cn_common.bin"
-        )
+        campplus_path = get_small_model_path("campplus")
+        if campplus_path is not None:
+            campplus_ckpt_path = os.path.join(campplus_path, "campplus_cn_common.bin")
+            if not os.path.exists(campplus_ckpt_path):
+                raise FileNotFoundError(f"campplus model file not found: {campplus_ckpt_path}")
+            print(f">> campplus model loaded from local path: {campplus_ckpt_path}")
+        else:
+            campplus_ckpt_path = hf_hub_download(
+                "funasr/campplus", filename="campplus_cn_common.bin"
+            )
+            print(">> campplus model loaded from huggingface: funasr/campplus")
         campplus_model = CAMPPlus(feat_dim=80, embedding_size=192)
         campplus_model.load_state_dict(
             torch.load(campplus_ckpt_path, map_location="cpu")
@@ -178,10 +206,14 @@ class IndexTTS2:
         self.campplus_model.eval()
         print(">> campplus_model weights restored from:", campplus_ckpt_path)
 
-        bigvgan_name = self.cfg.vocoder.name
-        self.bigvgan = bigvgan.BigVGAN.from_pretrained(
-            bigvgan_name, use_cuda_kernel=self.use_cuda_kernel
-        )
+        bigvgan_path = get_small_model_path("bigvgan")
+        if bigvgan_path is not None:
+            bigvgan_name = bigvgan_path
+            print(f">> bigvgan model loaded from local path: {bigvgan_path}")
+        else:
+            bigvgan_name = self.cfg.vocoder.name
+            print(f">> bigvgan model loaded from default: {bigvgan_name}")
+        self.bigvgan = bigvgan.BigVGAN.from_pretrained(bigvgan_name, use_cuda_kernel=self.use_cuda_kernel)
         self.bigvgan = self.bigvgan.to(self.device)
         self.bigvgan.remove_weight_norm()
         self.bigvgan.eval()

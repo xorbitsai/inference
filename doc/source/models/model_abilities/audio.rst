@@ -757,5 +757,47 @@ Here are several examples of how to use IndexTTS2:
             use_random=False
         )
 
+IndexTTS2 Offline Usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+IndexTTS2 requires several small models that are downloaded automatically during initialization.
+For offline environments, you can download these models to a single directory and specify the directory path.
+
+The required small models are:
+1. **w2v-bert-2.0** - Feature extraction model (place in ``w2v-bert-2.0/`` subdirectory)
+2. **semantic_codec** - Semantic encoding/decoding model (place in ``semantic_codec/`` subdirectory)
+3. **campplus** - Speaker recognition model (place in ``campplus/`` subdirectory)
+4. **bigvgan** - Vocoder model (place in ``bigvgan/`` subdirectory)
+
+Assume downloaded to ``/path/to/small_models`` with the following structure:
+
+.. code-block:: text
+
+    /path/to/small_models/
+    ├── w2v-bert-2.0/           # w2v-bert-2.0 model files
+    ├── semantic_codec/         # containing model.safetensors
+    ├── campplus/               # containing campplus_cn_common.bin
+    └── bigvgan/                # bigvgan model files
+
+When launching IndexTTS2 with Web UI, you can add an additional parameter:
+- ``small_models_dir`` - Path to directory containing all small models
+
+When launching with command line, you can add the option:
+
+.. code-block:: bash
+
+    xinference launch --model-name IndexTTS2 --model-type audio \
+        --small_models_dir /path/to/small_models
+
+When launching with Python client:
+
+.. code-block:: python
+
+    model_uid = client.launch_model(
+        model_name="IndexTTS2",
+        model_type="audio",
+        small_models_dir="/path/to/small_models"
+    )
+
 
 
