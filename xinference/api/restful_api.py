@@ -2448,7 +2448,14 @@ class RESTfulAPI(CancelMixin):
 
             # Read and process all images (needed for both streaming and non-streaming)
             images = []
+            original_filenames = []
             for i, img in enumerate(image_files):
+                # Store original filename before processing
+                original_filename = (
+                    img.filename if hasattr(img, "filename") else f"upload_{i}"
+                )
+                original_filenames.append(original_filename)
+
                 image_content = await img.read()
                 image_file = io.BytesIO(image_content)
                 pil_image = Image.open(image_file)
@@ -2480,7 +2487,7 @@ class RESTfulAPI(CancelMixin):
             logger.info(f"Processing {len(images)} images:")
             for i, img in enumerate(images):
                 logger.info(
-                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={image_files[i].filename if hasattr(image_files[i], 'filename') else 'unknown'}"
+                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={original_filenames[i]}"
                 )
 
             # Handle streaming if requested
