@@ -937,9 +937,6 @@
     ],
     "virtualenv": {
       "packages": [
-        "torch==2.6.0",
-        "torchvision==0.21.0",
-        "torchaudio==2.6.0",
         "transformers==4.46.3",
         "tokenizers==0.20.3",
         "PyMuPDF",
@@ -948,10 +945,9 @@
         "easydict",
         "addict",
         "Pillow",
-        "numpy",
-        "flash-attn==2.7.3"
-      ],
-      "no_build_isolation": true
+        "#system_torch#",
+        "#system_numpy#"
+      ]
     },
     "model_src": {
       "huggingface": {
