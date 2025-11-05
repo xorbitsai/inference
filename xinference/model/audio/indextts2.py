@@ -126,80 +126,62 @@ class Indextts2:
                 temp_emo.write(emo_prompt_speech)
                 emo_prompt_path = temp_emo.name
 
+        # Generate complete audio first
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
+            output_path = temp_output.name
+
         try:
+            self._model.infer(
+                spk_audio_prompt=temp_prompt_path,
+                text=input,
+                output_path=output_path,
+                emo_audio_prompt=emo_prompt_path,
+                emo_alpha=emo_alpha,
+                emo_text=emo_text,
+                use_random=use_random,
+                emo_vector=emo_vector,
+                use_emo_text=use_emo_text,
+            )
+
+            # Read generated audio
+            audio, sample_rate = soundfile.read(output_path)
+
             if stream:
-                # Streaming mode - generate complete audio then yield in chunks
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
-                    output_path = temp_output.name
+                # Streaming mode - return generator that yields chunks
+                def audio_stream_generator():
+                    with BytesIO() as out:
+                        with soundfile.SoundFile(
+                            out, "w", sample_rate, 1, format=response_format.upper()
+                        ) as f:
+                            f.write(audio)
+                        complete_audio = out.getvalue()
 
-                # Generate complete audio using existing infer method
-                self._model.infer(
-                    spk_audio_prompt=temp_prompt_path,
-                    text=input,
-                    output_path=output_path,
-                    emo_audio_prompt=emo_prompt_path,
-                    emo_alpha=emo_alpha,
-                    emo_text=emo_text,
-                    use_random=use_random,
-                    emo_vector=emo_vector,
-                    use_emo_text=use_emo_text,
-                )
+                    # Clean up temp file
+                    os.unlink(output_path)
 
-                # Read the complete audio
-                import soundfile
-                audio, sample_rate = soundfile.read(output_path)
+                    # Yield the complete audio in chunks
+                    chunk_size = 8192  # 8KB chunks
+                    for i in range(0, len(complete_audio), chunk_size):
+                        yield complete_audio[i : i + chunk_size]
 
-                # Convert to the requested format and yield in chunks
-                from io import BytesIO
+                return audio_stream_generator()
+            else:
+                # Non-streaming mode - return bytes directly
                 with BytesIO() as out:
                     with soundfile.SoundFile(
                         out, "w", sample_rate, 1, format=response_format.upper()
                     ) as f:
                         f.write(audio)
-                    complete_audio = out.getvalue()
+                    result = out.getvalue()
 
                 # Clean up temp file
                 os.unlink(output_path)
-
-                # Yield the complete audio in chunks (for streaming)
-                chunk_size = 8192  # 8KB chunks
-                for i in range(0, len(complete_audio), chunk_size):
-                    yield complete_audio[i:i + chunk_size]
-            else:
-                # Non-streaming mode - original implementation
-                with tempfile.NamedTemporaryFile(
-                    suffix=".wav", delete=False
-                ) as temp_output:
-                    output_path = temp_output.name
-
-                self._model.infer(
-                    spk_audio_prompt=temp_prompt_path,
-                    text=input,
-                    output_path=output_path,
-                    emo_audio_prompt=emo_prompt_path,
-                    emo_alpha=emo_alpha,
-                    emo_text=emo_text,
-                    use_random=use_random,
-                    emo_vector=emo_vector,
-                    use_emo_text=use_emo_text,
-                )
-
-                # Read generated audio and convert to requested format
-                audio, sample_rate = soundfile.read(output_path)
-
-                with BytesIO() as out:
-                    with soundfile.SoundFile(
-                        out, "w", sample_rate, 1, format=response_format.upper()
-                    ) as f:
-                        f.write(audio)
-                    return out.getvalue()
+                return result
         finally:
             # Clean up temp files
             try:
                 os.unlink(temp_prompt_path)
                 if emo_prompt_path:
                     os.unlink(emo_prompt_path)
-                if not stream:
-                    os.unlink(output_path)
             except:
                 pass

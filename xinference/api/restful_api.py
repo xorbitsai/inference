@@ -52,7 +52,7 @@ from starlette.responses import PlainTextResponse, RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from .._compat import BaseModel, Field, validator
+from .._compat import BaseModel, Field
 from .._version import get_versions
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
@@ -190,12 +190,6 @@ class SpeechRequest(BaseModel):
     speed: Optional[float] = 1.0
     stream: Optional[bool] = False
     kwargs: Optional[str] = None
-
-    @validator('stream', pre=True, always=True)
-    def parse_stream(cls, v):
-        if isinstance(v, str):
-            return v.lower() in ('true', '1', 'yes', 'on')
-        return bool(v) if v is not None else False
 
 
 class RegisterModelRequest(BaseModel):
@@ -1943,6 +1937,18 @@ class RESTfulAPI(CancelMixin):
         else:
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
+
+        # Fix stream parameter parsing issue
+        if hasattr(f, "get") and "stream" in f:
+            raw_stream = f.get("stream")
+            if isinstance(raw_stream, str) and raw_stream.lower() in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            ):
+                body.stream = True
+
         model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
