@@ -11,92 +11,26 @@ import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../../components/apiContext'
 
-const API_BASE_URL = 'https://model.xinference.io'
-
 const AddModelDialog = ({ open, onClose, onUpdateList }) => {
   const { t } = useTranslation()
   const [modelName, setModelName] = useState('')
   const [loading, setLoading] = useState(false)
   const { endPoint, setErrorMsg } = useContext(ApiContext)
 
-  const searchModelByName = async (name) => {
-    try {
-      const url = `${API_BASE_URL}/api/models?order=featured&query=${encodeURIComponent(
-        name
-      )}&page=1&pageSize=5`
-      const res = await fetch(url, { method: 'GET' })
-      const rawText = await res.text().catch(() => '')
-      if (!res.ok) {
-        setErrorMsg(rawText || `HTTP ${res.status}`)
-        return null
-      }
-      try {
-        const data = JSON.parse(rawText)
-        const items = data?.data || []
-        const exact = items.find((it) => it?.model_name === name)
-        if (!exact) {
-          setErrorMsg(t('launchModel.error.name_not_matched'))
-          return null
-        }
-        const id = exact?.id
-        const modelType = exact?.model_type
-        if (!id || !modelType) {
-          setErrorMsg(t('launchModel.error.downloadFailed'))
-          return null
-        }
-        return { id, modelType }
-      } catch {
-        setErrorMsg(rawText || t('launchModel.error.json_parse_error'))
-        return null
-      }
-    } catch (err) {
-      console.error(err)
-      setErrorMsg(err.message || t('launchModel.error.requestFailed'))
-      return null
-    }
-  }
-
-  const fetchModelJson = async (modelId) => {
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/models/download?model_id=${encodeURIComponent(
-          modelId
-        )}`,
-        { method: 'GET' }
-      )
-      const rawText = await res.text().catch(() => '')
-      if (!res.ok) {
-        setErrorMsg(rawText || `HTTP ${res.status}`)
-        return null
-      }
-      try {
-        const data = JSON.parse(rawText)
-        return data
-      } catch {
-        setErrorMsg(rawText || t('launchModel.error.json_parse_error'))
-        return null
-      }
-    } catch (err) {
-      console.error(err)
-      setErrorMsg(err.message || t('launchModel.error.requestFailed'))
-      return null
-    }
-  }
-
-  const addToLocal = async (modelType, modelJson) => {
+  const addToLocal = async () => {
     try {
       const res = await fetch(endPoint + '/v1/models/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_type: modelType, model_json: modelJson }),
+        body: JSON.stringify({ model_name: modelName }),
       })
       const rawText = await res.text().catch(() => '')
       if (!res.ok) {
         setErrorMsg(rawText || `HTTP ${res.status}`)
         return
       }
-      onClose(`/launch_model/${modelType}`)
-      onUpdateList(modelType)
+      onClose(`/launch_model/${'llm'}`)
+      onUpdateList('llm')
     } catch (error) {
       console.error('Error:', error)
       if (error?.response?.status !== 403) {
@@ -115,14 +49,7 @@ const AddModelDialog = ({ open, onClose, onUpdateList }) => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const found = await searchModelByName(name)
-      if (!found) return
-      const { id, modelType } = found
-
-      const modelJson = await fetchModelJson(id)
-      if (!modelJson) return
-
-      await addToLocal(modelType, modelJson)
+      await addToLocal()
     } finally {
       setLoading(false)
     }
