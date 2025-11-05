@@ -199,8 +199,7 @@ class RegisterModelRequest(BaseModel):
 
 
 class AddModelRequest(BaseModel):
-    model_type: str
-    model_json: Dict[str, Any]
+    model_name: str
 
 
 class UpdateModelRequest(BaseModel):
@@ -3154,37 +3153,15 @@ class RESTfulAPI(CancelMixin):
 
     async def add_model(self, request: Request) -> JSONResponse:
         try:
-
             # Parse request
             raw_json = await request.json()
-
-            if "model_type" in raw_json and "model_json" in raw_json:
-                body = AddModelRequest.parse_obj(raw_json)
-                model_type = body.model_type
-                model_json = body.model_json
-            else:
-                model_json = raw_json
-
-                # Priority 1: Check if model_type is explicitly provided in the JSON
-                if "model_type" in model_json:
-                    model_type = model_json["model_type"]
-                    logger.info(
-                        f"[DEBUG] Using explicit model_type from JSON: {model_type}"
-                    )
-                else:
-                    # model_type is required in the JSON when using unwrapped format
-                    logger.error(
-                        f"[DEBUG] model_type not provided in JSON, this is required"
-                    )
-                    raise HTTPException(
-                        status_code=400,
-                        detail="model_type is required in the model JSON. Supported types: LLM, embedding, audio, image, video, rerank",
-                    )
+            body = AddModelRequest.parse_obj(raw_json)
+            model_name = body.model_name
 
             supervisor_ref = await self._get_supervisor_ref()
 
-            # Call supervisor
-            await supervisor_ref.add_model(model_type, model_json)
+            # Call supervisor with model_name only
+            await supervisor_ref.add_model(model_name)
 
         except ValueError as re:
             logger.error(f"ValueError in add_model API: {re}", exc_info=True)
@@ -3199,7 +3176,7 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
         return JSONResponse(
-            content={"message": f"Model added successfully for type: {model_type}"}
+            content={"message": f"Model added successfully: {model_name}"}
         )
 
     async def update_model_type(self, request: Request) -> JSONResponse:

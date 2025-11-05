@@ -675,204 +675,229 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def add_model(self, model_type: str, model_json: Dict[str, Any]):
+    async def add_model(self, model_name: str):
         """
-        Add a new model by parsing the provided JSON and registering it.
+        Add a new model by downloading its JSON from ModelHub and storing it
+        using the same logic as update_model_type.
 
         Args:
-            model_type: Type of model (LLM, embedding, image, etc.)
-            model_json: JSON configuration for the model
+            model_name: Name of the model to add
         """
-        # Validate model type (with case normalization)
-        supported_types = list(self._custom_register_type_to_cls.keys())
+        import json
 
-        normalized_model_type = model_type
+        import requests
 
-        if model_type.lower() == "llm" and "LLM" in supported_types:
-            normalized_model_type = "LLM"
-        elif model_type.lower() == "llm" and "llm" in supported_types:
-            normalized_model_type = "llm"
+        # Construct the URL to download JSON for this specific model
+        url = f"https://model.xinference.io/api/models/download?model_name={model_name}"
 
-        if normalized_model_type not in self._custom_register_type_to_cls:
-            logger.error(
-                f"Unsupported model type: {normalized_model_type} (original: {model_type})"
-            )
-            raise ValueError(
-                f"Unsupported model type '{model_type}'. "
-                f"Supported types are: {', '.join(supported_types)}"
-            )
-
-        # Use normalized model type for the rest of the function
-        model_type = normalized_model_type
-
-        # Get the appropriate model class and register function
-        (
-            model_spec_cls,
-            register_fn,
-            unregister_fn,
-            generate_fn,
-        ) = self._custom_register_type_to_cls[model_type]
-
-        # Validate required fields (only model_name is required)
-        required_fields = ["model_name"]
-        for field in required_fields:
-            if field not in model_json:
-                logger.error(f"Missing required field: {field}")
-                raise ValueError(f"Missing required field: {field}")
-
-        # Validate model name format
-        from ..model.utils import is_valid_model_name
-
-        model_name = model_json["model_name"]
-
-        if not is_valid_model_name(model_name):
-            logger.error(f"Invalid model name format: {model_name}")
-            raise ValueError(f"Invalid model name format: {model_name}")
-
-        # Convert model hub JSON format to Xinference expected format using flatten_model_src
         try:
-            from ..model.utils import flatten_model_src
+            # Download JSON from remote API
+            logger.info(f"Downloading model configuration for: {model_name}")
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
 
-            # Check different model format types
-            if "model_src" in model_json:
-                # Simple flat format with model_src at top level
-                flattened_list = flatten_model_src(model_json)
-                converted_model_json = (
-                    flattened_list[0] if flattened_list else model_json
-                )
-            elif "model_specs" in model_json and isinstance(
-                model_json["model_specs"], list
-            ):
-                # LLM/embedding/rerank format with model_specs
-                from ..model.utils import flatten_quantizations
+            # Parse JSON response - this should be a single model object
+            model_data = response.json()
 
-                converted_model_json = model_json.copy()
-
-                # Process all model_specs using flatten_quantizations - exactly like builtin models
-                flattened_specs = []
-                for spec in converted_model_json["model_specs"]:
-                    if "model_src" in spec:
-                        # Use flatten_quantizations like builtin LLM loading
-                        quantized_specs = flatten_quantizations(spec)
-                        if quantized_specs:
-                            flattened_specs.extend(quantized_specs)
-                    else:
-                        flattened_specs.append(spec)
-
-                # Use all flattened specs like builtin models
-                if flattened_specs:
-                    converted_model_json["model_specs"] = flattened_specs
-                    logger.info(
-                        f"Processed {len(flattened_specs)} model specifications for {model_name}"
-                    )
-            else:
-                # Already flattened format, use as-is
-                converted_model_json = model_json
-        except Exception as e:
-            logger.error(f"Format conversion failed: {str(e)}", exc_info=True)
-            raise ValueError(f"Failed to convert model JSON format: {str(e)}")
-
-        # Parse the JSON into the appropriate model spec
-        try:
-            model_spec = model_spec_cls.parse_obj(converted_model_json)
-        except Exception as e:
-            logger.error(f"Model spec parsing failed: {str(e)}", exc_info=True)
-            raise ValueError(f"Invalid model JSON format: {str(e)}")
-
-        # Check if model already exists
-        try:
-            existing_models = await self.list_model_registrations(model_type)
-            existing_model = None
-            for model in existing_models:
-                if model["model_name"] == model_spec.model_name:
-                    existing_model = model
-                    break
-
-            if existing_model is not None:
-                logger.error(f"Model already exists: {model_spec.model_name}")
+            # Infer model type from the downloaded JSON structure
+            model_type = self._infer_model_type(model_data)
+            if not model_type:
+                logger.error(f"Unable to determine model type from downloaded JSON")
                 raise ValueError(
-                    f"Model '{model_spec.model_name}' already exists for type '{model_type}'. "
-                    f"Please choose a different model name or remove the existing model first."
+                    f"Invalid model configuration: cannot determine model type"
                 )
 
-        except ValueError as e:
-            if "not found" in str(e):
-                # Model doesn't exist, we can proceed
-                pass
-            else:
-                # Re-raise validation errors
-                logger.error(f"Validation error during model check: {str(e)}")
-                raise e
-        except Exception as ex:
+            logger.info(f"Inferred model type: {model_type} for model: {model_name}")
+
+            # Validate model type is supported
+            supported_types = list(self._custom_register_type_to_cls.keys())
+            normalized_for_validation = model_type
+
+            if model_type.lower() == "llm" and "LLM" in supported_types:
+                normalized_for_validation = "LLM"
+            elif model_type.lower() == "llm" and "llm" in supported_types:
+                normalized_for_validation = "llm"
+
+            if normalized_for_validation not in supported_types:
+                logger.error(f"Unsupported model type: {normalized_for_validation}")
+                raise ValueError(
+                    f"Unsupported model type '{model_type}'. "
+                    f"Supported types are: {', '.join(supported_types)}"
+                )
+
+            # Add the model to the unified JSON file (like update_model_type)
+            await self._add_single_model_to_unified_json(model_type, model_data)
+
+            # Dynamically reload built-in models to make the new model immediately available
+            try:
+                if model_type.lower() == "llm":
+                    from ..model.llm import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "embedding":
+                    from ..model.embedding import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "audio":
+                    from ..model.audio import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "image":
+                    from ..model.image import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "rerank":
+                    from ..model.rerank import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "video":
+                    from ..model.video import register_builtin_model
+
+                    register_builtin_model()
+                else:
+                    logger.warning(
+                        f"No dynamic loading available for model type: {model_type}"
+                    )
+            except Exception as reload_error:
+                logger.error(
+                    f"Error reloading built-in models: {reload_error}",
+                    exc_info=True,
+                )
+                # Don't fail the add if reload fails, just log the error
+
+            logger.info(f"Successfully added model: {model_name} (type: {model_type})")
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error downloading model configuration: {e}")
+            raise ValueError(f"Failed to download model configuration: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
             logger.error(
-                f"Unexpected error during model check: {str(ex)}",
+                f"Unexpected error during model addition: {e}",
                 exc_info=True,
             )
-            raise ValueError(f"Failed to validate model registration: {str(ex)}")
+            raise ValueError(f"Failed to add model: {str(e)}")
+
+    def _infer_model_type(self, model_data):
+        """
+        Infer model type from the structure of the downloaded JSON.
+        """
+        # Method 1: Check if model_type is explicitly present
+        if "model_type" in model_data:
+            return model_data["model_type"]
+
+        # Method 2: Infer from model_ability field
+        model_ability = model_data.get("model_ability", [])
+        if model_ability:
+            if "embed" in model_ability:
+                return "embedding"
+            elif "rerank" in model_ability:
+                return "rerank"
+            elif "chat" in model_ability or "generate" in model_ability:
+                return "llm"
+            elif "image-to-text" in model_ability or "text-to-image" in model_ability:
+                return "image"
+            elif "audio-to-text" in model_ability or "text-to-audio" in model_ability:
+                return "audio"
+            elif "text-to-video" in model_ability or "video-to-text" in model_ability:
+                return "video"
+
+        # Method 3: Infer from specific fields
+        if "dimensions" in model_data and "max_tokens" in model_data:
+            return "embedding"
+
+        if "context_length" in model_data and "chat_template" in model_data:
+            return "llm"
+
+        # Method 4: Infer from model_specs structure
+        model_specs = model_data.get("model_specs", [])
+        if model_specs:
+            # Check if any spec has embedding-like characteristics
+            for spec in model_specs:
+                if "dimensions" in spec:
+                    return "embedding"
+
+            # Check if any spec has LLM-like characteristics
+            if "chat_template" in model_data or "context_length" in model_data:
+                return "llm"
+
+        # Method 5: Default to LLM as the most common type
+        logger.warning(
+            f"Could not definitively determine model type for {model_data.get('model_name', 'unknown')}, defaulting to 'llm'"
+        )
+        return "llm"
+
+    async def _add_single_model_to_unified_json(self, model_type: str, model_data):
+        """
+        Add a single model to the unified JSON file for the model type.
+        This follows the same storage pattern as update_model_type.
+        """
+        import json
+
+        from ..constants import XINFERENCE_MODEL_DIR
 
         try:
-            # Store model using the same logic as update_model_type for consistency
-            import json
-
-            from ..constants import XINFERENCE_MODEL_DIR
-
             model_type_lower = model_type.lower()
+
+            # Use the unified JSON file path (same as update_model_type logic)
             builtin_dir = os.path.join(
                 XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+            json_file_path = os.path.join(
+                builtin_dir, f"{model_type_lower}_models.json"
             )
 
             # Ensure directory exists
             os.makedirs(builtin_dir, exist_ok=True)
 
-            # Use correct storage: save each model as a separate JSON file
-            # This follows the CacheManager.register_builtin_model pattern
-            model_dict = model_spec.dict()
+            # Read existing unified JSON file if it exists
+            existing_models = []
+            if os.path.exists(json_file_path):
+                try:
+                    with open(json_file_path, "r", encoding="utf-8") as f:
+                        existing_data = json.load(f)
+                        # Handle both array format and object format
+                        if isinstance(existing_data, list):
+                            existing_models = existing_data
+                        else:
+                            # If it's an object, try to extract models
+                            existing_models = (
+                                list(existing_data.values()) if existing_data else []
+                            )
+                except (json.JSONDecodeError, IOError) as e:
+                    logger.warning(f"Error reading existing models file: {e}")
+                    existing_models = []
 
-            # Create individual model file path
-            model_file_path = os.path.join(builtin_dir, f"{model_spec.model_name}.json")
+            # Check if model already exists in the unified file
+            model_name = model_data.get("model_name")
+            if model_name:
+                for i, existing_model in enumerate(existing_models):
+                    if existing_model.get("model_name") == model_name:
+                        logger.warning(
+                            f"Model {model_name} already exists, updating..."
+                        )
+                        existing_models[i] = model_data
+                        break
+                else:
+                    # Model doesn't exist, add it
+                    existing_models.append(model_data)
 
-            # Check if model already exists
-            if os.path.exists(model_file_path):
-                logger.warning(
-                    f"Model {model_spec.model_name} already exists at {model_file_path}"
-                )
-                # Continue with registration even if it exists
-
-            # Save the model as a separate JSON file
-            with open(model_file_path, "w", encoding="utf-8") as f:
-                json.dump(model_dict, f, indent=2, ensure_ascii=False)
-
-            # Register in the model registry without persisting to avoid duplicate storage
-            register_fn(model_spec, persist=False)
-
-            # Record model version
-            version_info = generate_fn(model_spec)
-
-            await self._cache_tracker_ref.record_model_version(
-                version_info, self.address
-            )
+            # Save the updated unified JSON file
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(existing_models, f, indent=2, ensure_ascii=False)
 
             logger.info(
-                f"Successfully added model '{model_spec.model_name}' (type: {model_type})"
+                f"Added model {model_name} to unified JSON file: {json_file_path}"
             )
 
-        except ValueError as e:
-            # Validation errors - don't need cleanup as model wasn't registered
-            logger.error(f"ValueError during registration: {str(e)}")
-            raise e
         except Exception as e:
-            # Unexpected errors - attempt cleanup
             logger.error(
-                f"Unexpected error during registration: {str(e)}",
+                f"Error adding model to unified JSON: {str(e)}",
                 exc_info=True,
             )
-            try:
-                unregister_fn(model_spec.model_name, raise_error=False)
-            except Exception as cleanup_error:
-                logger.warning(f"Cleanup failed: {cleanup_error}")
-            raise ValueError(
-                f"Failed to register model '{model_spec.model_name}': {str(e)}"
-            )
+            raise ValueError(f"Failed to store model configuration: {str(e)}")
 
     @log_async(logger=logger)
     async def update_model_type(self, model_type: str):

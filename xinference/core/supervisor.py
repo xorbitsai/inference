@@ -1179,20 +1179,15 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def add_model(self, model_type: str, model_json: Dict[str, Any]):
+    async def add_model(self, model_name: str):
         """
         Add a new model by forwarding the request to all workers.
 
         Args:
-            model_type: Type of model (LLM, embedding, image, etc.)
-            model_json: JSON configuration for the model
+            model_name: Name of the model to add
         """
 
-        model_name = model_json.get("model_name", "unknown")
-        self._log_debug(
-            f"[ADD_MODEL_DEBUG] Adding model: {model_name}, type: {model_type}"
-        )
-        self._log_debug(f"[ADD_MODEL_DEBUG] Model JSON: {model_json}")
+        self._log_debug(f"[ADD_MODEL_DEBUG] Adding model: {model_name}")
 
         try:
             # Forward the add_model request to all workers
@@ -1201,7 +1196,7 @@ class SupervisorActor(xo.StatelessActor):
                 self._log_debug(
                     f"[ADD_MODEL_DEBUG] Forwarding to worker: {worker_address}"
                 )
-                tasks.append(worker_ref.add_model(model_type, model_json))
+                tasks.append(worker_ref.add_model(model_name))
 
             # Wait for all workers to complete the operation
             if tasks:
