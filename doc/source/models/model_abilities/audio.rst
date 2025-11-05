@@ -763,21 +763,64 @@ IndexTTS2 Offline Usage
 IndexTTS2 requires several small models that are downloaded automatically during initialization.
 For offline environments, you can download these models to a single directory and specify the directory path.
 
-The required small models are:
-1. **w2v-bert-2.0** - Feature extraction model (place in ``w2v-bert-2.0/`` subdirectory)
-2. **semantic_codec** - Semantic encoding/decoding model (place in ``semantic_codec/`` subdirectory)
-3. **campplus** - Speaker recognition model (place in ``campplus/`` subdirectory)
-4. **bigvgan** - Vocoder model (place in ``bigvgan/`` subdirectory)
+**Easy Setup Method**
 
-Assume downloaded to ``/path/to/small_models`` with the following structure:
+The simplest way to set up offline usage is to copy the already downloaded models from your Hugging Face cache:
+
+1. **Find your Hugging Face cache directory** (usually ``~/.cache/huggingface/hub/``)
+2. **Copy the required models** to your target directory:
+
+.. code-block:: bash
+
+    # Create your local models directory
+    mkdir -p /path/to/small_models
+
+    # Copy the downloaded models from Hugging Face cache
+    cp -r ~/.cache/huggingface/hub/models--facebook--w2v-bert-2.0 /path/to/small_models/
+    cp -r ~/.cache/huggingface/hub/models--funasr--campplus /path/to/small_models/
+    cp -r ~/.cache/huggingface/hub/models--nvidia--bigvgan_v2_22khz_80band_256x /path/to/small_models/
+    cp -r ~/.cache/huggingface/hub/models--amphion--MaskGCT /path/to/small_models/
+
+The final directory structure should look like this:
 
 .. code-block:: text
 
     /path/to/small_models/
-    ├── w2v-bert-2.0/           # w2v-bert-2.0 model files
-    ├── semantic_codec/         # containing model.safetensors
-    ├── campplus/               # containing campplus_cn_common.bin
-    └── bigvgan/                # bigvgan model files
+    ├── models--facebook--w2v-bert-2.0/              # Feature extraction model
+    │   └── snapshots/
+    │       └── [hash]/
+    │           ├── config.json
+    │           ├── model.safetensors
+    │           └── preprocessor_config.json
+    ├── models--funasr--campplus/                     # Speaker recognition model
+    │   └── snapshots/
+    │       └── [hash]/
+    │           └── campplus_cn_common.bin
+    ├── models--nvidia--bigvgan_v2_22khz_80band_256x/ # Vocoder model
+    │   └── snapshots/
+    │       └── [hash]/
+    │           ├── config.json
+    │           └── bigvgan_generator.pt
+    └── models--amphion--MaskGCT/                      # Semantic codec model
+        └── snapshots/
+            └── [hash]/
+                └── semantic_codec/
+                    └── model.safetensors
+
+**Required Models**
+
+The small models are automatically mapped as follows:
+
+1. **w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - Feature extraction model
+2. **campplus** (``models--funasr--campplus``) - Speaker recognition model
+3. **bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - Vocoder model
+4. **semantic_codec** (``models--amphion--MaskGCT``) - Semantic encoding/decoding model
+
+**Note about Directory Structure**
+
+The ``snapshots/`` directories contain version-specific model files with hash names. Xinference automatically detects and uses the correct snapshot directory, so you don't need to worry about the exact hash values.
+
+**Launching IndexTTS2 with Offline Models**
 
 When launching IndexTTS2 with Web UI, you can add an additional parameter:
 - ``small_models_dir`` - Path to directory containing all small models

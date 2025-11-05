@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-03 17:41+0800\n"
+"POT-Creation-Date: 2025-11-05 17:38+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -701,9 +701,9 @@ msgid ""
 "``False`` , and setting it to ``True`` enables randomness:"
 msgstr ""
 "可以省略情绪参考音频，转而提供一个包含8个浮点数的列表，按以下顺序指定每种"
-"情绪的强度: ``[快乐, 愤怒, 悲伤, 恐惧, 厌恶, 忧郁, 惊讶, 平静]`` 。您还可以"
-"使用 ``use_random`` 参数在推理过程中引入随机性情绪；默认值为 ``False`` ，设置为 ``"
-"True`` 即可启用随机性情绪。"
+"情绪的强度: ``[快乐, 愤怒, 悲伤, 恐惧, 厌恶, 忧郁, 惊讶, 平静]`` 。您还"
+"可以使用 ``use_random`` 参数在推理过程中引入随机性情绪；默认值为 ``False`"
+"` ，设置为 ``True`` 即可启用随机性情绪。"
 
 #: ../../source/models/model_abilities/audio.rst:712
 msgid ""
@@ -714,10 +714,10 @@ msgid ""
 "for more natural sounding speech. You can introduce randomness with "
 "``use_random`` (default: ``False``; ``True`` enables randomness):"
 msgstr ""
-"或者，您可以启用 ``use_emo_text`` 功能，根据您提供的 ``text`` 脚本引导情感"
-"表达。您的文本脚本将自动转换为情感向量。使用文本情感模式时，建议将 ``emo_"
-"alpha`` 设置为 0.6 左右（或更低），以获得更自然的语音效果。您可通过 ``use_"
-"random`` 引入随机性（默认值：``False`` ；``True`` 启用随机性）："
+"或者，您可以启用 ``use_emo_text`` 功能，根据您提供的 ``text`` 脚本引导"
+"情感表达。您的文本脚本将自动转换为情感向量。使用文本情感模式时，建议将 ``"
+"emo_alpha`` 设置为 0.6 左右（或更低），以获得更自然的语音效果。您可通过 `"
+"`use_random`` 引入随机性（默认值：``False`` ；``True`` 启用随机性）："
 
 #: ../../source/models/model_abilities/audio.rst:737
 msgid ""
@@ -743,26 +743,80 @@ msgstr ""
 "，您可以将这些模型下载到单一目录，并指定该目录路径。"
 
 #: ../../source/models/model_abilities/audio.rst:766
+msgid "**Easy Setup Method**"
+msgstr "**简易设置方法**"
+
+#: ../../source/models/model_abilities/audio.rst:768
 msgid ""
-"The required small models are: 1. **w2v-bert-2.0** - Feature extraction "
-"model (place in ``w2v-bert-2.0/`` subdirectory) 2. **semantic_codec** - "
-"Semantic encoding/decoding model (place in ``semantic_codec/`` "
-"subdirectory) 3. **campplus** - Speaker recognition model (place in "
-"``campplus/`` subdirectory) 4. **bigvgan** - Vocoder model (place in "
-"``bigvgan/`` subdirectory)"
+"The simplest way to set up offline usage is to copy the already "
+"downloaded models from your Hugging Face cache:"
 msgstr ""
-"所需的小型模型包括：1. **w2v-bert-2.0** - 特征提取模型（放置于``w2v-bert-"
-"2.0/``子目录）2. **semantic_codec** - 语义编码/解码模型（放置于``semantic"
-"_codec/``子目录）3. **campplus** - 说话人识别模型（放置于``campplus/``"
-"子目录） 4. **bigvgan** - 声码器模型（放置于``bigvgan/``子目录）"
+"设置离线使用的最简单方法是将已下载的模型从Hugging Face缓存中复制出来："
 
-#: ../../source/models/model_abilities/audio.rst:772
+#: ../../source/models/model_abilities/audio.rst:770
 msgid ""
-"Assume downloaded to ``/path/to/small_models`` with the following "
-"structure:"
-msgstr "假设下载到``/path/to/small_models``目录，其结构如下："
+"**Find your Hugging Face cache directory** (usually "
+"``~/.cache/huggingface/hub/``)"
+msgstr ""
+"**查找您的Hugging Face缓存目录**（通常位于``~/.cache/huggingface/hub/``）"
 
-#: ../../source/models/model_abilities/audio.rst:782
+#: ../../source/models/model_abilities/audio.rst:771
+msgid "**Copy the required models** to your target directory:"
+msgstr "**将所需模型**复制到目标目录："
+
+#: ../../source/models/model_abilities/audio.rst:784
+msgid "The final directory structure should look like this:"
+msgstr "最终的目录结构应如下所示："
+
+#: ../../source/models/model_abilities/audio.rst:810
+msgid "**Required Models**"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/audio.rst:812
+msgid "The small models are automatically mapped as follows:"
+msgstr "小型模型将按以下方式自动映射："
+
+#: ../../source/models/model_abilities/audio.rst:814
+msgid ""
+"**w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - Feature "
+"extraction model"
+msgstr "**w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - 特征提取模型"
+
+#: ../../source/models/model_abilities/audio.rst:815
+msgid "**campplus** (``models--funasr--campplus``) - Speaker recognition model"
+msgstr "**campplus** (``models--funasr--campplus``) - 说话人识别模型"
+
+#: ../../source/models/model_abilities/audio.rst:816
+msgid ""
+"**bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - Vocoder "
+"model"
+msgstr "**bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - 语音编码器模型"
+
+#: ../../source/models/model_abilities/audio.rst:817
+msgid ""
+"**semantic_codec** (``models--amphion--MaskGCT``) - Semantic "
+"encoding/decoding model"
+msgstr "**语义编解码器** (``models--amphion--MaskGCT``) - 语义编码/解码模型"
+
+#: ../../source/models/model_abilities/audio.rst:819
+msgid "**Note about Directory Structure**"
+msgstr "**关于目录结构的说明**"
+
+#: ../../source/models/model_abilities/audio.rst:821
+msgid ""
+"The ``snapshots/`` directories contain version-specific model files with "
+"hash names. Xinference automatically detects and uses the correct "
+"snapshot directory, so you don't need to worry about the exact hash "
+"values."
+msgstr ""
+"``snapshots/``目录包含具有哈希名称的特定版本模型文件。"
+"Xinference会自动检测并使用正确的快照目录，因此您无需担心精确的哈希值。"
+
+#: ../../source/models/model_abilities/audio.rst:823
+msgid "**Launching IndexTTS2 with Offline Models**"
+msgstr "**使用离线模式启动IndexTTS2**"
+
+#: ../../source/models/model_abilities/audio.rst:825
 msgid ""
 "When launching IndexTTS2 with Web UI, you can add an additional "
 "parameter: - ``small_models_dir`` - Path to directory containing all "
@@ -771,11 +825,11 @@ msgstr ""
 "在通过Web UI启动IndexTTS2时，可添加额外参数：- ``small_models_dir`` - "
 "包含所有小型模型的目录路径"
 
-#: ../../source/models/model_abilities/audio.rst:785
+#: ../../source/models/model_abilities/audio.rst:828
 msgid "When launching with command line, you can add the option:"
 msgstr "在通过命令行启动时，您可以添加以下选项："
 
-#: ../../source/models/model_abilities/audio.rst:792
+#: ../../source/models/model_abilities/audio.rst:835
 msgid "When launching with Python client:"
 msgstr "使用 Python 客户端启动时："
 
@@ -804,4 +858,32 @@ msgstr "使用 Python 客户端启动时："
 #~ "randomness with `use_random` (default: "
 #~ "`False`; `True` enables randomness):"
 #~ msgstr ""
+
+#~ msgid ""
+#~ "The required small models are: 1. "
+#~ "**w2v-bert-2.0** - Feature extraction model"
+#~ " (place in ``w2v-bert-2.0/`` subdirectory)"
+#~ " 2. **semantic_codec** - Semantic "
+#~ "encoding/decoding model (place in "
+#~ "``semantic_codec/`` subdirectory) 3. **campplus**"
+#~ " - Speaker recognition model (place "
+#~ "in ``campplus/`` subdirectory) 4. **bigvgan**"
+#~ " - Vocoder model (place in "
+#~ "``bigvgan/`` subdirectory)"
+#~ msgstr ""
+#~ "所需的小型模型包括：1. **w2v-"
+#~ "bert-2.0** - 特征提取模型（放置于"
+#~ "``w2v-bert-2.0/``子目录）2. "
+#~ "**semantic_codec** - 语义编码/解码"
+#~ "模型（放置于``semantic_codec/``"
+#~ "子目录）3. **campplus** - 说话"
+#~ "人识别模型（放置于``campplus/``"
+#~ "子目录） 4. **bigvgan** - 声"
+#~ "码器模型（放置于``bigvgan/``子目录"
+#~ "）"
+
+#~ msgid ""
+#~ "Assume downloaded to ``/path/to/small_models`` "
+#~ "with the following structure:"
+#~ msgstr "假设下载到``/path/to/small_models``目录，其结构如下："
 
