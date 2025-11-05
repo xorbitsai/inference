@@ -587,7 +587,7 @@ class SupervisorActor(xo.StatelessActor):
                 continue
 
             # Use unified source resolution logic with debug info
-            source = cache_manager_class.resolve_model_source(model_name, builtin_names)
+            source = cache_manager_class.resolve_model_source(model_name, model_type, builtin_names)
             is_builtin = source != "user"
 
             # Debug: Log model source determination for testing
