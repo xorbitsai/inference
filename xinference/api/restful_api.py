@@ -1938,17 +1938,6 @@ class RESTfulAPI(CancelMixin):
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
 
-        # Fix stream parameter parsing issue
-        if hasattr(f, "get") and "stream" in f:
-            raw_stream = f.get("stream")
-            if isinstance(raw_stream, str) and raw_stream.lower() in (
-                "true",
-                "1",
-                "yes",
-                "on",
-            ):
-                body.stream = True
-
         model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1970,9 +1959,6 @@ class RESTfulAPI(CancelMixin):
                 parsed_kwargs["prompt_speech"] = await prompt_speech.read()
             if prompt_latent is not None:
                 parsed_kwargs["prompt_latent"] = await prompt_latent.read()
-            print(f">>> REST API: Calling model.speech() with stream={body.stream} <<<")
-            print(f">>> REST API: Input text: {body.input[:50]}... <<<")
-
             out = await model.speech(
                 input=body.input,
                 voice=body.voice,
@@ -1981,8 +1967,6 @@ class RESTfulAPI(CancelMixin):
                 stream=body.stream,
                 **parsed_kwargs,
             )
-
-            print(f">>> REST API: Model.speech() returned, type: {type(out)} <<<")
             if body.stream:
 
                 async def stream_results():
