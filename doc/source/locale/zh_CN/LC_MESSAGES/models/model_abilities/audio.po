@@ -731,7 +731,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:761
 msgid "IndexTTS2 Offline Usage"
-msgstr "IndexTTS2 使用"
+msgstr "IndexTTS2 离线使用"
 
 #: ../../source/models/model_abilities/audio.rst:763
 msgid ""
@@ -758,11 +758,11 @@ msgid ""
 "**Find your Hugging Face cache directory** (usually "
 "``~/.cache/huggingface/hub/``)"
 msgstr ""
-"**查找您的Hugging Face缓存目录**（通常位于``~/.cache/huggingface/hub/``）"
+"**查找您的Hugging Face缓存目录** （通常位于 ``~/.cache/huggingface/hub/`` ）"
 
 #: ../../source/models/model_abilities/audio.rst:771
 msgid "**Copy the required models** to your target directory:"
-msgstr "**将所需模型**复制到目标目录："
+msgstr "**将所需模型** 复制到目标目录："
 
 #: ../../source/models/model_abilities/audio.rst:784
 msgid "The final directory structure should look like this:"
@@ -770,7 +770,7 @@ msgstr "最终的目录结构应如下所示："
 
 #: ../../source/models/model_abilities/audio.rst:810
 msgid "**Required Models**"
-msgstr "支持的模型列表"
+msgstr "**支持的模型列表**"
 
 #: ../../source/models/model_abilities/audio.rst:812
 msgid "The small models are automatically mapped as follows:"
@@ -809,7 +809,7 @@ msgid ""
 "snapshot directory, so you don't need to worry about the exact hash "
 "values."
 msgstr ""
-"``snapshots/``目录包含具有哈希名称的特定版本模型文件。"
+"``snapshots/`` 目录包含具有哈希名称的特定版本模型文件。"
 "Xinference会自动检测并使用正确的快照目录，因此您无需担心精确的哈希值。"
 
 #: ../../source/models/model_abilities/audio.rst:823
