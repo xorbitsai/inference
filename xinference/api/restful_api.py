@@ -3163,6 +3163,23 @@ class RESTfulAPI(CancelMixin):
             # Call supervisor with model_name only
             await supervisor_ref.add_model(model_name)
 
+            # Get model type information to return to frontend
+            import requests
+
+            try:
+                info_url = f"https://model.xinference.io/api/models/{model_name}"
+                info_response = requests.get(info_url, timeout=30)
+                if info_response.status_code == 200:
+                    model_info = info_response.json()
+                    model_type = model_info.get("data", {}).get("model_type")
+                    model_data = model_info.get("data", {}).get("model_data", {})
+                else:
+                    model_type = "unknown"
+                    model_data = {}
+            except Exception:
+                model_type = "unknown"
+                model_data = {}
+
         except ValueError as re:
             logger.error(f"ValueError in add_model API: {re}", exc_info=True)
             logger.error(f"ValueError details: {type(re).__name__}: {re}")
@@ -3175,9 +3192,19 @@ class RESTfulAPI(CancelMixin):
             logger.error(f"Full traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
 
-        return JSONResponse(
-            content={"message": f"Model added successfully: {model_name}"}
-        )
+        response_data = {
+            "success": True,
+            "message": f"Model added successfully: {model_name}",
+            "data": {
+                "model_name": model_name,
+                "model_type": model_type,
+                "model_version": model_data.get("version"),
+                "model_ability": model_data.get("model_ability", []),
+                "model_family": model_data.get("model_family"),
+            },
+        }
+
+        return JSONResponse(content=response_data)
 
     async def update_model_type(self, request: Request) -> JSONResponse:
         try:

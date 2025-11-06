@@ -677,8 +677,8 @@ class WorkerActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def add_model(self, model_name: str):
         """
-        Add a new model by downloading its JSON from ModelHub and storing it
-        using the same logic as update_model_type.
+        Add a new model by first getting its type information, then downloading
+        its JSON configuration and storing it as an individual file.
 
         Args:
             model_name: Name of the model to add
@@ -687,27 +687,39 @@ class WorkerActor(xo.StatelessActor):
 
         import requests
 
-        # Construct the URL to download JSON for this specific model
-        url = f"https://model.xinference.io/api/models/download?model_name={model_name}"
-
         try:
-            # Download JSON from remote API
-            logger.info(f"Downloading model configuration for: {model_name}")
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
+            # Step 1: Get model details first to determine the model type
+            logger.info(f"Getting model type information for: {model_name}")
+            info_url = f"https://model.xinference.io/api/models/{model_name}"
+            info_response = requests.get(info_url, timeout=30)
+            info_response.raise_for_status()
 
-            # Parse JSON response - this should be a single model object
-            model_data = response.json()
+            model_info = info_response.json()
 
-            # Infer model type from the downloaded JSON structure
-            model_type = self._infer_model_type(model_data)
+            # Extract model_type from the response - handle nested data structure
+            model_type = None
+            if "data" in model_info and "model_type" in model_info["data"]:
+                model_type = model_info["data"]["model_type"]
+            elif "model_type" in model_info:
+                model_type = model_info["model_type"]
+
             if not model_type:
-                logger.error(f"Unable to determine model type from downloaded JSON")
-                raise ValueError(
-                    f"Invalid model configuration: cannot determine model type"
-                )
+                logger.error(f"No model_type found in model info for: {model_name}")
+                logger.error(f"Response structure: {list(model_info.keys())}")
+                if "data" in model_info:
+                    logger.error(f"Data structure: {list(model_info['data'].keys())}")
+                raise ValueError(f"Model type not found for model: {model_name}")
 
-            logger.info(f"Inferred model type: {model_type} for model: {model_name}")
+            logger.info(f"Retrieved model type: {model_type} for model: {model_name}")
+
+            # Step 2: Download model JSON configuration using the original download API
+            logger.info(f"Downloading model configuration for: {model_name}")
+            download_url = f"https://model.xinference.io/api/models/download?model_name={model_name}"
+            download_response = requests.get(download_url, timeout=30)
+            download_response.raise_for_status()
+
+            model_data = download_response.json()
+            logger.info(f"Downloaded model configuration for: {model_name}")
 
             # Validate model type is supported
             supported_types = list(self._custom_register_type_to_cls.keys())
@@ -725,8 +737,9 @@ class WorkerActor(xo.StatelessActor):
                     f"Supported types are: {', '.join(supported_types)}"
                 )
 
-            # Add the model to the unified JSON file (like update_model_type)
-            await self._add_single_model_to_unified_json(model_type, model_data)
+            # Step 3: Save the model to ensure it's properly registered
+            # Append to existing unified JSON file if it exists, or create new one
+            await self._append_model_to_unified_config(model_type, model_data)
 
             # Dynamically reload built-in models to make the new model immediately available
             try:
@@ -779,6 +792,51 @@ class WorkerActor(xo.StatelessActor):
                 exc_info=True,
             )
             raise ValueError(f"Failed to add model: {str(e)}")
+
+    async def _add_model_as_individual_file(
+        self, model_type: str, model_name: str, model_data
+    ):
+        """
+        Add a single model as an individual JSON file for the model type.
+
+        Args:
+            model_type: Type of the model (llm, embedding, audio, etc.)
+            model_name: Name of the model
+            model_data: Model configuration data
+        """
+        import json
+        import os
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+
+            # Use the model-specific directory path
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Save as individual JSON file named after the model
+            json_file_path = os.path.join(builtin_dir, f"{model_name}.json")
+
+            # Save the model configuration
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(model_data, f, indent=2, ensure_ascii=False)
+
+            logger.info(
+                f"Added model {model_name} as individual file: {json_file_path}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Error adding model as individual file: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store model configuration: {str(e)}")
 
     def _infer_model_type(self, model_data):
         """
@@ -1083,6 +1141,76 @@ class WorkerActor(xo.StatelessActor):
                 exc_info=True,
             )
             raise ValueError(f"Failed to store complete model configurations: {str(e)}")
+
+    async def _append_model_to_unified_config(self, model_type: str, model_data):
+        """
+        Append a single model to the unified JSON configuration file.
+        This preserves existing models while adding the new one.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing a single model configuration
+        """
+        import json
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+
+            # Use the unified JSON file path
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+            json_file_path = os.path.join(
+                builtin_dir, f"{model_type_lower}_models.json"
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Read existing unified JSON file if it exists
+            existing_models = []
+            if os.path.exists(json_file_path):
+                try:
+                    with open(json_file_path, "r", encoding="utf-8") as f:
+                        existing_models = json.load(f)
+                        if not isinstance(existing_models, list):
+                            existing_models = []
+                except (json.JSONDecodeError, IOError):
+                    logger.warning(
+                        f"Failed to read existing {model_type} models file, starting fresh"
+                    )
+                    existing_models = []
+
+            # Check if model already exists to avoid duplicates
+            model_name = model_data.get("model_name")
+            for i, existing_model in enumerate(existing_models):
+                if existing_model.get("model_name") == model_name:
+                    # Replace existing model
+                    existing_models[i] = model_data
+                    logger.info(f"Updated existing model: {model_name}")
+                    break
+            else:
+                # Add new model
+                existing_models.append(model_data)
+                logger.info(f"Added new model to unified config: {model_name}")
+
+            # Save the updated unified JSON file
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(existing_models, f, indent=2, ensure_ascii=False)
+
+            # Also save as individual file for backward compatibility
+            await self._add_model_as_individual_file(model_type, model_name, model_data)
+
+        except Exception as e:
+            logger.error(
+                f"Error appending model to unified configuration: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(
+                f"Failed to append model to unified configuration: {str(e)}"
+            )
 
     @log_async(logger=logger)
     async def list_model_registrations(
