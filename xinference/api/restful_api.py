@@ -1937,7 +1937,6 @@ class RESTfulAPI(CancelMixin):
         else:
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
-
         model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
