@@ -203,6 +203,8 @@ class XllamaCppRerankModel(RerankModel):
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._llm is not None
         result=self._llm.handle_rerank({"query":query, "documents":documents})
+        if top_n is not None:
+            result["results"]=result["results"][:top_n]
         reranked_docs = list(
             map(
                 lambda doc: DocumentObj(
