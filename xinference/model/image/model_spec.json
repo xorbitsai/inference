@@ -52,7 +52,8 @@
         ],
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1762509515
   },
   {
     "version": 2,
@@ -107,7 +108,8 @@
         ],
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1762509517
   },
   {
     "version": 2,
@@ -175,7 +177,8 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1762509518
   },
   {
     "version": 2,
@@ -265,7 +268,8 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1762509519
   },
   {
     "version": 2,
@@ -289,7 +293,8 @@
         "model_id": "AI-ModelScope/stable-diffusion-3-medium-diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509520
   },
   {
     "version": 2,
@@ -348,7 +353,8 @@
         ],
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1762509521
   },
   {
     "version": 2,
@@ -394,7 +400,8 @@
         ],
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1762509523
   },
   {
     "version": 2,
@@ -444,7 +451,8 @@
         ],
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1762509524
   },
   {
     "version": 2,
@@ -462,7 +470,8 @@
         "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509525
   },
   {
     "version": 2,
@@ -480,7 +489,8 @@
         "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers-Distilled",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509526
   },
   {
     "version": 2,
@@ -502,7 +512,8 @@
         "model_id": "AI-ModelScope/sd-turbo",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509528
   },
   {
     "version": 2,
@@ -524,7 +535,8 @@
         "model_id": "AI-ModelScope/sdxl-turbo",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509529
   },
   {
     "version": 2,
@@ -587,7 +599,8 @@
         "model_id": "AI-ModelScope/stable-diffusion-v1-5",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509530
   },
   {
     "version": 2,
@@ -626,7 +639,8 @@
         "model_id": "AI-ModelScope/stable-diffusion-xl-base-1.0",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509531
   },
   {
     "version": 2,
@@ -654,7 +668,8 @@
         "model_id": "JunHowie/Kolors-diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509533
   },
   {
     "version": 2,
@@ -681,7 +696,8 @@
         "model_id": "ZhipuAI/CogView4-6B",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509534
   },
   {
     "version": 2,
@@ -695,7 +711,8 @@
         "model_id": "runwayml/stable-diffusion-inpainting",
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
-    }
+    },
+    "updated_at": 1762509535
   },
   {
     "version": 2,
@@ -709,7 +726,8 @@
         "model_id": "stabilityai/stable-diffusion-2-inpainting",
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
-    }
+    },
+    "updated_at": 1762509536
   },
   {
     "version": 2,
@@ -723,7 +741,8 @@
         "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
-    }
+    },
+    "updated_at": 1762509537
   },
   {
     "version": 2,
@@ -756,7 +775,8 @@
         "model_id": "stepfun-ai/GOT-OCR2_0",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509539
   },
   {
     "version": 2,
@@ -841,7 +861,8 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1762509540
   },
   {
     "version": 2,
@@ -926,7 +947,8 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1762509541
   },
   {
     "version": 2,
@@ -958,6 +980,7 @@
         "model_id": "deepseek-ai/DeepSeek-OCR",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1762509542
   }
 ]
