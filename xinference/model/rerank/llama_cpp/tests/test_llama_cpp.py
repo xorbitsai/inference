@@ -21,7 +21,7 @@ from ...core import (
     create_rerank_model_instance,
 )
 
-TEST_MODEL_SPEC=RerankModelFamilyV2(
+TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
     model_name="bge-reranker-v2-m3",
     language=["en"],
@@ -35,6 +35,7 @@ TEST_MODEL_SPEC=RerankModelFamilyV2(
         )
     ]
 )
+
 
 def test_rerank_model_with_xllamacpp():
     model_path = None
@@ -70,4 +71,4 @@ def test_rerank_model_with_xllamacpp():
 
     finally:
         if model_path is not None:
-                shutil.rmtree(model_path, ignore_errors=True)
+            shutil.rmtree(model_path, ignore_errors=True)
