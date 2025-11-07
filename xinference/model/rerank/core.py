@@ -54,6 +54,7 @@ class TransformersRerankSpecV1(BaseModel):
     model_uri: Optional[str] = None
     quantization: str = "none"
 
+
 class LlamaCppRerankSpecV1(BaseModel):
     model_format: Literal["ggufv2"]
     model_hub: str = "huggingface"
@@ -65,10 +66,12 @@ class LlamaCppRerankSpecV1(BaseModel):
     model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
 
+
 RerankSpecV1 = Annotated[
     Union[TransformersRerankSpecV1, LlamaCppRerankSpecV1],
     Field(discriminator="model_format"),
 ]
+
 
 class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     version: Literal[2]
