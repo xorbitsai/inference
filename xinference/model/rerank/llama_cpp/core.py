@@ -61,7 +61,7 @@ class XllamaCppRerankModel(RerankModel):
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
 
         return llamacpp_model_config
- 
+
     def _is_darwin_and_apple_silicon(self):
         return sys.platform == "darwin" and platform.processor() == "arm"
 
