@@ -72,7 +72,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510020
   },
   {
     "version": 2,
@@ -130,7 +131,8 @@
     "stop": [
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510022
   },
   {
     "version": 2,
@@ -157,7 +159,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510023
   },
   {
     "version": 2,
@@ -363,7 +366,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510024
   },
   {
     "version": 2,
@@ -444,7 +448,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510025
   },
   {
     "version": 2,
@@ -591,7 +596,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510026
   },
   {
     "version": 2,
@@ -649,7 +655,8 @@
     ],
     "stop": [
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510028
   },
   {
     "version": 2,
@@ -676,7 +683,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510029
   },
   {
     "version": 2,
@@ -727,7 +735,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510030
   },
   {
     "version": 2,
@@ -777,7 +786,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510031
   },
   {
     "version": 2,
@@ -827,7 +837,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510033
   },
   {
     "version": 2,
@@ -1009,7 +1020,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510034
   },
   {
     "version": 2,
@@ -1072,7 +1084,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "tool_parser": "llama3"
+    "tool_parser": "llama3",
+    "updated_at": 1762510035
   },
   {
     "version": 2,
@@ -1136,7 +1149,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510036
   },
   {
     "version": 2,
@@ -1418,7 +1432,8 @@
     ],
     "stop": [
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510037
   },
   {
     "version": 2,
@@ -1483,7 +1498,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510039
   },
   {
     "version": 2,
@@ -1708,7 +1724,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510040
   },
   {
     "version": 2,
@@ -1777,7 +1794,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510041
   },
   {
     "version": 2,
@@ -1950,7 +1968,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510043
   },
   {
     "version": 2,
@@ -2080,7 +2099,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510044
   },
   {
     "version": 2,
@@ -2115,7 +2135,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510045
   },
   {
     "version": 2,
@@ -2150,7 +2171,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510046
   },
   {
     "version": 2,
@@ -2214,7 +2236,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510048
   },
   {
     "version": 2,
@@ -2325,7 +2348,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510049
   },
   {
     "version": 2,
@@ -2412,7 +2436,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510050
   },
   {
     "version": 2,
@@ -2752,7 +2777,8 @@
       "<|im_start|>",
       "<|im_end|>",
       "<|im_sep|>"
-    ]
+    ],
+    "updated_at": 1762510051
   },
   {
     "version": 2,
@@ -2868,7 +2894,8 @@
       "<|im_start|>",
       "<|im_end|>",
       "<|im_sep|>"
-    ]
+    ],
+    "updated_at": 1762510052
   },
   {
     "version": 2,
@@ -2929,7 +2956,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510054
   },
   {
     "version": 2,
@@ -3040,7 +3068,8 @@
       "<|im_start|>",
       "<|im_end|>",
       "<|im_sep|>"
-    ]
+    ],
+    "updated_at": 1762510055
   },
   {
     "version": 2,
@@ -3107,7 +3136,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510057
   },
   {
     "version": 2,
@@ -3180,7 +3210,8 @@
       2,
       195
     ],
-    "stop": []
+    "stop": [],
+    "updated_at": 1762510058
   },
   {
     "version": 2,
@@ -3326,7 +3357,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510059
   },
   {
     "version": 2,
@@ -3503,7 +3535,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510061
   },
   {
     "version": 2,
@@ -3679,7 +3712,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510062
   },
   {
     "version": 2,
@@ -3756,7 +3790,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "updated_at": 1762510063
   },
   {
     "version": 2,
@@ -3795,7 +3830,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510064
   },
   {
     "version": 2,
@@ -3897,7 +3933,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510065
   },
   {
     "version": 2,
@@ -3932,7 +3969,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510067
   },
   {
     "version": 2,
@@ -3976,7 +4014,8 @@
       "<|endoftext|>",
       "|||",
       "|<end>|"
-    ]
+    ],
+    "updated_at": 1762510068
   },
   {
     "version": 2,
@@ -4021,7 +4060,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "updated_at": 1762510069
   },
   {
     "version": 2,
@@ -4122,7 +4162,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510070
   },
   {
     "version": 2,
@@ -4230,7 +4271,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510071
   },
   {
     "version": 2,
@@ -4488,7 +4530,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510072
   },
   {
     "version": 2,
@@ -4753,7 +4796,8 @@
     ],
     "stop": [
       "<|EOT|>"
-    ]
+    ],
+    "updated_at": 1762510074
   },
   {
     "version": 2,
@@ -4833,7 +4877,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510075
   },
   {
     "version": 2,
@@ -5253,7 +5298,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510076
   },
   {
     "version": 2,
@@ -5322,7 +5368,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "deepseek-r1"
+    "tool_parser": "deepseek-r1",
+    "updated_at": 1762510077
   },
   {
     "version": 2,
@@ -5403,7 +5450,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510079
   },
   {
     "version": 2,
@@ -5669,7 +5717,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "deepseek-r1"
+    "tool_parser": "deepseek-r1",
+    "updated_at": 1762510080
   },
   {
     "version": 2,
@@ -6092,7 +6141,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510081
   },
   {
     "version": 2,
@@ -6154,7 +6204,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510082
   },
   {
     "version": 2,
@@ -6196,7 +6247,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510084
   },
   {
     "version": 2,
@@ -6238,7 +6290,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510085
   },
   {
     "version": 2,
@@ -6518,7 +6571,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "tool_parser": "deepseek_v3"
+    "tool_parser": "deepseek_v3",
+    "updated_at": 1762510086
   },
   {
     "version": 2,
@@ -6593,7 +6647,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510087
   },
   {
     "version": 2,
@@ -6673,7 +6728,8 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510089
   },
   {
     "version": 2,
@@ -6755,7 +6811,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510090
   },
   {
     "version": 2,
@@ -6877,7 +6934,8 @@
       "<eos>",
       "<end_of_turn>",
       "<start_of_turn>"
-    ]
+    ],
+    "updated_at": 1762510091
   },
   {
     "version": 2,
@@ -7224,7 +7282,8 @@
       "<eos>",
       "<end_of_turn>",
       "<start_of_turn>"
-    ]
+    ],
+    "updated_at": 1762510093
   },
   {
     "version": 2,
@@ -7277,7 +7336,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "updated_at": 1762510094
   },
   {
     "version": 2,
@@ -7463,7 +7523,8 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
-    ]
+    ],
+    "updated_at": 1762510095
   },
   {
     "version": 2,
@@ -7711,7 +7772,8 @@
         "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1762510096
   },
   {
     "version": 2,
@@ -7819,7 +7881,8 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "tool_parser": "glm4"
+    "tool_parser": "glm4",
+    "updated_at": 1762510098
   },
   {
     "version": 2,
@@ -7927,7 +7990,8 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "tool_parser": "glm4"
+    "tool_parser": "glm4",
+    "updated_at": 1762510099
   },
   {
     "version": 2,
@@ -8058,7 +8122,8 @@
     "stop": [
       "</s>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510100
   },
   {
     "version": 2,
@@ -8306,7 +8371,8 @@
     "stop_token_ids": [
       2
     ],
-    "stop": []
+    "stop": [],
+    "updated_at": 1762510102
   },
   {
     "version": 2,
@@ -8396,7 +8462,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510103
   },
   {
     "version": 2,
@@ -8609,7 +8676,8 @@
     "stop": [
       "<|end_of_text|>",
       "<|eot_id|>"
-    ]
+    ],
+    "updated_at": 1762510104
   },
   {
     "version": 2,
@@ -8716,7 +8784,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510105
   },
   {
     "version": 2,
@@ -9090,7 +9159,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "tool_parser": "llama3"
+    "tool_parser": "llama3",
+    "updated_at": 1762510107
   },
   {
     "version": 2,
@@ -9148,7 +9218,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510108
   },
   {
     "version": 2,
@@ -9217,7 +9288,8 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "updated_at": 1762510109
   },
   {
     "version": 2,
@@ -9356,7 +9428,8 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "updated_at": 1762510110
   },
   {
     "version": 2,
@@ -9447,7 +9520,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510112
   },
   {
     "version": 2,
@@ -9496,7 +9570,8 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510113
   },
   {
     "version": 2,
@@ -9539,7 +9614,8 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510114
   },
   {
     "version": 2,
@@ -9582,7 +9658,8 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510115
   },
   {
     "version": 2,
@@ -9631,7 +9708,8 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510117
   },
   {
     "version": 2,
@@ -9674,7 +9752,8 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510118
   },
   {
     "version": 2,
@@ -9743,7 +9822,8 @@
     "stop": [
       "<s>",
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510119
   },
   {
     "version": 2,
@@ -9820,7 +9900,8 @@
     "stop": [
       "</s>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510120
   },
   {
     "version": 2,
@@ -9909,7 +9990,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510122
   },
   {
     "version": 2,
@@ -10004,7 +10086,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510123
   },
   {
     "version": 2,
@@ -10196,7 +10279,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510124
   },
   {
     "version": 2,
@@ -10371,7 +10455,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510125
   },
   {
     "version": 2,
@@ -10454,7 +10539,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510127
   },
   {
     "version": 2,
@@ -10543,7 +10629,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510128
   },
   {
     "version": 2,
@@ -10613,7 +10700,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510129
   },
   {
     "version": 2,
@@ -10653,7 +10741,8 @@
     ],
     "stop": [
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510130
   },
   {
     "version": 2,
@@ -10716,7 +10805,8 @@
       "<s>",
       "</s>",
       "<unk>"
-    ]
+    ],
+    "updated_at": 1762510132
   },
   {
     "version": 2,
@@ -10761,7 +10851,8 @@
       "<|endoftext|>",
       "<|assistant|>",
       "<|end|>"
-    ]
+    ],
+    "updated_at": 1762510133
   },
   {
     "version": 2,
@@ -10820,7 +10911,8 @@
       "<|endoftext|>",
       "<|assistant|>",
       "<|end|>"
-    ]
+    ],
+    "updated_at": 1762510134
   },
   {
     "version": 2,
@@ -11070,7 +11162,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510135
   },
   {
     "version": 2,
@@ -11820,7 +11913,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510137
   },
   {
     "version": 2,
@@ -11884,7 +11978,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510138
   },
   {
     "version": 2,
@@ -11932,7 +12027,8 @@
         "<|im_end|>",
         "<|endoftext|>"
       ]
-    }
+    },
+    "updated_at": 1762510140
   },
   {
     "version": 2,
@@ -11981,7 +12077,8 @@
         "<|im_end|>",
         "<|endoftext|>"
       ]
-    }
+    },
+    "updated_at": 1762510141
   },
   {
     "version": 2,
@@ -12610,7 +12707,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510142
   },
   {
     "version": 2,
@@ -12732,7 +12830,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510143
   },
   {
     "version": 2,
@@ -13047,7 +13146,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510145
   },
   {
     "version": 2,
@@ -13232,7 +13332,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510146
   },
   {
     "version": 2,
@@ -13361,7 +13462,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510147
   },
   {
     "version": 2,
@@ -13915,7 +14017,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510148
   },
   {
     "version": 2,
@@ -15426,7 +15529,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510150
   },
   {
     "version": 2,
@@ -15486,7 +15590,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510151
   },
   {
     "version": 2,
@@ -15557,7 +15662,8 @@
         "qwen_omni_utils",
         "soundfile"
       ]
-    }
+    },
+    "updated_at": 1762510152
   },
   {
     "version": 2,
@@ -15822,7 +15928,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510153
   },
   {
     "version": 2,
@@ -17337,7 +17444,8 @@
         "#system_numpy#"
       ]
     },
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510154
   },
   {
     "version": 2,
@@ -18121,7 +18229,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510156
   },
   {
     "version": 2,
@@ -18902,7 +19011,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510157
   },
   {
     "version": 2,
@@ -19686,7 +19796,8 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510158
   },
   {
     "version": 2,
@@ -19757,7 +19868,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510160
   },
   {
     "version": 2,
@@ -19857,7 +19969,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510161
   },
   {
     "version": 2,
@@ -20075,7 +20188,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510181
   },
   {
     "version": 2,
@@ -20216,7 +20330,8 @@
     "stop_token_ids": [
       160133,
       160132
-    ]
+    ],
+    "updated_at": 1762510182
   },
   {
     "version": 2,
@@ -20262,7 +20377,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510184
   },
   {
     "version": 2,
@@ -20394,7 +20510,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510185
   },
   {
     "version": 2,
@@ -20448,7 +20565,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510186
   },
   {
     "version": 2,
@@ -20523,7 +20641,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510187
   },
   {
     "version": 2,
@@ -20585,7 +20704,8 @@
     ],
     "stop": [
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510189
   },
   {
     "version": 2,
@@ -20645,7 +20765,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510190
   },
   {
     "version": 2,
@@ -20972,7 +21093,8 @@
         "mlx-lm>=0.25.2 ; sys_platform=='darwin'",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1762510191
   },
   {
     "version": 2,
@@ -21066,7 +21188,8 @@
         "transformers>=4.53.2",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1762510193
   },
   {
     "version": 2,
@@ -21300,7 +21423,8 @@
         "transformers>=4.54.0",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1762510194
   },
   {
     "version": 2,
@@ -21420,7 +21544,8 @@
         "transformers>=4.55.0",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1762510195
   },
   {
     "version": 2,
@@ -21508,7 +21633,8 @@
         "kernels==0.9.0",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1762510197
   },
   {
     "version": 2,
@@ -21586,7 +21712,8 @@
     "stop": [
       "<|endoftext|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510198
   },
   {
     "version": 2,
@@ -21696,7 +21823,8 @@
       "packages": [
         "transformers==4.53.0"
       ]
-    }
+    },
+    "updated_at": 1762510199
   },
   {
     "version": 2,
@@ -21886,7 +22014,8 @@
       "<seed:eos>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510201
   },
   {
     "version": 2,
@@ -21953,7 +22082,8 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1762510202
   },
   {
     "version": 2,
@@ -22609,7 +22739,8 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510203
   },
   {
     "version": 2,
@@ -23082,7 +23213,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510205
   },
   {
     "version": 2,
@@ -23192,7 +23324,8 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510206
   },
   {
     "version": 2,
@@ -23305,7 +23438,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510207
   },
   {
     "version": 2,
@@ -23372,7 +23506,8 @@
     ],
     "virtualenv": {
       "packages": []
-    }
+    },
+    "updated_at": 1762510208
   },
   {
     "version": 2,
@@ -23452,7 +23587,8 @@
         "qwen_omni_utils",
         "soundfile"
       ]
-    }
+    },
+    "updated_at": 1762510209
   },
   {
     "version": 2,
@@ -23529,7 +23665,8 @@
         "qwen_omni_utils",
         "soundfile"
       ]
-    }
+    },
+    "updated_at": 1762510211
   },
   {
     "model_name": "MiniMax-M2",
@@ -23624,6 +23761,7 @@
     "version": 2,
     "virtualenv": {
       "packages": []
-    }
+    },
+    "updated_at": 1762510212
   }
 ]
