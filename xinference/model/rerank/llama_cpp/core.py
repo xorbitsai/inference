@@ -18,17 +18,17 @@ import logging
 import os
 import platform
 import pprint
-import queue
 import sys
 import uuid
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from packaging import version
 
-from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ....types import DocumentObj, Meta, Rerank, RerankTokens
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 logger = logging.getLogger(__name__)
+
 
 class _Done:
     pass
@@ -37,6 +37,7 @@ class _Done:
 class _Error:
     def __init__(self, msg):
         self.msg = msg
+
 
 class XllamaCppRerankModel(RerankModel):
     def __init__(self, *args, **kwargs) -> None:
@@ -60,13 +61,13 @@ class XllamaCppRerankModel(RerankModel):
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
 
         return llamacpp_model_config
-    
+ 
     def _is_darwin_and_apple_silicon(self):
         return sys.platform == "darwin" and platform.processor() == "arm"
 
     def _is_linux(self):
         return sys.platform.startswith("linux")
-    
+
     def load(self):
         try:
             from xllamacpp import (
@@ -91,7 +92,7 @@ class XllamaCppRerankModel(RerankModel):
             installation_guide = ["Please make sure 'xllamacpp' is installed. "]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        
+
         # handle legacy cache.
         if (
             self._model_spec.model_file_name_split_template
@@ -120,7 +121,7 @@ class XllamaCppRerankModel(RerankModel):
                 params.model = model_path
             except Exception:
                 params.model.path = model_path
-            
+
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
             params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_RANK
@@ -202,9 +203,9 @@ class XllamaCppRerankModel(RerankModel):
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._llm is not None
-        result=self._llm.handle_rerank({"query":query, "documents":documents})
+        result = self._llm.handle_rerank({"query": query, "documents": documents})
         if top_n is not None:
-            result["results"]=result["results"][:top_n]
+            result["results"] = result["results"][:top_n]
         reranked_docs = list(
             map(
                 lambda doc: DocumentObj(
@@ -215,7 +216,7 @@ class XllamaCppRerankModel(RerankModel):
                 result["results"],
             )
         )
-        tokens=result["usage"]["total_tokens"]
+        tokens = result["usage"]["total_tokens"]
         metadata = Meta(
             api_version=None,
             billed_units=None,
@@ -227,7 +228,7 @@ class XllamaCppRerankModel(RerankModel):
             warnings=None,
         )
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
-    
+
     @classmethod
     def check_lib(cls) -> bool:
         return importlib.util.find_spec("xllamacpp") is not None
