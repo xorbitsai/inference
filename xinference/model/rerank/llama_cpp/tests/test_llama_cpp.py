@@ -23,7 +23,7 @@ from ...core import (
 
 TEST_MODEL_SPEC=RerankModelFamilyV2(
     version=2,
-    model_name="Qwen3-Reranker-0.6B",
+    model_name="bge-reranker-v2-m3",
     language=["en"],
     model_specs=[
         LlamaCppRerankSpecV1(
