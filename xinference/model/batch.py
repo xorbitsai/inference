@@ -19,12 +19,15 @@ import types
 
 from xoscar.batch import _ExtensibleWrapper
 
+from ..constants import XINFERENCE_BATCH_SIZE, XINFERENCE_BATCH_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 
 class BatchMixin:
     allow_batch = True
-    batch_size = 128
+    batch_size = XINFERENCE_BATCH_SIZE
+    batch_timeout = XINFERENCE_BATCH_TIMEOUT
 
     def __init__(self, func: _ExtensibleWrapper):
         self._queue: asyncio.Queue = asyncio.Queue()
@@ -60,7 +63,7 @@ class BatchMixin:
                     # Wait for a new request for a short time window (e.g. 3ms)
                     # This allows batching multiple requests that arrive close in time.
                     (args, kwargs), future = await asyncio.wait_for(
-                        self._queue.get(), timeout=0.003
+                        self._queue.get(), timeout=self.batch_timeout
                     )
                     size += self._get_batch_size(*args, **kwargs)
                     delays.append(self._func.delay(*args, **kwargs))

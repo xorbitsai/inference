@@ -24,7 +24,9 @@ from typing import List, Optional, Union
 
 from packaging import version
 
+from ....constants import XINFERENCE_BATCH_SIZE, XINFERENCE_BATCH_TIMEOUT
 from ....types import Embedding
+from ...batch import BatchMixin
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -39,13 +41,22 @@ class _Error:
         self.msg = msg
 
 
-class XllamaCppEmbeddingModel(EmbeddingModel):
+class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding)  # type: ignore
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         llamacpp_model_config = self._kwargs.get("llamacpp_model_config")
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
+        if "batch_size" in kwargs:
+            self.batch_size = int(
+                self._kwargs.pop("batch_size") or XINFERENCE_BATCH_SIZE
+            )
+        if "batch_timeout" in kwargs:
+            self.batch_timeout = float(
+                self._kwargs.pop("batch_timeout") or XINFERENCE_BATCH_TIMEOUT
+            )
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
@@ -192,7 +203,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         except AssertionError:
             raise RuntimeError(f"Load model {self._model_name} failed")
 
-    def create_embedding(self, sentences: Union[str, List[str]], **kwargs) -> Embedding:
+    def _create_embedding(
+        self, sentences: Union[str, List[str]], **kwargs
+    ) -> Embedding:
         if self._llm is None:
             raise RuntimeError("Model is not loaded.")
 

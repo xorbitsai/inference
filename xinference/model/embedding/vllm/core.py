@@ -17,7 +17,9 @@ import json
 import logging
 from typing import List, Union
 
+from ....constants import XINFERENCE_BATCH_SIZE, XINFERENCE_BATCH_TIMEOUT
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...batch import BatchMixin
 from ...utils import cache_clean
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
@@ -25,10 +27,19 @@ logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
 
-class VLLMEmbeddingModel(EmbeddingModel):
+class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding)  # type: ignore
         self._context_length = None
+        if "batch_size" in kwargs:
+            self.batch_size = int(
+                self._kwargs.pop("batch_size") or XINFERENCE_BATCH_SIZE
+            )
+        if "batch_timeout" in kwargs:
+            self.batch_timeout = float(
+                self._kwargs.pop("batch_timeout") or XINFERENCE_BATCH_TIMEOUT
+            )
 
     def load(self):
         try:
@@ -69,7 +80,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
         return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
     @cache_clean
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,
