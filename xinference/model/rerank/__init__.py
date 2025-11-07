@@ -38,6 +38,7 @@ from .rerank_family import (
     SENTENCE_TRANSFORMER_CLASSES,
     SUPPORTED_ENGINES,
     VLLM_CLASSES,
+    LLAMA_CPP_CLASSES,
 )
 
 
@@ -62,6 +63,12 @@ def register_custom_model():
             except Exception as e:
                 warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
+def check_format_with_engine(model_format, engine):
+    if model_format in ["ggufv2"] and engine not in ["llama.cpp"]:
+        return False
+    if model_format not in ["ggufv2"] and engine == "llama.cpp":
+        return False
+    return True
 
 def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
     model_name = model_family.model_name
@@ -72,6 +79,8 @@ def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
         model_format = spec.model_format
         quantization = spec.quantization
         for engine in SUPPORTED_ENGINES:
+            if not check_format_with_engine(model_format, engine):
+                continue
             CLASSES = SUPPORTED_ENGINES[engine]
             for cls in CLASSES:
                 # Every engine needs to implement match method
@@ -114,12 +123,15 @@ def _install():
 
     from .sentence_transformers.core import SentenceTransformerRerankModel
     from .vllm.core import VLLMRerankModel
+    from .llama_cpp.core import XllamaCppRerankModel
 
     SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerRerankModel])
     VLLM_CLASSES.extend([VLLMRerankModel])
+    LLAMA_CPP_CLASSES.extend([XllamaCppRerankModel])
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
+    SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
 
     for model_spec in BUILTIN_RERANK_MODELS.values():
         generate_engine_config_by_model_name(model_spec)
