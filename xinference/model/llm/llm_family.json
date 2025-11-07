@@ -72,7 +72,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510020
   },
   {
     "version": 2,
@@ -130,7 +131,8 @@
     "stop": [
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
-    ]
+    ],
+    "updated_at": 1762510022
   },
   {
     "version": 2,
@@ -157,7 +159,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510023
   },
   {
     "version": 2,
@@ -363,7 +366,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510024
   },
   {
     "version": 2,
@@ -444,7 +448,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510025
   },
   {
     "version": 2,
@@ -591,7 +596,8 @@
     ],
     "stop": [
       "</s>"
-    ]
+    ],
+    "updated_at": 1762510026
   },
   {
     "version": 2,
@@ -649,7 +655,8 @@
     ],
     "stop": [
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510028
   },
   {
     "version": 2,
@@ -676,7 +683,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510029
   },
   {
     "version": 2,
@@ -727,7 +735,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510030
   },
   {
     "version": 2,
@@ -777,7 +786,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510031
   },
   {
     "version": 2,
@@ -827,7 +837,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510033
   },
   {
     "version": 2,
@@ -1009,7 +1020,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510034
   },
   {
     "version": 2,
@@ -1072,7 +1084,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "tool_parser": "llama3"
+    "tool_parser": "llama3",
+    "updated_at": 1762510035
   },
   {
     "version": 2,
@@ -1136,7 +1149,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510036
   },
   {
     "version": 2,
@@ -1418,7 +1432,8 @@
     ],
     "stop": [
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510037
   },
   {
     "version": 2,
@@ -1483,7 +1498,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510039
   },
   {
     "version": 2,
@@ -1708,7 +1724,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510040
   },
   {
     "version": 2,
@@ -1777,7 +1794,8 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
-    ]
+    ],
+    "updated_at": 1762510041
   },
   {
     "version": 2,
@@ -1950,7 +1968,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1762510043
   },
   {
     "version": 2,
@@ -2080,7 +2099,8 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
-    ]
+    ],
+    "updated_at": 1762510044
   },
   {
     "version": 2,
@@ -2115,7 +2135,8 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1762510045
   },
   {
     "version": 2,
