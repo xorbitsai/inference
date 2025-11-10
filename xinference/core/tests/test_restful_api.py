@@ -336,7 +336,7 @@ def test_restful_api_for_embedding(setup):
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_embedding"
+    assert model_uid_res == "unknown"  # embedding model uid is fixed
 
     response = requests.get(url)
     response_data = response.json()

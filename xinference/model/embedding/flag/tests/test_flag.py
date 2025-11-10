@@ -39,7 +39,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
 
 
 # todo Refer to the return format of sentence_transformer
-def test_embedding_model_with_flag():
+async def test_embedding_model_with_flag():
     model_path = None
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
@@ -53,10 +53,10 @@ def test_embedding_model_with_flag():
         input_text = "what is the capital of China?"
 
         # test sparse and dense
-        r = model.create_embedding(input_text, **{"return_sparse": True})
+        r = await model.create_embedding(input_text, **{"return_sparse": True})
         assert len(r["data"]) == 1
 
-        r = model.create_embedding(input_text)
+        r = await model.create_embedding(input_text)
         assert len(r["data"][0]["embedding"]) == 384
 
         # input is a lit
@@ -67,10 +67,10 @@ def test_embedding_model_with_flag():
             "sorting algorithms",
         ]
         # test sparse and dense
-        r = model.create_embedding(input_texts, **{"return_sparse": True})
+        r = await model.create_embedding(input_texts, **{"return_sparse": True})
         assert len(r["data"]) == 4
 
-        r = model.create_embedding(input_texts)
+        r = await model.create_embedding(input_texts)
         for d in r["data"]:
             assert len(d["embedding"]) == 384
     finally:
