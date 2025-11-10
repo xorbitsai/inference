@@ -137,6 +137,7 @@ def register_custom_model():
 def register_builtin_model():
     # Use unified loading function with flatten_quantizations for LLM
     from ..utils import flatten_quantizations, load_complete_builtin_models
+    from .llm_family import BUILTIN_LLM_FAMILIES
 
     def convert_llm_with_quantizations(model_json):
         if "model_specs" not in model_json:
@@ -212,7 +213,40 @@ def register_builtin_model():
                         f"Error parsing model {model_data.get('model_name', 'Unknown')}: {e}"
                     )
 
-    logger.info(f"Successfully loaded {loaded_count} llm models from complete JSON")
+        # Also load individual JSON files (for models added via add_model)
+        if os.path.isdir(builtin_llm_dir):
+            individual_files = [
+                f
+                for f in os.listdir(builtin_llm_dir)
+                if f.endswith(".json") and f != "llm_models.json"
+            ]
+            for f in individual_files:
+                try:
+                    with codecs.open(
+                        os.path.join(builtin_llm_dir, f), encoding="utf-8"
+                    ) as fd:
+                        model_data = json.load(fd)
+
+                    # Apply flatten_quantizations to individual files
+                    from ..utils import flatten_quantizations
+
+                    converted_data = model_data.copy()
+                    if "model_specs" in converted_data:
+                        flattened_specs = []
+                        for spec in converted_data["model_specs"]:
+                            if "model_src" in spec:
+                                flattened_specs.extend(flatten_quantizations(spec))
+                            else:
+                                flattened_specs.append(spec)
+                        converted_data["model_specs"] = flattened_specs
+
+                    builtin_llm_family = LLMFamilyV2.parse_obj(converted_data)
+
+                    if builtin_llm_family.model_name not in existing_model_names:
+                        register_llm(builtin_llm_family, persist=False)
+                        existing_model_names.add(builtin_llm_family.model_name)
+                except Exception as e:
+                    warnings.warn(f"Error parsing LLM model {f}: {e}")
 
 
 def load_model_family_from_json(json_filename, target_families):

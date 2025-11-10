@@ -738,8 +738,7 @@ class WorkerActor(xo.StatelessActor):
                 )
 
             # Step 3: Save the model to ensure it's properly registered
-            # Append to existing unified JSON file if it exists, or create new one
-            await self._append_model_to_unified_config(model_type, model_data)
+            await self._save_model_as_individual_file(model_type, model_data)
 
             # Dynamically reload built-in models to make the new model immediately available
             try:
@@ -1142,75 +1141,27 @@ class WorkerActor(xo.StatelessActor):
             )
             raise ValueError(f"Failed to store complete model configurations: {str(e)}")
 
-    async def _append_model_to_unified_config(self, model_type: str, model_data):
+    async def _save_model_as_individual_file(self, model_type: str, model_data):
         """
-        Append a single model to the unified JSON configuration file.
-        This preserves existing models while adding the new one.
+        Save a model as an individual JSON file named after the model.
 
         Args:
             model_type: Type of model (as provided by user, e.g., "llm")
             model_data: JSON data containing a single model configuration
         """
-        import json
-
-        from ..constants import XINFERENCE_MODEL_DIR
-
         try:
-            model_type_lower = model_type.lower()
-
-            # Use the unified JSON file path
-            builtin_dir = os.path.join(
-                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
-            )
-            json_file_path = os.path.join(
-                builtin_dir, f"{model_type_lower}_models.json"
-            )
-
-            # Ensure directory exists
-            os.makedirs(builtin_dir, exist_ok=True)
-
-            # Read existing unified JSON file if it exists
-            existing_models = []
-            if os.path.exists(json_file_path):
-                try:
-                    with open(json_file_path, "r", encoding="utf-8") as f:
-                        existing_models = json.load(f)
-                        if not isinstance(existing_models, list):
-                            existing_models = []
-                except (json.JSONDecodeError, IOError):
-                    logger.warning(
-                        f"Failed to read existing {model_type} models file, starting fresh"
-                    )
-                    existing_models = []
-
-            # Check if model already exists to avoid duplicates
             model_name = model_data.get("model_name")
-            for i, existing_model in enumerate(existing_models):
-                if existing_model.get("model_name") == model_name:
-                    # Replace existing model
-                    existing_models[i] = model_data
-                    logger.info(f"Updated existing model: {model_name}")
-                    break
-            else:
-                # Add new model
-                existing_models.append(model_data)
-                logger.info(f"Added new model to unified config: {model_name}")
+            if not model_name:
+                raise ValueError("Model name not found in model data")
 
-            # Save the updated unified JSON file
-            with open(json_file_path, "w", encoding="utf-8") as f:
-                json.dump(existing_models, f, indent=2, ensure_ascii=False)
-
-            # Also save as individual file for backward compatibility
             await self._add_model_as_individual_file(model_type, model_name, model_data)
 
         except Exception as e:
             logger.error(
-                f"Error appending model to unified configuration: {str(e)}",
+                f"Error saving model as individual file: {str(e)}",
                 exc_info=True,
             )
-            raise ValueError(
-                f"Failed to append model to unified configuration: {str(e)}"
-            )
+            raise ValueError(f"Failed to save model as individual file: {str(e)}")
 
     @log_async(logger=logger)
     async def list_model_registrations(

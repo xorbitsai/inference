@@ -755,6 +755,7 @@ def load_complete_builtin_models(
     complete_json_path = os.path.join(builtin_dir, f"{model_type}_models.json")
 
     loaded_count = 0
+    loaded_from_unified = set()  # Track models loaded from unified file
 
     # First, try to load from the traditional unified JSON file
     if os.path.exists(complete_json_path):
@@ -798,6 +799,9 @@ def load_complete_builtin_models(
                         # embedding, rerank use single model structure: dict[model_name] = model
                         builtin_registry[model_name] = model
 
+                    loaded_from_unified.add(
+                        model_name
+                    )  # Track that this model was loaded from unified file
                     loaded_count += 1
                     logger.info(
                         f"Loaded {model_type} builtin model from unified file: {model_name}"
@@ -832,9 +836,9 @@ def load_complete_builtin_models(
                 if not isinstance(model_data, dict) or "model_name" not in model_data:
                     continue
 
-                # Skip if we already loaded this model from unified file
+                # Skip if we already loaded this model from unified file in THIS SESSION
                 model_name = model_data["model_name"]
-                if model_name in builtin_registry:
+                if model_name in loaded_from_unified:
                     continue
 
                 # Apply format conversion function (if provided)
@@ -932,7 +936,18 @@ def register_model_by_type(model_type, model_data):
             from .llm import register_llm
             from .llm.llm_family import LLMFamilyV2
 
-            model_spec = LLMFamilyV2.parse_obj(model_data)
+            # Apply flatten_quantizations to LLM data to fill missing fields
+            converted_data = model_data.copy()
+            if "model_specs" in converted_data:
+                flattened_specs = []
+                for spec in converted_data["model_specs"]:
+                    if "model_src" in spec:
+                        flattened_specs.extend(flatten_quantizations(spec))
+                    else:
+                        flattened_specs.append(spec)
+                converted_data["model_specs"] = flattened_specs
+
+            model_spec = LLMFamilyV2.parse_obj(converted_data)
             register_llm(model_spec, persist=False)
             return True
 
@@ -940,7 +955,18 @@ def register_model_by_type(model_type, model_data):
             from .embedding import register_embedding
             from .embedding.core import EmbeddingModelFamilyV2
 
-            model_spec = EmbeddingModelFamilyV2.parse_obj(model_data)
+            # Apply flatten_quantizations to embedding data to fill missing fields
+            converted_data = model_data.copy()
+            if "model_specs" in converted_data:
+                flattened_specs = []
+                for spec in converted_data["model_specs"]:
+                    if "model_src" in spec:
+                        flattened_specs.extend(flatten_quantizations(spec))
+                    else:
+                        flattened_specs.append(spec)
+                converted_data["model_specs"] = flattened_specs
+
+            model_spec = EmbeddingModelFamilyV2.parse_obj(converted_data)
             register_embedding(model_spec, persist=False)
             return True
 
@@ -972,7 +998,18 @@ def register_model_by_type(model_type, model_data):
             from .rerank import register_rerank
             from .rerank.custom import CustomRerankModelFamilyV2
 
-            model_spec = CustomRerankModelFamilyV2.parse_obj(model_data)
+            # Apply flatten_quantizations to rerank data to fill missing fields
+            converted_data = model_data.copy()
+            if "model_specs" in converted_data:
+                flattened_specs = []
+                for spec in converted_data["model_specs"]:
+                    if "model_src" in spec:
+                        flattened_specs.extend(flatten_quantizations(spec))
+                    else:
+                        flattened_specs.append(spec)
+                converted_data["model_specs"] = flattened_specs
+
+            model_spec = CustomRerankModelFamilyV2.parse_obj(converted_data)
             register_rerank(model_spec, persist=False)
             return True
 

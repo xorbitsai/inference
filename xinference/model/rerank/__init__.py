@@ -71,6 +71,7 @@ def register_custom_model():
 def register_builtin_model():
     # Use unified loading function with flatten_quantizations for rerank models
     from ..utils import flatten_quantizations, load_complete_builtin_models
+    from .rerank_family import BUILTIN_RERANK_MODELS
 
     def convert_rerank_with_quantizations(model_json):
         if "model_specs" not in model_json:
@@ -90,7 +91,7 @@ def register_builtin_model():
 
     loaded_count = load_complete_builtin_models(
         model_type="rerank",
-        builtin_registry={},  # Temporarily use empty dict, we handle it manually
+        builtin_registry=BUILTIN_RERANK_MODELS,  # Use actual registry
         convert_format_func=convert_rerank_with_quantizations,
         model_class=RerankModelFamilyV2,
     )

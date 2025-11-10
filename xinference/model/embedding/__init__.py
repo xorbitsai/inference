@@ -71,8 +71,12 @@ def register_custom_model():
 
 def register_builtin_model():
     # Use unified loading function with flatten_quantizations for embedding models
+    from ..custom import RegistryManager
     from ..utils import flatten_quantizations, load_complete_builtin_models
     from .embed_family import BUILTIN_EMBEDDING_MODELS
+
+    registry = RegistryManager.get_registry("embedding")
+    existing_model_names = {spec.model_name for spec in registry.get_custom_models()}
 
     def convert_embedding_with_quantizations(model_json):
         if "model_specs" not in model_json:
@@ -92,7 +96,7 @@ def register_builtin_model():
 
     loaded_count = load_complete_builtin_models(
         model_type="embedding",
-        builtin_registry={},  # Temporarily use empty dict, we handle it manually
+        builtin_registry=BUILTIN_EMBEDDING_MODELS,  # Use actual registry
         convert_format_func=convert_embedding_with_quantizations,
         model_class=EmbeddingModelFamilyV2,
     )

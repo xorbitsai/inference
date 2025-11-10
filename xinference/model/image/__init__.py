@@ -152,7 +152,13 @@ def register_builtin_model():
                 with codecs.open(
                     os.path.join(builtin_image_dir, f), encoding="utf-8"
                 ) as fd:
-                    builtin_image_family = ImageModelFamilyV2.parse_obj(json.load(fd))
+                    model_data = json.load(fd)
+                    # Apply flatten_model_src to individual files
+                    from ..utils import flatten_model_src
+
+                    flattened_list = flatten_model_src(model_data)
+                    converted_data = flattened_list[0] if flattened_list else model_data
+                    builtin_image_family = ImageModelFamilyV2.parse_obj(converted_data)
 
                     # Only register if model doesn't already exist
                     if builtin_image_family.model_name not in existing_model_names:
