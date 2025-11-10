@@ -470,19 +470,6 @@ class SupervisorActor(xo.StatelessActor):
         use_spec_dicts: bool = False,
         cache_status: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """
-        Generic helper function to convert model family to registration format.
-
-        Args:
-            model_family: The model family object (LLM, embedding, image, etc.)
-            is_builtin: Whether the model is builtin
-            cache_manager_class: CacheManager class to use (required if use_spec_dicts=False)
-            use_spec_dicts: Whether to use _get_spec_dicts() to get model_specs and download_hubs
-            cache_status: Explicit cache_status value (used if use_spec_dicts=False)
-
-        Returns:
-            Dictionary with model registration information
-        """
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
@@ -1159,23 +1146,29 @@ class SupervisorActor(xo.StatelessActor):
                     f"Worker ip address {worker_ip} is not in the cluster."
                 )
 
+            # Select worker to handle registration
             if target_ip_worker_ref:
-                await target_ip_worker_ref.register_model(model_type, model, persist)
-                return
+                # Specific worker requested
+                chosen_worker = target_ip_worker_ref
+            else:
+                # Choose first available worker
+                if self._worker_address_to_worker:
+                    chosen_worker = list(self._worker_address_to_worker.values())[0]
+                else:
+                    raise RuntimeError("No workers available for model registration")
 
             try:
-                register_fn(model_spec, persist)
+                # Forward registration to chosen worker - worker handles everything
+                await chosen_worker.register_model(model_type, model, persist)
+
+                # Record model version for cache tracking
                 await self._cache_tracker_ref.record_model_version(
                     generate_fn(model_spec), self.address
                 )
-                await self._sync_register_model(
-                    model_type, model, persist, model_spec.model_name
-                )
 
-            except ValueError as e:
-                raise e
             except Exception as e:
-                unregister_fn(model_spec.model_name, raise_error=False)
+                # Registration failed, cleanup if needed
+                logger.error(f"Model registration failed on worker: {e}")
                 raise e
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -1228,30 +1221,6 @@ class SupervisorActor(xo.StatelessActor):
                 exc_info=True,
             )
             raise ValueError(f"Failed to add model: {str(e)}")
-
-    async def _sync_register_model(
-        self, model_type: str, model: str, persist: bool, model_name: str
-    ):
-        logger.info(f"begin sync model: {model_name} to worker")
-        try:
-            # Sync model to all workers.
-            for name, worker in self._worker_address_to_worker.items():
-                logger.info(f"sync model: {model_name} to {name}")
-                if name == self.address:
-                    # Ignore: when worker and supervisor at the same node.
-                    logger.info(
-                        f"ignore sync model: {model_name} to {name} for same node"
-                    )
-                else:
-                    await worker.register_model(model_type, model, persist)
-                    logger.info(f"success sync model: {model_name} to {name}")
-        except Exception as e:
-            # If sync fails, unregister the model in all workers.
-            for name, worker in self._worker_address_to_worker.items():
-                logger.warning(f"ready to unregister model for {name}")
-                await worker.unregister_model(model_type, model_name)
-                logger.warning(f"finish unregister model: {model} for {name}")
-            raise e
 
     async def update_model_type(self, model_type: str):
         """
