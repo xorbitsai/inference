@@ -1196,15 +1196,29 @@ class SupervisorActor(xo.StatelessActor):
             # Wait for all workers to complete the operation
             if tasks:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
+                successful_workers = 0
+                failed_workers = 0
+
                 for i, result in enumerate(results):
                     if isinstance(result, Exception):
+                        failed_workers += 1
+                        error_msg = str(result)
+                        worker_addr = list(self._worker_address_to_worker.keys())[i]
+
                         self._log_debug(
-                            f"[ADD_MODEL_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} failed: {result}"
+                            f"[ADD_MODEL_DEBUG] Worker {worker_addr} failed: {error_msg}"
                         )
                     else:
+                        successful_workers += 1
+                        worker_addr = list(self._worker_address_to_worker.keys())[i]
                         self._log_debug(
-                            f"[ADD_MODEL_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} succeeded"
+                            f"[ADD_MODEL_DEBUG] Worker {worker_addr} succeeded"
                         )
+
+                # Determine overall result
+                if successful_workers == 0:
+                    # All workers failed
+                    raise RuntimeError(f"All workers failed to add model {model_name}")
             else:
                 logger.warning(f"No workers available to forward add_model request")
 

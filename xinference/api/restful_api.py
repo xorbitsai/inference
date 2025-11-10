@@ -3172,13 +3172,10 @@ class RESTfulAPI(CancelMixin):
                 if info_response.status_code == 200:
                     model_info = info_response.json()
                     model_type = model_info.get("data", {}).get("model_type")
-                    model_data = model_info.get("data", {}).get("model_data", {})
                 else:
                     model_type = "unknown"
-                    model_data = {}
             except Exception:
                 model_type = "unknown"
-                model_data = {}
 
         except ValueError as re:
             logger.error(f"ValueError in add_model API: {re}", exc_info=True)
@@ -3193,14 +3190,9 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
         response_data = {
-            "success": True,
-            "message": f"Model added successfully: {model_name}",
             "data": {
                 "model_name": model_name,
                 "model_type": model_type,
-                "model_version": model_data.get("version"),
-                "model_ability": model_data.get("model_ability", []),
-                "model_family": model_data.get("model_family"),
             },
         }
 

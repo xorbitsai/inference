@@ -674,6 +674,82 @@ class WorkerActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    def _check_model_file_exists(self, model_type: str, model_name: str) -> bool:
+        """
+        Check if a model file already exists in the filesystem.
+
+        Args:
+            model_type: Type of the model (llm, embedding, audio, etc.)
+            model_name: Name of the model
+
+        Returns:
+            True if model file exists, False otherwise
+        """
+        import json
+        import os
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+
+            # Check individual model file
+            individual_file = os.path.join(builtin_dir, f"{model_name}.json")
+            if os.path.exists(individual_file):
+                return True
+
+            # Check unified model file
+            unified_file = os.path.join(builtin_dir, f"{model_type_lower}_models.json")
+            if os.path.exists(unified_file):
+                try:
+                    with open(unified_file, "r", encoding="utf-8") as f:
+                        models = json.load(f)
+                        if isinstance(models, list):
+                            return any(
+                                m.get("model_name") == model_name for m in models
+                            )
+                        elif isinstance(models, dict):
+                            return model_name in models
+                except (json.JSONDecodeError, IOError):
+                    pass
+
+            return False
+        except Exception:
+            return False
+
+    async def _check_model_already_registered(
+        self, model_type: str, model_name: str
+    ) -> bool:
+        """
+        Check if a model is already registered in the system.
+
+        Args:
+            model_type: Type of the model (llm, embedding, audio, etc.)
+            model_name: Name of the model
+
+        Returns:
+            True if model is already registered, False otherwise
+        """
+        try:
+            # Check if model is already registered using existing method
+            existing_model = await self.get_model_registration(model_type, model_name)
+            return existing_model is not None
+        except ValueError as e:
+            # "not found" error means model is not registered
+            if "not found" in str(e):
+                return False
+            # Other ValueError means there's a real issue
+            raise
+        except Exception:
+            # For any other exception, assume model might exist and be cautious
+            logger.warning(
+                f"Error checking if model {model_name} is registered, assuming it exists"
+            )
+            return True
+
     @log_async(logger=logger)
     async def add_model(self, model_name: str):
         """
@@ -711,6 +787,24 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(f"Model type not found for model: {model_name}")
 
             logger.info(f"Retrieved model type: {model_type} for model: {model_name}")
+
+            # Step 1.5: Log model existence but don't block the download
+            logger.info(f"Checking if model {model_name} already exists")
+            file_exists = self._check_model_file_exists(model_type, model_name)
+            registered = await self._check_model_already_registered(
+                model_type, model_name
+            )
+
+            if file_exists or registered:
+                logger.info(
+                    f"Model {model_name} (type: {model_type}) already exists, proceeding with download anyway"
+                )
+                if file_exists:
+                    logger.info(
+                        "  - Model file exists in filesystem, will be overwritten"
+                    )
+                if registered:
+                    logger.info("  - Model is registered in the system")
 
             # Step 2: Download model JSON configuration using the original download API
             logger.info(f"Downloading model configuration for: {model_name}")
@@ -821,6 +915,21 @@ class WorkerActor(xo.StatelessActor):
 
             # Save as individual JSON file named after the model
             json_file_path = os.path.join(builtin_dir, f"{model_name}.json")
+
+            # Check if file already exists (extra safety check)
+            if os.path.exists(json_file_path):
+                logger.warning(
+                    f"Model file {json_file_path} already exists, overwriting..."
+                )
+                # Create backup of existing file
+                backup_path = f"{json_file_path}.backup"
+                try:
+                    import shutil
+
+                    shutil.copy2(json_file_path, backup_path)
+                    logger.info(f"Created backup of existing model file: {backup_path}")
+                except Exception as backup_error:
+                    logger.warning(f"Failed to create backup: {backup_error}")
 
             # Save the model configuration
             with open(json_file_path, "w", encoding="utf-8") as f:
