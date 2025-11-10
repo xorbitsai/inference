@@ -60,14 +60,14 @@ class IndexTTS2:
 
         def get_small_model_path(model_name):
             """Helper function to get small model path from small_models_dir"""
-            if small_models_dir is not None:
+            if small_models_dir is not None and os.path.exists(small_models_dir):
                 import glob
 
-                # Model name mappings
-                model_mappings = {
-                    "w2v-bert-2.0": "models--facebook--w2v-bert-2.0",
-                    "campplus": "models--funasr--campplus",
-                    "bigvgan": "models--nvidia--bigvgan_v2_22khz_80band_256x",
+                # Direct structure model names
+                direct_model_names = {
+                    "w2v-bert-2.0": "w2v-bert-2.0",
+                    "campplus": "campplus",
+                    "bigvgan": "bigvgan",
                     "semantic_codec": None,  # Special handling below
                 }
 
@@ -77,19 +77,7 @@ class IndexTTS2:
                     for item in os.listdir(small_models_dir):
                         item_path = os.path.join(small_models_dir, item)
                         if os.path.isdir(item_path) and "MaskGCT" in item:
-                            # Check snapshots directory
-                            snapshots_path = os.path.join(item_path, "snapshots")
-                            if os.path.exists(snapshots_path):
-                                for snapshot in os.listdir(snapshots_path):
-                                    snapshot_dir = os.path.join(
-                                        snapshots_path, snapshot
-                                    )
-                                    semantic_path = os.path.join(
-                                        snapshot_dir, "semantic_codec"
-                                    )
-                                    if os.path.exists(semantic_path):
-                                        return semantic_path
-                            # Also try direct semantic_codec in model dir
+                            # New structure: direct semantic_codec path
                             semantic_path = os.path.join(item_path, "semantic_codec")
                             if os.path.exists(semantic_path):
                                 return semantic_path
@@ -98,8 +86,22 @@ class IndexTTS2:
                     if os.path.exists(direct_path):
                         return direct_path
                 else:
-                    # Try mapped name first
-                    mapped_name = model_mappings.get(model_name)
+                    # Try new direct structure first
+                    direct_name = direct_model_names.get(model_name)
+                    if direct_name:
+                        direct_path = os.path.join(small_models_dir, direct_name)
+                        if os.path.exists(direct_path):
+                            return direct_path
+
+                    # Fallback to old HuggingFace structure for compatibility
+                    old_model_mappings = {
+                        "w2v-bert-2.0": "models--facebook--w2v-bert-2.0",
+                        "campplus": "models--funasr--campplus",
+                        "bigvgan": "models--nvidia--bigvgan_v2_22khz_80band_256x",
+                    }
+
+                    # Try old structure
+                    mapped_name = old_model_mappings.get(model_name)
                     if mapped_name:
                         mapped_base_path = os.path.join(small_models_dir, mapped_name)
 
@@ -116,10 +118,8 @@ class IndexTTS2:
                         if os.path.exists(mapped_base_path):
                             return mapped_base_path
 
-                    # Try direct structure and other possibilities
+                    # Try other possibilities for compatibility
                     possible_patterns = [
-                        # Direct structure: small_models/w2v-bert-2.0/
-                        os.path.join(small_models_dir, model_name),
                         # Generic HuggingFace structure
                         os.path.join(small_models_dir, f"models--*--{model_name}"),
                     ]
@@ -140,18 +140,6 @@ class IndexTTS2:
                                 # Fallback to direct match
                                 if os.path.exists(match):
                                     return match
-                        else:
-                            if os.path.exists(pattern):
-                                # Check for snapshots structure
-                                snapshots_path = os.path.join(pattern, "snapshots")
-                                if os.path.exists(snapshots_path):
-                                    for snapshot in os.listdir(snapshots_path):
-                                        snapshot_dir = os.path.join(
-                                            snapshots_path, snapshot
-                                        )
-                                        if os.path.isdir(snapshot_dir):
-                                            return snapshot_dir
-                                return pattern
 
             return None
 
