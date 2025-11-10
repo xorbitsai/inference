@@ -391,7 +391,7 @@ msgstr "截至 2025 年 11 月 6 日，uv 会选择最新版本：``huggingface-
 msgid ""
 "However, ``transformers`` (an **indirect dependency** via ``peft``) "
 "requires ``huggingface-hub<1.0``"
-msgstr "然而，``transformers``（通过 ``peft`` 引入的**间接依赖**）要求 ``huggingface-hub<1.0``"
+msgstr "然而，``transformers`` （通过 ``peft`` 引入的 **间接依赖** ）要求 ``huggingface-hub<1.0``"
 
 #: ../../source/getting_started/troubleshooting.rst:211
 msgid ""
