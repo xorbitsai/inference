@@ -46,6 +46,7 @@ def get_rerank_model_descriptions():
 #     model_uri: Optional[str] = None
 #     quantization: str = "none"
 
+
 class TransformersRerankSpecV1(BaseModel):
     model_format: Literal["pytorch"]
     model_hub: str = "huggingface"

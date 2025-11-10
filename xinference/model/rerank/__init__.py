@@ -34,11 +34,11 @@ from .custom import (
 )
 from .rerank_family import (
     BUILTIN_RERANK_MODELS,
+    LLAMA_CPP_CLASSES,
     RERANK_ENGINES,
     SENTENCE_TRANSFORMER_CLASSES,
     SUPPORTED_ENGINES,
     VLLM_CLASSES,
-    LLAMA_CPP_CLASSES,
 )
 
 
@@ -63,12 +63,14 @@ def register_custom_model():
             except Exception as e:
                 warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
+
 def check_format_with_engine(model_format, engine):
     if model_format in ["ggufv2"] and engine not in ["llama.cpp"]:
         return False
     if model_format not in ["ggufv2"] and engine == "llama.cpp":
         return False
     return True
+
 
 def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
     model_name = model_family.model_name
@@ -121,9 +123,9 @@ def _install():
         if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
             RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
+    from .llama_cpp.core import XllamaCppRerankModel
     from .sentence_transformers.core import SentenceTransformerRerankModel
     from .vllm.core import VLLMRerankModel
-    from .llama_cpp.core import XllamaCppRerankModel
 
     SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerRerankModel])
     VLLM_CLASSES.extend([VLLMRerankModel])

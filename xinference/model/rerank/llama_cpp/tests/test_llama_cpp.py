@@ -16,8 +16,8 @@ import shutil
 
 from ...cache_manager import RerankCacheManager as CacheManager
 from ...core import (
-    RerankModelFamilyV2,
     LlamaCppRerankSpecV1,
+    RerankModelFamilyV2,
     create_rerank_model_instance,
 )
 
@@ -33,7 +33,7 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
             quantization="Q4_K_M",
             model_hub="modelscope",
         )
-    ]
+    ],
 )
 
 

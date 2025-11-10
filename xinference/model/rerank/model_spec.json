@@ -129,9 +129,9 @@
         "model_src": {
             "huggingface": {
                 "model_id": "gpustack/bge-reranker-v2-m3-GGUF",
-                "quantizations": [ 
+                "quantizations": [
                     "Q3_K",
-                    "Q3_K_M", 
+                    "Q3_K_M",
                     "Q4_0",
                     "Q4_K_M",
                     "Q5_0",
@@ -145,7 +145,7 @@
                 "model_id": "gpustack/bge-reranker-v2-m3-GGUF",
                 "quantizations": [
                     "Q3_K",
-                    "Q3_K_M", 
+                    "Q3_K_M",
                     "Q4_0",
                     "Q4_K_M",
                     "Q5_0",
@@ -321,10 +321,10 @@
             "huggingface": {
                 "model_id": "QuantFactory/Qwen3-Reranker-0.6B-GGUF",
                 "quantizations": [
-                    "Q2_K",  
+                    "Q2_K",
                     "Q3_K_S",
-                    "Q3_K_M", 
-                    "Q3_K_L", 
+                    "Q3_K_M",
+                    "Q3_K_L",
                     "Q4_0",
                     "Q4_1",
                     "Q4_K_S",
@@ -341,10 +341,10 @@
             "modelscope": {
                 "model_id": "QuantFactory/Qwen3-Reranker-0.6B-GGUF",
                 "quantizations": [
-                    "Q2_K",  
+                    "Q2_K",
                     "Q3_K_S",
-                    "Q3_K_M", 
-                    "Q3_K_L", 
+                    "Q3_K_M",
+                    "Q3_K_L",
                     "Q4_0",
                     "Q4_1",
                     "Q4_K_S",
@@ -397,10 +397,10 @@
             "huggingface": {
                 "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
                 "quantizations": [
-                    "Q2_K",  
+                    "Q2_K",
                     "Q3_K_S",
-                    "Q3_K_M", 
-                    "Q3_K_L", 
+                    "Q3_K_M",
+                    "Q3_K_L",
                     "Q4_0",
                     "Q4_1",
                     "Q4_K_S",
@@ -417,10 +417,10 @@
             "modelscope": {
                 "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
                 "quantizations": [
-                    "Q2_K",  
+                    "Q2_K",
                     "Q3_K_S",
-                    "Q3_K_M", 
-                    "Q3_K_L", 
+                    "Q3_K_M",
+                    "Q3_K_L",
                     "Q4_0",
                     "Q4_1",
                     "Q4_K_S",
@@ -473,10 +473,10 @@
             "huggingface": {
                 "model_id": "QuantFactory/Qwen3-Reranker-8B-GGUF",
                 "quantizations": [
-                    "Q2_K",  
+                    "Q2_K",
                     "Q3_K_S",
-                    "Q3_K_M", 
-                    "Q3_K_L", 
+                    "Q3_K_M",
+                    "Q3_K_L",
                     "Q4_0",
                     "Q4_1",
                     "Q4_K_S",
@@ -493,10 +493,10 @@
             "modelscope": {
                 "model_id": "QuantFactory/Qwen3-Reranker-8B-GGUF",
                 "quantizations": [
-                    "Q2_K",  
+                    "Q2_K",
                     "Q3_K_S",
-                    "Q3_K_M", 
-                    "Q3_K_L", 
+                    "Q3_K_M",
+                    "Q3_K_L",
                     "Q4_0",
                     "Q4_1",
                     "Q4_K_S",

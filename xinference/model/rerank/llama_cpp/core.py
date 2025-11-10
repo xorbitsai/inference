@@ -126,7 +126,7 @@ class XllamaCppRerankModel(RerankModel):
             params.n_parallel = min(8, os.cpu_count() or 1)
             params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_RANK
             for k, v in self._llamacpp_model_config.items():
-                if k == 'rerank':
+                if k == "rerank":
                     continue
                 try:
                     if "." in k:
