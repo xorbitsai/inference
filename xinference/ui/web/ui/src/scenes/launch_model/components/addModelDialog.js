@@ -10,34 +10,13 @@ import React, { useContext, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../../components/apiContext'
+import fetchWrapper from '../../../components/fetchWrapper'
 
 const AddModelDialog = ({ open, onClose, onUpdateList }) => {
   const { t } = useTranslation()
   const [modelName, setModelName] = useState('')
   const [loading, setLoading] = useState(false)
-  const { endPoint, setErrorMsg } = useContext(ApiContext)
-
-  const addToLocal = async () => {
-    try {
-      const res = await fetch(endPoint + '/v1/models/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_name: modelName }),
-      })
-      const rawText = await res.text().catch(() => '')
-      if (!res.ok) {
-        setErrorMsg(rawText || `HTTP ${res.status}`)
-        return
-      }
-      onClose(`/launch_model/${'llm'}`)
-      onUpdateList('llm')
-    } catch (error) {
-      console.error('Error:', error)
-      if (error?.response?.status !== 403) {
-        setErrorMsg(error.message)
-      }
-    }
-  }
+  const { setErrorMsg } = useContext(ApiContext)
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
@@ -48,11 +27,22 @@ const AddModelDialog = ({ open, onClose, onUpdateList }) => {
     }
     setLoading(true)
     setErrorMsg('')
-    try {
-      await addToLocal()
-    } finally {
-      setLoading(false)
-    }
+
+    fetchWrapper
+      .post('/v1/models/add', { model_name: modelName })
+      .then((data) => {
+        onClose(`/launch_model/${data.data.model_type}`)
+        onUpdateList(data.data.model_type)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        if (error.response.status !== 403 && error.response.status !== 401) {
+          setErrorMsg(error.message)
+        }
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }
 
   return (
