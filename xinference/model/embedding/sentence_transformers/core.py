@@ -454,13 +454,13 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         # Check model dimensions compatibility
         model_dimensions = model_family.dimensions
-        if model_dimensions > 1536:  # Very large embedding models
-            return f"Large embedding model detected ({model_dimensions} dimensions), may have performance issues"
+        if model_dimensions > 8192:  # Extremely large embedding models
+            return f"Extremely large embedding model detected ({model_dimensions} dimensions), may have performance issues"
 
         # Check token limits
         max_tokens = model_family.max_tokens
-        if max_tokens > 8192:  # Very high token limits
-            return f"High token limit model detected (max_tokens: {max_tokens}), may cause memory issues"
+        if max_tokens > 131072:  # Extremely high token limits (128K)
+            return f"Extremely high token limit model detected (max_tokens: {max_tokens}), may cause memory issues"
 
         # Check for special model requirements
         model_name = model_family.model_name.lower()
