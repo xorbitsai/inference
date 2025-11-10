@@ -336,7 +336,7 @@ msgid ""
 "**indirect dependencies**."
 msgstr ""
 "**注意：** 这是一个临时性问题，原因在于当前的软件包生态系统以及 uv 的依赖解析策略——"
-"它会优先选择**直接依赖的高版本**，而不是**间接依赖的版本**。"
+"它会优先选择 **直接依赖的高版本**，而不是 **间接依赖的版本**。"
 
 #: ../../source/getting_started/troubleshooting.rst:193
 msgid "Symptom"
@@ -353,11 +353,11 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:197
 msgid "``transformers==4.12.2`` (from 2021)"
-msgstr "``transformers==4.12.2``（来自 2021 年的版本）"
+msgstr "``transformers==4.12.2`` （来自 2021 年的版本）"
 
 #: ../../source/getting_started/troubleshooting.rst:198
 msgid "``tokenizers==0.10.3`` (from 2021)"
-msgstr "``tokenizers==0.10.3``（来自 2021 年的版本）"
+msgstr "``tokenizers==0.10.3`` （来自 2021 年的版本）"
 
 #: ../../source/getting_started/troubleshooting.rst:199
 msgid "``huggingface-hub==1.0.1``"
@@ -375,13 +375,13 @@ msgstr "根本原因"
 msgid ""
 "This occurs because uv prioritizes **higher versions for direct "
 "dependencies** over **indirect dependencies**:"
-msgstr "出现该问题的原因是 uv 会优先选择**直接依赖的高版本**，而忽略**间接依赖**中的版本要求："
+msgstr "出现该问题的原因是 uv 会优先选择 **直接依赖的高版本**，而忽略 **间接依赖** 中的版本要求："
 
 #: ../../source/getting_started/troubleshooting.rst:208
 msgid ""
 "xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct "
 "dependency** (no upper bound)"
-msgstr "xinference 1.12.0 将 ``huggingface-hub>=0.19.4`` 指定为**直接依赖**（没有上限约束）"
+msgstr "xinference 1.12.0 将 ``huggingface-hub>=0.19.4`` 指定为 **直接依赖** （没有上限约束）"
 
 #: ../../source/getting_started/troubleshooting.rst:209
 msgid "uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025"
