@@ -305,7 +305,7 @@ class EmbeddingModel(abc.ABC):
 
             embedding_list = self._create_embedding(sentences, **kwargs)
             usage = {"total_tokens": len(sentences)}
-            model_uid = kwargs.get("model", "unknown")
+            model_uid = kwargs.get("model_uid", "unknown")
 
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
