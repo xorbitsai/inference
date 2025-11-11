@@ -58,6 +58,8 @@ class IndexTTS2:
             small_models_dir (str): path to directory containing small models for offline deployment.
         """
 
+        print(f">> IndexTTS2.__init__ called with small_models_dir: {small_models_dir}")
+
         def get_small_model_path(model_name):
             """Helper function to get small model path from small_models_dir"""
             if small_models_dir is not None and os.path.exists(small_models_dir):
@@ -220,6 +222,7 @@ class IndexTTS2:
                 self.use_cuda_kernel = False
 
         w2v_bert_path = get_small_model_path("w2v-bert-2.0")
+        print(f">> w2v_bert_path lookup result: {w2v_bert_path}")
         if w2v_bert_path is not None:
             self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(
                 w2v_bert_path
@@ -231,7 +234,9 @@ class IndexTTS2:
             )
             print(">> w2v-bert model loaded from huggingface: facebook/w2v-bert-2.0")
         self.semantic_model, self.semantic_mean, self.semantic_std = (
-            build_semantic_model(os.path.join(self.model_dir, self.cfg.w2v_stat))
+            build_semantic_model(
+                os.path.join(self.model_dir, self.cfg.w2v_stat), w2v_bert_path
+            )
         )
         self.semantic_model = self.semantic_model.to(self.device)
         self.semantic_model.eval()
@@ -240,6 +245,7 @@ class IndexTTS2:
 
         semantic_codec = build_semantic_codec(self.cfg.semantic_codec)
         semantic_codec_path = get_small_model_path("semantic_codec")
+        print(f">> semantic_codec_path lookup result: {semantic_codec_path}")
         if semantic_codec_path is not None:
             semantic_code_ckpt = os.path.join(semantic_codec_path, "model.safetensors")
             if not os.path.exists(semantic_code_ckpt):
@@ -280,6 +286,7 @@ class IndexTTS2:
 
         # load campplus_model
         campplus_path = get_small_model_path("campplus")
+        print(f">> campplus_path lookup result: {campplus_path}")
         if campplus_path is not None:
             campplus_ckpt_path = os.path.join(campplus_path, "campplus_cn_common.bin")
             if not os.path.exists(campplus_ckpt_path):
@@ -303,6 +310,7 @@ class IndexTTS2:
         print(">> campplus_model weights restored from:", campplus_ckpt_path)
 
         bigvgan_path = get_small_model_path("bigvgan")
+        print(f">> bigvgan_path lookup result: {bigvgan_path}")
         if bigvgan_path is not None:
             bigvgan_name = bigvgan_path
             print(f">> bigvgan model loaded from local path: {bigvgan_path}")
