@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-28 13:54+0800\n"
+"POT-Creation-Date: 2025-11-10 12:40+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -216,7 +216,8 @@ msgid ""
 "inspected. Please check the logs for more details.``"
 msgstr ""
 "在启动 Xinference 服务器时，如果遇到错误：``ValueError: Model "
-"architectures ['Qwen2ForCausalLM'] failed to be inspected. . Please check the logs for more details.``"
+"architectures ['Qwen2ForCausalLM'] failed to be inspected. . Please check"
+" the logs for more details.``"
 
 #: ../../source/getting_started/troubleshooting.rst:116
 msgid "The underlying cause shown in the logs is:"
@@ -260,9 +261,9 @@ msgid ""
 "official vLLM installation guide for GPU-specific instructions: "
 "https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
 msgstr ""
-"如果你在使用 vLLM，请避免通过 conda 安装 PyTorch。有关特定 GPU 的安装说明，"
-"请参阅 vLLM 官方安装指南："
-"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+"如果你在使用 vLLM，请避免通过 conda 安装 PyTorch。有关特定 GPU 的安装说明"
+"，请参阅 vLLM 官方安装指南：https://docs.vllm.ai/en/latest/getting_"
+"started/installation/gpu.html"
 
 #: ../../source/getting_started/troubleshooting.rst:151
 msgid "Configuring PyPI Mirrors to Speed Up Package Installation"
@@ -273,8 +274,8 @@ msgid ""
 "If you're in Mainland China, using a PyPI mirror can significantly speed "
 "up package installation. Here are some commonly used mirrors:"
 msgstr ""
-"如果你在中国大陆，使用 PyPI 镜像可以显著加快软件包的安装速度。"
-"以下是一些常用的镜像源："
+"如果你在中国大陆，使用 PyPI 镜像可以显著加快软件包的安装速度。以下是一些"
+"常用的镜像源："
 
 #: ../../source/getting_started/troubleshooting.rst:155
 msgid "Tsinghua University: ``https://pypi.tuna.tsinghua.edu.cn/simple``"
@@ -294,8 +295,8 @@ msgid ""
 "mirrors. For example, if you're installing ``xinference[audio]`` using "
 "only the Aliyun mirror, the installation may fail."
 msgstr ""
-"但请注意，某些镜像源上可能缺少部分软件包。"
-"例如，如果你仅使用阿里云镜像安装 ``xinference[audio]``，安装可能会失败。"
+"但请注意，某些镜像源上可能缺少部分软件包。例如，如果你仅使用阿里云镜像"
+"安装 ``xinference[audio]``，安装可能会失败。"
 
 #: ../../source/getting_started/troubleshooting.rst:161
 msgid ""
@@ -305,8 +306,9 @@ msgid ""
 "``xinference==1.2.0`` and ``xoscar==0.8.0`` (as of Oct 27, 2025)."
 msgstr ""
 "这是因为 ``MeloTTS`` 所依赖的 ``num2words`` 软件包在阿里云镜像上不可用。"
-"因此，在执行 ``pip install xinference[audio]`` 时，"
-"可能会回退安装旧版本，如 ``xinference==1.2.0`` 和 ``xoscar==0.8.0`` （截至 2025 年 10 月 27 日）。"
+"因此，在执行 ``pip install xinference[audio]`` 时，可能会回退安装旧版本，"
+"如 ``xinference==1.2.0`` 和 ``xoscar==0.8.0`` （截至 2025 年 10 月 27 日"
+"）。"
 
 #: ../../source/getting_started/troubleshooting.rst:163
 msgid ""
@@ -314,15 +316,148 @@ msgid ""
 "``MainActorPool.append_sub_pool() got an unexpected keyword argument "
 "'start_method'``"
 msgstr ""
-"这些旧版本不兼容，会导致以下错误："
-"``MainActorPool.append_sub_pool() got an unexpected keyword argument 'start_method'``"
+"这些旧版本不兼容，会导致以下错误：``MainActorPool.append_sub_pool() got "
+"an unexpected keyword argument 'start_method'``"
 
 #: ../../source/getting_started/troubleshooting.rst:174
 msgid ""
 "To avoid this issue when installing the xinference audio package, use "
 "multiple mirrors:"
-msgstr ""
-"为避免在安装 xinference 音频包时出现此问题，"
-"建议同时使用多个镜像源："
+msgstr "为避免在安装 xinference 音频包时出现此问题，建议同时使用多个镜像源："
 
+#: ../../source/getting_started/troubleshooting.rst:188
+msgid "Installing Xinference 1.12.0 with uv Fails (As of November 2025)"
+msgstr "使用 uv 安装 Xinference 1.12.0 失败（截至 2025 年 11 月）"
+
+#: ../../source/getting_started/troubleshooting.rst:190
+msgid ""
+"**Note:** This is a temporary issue due to the current package ecosystem "
+"and uv prioritizing **higher versions for direct dependencies** over "
+"**indirect dependencies**."
+msgstr ""
+"**注意：** 这是一个临时性问题，原因在于当前的软件包生态系统以及 uv 的依赖解析策略——"
+"它会优先选择 **直接依赖的高版本**，而不是 **间接依赖的版本**。"
+
+#: ../../source/getting_started/troubleshooting.rst:193
+msgid "Symptom"
+msgstr "症状"
+
+#: ../../source/getting_started/troubleshooting.rst:195
+msgid ""
+"When installing xinference 1.12.0 as of November 2025 using ``uv pip "
+"install xinference``, you may encounter an issue where very old package "
+"versions are installed, particularly:"
+msgstr ""
+"在 2025 年 11 月使用 ``uv pip install xinference`` 安装 xinference 1.12.0 时，"
+"你可能会遇到安装到非常旧版本依赖包的问题，尤其是："
+
+#: ../../source/getting_started/troubleshooting.rst:197
+msgid "``transformers==4.12.2`` (from 2021)"
+msgstr "``transformers==4.12.2`` （来自 2021 年的版本）"
+
+#: ../../source/getting_started/troubleshooting.rst:198
+msgid "``tokenizers==0.10.3`` (from 2021)"
+msgstr "``tokenizers==0.10.3`` （来自 2021 年的版本）"
+
+#: ../../source/getting_started/troubleshooting.rst:199
+msgid "``huggingface-hub==1.0.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:201
+msgid "Then uv fails with \"Failed to build `tokenizers==0.10.3`\""
+msgstr "随后 uv 报错：\"Failed to build `tokenizers==0.10.3`\"（构建 `tokenizers==0.10.3` 失败）"
+
+#: ../../source/getting_started/troubleshooting.rst:204
+msgid "Root Cause"
+msgstr "根本原因"
+
+#: ../../source/getting_started/troubleshooting.rst:206
+msgid ""
+"This occurs because uv prioritizes **higher versions for direct "
+"dependencies** over **indirect dependencies**:"
+msgstr "出现该问题的原因是 uv 会优先选择 **直接依赖的高版本**，而忽略 **间接依赖** 中的版本要求："
+
+#: ../../source/getting_started/troubleshooting.rst:208
+msgid ""
+"xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct "
+"dependency** (no upper bound)"
+msgstr "xinference 1.12.0 将 ``huggingface-hub>=0.19.4`` 指定为 **直接依赖** （没有上限约束）"
+
+#: ../../source/getting_started/troubleshooting.rst:209
+msgid "uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025"
+msgstr "截至 2025 年 11 月 6 日，uv 会选择最新版本：``huggingface-hub==1.0.1``"
+
+#: ../../source/getting_started/troubleshooting.rst:210
+msgid ""
+"However, ``transformers`` (an **indirect dependency** via ``peft``) "
+"requires ``huggingface-hub<1.0``"
+msgstr "然而，``transformers`` （通过 ``peft`` 引入的 **间接依赖** ）要求 ``huggingface-hub<1.0``"
+
+#: ../../source/getting_started/troubleshooting.rst:211
+msgid ""
+"To resolve the conflict, uv keeps the direct dependency at 1.0.1 and "
+"downgrades the indirect dependency ``transformers`` to ancient version "
+"4.12.2"
+msgstr ""
+"为了解决依赖冲突，uv 保留了直接依赖 ``huggingface-hub==1.0.1``，并将间接依赖 "
+"``transformers`` 降级到了非常旧的版本 4.12.2。"
+
+#: ../../source/getting_started/troubleshooting.rst:213
+msgid ""
+"**This is by design in uv**: it prioritizes what you explicitly ask for "
+"(direct dependencies) over transitive dependencies. Refer to "
+"https://github.com/astral-sh/uv/issues/16601"
+msgstr ""
+"**这属于 uv 的设计特性**：它会优先满足你显式指定的依赖（直接依赖），而非传递依赖。"
+"参考链接：https://github.com/astral-sh/uv/issues/16601"
+
+#: ../../source/getting_started/troubleshooting.rst:216
+msgid "Solutions"
+msgstr "解决方案"
+
+#: ../../source/getting_started/troubleshooting.rst:218
+msgid "**Solution 1: Pre-constrain huggingface-hub (Recommended)**"
+msgstr "**解决方案 1：预先限定 huggingface-hub 版本（推荐）**"
+
+#: ../../source/getting_started/troubleshooting.rst:220
+msgid "Explicitly constrain ``huggingface-hub`` to a compatible version range:"
+msgstr "显式地将 ``huggingface-hub`` 限定在一个兼容的版本范围内："
+
+#: ../../source/getting_started/troubleshooting.rst:226
+msgid ""
+"This forces uv to select a ``huggingface-hub`` version that's compatible "
+"with modern ``transformers``."
+msgstr "这样可以强制 uv 选择与现代版本 ``transformers`` 兼容的 ``huggingface-hub`` 版本。"
+
+#: ../../source/getting_started/troubleshooting.rst:228
+msgid "**Solution 2: Make transformers a direct dependency**"
+msgstr "**解决方案 2：将 transformers 设为直接依赖**"
+
+#: ../../source/getting_started/troubleshooting.rst:230
+msgid ""
+"By specifying ``transformers`` explicitly, it becomes a direct dependency"
+" and uv will prefer higher versions:"
+msgstr "通过显式指定 ``transformers``，它会成为直接依赖，uv 将优先选择更高版本："
+
+#: ../../source/getting_started/troubleshooting.rst:236
+msgid "**Solution 3: Use pip**"
+msgstr "**解决方案 3：使用 pip**"
+
+#: ../../source/getting_started/troubleshooting.rst:238
+msgid ""
+"Or just resort to using ``pip install xinference`` which will resolve to "
+"the following versions"
+msgstr "或者直接使用 ``pip install xinference``，它会自动解析到以下版本组合："
+
+#: ../../source/getting_started/troubleshooting.rst:240
+msgid "``transformers==4.57.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:241
+msgid "``huggingface-hub==0.36.0``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:242
+msgid "``tokenizers==0.22.1``"
+msgstr ""
 
