@@ -19,7 +19,6 @@ from typing import List, Optional, Union, no_type_check
 import numpy as np
 import torch
 
-from ....constants import XINFERENCE_BATCH_SIZE, XINFERENCE_BATCH_TIMEOUT
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import is_flash_attn_available
@@ -32,15 +31,7 @@ SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
-        BatchMixin.__init__(self, self.create_embedding)  # type: ignore
-        if "batch_size" in kwargs:
-            self.batch_size = int(
-                self._kwargs.pop("batch_size") or XINFERENCE_BATCH_SIZE
-            )
-        if "batch_timeout" in kwargs:
-            self.batch_timeout = float(
-                self._kwargs.pop("batch_timeout") or XINFERENCE_BATCH_TIMEOUT
-            )
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
 
     def load(self):
         # TODO: load model

@@ -28,7 +28,6 @@ try:
 except ImportError:
     flag_installed = False
 
-from ....constants import XINFERENCE_BATCH_SIZE, XINFERENCE_BATCH_TIMEOUT
 from ....device_utils import get_available_device
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
@@ -52,16 +51,8 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         EmbeddingModel.__init__(
             self, model_uid, model_path, model_family, quantization, device, **kwargs
         )
-        BatchMixin.__init__(self, self.create_embedding)  # type: ignore
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._return_sparse = return_sparse
-        if "batch_size" in kwargs:
-            self.batch_size = int(
-                self._kwargs.pop("batch_size") or XINFERENCE_BATCH_SIZE
-            )
-        if "batch_timeout" in kwargs:
-            self.batch_timeout = float(
-                self._kwargs.pop("batch_timeout") or XINFERENCE_BATCH_TIMEOUT
-            )
 
     def load(self):
         # add truncate_dim args hint
