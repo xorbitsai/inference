@@ -52,7 +52,8 @@ const LaunchModelComponent = forwardRef(
       options: [],
     })
     const [selectedModel, setSelectedModel] = useState(null)
-    const [isOpenLaunchModelDrawer, setIsOpenLaunchModelDrawer] = useState(false)
+    const [isOpenLaunchModelDrawer, setIsOpenLaunchModelDrawer] =
+      useState(false)
 
     // Pagination status
     const [displayedData, setDisplayedData] = useState([])
@@ -181,7 +182,10 @@ const LaunchModelComponent = forwardRef(
           })
           .catch((error) => {
             console.error('Error:', error)
-            if (error.response.status !== 403 && error.response.status !== 401) {
+            if (
+              error.response.status !== 403 &&
+              error.response.status !== 401
+            ) {
               setErrorMsg(error.message)
             }
           })
@@ -435,7 +439,9 @@ const LaunchModelComponent = forwardRef(
             </FormControl>
           )}
           <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel id="select-status">{t('launchModel.status')}</InputLabel>
+            <InputLabel id="select-status">
+              {t('launchModel.status')}
+            </InputLabel>
             <Select
               id="status"
               labelId="select-status"
