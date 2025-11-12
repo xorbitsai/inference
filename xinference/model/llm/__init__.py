@@ -48,6 +48,11 @@ from .llm_family import (
 )
 
 
+def register_builtin_model():
+    """Register built-in LLM models."""
+    _install()
+
+
 def check_format_with_engine(model_format, engine):
     # only llama-cpp-python support and only support ggufv2
     if model_format in ["ggufv2"] and engine not in ["llama.cpp", "vLLM"]:
@@ -128,8 +133,41 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
 
 
+def has_downloaded_models():
+    """Check if downloaded JSON configurations exist."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
+    json_file_path = os.path.join(builtin_dir, "llm_models.json")
+    return os.path.exists(json_file_path)
+
+
+def load_downloaded_models():
+    """Load downloaded JSON configurations from the builtin directory."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
+    json_file_path = os.path.join(builtin_dir, "llm_models.json")
+
+    try:
+        load_model_family_from_json(json_file_path, BUILTIN_LLM_FAMILIES)
+    except Exception as e:
+        warnings.warn(
+            f"Failed to load downloaded llm models from {json_file_path}: {e}"
+        )
+        # Fall back to built-in models if download fails
+        load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+
+
 def load_model_family_from_json(json_filename, target_families):
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), json_filename)
+    # Handle both relative (module directory) and absolute paths
+    if os.path.isabs(json_filename):
+        json_path = json_filename
+    else:
+        json_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), json_filename
+        )
+
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         flattened = []
         for spec in json_obj["model_specs"]:
@@ -197,7 +235,13 @@ def _install():
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
 
-    load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+    # Prioritize downloaded JSON over built-in models
+    if has_downloaded_models():
+        # Load downloaded models if they exist (these are the latest)
+        load_downloaded_models()
+    else:
+        # Fall back to built-in models only if no downloaded models exist
+        load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
 
     for family in BUILTIN_LLM_FAMILIES:
         if family.model_name not in LLM_VERSION_INFOS:

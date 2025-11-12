@@ -272,6 +272,12 @@ class WorkerActor(xo.StatelessActor):
             register_rerank,
             unregister_rerank,
         )
+        from ..model.video import (
+            CustomVideoModelFamilyV2,
+            generate_video_description,
+            register_video,
+            unregister_video,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
@@ -309,6 +315,12 @@ class WorkerActor(xo.StatelessActor):
                 register_flexible_model,
                 unregister_flexible_model,
                 generate_flexible_model_description,
+            ),
+            "video": (
+                CustomVideoModelFamilyV2,
+                register_video,
+                unregister_video,
+                generate_video_description,
             ),
         }
 
@@ -662,6 +674,7 @@ class WorkerActor(xo.StatelessActor):
             model_type: Type of model (LLM, embedding, image, etc.)
         """
         import json
+
         import requests
 
         supported_types = list(self._custom_register_type_to_cls.keys())
@@ -700,10 +713,9 @@ class WorkerActor(xo.StatelessActor):
 
                     register_builtin_model()
                 elif model_type.lower() == "embedding":
-                    from ..model.embedding import reload_builtin_models, load_user_model_files
+                    from ..model.embedding import register_builtin_model
 
-                    reload_builtin_models()
-                    load_user_model_files()  # 重新加载用户模型文件
+                    register_builtin_model()
                 elif model_type.lower() == "audio":
                     from ..model.audio import register_builtin_model
 
