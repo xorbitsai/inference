@@ -140,7 +140,7 @@ jobs:
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
             pip install mlx-lm
-            pip install "mlx-vlm==0.3.5"
+            pip install "mlx-vlm>=0.3.4"
             pip install mlx-whisper
             pip install f5-tts-mlx
             pip install qwen-vl-utils!=0.0.9
