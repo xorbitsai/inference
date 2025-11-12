@@ -1,10 +1,14 @@
 import importlib.util
+import json
+import logging
 import uuid
 from typing import List, Optional, Union
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import cache_clean
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "qwen3"]
 
@@ -67,6 +71,42 @@ class VLLMRerankModel(RerankModel):
                     classifier_from_token=["no", "yes"],
                     is_original_qwen3_reranker=True,
                 )
+            elif isinstance(self._kwargs["hf_overrides"], str):
+                self._kwargs["hf_overrides"] = json.loads(self._kwargs["hf_overrides"])
+                self._kwargs["hf_overrides"].update(
+                    architectures=["Qwen3ForSequenceClassification"],
+                    classifier_from_token=["no", "yes"],
+                    is_original_qwen3_reranker=True,
+                )
+
+        # Set appropriate VLLM configuration parameters based on model capabilities
+        model_max_tokens = getattr(self.model_family, "max_tokens", 512)
+
+        # Set max_model_len based on model family capabilities with reasonable limits
+        max_model_len = min(model_max_tokens, 8192)
+        if "max_model_len" not in self._kwargs:
+            self._kwargs["max_model_len"] = max_model_len
+
+        # Ensure max_num_batched_tokens is sufficient for large models
+        if "max_num_batched_tokens" not in self._kwargs:
+            # max_num_batched_tokens should be at least max_model_len
+            # Set to a reasonable minimum that satisfies the constraint
+            self._kwargs["max_num_batched_tokens"] = max(4096, max_model_len)
+
+        # Configure other reasonable defaults for reranking models
+        if "gpu_memory_utilization" not in self._kwargs:
+            self._kwargs["gpu_memory_utilization"] = 0.7
+
+        # Use a smaller block size for better compatibility
+        if "block_size" not in self._kwargs:
+            self._kwargs["block_size"] = 16
+
+        logger.debug(
+            f"VLLM configuration for rerank model {self.model_family.model_name}: "
+            f"max_model_len={self._kwargs.get('max_model_len')}, "
+            f"max_num_batched_tokens={self._kwargs.get('max_num_batched_tokens')}"
+        )
+
         self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
