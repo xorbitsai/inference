@@ -124,7 +124,8 @@
     "featured": "추천 및 즐겨찾기",
     "all": "모두",
     "cancelledSuccessfully": "성공적으로 취소되었습니다!",
-    "mustBeUnique": "{{key}} 는 고유해야 합니다"
+    "mustBeUnique": "{{key}} 는 고유해야 합니다",
+    "update": "업데이트"
   },
 
   "runningModels": {
