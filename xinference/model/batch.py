@@ -30,7 +30,7 @@ class BatchMixin:
     batch_interval = XINFERENCE_BATCH_INTERVAL
 
     def __init__(self, func: _ExtensibleWrapper, **kwargs):
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._queue = None
         self._func = func
         self._func_name = func.func.__name__
         setattr(self, self._func_name, types.MethodType(self._wrap_method(), self))
@@ -43,6 +43,12 @@ class BatchMixin:
             self.batch_interval = float(
                 kwargs.pop("batch_interval") or XINFERENCE_BATCH_INTERVAL
             )
+
+    @property
+    def queue(self):
+        if self._queue is None:
+            self._queue: asyncio.Queue = asyncio.Queue()
+        return self._queue
 
     def _ensure_process_batch_running(self):
         if self._is_process_batch_running:
@@ -104,7 +110,7 @@ class BatchMixin:
             self._ensure_process_batch_running()
             loop = asyncio.get_running_loop()
             fut = loop.create_future()
-            await self._queue.put(((args, kwargs), fut))
+            await self.queue.put(((args, kwargs), fut))
             return await fut
 
         return _replaced_async_method
