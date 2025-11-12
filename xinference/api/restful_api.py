@@ -198,6 +198,10 @@ class RegisterModelRequest(BaseModel):
     persist: bool
 
 
+class UpdateModelRequest(BaseModel):
+    model_type: str
+
+
 class BuildGradioInterfaceRequest(BaseModel):
     model_type: str
     model_name: str
@@ -886,6 +890,16 @@ class RESTfulAPI(CancelMixin):
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/models/update_type",
+            self.update_model_type,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:add"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -3129,6 +3143,40 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
+
+    async def update_model_type(self, request: Request) -> JSONResponse:
+        try:
+            # Parse request
+            raw_json = await request.json()
+            body = UpdateModelRequest.parse_obj(raw_json)
+            model_type = body.model_type
+
+            # Get supervisor reference
+            supervisor_ref = await self._get_supervisor_ref()
+
+            # Call supervisor with model_type
+            await supervisor_ref.update_model_type(model_type)
+
+        except ValueError as re:
+            logger.error(f"ValueError in update_model_type API: {re}", exc_info=True)
+            logger.error(f"ValueError details: {type(re).__name__}: {re}")
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(f"Unexpected error in update_model_type API: {e}", exc_info=True)
+            logger.error(f"Error details: {type(e).__name__}: {e}")
+            import traceback
+
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        response_data = {
+            "data": {
+                "model_type": model_type,
+                "message": f"Successfully updated model type: {model_type}"
+            }
+        }
+
+        return JSONResponse(content=response_data)
 
     async def list_model_registrations(
         self, model_type: str, detailed: bool = Query(False)

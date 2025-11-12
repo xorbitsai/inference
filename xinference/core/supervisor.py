@@ -971,6 +971,62 @@ class SupervisorActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by forwarding
+        the request to all workers.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+
+        self._log_debug(
+            f"[UPDATE_MODEL_TYPE_DEBUG] Starting update_model_type for: {model_type}"
+        )
+        self._log_debug(
+            f"[UPDATE_MODEL_TYPE_DEBUG] Available workers: {list(self._worker_address_to_worker.keys())}"
+        )
+
+        try:
+            # Forward the update_model_type request to all workers
+            tasks = []
+            for worker_address, worker_ref in self._worker_address_to_worker.items():
+                self._log_debug(
+                    f"[UPDATE_MODEL_TYPE_DEBUG] Forwarding update_model_type to worker: {worker_address}"
+                )
+                tasks.append(worker_ref.update_model_type(model_type))
+
+            # Wait for all workers to complete the operation
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        self._log_debug(
+                            f"[UPDATE_MODEL_TYPE_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} failed: {result}"
+                        )
+                    else:
+                        self._log_debug(
+                            f"[UPDATE_MODEL_TYPE_DEBUG] Worker {list(self._worker_address_to_worker.keys())[i]} succeeded"
+                        )
+            else:
+                logger.warning(
+                    f"No workers available to forward update_model_type request"
+                )
+
+            self._log_debug(
+                f"[UPDATE_MODEL_TYPE_DEBUG] Successfully completed update_model_type for: {model_type}"
+            )
+
+        except Exception as e:
+            self._log_debug(
+                f"[UPDATE_MODEL_TYPE_DEBUG] Failed to update model type {model_type}: {str(e)}"
+            )
+            logger.error(
+                f"Error during update_model_type forwarding: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model type: {str(e)}")
+
     def _gen_model_uid(self, model_name: str) -> str:
         if model_name not in self._model_uid_to_replica_info:
             return model_name

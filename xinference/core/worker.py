@@ -653,6 +653,136 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by downloading
+        the latest JSON from the remote API and storing it locally.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+        import json
+        import requests
+
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        normalized_for_validation = model_type
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_for_validation = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_for_validation = "llm"
+
+        if normalized_for_validation not in supported_types:
+            logger.error(f"Unsupported model type: {normalized_for_validation}")
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Construct the URL to download JSON
+        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+
+        try:
+            # Download JSON from remote API
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            # Parse JSON response
+            model_data = response.json()
+
+            # Store the JSON data using CacheManager as built-in models
+            await self._store_complete_model_configurations(model_type, model_data)
+
+            # Dynamically reload built-in models to make them immediately available
+            try:
+                if model_type.lower() == "llm":
+                    from ..model.llm import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "embedding":
+                    from ..model.embedding import reload_builtin_models, load_user_model_files
+
+                    reload_builtin_models()
+                    load_user_model_files()  # 重新加载用户模型文件
+                elif model_type.lower() == "audio":
+                    from ..model.audio import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "image":
+                    from ..model.image import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "rerank":
+                    from ..model.rerank import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "video":
+                    from ..model.video import register_builtin_model
+
+                    register_builtin_model()
+                else:
+                    logger.warning(
+                        f"No dynamic loading available for model type: {model_type}"
+                    )
+            except Exception as reload_error:
+                logger.error(
+                    f"Error reloading built-in models: {reload_error}",
+                    exc_info=True,
+                )
+                # Don't fail the update if reload fails, just log the error
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error downloading model configurations: {e}")
+            raise ValueError(f"Failed to download model configurations: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"Unexpected error during model update: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model configurations: {str(e)}")
+
+    async def _store_complete_model_configurations(self, model_type: str, model_data):
+        """
+        Store complete model configurations as a unified JSON file.
+        This is used by update_model_type to preserve the original JSON structure.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing model configurations (complete array)
+        """
+        import json
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+
+            # Use the unified JSON file path (same as original update_model_type logic)
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+            json_file_path = os.path.join(
+                builtin_dir, f"{model_type_lower}_models.json"
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Store the complete JSON file (preserving original structure)
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(model_data, f, indent=2, ensure_ascii=False)
+
+        except Exception as e:
+            logger.error(
+                f"Error storing complete model configurations: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store complete model configurations: {str(e)}")
+
+    @log_async(logger=logger)
     async def list_model_registrations(
         self, model_type: str, detailed: bool = False
     ) -> List[Dict[str, Any]]:
