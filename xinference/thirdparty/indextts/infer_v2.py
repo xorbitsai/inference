@@ -1,7 +1,9 @@
 import os
 from subprocess import CalledProcessError
 
-os.environ["HF_HUB_CACHE"] = "./checkpoints/hf_cache"
+# Set HF_HUB_CACHE only if not already set (allow custom cache directory)
+if "HF_HUB_CACHE" not in os.environ:
+    os.environ["HF_HUB_CACHE"] = "./checkpoints/hf_cache"
 import json
 import re
 import time
@@ -43,6 +45,7 @@ class IndexTTS2:
         device=None,
         use_cuda_kernel=None,
         use_deepspeed=False,
+        small_models_dir=None,
     ):
         """
         Args:
@@ -52,7 +55,96 @@ class IndexTTS2:
             device (str): device to use (e.g., 'cuda:0', 'cpu'). If None, it will be set automatically based on the availability of CUDA or MPS.
             use_cuda_kernel (None | bool): whether to use BigVGan custom fused activation CUDA kernel, only for CUDA device.
             use_deepspeed (bool): whether to use DeepSpeed or not.
+            small_models_dir (str): path to directory containing small models for offline deployment.
         """
+
+        print(f">> IndexTTS2.__init__ called with small_models_dir: {small_models_dir}")
+
+        def get_small_model_path(model_name):
+            """Helper function to get small model path from small_models_dir"""
+            if small_models_dir is not None and os.path.exists(small_models_dir):
+                import glob
+
+                # Direct structure model names
+                direct_model_names = {
+                    "w2v-bert-2.0": "w2v-bert-2.0",
+                    "campplus": "campplus",
+                    "bigvgan": "bigvgan",
+                    "semantic_codec": None,  # Special handling below
+                }
+
+                # Special handling for semantic_codec
+                if model_name == "semantic_codec":
+                    # Look for semantic_codec in any MaskGCT directory
+                    for item in os.listdir(small_models_dir):
+                        item_path = os.path.join(small_models_dir, item)
+                        if os.path.isdir(item_path) and "MaskGCT" in item:
+                            # New structure: direct semantic_codec path
+                            semantic_path = os.path.join(item_path, "semantic_codec")
+                            if os.path.exists(semantic_path):
+                                return semantic_path
+                    # Also try direct structure
+                    direct_path = os.path.join(small_models_dir, "semantic_codec")
+                    if os.path.exists(direct_path):
+                        return direct_path
+                else:
+                    # Try new direct structure first
+                    direct_name = direct_model_names.get(model_name)
+                    if direct_name:
+                        direct_path = os.path.join(small_models_dir, direct_name)
+                        if os.path.exists(direct_path):
+                            return direct_path
+
+                    # Fallback to old HuggingFace structure for compatibility
+                    old_model_mappings = {
+                        "w2v-bert-2.0": "models--facebook--w2v-bert-2.0",
+                        "campplus": "models--funasr--campplus",
+                        "bigvgan": "models--nvidia--bigvgan_v2_22khz_80band_256x",
+                    }
+
+                    # Try old structure
+                    mapped_name = old_model_mappings.get(model_name)
+                    if mapped_name:
+                        mapped_base_path = os.path.join(small_models_dir, mapped_name)
+
+                        # Check if it's a HuggingFace cache structure with snapshots
+                        snapshots_path = os.path.join(mapped_base_path, "snapshots")
+                        if os.path.exists(snapshots_path):
+                            # Find the first snapshot directory
+                            for snapshot in os.listdir(snapshots_path):
+                                snapshot_dir = os.path.join(snapshots_path, snapshot)
+                                if os.path.isdir(snapshot_dir):
+                                    return snapshot_dir
+
+                        # Fallback to direct path if snapshots don't exist
+                        if os.path.exists(mapped_base_path):
+                            return mapped_base_path
+
+                    # Try other possibilities for compatibility
+                    possible_patterns = [
+                        # Generic HuggingFace structure
+                        os.path.join(small_models_dir, f"models--*--{model_name}"),
+                    ]
+
+                    for pattern in possible_patterns:
+                        if "*" in pattern:
+                            matches = glob.glob(pattern)
+                            for match in matches:
+                                # Check for snapshots structure
+                                snapshots_path = os.path.join(match, "snapshots")
+                                if os.path.exists(snapshots_path):
+                                    for snapshot in os.listdir(snapshots_path):
+                                        snapshot_dir = os.path.join(
+                                            snapshots_path, snapshot
+                                        )
+                                        if os.path.isdir(snapshot_dir):
+                                            return snapshot_dir
+                                # Fallback to direct match
+                                if os.path.exists(match):
+                                    return match
+
+            return None
+
         if device is not None:
             self.device = device
             self.use_fp16 = False if device == "cpu" else use_fp16
@@ -129,11 +221,22 @@ class IndexTTS2:
                 print(f"{e!r}")
                 self.use_cuda_kernel = False
 
-        self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(
-            "facebook/w2v-bert-2.0"
-        )
+        w2v_bert_path = get_small_model_path("w2v-bert-2.0")
+        print(f">> w2v_bert_path lookup result: {w2v_bert_path}")
+        if w2v_bert_path is not None:
+            self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(
+                w2v_bert_path
+            )
+            print(f">> w2v-bert model loaded from local path: {w2v_bert_path}")
+        else:
+            self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(
+                "facebook/w2v-bert-2.0"
+            )
+            print(">> w2v-bert model loaded from huggingface: facebook/w2v-bert-2.0")
         self.semantic_model, self.semantic_mean, self.semantic_std = (
-            build_semantic_model(os.path.join(self.model_dir, self.cfg.w2v_stat))
+            build_semantic_model(
+                os.path.join(self.model_dir, self.cfg.w2v_stat), w2v_bert_path
+            )
         )
         self.semantic_model = self.semantic_model.to(self.device)
         self.semantic_model.eval()
@@ -141,9 +244,24 @@ class IndexTTS2:
         self.semantic_std = self.semantic_std.to(self.device)
 
         semantic_codec = build_semantic_codec(self.cfg.semantic_codec)
-        semantic_code_ckpt = hf_hub_download(
-            "amphion/MaskGCT", filename="semantic_codec/model.safetensors"
-        )
+        semantic_codec_path = get_small_model_path("semantic_codec")
+        print(f">> semantic_codec_path lookup result: {semantic_codec_path}")
+        if semantic_codec_path is not None:
+            semantic_code_ckpt = os.path.join(semantic_codec_path, "model.safetensors")
+            if not os.path.exists(semantic_code_ckpt):
+                raise FileNotFoundError(
+                    f"semantic_codec model file not found: {semantic_code_ckpt}"
+                )
+            print(
+                f">> semantic_codec model loaded from local path: {semantic_code_ckpt}"
+            )
+        else:
+            semantic_code_ckpt = hf_hub_download(
+                "amphion/MaskGCT",
+                filename="semantic_codec/model.safetensors",
+                cache_dir=os.environ.get("HF_HUB_CACHE"),
+            )
+            print(">> semantic_codec model loaded from huggingface: amphion/MaskGCT")
         safetensors.torch.load_model(semantic_codec, semantic_code_ckpt)
         self.semantic_codec = semantic_codec.to(self.device)
         self.semantic_codec.eval()
@@ -167,9 +285,22 @@ class IndexTTS2:
         print(">> s2mel weights restored from:", s2mel_path)
 
         # load campplus_model
-        campplus_ckpt_path = hf_hub_download(
-            "funasr/campplus", filename="campplus_cn_common.bin"
-        )
+        campplus_path = get_small_model_path("campplus")
+        print(f">> campplus_path lookup result: {campplus_path}")
+        if campplus_path is not None:
+            campplus_ckpt_path = os.path.join(campplus_path, "campplus_cn_common.bin")
+            if not os.path.exists(campplus_ckpt_path):
+                raise FileNotFoundError(
+                    f"campplus model file not found: {campplus_ckpt_path}"
+                )
+            print(f">> campplus model loaded from local path: {campplus_ckpt_path}")
+        else:
+            campplus_ckpt_path = hf_hub_download(
+                "funasr/campplus",
+                filename="campplus_cn_common.bin",
+                cache_dir=os.environ.get("HF_HUB_CACHE"),
+            )
+            print(">> campplus model loaded from huggingface: funasr/campplus")
         campplus_model = CAMPPlus(feat_dim=80, embedding_size=192)
         campplus_model.load_state_dict(
             torch.load(campplus_ckpt_path, map_location="cpu")
@@ -178,7 +309,14 @@ class IndexTTS2:
         self.campplus_model.eval()
         print(">> campplus_model weights restored from:", campplus_ckpt_path)
 
-        bigvgan_name = self.cfg.vocoder.name
+        bigvgan_path = get_small_model_path("bigvgan")
+        print(f">> bigvgan_path lookup result: {bigvgan_path}")
+        if bigvgan_path is not None:
+            bigvgan_name = bigvgan_path
+            print(f">> bigvgan model loaded from local path: {bigvgan_path}")
+        else:
+            bigvgan_name = self.cfg.vocoder.name
+            print(f">> bigvgan model loaded from default: {bigvgan_name}")
         self.bigvgan = bigvgan.BigVGAN.from_pretrained(
             bigvgan_name, use_cuda_kernel=self.use_cuda_kernel
         )
