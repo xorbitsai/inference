@@ -3162,7 +3162,9 @@ class RESTfulAPI(CancelMixin):
             logger.error(f"ValueError details: {type(re).__name__}: {re}")
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
-            logger.error(f"Unexpected error in update_model_type API: {e}", exc_info=True)
+            logger.error(
+                f"Unexpected error in update_model_type API: {e}", exc_info=True
+            )
             logger.error(f"Error details: {type(e).__name__}: {e}")
             import traceback
 
@@ -3172,7 +3174,7 @@ class RESTfulAPI(CancelMixin):
         response_data = {
             "data": {
                 "model_type": model_type,
-                "message": f"Successfully updated model type: {model_type}"
+                "message": f"Successfully updated model type: {model_type}",
             }
         }
 
