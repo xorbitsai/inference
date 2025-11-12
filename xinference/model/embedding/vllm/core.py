@@ -18,6 +18,7 @@ import logging
 from typing import List, Union
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...batch import BatchMixin
 from ...utils import cache_clean
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
@@ -25,9 +26,10 @@ logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
 
-class VLLMEmbeddingModel(EmbeddingModel):
+class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._context_length = None
 
     def load(self):
@@ -69,7 +71,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
         return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
     @cache_clean
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,

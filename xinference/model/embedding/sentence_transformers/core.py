@@ -20,6 +20,7 @@ import numpy as np
 import torch
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...batch import BatchMixin
 from ...utils import is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
@@ -27,7 +28,11 @@ logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
-class SentenceTransformerEmbeddingModel(EmbeddingModel):
+class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
+    def __init__(self, *args, **kwargs) -> None:
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
+
     def load(self):
         # TODO: load model
         try:
@@ -128,7 +133,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
 
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,

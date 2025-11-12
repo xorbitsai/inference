@@ -72,3 +72,35 @@ def get_pip_config_args() -> dict[str, str]:
         return args
     except subprocess.CalledProcessError:
         return {}
+
+
+def make_hashable(obj):
+    """
+    Recursively convert an object into a hashable form.
+
+    This function is useful for creating deterministic cache keys or
+    comparing complex structures (dicts, lists, sets, etc.) that are
+    otherwise unhashable. It ensures consistent ordering for dictionaries
+    and sets, so that equivalent objects produce identical hashable results.
+
+    Examples:
+        make_hashable({"a": [1, 2], "b": {"x": True}})
+        -> (("a", (1, 2)), ("b", (("x", True),)))
+
+    Args:
+        obj: Any Python object.
+
+    Returns:
+        A hashable version of `obj`, typically composed of tuples.
+    """
+    if isinstance(obj, (tuple, list)):
+        return tuple(make_hashable(o) for o in obj)
+    elif isinstance(obj, dict):
+        # Sort by key to ensure consistent ordering
+        return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+    elif isinstance(obj, set):
+        # Sort elements for deterministic output
+        return tuple(sorted(make_hashable(o) for o in obj))
+    else:
+        # Assume it's already hashable (int, str, float, bool, None, etc.)
+        return obj
