@@ -14,7 +14,6 @@ from ..core import VLLMRerankModel
 # Force import of the entire rerank module to ensure initialization
 
 
-
 if "bge-reranker-base" in BUILTIN_RERANK_MODELS:
     # Force regeneration of engine configuration
     from ... import generate_engine_config_by_model_name
