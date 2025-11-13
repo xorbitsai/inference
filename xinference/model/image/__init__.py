@@ -57,13 +57,17 @@ def register_custom_model():
 
 
 def _install():
-    # Prioritize downloaded JSON over built-in models
-    if has_downloaded_models():
-        # Load downloaded models if they exist (these are the latest)
-        load_downloaded_models()
-    else:
-        # Fall back to built-in models only if no downloaded models exist
-        load_model_family_from_json("model_spec.json", BUILTIN_IMAGE_MODELS)
+    # Install models with intelligent merging based on timestamps
+    from ..utils import install_models_with_merge
+
+    install_models_with_merge(
+        BUILTIN_IMAGE_MODELS,
+        "model_spec.json",
+        "image",
+        "image_models.json",
+        has_downloaded_models,
+        load_model_family_from_json,
+    )
 
     # register model description
     for model_name, model_specs in BUILTIN_IMAGE_MODELS.items():

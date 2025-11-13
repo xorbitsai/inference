@@ -149,13 +149,17 @@ def load_model_family_from_json(json_filename, target_families):
 
 
 def _install():
-    # Prioritize downloaded JSON over built-in models
-    if has_downloaded_models():
-        # Load downloaded models if they exist (these are the latest)
-        load_downloaded_models()
-    else:
-        # Fall back to built-in models only if no downloaded models exist
-        load_model_family_from_json("model_spec.json", BUILTIN_RERANK_MODELS)
+    # Install models with intelligent merging based on timestamps
+    from ..utils import install_models_with_merge
+
+    install_models_with_merge(
+        BUILTIN_RERANK_MODELS,
+        "model_spec.json",
+        "rerank",
+        "rerank_models.json",
+        has_downloaded_models,
+        load_model_family_from_json,
+    )
 
     for model_name, model_spec_list in BUILTIN_RERANK_MODELS.items():
         # model_spec_list is a list of RerankModelFamilyV2 objects

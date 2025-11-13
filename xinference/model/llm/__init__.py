@@ -235,13 +235,46 @@ def _install():
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
 
-    # Prioritize downloaded JSON over built-in models
+    # Install models with intelligent merging based on timestamps
+    # LLM models use a different structure (list instead of dict), so we need special handling
+
+    # Always load built-in models first to ensure we have the latest models
+    load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+
+    # Then load user-defined models and merge with built-in models
     if has_downloaded_models():
-        # Load downloaded models if they exist (these are the latest)
-        load_downloaded_models()
-    else:
-        # Fall back to built-in models only if no downloaded models exist
-        load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+        user_models = []
+        from ..utils import load_downloaded_models_to_dict
+
+        load_downloaded_models_to_dict(
+            {"temp": user_models},
+            "llm",
+            "llm_models.json",
+            lambda path, target: load_model_family_from_json(path, target["temp"]),
+        )
+
+        if user_models:
+            # Create a copy of built-in models for merging
+            built_in_models_copy = list(BUILTIN_LLM_FAMILIES)
+
+            # Merge models, keeping the latest version based on updated_at
+            all_models = built_in_models_copy + user_models
+
+            # Sort by updated_at (newest first) and keep the latest for each model name
+            all_models.sort(key=lambda x: x.updated_at, reverse=True)
+
+            # Remove duplicates, keeping the first (newest) occurrence of each model name
+            seen_models = set()
+            merged_models = []
+
+            for model in all_models:
+                if model.model_name not in seen_models:
+                    seen_models.add(model.model_name)
+                    merged_models.append(model)
+
+            # Update BUILTIN_LLM_FAMILIES with merged results
+            BUILTIN_LLM_FAMILIES.clear()
+            BUILTIN_LLM_FAMILIES.extend(merged_models)
 
     for family in BUILTIN_LLM_FAMILIES:
         if family.model_name not in LLM_VERSION_INFOS:

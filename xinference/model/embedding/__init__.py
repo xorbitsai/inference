@@ -165,15 +165,78 @@ def load_model_family_from_json(json_filename, target_families):
     del json_path
 
 
+def load_downloaded_models_to_dict(target_dict):
+    """Load downloaded JSON configurations into the specified dictionary."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding")
+    json_file_path = os.path.join(builtin_dir, "embedding_models.json")
+
+    try:
+        load_model_family_from_json(json_file_path, target_dict)
+    except Exception as e:
+        warnings.warn(
+            f"Failed to load downloaded embedding models from {json_file_path}: {e}"
+        )
+
+
+def merge_models_by_timestamp(built_in_models, user_models):
+    """Merge built-in and user models, keeping the latest version based on updated_at."""
+    merged_models = {}
+
+    # First, add all built-in models
+    for model_name, model_list in built_in_models.items():
+        merged_models[model_name] = model_list.copy()
+
+    # Then merge with user models, keeping the latest based on updated_at
+    for model_name, user_model_list in user_models.items():
+        if model_name not in merged_models:
+            # New model from user, just add it
+            merged_models[model_name] = user_model_list.copy()
+        else:
+            # Existing model, need to compare and merge based on updated_at
+            built_in_list = merged_models[model_name]
+
+            # Create a mapping of updated_at to model for comparison
+            all_models = []
+
+            # Add built-in models
+            for model in built_in_list:
+                all_models.append((model.updated_at, model))
+
+            # Add user models
+            for model in user_model_list:
+                all_models.append((model.updated_at, model))
+
+            # Sort by updated_at (newest first) and keep the latest
+            all_models.sort(key=lambda x: x[0], reverse=True)
+
+            # Keep the latest version(s) - in case there are multiple with the same updated_at
+            latest_updated_at = all_models[0][0]
+            latest_models = [
+                model
+                for updated_at, model in all_models
+                if updated_at == latest_updated_at
+            ]
+
+            merged_models[model_name] = latest_models
+
+    return merged_models
+
+
 # will be called in xinference/model/__init__.py
 def _install():
-    # Prioritize downloaded JSON over built-in models
-    if has_downloaded_models():
-        # Load downloaded models if they exist (these are the latest)
-        load_downloaded_models()
-    else:
-        # Fall back to built-in models only if no downloaded models exist
-        load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
+    # Install models with intelligent merging based on timestamps
+    from ..utils import install_models_with_merge
+
+    install_models_with_merge(
+        BUILTIN_EMBEDDING_MODELS,
+        "model_spec.json",
+        "embedding",
+        "embedding_models.json",
+        has_downloaded_models,
+        load_model_family_from_json,
+    )
 
     for model_name, model_spec_list in BUILTIN_EMBEDDING_MODELS.items():
         # model_spec_list is a list containing one or more model specifications

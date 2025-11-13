@@ -69,13 +69,17 @@ def _need_filter(spec: dict):
 
 
 def _install():
-    # Prioritize downloaded JSON over built-in models
-    if has_downloaded_models():
-        # Load downloaded models if they exist (these are the latest)
-        load_downloaded_models()
-    else:
-        # Fall back to built-in models only if no downloaded models exist
-        load_model_family_from_json("model_spec.json", BUILTIN_AUDIO_MODELS)
+    # Install models with intelligent merging based on timestamps
+    from ..utils import install_models_with_merge
+
+    install_models_with_merge(
+        BUILTIN_AUDIO_MODELS,
+        "model_spec.json",
+        "audio",
+        "audio_models.json",
+        has_downloaded_models,
+        load_model_family_from_json,
+    )
 
     # register model description after recording model revision
     for model_name, model_specs in BUILTIN_AUDIO_MODELS.items():

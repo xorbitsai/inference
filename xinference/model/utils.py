@@ -709,3 +709,129 @@ def cache_clean(fn):
         return _async_wrapper
     else:
         return _wrapper
+
+
+def load_downloaded_models_to_dict(
+    target_dict: Dict[str, Any], model_type: str, json_filename: str, load_func
+):
+    """Load downloaded JSON configurations into the specified dictionary.
+
+    Args:
+        target_dict: Dictionary to load models into
+        model_type: Type of model (e.g., "llm", "embedding", "audio", "image", "rerank")
+        json_filename: Name of the JSON file to load
+        load_func: Function to load model family from JSON
+    """
+    from ..constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type)
+    json_file_path = os.path.join(builtin_dir, json_filename)
+
+    try:
+        load_func(json_file_path, target_dict)
+    except Exception as e:
+        import warnings
+
+        warnings.warn(
+            f"Failed to load downloaded {model_type} models from {json_file_path}: {e}"
+        )
+
+
+def merge_models_by_timestamp(
+    built_in_models: Dict[str, List[Any]], user_models: Dict[str, List[Any]]
+) -> Dict[str, List[Any]]:
+    """Merge built-in and user models, keeping the latest version based on updated_at.
+
+    Args:
+        built_in_models: Dictionary of built-in models
+        user_models: Dictionary of user-defined models
+
+    Returns:
+        Merged dictionary with latest models based on updated_at timestamp
+    """
+    merged_models = {}
+
+    # First, add all built-in models
+    for model_name, model_list in built_in_models.items():
+        merged_models[model_name] = model_list.copy()
+
+    # Then merge with user models, keeping the latest based on updated_at
+    for model_name, user_model_list in user_models.items():
+        if model_name not in merged_models:
+            # New model from user, just add it
+            merged_models[model_name] = user_model_list.copy()
+        else:
+            # Existing model, need to compare and merge based on updated_at
+            built_in_list = merged_models[model_name]
+
+            # Create a mapping of updated_at to model for comparison
+            all_models = []
+
+            # Add built-in models
+            for model in built_in_list:
+                all_models.append((model.updated_at, model))
+
+            # Add user models
+            for model in user_model_list:
+                all_models.append((model.updated_at, model))
+
+            # Sort by updated_at (newest first) and keep the latest
+            all_models.sort(key=lambda x: x[0], reverse=True)
+
+            # Keep the latest version(s) - in case there are multiple with the same updated_at
+            latest_updated_at = all_models[0][0]
+            latest_models = [
+                model
+                for updated_at, model in all_models
+                if updated_at == latest_updated_at
+            ]
+
+            merged_models[model_name] = latest_models
+
+    return merged_models
+
+
+def install_models_with_merge(
+    built_in_dict: Dict[str, Any],
+    builtin_json_file: str,
+    user_model_type: str,
+    user_json_filename: str,
+    has_downloaded_models_func,
+    load_model_family_func,
+) -> None:
+    """Install models with intelligent merging based on timestamps.
+
+    Args:
+        built_in_dict: Dictionary to store built-in models
+        builtin_json_file: Path to built-in JSON file (relative to the model module)
+        user_model_type: Type of model for user models (e.g., "llm", "embedding")
+        user_json_filename: Name of user JSON file
+        has_downloaded_models_func: Function to check if user models exist
+        load_model_family_func: Function to load model family from JSON
+    """
+    import os.path
+
+    # Always load built-in models first to ensure we have the latest models
+    # For built-in models, use the path relative to the current model module
+    current_dir = os.path.dirname(
+        os.path.abspath(load_model_family_func.__code__.co_filename)
+    )
+    builtin_json_path = os.path.join(current_dir, builtin_json_file)
+    load_model_family_func(builtin_json_path, built_in_dict)
+
+    # Then load user-defined models and merge with built-in models
+    if has_downloaded_models_func():
+        user_models: Dict[str, Any] = {}
+        load_downloaded_models_to_dict(
+            user_models, user_model_type, user_json_filename, load_model_family_func
+        )
+
+        # Create a copy of built-in models for merging
+        built_in_models_copy = dict(built_in_dict)
+
+        # Merge models, keeping the latest version based on updated_at
+        merged_models = merge_models_by_timestamp(built_in_models_copy, user_models)
+
+        # Update the dictionary with merged results
+        built_in_dict.clear()
+        built_in_dict.update(merged_models)
