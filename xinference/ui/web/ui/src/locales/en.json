@@ -124,7 +124,8 @@
     "featured": "featured",
     "all": "all",
     "cancelledSuccessfully": "Cancelled Successfully!",
-    "mustBeUnique": "{{key}} must be unique"
+    "mustBeUnique": "{{key}} must be unique",
+    "update": "Update"
   },
 
   "runningModels": {
