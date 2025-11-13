@@ -16,6 +16,9 @@ import shutil
 
 import pytest
 
+# Force import of the entire embedding module to ensure initialization
+import xinference.model.embedding as embedding_module
+
 from .....client import Client
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
@@ -23,7 +26,25 @@ from ...core import (
     TransformersEmbeddingSpecV1,
     create_embedding_model_instance,
 )
+from ...embed_family import EMBEDDING_ENGINES
+from ... import generate_engine_config_by_model_name
 from ..core import VLLMEmbeddingModel
+
+# Ensure embedding engines are properly initialized
+# This addresses potential CI environment initialization issues
+try:
+    from ... import BUILTIN_EMBEDDING_MODELS
+    if "bge-small-en-v1.5" in BUILTIN_EMBEDDING_MODELS:
+        # Force regeneration of engine configuration
+        generate_engine_config_by_model_name(BUILTIN_EMBEDDING_MODELS["bge-small-en-v1.5"])
+
+    # Debug: Check if vllm engine is registered
+    if "bge-small-en-v1.5" not in EMBEDDING_ENGINES or "vllm" not in EMBEDDING_ENGINES.get("bge-small-en-v1.5", {}):
+        # Force re-initialization of embedding module
+        embedding_module._install()
+except Exception as e:
+    # If initialization fails, we'll rely on the skipif decorator
+    pass
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
