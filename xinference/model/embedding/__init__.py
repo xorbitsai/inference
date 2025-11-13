@@ -180,50 +180,6 @@ def load_downloaded_models_to_dict(target_dict):
         )
 
 
-def merge_models_by_timestamp(built_in_models, user_models):
-    """Merge built-in and user models, keeping the latest version based on updated_at."""
-    merged_models = {}
-
-    # First, add all built-in models
-    for model_name, model_list in built_in_models.items():
-        merged_models[model_name] = model_list.copy()
-
-    # Then merge with user models, keeping the latest based on updated_at
-    for model_name, user_model_list in user_models.items():
-        if model_name not in merged_models:
-            # New model from user, just add it
-            merged_models[model_name] = user_model_list.copy()
-        else:
-            # Existing model, need to compare and merge based on updated_at
-            built_in_list = merged_models[model_name]
-
-            # Create a mapping of updated_at to model for comparison
-            all_models = []
-
-            # Add built-in models
-            for model in built_in_list:
-                all_models.append((model.updated_at, model))
-
-            # Add user models
-            for model in user_model_list:
-                all_models.append((model.updated_at, model))
-
-            # Sort by updated_at (newest first) and keep the latest
-            all_models.sort(key=lambda x: x[0], reverse=True)
-
-            # Keep the latest version(s) - in case there are multiple with the same updated_at
-            latest_updated_at = all_models[0][0]
-            latest_models = [
-                model
-                for updated_at, model in all_models
-                if updated_at == latest_updated_at
-            ]
-
-            merged_models[model_name] = latest_models
-
-    return merged_models
-
-
 # will be called in xinference/model/__init__.py
 def _install():
     # Install models with intelligent merging based on timestamps
