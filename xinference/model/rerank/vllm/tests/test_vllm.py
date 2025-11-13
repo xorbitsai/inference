@@ -3,7 +3,6 @@ import shutil
 import pytest
 
 # Force import of the entire rerank module to ensure initialization
-import xinference.model.rerank as rerank_module
 
 from .....client import Client
 from ...cache_manager import RerankCacheManager
@@ -12,15 +11,11 @@ from ..core import VLLMRerankModel
 
 # Ensure rerank engines are properly initialized
 # This addresses potential CI environment initialization issues
-try:
-    from ... import BUILTIN_RERANK_MODELS
-    if "bge-reranker-base" in BUILTIN_RERANK_MODELS:
-        # Force regeneration of engine configuration
-        from ... import generate_engine_config_by_model_name
-        generate_engine_config_by_model_name(BUILTIN_RERANK_MODELS["bge-reranker-base"])
-except Exception as e:
-    # If initialization fails, we'll rely on the skipif decorator
-    pass
+from ... import BUILTIN_RERANK_MODELS
+if "bge-reranker-base" in BUILTIN_RERANK_MODELS:
+    # Force regeneration of engine configuration
+    from ... import generate_engine_config_by_model_name
+    generate_engine_config_by_model_name(BUILTIN_RERANK_MODELS["bge-reranker-base"])
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
