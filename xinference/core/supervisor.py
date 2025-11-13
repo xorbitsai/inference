@@ -516,9 +516,19 @@ class SupervisorActor(xo.StatelessActor):
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_manager = ImageCacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -537,13 +547,23 @@ class SupervisorActor(xo.StatelessActor):
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_manager = CacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -562,13 +582,23 @@ class SupervisorActor(xo.StatelessActor):
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_manager = CacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -664,7 +694,6 @@ class SupervisorActor(xo.StatelessActor):
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
                     info = await self._to_image_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -689,7 +718,6 @@ class SupervisorActor(xo.StatelessActor):
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
                     info = await self._to_audio_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -713,7 +741,6 @@ class SupervisorActor(xo.StatelessActor):
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
                     info = await self._to_video_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
