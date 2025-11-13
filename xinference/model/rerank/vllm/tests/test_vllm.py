@@ -2,19 +2,23 @@ import shutil
 
 import pytest
 
-# Force import of the entire rerank module to ensure initialization
-
 from .....client import Client
-from ...cache_manager import RerankCacheManager
-from ...core import RerankModelFamilyV2, RerankSpecV1
-from ..core import VLLMRerankModel
 
 # Ensure rerank engines are properly initialized
 # This addresses potential CI environment initialization issues
 from ... import BUILTIN_RERANK_MODELS
+from ...cache_manager import RerankCacheManager
+from ...core import RerankModelFamilyV2, RerankSpecV1
+from ..core import VLLMRerankModel
+
+# Force import of the entire rerank module to ensure initialization
+
+
+
 if "bge-reranker-base" in BUILTIN_RERANK_MODELS:
     # Force regeneration of engine configuration
     from ... import generate_engine_config_by_model_name
+
     generate_engine_config_by_model_name(BUILTIN_RERANK_MODELS["bge-reranker-base"])
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(

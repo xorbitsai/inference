@@ -20,6 +20,10 @@ import pytest
 import xinference.model.embedding as embedding_module
 
 from .....client import Client
+
+# Ensure embedding engines are properly initialized
+# This addresses potential CI environment initialization issues
+from ... import BUILTIN_EMBEDDING_MODELS, generate_engine_config_by_model_name
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
     EmbeddingModelFamilyV2,
@@ -27,18 +31,16 @@ from ...core import (
     create_embedding_model_instance,
 )
 from ...embed_family import EMBEDDING_ENGINES
-from ... import generate_engine_config_by_model_name
 from ..core import VLLMEmbeddingModel
 
-# Ensure embedding engines are properly initialized
-# This addresses potential CI environment initialization issues
-from ... import BUILTIN_EMBEDDING_MODELS
 if "bge-small-en-v1.5" in BUILTIN_EMBEDDING_MODELS:
     # Force regeneration of engine configuration
     generate_engine_config_by_model_name(BUILTIN_EMBEDDING_MODELS["bge-small-en-v1.5"])
 
 # Debug: Check if vllm engine is registered
-if "bge-small-en-v1.5" not in EMBEDDING_ENGINES or "vllm" not in EMBEDDING_ENGINES.get("bge-small-en-v1.5", {}):
+if "bge-small-en-v1.5" not in EMBEDDING_ENGINES or "vllm" not in EMBEDDING_ENGINES.get(
+    "bge-small-en-v1.5", {}
+):
     # Force re-initialization of embedding module
     embedding_module._install()
 
