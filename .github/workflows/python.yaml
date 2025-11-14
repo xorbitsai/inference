@@ -237,7 +237,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install tensorizer
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft>=0.15.0"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft<=0.17.1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
               --disable-warnings \
