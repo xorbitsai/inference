@@ -7,6 +7,8 @@ Model Update
 
 This section briefly introduces a common operation on the "Launch Model" page: updating the model list. It corresponds to the "Type Selection + Update" button at the top of the page, which is used to quickly refresh models of a specific type.
 
+Model update rely on the online model list service provided by :ref:`xinference_models_hub` .
+
 .. raw:: html
 
     <img class="align-center" alt="model update interface" src="../_static/model_update.png" style="background-color: transparent", width="95%">

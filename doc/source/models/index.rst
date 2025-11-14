@@ -247,7 +247,7 @@ Model Usage
 .. toctree::
    :maxdepth: 2
 
-   xinference_model_hub
+   xinference_models_hub
    model_abilities/index
    builtin/index
    custom

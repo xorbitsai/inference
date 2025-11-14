@@ -1,0 +1,287 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-14 14:59+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/models/xinference_models_hub.rst:5
+msgid "Xinference Models Hub"
+msgstr "Xinference Models Hub"
+
+#: ../../source/models/xinference_models_hub.rst:9
+msgid "Overview"
+msgstr "概述"
+
+#: ../../source/models/xinference_models_hub.rst:11
+msgid ""
+"The `Xinference Models Hub <https://model.xinference.io>`_ is Xinference"
+"’s unified platform for model management and collaboration. It provides "
+"end-to-end support for model browsing, registration, review, updates, and"
+" collaborative maintenance, serving both regular users and model "
+"maintainers."
+msgstr "`Xinference Models Hub <https://model.xinference.io>`_ 是 Xinference 用于模型管理与协作的统一平台。它为模型浏览、注册、评审、更新与协作维护提供端到端支持，面向普通用户与模型维护者提供全流程能力。"
+
+#: ../../source/models/xinference_models_hub.rst:13
+msgid ""
+"Before the introduction of the Models Hub, model JSON files were manually"
+" submitted and modified directly through PRs in the open-source "
+"repository (`xorbitsai/inference`). This approach resulted in "
+"uncontrolled versioning, long iteration cycles, and delays in delivering "
+"updated models—since model updates were tied to product release cycles, "
+"users could not obtain new models promptly."
+msgstr "在引入 Models Hub 之前，模型 JSON 文件需要由用户直接通过 PR 修改 `xorbitsai/inference` 开源仓库。这种方式导致模型版本不可控、迭代周期长、模型更新依赖产品发版流程，用户无法及时获得最新模型。"
+
+#: ../../source/models/xinference_models_hub.rst:15
+msgid ""
+"With centralized online model management, the Xinference Models Hub "
+"requires that **all model information—including metadata, parameters, and"
+" the README—be edited within the platform**. Based on modifications made "
+"by :ref:`model maintainers <model_maintainer_guide>`, the system **"
+"automatically generates and submits PRs** to the `xorbitsai/inference` "
+"repository, ensuring a standardized, automated, and traceable workflow "
+"that eliminates inconsistencies caused by manual edits."
+msgstr "通过集中式在线模型管理机制，Xinference Models Hub 要求**所有模型信息（含元数据、参数及 README）均在平台中完成编辑**。系统会根据 :ref:`模型维护者 <model_maintainer_guide>` 的修改 **自动生成并提交 PR** 到 `xorbitsai/inference` 仓库，实现流程标准化、自动化与可追溯，避免手动修改带来的不一致问题。"
+
+#: ../../source/models/xinference_models_hub.rst:17
+msgid ""
+"Users can obtain the latest model list at any time through the "
+":ref:`model_update` feature, significantly improving model delivery "
+"efficiency and overall experience."
+msgstr "用户可通过 :ref:`model_update` 功能随时获取最新模型列表，从而显著提升模型交付效率与整体使用体验。"
+
+#: ../../source/models/xinference_models_hub.rst:20
+msgid "User Guide for Regular Users"
+msgstr "普通用户指南"
+
+#: ../../source/models/xinference_models_hub.rst:22
+msgid ""
+"This section introduces the basic features available to regular "
+"registered users."
+msgstr "本节介绍普通注册用户可使用的基础功能。"
+
+#: ../../source/models/xinference_models_hub.rst:24
+msgid ""
+"**Audience:** Regular users without model registration or maintenance "
+"permissions."
+msgstr "**适用对象：** 无模型注册或维护权限的普通用户。"
+
+#: ../../source/models/xinference_models_hub.rst:27
+msgid "Core Features"
+msgstr "核心功能"
+
+#: ../../source/models/xinference_models_hub.rst:29
+msgid "Regular users can browse public models without logging in:"
+msgstr "普通用户无需登录即可浏览公开模型："
+
+#: ../../source/models/xinference_models_hub.rst:31
+msgid "**Access:** `Xinference Models Hub <https://model.xinference.io>`_"
+msgstr "**访问入口：** `Xinference Models Hub <https://model.xinference.io>`_"
+
+#: ../../source/models/xinference_models_hub.rst:34
+msgid "Browse Models"
+msgstr "浏览模型"
+
+#: ../../source/models/xinference_models_hub.rst:36
+msgid "**Function:** View all publicly available models"
+msgstr "**功能：** 查看所有公开可用模型"
+
+#: ../../source/models/xinference_models_hub.rst:37
+msgid "**Location:** Navigation bar → “Models”"
+msgstr "**入口位置：** 导航栏 → “Models”"
+
+#: ../../source/models/xinference_models_hub.rst:38
+msgid ""
+"**Model Details:** The default tab is “README,” which includes model "
+"description, usage guide, and important notes"
+msgstr "**模型详情：** 默认展示 README 标签，包含模型说明、使用指南与注意事项"
+
+#: ../../source/models/xinference_models_hub.rst:41
+msgid ""
+"Certain advanced or enterprise-level models are visible only to "
+"authorized users."
+msgstr "部分高级或企业版模型仅对具备权限的用户可见。"
+
+#: ../../source/models/xinference_models_hub.rst:46
+msgid "Guide for Model Maintainers"
+msgstr "模型维护者指南"
+
+#: ../../source/models/xinference_models_hub.rst:48
+msgid ""
+"This section describes the features available to users with model "
+"registration or maintenance permissions, including model registration, "
+"updates, and review workflows."
+msgstr "本节介绍具备模型注册或维护权限的用户可使用的功能，包括模型注册、更新与评审流程。"
+
+#: ../../source/models/xinference_models_hub.rst:50
+msgid ""
+"**Audience:** Users with model registration or maintenance permissions. "
+"To become a model maintainer, you may `contact us "
+"<https://xorbits.cn/assets/images/wechat_work_qr.png>`_."
+msgstr "**适用对象：** 具有模型注册或维护权限的用户。如需成为模型维护者，可 `联系我们 <https://xorbits.cn/assets/images/wechat_work_qr.png>`_。"
+
+#: ../../source/models/xinference_models_hub.rst:54
+msgid "Core Features (Login Required)"
+msgstr "核心功能（需登录）"
+
+#: ../../source/models/xinference_models_hub.rst:56
+msgid ""
+"Model maintainers have access to the following advanced features in "
+"addition to the capabilities available to regular users."
+msgstr "模型维护者在普通用户功能基础上，可以使用以下高级能力："
+
+#: ../../source/models/xinference_models_hub.rst:59
+msgid "User Center"
+msgstr "用户中心"
+
+#: ../../source/models/xinference_models_hub.rst:61
+msgid "**Function:** View and manage personal information"
+msgstr "**功能：** 查看与管理个人信息"
+
+#: ../../source/models/xinference_models_hub.rst:62
+msgid "**Location:** Top-right avatar → “User Center”"
+msgstr "**入口位置：** 右上角头像 → “用户中心”"
+
+#: ../../source/models/xinference_models_hub.rst:63
+msgid "**Account Management:** Update profile, email, and other information"
+msgstr "**账号管理：** 更新个人资料、邮箱等信息"
+
+#: ../../source/models/xinference_models_hub.rst:64
+msgid ""
+"**Token Management:** Configure a personal GitHub Token for model "
+"submissions or updates"
+msgstr "**Token 管理：** 配置个人 GitHub Token 以提交或更新模型"
+
+#: ../../source/models/xinference_models_hub.rst:67
+msgid ""
+"If no GitHub Token is configured, the system will use a default Token "
+"when generating PRs."
+msgstr "若未配置个人 GitHub Token，系统将在生成 PR 时使用默认 Token。"
+
+#: ../../source/models/xinference_models_hub.rst:70
+msgid "Model Registration"
+msgstr "模型注册"
+
+#: ../../source/models/xinference_models_hub.rst:72
+msgid "**Function:** Register new models and submit them for review"
+msgstr "**功能：** 注册新模型并提交评审"
+
+#: ../../source/models/xinference_models_hub.rst:73
+msgid ""
+"**Location:** After logging in → Top-right avatar → “Model "
+"Registration”"
+msgstr "**入口位置：** 登录后 → 右上角头像 → “模型注册”"
+
+#: ../../source/models/xinference_models_hub.rst:75
+msgid "**Submission Steps:**"
+msgstr "**提交步骤：**"
+
+#: ../../source/models/xinference_models_hub.rst:77
+msgid "Fill in basic model information (name, engine, format, etc.)"
+msgstr "填写基础模型信息（名称、引擎、格式等）"
+
+#: ../../source/models/xinference_models_hub.rst:78
+msgid "Edit the README (click “Get README” to auto-generate a template)"
+msgstr "编辑 README（点击“获取 README”可自动生成模板）"
+
+#: ../../source/models/xinference_models_hub.rst:79
+msgid ""
+"Submit the model (enable the “Public Model” parameter if registering a "
+"public model)"
+msgstr "提交模型（如需注册公开模型，请启用“公开模型”参数）"
+
+#: ../../source/models/xinference_models_hub.rst:82
+msgid ""
+"When registering a public model, the system automatically creates a PR in"
+" the `xorbitsai/inference` repository."
+msgstr "在注册公开模型时，系统将自动在 `xorbitsai/inference` 仓库创建 PR。"
+
+#: ../../source/models/xinference_models_hub.rst:85
+msgid "My Models"
+msgstr "我的模型"
+
+#: ../../source/models/xinference_models_hub.rst:87
+msgid "**Function:** View all models associated with the current account"
+msgstr "**功能：** 查看与当前账号相关的所有模型"
+
+#: ../../source/models/xinference_models_hub.rst:88
+msgid "**Location:** After logging in → Top-right avatar → “My Models”"
+msgstr "**入口位置：** 登录后 → 右上角头像 → “我的模型”"
+
+#: ../../source/models/xinference_models_hub.rst:91
+msgid "Model Maintenance"
+msgstr "模型维护"
+
+#: ../../source/models/xinference_models_hub.rst:93
+msgid "**Function:** Modify the model’s JSON or README"
+msgstr "**功能：** 修改模型的 JSON 或 README"
+
+#: ../../source/models/xinference_models_hub.rst:94
+msgid "**Location:** Model details page → “Settings” icon"
+msgstr "**入口位置：** 模型详情页 → “设置” 图标"
+
+#: ../../source/models/xinference_models_hub.rst:97
+msgid ""
+"When updating a public model, the system automatically creates a PR in "
+"the `xorbitsai/inference` repository."
+msgstr "在更新公开模型时，系统将自动在 `xorbitsai/inference` 仓库创建 PR。"
+
+#: ../../source/models/xinference_models_hub.rst:100
+msgid "Review Workflow"
+msgstr "评审流程"
+
+#: ../../source/models/xinference_models_hub.rst:102
+msgid "**Submitter Workflow:**"
+msgstr "**提交者流程：**"
+
+#: ../../source/models/xinference_models_hub.rst:104
+msgid "Submit a model"
+msgstr "提交模型"
+
+#: ../../source/models/xinference_models_hub.rst:105
+msgid "Wait for review"
+msgstr "等待评审"
+
+#: ../../source/models/xinference_models_hub.rst:106
+msgid "Revise based on reviewer feedback"
+msgstr "根据评审意见修改"
+
+#: ../../source/models/xinference_models_hub.rst:107
+msgid "Updated PRs are generated automatically (for public models)"
+msgstr "对于公开模型，PR 会在修改后自动更新"
+
+#: ../../source/models/xinference_models_hub.rst:109
+msgid ""
+"**Reviewer Permissions:** Access to the model review list and model "
+"review privileges."
+msgstr "**评审者权限：** 可访问模型评审列表并执行评审操作。"
+
+#: ../../source/models/xinference_models_hub.rst:111
+msgid "**Reviewer Workflow:**"
+msgstr "**评审者流程：**"
+
+#: ../../source/models/xinference_models_hub.rst:113
+msgid "Enter the “Review List”"
+msgstr "进入“评审列表”"
+
+#: ../../source/models/xinference_models_hub.rst:114
+msgid "Evaluate the model’s quality, completeness, and compliance"
+msgstr "评估模型质量、信息完整性与规范性"
+
+#: ../../source/models/xinference_models_hub.rst:115
+msgid "Approve or reject, providing feedback as necessary"
+msgstr "通过或驳回，并给出相应反馈"
