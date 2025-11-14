@@ -85,7 +85,7 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          - { os: self-hosted, module: gpu, python-version: 3.9}
+          - { os: self-hosted, module: gpu, python-version: "3.11"}
           - { os: macos-latest, module: metal, python-version: "3.10" }
           - { os: macos-latest, python-version: "3.13" }
 
@@ -238,6 +238,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft<=0.17.1"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U xFormers
             ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
               --disable-warnings \
