@@ -35,7 +35,9 @@ from ..core import VLLMEmbeddingModel
 
 if "bge-small-en-v1.5" in BUILTIN_EMBEDDING_MODELS:
     # Force regeneration of engine configuration
-    generate_engine_config_by_model_name(BUILTIN_EMBEDDING_MODELS["bge-small-en-v1.5"])
+    generate_engine_config_by_model_name(
+        BUILTIN_EMBEDDING_MODELS["bge-small-en-v1.5"][0]
+    )
 
 # Debug: Check if vllm engine is registered
 if "bge-small-en-v1.5" not in EMBEDDING_ENGINES or "vllm" not in EMBEDDING_ENGINES.get(
