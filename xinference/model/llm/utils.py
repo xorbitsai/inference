@@ -832,7 +832,7 @@ class ChatModelMixin:
             tool_calls.append(
                 {
                     "index": 0,
-                    "id": f"call_{_id}",
+                    "id": f"call_{str(uuid.uuid4())}",
                     "type": "function",
                     "function": {
                         "name": func,
@@ -911,7 +911,7 @@ class ChatModelMixin:
             if func:
                 tool_calls.append(
                     {
-                        "id": f"call_{_id}",
+                        "id": f"call_{str(uuid.uuid4())}",
                         "type": "function",
                         "function": {
                             "name": func,

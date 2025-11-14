@@ -69,7 +69,17 @@ def _need_filter(spec: dict):
 
 
 def _install():
-    load_model_family_from_json("model_spec.json", BUILTIN_AUDIO_MODELS)
+    # Install models with intelligent merging based on timestamps
+    from ..utils import install_models_with_merge
+
+    install_models_with_merge(
+        BUILTIN_AUDIO_MODELS,
+        "model_spec.json",
+        "audio",
+        "audio_models.json",
+        has_downloaded_models,
+        load_model_family_from_json,
+    )
 
     # register model description after recording model revision
     for model_name, model_specs in BUILTIN_AUDIO_MODELS.items():
@@ -84,8 +94,40 @@ def _install():
         AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
 
+def register_builtin_model():
+    """Register built-in audio models."""
+    _install()
+
+
+def has_downloaded_models():
+    """Check if downloaded JSON configurations exist."""
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "audio")
+    json_file_path = os.path.join(builtin_dir, "audio_models.json")
+    return os.path.exists(json_file_path)
+
+
+def load_downloaded_models():
+    """Load downloaded JSON configurations from the builtin directory."""
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "audio")
+    json_file_path = os.path.join(builtin_dir, "audio_models.json")
+
+    try:
+        load_model_family_from_json(json_file_path, BUILTIN_AUDIO_MODELS)
+    except Exception as e:
+        warnings.warn(
+            f"Failed to load downloaded audio models from {json_file_path}: {e}"
+        )
+        # Fall back to built-in models if download fails
+        load_model_family_from_json("model_spec.json", BUILTIN_AUDIO_MODELS)
+
+
 def load_model_family_from_json(json_filename, target_families):
-    json_path = os.path.join(os.path.dirname(__file__), json_filename)
+    # Handle both relative (module directory) and absolute paths
+    if os.path.isabs(json_filename):
+        json_path = json_filename
+    else:
+        json_path = os.path.join(os.path.dirname(__file__), json_filename)
+
     flattened_model_specs = []
     for spec in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         flattened_model_specs.extend(flatten_model_src(spec))

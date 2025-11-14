@@ -316,7 +316,10 @@ async def test_restful_api(setup):
 
 def test_restful_api_for_embedding(setup):
     model_name = "gte-base"
-    model_spec = BUILTIN_EMBEDDING_MODELS[model_name]
+    # BUILTIN_EMBEDDING_MODELS stores a list of model families for each model name
+    model_spec_list = BUILTIN_EMBEDDING_MODELS[model_name]
+    # Use the first (latest) model family from the list
+    model_spec = model_spec_list[0] if model_spec_list else None
 
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"

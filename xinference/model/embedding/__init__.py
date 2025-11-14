@@ -42,6 +42,11 @@ from .embed_family import (
 )
 
 
+def register_builtin_model():
+    """Register built-in embedding models."""
+    _install()
+
+
 def register_custom_model():
     from ...constants import XINFERENCE_MODEL_DIR
     from ..custom import migrate_from_v1_to_v2
@@ -110,24 +115,92 @@ def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2")
     EMBEDDING_ENGINES[model_name] = engines
 
 
-# will be called in xinference/model/__init__.py
-def _install():
-    _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+def has_downloaded_models():
+    """Check if downloaded JSON configurations exist."""
+    from ...constants import XINFERENCE_MODEL_DIR
 
-    for json_obj in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8")):
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding")
+    json_file_path = os.path.join(builtin_dir, "embedding_models.json")
+    return os.path.exists(json_file_path)
+
+
+def load_downloaded_models():
+    """Load downloaded JSON configurations from the builtin directory."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding")
+    json_file_path = os.path.join(builtin_dir, "embedding_models.json")
+
+    try:
+        load_model_family_from_json(json_file_path, BUILTIN_EMBEDDING_MODELS)
+    except Exception as e:
+        warnings.warn(
+            f"Failed to load downloaded embedding models from {json_file_path}: {e}"
+        )
+        # Fall back to built-in models if download fails
+        load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
+
+
+def load_model_family_from_json(json_filename, target_families):
+    # Handle both relative (module directory) and absolute paths
+    if os.path.isabs(json_filename):
+        json_path = json_filename
+    else:
+        json_path = os.path.join(os.path.dirname(__file__), json_filename)
+
+    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
-        BUILTIN_EMBEDDING_MODELS[json_obj["model_name"]] = EmbeddingModelFamilyV2(
-            **json_obj
+        if json_obj["model_name"] not in target_families:
+            target_families[json_obj["model_name"]] = [
+                EmbeddingModelFamilyV2(**json_obj)
+            ]
+        else:
+            target_families[json_obj["model_name"]].append(
+                EmbeddingModelFamilyV2(**json_obj)
+            )
+
+    del json_path
+
+
+def load_downloaded_models_to_dict(target_dict):
+    """Load downloaded JSON configurations into the specified dictionary."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding")
+    json_file_path = os.path.join(builtin_dir, "embedding_models.json")
+
+    try:
+        load_model_family_from_json(json_file_path, target_dict)
+    except Exception as e:
+        warnings.warn(
+            f"Failed to load downloaded embedding models from {json_file_path}: {e}"
         )
 
-    for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
-        if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
-            EMBEDDING_MODEL_DESCRIPTIONS.update(
-                generate_embedding_description(model_spec)
-            )
+
+# will be called in xinference/model/__init__.py
+def _install():
+    # Install models with intelligent merging based on timestamps
+    from ..utils import install_models_with_merge
+
+    install_models_with_merge(
+        BUILTIN_EMBEDDING_MODELS,
+        "model_spec.json",
+        "embedding",
+        "embedding_models.json",
+        has_downloaded_models,
+        load_model_family_from_json,
+    )
+
+    for model_name, model_spec_list in BUILTIN_EMBEDDING_MODELS.items():
+        # model_spec_list is a list containing one or more model specifications
+        for model_spec in model_spec_list:
+            if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
+                EMBEDDING_MODEL_DESCRIPTIONS.update(
+                    generate_embedding_description(model_spec)
+                )
 
     from .flag.core import FlagEmbeddingModel
     from .llama_cpp.core import XllamaCppEmbeddingModel
@@ -145,8 +218,9 @@ def _install():
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
 
     # Init embedding engine
-    for model_spec in BUILTIN_EMBEDDING_MODELS.values():
-        generate_engine_config_by_model_name(model_spec)
+    for model_spec_list in BUILTIN_EMBEDDING_MODELS.values():
+        for model_spec in model_spec_list:
+            generate_engine_config_by_model_name(model_spec)
 
     register_custom_model()
 
@@ -155,5 +229,3 @@ def _install():
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )
-
-    del _model_spec_json

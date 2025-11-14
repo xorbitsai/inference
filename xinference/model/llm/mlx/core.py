@@ -518,17 +518,19 @@ class MLXModel(LLM):
         start = time.time()
         output = ""
         tokens = []
-        for i, chunk_resp in enumerate(
-            self._generate_stream_inner(
-                prompt_token_ids=prompt_token_ids,
-                max_tokens=max_tokens,
-                temperature=kwargs["temperature"],
-                top_p=kwargs["top_p"],
-                repetition_penalty=kwargs["repetition_penalty"],
-                repetition_context_size=kwargs["repetition_context_size"],
-                prompt_cache=self._prompt_cache.cache if self._prompt_cache else None,  # type: ignore
-            )
-        ):
+        # For VLM models, let generate_step handle cache creation internally
+        # to avoid incompatible cache types between mlx_lm and mlx_vlm
+        stream_kwargs = {
+            "prompt_token_ids": prompt_token_ids,
+            "max_tokens": max_tokens,
+            "temperature": kwargs["temperature"],
+            "top_p": kwargs["top_p"],
+            "repetition_penalty": kwargs["repetition_penalty"],
+            "repetition_context_size": kwargs["repetition_context_size"],
+            # Don't pass prompt_cache for VLM models to let mlx_vlm handle it
+        }
+
+        for i, chunk_resp in enumerate(self._generate_stream_inner(**stream_kwargs)):
             token = chunk_resp.token
             tokens.append(token)
 
@@ -833,7 +835,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         except ImportError:
             # for mlx-lm >= 0.22.3
             from mlx_lm.generate import GenerationResponse
-        from mlx_vlm.utils import generate_step
+        from mlx_vlm.generate import generate_step
 
         inputs = kwargs.pop("prompt_token_ids")
 
@@ -910,9 +912,31 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             kwargs = {}
             input_token_len = input_ids.size
         else:
-            inputs = prepare_inputs(
-                processor, images, prompt_str, image_token_index, resize_shape
+            # Check if processor supports audio to avoid feature_extractor errors
+            supports_audio = hasattr(processor, "feature_extractor") or (
+                hasattr(processor, "audio_tokenizer")
+                and processor.audio_tokenizer is not None
             )
+
+            # For processors that don't support audio (like Qwen3VLProcessor),
+            # explicitly set audio=None to prevent mlx-vlm from trying to process audio
+            if not supports_audio:
+                inputs = prepare_inputs(
+                    processor=processor,
+                    images=images,
+                    audio=None,
+                    prompts=prompt_str,
+                    image_token_index=image_token_index,
+                    resize_shape=resize_shape,
+                )
+            else:
+                inputs = prepare_inputs(
+                    processor=processor,
+                    images=images,
+                    prompts=prompt_str,
+                    image_token_index=image_token_index,
+                    resize_shape=resize_shape,
+                )
             input_ids = inputs["input_ids"]
             pixel_values = inputs["pixel_values"]
             mask = inputs["attention_mask"]

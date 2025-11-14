@@ -124,7 +124,8 @@
     "featured": "推荐和收藏",
     "all": "全部",
     "cancelledSuccessfully": "取消成功!",
-    "mustBeUnique": "{{key}} 必须唯一"
+    "mustBeUnique": "{{key}} 必须唯一",
+    "update": "更新"
   },
 
   "runningModels": {

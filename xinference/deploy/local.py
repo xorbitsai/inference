@@ -135,7 +135,9 @@ def run_in_subprocess(
     if parent_conn.poll(timeout=XINFERENCE_HEALTH_CHECK_TIMEOUT):
         msg = parent_conn.recv()
         if msg != READY:
-            raise RuntimeError(f"Start service process failed during startup:\n{msg}")
+            raise RuntimeError(
+                f"Start service process failed during startup:\n{msg}"  # noqa: E231
+            )
     else:
         logger.info(
             "No response from process after %s seconds", XINFERENCE_HEALTH_CHECK_TIMEOUT
@@ -157,7 +159,7 @@ def main(
     # which will raise error after sub pool is created
     multiprocessing.set_start_method("spawn")
 
-    supervisor_address = f"{host}:{get_next_port()}"
+    supervisor_address = f"{host}:{get_next_port()}"  # noqa: E231
     local_cluster = run_in_subprocess(
         supervisor_address, metrics_exporter_host, metrics_exporter_port, logging_conf
     )

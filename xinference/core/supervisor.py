@@ -516,9 +516,19 @@ class SupervisorActor(xo.StatelessActor):
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_manager = ImageCacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -537,13 +547,23 @@ class SupervisorActor(xo.StatelessActor):
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_manager = CacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -562,13 +582,23 @@ class SupervisorActor(xo.StatelessActor):
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_manager = CacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -636,13 +666,15 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(family, is_builtin=True)
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                # family_list is a list of EmbeddingModelFamilyV2 objects
+                for family in family_list:
+                    if detailed:
+                        ret.append(
+                            await self._to_embedding_model_reg(family, is_builtin=True)
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_embeddings():
                 if detailed:
@@ -664,7 +696,6 @@ class SupervisorActor(xo.StatelessActor):
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
                     info = await self._to_image_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -689,7 +720,6 @@ class SupervisorActor(xo.StatelessActor):
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
                     info = await self._to_audio_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -713,7 +743,6 @@ class SupervisorActor(xo.StatelessActor):
                 if detailed:
                     family = [x for x in families if x.model_hub == "huggingface"][0]
                     info = await self._to_video_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
                     ret.append(info)
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
@@ -724,11 +753,15 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            for model_name, family in BUILTIN_RERANK_MODELS.items():
-                if detailed:
-                    ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+            for model_name, family_list in BUILTIN_RERANK_MODELS.items():
+                # family_list is a list of RerankModelFamilyV2 objects
+                for family in family_list:
+                    if detailed:
+                        ret.append(
+                            await self._to_rerank_model_reg(family, is_builtin=True)
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_reranks():
                 if detailed:
@@ -784,9 +817,12 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            for f in (
-                list(BUILTIN_EMBEDDING_MODELS.values()) + get_user_defined_embeddings()
-            ):
+            for family_list in BUILTIN_EMBEDDING_MODELS.values():
+                # family_list is a list of EmbeddingModelFamilyV2 objects
+                for f in family_list:
+                    if f.model_name == model_name:
+                        return f
+            for f in get_user_defined_embeddings():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
@@ -824,7 +860,12 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+            for family_list in BUILTIN_RERANK_MODELS.values():
+                # family_list is a list of RerankModelFamilyV2 objects
+                for f in family_list:
+                    if f.model_name == model_name:
+                        return f
+            for f in get_user_defined_reranks():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
@@ -970,6 +1011,41 @@ class SupervisorActor(xo.StatelessActor):
             await self._cache_tracker_ref.unregister_model_version(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by forwarding
+        the request to all workers.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+
+        try:
+            # Forward the update_model_type request to all workers
+            tasks = []
+            for worker_address, worker_ref in self._worker_address_to_worker.items():
+                tasks.append(worker_ref.update_model_type(model_type))
+
+            # Wait for all workers to complete the operation
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        pass  # Worker failed, continue
+                    else:
+                        pass  # Worker succeeded, continue
+            else:
+                logger.warning(
+                    f"No workers available to forward update_model_type request"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Error during update_model_type forwarding: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model type: {str(e)}")
 
     def _gen_model_uid(self, model_name: str) -> str:
         if model_name not in self._model_uid_to_replica_info:

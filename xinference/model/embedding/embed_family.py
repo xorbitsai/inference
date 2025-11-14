@@ -23,7 +23,7 @@ SENTENCE_TRANSFORMER_CLASSES: List[Type["EmbeddingModel"]] = []
 VLLM_CLASSES: List[Type["EmbeddingModel"]] = []
 LLAMA_CPP_CLASSES: List[Type["EmbeddingModel"]] = []
 
-BUILTIN_EMBEDDING_MODELS: Dict[str, "EmbeddingModelFamilyV2"] = {}
+BUILTIN_EMBEDDING_MODELS: Dict[str, List["EmbeddingModelFamilyV2"]] = {}
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,10 @@ def match_embedding(
     target_family = None
 
     if model_name in BUILTIN_EMBEDDING_MODELS:
-        target_family = BUILTIN_EMBEDDING_MODELS[model_name]
+        # BUILTIN_EMBEDDING_MODELS stores a list of model families for each model name
+        target_family_list = BUILTIN_EMBEDDING_MODELS[model_name]
+        # Use the first (latest) model family from the list
+        target_family = target_family_list[0] if target_family_list else None
     else:
         for model_family in get_user_defined_embeddings():
             if model_name == model_family.model_name:

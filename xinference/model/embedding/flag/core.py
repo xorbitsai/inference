@@ -30,13 +30,14 @@ except ImportError:
 
 from ....device_utils import get_available_device
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...batch import BatchMixin
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
 logger = logging.getLogger(__name__)
 
 
-class FlagEmbeddingModel(EmbeddingModel):
+class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(
         self,
         model_uid: str,
@@ -47,14 +48,10 @@ class FlagEmbeddingModel(EmbeddingModel):
         return_sparse: bool = False,
         **kwargs,
     ):
-        super().__init__(
-            model_uid,
-            model_path,
-            model_family,
-            quantization,
-            device,
-            **kwargs,
+        EmbeddingModel.__init__(
+            self, model_uid, model_path, model_family, quantization, device, **kwargs
         )
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._return_sparse = return_sparse
 
     def load(self):
@@ -105,7 +102,7 @@ class FlagEmbeddingModel(EmbeddingModel):
         )
         self._tokenizer = self._model.tokenizer
 
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,

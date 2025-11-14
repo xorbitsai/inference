@@ -124,7 +124,8 @@
     "featured": "おすすめとお気に入り",
     "all": "すべて",
     "cancelledSuccessfully": "正常にキャンセルされました！",
-    "mustBeUnique": "{{key}} は一意でなければなりません"
+    "mustBeUnique": "{{key}} は一意でなければなりません",
+    "update": "更新"
   },
 
   "runningModels": {

@@ -14,14 +14,19 @@
 
 import abc
 import gc
+import inspect
 import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Annotated, Dict, List, Literal, Optional, Union
 
+from xoscar import extensible
+
 from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
 from ...device_utils import empty_cache
+from ...types import Embedding
+from ...utils import make_hashable
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
@@ -240,7 +245,7 @@ class EmbeddingModel(abc.ABC):
             return sum([len(t) for t in text])  # Sum of length of individual strings
 
     @abstractmethod
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,
@@ -259,6 +264,106 @@ class EmbeddingModel(abc.ABC):
         Embedding
            The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
         """
+
+    @extensible
+    def create_embedding(
+        self,
+        sentences: Union[str, List[str]],
+        **kwargs,
+    ):
+        return self._create_embedding(sentences, **kwargs)
+
+    @create_embedding.batch  # type: ignore
+    def create_embedding(self, args_list, kwargs_list):
+        grouped = defaultdict(
+            lambda: {"sentences": [], "offsets": [], "kwargs": None, "indices": []}
+        )
+
+        # 1. Group by kwargs hash
+        for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
+            sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
+            if isinstance(sentences, str):
+                sentences = [sentences]
+
+            key = make_hashable(extra_kwargs)
+            group = grouped[key]
+            group["kwargs"] = extra_kwargs
+
+            current_offset = len(group["sentences"])
+            group["offsets"].append((current_offset, len(sentences)))
+            group["sentences"].extend(sentences)
+            group["indices"].append(i)  # remember original position
+
+        results_with_index = []
+
+        # 2. Process each group separately
+        for key, group in grouped.items():
+            sentences = group["sentences"]
+            kwargs = group["kwargs"]
+            offsets = group["offsets"]
+            indices = group["indices"]
+
+            embedding_list = self._create_embedding(sentences, **kwargs)
+            usage = {"total_tokens": len(sentences)}
+            model_uid = kwargs.get("model_uid", "unknown")
+
+            # 3. Split and attach original index
+            for (offset, n), idx in zip(offsets, indices):
+                data = embedding_list["data"][offset : offset + n]
+                result = Embedding(
+                    object="list",
+                    model=model_uid,
+                    model_replica=self._model_uid,
+                    data=data,
+                    usage=usage,
+                )
+                results_with_index.append((idx, result))
+
+        # 4. Sort by original call order
+        results_with_index.sort(key=lambda x: x[0])
+        results = [r for _, r in results_with_index]
+        return results
+
+    def _extract_sentences_kwargs(self, args, kwargs):
+        """
+        Extract the 'sentences' argument and remaining kwargs from (*args, **kwargs)
+        for a given function.
+
+        This uses inspect.signature(func).bind_partial() to automatically match
+        both positional and keyword arguments, while handling bound methods
+        (functions with 'self' as the first parameter).
+
+        Args:
+            func: The target function whose parameters define how to bind args/kwargs.
+            args: The positional arguments passed to the function.
+            kwargs: The keyword arguments passed to the function.
+
+        Returns:
+            A tuple (sentences, extra_kwargs), where:
+              - sentences: The extracted 'sentences' argument (never None).
+              - extra_kwargs: Remaining keyword arguments excluding 'sentences'.
+
+        Raises:
+            KeyError: If 'sentences' argument is not found.
+            TypeError: If args/kwargs do not match the function signature.
+        """
+        sig = inspect.signature(self._create_embedding)
+        bound = sig.bind_partial(*args, **kwargs)
+        bound.apply_defaults()
+
+        if "sentences" not in bound.arguments:
+            raise KeyError("'sentences' argument not found in args/kwargs")
+
+        sentences = bound.arguments["sentences"]
+        extra_kwargs = {k: v for k, v in kwargs.items() if k != "sentences"}
+        return sentences, extra_kwargs
+
+    def _get_batch_size(self, *args, **kwargs) -> int:
+        sentences = self._extract_sentences_kwargs(args, kwargs)[0]
+        if isinstance(sentences, list):
+            return len(sentences)
+        else:
+            return 1
 
     def convert_ids_to_tokens(
         self,

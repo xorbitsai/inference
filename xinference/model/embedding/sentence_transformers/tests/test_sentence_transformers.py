@@ -39,7 +39,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
 )
 
 
-def test_embedding_model_with_sentence_transformer():
+async def test_embedding_model_with_sentence_transformer():
     model_path = None
 
     try:
@@ -57,7 +57,7 @@ def test_embedding_model_with_sentence_transformer():
         input_text = "what is the capital of China?"
 
         # test sparse and dense
-        r = model.create_embedding(input_text)
+        r = await model.create_embedding(input_text)
         assert len(r["data"]) == 1
         assert len(r["data"][0]["embedding"]) == 384
 
@@ -69,7 +69,7 @@ def test_embedding_model_with_sentence_transformer():
             "sorting algorithms",
         ]
         # test sparse and dense
-        r = model.create_embedding(input_texts)
+        r = await model.create_embedding(input_texts)
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == 384
@@ -78,7 +78,7 @@ def test_embedding_model_with_sentence_transformer():
             shutil.rmtree(model_path, ignore_errors=True)
 
 
-def test_embedding_model_with_sentence_transformer_truncate_dim():
+async def test_embedding_model_with_sentence_transformer_truncate_dim():
     model_path = None
 
     try:
@@ -98,7 +98,7 @@ def test_embedding_model_with_sentence_transformer_truncate_dim():
         input_text = "what is the capital of China?"
 
         # test sparse and dense
-        r = model.create_embedding(input_text)
+        r = await model.create_embedding(input_text)
         assert len(r["data"]) == 1
         assert len(r["data"][0]["embedding"]) == truncate_dim
 
@@ -110,7 +110,7 @@ def test_embedding_model_with_sentence_transformer_truncate_dim():
             "sorting algorithms",
         ]
         # test sparse and dense
-        r = model.create_embedding(input_texts)
+        r = await model.create_embedding(input_texts)
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == truncate_dim
