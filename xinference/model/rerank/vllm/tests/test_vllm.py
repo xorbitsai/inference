@@ -18,7 +18,7 @@ if "bge-reranker-base" in BUILTIN_RERANK_MODELS:
     # Force regeneration of engine configuration
     from ... import generate_engine_config_by_model_name
 
-    generate_engine_config_by_model_name(BUILTIN_RERANK_MODELS["bge-reranker-base"])
+    generate_engine_config_by_model_name(BUILTIN_RERANK_MODELS["bge-reranker-base"][0])
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
