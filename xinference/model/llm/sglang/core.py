@@ -334,31 +334,130 @@ class SGLANGModel(LLM):
         return generate_config
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sglang") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        # Check CUDA first - this is the most important requirement
+        try:
+            import torch
+
+            if not torch.cuda.is_available():
+                return "SGLang requires CUDA support but no CUDA devices detected"
+        except ImportError:
+            return "SGLang requires PyTorch with CUDA support"
+
+        if importlib.util.find_spec("sglang") is None:
+            return "sglang library is not installed"
+
+        try:
+            if not getattr(sglang, "__version__", None):
+                return "SGLang version information is not available"
+
+            # Check version - SGLang requires recent version
+            from packaging import version
+
+            if version.parse(sglang.__version__) < version.parse("0.1.0"):
+                return f"SGLang version {sglang.__version__} is too old, minimum required is 0.1.0"
+
+            return True
+        except Exception as e:
+            return f"Error checking SGLang library: {str(e)}"
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        if not cls._has_cuda_device():
-            return False
-        if not cls._is_linux():
-            return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check GPU requirements
+        try:
+            import torch
+
+            if torch.cuda.device_count() == 0:
+                return "SGLang requires CUDA support but no CUDA devices detected"
+        except ImportError:
+            return "SGLang requires PyTorch with CUDA support"
+
+        # Check model format compatibility
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return f"SGLang does not support model format: {llm_spec.model_format}, supported formats: {', '.join(supported_formats)}"
+
+        # Check quantization compatibility with format
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
-                return False
-        else:
-            if llm_family.model_name not in SGLANG_SUPPORTED_MODELS:
-                return False
-        if "generate" not in llm_family.model_ability:
+            if quantization != "none" and quantization is not None:
+                return f"SGLang pytorch format does not support quantization: {quantization}"
+
+        # Check model compatibility with more flexible matching
+        def is_model_supported(model_name: str, supported_list: List[str]) -> bool:
+            """Check if model is supported with flexible matching."""
+            # Direct match
+            if model_name in supported_list:
+                return True
+
+            # Partial matching for models with variants (e.g., qwen3 variants)
+            for supported in supported_list:
+                if model_name.startswith(
+                    supported.lower()
+                ) or supported.lower().startswith(model_name):
+                    return True
+
+            # Family-based matching for common patterns
+            model_lower = model_name.lower()
+            if any(
+                family in model_lower
+                for family in [
+                    "qwen3",
+                    "llama",
+                    "mistral",
+                    "mixtral",
+                    "qwen2",
+                    "qwen2.5",
+                    "deepseek",
+                    "yi",
+                    "baichuan",
+                ]
+            ):
+                # Check if there's a corresponding supported model with same family
+                for supported in supported_list:
+                    if any(
+                        family in supported.lower()
+                        for family in [
+                            "qwen3",
+                            "llama",
+                            "mistral",
+                            "mixtral",
+                            "qwen2",
+                            "qwen2.5",
+                            "deepseek",
+                            "yi",
+                            "baichuan",
+                        ]
+                    ):
+                        return True
+
             return False
-        return SGLANG_INSTALLED
+
+        if isinstance(llm_family, CustomLLMFamilyV2):
+            if not llm_family.model_family or not is_model_supported(
+                llm_family.model_family.lower(), SGLANG_SUPPORTED_MODELS
+            ):
+                # Instead of hard rejection, give a warning but allow usage
+                logger.warning(
+                    f"Custom model family may not be fully supported by SGLang: {llm_family.model_family}"
+                )
+        else:
+            if not llm_family.model_name or not is_model_supported(
+                llm_family.model_name.lower(),
+                [s.lower() for s in SGLANG_SUPPORTED_MODELS],
+            ):
+                # Instead of hard rejection, give a warning but allow usage
+                logger.warning(
+                    f"Model may not be fully supported by SGLang: {llm_family.model_name}"
+                )
+
+        return True
 
     @staticmethod
     def _convert_state_to_completion_chunk(
@@ -646,21 +745,76 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+    ) -> Union[bool, str]:
+        # First run base class checks
+        base_result = super().match_json(llm_family, llm_spec, quantization)
+        if base_result != True:
+            return base_result
+
+        # Check model format compatibility (same as base)
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return f"SGLang Chat does not support model format: {llm_spec.model_format}"
+
+        # Check quantization compatibility with format
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return False
-        else:
-            if llm_family.model_name not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return False
-        if "chat" not in llm_family.model_ability:
+            if quantization != "none" and quantization is not None:
+                return f"SGLang Chat pytorch format does not support quantization: {quantization}"
+
+        # Check chat model compatibility with more flexible matching
+        def is_chat_model_supported(model_name: str, supported_list: List[str]) -> bool:
+            """Check if chat model is supported with flexible matching."""
+            # Direct match
+            if model_name in supported_list:
+                return True
+
+            # Partial matching for models with variants
+            for supported in supported_list:
+                if model_name.startswith(
+                    supported.lower()
+                ) or supported.lower().startswith(model_name):
+                    return True
+
+            # Family-based matching for common chat patterns
+            model_lower = model_name.lower()
+            if any(suffix in model_lower for suffix in ["chat", "instruct", "coder"]):
+                if any(
+                    family in model_lower
+                    for family in [
+                        "qwen3",
+                        "llama",
+                        "mistral",
+                        "mixtral",
+                        "qwen2",
+                        "qwen2.5",
+                        "deepseek",
+                        "yi",
+                        "baichuan",
+                    ]
+                ):
+                    return True
+
             return False
-        return SGLANG_INSTALLED
+
+        if isinstance(llm_family, CustomLLMFamilyV2):
+            if not llm_family.model_family or not is_chat_model_supported(
+                llm_family.model_family.lower(), SGLANG_SUPPORTED_CHAT_MODELS
+            ):
+                # Instead of hard rejection, give a warning but allow usage
+                logger.warning(
+                    f"Custom chat model may not be fully supported by SGLang: {llm_family.model_family}"
+                )
+        else:
+            if not llm_family.model_name or not is_chat_model_supported(
+                llm_family.model_name.lower(),
+                [s.lower() for s in SGLANG_SUPPORTED_CHAT_MODELS],
+            ):
+                # Instead of hard rejection, give a warning but allow usage
+                logger.warning(
+                    f"Chat model may not be fully supported by SGLang: {llm_family.model_name}"
+                )
+
+        return True
 
     def _sanitize_chat_config(
         self,
@@ -733,25 +887,81 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        if not cls._has_cuda_device():
-            return False
-        if not cls._is_linux():
-            return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+    ) -> Union[bool, str]:
+        # First run base class checks
+        base_result = super().match_json(llm_family, llm_spec, quantization)
+        if base_result != True:
+            return base_result
+
+        # Vision models have the same format restrictions as base SGLANG
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if llm_spec.model_format not in supported_formats:
+            return (
+                f"SGLang Vision does not support model format: {llm_spec.model_format}"
+            )
+
+        # Vision models typically work with specific quantization settings
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return False
-        else:
-            if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return False
-        if "vision" not in llm_family.model_ability:
+            if quantization != "none" and quantization is not None:
+                return f"SGLang Vision pytorch format does not support quantization: {quantization}"
+
+        # Check vision model compatibility with more flexible matching
+        def is_vision_model_supported(
+            model_name: str, supported_list: List[str]
+        ) -> bool:
+            """Check if vision model is supported with flexible matching."""
+            # Direct match
+            if model_name in supported_list:
+                return True
+
+            # Partial matching for models with variants
+            for supported in supported_list:
+                if model_name.startswith(
+                    supported.lower()
+                ) or supported.lower().startswith(model_name):
+                    return True
+
+            # Family-based matching for common vision patterns
+            model_lower = model_name.lower()
+            if any(suffix in model_lower for suffix in ["vision", "vl", "multi", "mm"]):
+                if any(
+                    family in model_lower
+                    for family in [
+                        "qwen3",
+                        "llama",
+                        "mistral",
+                        "mixtral",
+                        "qwen2",
+                        "qwen2.5",
+                        "deepseek",
+                        "yi",
+                        "baichuan",
+                        "internvl",
+                    ]
+                ):
+                    return True
+
             return False
-        return SGLANG_INSTALLED
+
+        if isinstance(llm_family, CustomLLMFamilyV2):
+            if not llm_family.model_family or not is_vision_model_supported(
+                llm_family.model_family.lower(), SGLANG_SUPPORTED_VISION_MODEL_LIST
+            ):
+                # Instead of hard rejection, give a warning but allow usage
+                logger.warning(
+                    f"Custom vision model may not be fully supported by SGLang: {llm_family.model_family}"
+                )
+        else:
+            if not llm_family.model_name or not is_vision_model_supported(
+                llm_family.model_name.lower(),
+                [s.lower() for s in SGLANG_SUPPORTED_VISION_MODEL_LIST],
+            ):
+                # Instead of hard rejection, give a warning but allow usage
+                logger.warning(
+                    f"Vision model may not be fully supported by SGLang: {llm_family.model_name}"
+                )
+
+        return True
 
     def _sanitize_chat_config(
         self,

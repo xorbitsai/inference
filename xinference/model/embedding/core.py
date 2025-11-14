@@ -163,7 +163,7 @@ class EmbeddingModel(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> bool:
+    def check_lib(cls) -> Union[bool, str]:
         pass
 
     @classmethod
@@ -173,7 +173,7 @@ class EmbeddingModel(abc.ABC):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, str]:
         pass
 
     @classmethod
@@ -182,13 +182,15 @@ class EmbeddingModel(abc.ABC):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ):
+    ) -> bool:
         """
         Return if the model_spec can be matched.
         """
-        if not cls.check_lib():
+        lib_result = cls.check_lib()
+        if lib_result != True:
             return False
-        return cls.match_json(model_family, model_spec, quantization)
+        match_result = cls.match_json(model_family, model_spec, quantization)
+        return match_result == True
 
     @abstractmethod
     def load(self):

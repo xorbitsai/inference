@@ -16,7 +16,7 @@ import importlib.util
 import logging
 import threading
 import uuid
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -191,7 +191,7 @@ class SentenceTransformerRerankModel(RerankModel):
                     from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
                 else:
                     raise RuntimeError(
-                        f"Unsupported Rank model type: {self.model_family.type}"
+                        f"Unsupported Rerank model type: {self.model_family.type}"
                     )
             except ImportError:
                 error_message = "Failed to import module 'FlagEmbedding'"
@@ -331,8 +331,12 @@ class SentenceTransformerRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("sentence_transformers") is not None
+            else "sentence_transformers library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -340,6 +344,38 @@ class SentenceTransformerRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+    ) -> Union[bool, str]:
+        # Check library availability
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
+        if model_spec.model_format not in ["pytorch"]:
+            return f"Sentence Transformers reranking only supports pytorch format, got: {model_spec.model_format}"
+
+        # Check rerank-specific requirements
+        if not hasattr(model_family, "model_name"):
+            return "Rerank model family requires model name specification"
+
+        # Check model type compatibility
+        if model_family.type and model_family.type not in [
+            "rerank",
+            "unknown",
+            "cross-encoder",
+            "normal",
+            "LLM-based",
+            "LLM-based layerwise",
+        ]:
+            return f"Model type '{model_family.type}' may not be compatible with reranking engines"
+
+        # Check max tokens limit for reranking performance
+        max_tokens = model_family.max_tokens
+        if max_tokens and max_tokens > 8192:  # High token limits for reranking
+            return f"High max_tokens limit for reranking model: {max_tokens}, may cause performance issues"
+
+        # Check language compatibility
+        if not model_family.language or len(model_family.language) == 0:
+            return "Rerank model language information is missing"
+
+        return True

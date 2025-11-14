@@ -3,9 +3,22 @@ import shutil
 import pytest
 
 from .....client import Client
+
+# Ensure rerank engines are properly initialized
+# This addresses potential CI environment initialization issues
+from ... import BUILTIN_RERANK_MODELS
 from ...cache_manager import RerankCacheManager
 from ...core import RerankModelFamilyV2, RerankSpecV1
 from ..core import VLLMRerankModel
+
+# Force import of the entire rerank module to ensure initialization
+
+
+if "bge-reranker-base" in BUILTIN_RERANK_MODELS:
+    # Force regeneration of engine configuration
+    from ... import generate_engine_config_by_model_name
+
+    generate_engine_config_by_model_name(BUILTIN_RERANK_MODELS["bge-reranker-base"][0])
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
@@ -61,6 +74,7 @@ def test_qwen3_vllm(setup):
         model_name="Qwen3-Reranker-0.6B",
         model_type="rerank",
         model_engine="vllm",
+        max_num_batched_tokens=81920,  # Allow larger batch size for Qwen3
     )
 
     model = client.get_model(model_uid)

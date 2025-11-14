@@ -18,7 +18,6 @@ import importlib
 import importlib.util
 import logging
 import pathlib
-import platform
 import sys
 import threading
 import time
@@ -404,23 +403,39 @@ class MLXModel(LLM):
         self._context_length = get_context_length(config)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_lm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("mlx_lm") is not None
+            else "mlx_lm library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
         if llm_spec.model_format not in ["mlx"]:
-            return False
-        if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
-        if "generate" not in llm_family.model_ability:
-            return False
-        if "chat" in llm_family.model_ability or "vision" in llm_family.model_ability:
-            # do not process chat or vision
-            return False
+            return f"MLX engine only supports MLX format, got: {llm_spec.model_format}"
+
+        # Base MLX model should not handle chat or vision models
+        # Those should be handled by MLXChatModel and MLXVisionModel respectively
+        model_abilities = getattr(llm_family, "model_ability", [])
+        if "chat" in model_abilities:
+            return False  # Let MLXChatModel handle this
+        if "vision" in model_abilities:
+            return False  # Let MLXVisionModel handle this
+
+        # Check memory constraints for Apple Silicon
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Large models may be problematic
+            return f"MLX may have memory limitations with very large models ({model_size}B parameters)"
+
         return True
 
     def _get_prompt_cache(
@@ -721,17 +736,30 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
         if llm_spec.model_format not in ["mlx"]:
-            return False
-        if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
-        if "chat" not in llm_family.model_ability:
-            return False
-        if "vision" in llm_family.model_ability:
-            # do not process vision
-            return False
+            return f"MLX Chat engine only supports MLX format, got: {llm_spec.model_format}"
+
+        # Check that this model has chat ability
+        model_abilities = getattr(llm_family, "model_ability", [])
+        if "chat" not in model_abilities:
+            return False  # Not a chat model
+
+        # MLX Chat doesn't support vision
+        if "vision" in model_abilities:
+            return False  # Let MLXVisionModel handle this
+
+        # Check memory constraints for Apple Silicon
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Large models may be problematic
+            return f"MLX Chat may have memory limitations with very large models ({model_size}B parameters)"
+
         return True
 
     def chat(
@@ -779,20 +807,36 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_vlm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("mlx_vlm") is not None
+            else "mlx_vlm library is not installed"
+        )
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability first - MLX Vision uses mlx_vlm
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
+        # Check model format compatibility
         if llm_spec.model_format not in ["mlx"]:
-            return False
-        if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
-        if "vision" not in llm_family.model_ability:
-            return False
+            return f"MLX Vision engine only supports MLX format, got: {llm_spec.model_format}"
+
+        # Check that this model has vision ability
+        model_abilities = getattr(llm_family, "model_ability", [])
+        if "vision" not in model_abilities:
+            return False  # Not a vision model
+
+        # Check memory constraints for Apple Silicon
+        model_size = float(str(llm_spec.model_size_in_billions))
+        if model_size > 70:  # Large models may be problematic
+            return f"MLX Vision may have memory limitations with very large models ({model_size}B parameters)"
+
         return True
 
     def _load_model(self, **kwargs):

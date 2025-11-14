@@ -282,8 +282,12 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("FlagEmbedding") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        return (
+            True
+            if importlib.util.find_spec("FlagEmbedding") is not None
+            else "FlagEmbedding library is not installed"
+        )
 
     @classmethod
     def match_json(
@@ -291,10 +295,15 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, str]:
+        # Check library availability first
+        lib_result = cls.check_lib()
+        if lib_result != True:
+            return lib_result
+
         if (
             model_spec.model_format in ["pytorch"]
             and model_family.model_name in FLAG_EMBEDDER_MODEL_LIST
         ):
             return True
-        return False
+        return f"FlagEmbedding engine only supports pytorch format and models in FLAG_EMBEDDER_MODEL_LIST, got format: {model_spec.model_format}, model: {model_family.model_name}"
