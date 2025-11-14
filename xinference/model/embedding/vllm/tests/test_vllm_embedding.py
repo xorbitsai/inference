@@ -43,7 +43,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
 
 
 @pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
-def test_embedding_model_with_vllm():
+async def test_embedding_model_with_vllm():
     model_path = None
 
     try:
@@ -61,7 +61,7 @@ def test_embedding_model_with_vllm():
         input_text = "what is the capital of China?"
 
         # test sparse and dense
-        r = model.create_embedding(input_text)
+        r = await model.create_embedding(input_text)
         assert len(r["data"]) == 1
         assert len(r["data"][0]["embedding"]) == 384
 
@@ -73,7 +73,7 @@ def test_embedding_model_with_vllm():
             "sorting algorithms",
         ]
         # test sparse and dense
-        r = model.create_embedding(input_texts)
+        r = await model.create_embedding(input_texts)
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == 384
@@ -83,7 +83,7 @@ def test_embedding_model_with_vllm():
 
 
 @pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
-def test_embedding_model_with_vllm_long_text():
+async def test_embedding_model_with_vllm_long_text():
     """Test embedding model with text that exceeds 512 tokens."""
     model_path = None
 
@@ -125,7 +125,7 @@ def test_embedding_model_with_vllm_long_text():
         print(f"Approximate word count: {len(long_text.split())}")
 
         # Test single long text
-        r = model.create_embedding(long_text)
+        r = await model.create_embedding(long_text)
         assert len(r["data"]) == 1
         assert len(r["data"][0]["embedding"]) == 384
 
@@ -141,7 +141,7 @@ def test_embedding_model_with_vllm_long_text():
             "Another very long text: " + long_text[: len(long_text) // 2],
         ]
 
-        r_multiple = model.create_embedding(long_texts)
+        r_multiple = await model.create_embedding(long_texts)
         assert len(r_multiple["data"]) == 3
         for d in r_multiple["data"]:
             assert len(d["embedding"]) == 384
