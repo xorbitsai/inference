@@ -55,7 +55,7 @@ msgid ""
 "automatically generates and submits PRs** to the `xorbitsai/inference` "
 "repository, ensuring a standardized, automated, and traceable workflow "
 "that eliminates inconsistencies caused by manual edits."
-msgstr "通过集中式在线模型管理机制，Xinference Models Hub 要求**所有模型信息（含元数据、参数及 README）均在平台中完成编辑**。系统会根据 :ref:`模型维护者 <model_maintainer_guide>` 的修改 **自动生成并提交 PR** 到 `xorbitsai/inference` 仓库，实现流程标准化、自动化与可追溯，避免手动修改带来的不一致问题。"
+msgstr "通过集中式在线模型管理机制，Xinference Models Hub 要求 **所有模型信息（含元数据、参数及 README）均在平台中完成编辑**。系统会根据 :ref:`模型维护者 <model_maintainer_guide>` 的修改 **自动生成并提交 PR** 到 `xorbitsai/inference` 仓库，实现流程标准化、自动化与可追溯，避免手动修改带来的不一致问题。"
 
 #: ../../source/models/xinference_models_hub.rst:17
 msgid ""
