@@ -41,7 +41,12 @@ def match_rerank(
     target_family = None
 
     if model_name in BUILTIN_RERANK_MODELS:
-        target_family = BUILTIN_RERANK_MODELS[model_name]
+        model_families = BUILTIN_RERANK_MODELS[model_name]
+        # Handle the case where BUILTIN_RERANK_MODELS stores lists
+        if isinstance(model_families, list):
+            target_family = model_families[0]  # Take the first model family
+        else:
+            target_family = model_families
     else:
         for model_family in get_user_defined_reranks():
             if model_name == model_family.model_name:
