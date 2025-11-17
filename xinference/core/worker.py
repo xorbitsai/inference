@@ -1145,8 +1145,10 @@ class WorkerActor(xo.StatelessActor):
 
             # virtualenv
             virtual_env_name = kwargs.pop("virtual_env_name", None)
+            # Use v3 structure: .xinference/virtualenv/v3/model_name/python_version
+            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
             virtual_env_path = os.path.join(
-                XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
+                XINFERENCE_VIRTUAL_ENV_DIR, "v3", model_name, python_version
             )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
@@ -1661,9 +1663,11 @@ class WorkerActor(xo.StatelessActor):
         """List packages installed in a specific virtual environment."""
         return self._virtual_env_manager.list_virtual_env_packages(model_name)
 
-    async def remove_virtual_env(self, model_name: str) -> bool:
+    async def remove_virtual_env(
+        self, model_name: str, python_version: Optional[str] = None
+    ) -> bool:
         """Remove a virtual environment for a specific model."""
-        return self._virtual_env_manager.remove_virtual_env(model_name)
+        return self._virtual_env_manager.remove_virtual_env(model_name, python_version)
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {

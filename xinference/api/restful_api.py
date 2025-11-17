@@ -3412,7 +3412,10 @@ class RESTfulAPI(CancelMixin):
         )
 
     async def remove_virtual_env(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
+        self,
+        model_name: str = Query(None),
+        python_version: str = Query(None),
+        worker_ip: str = Query(None),
     ) -> JSONResponse:
         """Remove a virtual environment for a specific model."""
         if not model_name:
@@ -3422,7 +3425,9 @@ class RESTfulAPI(CancelMixin):
 
         try:
             res = await (await self._get_supervisor_ref()).remove_virtual_env(
-                model_name=model_name, worker_ip=worker_ip
+                model_name=model_name,
+                python_version=python_version,
+                worker_ip=worker_ip,
             )
             return JSONResponse(content={"result": res})
         except ValueError as re:

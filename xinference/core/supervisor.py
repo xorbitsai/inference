@@ -2044,7 +2044,10 @@ class SupervisorActor(xo.StatelessActor):
         }
 
     async def remove_virtual_env(
-        self, model_name: str, worker_ip: Optional[str] = None
+        self,
+        model_name: str,
+        python_version: Optional[str] = None,
+        worker_ip: Optional[str] = None,
     ) -> bool:
         """Remove a virtual environment across the cluster."""
         if not model_name:
@@ -2062,7 +2065,9 @@ class SupervisorActor(xo.StatelessActor):
 
         # If specific worker is requested, remove only from that worker
         if target_ip_worker_ref:
-            return await target_ip_worker_ref.remove_virtual_env(model_name)
+            return await target_ip_worker_ref.remove_virtual_env(
+                model_name, python_version
+            )
 
         # Otherwise, remove from all workers that have the virtual environment
         ret = True
@@ -2080,7 +2085,7 @@ class SupervisorActor(xo.StatelessActor):
         # Then remove from those workers
         for worker in workers_with_env:
             try:
-                result = await worker.remove_virtual_env(model_name)
+                result = await worker.remove_virtual_env(model_name, python_version)
                 ret = ret and result
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")
