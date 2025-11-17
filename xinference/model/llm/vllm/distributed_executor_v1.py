@@ -238,7 +238,7 @@ class XinferenceDistributedExecutorV1(Executor):
 
     def execute_model(
         self, scheduler_output: "SchedulerOutput", non_block: bool = False
-    ) -> "ModelRunnerOutput" | None | Future["ModelRunnerOutput" | None]:
+    ) -> Union["ModelRunnerOutput", None, Future[Union["ModelRunnerOutput", None]]]:
         outputs = self._run_workers(
             "execute_model", scheduler_output, non_block=non_block
         )
