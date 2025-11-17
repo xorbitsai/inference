@@ -9,7 +9,7 @@ bitsandbytes
 tiktoken>=0.6.0
 autoawq!=0.2.6
 optimum
-peft
+peft<=0.17.1
 timm
 tensorizer~=2.9.0
 modelscope>=1.19.0

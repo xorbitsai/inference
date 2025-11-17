@@ -394,8 +394,8 @@ async def test_qwen3_enable_thinking(
     if engine == "vLLM":
         total_mem_bytes = torch.cuda.get_device_properties(0).total_memory
         total_mem_gb = total_mem_bytes / (1024**3)
-        # 2G gpu memory
-        kwargs["gpu_memory_utilization"] = min(2 / total_mem_gb, 1.0)
+        # 3G gpu memory
+        kwargs["gpu_memory_utilization"] = min(3 / total_mem_gb, 1.0)
         kwargs["max_model_len"] = 1000
         # enforce_eager to save launch time
         kwargs["enforce_eager"] = True
