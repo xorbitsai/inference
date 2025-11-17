@@ -398,7 +398,6 @@ class VLLMModel(LLM):
 
         # For vLLM >= 0.11.1, v1 is default
         if VLLM_VERSION > version.parse("0.11.0"):
-            # Check if explicitly disabled (though unlikely)
             return True
 
         # For older versions, check the environment variable
@@ -665,25 +664,7 @@ class VLLMModel(LLM):
                 VLLM_VERSION,
             )
             return
-
-        try:
-            model_config = engine_args.create_model_config()
-        except Exception as e:
-            logger.error(
-                "Failed to create model_config from engine_args. "
-                "This may indicate missing required parameters. "
-                "Error: %s, Error type: %s",
-                str(e),
-                type(e).__name__,
-            )
-            # Print detailed validation errors if it's a Pydantic error
-            if hasattr(e, "errors"):
-                logger.error("Validation errors details:")
-                for error in e.errors():
-                    logger.error(
-                        "  - Field: %s, Error: %s", error.get("loc"), error.get("msg")
-                    )
-            raise
+        model_config = engine_args.create_model_config()
         old_main_thread = threading.main_thread()
         try:
             # HACK: patch main thread to let vllm pass check
