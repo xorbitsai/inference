@@ -65,6 +65,7 @@ from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -127,6 +128,9 @@ class WorkerActor(xo.StatelessActor):
             CacheTrackerActor
         ] = None  # type: ignore
 
+        # Virtual environment management
+        self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
+
         # internal states.
         # temporary placeholder during model launch process:
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
@@ -173,6 +177,9 @@ class WorkerActor(xo.StatelessActor):
                     pass
             else:
                 raise Exception("Metrics server thread exit.")
+
+        # Initialize virtual environment manager
+        self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
 
         self._lock = asyncio.Lock()
 
@@ -1293,9 +1300,8 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
-            self._model_uid_to_model_spec[model_uid] = (
-                model.model_family.to_description()
-            )
+            model_spec = model.model_family.to_description()
+            self._model_uid_to_model_spec[model_uid] = model_spec
             self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
@@ -1304,6 +1310,26 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_launch_args[model_uid] = launch_args
         finally:
             del self._model_uid_launching_guard[model_uid]
+
+        # Record virtual environment information if applicable
+        if virtual_env_manager is not None and virtual_env_path is not None:
+            try:
+                # Get package information from virtual environment settings
+                packages: List[str] = []
+                package_info: Dict[str, Any] = {}
+                if (
+                    model_spec
+                    and hasattr(model_spec, "virtualenv")
+                    and model_spec.virtualenv
+                ):
+                    packages = model_spec.virtualenv.packages or []
+
+                # Virtual environment tracking is no longer needed
+                logger.info(
+                    f"Virtual environment created for model: {model.model_family.model_name}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to handle virtual environment info: {e}")
 
         # update status to READY
         abilities = await self._get_model_ability(model, model_type)
@@ -1434,6 +1460,9 @@ class WorkerActor(xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
+            # Clean up virtual environment tracking
+            # Virtual environment tracking is no longer needed
+
             self._model_uid_to_model.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
             self.release_devices(model_uid)
@@ -1603,6 +1632,38 @@ class WorkerActor(xo.StatelessActor):
             model_version, self.address
         )
         return True
+
+    # Virtual environment management methods
+    async def list_virtual_envs(
+        self, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        """List all virtual environments or filter by model name."""
+        try:
+            result = self._virtual_env_manager.list_virtual_envs(model_name)
+            # Add IP address to each virtual environment, same as cache implementation
+            virtual_envs = []
+            for env in result:
+                virtual_env = {
+                    "model_name": env.get("model_name"),
+                    "path": env.get("path"),
+                    "real_path": env.get("real_path"),
+                    "python_version": env.get("python_version"),
+                    "actor_ip_address": self.address,
+                }
+                virtual_envs.append(virtual_env)
+
+            return virtual_envs
+        except Exception as e:
+            logger.error(f"Error in list_virtual_envs: {e}")
+            raise
+
+    async def list_virtual_env_packages(self, model_name: str) -> Dict[str, Any]:
+        """List packages installed in a specific virtual environment."""
+        return self._virtual_env_manager.list_virtual_env_packages(model_name)
+
+    async def remove_virtual_env(self, model_name: str) -> bool:
+        """Remove a virtual environment for a specific model."""
+        return self._virtual_env_manager.remove_virtual_env(model_name)
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {

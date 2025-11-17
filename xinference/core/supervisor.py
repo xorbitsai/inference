@@ -1973,6 +1973,121 @@ class SupervisorActor(xo.StatelessActor):
             )
         return ret
 
+    # Virtual environment management methods
+    async def list_virtual_envs(
+        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List virtual environments across the cluster."""
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # If specific worker is requested, query only that worker
+        if target_ip_worker_ref:
+            virtual_envs = await target_ip_worker_ref.list_virtual_envs(model_name)
+            return sorted(virtual_envs, key=lambda x: x["model_name"])
+
+        # Otherwise, query all workers
+        virtual_envs = []
+        for worker_address, worker in self._worker_address_to_worker.items():
+            try:
+                envs = await worker.list_virtual_envs(model_name)
+                virtual_envs.extend(envs)
+            except Exception as e:
+                logger.warning(f"Failed to list virtual environments on worker: {e}")
+
+        return sorted(virtual_envs, key=lambda x: x["model_name"])
+
+    async def list_virtual_env_packages(
+        self, model_name: str, worker_ip: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """List packages in a virtual environment across the cluster."""
+        if not model_name:
+            raise ValueError("model_name is required")
+
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # If specific worker is requested, query only that worker
+        if target_ip_worker_ref:
+            return await target_ip_worker_ref.list_virtual_env_packages(model_name)
+
+        # Otherwise, try all workers until we find the virtual environment
+        for worker in self._worker_address_to_worker.values():
+            try:
+                package_info = await worker.list_virtual_env_packages(model_name)
+                if "error" not in package_info:
+                    return package_info
+            except Exception as e:
+                logger.debug(
+                    f"Worker doesn't have virtual environment for {model_name}: {e}"
+                )
+
+        # If no worker has the virtual environment
+        return {
+            "model_name": model_name,
+            "worker_ip": None,
+            "error": f"Virtual environment for model {model_name} not found on any worker",
+        }
+
+    async def remove_virtual_env(
+        self, model_name: str, worker_ip: Optional[str] = None
+    ) -> bool:
+        """Remove a virtual environment across the cluster."""
+        if not model_name:
+            raise ValueError("model_name is required")
+
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # If specific worker is requested, remove only from that worker
+        if target_ip_worker_ref:
+            return await target_ip_worker_ref.remove_virtual_env(model_name)
+
+        # Otherwise, remove from all workers that have the virtual environment
+        ret = True
+        workers_with_env = []
+
+        # First, identify which workers have the virtual environment
+        for worker in self._worker_address_to_worker.values():
+            try:
+                envs = await worker.list_virtual_envs(model_name)
+                if envs:
+                    workers_with_env.append(worker)
+            except Exception as e:
+                logger.debug(f"Failed to check worker for virtual environment: {e}")
+
+        # Then remove from those workers
+        for worker in workers_with_env:
+            try:
+                result = await worker.remove_virtual_env(model_name)
+                ret = ret and result
+            except Exception as e:
+                logger.error(f"Failed to remove virtual environment from worker: {e}")
+                ret = False
+
+        return ret
+
     async def get_workers_info(self) -> List[Dict[str, Any]]:
         ret = []
         for worker in self._worker_address_to_worker.values():
