@@ -73,7 +73,8 @@
         }
       }
     ],
-    "updated_at": 1762510020
+    "updated_at": 1763446129,
+    "featured": false
   },
   {
     "version": 2,
@@ -132,7 +133,8 @@
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510022
+    "updated_at": 1763446131,
+    "featured": false
   },
   {
     "version": 2,
@@ -160,7 +162,8 @@
         }
       }
     ],
-    "updated_at": 1762510023
+    "updated_at": 1763446132,
+    "featured": false
   },
   {
     "version": 2,
@@ -367,7 +370,8 @@
         }
       }
     ],
-    "updated_at": 1762510024
+    "updated_at": 1763446133,
+    "featured": false
   },
   {
     "version": 2,
@@ -449,7 +453,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510025
+    "updated_at": 1763446134,
+    "featured": false
   },
   {
     "version": 2,
@@ -597,7 +602,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510026
+    "updated_at": 1763446136,
+    "featured": false
   },
   {
     "version": 2,
@@ -656,7 +662,8 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1762510028
+    "updated_at": 1763446137,
+    "featured": false
   },
   {
     "version": 2,
@@ -684,7 +691,8 @@
         }
       }
     ],
-    "updated_at": 1762510029
+    "updated_at": 1763446138,
+    "featured": false
   },
   {
     "version": 2,
@@ -736,7 +744,8 @@
         }
       }
     ],
-    "updated_at": 1762510030
+    "updated_at": 1763446139,
+    "featured": false
   },
   {
     "version": 2,
@@ -787,7 +796,8 @@
         }
       }
     ],
-    "updated_at": 1762510031
+    "updated_at": 1763446141,
+    "featured": false
   },
   {
     "version": 2,
@@ -838,7 +848,8 @@
         }
       }
     ],
-    "updated_at": 1762510033
+    "updated_at": 1763446142,
+    "featured": false
   },
   {
     "version": 2,
@@ -1021,7 +1032,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510034
+    "updated_at": 1763446143,
+    "featured": false
   },
   {
     "version": 2,
@@ -1085,7 +1097,8 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1762510035
+    "updated_at": 1763446144,
+    "featured": false
   },
   {
     "version": 2,
@@ -1150,7 +1163,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510036
+    "updated_at": 1763446146,
+    "featured": false
   },
   {
     "version": 2,
@@ -1433,7 +1447,8 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1762510037
+    "updated_at": 1763446147,
+    "featured": false
   },
   {
     "version": 2,
@@ -1499,7 +1514,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510039
+    "updated_at": 1763446148,
+    "featured": false
   },
   {
     "version": 2,
@@ -1725,7 +1741,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510040
+    "updated_at": 1763446150,
+    "featured": false
   },
   {
     "version": 2,
@@ -1795,7 +1812,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510041
+    "updated_at": 1763446151,
+    "featured": false
   },
   {
     "version": 2,
@@ -1969,7 +1987,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510043
+    "updated_at": 1763446152,
+    "featured": true
   },
   {
     "version": 2,
@@ -2100,7 +2119,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510044
+    "updated_at": 1763446153,
+    "featured": false
   },
   {
     "version": 2,
@@ -2136,7 +2156,8 @@
         }
       }
     ],
-    "updated_at": 1762510045
+    "updated_at": 1763446155,
+    "featured": false
   },
   {
     "version": 2,
