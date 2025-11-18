@@ -2193,7 +2193,8 @@
         }
       }
     ],
-    "updated_at": 1762510046
+    "updated_at": 1763446156,
+    "featured": false
   },
   {
     "version": 2,
@@ -2258,7 +2259,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510048
+    "updated_at": 1763446157,
+    "featured": false
   },
   {
     "version": 2,
@@ -2370,7 +2372,8 @@
         }
       }
     ],
-    "updated_at": 1762510049
+    "updated_at": 1763446158,
+    "featured": false
   },
   {
     "version": 2,
@@ -2458,7 +2461,8 @@
         }
       }
     ],
-    "updated_at": 1762510050
+    "updated_at": 1763446160,
+    "featured": false
   },
   {
     "version": 2,
@@ -2799,7 +2803,8 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1762510051
+    "updated_at": 1763446161,
+    "featured": false
   },
   {
     "version": 2,
@@ -2916,7 +2921,8 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1762510052
+    "updated_at": 1763446162,
+    "featured": false
   },
   {
     "version": 2,
@@ -2978,7 +2984,8 @@
         }
       }
     ],
-    "updated_at": 1762510054
+    "updated_at": 1763446163,
+    "featured": false
   },
   {
     "version": 2,
@@ -3090,7 +3097,8 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1762510055
+    "updated_at": 1763446165,
+    "featured": false
   },
   {
     "version": 2,
@@ -3158,7 +3166,8 @@
         }
       }
     ],
-    "updated_at": 1762510057
+    "updated_at": 1763446166,
+    "featured": false
   },
   {
     "version": 2,
@@ -3232,7 +3241,8 @@
       195
     ],
     "stop": [],
-    "updated_at": 1762510058
+    "updated_at": 1763446167,
+    "featured": false
   },
   {
     "version": 2,
@@ -3379,7 +3389,8 @@
         }
       }
     ],
-    "updated_at": 1762510059
+    "updated_at": 1763446169,
+    "featured": false
   },
   {
     "version": 2,
@@ -3557,7 +3568,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510061
+    "updated_at": 1763446170,
+    "featured": false
   },
   {
     "version": 2,
@@ -3734,7 +3746,8 @@
         }
       }
     ],
-    "updated_at": 1762510062
+    "updated_at": 1763446171,
+    "featured": false
   },
   {
     "version": 2,
@@ -3812,7 +3825,8 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510063
+    "updated_at": 1763446172,
+    "featured": false
   },
   {
     "version": 2,
@@ -3852,7 +3866,8 @@
         }
       }
     ],
-    "updated_at": 1762510064
+    "updated_at": 1763446173,
+    "featured": false
   },
   {
     "version": 2,
@@ -3955,7 +3970,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510065
+    "updated_at": 1763446175,
+    "featured": false
   },
   {
     "version": 2,
@@ -3991,7 +4007,8 @@
         }
       }
     ],
-    "updated_at": 1762510067
+    "updated_at": 1763446176,
+    "featured": false
   },
   {
     "version": 2,
@@ -4036,7 +4053,8 @@
       "|||",
       "|<end>|"
     ],
-    "updated_at": 1762510068
+    "updated_at": 1763446177,
+    "featured": false
   },
   {
     "version": 2,
@@ -4082,7 +4100,8 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510069
+    "updated_at": 1763446178,
+    "featured": false
   },
   {
     "version": 2,
@@ -4184,7 +4203,8 @@
         }
       }
     ],
-    "updated_at": 1762510070
+    "updated_at": 1763446179,
+    "featured": false
   },
   {
     "version": 2,
@@ -4293,7 +4313,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510071
+    "updated_at": 1763446181,
+    "featured": false
   },
   {
     "version": 2,
@@ -4552,7 +4573,8 @@
         }
       }
     ],
-    "updated_at": 1762510072
+    "updated_at": 1763446182,
+    "featured": false
   },
   {
     "version": 2,
@@ -4818,7 +4840,8 @@
     "stop": [
       "<|EOT|>"
     ],
-    "updated_at": 1762510074
+    "updated_at": 1763446183,
+    "featured": false
   },
   {
     "version": 2,
@@ -4899,7 +4922,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510075
+    "updated_at": 1763446185,
+    "featured": false
   },
   {
     "version": 2,
@@ -5320,7 +5344,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510076
+    "updated_at": 1763446186,
+    "featured": false
   },
   {
     "version": 2,
@@ -5390,7 +5415,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1762510077
+    "updated_at": 1763446188,
+    "featured": true
   },
   {
     "version": 2,
@@ -5472,7 +5498,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510079
+    "updated_at": 1763446189,
+    "featured": true
   },
   {
     "version": 2,
@@ -5739,7 +5766,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1762510080
+    "updated_at": 1763446190,
+    "featured": false
   },
   {
     "version": 2,
@@ -6163,7 +6191,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510081
+    "updated_at": 1763446191,
+    "featured": false
   },
   {
     "version": 2,
@@ -6226,7 +6255,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510082
+    "updated_at": 1763446193,
+    "featured": false
   },
   {
     "version": 2,
@@ -6269,7 +6299,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510084
+    "updated_at": 1763446194,
+    "featured": false
   },
   {
     "version": 2,
@@ -6312,7 +6343,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510085
+    "updated_at": 1763446195,
+    "featured": false
   },
   {
     "version": 2,
@@ -6593,7 +6625,8 @@
       "<｜end▁of▁sentence｜>"
     ],
     "tool_parser": "deepseek_v3",
-    "updated_at": 1762510086
+    "updated_at": 1763446197,
+    "featured": false
   },
   {
     "version": 2,
@@ -6669,7 +6702,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510087
+    "updated_at": 1763446198,
+    "featured": false
   },
   {
     "version": 2,
@@ -6750,7 +6784,8 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510089
+    "updated_at": 1763446199,
+    "featured": false
   },
   {
     "version": 2,
@@ -6833,7 +6868,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510090
+    "updated_at": 1763446200,
+    "featured": false
   },
   {
     "version": 2,
@@ -6956,7 +6992,8 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1762510091
+    "updated_at": 1763446202,
+    "featured": false
   },
   {
     "version": 2,
@@ -7304,7 +7341,8 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1762510093
+    "updated_at": 1763446203,
+    "featured": true
   },
   {
     "version": 2,
@@ -7358,7 +7396,8 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510094
+    "updated_at": 1763446204,
+    "featured": false
   },
   {
     "version": 2,
@@ -7545,7 +7584,8 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510095
+    "updated_at": 1763446205,
+    "featured": false
   },
   {
     "version": 2,
@@ -7794,7 +7834,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510096
+    "updated_at": 1763446207,
+    "featured": false
   },
   {
     "version": 2,
@@ -7903,7 +7944,8 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1762510098
+    "updated_at": 1763446208,
+    "featured": false
   },
   {
     "version": 2,
@@ -8012,7 +8054,8 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1762510099
+    "updated_at": 1763446209,
+    "featured": false
   },
   {
     "version": 2,
@@ -8144,7 +8187,8 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510100
+    "updated_at": 1763446210,
+    "featured": false
   },
   {
     "version": 2,
@@ -8393,7 +8437,8 @@
       2
     ],
     "stop": [],
-    "updated_at": 1762510102
+    "updated_at": 1763446212,
+    "featured": false
   },
   {
     "version": 2,
@@ -8484,7 +8529,8 @@
         }
       }
     ],
-    "updated_at": 1762510103
+    "updated_at": 1763446213,
+    "featured": false
   },
   {
     "version": 2,
@@ -8698,7 +8744,8 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
-    "updated_at": 1762510104
+    "updated_at": 1763446215,
+    "featured": false
   },
   {
     "version": 2,
@@ -8806,7 +8853,8 @@
         }
       }
     ],
-    "updated_at": 1762510105
+    "updated_at": 1763446216,
+    "featured": false
   },
   {
     "version": 2,
@@ -9181,7 +9229,8 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1762510107
+    "updated_at": 1763446217,
+    "featured": false
   },
   {
     "version": 2,
@@ -9240,7 +9289,8 @@
         }
       }
     ],
-    "updated_at": 1762510108
+    "updated_at": 1763446219,
+    "featured": false
   },
   {
     "version": 2,
@@ -9310,7 +9360,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1762510109
+    "updated_at": 1763446220,
+    "featured": false
   },
   {
     "version": 2,
@@ -9450,7 +9501,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1762510110
+    "updated_at": 1763446221,
+    "featured": false
   },
   {
     "version": 2,
@@ -9542,7 +9594,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510112
+    "updated_at": 1763446223,
+    "featured": false
   },
   {
     "version": 2,
@@ -9592,7 +9645,8 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510113
+    "updated_at": 1763446224,
+    "featured": false
   },
   {
     "version": 2,
@@ -9636,7 +9690,8 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510114
+    "updated_at": 1763446225,
+    "featured": false
   },
   {
     "version": 2,
@@ -9680,7 +9735,8 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510115
+    "updated_at": 1763446226,
+    "featured": false
   },
   {
     "version": 2,
@@ -9730,7 +9786,8 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510117
+    "updated_at": 1763446227,
+    "featured": false
   },
   {
     "version": 2,
@@ -9774,7 +9831,8 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510118
+    "updated_at": 1763446229,
+    "featured": false
   },
   {
     "version": 2,
@@ -9844,7 +9902,8 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510119
+    "updated_at": 1763446230,
+    "featured": false
   },
   {
     "version": 2,
@@ -9922,7 +9981,8 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510120
+    "updated_at": 1763446231,
+    "featured": false
   },
   {
     "version": 2,
@@ -10012,7 +10072,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510122
+    "updated_at": 1763446232,
+    "featured": false
   },
   {
     "version": 2,
@@ -10108,7 +10169,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510123
+    "updated_at": 1763446234,
+    "featured": false
   },
   {
     "version": 2,
@@ -10301,7 +10363,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510124
+    "updated_at": 1763446235,
+    "featured": false
   },
   {
     "version": 2,
@@ -10477,7 +10540,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510125
+    "updated_at": 1763446236,
+    "featured": false
   },
   {
     "version": 2,
@@ -10561,7 +10625,8 @@
         }
       }
     ],
-    "updated_at": 1762510127
+    "updated_at": 1763446237,
+    "featured": false
   },
   {
     "version": 2,
@@ -10651,7 +10716,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510128
+    "updated_at": 1763446239,
+    "featured": false
   },
   {
     "version": 2,
@@ -10722,7 +10788,8 @@
         }
       }
     ],
-    "updated_at": 1762510129
+    "updated_at": 1763446240,
+    "featured": false
   },
   {
     "version": 2,
@@ -10763,7 +10830,8 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1762510130
+    "updated_at": 1763446241,
+    "featured": false
   },
   {
     "version": 2,
@@ -10827,7 +10895,8 @@
       "</s>",
       "<unk>"
     ],
-    "updated_at": 1762510132
+    "updated_at": 1763446242,
+    "featured": false
   },
   {
     "version": 2,
@@ -10873,7 +10942,8 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1762510133
+    "updated_at": 1763446244,
+    "featured": false
   },
   {
     "version": 2,
@@ -10933,7 +11003,8 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1762510134
+    "updated_at": 1763446245,
+    "featured": false
   },
   {
     "version": 2,
@@ -11184,7 +11255,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510135
+    "updated_at": 1763446246,
+    "featured": false
   },
   {
     "version": 2,
@@ -11935,7 +12007,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510137
+    "updated_at": 1763446248,
+    "featured": false
   },
   {
     "version": 2,
@@ -12000,7 +12073,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510138
+    "updated_at": 1763446249,
+    "featured": false
   },
   {
     "version": 2,
@@ -12049,7 +12123,8 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1762510140
+    "updated_at": 1763446250,
+    "featured": false
   },
   {
     "version": 2,
@@ -12099,7 +12174,8 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1762510141
+    "updated_at": 1763446251,
+    "featured": false
   },
   {
     "version": 2,
@@ -12729,7 +12805,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510142
+    "updated_at": 1763446253,
+    "featured": false
   },
   {
     "version": 2,
@@ -12852,7 +12929,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510143
+    "updated_at": 1763446254,
+    "featured": false
   },
   {
     "version": 2,
@@ -13168,7 +13246,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510145
+    "updated_at": 1763446255,
+    "featured": false
   },
   {
     "version": 2,
@@ -13354,7 +13433,8 @@
         }
       }
     ],
-    "updated_at": 1762510146
+    "updated_at": 1763446257,
+    "featured": false
   },
   {
     "version": 2,
@@ -13484,7 +13564,8 @@
         }
       }
     ],
-    "updated_at": 1762510147
+    "updated_at": 1763446258,
+    "featured": false
   },
   {
     "version": 2,
@@ -14039,7 +14120,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510148
+    "updated_at": 1763446259,
+    "featured": false
   },
   {
     "version": 2,
@@ -15551,7 +15633,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510150
+    "updated_at": 1763446260,
+    "featured": false
   },
   {
     "version": 2,
@@ -15612,7 +15695,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510151
+    "updated_at": 1763446261,
+    "featured": false
   },
   {
     "version": 2,
@@ -15684,7 +15768,8 @@
         "soundfile"
       ]
     },
-    "updated_at": 1762510152
+    "updated_at": 1763446263,
+    "featured": false
   },
   {
     "version": 2,
@@ -15950,7 +16035,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510153
+    "updated_at": 1763446264,
+    "featured": true
   },
   {
     "version": 2,
@@ -17466,7 +17552,8 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1762510154
+    "updated_at": 1763446265,
+    "featured": true
   },
   {
     "version": 2,
@@ -18251,7 +18338,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510156
+    "updated_at": 1763446266,
+    "featured": false
   },
   {
     "version": 2,
@@ -19033,7 +19121,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510157
+    "updated_at": 1763446268,
+    "featured": false
   },
   {
     "version": 2,
@@ -19818,7 +19907,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510158
+    "updated_at": 1763446269,
+    "featured": false
   },
   {
     "version": 2,
@@ -19890,7 +19980,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510160
+    "updated_at": 1763446271,
+    "featured": false
   },
   {
     "version": 2,
@@ -19991,7 +20082,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510161
+    "updated_at": 1763446272,
+    "featured": false
   },
   {
     "version": 2,
@@ -20210,7 +20302,8 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510181
+    "updated_at": 1763446273,
+    "featured": false
   },
   {
     "version": 2,
@@ -20352,7 +20445,8 @@
       160133,
       160132
     ],
-    "updated_at": 1762510182
+    "updated_at": 1763446274,
+    "featured": false
   },
   {
     "version": 2,
@@ -20399,7 +20493,8 @@
         }
       }
     ],
-    "updated_at": 1762510184
+    "updated_at": 1763446276,
+    "featured": false
   },
   {
     "version": 2,
@@ -20532,7 +20627,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510185
+    "updated_at": 1763446277,
+    "featured": false
   },
   {
     "version": 2,
@@ -20587,7 +20683,8 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510186
+    "updated_at": 1763446278,
+    "featured": false
   },
   {
     "version": 2,
@@ -20663,7 +20760,8 @@
         }
       }
     ],
-    "updated_at": 1762510187
+    "updated_at": 1763446279,
+    "featured": false
   },
   {
     "version": 2,
@@ -20726,7 +20824,8 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "updated_at": 1762510189
+    "updated_at": 1763446281,
+    "featured": false
   },
   {
     "version": 2,
@@ -20787,7 +20886,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510190
+    "updated_at": 1763446282,
+    "featured": false
   },
   {
     "version": 2,
@@ -21115,7 +21215,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510191
+    "updated_at": 1763446283,
+    "featured": true
   },
   {
     "version": 2,
@@ -21210,7 +21311,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510193
+    "updated_at": 1763446284,
+    "featured": false
   },
   {
     "version": 2,
@@ -21445,7 +21547,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510194
+    "updated_at": 1763446286,
+    "featured": true
   },
   {
     "version": 2,
@@ -21566,7 +21669,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510195
+    "updated_at": 1763446287,
+    "featured": false
   },
   {
     "version": 2,
@@ -21655,7 +21759,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510197
+    "updated_at": 1763446289,
+    "featured": true
   },
   {
     "version": 2,
@@ -21734,7 +21839,8 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510198
+    "updated_at": 1763446291,
+    "featured": false
   },
   {
     "version": 2,
@@ -21845,7 +21951,8 @@
         "transformers==4.53.0"
       ]
     },
-    "updated_at": 1762510199
+    "updated_at": 1763446292,
+    "featured": true
   },
   {
     "version": 2,
@@ -22036,7 +22143,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510201
+    "updated_at": 1763446293,
+    "featured": false
   },
   {
     "version": 2,
@@ -22104,7 +22212,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510202
+    "updated_at": 1763446295,
+    "featured": false
   },
   {
     "version": 2,
@@ -22761,7 +22870,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510203
+    "updated_at": 1763446296,
+    "featured": false
   },
   {
     "version": 2,
@@ -23235,7 +23345,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510205
+    "updated_at": 1763446298,
+    "featured": false
   },
   {
     "version": 2,
@@ -23346,7 +23457,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510206
+    "updated_at": 1763446299,
+    "featured": false
   },
   {
     "version": 2,
@@ -23460,7 +23572,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510207
+    "updated_at": 1763446300,
+    "featured": false
   },
   {
     "version": 2,
@@ -23528,7 +23641,8 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1762510208
+    "updated_at": 1763446301,
+    "featured": false
   },
   {
     "version": 2,
@@ -23609,7 +23723,8 @@
         "soundfile"
       ]
     },
-    "updated_at": 1762510209
+    "updated_at": 1763446302,
+    "featured": false
   },
   {
     "version": 2,
@@ -23687,7 +23802,8 @@
         "soundfile"
       ]
     },
-    "updated_at": 1762510211
+    "updated_at": 1763446304,
+    "featured": false
   },
   {
     "model_name": "MiniMax-M2",
@@ -23783,6 +23899,7 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1762510212
+    "updated_at": 1763446305,
+    "featured": false
   }
 ]
