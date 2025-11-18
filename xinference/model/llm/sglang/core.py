@@ -334,8 +334,14 @@ class SGLANGModel(LLM):
         return generate_config
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sglang") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        if importlib.util.find_spec("sglang") is None:
+            return "sglang library is not installed"
+        if not cls._has_cuda_device():
+            return "SGLang requires GPU with CUDA; no CUDA devices detected"
+        if not cls._is_linux():
+            return "SGLang is only supported on Linux"
+        return True
 
     @classmethod
     def match_json(
