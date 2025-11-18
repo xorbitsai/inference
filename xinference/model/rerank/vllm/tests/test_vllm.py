@@ -23,7 +23,7 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
 )
 
 
-@pytest.mark.skipif(not VLLMRerankModel.check_lib(), reason="vllm not installed")
+@pytest.mark.skipif(VLLMRerankModel.check_lib() != True, reason="vllm not installed")
 def test_model():
     model_path = None
     try:
@@ -53,7 +53,7 @@ def test_model():
             shutil.rmtree(model_path, ignore_errors=True)
 
 
-@pytest.mark.skipif(not VLLMRerankModel.check_lib(), reason="vllm not installed")
+@pytest.mark.skipif(VLLMRerankModel.check_lib() != True, reason="vllm not installed")
 def test_qwen3_vllm(setup):
     endpoint, _ = setup
     client = Client(endpoint)

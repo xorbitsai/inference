@@ -892,8 +892,12 @@ class VLLMModel(LLM):
         return sanitized
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, str]:
+        if importlib.util.find_spec("vllm") is None:
+            return "vLLM library is not installed"
+        if not cls._has_cuda_device() and not cls._has_mlu_device():
+            return "vLLM requires GPU (CUDA/MLU); no supported devices detected"
+        return True
 
     @classmethod
     def match_json(

@@ -34,6 +34,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    no_type_check,
 )
 
 import huggingface_hub
@@ -470,53 +471,326 @@ class CancellableDownloader:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
 
 
+@no_type_check
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
-) -> Optional[Dict[str, List[dict]]]:
+) -> Optional[Dict[str, Any]]:
+    engine_params: Dict[str, Any] = {}
+
+    def _normalize_match_result(
+        result: Any, default_error: str, default_type: str
+    ) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+        if result is True:
+            return True, None, None, None
+        if result is False or result is None:
+            return False, default_error, default_type, None
+
+        if hasattr(result, "is_match"):
+            is_match = bool(getattr(result, "is_match"))
+            reason = getattr(result, "reason", None)
+            err_type = getattr(result, "error_type", default_type)
+            technical_details = getattr(result, "technical_details", None)
+            return is_match, reason, err_type, technical_details
+
+        if isinstance(result, str):
+            return False, result, default_type, None
+
+        return False, str(result), default_type, None
+
+    def _append_available_engine(
+        engine: str, params: List[Dict[str, Any]], class_field: str
+    ):
+        cleaned_params: List[Dict[str, Any]] = []
+        for param in params:
+            new_param = {k: v for k, v in param.items() if k != class_field}
+            cleaned_params.append(new_param)
+        engine_params[engine] = cleaned_params
+
+    def _append_unavailable_engine(
+        engine: str,
+        reason: Optional[str],
+        error_type: Optional[str],
+        technical_details: Optional[str],
+    ):
+        # Keep legacy string format for unavailable engines
+        engine_params[engine] = (
+            reason
+            or technical_details
+            or f"Engine {engine} is not compatible with current model or environment"
+        )
+
     if model_type == "LLM":
-        from .llm.llm_family import LLM_ENGINES
+        from .llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
 
         if model_name not in LLM_ENGINES:
             return None
 
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine, params in engine_params.items():
-            for param in params:
-                del param["llm_class"]
+        available_engines = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "llm_class")
+
+        llm_family = next(
+            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+        )
+        if llm_family:
+            for engine_name, engine_classes in SUPPORTED_ENGINES.items():
+                if engine_name in engine_params:
+                    continue
+
+                error_reason: Optional[str] = None
+                error_type: Optional[str] = None
+                error_details: Optional[str] = None
+                relevant = False
+
+                for engine_class in engine_classes:  # type: ignore[assignment]
+                    try:
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                engine_class.check_lib(),
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if lib_ok:
+                            for llm_spec in llm_family.model_specs:
+                                quantization = llm_spec.quantization or "none"
+                                if hasattr(engine_class, "match_json"):
+                                    match_res = engine_class.match_json(
+                                        llm_family, llm_spec, quantization
+                                    )
+                                else:
+                                    match_res = False
+
+                                (
+                                    is_match,
+                                    reason,
+                                    m_err_type,
+                                    m_details,
+                                ) = _normalize_match_result(
+                                    match_res,
+                                    f"Engine {engine_name} is not compatible with current model or environment",
+                                    "model_compatibility",
+                                )
+                                if is_match:
+                                    relevant = False
+                                    error_reason = None
+                                    break
+
+                                relevant = True
+                                if reason:
+                                    error_reason = reason
+                                if m_err_type:
+                                    error_type = m_err_type
+                                if m_details:
+                                    error_details = m_details
+                            if relevant and error_reason:
+                                break
+                        else:
+                            relevant = True
+                            error_reason = lib_reason
+                            error_type = lib_type
+                            error_details = lib_details
+                            break
+                    except Exception as e:
+                        relevant = True
+                        error_reason = (
+                            f"Engine {engine_name} is not available: {str(e)}"
+                        )
+                        error_type = "configuration_error"
+                        break
+
+                if relevant:
+                    _append_unavailable_engine(
+                        engine_name, error_reason, error_type, error_details
+                    )
 
         return engine_params
+
     elif model_type == "embedding":
-        from .embedding.embed_family import EMBEDDING_ENGINES
+        from .embedding.embed_family import (
+            BUILTIN_EMBEDDING_MODELS,
+            EMBEDDING_ENGINES,
+        )
+        from .embedding.embed_family import (
+            SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
+        )
 
         if model_name not in EMBEDDING_ENGINES:
             return None
 
-        # filter embedding_class
-        engine_params = deepcopy(EMBEDDING_ENGINES[model_name])
-        for engine, params in engine_params.items():
-            for param in params:
-                del param["embedding_class"]
+        available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "embedding_class")
+
+        embedding_family_list = BUILTIN_EMBEDDING_MODELS.get(model_name, [])
+        embedding_family = embedding_family_list[0] if embedding_family_list else None
+        if embedding_family:
+            for (
+                engine_name,
+                embed_engine_classes,
+            ) in EMBEDDING_SUPPORTED_ENGINES.items():
+                if engine_name in engine_params:
+                    continue
+
+                embed_error_reason: Optional[str] = None
+                embed_error_type: Optional[str] = None
+                embed_error_details: Optional[str] = None
+                relevant = False
+
+                for engine_class in embed_engine_classes:
+                    try:
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                engine_class.check_lib(),
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if lib_ok:
+                            for embed_spec in embedding_family.model_specs:
+                                quantization = embed_spec.quantization or "none"
+                                match_res = engine_class.match_json(
+                                    embedding_family, embed_spec, quantization
+                                )
+                                (
+                                    is_match,
+                                    reason,
+                                    m_err_type,
+                                    m_details,
+                                ) = _normalize_match_result(
+                                    match_res,
+                                    f"Engine {engine_name} is not compatible with current model or environment",
+                                    "model_compatibility",
+                                )
+                                if is_match:
+                                    relevant = False
+                                    embed_error_reason = None
+                                    break
+                                relevant = True
+                                if reason:
+                                    embed_error_reason = reason
+                                if m_err_type:
+                                    embed_error_type = m_err_type
+                                if m_details:
+                                    embed_error_details = m_details
+                            if relevant and embed_error_reason:
+                                break
+                        else:
+                            relevant = True
+                            embed_error_reason = lib_reason
+                            embed_error_type = lib_type
+                            embed_error_details = lib_details
+                            break
+                    except Exception as e:
+                        relevant = True
+                        embed_error_reason = (
+                            f"Engine {engine_name} is not available: {str(e)}"
+                        )
+                        embed_error_type = "configuration_error"
+                        break
+
+                if relevant:
+                    _append_unavailable_engine(
+                        engine_name,
+                        embed_error_reason,
+                        embed_error_type,
+                        embed_error_details,
+                    )
 
         return engine_params
+
     elif model_type == "rerank":
-        from .rerank.rerank_family import RERANK_ENGINES
+        from .rerank.rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+        from .rerank.rerank_family import SUPPORTED_ENGINES as RERANK_SUPPORTED_ENGINES
 
         if model_name not in RERANK_ENGINES:
             return None
 
-        # filter rerank_class
-        engine_params = deepcopy(RERANK_ENGINES[model_name])
-        for engine, params in engine_params.items():
-            for param in params:
-                del param["rerank_class"]
+        available_engines = deepcopy(RERANK_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "rerank_class")
+
+        from .rerank.core import RerankModelFamilyV2
+
+        rerank_family_list: List[RerankModelFamilyV2] = BUILTIN_RERANK_MODELS.get(
+            model_name, []
+        )
+        rerank_family = rerank_family_list[0] if rerank_family_list else None
+        if rerank_family:
+            for engine_name, rerank_engine_classes in RERANK_SUPPORTED_ENGINES.items():
+                if engine_name in engine_params:
+                    continue
+
+                rerank_error_reason: Optional[str] = None
+                rerank_error_type: Optional[str] = None
+                rerank_error_details: Optional[str] = None
+                relevant = False
+
+                for engine_class in rerank_engine_classes:
+                    try:
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                engine_class.check_lib(),
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if lib_ok:
+                            for rerank_spec in rerank_family.model_specs:
+                                quantization = rerank_spec.quantization or "none"
+                                match_res = engine_class.match_json(
+                                    rerank_family, rerank_spec, quantization
+                                )
+                                (
+                                    is_match,
+                                    reason,
+                                    m_err_type,
+                                    m_details,
+                                ) = _normalize_match_result(
+                                    match_res,
+                                    f"Engine {engine_name} is not compatible with current model or environment",
+                                    "model_compatibility",
+                                )
+                                if is_match:
+                                    relevant = False
+                                    rerank_error_reason = None
+                                    break
+                                relevant = True
+                                if reason:
+                                    rerank_error_reason = reason
+                                if m_err_type:
+                                    rerank_error_type = m_err_type
+                                if m_details:
+                                    rerank_error_details = m_details
+                            if relevant and rerank_error_reason:
+                                break
+                        else:
+                            relevant = True
+                            rerank_error_reason = lib_reason
+                            rerank_error_type = lib_type
+                            rerank_error_details = lib_details
+                            break
+                    except Exception as e:
+                        relevant = True
+                        rerank_error_reason = (
+                            f"Engine {engine_name} is not available: {str(e)}"
+                        )
+                        rerank_error_type = "configuration_error"
+                        break
+
+                if relevant:
+                    _append_unavailable_engine(
+                        engine_name,
+                        rerank_error_reason,
+                        rerank_error_type,
+                        rerank_error_details,
+                    )
 
         return engine_params
-    else:
-        raise ValueError(
-            f"Cannot support model_engine for {model_type}, "
-            f"only available for LLM, embedding"
-        )
+
+    raise ValueError(
+        f"Cannot support model_engine for {model_type}, only available for LLM, embedding, rerank"
+    )
 
 
 def generate_model_file_names_with_quantization_parts(
