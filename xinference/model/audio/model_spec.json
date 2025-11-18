@@ -835,7 +835,8 @@
         "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
       }
     },
-    "updated_at": 1762509393
+    "updated_at": 1763445326,
+    "featured": false
   },
   {
     "version": 2,
@@ -853,7 +854,8 @@
         "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf"
       }
     },
-    "updated_at": 1762509395
+    "updated_at": 1763445327,
+    "featured": false
   },
   {
     "version": 2,
@@ -871,7 +873,8 @@
         "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891"
       }
     },
-    "updated_at": 1762509396
+    "updated_at": 1763445328,
+    "featured": false
   },
   {
     "version": 2,
@@ -889,7 +892,8 @@
         "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb"
       }
     },
-    "updated_at": 1762509397
+    "updated_at": 1763445329,
+    "featured": false
   },
   {
     "version": 2,
@@ -907,7 +911,8 @@
         "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16"
       }
     },
-    "updated_at": 1762509398
+    "updated_at": 1763445330,
+    "featured": false
   },
   {
     "version": 2,
@@ -925,7 +930,8 @@
         "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323"
       }
     },
-    "updated_at": 1762509399
+    "updated_at": 1763445332,
+    "featured": false
   },
   {
     "version": 2,
@@ -946,7 +952,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509400
+    "updated_at": 1763445333,
+    "featured": false
   },
   {
     "version": 2,
@@ -976,7 +983,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762509402
+    "updated_at": 1763445334,
+    "featured": false
   },
   {
     "version": 2,
@@ -997,7 +1005,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509403
+    "updated_at": 1763445335,
+    "featured": false
   },
   {
     "version": 2,
@@ -1018,7 +1027,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509404
+    "updated_at": 1763445337,
+    "featured": false
   },
   {
     "version": 2,
@@ -1059,6 +1069,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762945404
+    "updated_at": 1763445338,
+    "featured": true
   }
 ]
