@@ -100,9 +100,6 @@ with popular third-party libraries including [LangChain](https://python.langchai
 
 ## Using Xinference
 
-- **Cloud </br>**
-We host a [Xinference Cloud](https://inference.top) service for anyone to try with zero setup. 
-
 - **Self-hosting Xinference Community Edition</br>**
 Quickly get Xinference running in your environment with this [starter guide](#getting-started).
 Use our [documentation](https://inference.readthedocs.io/) for further references and more in-depth instructions.
