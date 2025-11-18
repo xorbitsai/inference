@@ -57,6 +57,8 @@ const LaunchModelComponent = forwardRef(
 
     // Pagination status
     const [displayedData, setDisplayedData] = useState([])
+    // Virtual environments data
+    const [virtualEnvs, setVirtualEnvs] = useState([])
     const [currentPage, setCurrentPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
     const itemsPerPage = 20
@@ -162,15 +164,21 @@ const LaunchModelComponent = forwardRef(
       try {
         setIsCallingApi(true)
 
-        fetchWrapper
-          .get(`/v1/model_registrations/${modelType}?detailed=true`)
-          .then((data) => {
-            const builtinRegistrations = data.filter((v) => v.is_builtin)
+        // Fetch both model registrations and virtual environments in parallel
+        Promise.all([
+          fetchWrapper.get(
+            `/v1/model_registrations/${modelType}?detailed=true`
+          ),
+          fetchWrapper.get('/v1/virtualenvs').catch(() => ({ list: [] })), // Fallback for virtual env API
+        ])
+          .then(([modelData, virtualEnvData]) => {
+            const builtinRegistrations = modelData.filter((v) => v.is_builtin)
             setModelAbilityData({
               ...modelAbilityData,
               options: getUniqueModelAbilities(builtinRegistrations),
             })
             setRegistrationData(builtinRegistrations)
+            setVirtualEnvs(virtualEnvData.list || [])
             const collectionData = JSON.parse(
               localStorage.getItem('collectionArr')
             )
@@ -501,6 +509,7 @@ const LaunchModelComponent = forwardRef(
               modelType={modelType}
               onGetCollectionArr={getCollectionArr}
               onUpdate={update}
+              virtualEnvs={virtualEnvs}
               onClick={() => {
                 setSelectedModel(filteredRegistration)
                 setIsOpenLaunchModelDrawer(true)

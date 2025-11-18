@@ -72,7 +72,8 @@ Storage Location
 By default, the model’s virtual environment is stored under path:
 
 * Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_name}
-* Since v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v2 / {model_name}
+* From v1.6.0 to v1.13.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v2 / {model_name}
+* Since v1.14.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v3 / {model_name} / {python_version}
 
 Experimental Feature
 ####################
@@ -196,5 +197,50 @@ In addition to the standard way of specifying package dependencies, such as ``tr
   ensures that the installed package matches the system site package version of numpy. This helps prevent dependency conflicts.
 
 
+.. _manage_virtual_enviroments:
+
+Manage Virtual Enviroments
+------------------------
+
+.. versionadded:: v1.14.0
+
+Xinference provides comprehensive virtual environment management for model dependencies,
+allowing you to create isolated Python environments for each model with specific package requirements.
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../_static/manage_virtual_envs1.png" style="background-color: transparent", width="95%">
+
+.. raw:: html
+
+    <img class="align-center" alt="actor" src="../_static/manage_virtual_envs2.png" style="background-color: transparent", width="95%">
+
+Key Features
+~~~~~~~~~~
+
+**Multiple Python Version Support**:
+Each model can have virtual environments
+with different Python versions (e.g., Python 3.10.18, 3.11.5),
+enabling compatibility with various model requirements.
+
+**Isolated Dependencies**:
+Each virtual environment contains its own set of packages,
+preventing conflicts between different models' requirements.
+
+Management Operations
+~~~~~
+
+**Listing Virtual Environments**:
+View all virtual environments across your cluster,
+filtered by model name or worker IP address.
+
+**Creating Environments**:
+Automatically created when launching models with enable_virtual_env=true.
+The system detects your current Python version and creates an isolated
+environment with the required packages.
+
+**Removing Environments**:
+Delete specific virtual environments by model name and optionally
+Python version, or remove all environments for a model.
 
 
