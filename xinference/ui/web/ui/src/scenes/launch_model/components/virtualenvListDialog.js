@@ -88,7 +88,6 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
     onUpdate()
   }
 
-  
   useEffect(() => {
     if (open) getVirtualenvList()
   }, [open])
@@ -113,7 +112,10 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
             color: theme.palette.grey[500],
           })}
         >
-          <Close style={{ cursor: 'pointer' }} onClick={handleCloseVirtualenvList} />
+          <Close
+            style={{ cursor: 'pointer' }}
+            onClick={handleCloseVirtualenvList}
+          />
         </Box>
         <DialogContent>
           <TableContainer component={Paper}>
@@ -128,9 +130,7 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                   <TableCell align="left">
                     {t('launchModel.modelName')}
                   </TableCell>
-                  <TableCell align="left">
-                    {t('launchModel.envPath')}
-                  </TableCell>
+                  <TableCell align="left">{t('launchModel.envPath')}</TableCell>
                   <TableCell align="left" style={{ width: 46 }}></TableCell>
                   <TableCell align="left">
                     {t('launchModel.realPath')}
@@ -141,12 +141,17 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                   <TableCell align="left">
                     {t('launchModel.ipAddress')}
                   </TableCell>
-                  <TableCell align="left">{t('launchModel.operation')}</TableCell>
+                  <TableCell align="left">
+                    {t('launchModel.operation')}
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody style={{ position: 'relative' }}>
                 {virtualenvListArr.slice(page * 5, page * 5 + 5).map((row) => (
-                  <StyledTableRow style={{ maxHeight: 90 }} key={row.model_name}>
+                  <StyledTableRow
+                    style={{ maxHeight: 90 }}
+                    key={row.model_name}
+                  >
                     <TableCell component="th" scope="row">
                       <Tooltip title={row.model_name}>
                         <div className="pathBox" style={{ maxWidth: 150 }}>
@@ -197,7 +202,9 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                   </TableRow>
                 )}
                 {virtualenvListArr.length === 0 && (
-                  <div className="empty">{t('launchModel.noVirtualEnvironmentsForNow')}</div>
+                  <div className="empty">
+                    {t('launchModel.noVirtualEnvironmentsForNow')}
+                  </div>
                 )}
               </TableBody>
             </Table>

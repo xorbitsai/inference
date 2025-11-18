@@ -166,8 +166,10 @@ const LaunchModelComponent = forwardRef(
 
         // Fetch both model registrations and virtual environments in parallel
         Promise.all([
-          fetchWrapper.get(`/v1/model_registrations/${modelType}?detailed=true`),
-          fetchWrapper.get('/v1/virtualenvs').catch(() => ({ list: [] })) // Fallback for virtual env API
+          fetchWrapper.get(
+            `/v1/model_registrations/${modelType}?detailed=true`
+          ),
+          fetchWrapper.get('/v1/virtualenvs').catch(() => ({ list: [] })), // Fallback for virtual env API
         ])
           .then(([modelData, virtualEnvData]) => {
             const builtinRegistrations = modelData.filter((v) => v.is_builtin)

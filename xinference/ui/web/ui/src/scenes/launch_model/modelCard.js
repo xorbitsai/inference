@@ -67,7 +67,9 @@ const ModelCard = ({
   // Check if model has virtual environment using virtualEnvs data from parent
   useEffect(() => {
     if (modelData?.model_name) {
-      const hasEnv = virtualEnvs.some(env => env.model_name === modelData.model_name)
+      const hasEnv = virtualEnvs.some(
+        (env) => env.model_name === modelData.model_name
+      )
       setHasVirtualEnv(hasEnv)
     }
   }, [modelData?.model_name, virtualEnvs])
