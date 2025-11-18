@@ -760,7 +760,8 @@
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
     },
-    "updated_at": 1762509537
+    "updated_at": 1763445597,
+    "featured": false
   },
   {
     "version": 2,
@@ -794,7 +795,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509539
+    "updated_at": 1763445598,
+    "featured": false
   },
   {
     "version": 2,
@@ -880,7 +882,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509540
+    "updated_at": 1763445599,
+    "featured": false
   },
   {
     "version": 2,
@@ -966,7 +969,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509541
+    "updated_at": 1763445601,
+    "featured": true
   },
   {
     "version": 2,
@@ -999,6 +1003,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509542
+    "updated_at": 1763445602,
+    "featured": false
   }
 ]
