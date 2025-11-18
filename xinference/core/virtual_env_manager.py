@@ -18,6 +18,8 @@ import shutil
 import subprocess
 from typing import Any, Dict, List, Optional
 
+from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -50,13 +52,6 @@ class VirtualEnvManager:
         Returns:
             List of virtual environment information dictionaries
         """
-        try:
-            from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
-        except ImportError:
-            # Fallback for testing or when run as standalone
-            XINFERENCE_VIRTUAL_ENV_DIR = os.path.join(
-                os.path.expanduser("~/.xinference"), "virtualenv"
-            )
 
         v3_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v3")
         virtual_envs = []
