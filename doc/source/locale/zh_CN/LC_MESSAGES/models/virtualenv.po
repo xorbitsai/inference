@@ -136,22 +136,22 @@ msgstr ""
 "virtualenv / {model_name}"
 
 #: ../../source/models/virtualenv.rst:75
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "From v1.6.0 to v1.13.0: :ref:`XINFERENCE_HOME "
 "<environments_xinference_home>` / virtualenv / v2 / {model_name}"
 msgstr ""
-"从 v1.6.0 开始：:ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"从 v1.6.0 到 v1.13.0：:ref:`XINFERENCE_HOME <environments_xinference_home>` / "
 "virtualenv / v2 / {model_name}"
 
 #: ../../source/models/virtualenv.rst:76
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Since v1.14.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
 "virtualenv / v3 / {model_name} / {python_version}"
 msgstr ""
-"从 v1.6.0 开始：:ref:`XINFERENCE_HOME <environments_xinference_home>` / "
-"virtualenv / v2 / {model_name}"
+"从 v1.14.0 开始：:ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v3 / {model_name} / {python_version}"
 
 #: ../../source/models/virtualenv.rst:79
 msgid "Experimental Feature"
