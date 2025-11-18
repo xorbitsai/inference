@@ -133,9 +133,6 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                   <TableCell align="left">{t('launchModel.envPath')}</TableCell>
                   <TableCell align="left" style={{ width: 46 }}></TableCell>
                   <TableCell align="left">
-                    {t('launchModel.realPath')}
-                  </TableCell>
-                  <TableCell align="left">
                     {t('launchModel.pythonVersion')}
                   </TableCell>
                   <TableCell align="left">
@@ -171,13 +168,6 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                         tip={t('launchModel.copyEnvPath')}
                         text={row.path}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title={row.real_path}>
-                        <div className="pathBox" style={{ maxWidth: 200 }}>
-                          {row.real_path}
-                        </div>
-                      </Tooltip>
                     </TableCell>
                     <TableCell>{row.python_version || '—'}</TableCell>
                     <TableCell>{row.actor_ip_address}</TableCell>
