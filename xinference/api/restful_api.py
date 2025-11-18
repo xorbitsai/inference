@@ -955,26 +955,6 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
-            "/v1/virtualenvs/check",
-            self.check_virtual_env_exists,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["virtualenv:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/virtualenvs/packages",
-            self.list_virtual_env_packages,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["virtualenv:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
             "/v1/virtualenvs",
             self.remove_virtual_env,
             methods=["DELETE"],
@@ -3401,16 +3381,6 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_virtual_env_packages(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        """List packages installed in a specific virtual environment."""
-        # This functionality has been removed and is no longer supported
-        return JSONResponse(
-            content={"error": "Package listing functionality has been deprecated"},
-            status_code=410,
-        )
-
     async def remove_virtual_env(
         self,
         model_name: str = Query(None),
@@ -3430,30 +3400,6 @@ class RESTfulAPI(CancelMixin):
                 worker_ip=worker_ip,
             )
             return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def check_virtual_env_exists(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        """Check if a specific model has a virtual environment."""
-        if not model_name:
-            raise HTTPException(
-                status_code=400, detail="model_name parameter is required"
-            )
-
-        try:
-            # Get all virtual environments and check if the model is in the list
-            data = await (await self._get_supervisor_ref()).list_virtual_envs(
-                model_name, worker_ip
-            )
-            return JSONResponse(
-                content={"has_virtual_env": len(data) > 0, "model_name": model_name}
-            )
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))

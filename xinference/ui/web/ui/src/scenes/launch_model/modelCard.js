@@ -44,6 +44,7 @@ const ModelCard = ({
   onGetCollectionArr,
   onUpdate,
   onClick,
+  virtualEnvs = [],
 }) => {
   const navigate = useNavigate()
   const { t } = useTranslation()
@@ -63,23 +64,13 @@ const ModelCard = ({
     }
   }
 
-  // Check if model has virtual environment on component mount
+  // Check if model has virtual environment using virtualEnvs data from parent
   useEffect(() => {
-    const checkVirtualEnvExists = async () => {
-      try {
-        const response = await fetchWrapper.get(`/v1/virtualenvs/check?model_name=${modelData.model_name}`)
-        setHasVirtualEnv(response.has_virtual_env)
-      } catch (error) {
-        // If API call fails, just don't show the button
-        console.log('Failed to check virtual env:', error)
-        setHasVirtualEnv(false)
-      }
-    }
-
     if (modelData?.model_name) {
-      checkVirtualEnvExists()
+      const hasEnv = virtualEnvs.some(env => env.model_name === modelData.model_name)
+      setHasVirtualEnv(hasEnv)
     }
-  }, [modelData?.model_name])
+  }, [modelData?.model_name, virtualEnvs])
 
   // Handle favorite feature
   const handleCollection = (shouldAdd) => {
