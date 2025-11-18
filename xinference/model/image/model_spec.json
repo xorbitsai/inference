@@ -53,7 +53,8 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509515
+    "updated_at": 1763445575,
+    "featured": true
   },
   {
     "version": 2,
@@ -109,7 +110,8 @@
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509517
+    "updated_at": 1763445576,
+    "featured": true
   },
   {
     "version": 2,
@@ -178,7 +180,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509518
+    "updated_at": 1763445577,
+    "featured": true
   },
   {
     "version": 2,
@@ -269,7 +272,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509519
+    "updated_at": 1763445579,
+    "featured": true
   },
   {
     "version": 2,
@@ -294,7 +298,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509520
+    "updated_at": 1763445580,
+    "featured": false
   },
   {
     "version": 2,
@@ -354,7 +359,8 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509521
+    "updated_at": 1763445581,
+    "featured": true
   },
   {
     "version": 2,
@@ -401,7 +407,8 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509523
+    "updated_at": 1763445582,
+    "featured": true
   },
   {
     "version": 2,
@@ -452,7 +459,8 @@
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509524
+    "updated_at": 1763445583,
+    "featured": false
   },
   {
     "version": 2,
@@ -471,7 +479,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509525
+    "updated_at": 1763445585,
+    "featured": true
   },
   {
     "version": 2,
@@ -490,7 +499,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509526
+    "updated_at": 1763445586,
+    "featured": false
   },
   {
     "version": 2,
@@ -513,7 +523,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509528
+    "updated_at": 1763445587,
+    "featured": false
   },
   {
     "version": 2,
@@ -536,7 +547,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509529
+    "updated_at": 1763445588,
+    "featured": false
   },
   {
     "version": 2,
@@ -600,7 +612,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509530
+    "updated_at": 1763445589,
+    "featured": false
   },
   {
     "version": 2,
@@ -640,7 +653,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509531
+    "updated_at": 1763445591,
+    "featured": false
   },
   {
     "version": 2,
@@ -669,7 +683,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509533
+    "updated_at": 1763445592,
+    "featured": false
   },
   {
     "version": 2,
@@ -697,7 +712,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509534
+    "updated_at": 1763445593,
+    "featured": true
   },
   {
     "version": 2,
@@ -712,7 +728,8 @@
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
     },
-    "updated_at": 1762509535
+    "updated_at": 1763445594,
+    "featured": false
   },
   {
     "version": 2,
@@ -727,7 +744,8 @@
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
     },
-    "updated_at": 1762509536
+    "updated_at": 1763445596,
+    "featured": false
   },
   {
     "version": 2,
