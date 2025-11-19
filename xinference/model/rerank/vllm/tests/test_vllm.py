@@ -4,7 +4,7 @@ import pytest
 
 from .....client import Client
 from ...cache_manager import RerankCacheManager
-from ...core import RerankModelFamilyV2, RerankSpecV1
+from ...core import RerankModelFamilyV2, TransformersRerankSpecV1
 from ..core import VLLMRerankModel
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
@@ -14,7 +14,7 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
     max_tokens=512,
     language=["en", "zh"],
     model_specs=[
-        RerankSpecV1(
+        TransformersRerankSpecV1(
             model_id="BAAI/bge-reranker-base",
             model_revision="465b4b7ddf2be0a020c8ad6e525b9bb1dbb708ae",
             model_format="pytorch",

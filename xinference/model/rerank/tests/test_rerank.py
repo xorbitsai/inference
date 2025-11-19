@@ -96,7 +96,7 @@ def test_restful_api(model_name, model_engine, setup):
 
 def test_from_local_uri():
     from ..cache_manager import RerankCacheManager
-    from ..core import RerankSpecV1
+    from ..core import TransformersRerankSpecV1
     from ..custom import CustomRerankModelFamilyV2
 
     tmp_dir = tempfile.mkdtemp()
@@ -106,7 +106,7 @@ def test_from_local_uri():
         max_tokens=2048,
         language=["zh"],
         model_specs=[
-            RerankSpecV1(
+            TransformersRerankSpecV1(
                 model_format="pytorch",
                 model_id="test/custom_test_a",
                 model_uri=os.path.abspath(tmp_dir),
@@ -125,7 +125,7 @@ def test_from_local_uri():
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
     from ..cache_manager import RerankCacheManager
-    from ..core import RerankSpecV1
+    from ..core import TransformersRerankSpecV1
     from ..custom import CustomRerankModelFamilyV2, register_rerank, unregister_rerank
 
     tmp_dir = tempfile.mkdtemp()
@@ -136,7 +136,7 @@ def test_register_custom_rerank():
         max_tokens=2048,
         language=["zh"],
         model_specs=[
-            RerankSpecV1(
+            TransformersRerankSpecV1(
                 model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri=os.path.abspath(tmp_dir),
@@ -160,7 +160,7 @@ def test_register_custom_rerank():
         max_tokens=2048,
         language=["zh"],
         model_specs=[
-            RerankSpecV1(
+            TransformersRerankSpecV1(
                 model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri="file:///sssad/faf",
@@ -177,7 +177,7 @@ def test_register_custom_rerank():
         max_tokens=2048,
         language=["zh"],
         model_specs=[
-            RerankSpecV1(
+            TransformersRerankSpecV1(
                 model_format="pytorch",
                 model_id="test/custom_test_b",
                 model_uri=os.path.abspath(tmp_dir),
