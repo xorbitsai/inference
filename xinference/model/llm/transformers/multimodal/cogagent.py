@@ -48,11 +48,13 @@ class CogAgentChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         family = model_family.model_family or model_family.model_name
-        if "cogagent" in family.lower():
-            return True
-        return False
+        if "cogagent" not in family.lower():
+            return False, f"Model family {family} is not CogAgent"
+        if "vision" not in model_family.model_ability:
+            return False, "CogAgent transformer requires vision ability"
+        return True
 
     def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")

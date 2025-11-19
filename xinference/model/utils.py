@@ -485,6 +485,14 @@ def get_engine_params_by_name(
         if result is False or result is None:
             return False, default_error, default_type, None
 
+        if isinstance(result, tuple) and len(result) >= 2:
+            flag, reason = result[0], result[1]
+            if isinstance(flag, bool):
+                if flag:
+                    return True, None, None, None
+                reason_str = str(reason) if reason is not None else default_error
+                return False, reason_str, default_type, None
+
         if hasattr(result, "is_match"):
             is_match = bool(getattr(result, "is_match"))
             reason = getattr(result, "reason", None)

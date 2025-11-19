@@ -22,7 +22,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from contextvars import ContextVar
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
@@ -70,7 +70,7 @@ class LLM(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> Union[bool, str]:
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         raise NotImplementedError
 
     @staticmethod
@@ -158,7 +158,7 @@ class LLM(abc.ABC):
     @abstractmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> Union[bool, str]:
+    ) -> Union[bool, Tuple[bool, str]]:
         raise NotImplementedError
 
     def prepare_parse_reasoning_content(

@@ -14,7 +14,7 @@
 
 import importlib.util
 import logging
-from typing import List, Optional, Union, no_type_check
+from typing import List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 import torch
@@ -282,8 +282,10 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("FlagEmbedding") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("FlagEmbedding") is None:
+            return False, "FlagEmbedding library is not installed"
+        return True
 
     @classmethod
     def match_json(
@@ -291,10 +293,9 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        if (
-            model_spec.model_format in ["pytorch"]
-            and model_family.model_name in FLAG_EMBEDDER_MODEL_LIST
-        ):
-            return True
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "FlagEmbedding engine only supports pytorch format"
+        if model_family.model_name not in FLAG_EMBEDDER_MODEL_LIST:
+            return False, f"{model_family.model_name} is not supported by FlagEmbedding"
+        return True

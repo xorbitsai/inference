@@ -19,7 +19,7 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, List, Literal, Optional, Union
+from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
 
 from xoscar import extensible
 
@@ -163,7 +163,7 @@ class EmbeddingModel(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> Union[bool, str]:
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         pass
 
     @classmethod
@@ -173,7 +173,7 @@ class EmbeddingModel(abc.ABC):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> Union[bool, str]:
+    ) -> Union[bool, Tuple[bool, str]]:
         pass
 
     @classmethod
