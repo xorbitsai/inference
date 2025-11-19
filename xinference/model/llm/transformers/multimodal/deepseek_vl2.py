@@ -17,7 +17,7 @@ import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple, Union
 
 import requests
 import torch
@@ -40,11 +40,13 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         llm_family = model_family.model_family or model_family.model_name
-        if "deepseek-vl2" == llm_family.lower():
-            return True
-        return False
+        if "deepseek-vl2" != llm_family.lower():
+            return False, f"Model family {llm_family} is not DeepSeek-VL2"
+        if "vision" not in model_family.model_ability:
+            return False, "DeepSeek-VL2 transformer requires vision ability"
+        return True
 
     def decide_device(self):
         self._device = self._pytorch_model_config.get("device", "auto")

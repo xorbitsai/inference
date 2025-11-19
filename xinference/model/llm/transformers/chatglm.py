@@ -16,7 +16,7 @@ import logging
 import typing
 import uuid
 from threading import Thread
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
 
@@ -85,14 +85,14 @@ class ChatglmPytorchChatModel(PytorchChatModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format != "pytorch":
-            return False
+            return False, "ChatGLM transformer only supports pytorch format"
         model_family = llm_family.model_family or llm_family.model_name
         if "glm4" not in model_family:
-            return False
+            return False, f"Model family {model_family} is not GLM4"
         if "chat" not in llm_family.model_ability:
-            return False
+            return False, "ChatGLM transformer requires chat ability"
         return True
 
     def _handle_tools(self, messages, generate_config):

@@ -13,7 +13,7 @@
 # limitations under the License.
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
 from PIL import Image
@@ -37,11 +37,13 @@ class MiniCPMV26Model(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         family = model_family.model_family or model_family.model_name
-        if "MiniCPM-V-2.6".lower() in family.lower():
-            return True
-        return False
+        if "minicpm-v-2.6".lower() not in family.lower():
+            return False, f"Model family {family} is not MiniCPM-V-2.6"
+        if "vision" not in model_family.model_ability:
+            return False, "MiniCPM-V-2.6 transformer requires vision ability"
+        return True
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]

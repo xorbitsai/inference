@@ -17,7 +17,7 @@ import logging
 import os
 import pprint
 import queue
-from typing import Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 from packaging import version
 
@@ -79,20 +79,22 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return llamacpp_model_config
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("xllamacpp") is None:
+            return False, "xllamacpp library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["ggufv2"]:
-            return False
+            return False, "llama.cpp engine only supports ggufv2 format"
         if (
             "chat" not in llm_family.model_ability
             and "generate" not in llm_family.model_ability
         ):
-            return False
+            return False, "llama.cpp engine requires chat or generate ability"
         return True
 
     def load(self):
