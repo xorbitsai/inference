@@ -1264,17 +1264,10 @@ class RESTfulAPI(CancelMixin):
         from ..constants import XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA
 
         if XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA:
-            # Enhanced replica validation with single-GPU multi-replica support
-            if gpu_idx and len(gpu_idx) > 1 and len(gpu_idx) % replica:
-                # Only keep the restriction when multiple GPUs are specified
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid input. When using multiple GPUs, the count must be a multiple of replica.",
-                )
-            # Allow single-GPU multi-replica deployment when enabled
-            if gpu_idx and len(gpu_idx) == 1 and replica > 1:
+            # Allow single- or multi-GPU reuse for replicas
+            if gpu_idx and replica > 1:
                 logger.info(
-                    f"Single-GPU multi-replica deployment enabled: {replica} replicas on 1 GPU"
+                    f"Multi-replica deployment enabled: {replica} replicas across GPUs {gpu_idx}"
                 )
         else:
             # Traditional behavior - strict multiple requirement
