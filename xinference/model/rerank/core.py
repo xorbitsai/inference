@@ -15,7 +15,7 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from ..._compat import BaseModel
 from ...types import Rerank
@@ -118,7 +118,7 @@ class RerankModel:
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> bool:
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         pass
 
     @classmethod
@@ -128,7 +128,7 @@ class RerankModel:
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         pass
 
     @classmethod
@@ -141,9 +141,11 @@ class RerankModel:
         """
         Return if the model_spec can be matched.
         """
-        if not cls.check_lib():
+        lib_result = cls.check_lib()
+        if lib_result != True:
             return False
-        return cls.match_json(model_family, model_spec, quantization)
+        match_result = cls.match_json(model_family, model_spec, quantization)
+        return match_result == True
 
     @staticmethod
     def _get_tokenizer(model_path):

@@ -404,23 +404,23 @@ class MLXModel(LLM):
         self._context_length = get_context_length(config)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_lm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("mlx_lm") is None:
+            return False, "mlx_lm library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["mlx"]:
-            return False
+            return False, "MLX base engine only supports mlx format"
         if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
+            return False, "MLX base engine only works on Apple silicon Macs"
         if "generate" not in llm_family.model_ability:
-            return False
+            return False, "MLX base engine requires generate ability"
         if "chat" in llm_family.model_ability or "vision" in llm_family.model_ability:
-            # do not process chat or vision
-            return False
+            return False, "MLX base engine does not handle chat or vision models"
         return True
 
     def _get_prompt_cache(
@@ -721,17 +721,15 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["mlx"]:
-            return False
+            return False, "MLX chat engine only supports mlx format"
         if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
+            return False, "MLX chat engine only works on Apple silicon Macs"
         if "chat" not in llm_family.model_ability:
-            return False
+            return False, "MLX chat engine requires chat ability"
         if "vision" in llm_family.model_ability:
-            # do not process vision
-            return False
+            return False, "MLX chat engine does not support vision models"
         return True
 
     def chat(
@@ -779,20 +777,21 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_vlm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("mlx_vlm") is None:
+            return False, "mlx_vlm library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["mlx"]:
-            return False
+            return False, "MLX vision engine only supports mlx format"
         if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
+            return False, "MLX vision engine only works on Apple silicon Macs"
         if "vision" not in llm_family.model_ability:
-            return False
+            return False, "MLX vision engine requires vision ability"
         return True
 
     def _load_model(self, **kwargs):

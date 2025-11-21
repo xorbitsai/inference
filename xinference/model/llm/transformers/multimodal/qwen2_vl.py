@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from .....core.model import register_batching_multimodal_models
 from .....device_utils import is_npu_available
@@ -54,19 +54,27 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp8"]:
-            return False
+            return (
+                False,
+                "Qwen2 VL transformer supports pytorch/gptq/awq/bnb/fp8 formats only",
+            )
         llm_family = model_family.model_family or model_family.model_name
-        if "qwen2-vl-instruct".lower() in llm_family.lower():
-            return True
-        if "qwen2.5-vl-instruct".lower() in llm_family.lower():
-            return True
-        if "qvq-72b-preview".lower() in llm_family.lower():
-            return True
-        if "qwen3-vl" in llm_family.lower():
-            return True
-        return False
+        supported = [
+            "qwen2-vl-instruct",
+            "qwen2.5-vl-instruct",
+            "qvq-72b-preview",
+            "qwen3-vl",
+        ]
+        if not any(name in llm_family.lower() for name in supported):
+            return (
+                False,
+                f"Model family {llm_family} is not a supported Qwen2/3 VL variant",
+            )
+        if "vision" not in model_family.model_ability:
+            return False, "Qwen2 VL transformer requires vision ability"
+        return True
 
     def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")

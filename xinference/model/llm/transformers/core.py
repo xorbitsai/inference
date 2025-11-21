@@ -493,20 +493,28 @@ class PytorchModel(LLM):
             del self._tokenizer
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("transformers") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("transformers") is None:
+            return False, "transformers library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+            return (
+                False,
+                "Transformers engine supports pytorch/gptq/awq/bnb formats only",
+            )
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
-            return False
+            return (
+                False,
+                f"Model family {model_family} requires a custom transformer implementation",
+            )
         if "generate" not in llm_family.model_ability:
-            return False
+            return False, "Transformers engine requires generate ability"
         return True
 
     def build_prefill_attention_mask(
@@ -959,14 +967,20 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+            return (
+                False,
+                "Transformers chat engine supports pytorch/gptq/awq/bnb formats only",
+            )
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in NON_DEFAULT_MODEL_LIST:
-            return False
+            return (
+                False,
+                f"Model family {model_family} requires a custom transformer implementation",
+            )
         if "chat" not in llm_family.model_ability:
-            return False
+            return False, "Transformers chat engine requires chat ability"
         return True
 
     async def chat(

@@ -42,7 +42,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
 )
 
 
-@pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
+@pytest.mark.skipif(VLLMEmbeddingModel.check_lib() != True, reason="vllm not installed")
 async def test_embedding_model_with_vllm():
     model_path = None
 
@@ -82,7 +82,7 @@ async def test_embedding_model_with_vllm():
             shutil.rmtree(model_path, ignore_errors=True)
 
 
-@pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
+@pytest.mark.skipif(VLLMEmbeddingModel.check_lib() != True, reason="vllm not installed")
 async def test_embedding_model_with_vllm_long_text():
     """Test embedding model with text that exceeds 512 tokens."""
     model_path = None
@@ -157,7 +157,7 @@ async def test_embedding_model_with_vllm_long_text():
             shutil.rmtree(model_path, ignore_errors=True)
 
 
-@pytest.mark.skipif(not VLLMEmbeddingModel.check_lib(), reason="vllm not installed")
+@pytest.mark.skipif(VLLMEmbeddingModel.check_lib() != True, reason="vllm not installed")
 def test_change_dim(setup):
     endpoint, _ = setup
     client = Client(endpoint)
