@@ -21,7 +21,7 @@ When you have multiple GPU cards, each capable of hosting one model instance, yo
 - 2 GPUs, 2 instances: Each GPU runs one model instance
 - 4 GPUs, 4 instances: Each GPU runs one model instance
 
-.. versionadded:: v1.12.0
+.. versionadded:: v1.14.0
 
 Introduce a new environment variable:
 
@@ -32,23 +32,43 @@ Introduce a new environment variable:
 Control whether to enable the single GPU multi-copy feature
 Default value: 1
 
-New Feature: Smart Replica Deployment
+Key Features: Four new launch strategies
+~~~~~~~~~~
 
-1. Single GPU Multi-Replica
+Memory-Aware Strategy
+^^^^^^^^
 
-New Support: Run multiple model replicas even with just one GPU.
+**Strategy Name:** `memory_aware` (default)
 
-- Scenario: You have 1 GPU with sufficient VRAM
-- Configuration: Replica Count = 3, GPU Count = 1
-- Result: 3 model instances running on the same GPU, sharing GPU resources
+**Description:**
+Advanced memory-aware allocation with intelligent GPU reuse.
+Estimates model memory requirements using formula: `model_size(GB) × 1024 × 1.5`,
+adjusts for quantization, and checks actual GPU availability before allocation.
 
-2. Hybrid GPU Allocation
+Packing-First Strategy
+^^^^^^^^
 
-Smart Allocation: Number of replicas may differ from GPU count; system intelligently distributes
+**Strategy Name:** `packing_first`
 
-- Scenario: You have 2 GPUs and need 3 replicas
-- Configuration: Replicas=3, GPUs=2
-- Result: GPU0 runs 2 instances, GPU1 runs 1 instance
+**Description:**
+Prioritizes filling GPUs with the most available memory before moving to the next.
+Optimizes for GPU utilization by consolidating instances.
+
+Spread-First Strategy
+^^^^^^^^
+
+**Strategy Name:** `spread_first`
+
+**Description:**
+Distributes replicas across available GPUs using round-robin. Promotes load balancing and even resource utilization. Still sorts by available memory to prioritize better GPUs.
+
+Quota-Aware Strategy
+^^^^^^^^
+
+**Strategy Name:** `quota_aware`
+
+**Description:**
+Restricts allocation to a specified GPU quota, then applies spread-first distribution within that quota. Ideal for multi-tenant resource isolation and cost allocation.
 
 Set Environment Variables
 =========================
