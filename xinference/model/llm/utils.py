@@ -426,15 +426,17 @@ class ChatModelMixin:
             choices = chunk.get("choices")
             if not choices:
                 # Fallback: convert plain content to choices for streaming
-                content = chunk.get("content")
+                content = cast(Optional[str], chunk.get("content"))
                 if content is not None:
+                    finish_reason = cast(Optional[str], chunk.get("finish_reason"))
                     chunk = chunk.copy()
                     chunk["choices"] = [
-                        {
-                            "index": 0,
-                            "delta": {"content": content},
-                            "finish_reason": chunk.get("finish_reason"),
-                        }
+                        CompletionChoice(
+                            index=0,
+                            text=content,
+                            logprobs=None,
+                            finish_reason=finish_reason,
+                        )
                     ]
                     choices = chunk["choices"]
                 else:
