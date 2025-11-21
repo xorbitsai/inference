@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Union
 
-from ..device_utils import update_gpu_memory_info
+from ..device_utils import initialize_gpu_memory_info, update_gpu_memory_info
 
 logger = logging.getLogger(__name__)
 
@@ -275,10 +275,13 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
                     for dev, available_memory in gpu_memory_list[:remaining_needed]:
                         selected.append(dev)
 
-        if len(selected) != n_gpu:
-            raise RuntimeError(
-                f"Failed to allocate {n_gpu} GPUs, only got {len(selected)}"
-            )
+        if len(selected) < n_gpu:
+            if not selected:
+                best_gpu = self._get_gpu_with_most_available_memory()
+                selected.append(best_gpu)
+            fill_gpu = selected[0]
+            while len(selected) < n_gpu:
+                selected.append(fill_gpu)
 
         # Update memory usage accounting
         for gpu_idx in selected:
@@ -301,3 +304,187 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
 
             # Remove model from memory tracking
             del self._model_memory_usage[model_uid]
+
+
+class PackingFirstLaunchStrategy(LaunchStrategy):
+    """
+    Prefer filling one GPU before moving to the next highest-available GPU.
+    Allows GPU reuse when requested replicas exceed available distinct GPUs.
+    """
+
+    def __init__(
+        self,
+        total_gpu_devices: List[int],
+        gpu_memory_info: Optional[Dict[int, Dict[str, Union[int, float]]]] = None,
+    ):
+        self._total_gpu_devices = total_gpu_devices
+        self._gpu_memory_info = gpu_memory_info or initialize_gpu_memory_info(
+            total_gpu_devices, logger=logger
+        )
+
+    def allocate(
+        self,
+        spec: LaunchModelSpec,
+        total_gpu_devices: List[int],
+        user_specified_allocated_devices: Set[int],
+        allocated_gpus: Dict[int, str],
+    ) -> List[int]:
+        candidates = [
+            dev
+            for dev in total_gpu_devices
+            if dev not in allocated_gpus and dev not in user_specified_allocated_devices
+        ]
+        if not candidates:
+            raise RuntimeError("No available slot found for the model")
+
+        for dev in candidates:
+            update_gpu_memory_info(self._gpu_memory_info, dev, logger=logger)
+        candidates.sort(
+            key=lambda d: self._gpu_memory_info.get(d, {}).get("available", 0),
+            reverse=True,
+        )
+
+        selected: List[int] = []
+        idx = 0
+        while len(selected) < spec.n_gpu:
+            chosen = candidates[min(idx, len(candidates) - 1)]
+            selected.append(chosen)
+            if idx < len(candidates) - 1:
+                idx += 1
+
+        return selected
+
+    def release(self, model_uid: str, devices: List[int]) -> None:
+        # No internal accounting maintained here
+        return
+
+
+class SpreadFirstLaunchStrategy(LaunchStrategy):
+    """
+    Prefer spreading replicas across distinct GPUs before reusing any GPU.
+    Falls back to reuse when replicas exceed distinct GPUs.
+    """
+
+    def __init__(
+        self,
+        total_gpu_devices: List[int],
+        gpu_memory_info: Optional[Dict[int, Dict[str, Union[int, float]]]] = None,
+    ):
+        self._total_gpu_devices = total_gpu_devices
+        self._gpu_memory_info = gpu_memory_info or initialize_gpu_memory_info(
+            total_gpu_devices, logger=logger
+        )
+
+    def allocate(
+        self,
+        spec: LaunchModelSpec,
+        total_gpu_devices: List[int],
+        user_specified_allocated_devices: Set[int],
+        allocated_gpus: Dict[int, str],
+    ) -> List[int]:
+        candidates = [
+            dev
+            for dev in total_gpu_devices
+            if dev not in allocated_gpus and dev not in user_specified_allocated_devices
+        ]
+        if not candidates:
+            raise RuntimeError("No available slot found for the model")
+
+        for dev in candidates:
+            update_gpu_memory_info(self._gpu_memory_info, dev, logger=logger)
+        candidates.sort(
+            key=lambda d: self._gpu_memory_info.get(d, {}).get("available", 0),
+            reverse=True,
+        )
+
+        selected: List[int] = []
+        idx = 0
+        while len(selected) < spec.n_gpu:
+            chosen = candidates[idx % len(candidates)]
+            selected.append(chosen)
+            idx += 1
+
+        return selected
+
+    def release(self, model_uid: str, devices: List[int]) -> None:
+        return
+
+
+class QuotaAwareLaunchStrategy(LaunchStrategy):
+    """
+    Restrict allocation to an allowed set of GPUs, then spread-first within that set.
+    """
+
+    def __init__(
+        self,
+        total_gpu_devices: List[int],
+        allowed_devices: Optional[Set[int]] = None,
+        gpu_memory_info: Optional[Dict[int, Dict[str, Union[int, float]]]] = None,
+    ):
+        self._total_gpu_devices = total_gpu_devices
+        self._allowed_devices = allowed_devices
+        self._gpu_memory_info = gpu_memory_info or initialize_gpu_memory_info(
+            total_gpu_devices, logger=logger
+        )
+
+    def allocate(
+        self,
+        spec: LaunchModelSpec,
+        total_gpu_devices: List[int],
+        user_specified_allocated_devices: Set[int],
+        allocated_gpus: Dict[int, str],
+    ) -> List[int]:
+        device_pool = (
+            [dev for dev in total_gpu_devices if dev in self._allowed_devices]
+            if self._allowed_devices is not None
+            else total_gpu_devices
+        )
+        candidates = [
+            dev
+            for dev in device_pool
+            if dev not in allocated_gpus and dev not in user_specified_allocated_devices
+        ]
+        if not candidates:
+            raise RuntimeError("No available slot found for the model")
+
+        for dev in candidates:
+            update_gpu_memory_info(self._gpu_memory_info, dev, logger=logger)
+        candidates.sort(
+            key=lambda d: self._gpu_memory_info.get(d, {}).get("available", 0),
+            reverse=True,
+        )
+
+        selected: List[int] = []
+        idx = 0
+        while len(selected) < spec.n_gpu:
+            chosen = candidates[idx % len(candidates)]
+            selected.append(chosen)
+            idx += 1
+
+        return selected
+
+    def release(self, model_uid: str, devices: List[int]) -> None:
+        return
+
+
+def create_launch_strategy(
+    strategy_name: str,
+    total_gpu_devices: List[int],
+    allowed_devices: Optional[Set[int]] = None,
+    gpu_memory_info: Optional[Dict[int, Dict[str, Union[int, float]]]] = None,
+) -> LaunchStrategy:
+    strategy_name = strategy_name.lower()
+    if strategy_name == "memory_aware":
+        return MemoryAwareLaunchStrategy(total_gpu_devices, gpu_memory_info)
+    if strategy_name == "packing_first":
+        return PackingFirstLaunchStrategy(total_gpu_devices, gpu_memory_info)
+    if strategy_name == "spread_first":
+        return SpreadFirstLaunchStrategy(total_gpu_devices, gpu_memory_info)
+    if strategy_name == "quota_aware":
+        return QuotaAwareLaunchStrategy(
+            total_gpu_devices, allowed_devices, gpu_memory_info
+        )
+    logger.warning(
+        f"Unknown launch strategy '{strategy_name}', falling back to memory_aware"
+    )
+    return MemoryAwareLaunchStrategy(total_gpu_devices, gpu_memory_info)

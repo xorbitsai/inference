@@ -121,8 +121,8 @@ async def test_allocate_cuda_devices(setup_pool):
     devices = await worker.allocate_devices(model_uid="mock_model_3", n_gpu=3)
     assert devices == [5, 6, 7]
 
-    with pytest.raises(RuntimeError):
-        await worker.allocate_devices(model_uid="mock_model_4", n_gpu=5)
+    devices = await worker.allocate_devices(model_uid="mock_model_4", n_gpu=5)
+    assert len(devices) == 5
 
 
 @pytest.mark.asyncio

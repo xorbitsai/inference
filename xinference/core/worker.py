@@ -62,7 +62,7 @@ from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
-from .launch_strategy import MemoryAwareLaunchStrategy
+from .launch_strategy import LaunchModelSpec, create_launch_strategy
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
@@ -155,7 +155,16 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
-        self._launch_strategy = MemoryAwareLaunchStrategy(self._total_gpu_devices)
+        from ..constants import (
+            XINFERENCE_LAUNCH_ALLOWED_GPUS,
+            XINFERENCE_LAUNCH_STRATEGY,
+        )
+
+        self._launch_strategy = create_launch_strategy(
+            strategy_name=XINFERENCE_LAUNCH_STRATEGY,
+            total_gpu_devices=self._total_gpu_devices,
+            allowed_devices=XINFERENCE_LAUNCH_ALLOWED_GPUS,
+        )
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -549,8 +558,6 @@ class WorkerActor(xo.StatelessActor):
         return user_specified_allocated_devices
 
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
-        from .launch_strategy import LaunchModelSpec
-
         spec = LaunchModelSpec(model_uid=model_uid, n_gpu=n_gpu)
         devices = self._launch_strategy.allocate(
             spec=spec,
@@ -571,8 +578,6 @@ class WorkerActor(xo.StatelessActor):
         quantization: Optional[str],
         n_gpu: int = 1,
     ) -> List[int]:
-        from .launch_strategy import LaunchModelSpec
-
         spec = LaunchModelSpec(
             model_uid=model_uid,
             n_gpu=n_gpu,
