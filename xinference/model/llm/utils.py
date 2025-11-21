@@ -425,12 +425,24 @@ class ChatModelMixin:
             # usage
             choices = chunk.get("choices")
             if not choices:
-                yield cls._get_final_chat_completion_chunk(chunk)
-            else:
-                r = cls._to_chat_completion_chunk(
-                    chunk, reasoning_parse, previous_texts
-                )
-                yield r
+                # Fallback: convert plain content to choices for streaming
+                content = chunk.get("content")
+                if content is not None:
+                    chunk = chunk.copy()
+                    chunk["choices"] = [
+                        {
+                            "index": 0,
+                            "delta": {"content": content},
+                            "finish_reason": chunk.get("finish_reason"),
+                        }
+                    ]
+                    choices = chunk["choices"]
+                else:
+                    yield cls._get_final_chat_completion_chunk(chunk)
+                    continue
+
+            r = cls._to_chat_completion_chunk(chunk, reasoning_parse, previous_texts)
+            yield r
 
     @classmethod
     def _tools_to_messages_for_deepseek(
