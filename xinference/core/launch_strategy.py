@@ -15,7 +15,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ..device_utils import initialize_gpu_memory_info, update_gpu_memory_info
 
@@ -213,27 +213,26 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
         ]
 
         if estimated_memory_mb > 0:
-            # Try to find GPUs that can accommodate the model
-            suitable_gpus = []
+            suitable_with_mem: List[Tuple[int, Union[int, float]]] = []
 
-            # First, check completely available GPUs
+            # Include completely available GPUs first
             for gpu_idx in completely_available_gpus:
                 if self._can_fit_model_on_gpu(gpu_idx, estimated_memory_mb):
-                    suitable_gpus.append(gpu_idx)
+                    available = self._gpu_memory_info[gpu_idx]["available"]
+                    suitable_with_mem.append((gpu_idx, available))
 
-            # If not enough completely available GPUs, check partially used GPUs
-            if len(suitable_gpus) < n_gpu:
-                for dev in total_gpu_devices:
-                    if dev in allocated_gpus and dev not in suitable_gpus:
-                        # This GPU is already allocated, check if it has space for another replica
-                        if self._can_fit_model_on_gpu(dev, estimated_memory_mb):
-                            suitable_gpus.append(dev)
+            # Check already allocated GPUs for possible reuse
+            for dev in total_gpu_devices:
+                if dev in allocated_gpus:
+                    if self._can_fit_model_on_gpu(dev, estimated_memory_mb):
+                        available = self._gpu_memory_info[dev]["available"]
+                        suitable_with_mem.append((dev, available))
 
-            if len(suitable_gpus) >= n_gpu:
-                selected = suitable_gpus[:n_gpu]
+            if suitable_with_mem:
+                suitable_with_mem.sort(key=lambda x: x[1], reverse=True)
+                selected = [dev for dev, _ in suitable_with_mem[:n_gpu]]
             else:
-                # Not enough GPUs with sufficient memory, but try anyway
-                # Use the GPU with most available memory
+                # Not enough GPUs with sufficient memory, pick the best GPU and reuse it
                 best_gpu = self._get_gpu_with_most_available_memory()
                 selected = [best_gpu] if n_gpu == 1 else [best_gpu] * n_gpu
         else:
