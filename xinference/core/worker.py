@@ -62,6 +62,7 @@ from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
+from .launch_strategy import MemoryAwareLaunchStrategy
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
@@ -154,8 +155,7 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
-        self._gpu_memory_info: Dict[int, Dict[str, Union[int, float]]] = {}
-        self._model_memory_usage: Dict[str, int] = {}
+        self._launch_strategy = MemoryAwareLaunchStrategy(self._total_gpu_devices)
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -532,7 +532,8 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_embedding_model_uids[device].add(model_uid)
         return device
 
-    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
+    def _collect_user_specified_devices(self) -> Set[int]:
+        """收集用户指定且非 embedding/rerank 的占用卡"""
         user_specified_allocated_devices: Set[int] = set()
         for dev, model_infos in self._user_specified_gpu_to_model_uids.items():
             allocated_non_embedding_rerank_models = False
@@ -545,78 +546,21 @@ class WorkerActor(xo.StatelessActor):
                     break
             if allocated_non_embedding_rerank_models:
                 user_specified_allocated_devices.add(dev)
+        return user_specified_allocated_devices
 
-        # Check for completely available GPUs first
-        completely_available_gpus = [
-            dev
-            for dev in self._total_gpu_devices
-            if dev not in self._gpu_to_model_uid
-            and dev not in user_specified_allocated_devices
-        ]
+    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
+        from .launch_strategy import LaunchModelSpec
 
-        if len(completely_available_gpus) >= n_gpu:
-            # We have enough completely available GPUs
-            devices = completely_available_gpus[:n_gpu]
-            for dev in devices:
-                self._gpu_to_model_uid[int(dev)] = model_uid
-            logger.info(f"Allocated completely available GPUs: {devices}")
-            return sorted(devices)
-
-        # Not enough completely available GPUs, try memory-aware allocation
-        logger.info(
-            f"Not enough completely available GPUs, trying memory-aware allocation"
+        spec = LaunchModelSpec(model_uid=model_uid, n_gpu=n_gpu)
+        devices = self._launch_strategy.allocate(
+            spec=spec,
+            total_gpu_devices=self._total_gpu_devices,
+            user_specified_allocated_devices=self._collect_user_specified_devices(),
+            allocated_gpus=self._gpu_to_model_uid,
         )
-
-        # Initialize memory tracking if not already done
-        if not self._gpu_memory_info:
-            self._initialize_gpu_memory_tracking()
-
-        # Try to allocate based on available memory
-        selected_devices = []
-
-        # First, use any completely available GPUs
-        for dev in completely_available_gpus:
-            selected_devices.append(dev)
+        for dev in devices:
             self._gpu_to_model_uid[int(dev)] = model_uid
-            if len(selected_devices) == n_gpu:
-                break
-
-        # If we still need more GPUs, select those with most available memory
-        if len(selected_devices) < n_gpu:
-            remaining_needed = n_gpu - len(selected_devices)
-
-            # Get GPUs sorted by available memory (most available first)
-            # Exclude GPUs that are already allocated by user_specified models
-            candidate_gpus = [
-                dev
-                for dev in self._total_gpu_devices
-                if dev not in selected_devices
-                and dev not in self._gpu_to_model_uid
-                and dev not in user_specified_allocated_devices
-            ]
-
-            gpu_memory_list = []
-            for dev in candidate_gpus:
-                self._update_gpu_memory_info(dev)
-                available_memory = self._gpu_memory_info[dev]["available"]
-                gpu_memory_list.append((dev, available_memory))
-
-            # Sort by available memory (descending)
-            gpu_memory_list.sort(key=lambda x: x[1], reverse=True)
-
-            # Select GPUs with most available memory
-            for dev, available_memory in gpu_memory_list[:remaining_needed]:
-                selected_devices.append(dev)
-                self._gpu_to_model_uid[int(dev)] = model_uid
-                logger.info(
-                    f"Selected GPU {dev} with {available_memory}MB available memory"
-                )
-
-        if len(selected_devices) != n_gpu:
-            raise RuntimeError("No available slot found for the model")
-
-        logger.info(f"Allocated GPUs using memory-aware strategy: {selected_devices}")
-        return sorted(selected_devices)
+        return sorted(devices)
 
     def allocate_devices_for_model(
         self,
@@ -627,47 +571,25 @@ class WorkerActor(xo.StatelessActor):
         quantization: Optional[str],
         n_gpu: int = 1,
     ) -> List[int]:
-        """
-        Enhanced GPU allocation that considers model memory requirements.
-        """
-        # Estimate memory usage for this model
-        estimated_memory_mb = self._estimate_model_memory_usage(
-            model_name, model_size, model_format, quantization
+        from .launch_strategy import LaunchModelSpec
+
+        spec = LaunchModelSpec(
+            model_uid=model_uid,
+            n_gpu=n_gpu,
+            model_name=model_name,
+            model_size=model_size,
+            model_format=model_format,
+            quantization=quantization,
         )
-
-        self._model_memory_usage[model_uid] = estimated_memory_mb
-
-        # Try to find GPUs that can accommodate the model
-        suitable_gpus = []
-
-        for gpu_idx in self._total_gpu_devices:
-            if self._can_fit_model_on_gpu(gpu_idx, estimated_memory_mb):
-                suitable_gpus.append(gpu_idx)
-
-        if len(suitable_gpus) >= n_gpu:
-            # We have enough suitable GPUs
-            selected = suitable_gpus[:n_gpu]
-        else:
-            # Not enough GPUs with sufficient memory, but try anyway
-            logger.warning(
-                f"Only found {len(suitable_gpus)} GPUs with sufficient memory, proceeding with allocation"
-            )
-            # Use the GPU with most available memory
-            best_gpu = self._get_gpu_with_most_available_memory()
-            selected = [best_gpu]
-
-        # Update tracking
-        for dev in selected:
+        devices = self._launch_strategy.allocate(
+            spec=spec,
+            total_gpu_devices=self._total_gpu_devices,
+            user_specified_allocated_devices=self._collect_user_specified_devices(),
+            allocated_gpus=self._gpu_to_model_uid,
+        )
+        for dev in devices:
             self._gpu_to_model_uid[int(dev)] = model_uid
-            # Update memory usage tracking
-            if dev in self._gpu_memory_info:
-                self._gpu_memory_info[dev]["used"] += estimated_memory_mb
-                self._gpu_memory_info[dev]["available"] -= estimated_memory_mb
-
-        logger.info(
-            f"Allocated GPUs for model {model_name}: {selected}, estimated memory: {estimated_memory_mb}MB"
-        )
-        return sorted(selected)
+        return sorted(devices)
 
     async def allocate_devices_with_gpu_idx(
         self, model_uid: str, model_type: str, gpu_idx: List[int]
@@ -731,29 +653,8 @@ class WorkerActor(xo.StatelessActor):
             for model_info in model_infos:
                 self._user_specified_gpu_to_model_uids[dev].remove(model_info)
 
-        # Update GPU memory tracking
-        if model_uid in self._model_memory_usage:
-            released_memory = self._model_memory_usage[model_uid]
-            logger.info(
-                f"Releasing {released_memory}MB of memory for model {model_uid}"
-            )
-
-            # Update memory info for all GPUs
-            for dev in devices:
-                if dev in self._gpu_memory_info:
-                    self._gpu_memory_info[dev]["used"] = max(
-                        0, self._gpu_memory_info[dev]["used"] - released_memory
-                    )
-                    self._gpu_memory_info[dev]["available"] = min(
-                        self._gpu_memory_info[dev]["total"],
-                        self._gpu_memory_info[dev]["available"] + released_memory,
-                    )
-                    logger.info(
-                        f"Updated GPU {dev} memory tracking: used={self._gpu_memory_info[dev]['used']}MB, available={self._gpu_memory_info[dev]['available']}MB"
-                    )
-
-            # Remove model from memory usage tracking
-            del self._model_memory_usage[model_uid]
+        # Use launch strategy to handle memory tracking rollback
+        self._launch_strategy.release(model_uid, devices)
 
     async def _create_subpool(
         self,
@@ -2134,131 +2035,6 @@ class WorkerActor(xo.StatelessActor):
 
     def get_model_status(self, model_uid: str):
         return self._model_uid_to_model_status.get(model_uid)
-
-    def _initialize_gpu_memory_tracking(self):
-        """Initialize GPU memory tracking for all available GPUs"""
-        try:
-            import pynvml
-
-            pynvml.nvmlInit()
-            for gpu_idx in self._total_gpu_devices:
-                handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_idx)
-                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                self._gpu_memory_info[gpu_idx] = {
-                    "total": mem_info.total // (1024**2),  # Convert to MB
-                    "used": mem_info.used // (1024**2),
-                    "available": mem_info.free // (1024**2),
-                }
-            logger.info(
-                f"Initialized GPU memory tracking for {len(self._total_gpu_devices)} GPUs"
-            )
-        except ImportError:
-            logger.warning("pynvml not available, GPU memory tracking disabled")
-            # Fallback to basic tracking without actual memory info
-            for gpu_idx in self._total_gpu_devices:
-                self._gpu_memory_info[gpu_idx] = {"total": 0, "used": 0, "available": 0}
-        except Exception as e:
-            logger.error(f"Failed to initialize GPU memory tracking: {e}")
-            for gpu_idx in self._total_gpu_devices:
-                self._gpu_memory_info[gpu_idx] = {"total": 0, "used": 0, "available": 0}
-
-    def _update_gpu_memory_info(self, gpu_idx: int):
-        """Update memory information for a specific GPU"""
-        try:
-            import pynvml
-
-            handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_idx)
-            mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            self._gpu_memory_info[gpu_idx] = {
-                "total": mem_info.total // (1024**2),
-                "used": mem_info.used // (1024**2),
-                "available": mem_info.free // (1024**2),
-            }
-        except Exception as e:
-            logger.debug(f"Failed to update GPU {gpu_idx} memory info: {e}")
-
-    def _get_gpu_with_most_available_memory(self) -> int:
-        """Find the GPU with the most available memory"""
-        self._initialize_gpu_memory_tracking() if not self._gpu_memory_info else None
-
-        max_available_gpu = -1
-        max_available_memory: Union[int, float] = -1
-
-        for gpu_idx in self._total_gpu_devices:
-            self._update_gpu_memory_info(gpu_idx)
-            available_memory = self._gpu_memory_info[gpu_idx]["available"]
-
-            if available_memory > max_available_memory:
-                max_available_memory = available_memory
-                max_available_gpu = gpu_idx
-
-        if max_available_gpu == -1:
-            raise RuntimeError("No suitable GPU found")
-
-        logger.info(
-            f"Selected GPU {max_available_gpu} with {max_available_memory}MB available memory"
-        )
-        return max_available_gpu
-
-    def _estimate_model_memory_usage(
-        self,
-        model_name: str,
-        model_size: Union[int, str],
-        model_format: Optional[str],
-        quantization: Optional[str],
-    ) -> int:
-        """Estimate memory usage for a model based on its characteristics"""
-        # Basic estimation logic - this can be enhanced with more sophisticated calculations
-        if isinstance(model_size, str):
-            # Convert string size like "7B" to integer
-            if "B" in model_size:
-                size_gb = float(model_size.replace("B", ""))
-            else:
-                size_gb = float(model_size)
-        else:
-            size_gb = float(model_size)
-
-        # Base memory estimation (rough calculation)
-        base_memory_mb = int(size_gb * 1024 * 1.5)  # 1.5GB per billion parameters
-
-        # Adjust based on quantization
-        if quantization:
-            if "4bit" in quantization.lower() or "4-bit" in quantization.lower():
-                base_memory_mb = base_memory_mb // 3
-            elif "8bit" in quantization.lower() or "8-bit" in quantization.lower():
-                base_memory_mb = base_memory_mb // 2
-
-        # Adjust based on format
-        if model_format:
-            if "gguf" in model_format.lower():
-                base_memory_mb = int(
-                    base_memory_mb * 0.8
-                )  # GGUF is generally more memory efficient
-
-        # Add some buffer for overhead
-        base_memory_mb = int(base_memory_mb * 1.2)
-
-        logger.debug(f"Estimated memory usage for {model_name}: {base_memory_mb}MB")
-        return base_memory_mb
-
-    def _can_fit_model_on_gpu(self, gpu_idx: int, estimated_memory_mb: int) -> bool:
-        """Check if a model can fit on a specific GPU"""
-        if gpu_idx not in self._gpu_memory_info:
-            self._update_gpu_memory_info(gpu_idx)
-
-        available_memory = self._gpu_memory_info[gpu_idx]["available"]
-        can_fit = estimated_memory_mb <= available_memory
-
-        if can_fit:
-            logger.info(
-                f"Model can fit on GPU {gpu_idx}: needs {estimated_memory_mb}MB, has {available_memory}MB available"
-            )
-        else:
-            logger.warning(
-                f"Model cannot fit on GPU {gpu_idx}: needs {estimated_memory_mb}MB, has {available_memory}MB available"
-            )
-
-        return can_fit
 
     @staticmethod
     def record_metrics(name, op, kwargs):

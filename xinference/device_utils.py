@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
-from typing import Dict, Literal, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import torch
 
@@ -193,3 +194,87 @@ def get_nvidia_gpu_info() -> Dict:
             nvmlShutdown()
         except:
             pass
+
+
+def initialize_gpu_memory_info(
+    gpu_indices: List[int], logger: Optional[logging.Logger] = None
+) -> Dict[int, Dict[str, Union[int, float]]]:
+    """
+    Initialize GPU memory information using NVML
+
+    Args:
+        gpu_indices: List of GPU indices to initialize
+        logger: Optional logger instance
+
+    Returns:
+        Dictionary mapping GPU index to memory info (total/used/available in MB)
+    """
+    gpu_memory_info = {}
+
+    try:
+        import pynvml
+
+        pynvml.nvmlInit()
+
+        for gpu_idx in gpu_indices:
+            handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_idx)
+            mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+            gpu_memory_info[gpu_idx] = {
+                "total": mem_info.total // (1024**2),  # Convert to MB
+                "used": mem_info.used // (1024**2),
+                "available": mem_info.free // (1024**2),
+            }
+
+    except ImportError:
+        if logger:
+            logger.warning("pynvml not available, GPU memory tracking disabled")
+        # Fallback to basic tracking without actual memory info
+        for gpu_idx in gpu_indices:
+            gpu_memory_info[gpu_idx] = {
+                "total": 0,
+                "used": 0,
+                "available": 0,
+            }
+    except Exception as e:
+        if logger:
+            logger.error(f"Failed to initialize GPU memory info: {e}")
+        # Fallback to basic tracking
+        for gpu_idx in gpu_indices:
+            gpu_memory_info[gpu_idx] = {
+                "total": 0,
+                "used": 0,
+                "available": 0,
+            }
+
+    return gpu_memory_info
+
+
+def update_gpu_memory_info(
+    gpu_memory_info: Dict[int, Dict[str, Union[int, float]]],
+    gpu_idx: int,
+    logger: Optional[logging.Logger] = None,
+) -> None:
+    """
+    Update memory information for a specific GPU using NVML
+
+    Args:
+        gpu_memory_info: Dictionary to update with memory information
+        gpu_idx: GPU index to update
+        logger: Optional logger instance
+    """
+    try:
+        import pynvml
+
+        handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_idx)
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+        gpu_memory_info[gpu_idx] = {
+            "total": mem_info.total // (1024**2),
+            "used": mem_info.used // (1024**2),
+            "available": mem_info.free // (1024**2),
+        }
+
+    except:
+        # Keep existing values if update fails
+        pass

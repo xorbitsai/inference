@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ..launch_strategy import MemoryAwareLaunchStrategy
 from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
@@ -30,13 +31,13 @@ class MockWorkerActor(WorkerActor):
         cuda_devices: List[int],
     ):
         super().__init__(supervisor_address, main_pool, cuda_devices)
-        self._gpu_memory_info = {}
-        for gpu_idx in cuda_devices:
-            self._gpu_memory_info[gpu_idx] = {
-                "total": 24000,
-                "used": 0,
-                "available": 24000,
-            }
+        gpu_memory_info = {
+            idx: {"total": 24000.0, "used": 0.0, "available": 24000.0}
+            for idx in cuda_devices
+        }
+        self._launch_strategy = MemoryAwareLaunchStrategy(
+            cuda_devices, gpu_memory_info=gpu_memory_info
+        )
 
     async def __post_create__(self):
         pass
