@@ -107,12 +107,14 @@ class StatusGuardActor(xo.StatelessActor):
         if model_uid not in self._model_uid_to_info:
             logger.warning(f"Model {model_uid} not found in status guard")
             return
-        
+
+
         replica_statuses = self._model_uid_to_info[model_uid].replica_statuses
         if replica_statuses is None:
             self._model_uid_to_info[model_uid].replica_statuses = []
             replica_statuses = self._model_uid_to_info[model_uid].replica_statuses
-        
+
+
         # Find existing replica status or create new one
         found = False
         for replica_status in replica_statuses:
@@ -121,7 +123,8 @@ class StatusGuardActor(xo.StatelessActor):
                     setattr(replica_status, key, value)
                 found = True
                 break
-        
+
+
         if not found:
             # Create new replica status
             replica_statuses.append(ReplicaStatus(
