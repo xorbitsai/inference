@@ -157,7 +157,8 @@
     "noRunningModelsMatches": "No Running Models Matches",
     "copy": "Copy",
     "copied": "Copied!",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "viewDetails": "View Details"
   },
 
   "registerModel": {
