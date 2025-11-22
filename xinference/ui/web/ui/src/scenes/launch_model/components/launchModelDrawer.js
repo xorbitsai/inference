@@ -225,8 +225,8 @@ const LaunchModelDrawer = ({
             result[key] === null
               ? 'none'
               : result[key] === false
-                ? false
-                : result[key],
+              ? false
+              : result[key],
         })
     }
     if (customData.length) result.custom = customData
@@ -1169,8 +1169,8 @@ const LaunchModelDrawer = ({
                                 replica.status === 'READY'
                                   ? 'success'
                                   : replica.status === 'ERROR'
-                                    ? 'error'
-                                    : 'default'
+                                  ? 'error'
+                                  : 'default'
                               }
                               size="small"
                               sx={{ height: 20, fontSize: '0.7rem' }}

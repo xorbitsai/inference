@@ -1082,8 +1082,8 @@ const RunningModels = () => {
                           replica.status === 'READY'
                             ? 'success'
                             : replica.status === 'ERROR'
-                              ? 'error'
-                              : 'default'
+                            ? 'error'
+                            : 'default'
                         }
                         size="small"
                       />
