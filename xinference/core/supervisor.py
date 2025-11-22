@@ -886,15 +886,15 @@ class SupervisorActor(xo.StatelessActor):
             **kwargs,
         )
 
-    def _get_worker_refs_by_ip(
-        self, ip: str
-    ) -> List[xo.ActorRefType["WorkerActor"]]:
+    def _get_worker_refs_by_ip(self, ip: str) -> List[xo.ActorRefType["WorkerActor"]]:
         refs = []
         for addr, ref in self._worker_address_to_worker.items():
             existing_ip = addr.split(":")[0]
             if existing_ip == ip:
                 refs.append(ref)
-        logger.debug(f"Found {len(refs)} workers for IP {ip}: {[r.address for r in refs]}")
+        logger.debug(
+            f"Found {len(refs)} workers for IP {ip}: {[r.address for r in refs]}"
+        )
         return refs
 
     @log_async(logger=logger)
@@ -1049,24 +1049,22 @@ class SupervisorActor(xo.StatelessActor):
             nonlocal store_address
             nonlocal store_port
 
-
             # Calculate replica_id for status tracking
             replica_id = rank - 1 if not enable_xavier else rank
 
-
             # Initialize replica status
             import time
+
             await self._status_guard_ref.update_replica_status(
                 model_uid,
                 replica_id,
                 {
-                    'replica_model_uid': _replica_model_uid,
-                    'worker_address': worker_ref.address,
-                    'status': LaunchStatus.CREATING.name,
-                    'created_ts': int(time.time())
-                }
+                    "replica_model_uid": _replica_model_uid,
+                    "worker_address": worker_ref.address,
+                    "status": LaunchStatus.CREATING.name,
+                    "created_ts": int(time.time()),
+                },
             )
-
 
             xavier_config = (
                 {
@@ -1091,10 +1089,9 @@ class SupervisorActor(xo.StatelessActor):
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
 
-
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
-                    model_uid, replica_id, {'status': LaunchStatus.READY.name}
+                    model_uid, replica_id, {"status": LaunchStatus.READY.name}
                 )
                 return rank0_address
 
@@ -1103,7 +1100,6 @@ class SupervisorActor(xo.StatelessActor):
 
             # LLM as default for compatibility
             model_type = model_type or "LLM"
-
 
             try:
                 subpool_address = await worker_ref.launch_builtin_model(
@@ -1129,10 +1125,9 @@ class SupervisorActor(xo.StatelessActor):
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 await worker_ref.wait_for_load(_replica_model_uid)
 
-
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
-                    model_uid, replica_id, {'status': LaunchStatus.READY.name}
+                    model_uid, replica_id, {"status": LaunchStatus.READY.name}
                 )
                 return subpool_address
             except Exception as e:
@@ -1140,64 +1135,61 @@ class SupervisorActor(xo.StatelessActor):
                 await self._status_guard_ref.update_replica_status(
                     model_uid,
                     replica_id,
-                    {
-                        'status': LaunchStatus.ERROR.name,
-                        'error_message': str(e)
-                    }
+                    {"status": LaunchStatus.ERROR.name, "error_message": str(e)},
                 )
                 raise
-
 
         async def _launch_model():
             try:
                 # Pre-fetch worker loads for balanced scheduling
                 worker_candidates = []
 
-
                 if target_worker_refs:
                     workers = target_worker_refs
                 else:
                     workers = list(self._worker_address_to_worker.values())
 
-
                 if not workers:
                     raise RuntimeError("No available worker found")
 
-
                 # Fetch loads in parallel to minimize latency
-                counts = await asyncio.gather(*[w.get_model_count() for w in workers], return_exceptions=True)
-
+                counts = await asyncio.gather(
+                    *[w.get_model_count() for w in workers], return_exceptions=True
+                )
 
                 for w_ref, count in zip(workers, counts):
                     if isinstance(count, Exception):
-                        logger.warning(f"Failed to get model count from worker: {count}")
+                        logger.warning(
+                            f"Failed to get model count from worker: {count}"
+                        )
                         continue
-                    worker_candidates.append({'ref': w_ref, 'count': count})
-
+                    worker_candidates.append({"ref": w_ref, "count": count})
 
                 if not worker_candidates:
                     raise RuntimeError("No available worker found")
 
-                logger.debug(f"Worker candidates for {model_uid}: {[{'addr': c['ref'].address, 'count': c['count']} for c in worker_candidates]}")
+                logger.debug(
+                    f"Worker candidates for {model_uid}: {[{'addr': c['ref'].address, 'count': c['count']} for c in worker_candidates]}"
+                )
 
                 # Prepare all launch tasks for parallel execution
                 launch_tasks = []
                 task_metadata = []  # Store (worker_ref, rep_model_uid, is_rank0, idx)
 
-
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
                     # Balanced scheduling: pick least loaded and increment virtual count
-                    worker_candidates.sort(key=lambda x: (x['count'], x['ref'].address))
+                    worker_candidates.sort(key=lambda x: (x["count"], x["ref"].address))
                     best_candidate = worker_candidates[0]
-                    logger.debug(f"Replica {_idx} assigned to {best_candidate['ref'].address} (count: {best_candidate['count']})")
-                    worker_ref = best_candidate['ref']
-                    best_candidate['count'] += 1
+                    logger.debug(
+                        f"Replica {_idx} assigned to {best_candidate['ref'].address} (count: {best_candidate['count']})"
+                    )
+                    worker_ref = best_candidate["ref"]
+                    best_candidate["count"] += 1
                     self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
                         _idx
                     ].append(worker_ref)
-
 
                     if enable_xavier and _idx == 0:
                         """
@@ -1207,23 +1199,25 @@ class SupervisorActor(xo.StatelessActor):
                         _uid = model_uid + "-rank0"
                         # For Xavier, rank0 must be launched first, so we await it immediately
                         rank0_address = await _launch_one_model(worker_ref, _uid, 0)
-                        task_metadata.append((worker_ref, _uid, True, _idx, rank0_address))
-
+                        task_metadata.append(
+                            (worker_ref, _uid, True, _idx, rank0_address)
+                        )
 
                     # Add regular replica launch task to parallel batch
-                    launch_tasks.append(_launch_one_model(worker_ref, rep_model_uid, _idx + 1))
+                    launch_tasks.append(
+                        _launch_one_model(worker_ref, rep_model_uid, _idx + 1)
+                    )
                     task_metadata.append((worker_ref, rep_model_uid, False, _idx, None))
 
-
                 # Launch all replicas in parallel
-                logger.debug(f"Launching {len(launch_tasks)} replicas in parallel for model {model_uid}")
+                logger.debug(
+                    f"Launching {len(launch_tasks)} replicas in parallel for model {model_uid}"
+                )
                 results = await asyncio.gather(*launch_tasks, return_exceptions=True)
-
 
                 # Process results and build worker_refs and rank_addresses
                 worker_refs = []
                 rank_addresses = []
-
 
                 # Add rank0 if it exists (Xavier case)
                 if enable_xavier:
@@ -1232,16 +1226,15 @@ class SupervisorActor(xo.StatelessActor):
                     rank_addresses.append(rank0_metadata[4])
                     task_metadata = task_metadata[1:]  # Remove rank0 from metadata
 
-
                 # Process parallel launch results
                 for idx, (result, metadata) in enumerate(zip(results, task_metadata)):
                     worker_ref, rep_model_uid, is_rank0, _idx, _ = metadata
 
-
                     if isinstance(result, Exception):
-                        logger.error(f"Failed to launch replica {rep_model_uid}: {result}")
+                        logger.error(
+                            f"Failed to launch replica {rep_model_uid}: {result}"
+                        )
                         raise result
-
 
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(result)
@@ -1525,12 +1518,12 @@ class SupervisorActor(xo.StatelessActor):
         replica_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
         return [
             {
-                'replica_id': status.replica_id,
-                'replica_model_uid': status.replica_model_uid,
-                'worker_address': status.worker_address,
-                'status': status.status,
-                'created_ts': status.created_ts,
-                'error_message': status.error_message
+                "replica_id": status.replica_id,
+                "replica_model_uid": status.replica_model_uid,
+                "worker_address": status.worker_address,
+                "status": status.status,
+                "created_ts": status.created_ts,
+                "error_message": status.error_message,
             }
             for status in replica_statuses
         ]
