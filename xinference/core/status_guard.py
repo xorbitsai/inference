@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 import xoscar as xo
 
-from .._compat import BaseModel
+from .._compat import BaseModel, Field
 
 logger = getLogger(__name__)
 
@@ -33,6 +33,7 @@ class LaunchStatus(Enum):
 
 class ReplicaStatus(BaseModel):
     """Status information for a single model replica"""
+
     replica_id: int
     replica_model_uid: str
     worker_address: str
@@ -50,7 +51,7 @@ class InstanceInfo(BaseModel):
     status: str
     instance_created_ts: int
     n_worker: Optional[int] = 1
-    replica_statuses: Optional[List[ReplicaStatus]] = []  # Track each replica
+    replica_statuses: List[ReplicaStatus] = Field(default_factory=list)
 
     def update(self, **kwargs):
         for field, value in kwargs.items():
@@ -102,18 +103,18 @@ class StatusGuardActor(xo.StatelessActor):
     def update_instance_info(self, model_uid: str, info: Dict):
         self._model_uid_to_info[model_uid].update(**info)
 
-    def update_replica_status(self, model_uid: str, replica_id: int, status_update: Dict):
+    def update_replica_status(
+        self, model_uid: str, replica_id: int, status_update: Dict
+    ):
         """Update status for a specific replica"""
         if model_uid not in self._model_uid_to_info:
             logger.warning(f"Model {model_uid} not found in status guard")
             return
 
-
         replica_statuses = self._model_uid_to_info[model_uid].replica_statuses
         if replica_statuses is None:
             self._model_uid_to_info[model_uid].replica_statuses = []
             replica_statuses = self._model_uid_to_info[model_uid].replica_statuses
-
 
         # Find existing replica status or create new one
         found = False
@@ -124,17 +125,18 @@ class StatusGuardActor(xo.StatelessActor):
                 found = True
                 break
 
-
         if not found:
             # Create new replica status
-            replica_statuses.append(ReplicaStatus(
-                replica_id=replica_id,
-                replica_model_uid=status_update.get('replica_model_uid', ''),
-                worker_address=status_update.get('worker_address', ''),
-                status=status_update.get('status', LaunchStatus.CREATING.name),
-                created_ts=status_update.get('created_ts', 0),
-                error_message=status_update.get('error_message', None)
-            ))
+            replica_statuses.append(
+                ReplicaStatus(
+                    replica_id=replica_id,
+                    replica_model_uid=status_update.get("replica_model_uid", ""),
+                    worker_address=status_update.get("worker_address", ""),
+                    status=status_update.get("status", LaunchStatus.CREATING.name),
+                    created_ts=status_update.get("created_ts", 0),
+                    error_message=status_update.get("error_message", None),
+                )
+            )
 
     def get_replica_statuses(self, model_uid: str) -> List[ReplicaStatus]:
         """Get all replica statuses for a model"""
