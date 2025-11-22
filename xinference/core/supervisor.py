@@ -1048,10 +1048,12 @@ class SupervisorActor(xo.StatelessActor):
 
             nonlocal store_address
             nonlocal store_port
-            
+
+
             # Calculate replica_id for status tracking
             replica_id = rank - 1 if not enable_xavier else rank
-            
+
+
             # Initialize replica status
             import time
             await self._status_guard_ref.update_replica_status(
@@ -1064,7 +1066,8 @@ class SupervisorActor(xo.StatelessActor):
                     'created_ts': int(time.time())
                 }
             )
-            
+
+
             xavier_config = (
                 {
                     "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
@@ -1087,7 +1090,8 @@ class SupervisorActor(xo.StatelessActor):
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
-                
+
+
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
                     model_uid, replica_id, {'status': LaunchStatus.READY.name}
@@ -1099,7 +1103,8 @@ class SupervisorActor(xo.StatelessActor):
 
             # LLM as default for compatibility
             model_type = model_type or "LLM"
-            
+
+
             try:
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
@@ -1123,7 +1128,8 @@ class SupervisorActor(xo.StatelessActor):
                 )
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 await worker_ref.wait_for_load(_replica_model_uid)
-                
+
+
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
                     model_uid, replica_id, {'status': LaunchStatus.READY.name}
@@ -1140,29 +1146,35 @@ class SupervisorActor(xo.StatelessActor):
                     }
                 )
                 raise
-                    
+
+
         async def _launch_model():
             try:
                 # Pre-fetch worker loads for balanced scheduling
                 worker_candidates = []
-                
+
+
                 if target_worker_refs:
                     workers = target_worker_refs
                 else:
                     workers = list(self._worker_address_to_worker.values())
-                
+
+
                 if not workers:
                     raise RuntimeError("No available worker found")
-                
+
+
                 # Fetch loads in parallel to minimize latency
                 counts = await asyncio.gather(*[w.get_model_count() for w in workers], return_exceptions=True)
-                
+
+
                 for w_ref, count in zip(workers, counts):
                     if isinstance(count, Exception):
                         logger.warning(f"Failed to get model count from worker: {count}")
                         continue
                     worker_candidates.append({'ref': w_ref, 'count': count})
-                
+
+
                 if not worker_candidates:
                     raise RuntimeError("No available worker found")
 
@@ -1171,7 +1183,8 @@ class SupervisorActor(xo.StatelessActor):
                 # Prepare all launch tasks for parallel execution
                 launch_tasks = []
                 task_metadata = []  # Store (worker_ref, rep_model_uid, is_rank0, idx)
-                
+
+
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
@@ -1184,7 +1197,8 @@ class SupervisorActor(xo.StatelessActor):
                     self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
                         _idx
                     ].append(worker_ref)
-                    
+
+
                     if enable_xavier and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
@@ -1194,34 +1208,41 @@ class SupervisorActor(xo.StatelessActor):
                         # For Xavier, rank0 must be launched first, so we await it immediately
                         rank0_address = await _launch_one_model(worker_ref, _uid, 0)
                         task_metadata.append((worker_ref, _uid, True, _idx, rank0_address))
-                    
+
+
                     # Add regular replica launch task to parallel batch
                     launch_tasks.append(_launch_one_model(worker_ref, rep_model_uid, _idx + 1))
                     task_metadata.append((worker_ref, rep_model_uid, False, _idx, None))
-                
+
+
                 # Launch all replicas in parallel
                 logger.debug(f"Launching {len(launch_tasks)} replicas in parallel for model {model_uid}")
                 results = await asyncio.gather(*launch_tasks, return_exceptions=True)
-                
+
+
                 # Process results and build worker_refs and rank_addresses
                 worker_refs = []
                 rank_addresses = []
-                
+
+
                 # Add rank0 if it exists (Xavier case)
                 if enable_xavier:
                     rank0_metadata = task_metadata[0]
                     worker_refs.append((rank0_metadata[0], rank0_metadata[1]))
                     rank_addresses.append(rank0_metadata[4])
                     task_metadata = task_metadata[1:]  # Remove rank0 from metadata
-                
+
+
                 # Process parallel launch results
                 for idx, (result, metadata) in enumerate(zip(results, task_metadata)):
                     worker_ref, rep_model_uid, is_rank0, _idx, _ = metadata
-                    
+
+
                     if isinstance(result, Exception):
                         logger.error(f"Failed to launch replica {rep_model_uid}: {result}")
                         raise result
-                    
+
+
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(result)
 
