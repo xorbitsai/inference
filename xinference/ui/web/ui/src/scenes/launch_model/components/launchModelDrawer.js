@@ -25,6 +25,7 @@ import {
   Switch,
   TextField,
   Tooltip,
+  Typography,
 } from '@mui/material'
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -113,6 +114,7 @@ const LaunchModelDrawer = ({
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [checkDynamicFieldComplete, setCheckDynamicFieldComplete] = useState([])
+  const [replicaStatuses, setReplicaStatuses] = useState([])
 
   const intervalRef = useRef(null)
 
@@ -223,8 +225,8 @@ const LaunchModelDrawer = ({
             result[key] === null
               ? 'none'
               : result[key] === false
-              ? false
-              : result[key],
+                ? false
+                : result[key],
         })
     }
     if (customData.length) result.custom = customData
@@ -367,13 +369,24 @@ const LaunchModelDrawer = ({
 
   const fetchProgress = async () => {
     try {
+      const data = getFinalFormData()
+      const modelUid = data.model_uid || data.model_name
+
+      // Fetch overall progress (existing logic)
       const res = await fetchWrapper.get(
         `/v1/models/${modelData.model_name}/progress`
       )
       if (res.progress !== 1.0) setProgress(Number(res.progress))
+
+      // Fetch replica statuses (new logic)
+      const replicaRes = await fetchWrapper.get(
+        `/v1/models/${modelUid}/replicas`
+      )
+      setReplicaStatuses(replicaRes)
     } catch (error) {
       console.error('Error:', error)
-      if (error?.response?.status !== 403) {
+      // Suppress 404 errors during early launch phase as model might not exist yet
+      if (error?.response?.status !== 403 && error?.response?.status !== 404) {
         setErrorMsg(error.message)
       }
     }
@@ -502,7 +515,7 @@ const LaunchModelDrawer = ({
               (item) =>
                 item.model_format === formData.model_format &&
                 item.model_size_in_billions ===
-                  convertModelSize(formData.model_size_in_billions)
+                convertModelSize(formData.model_size_in_billions)
             )
             .flatMap((item) => item.quantizations)
         ),
@@ -514,7 +527,7 @@ const LaunchModelDrawer = ({
               (item) =>
                 item.model_format === formData.model_format &&
                 item.model_size_in_billions ===
-                  convertModelSize(formData.model_size_in_billions)
+                convertModelSize(formData.model_size_in_billions)
             )
             .flatMap((item) => item.multimodal_projectors || [])
         ),
@@ -602,7 +615,7 @@ const LaunchModelDrawer = ({
         .filter((spec) =>
           modelType === 'LLM'
             ? spec.model_size_in_billions ===
-              convertModelSize(formData.model_size_in_billions)
+            convertModelSize(formData.model_size_in_billions)
             : true
         )
 
@@ -748,12 +761,12 @@ const LaunchModelDrawer = ({
     }
 
     const peft_model_config = {}
-    ;['image_lora_load_kwargs', 'image_lora_fuse_kwargs'].forEach((key) => {
-      if (result[key]?.length) {
-        peft_model_config[key] = arrayToObject(result[key], handleValueType)
-        delete result[key]
-      }
-    })
+      ;['image_lora_load_kwargs', 'image_lora_fuse_kwargs'].forEach((key) => {
+        if (result[key]?.length) {
+          peft_model_config[key] = arrayToObject(result[key], handleValueType)
+          delete result[key]
+        }
+      })
     if (result.lora_list?.length) {
       peft_model_config.lora_list = result.lora_list
       delete result.lora_list
@@ -1129,30 +1142,76 @@ const LaunchModelDrawer = ({
               )}
             </Box>
             <Box display="flex" gap={2}>
-              <Button
-                style={{ flex: 1 }}
-                variant="outlined"
-                color="primary"
-                title={t(
-                  isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
-                )}
-                disabled={
-                  !isShowCancel &&
-                  (!areRequiredFieldsFilled ||
-                    isLoading ||
-                    isCallingApi ||
-                    checkDynamicFieldComplete.some((item) => !item.isComplete))
+              <Tooltip
+                title={
+                  isShowCancel ? (
+                    <Box sx={{ minWidth: 200 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        Launch Progress:
+                      </Typography>
+                      {replicaStatuses.length > 0 ? (
+                        replicaStatuses.map((replica) => (
+                          <Box
+                            key={replica.replica_id}
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              mb: 0.5,
+                            }}
+                          >
+                            <Typography variant="caption">
+                              Replica {replica.replica_id}:
+                            </Typography>
+                            <Chip
+                              label={replica.status}
+                              color={
+                                replica.status === 'READY'
+                                  ? 'success'
+                                  : replica.status === 'ERROR'
+                                    ? 'error'
+                                    : 'default'
+                              }
+                              size="small"
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                          </Box>
+                        ))
+                      ) : (
+                        <Typography variant="caption">
+                          Initializing...
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    t('launchModel.launch')
+                  )
                 }
-                onClick={() => {
-                  if (isShowCancel) {
-                    fetchCancelModel()
-                  } else {
-                    handleSubmit()
-                  }
-                }}
+                placement="top"
+                arrow
               >
-                {renderButtonContent()}
-              </Button>
+                <Button
+                  style={{ flex: 1 }}
+                  variant="outlined"
+                  color="primary"
+                  disabled={
+                    !isShowCancel &&
+                    (!areRequiredFieldsFilled ||
+                      isLoading ||
+                      isCallingApi ||
+                      checkDynamicFieldComplete.some((item) => !item.isComplete))
+                  }
+                  onClick={() => {
+                    if (isShowCancel) {
+                      fetchCancelModel()
+                    } else {
+                      handleSubmit()
+                    }
+                  }}
+                >
+                  {renderButtonContent()}
+                </Button>
+              </Tooltip>
               <Button
                 style={{ flex: 1 }}
                 variant="outlined"
