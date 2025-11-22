@@ -1094,6 +1094,18 @@ class SupervisorActor(xo.StatelessActor):
             **kwargs,
         )
 
+    def _get_worker_refs_by_ip(
+        self, ip: str
+    ) -> List[xo.ActorRefType["WorkerActor"]]:
+        refs = []
+        for addr, ref in self._worker_address_to_worker.items():
+            existing_ip = addr.split(":")[0]
+            if existing_ip == ip:
+                refs.append(ref)
+        logger.debug(f"Found {len(refs)} workers for IP {ip}: {[r.address for r in refs]}")
+        return refs
+
+    @log_async(logger=logger)
     async def launch_builtin_model(
         self,
         model_uid: Optional[str],
@@ -1159,13 +1171,13 @@ class SupervisorActor(xo.StatelessActor):
                 if res is not None:
                     worker_ip = worker.address.split(":")[0]
 
-        target_ip_worker_ref = (
-            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        target_worker_refs = (
+            self._get_worker_refs_by_ip(worker_ip) if worker_ip is not None else []
         )
         if (
             worker_ip is not None
             and not self.is_local_deployment()
-            and target_ip_worker_ref is None
+            and not target_worker_refs
         ):
             raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
         if worker_ip is not None and self.is_local_deployment():
@@ -1233,7 +1245,7 @@ class SupervisorActor(xo.StatelessActor):
         logger.debug(
             f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
             f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, enable_xavier: {enable_xavier}, "
-            f"kwargs: {kwargs}"
+            f"worker_ip: {worker_ip}, kwargs: {kwargs}"
         )
 
         async def _launch_one_model(worker_ref, _replica_model_uid, rank: int):
@@ -1244,6 +1256,23 @@ class SupervisorActor(xo.StatelessActor):
 
             nonlocal store_address
             nonlocal store_port
+            
+            # Calculate replica_id for status tracking
+            replica_id = rank - 1 if not enable_xavier else rank
+            
+            # Initialize replica status
+            import time
+            await self._status_guard_ref.update_replica_status(
+                model_uid,
+                replica_id,
+                {
+                    'replica_model_uid': _replica_model_uid,
+                    'worker_address': worker_ref.address,
+                    'status': LaunchStatus.CREATING.name,
+                    'created_ts': int(time.time())
+                }
+            )
+            
             xavier_config = (
                 {
                     "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
@@ -1266,6 +1295,11 @@ class SupervisorActor(xo.StatelessActor):
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
+                
+                # Update replica status to READY
+                await self._status_guard_ref.update_replica_status(
+                    model_uid, replica_id, {'status': LaunchStatus.READY.name}
+                )
                 return rank0_address
 
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
@@ -1273,60 +1307,131 @@ class SupervisorActor(xo.StatelessActor):
 
             # LLM as default for compatibility
             model_type = model_type or "LLM"
-            subpool_address = await worker_ref.launch_builtin_model(
-                model_uid=_replica_model_uid,
-                model_name=model_name,
-                model_size_in_billions=model_size_in_billions,
-                model_format=model_format,
-                quantization=quantization,
-                model_engine=model_engine,
-                model_type=model_type,
-                n_gpu=n_gpu,
-                request_limits=request_limits,
-                peft_model_config=peft_model_config,
-                gpu_idx=replica_gpu_idx,
-                download_hub=download_hub,
-                model_path=model_path,
-                enable_virtual_env=enable_virtual_env,
-                virtual_env_packages=virtual_env_packages,
-                envs=envs,
-                xavier_config=xavier_config,
-                **kwargs,
-            )
-            self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
-            await worker_ref.wait_for_load(_replica_model_uid)
-            return subpool_address
-
+            
+            try:
+                subpool_address = await worker_ref.launch_builtin_model(
+                    model_uid=_replica_model_uid,
+                    model_name=model_name,
+                    model_size_in_billions=model_size_in_billions,
+                    model_format=model_format,
+                    quantization=quantization,
+                    model_engine=model_engine,
+                    model_type=model_type,
+                    n_gpu=n_gpu,
+                    request_limits=request_limits,
+                    peft_model_config=peft_model_config,
+                    gpu_idx=replica_gpu_idx,
+                    download_hub=download_hub,
+                    model_path=model_path,
+                    enable_virtual_env=enable_virtual_env,
+                    virtual_env_packages=virtual_env_packages,
+                    envs=envs,
+                    xavier_config=xavier_config,
+                    **kwargs,
+                )
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                await worker_ref.wait_for_load(_replica_model_uid)
+                
+                # Update replica status to READY
+                await self._status_guard_ref.update_replica_status(
+                    model_uid, replica_id, {'status': LaunchStatus.READY.name}
+                )
+                return subpool_address
+            except Exception as e:
+                # Update replica status to ERROR
+                await self._status_guard_ref.update_replica_status(
+                    model_uid,
+                    replica_id,
+                    {
+                        'status': LaunchStatus.ERROR.name,
+                        'error_message': str(e)
+                    }
+                )
+                raise
+                    
         async def _launch_model():
             try:
-                worker_refs = []
-                rank_addresses = []
+                # Pre-fetch worker loads for balanced scheduling
+                worker_candidates = []
+                
+                if target_worker_refs:
+                    workers = target_worker_refs
+                else:
+                    workers = list(self._worker_address_to_worker.values())
+                
+                if not workers:
+                    raise RuntimeError("No available worker found")
+                
+                # Fetch loads in parallel to minimize latency
+                counts = await asyncio.gather(*[w.get_model_count() for w in workers], return_exceptions=True)
+                
+                for w_ref, count in zip(workers, counts):
+                    if isinstance(count, Exception):
+                        logger.warning(f"Failed to get model count from worker: {count}")
+                        continue
+                    worker_candidates.append({'ref': w_ref, 'count': count})
+                
+                if not worker_candidates:
+                    raise RuntimeError("No available worker found")
+
+                logger.debug(f"Worker candidates for {model_uid}: {[{'addr': c['ref'].address, 'count': c['count']} for c in worker_candidates]}")
+
+                # Prepare all launch tasks for parallel execution
+                launch_tasks = []
+                task_metadata = []  # Store (worker_ref, rep_model_uid, is_rank0, idx)
+                
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
-                    worker_ref = (
-                        target_ip_worker_ref
-                        if target_ip_worker_ref is not None
-                        else await self._choose_worker()
-                    )
+                    # Balanced scheduling: pick least loaded and increment virtual count
+                    worker_candidates.sort(key=lambda x: (x['count'], x['ref'].address))
+                    best_candidate = worker_candidates[0]
+                    logger.debug(f"Replica {_idx} assigned to {best_candidate['ref'].address} (count: {best_candidate['count']})")
+                    worker_ref = best_candidate['ref']
+                    best_candidate['count'] += 1
                     self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
                         _idx
                     ].append(worker_ref)
+                    
                     if enable_xavier and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
                         solely for constructing the collective communication world.
                         """
                         _uid = model_uid + "-rank0"
+                        # For Xavier, rank0 must be launched first, so we await it immediately
                         rank0_address = await _launch_one_model(worker_ref, _uid, 0)
-                        worker_refs.append((worker_ref, _uid))
-                        rank_addresses.append(rank0_address)
-
-                    subpool_address = await _launch_one_model(
-                        worker_ref, rep_model_uid, _idx + 1
-                    )
+                        task_metadata.append((worker_ref, _uid, True, _idx, rank0_address))
+                    
+                    # Add regular replica launch task to parallel batch
+                    launch_tasks.append(_launch_one_model(worker_ref, rep_model_uid, _idx + 1))
+                    task_metadata.append((worker_ref, rep_model_uid, False, _idx, None))
+                
+                # Launch all replicas in parallel
+                logger.debug(f"Launching {len(launch_tasks)} replicas in parallel for model {model_uid}")
+                results = await asyncio.gather(*launch_tasks, return_exceptions=True)
+                
+                # Process results and build worker_refs and rank_addresses
+                worker_refs = []
+                rank_addresses = []
+                
+                # Add rank0 if it exists (Xavier case)
+                if enable_xavier:
+                    rank0_metadata = task_metadata[0]
+                    worker_refs.append((rank0_metadata[0], rank0_metadata[1]))
+                    rank_addresses.append(rank0_metadata[4])
+                    task_metadata = task_metadata[1:]  # Remove rank0 from metadata
+                
+                # Process parallel launch results
+                for idx, (result, metadata) in enumerate(zip(results, task_metadata)):
+                    worker_ref, rep_model_uid, is_rank0, _idx, _ = metadata
+                    
+                    if isinstance(result, Exception):
+                        logger.error(f"Failed to launch replica {rep_model_uid}: {result}")
+                        raise result
+                    
                     worker_refs.append((worker_ref, rep_model_uid))
-                    rank_addresses.append(subpool_address)
+                    rank_addresses.append(result)
 
                 # For xavier, start all the vllm instances first,
                 # and then start the transfer component,
@@ -1601,6 +1706,21 @@ class SupervisorActor(xo.StatelessActor):
             model_name=model_name, model_uid=model_uid
         )
         return [info.dict() for info in sorted(infos, key=lambda info: info.model_uid)]
+
+    async def get_replica_statuses(self, model_uid: str) -> List[Dict]:
+        """Get replica statuses from status guard"""
+        replica_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
+        return [
+            {
+                'replica_id': status.replica_id,
+                'replica_model_uid': status.replica_model_uid,
+                'worker_address': status.worker_address,
+                'status': status.status,
+                'created_ts': status.created_ts,
+                'error_message': status.error_message
+            }
+            for status in replica_statuses
+        ]
 
     async def get_instance_count(self, model_name: str) -> int:
         return await self._status_guard_ref.get_instance_count(model_name)
