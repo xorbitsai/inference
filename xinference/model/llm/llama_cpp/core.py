@@ -262,7 +262,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             try:
 
                 def _callback(res):
-                    if res.get("code"):
+                    if type(res) is list:
+                        for r in res:
+                            q.put(r)
+                    elif res.get("code"):
                         q.put(_Error(res))
                     else:
                         q.put(res)
@@ -332,7 +335,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             try:
 
                 def _callback(res):
-                    if res.get("code"):
+                    if type(res) is list:
+                        for r in res:
+                            q.put(r)
+                    elif res.get("code"):
                         q.put(_Error(res))
                     else:
                         q.put(res)
