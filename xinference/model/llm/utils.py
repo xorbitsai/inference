@@ -369,12 +369,12 @@ class ChatModelMixin:
             "choices": choices_list,
             "usage": usage,
         }
-        if ensure_role and chat_chunk["choices"]:
-            delta = chat_chunk["choices"][0]["delta"]
-            if delta.get("role") is None:
-                delta["role"] = "assistant"
-            if "content" not in delta:
-                delta["content"] = None
+        if ensure_role and choices_list:
+            first_delta = choices_list[0]["delta"]
+            if first_delta.get("role") is None:
+                first_delta["role"] = "assistant"
+            if "content" not in first_delta:
+                first_delta["content"] = None
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
