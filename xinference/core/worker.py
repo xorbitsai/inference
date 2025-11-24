@@ -814,17 +814,31 @@ class WorkerActor(xo.StatelessActor):
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            # Add built-in LLM families with detailed information including download_hubs
+            # Add built-in LLM families
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
-                    ret.append(await self._to_llm_reg(family, is_builtin=True))
+                    download_hubs = [spec.model_hub for spec in family.model_specs]
+                    ret.append(
+                        {
+                            **family.dict(),
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": True})
 
             # Add user-defined LLM families
             for family in get_user_defined_llm_families():
                 if detailed:
-                    ret.append(await self._to_llm_reg(family, is_builtin=False))
+                    download_hubs = [spec.model_hub for spec in family.model_specs]
+                    ret.append(
+                        {
+                            **family.dict(),
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": False})
 
@@ -838,8 +852,13 @@ class WorkerActor(xo.StatelessActor):
             for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
                 for family in family_list:
                     if detailed:
+                        download_hubs = [spec.model_hub for spec in family.model_specs]
                         ret.append(
-                            await self._to_embedding_model_reg(family, is_builtin=True)
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": download_hubs,
+                            }
                         )
                     else:
                         ret.append({"model_name": model_name, "is_builtin": True})
@@ -847,8 +866,13 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined embedding models
             for model_spec in get_user_defined_embeddings():
                 if detailed:
+                    download_hubs = [spec.model_hub for spec in model_spec.model_specs]
                     ret.append(
-                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
                     )
                 else:
                     ret.append(
@@ -863,18 +887,27 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
-                if detailed:
-                    # Get the huggingface family from the list
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    ret.append(await self._to_image_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                for family in families:
+                    if detailed:
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             # Add user-defined image models
             for model_spec in get_user_defined_images():
                 if detailed:
                     ret.append(
-                        await self._to_image_model_reg(model_spec, is_builtin=False)
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": [model_spec.model_hub],
+                        }
                     )
                 else:
                     ret.append(
@@ -889,18 +922,27 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
-                if detailed:
-                    # Get the huggingface family from the list
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    ret.append(await self._to_audio_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                for family in families:
+                    if detailed:
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             # Add user-defined audio models
             for model_spec in get_user_defined_audios():
                 if detailed:
                     ret.append(
-                        await self._to_audio_model_reg(model_spec, is_builtin=False)
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": [model_spec.model_hub],
+                        }
                     )
                 else:
                     ret.append(
@@ -914,14 +956,18 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
-                if detailed:
-                    # Get the huggingface family from the list
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    ret.append(await self._to_video_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                for family in families:
+                    if detailed:
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
-            # Note: video doesn't have user-defined models currently
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "rerank":
@@ -932,8 +978,13 @@ class WorkerActor(xo.StatelessActor):
             for model_name, family_list in BUILTIN_RERANK_MODELS.items():
                 for family in family_list:
                     if detailed:
+                        download_hubs = [spec.model_hub for spec in family.model_specs]
                         ret.append(
-                            await self._to_rerank_model_reg(family, is_builtin=True)
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": download_hubs,
+                            }
                         )
                     else:
                         ret.append({"model_name": model_name, "is_builtin": True})
@@ -941,8 +992,13 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined rerank models
             for model_spec in get_user_defined_reranks():
                 if detailed:
+                    download_hubs = [spec.model_hub for spec in model_spec.model_specs]
                     ret.append(
-                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
                     )
                 else:
                     ret.append(
@@ -967,34 +1023,85 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
+            # Check built-in LLM families
+            for f in BUILTIN_LLM_FAMILIES:
+                if f.model_name == model_name:
+                    return f
+
+            # Check user-defined LLM families
             for f in get_user_defined_llm_families():
                 if f.model_name == model_name:
                     return f
         elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
+            # Check built-in embedding models
+            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                if model_name == model_name:
+                    # Return the huggingface family from the list
+                    for family in family_list:
+                        if family.model_hub == "huggingface":
+                            return family
+
+            # Check user-defined embedding models
             for f in get_user_defined_embeddings():
                 if f.model_name == model_name:
                     return f
         elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
+            # Check built-in image models
+            if model_name in BUILTIN_IMAGE_MODELS:
+                families = BUILTIN_IMAGE_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined image models
             for f in get_user_defined_images():
                 if f.model_name == model_name:
                     return f
         elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
+            # Check built-in audio models
+            if model_name in BUILTIN_AUDIO_MODELS:
+                families = BUILTIN_AUDIO_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined audio models
             for f in get_user_defined_audios():
                 if f.model_name == model_name:
                     return f
         elif model_type == "video":
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            # Check built-in video models
+            if model_name in BUILTIN_VIDEO_MODELS:
+                families = BUILTIN_VIDEO_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
             return None
         elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
+            # Check built-in rerank models
+            if model_name in BUILTIN_RERANK_MODELS:
+                family_list = BUILTIN_RERANK_MODELS[model_name]
+                for f in family_list:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined rerank models
             for f in get_user_defined_reranks():
                 if f.model_name == model_name:
                     return f
