@@ -541,7 +541,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                             elif c == "<eos_stream>":
                                 break
                             else:
-                                results.append(self._to_chat_completion_chunk(c))
+                                results.append(
+                                    self._to_chat_completion_chunk(
+                                        c, ensure_role=not results
+                                    )
+                                )
             else:
                 for c in req.completion:
                     if c == "<bos_stream>":
@@ -549,7 +553,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     elif c == "<eos_stream>":
                         break
                     else:
-                        results.append(self._to_chat_completion_chunk(c))
+                        results.append(
+                            self._to_chat_completion_chunk(c, ensure_role=not results)
+                        )
         else:
             if response and response[-1] != "�":
                 new_response = self._process_response_streaming(
@@ -559,7 +565,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     for c in req.completion:
                         if c == "<bos_stream>":
                             continue
-                        results.append(self._to_chat_completion_chunk(c))
+                        results.append(
+                            self._to_chat_completion_chunk(c, ensure_role=not results)
+                        )
 
         if req.stopped and req.include_usage:
             results.append(self._get_final_chat_completion_chunk(req.completion[-1]))

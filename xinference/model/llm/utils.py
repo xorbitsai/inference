@@ -290,6 +290,7 @@ class ChatModelMixin:
         chunk: CompletionChunk,
         reasoning_parser: Optional[ReasoningParser] = None,
         previous_texts: Optional[List[str]] = None,
+        ensure_role: bool = False,
     ) -> ChatCompletionChunk:
         choices = chunk.get("choices")
         if (
@@ -317,6 +318,12 @@ class ChatModelMixin:
                     delta["content"] = ""  # type: ignore
                 if reasoning_parser and reasoning_parser.check_content_parser():
                     delta["reasoning_content"] = None  # type: ignore
+            if ensure_role:
+                delta = choices[0]["delta"]  # type: ignore
+                if delta.get("role") is None:
+                    delta["role"] = "assistant"  # type: ignore
+                if "content" not in delta:
+                    delta["content"] = None  # type: ignore
             # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
 
@@ -362,6 +369,12 @@ class ChatModelMixin:
             "choices": choices_list,
             "usage": usage,
         }
+        if ensure_role and chat_chunk["choices"]:
+            delta = chat_chunk["choices"][0]["delta"]
+            if delta.get("role") is None:
+                delta["role"] = "assistant"
+            if "content" not in delta:
+                delta["content"] = None
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
@@ -405,7 +418,11 @@ class ChatModelMixin:
             "model": chunk["model"],
             "created": chunk["created"],
             "object": "chat.completion.chunk",
-            "choices": [],
+            "choices": [
+                ChatCompletionChunkChoice(
+                    index=0, delta=ChatCompletionChunkDelta(), finish_reason="stop"
+                )
+            ],
         }
         usage = chunk.get("usage")
         if usage is not None:
@@ -419,6 +436,7 @@ class ChatModelMixin:
         reasoning_parse: Optional[ReasoningParser] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
+        is_first_chunk = True
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
         for _, chunk in enumerate(chunks):
@@ -443,7 +461,10 @@ class ChatModelMixin:
                     yield cls._get_final_chat_completion_chunk(chunk)
                     continue
 
-            r = cls._to_chat_completion_chunk(chunk, reasoning_parse, previous_texts)
+            r = cls._to_chat_completion_chunk(
+                chunk, reasoning_parse, previous_texts, ensure_role=is_first_chunk
+            )
+            is_first_chunk = False
             yield r
 
     @classmethod
@@ -488,6 +509,7 @@ class ChatModelMixin:
 
         previous_texts = [""]
         full_text = ""
+        is_first_chunk = True
         # Process chunks
         if reasoning_parser:
             set_context()
@@ -503,8 +525,12 @@ class ChatModelMixin:
                     full_text += choices[0]["text"]  # type: ignore
 
                 chat_chunk = cls._to_chat_completion_chunk(
-                    chunk, reasoning_parser, previous_texts
+                    chunk,
+                    reasoning_parser,
+                    previous_texts,
+                    ensure_role=is_first_chunk,
                 )
+            is_first_chunk = False
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)
 
@@ -1035,7 +1061,10 @@ class ChatModelMixin:
         async for completion_chunk in chunks:
             set_context()
             chat_chunk = self._to_chat_completion_chunk(
-                completion_chunk, self.reasoning_parser, previous_texts
+                completion_chunk,
+                self.reasoning_parser,
+                previous_texts,
+                ensure_role=i == 0,
             )
             if (
                 chat_chunk["choices"]

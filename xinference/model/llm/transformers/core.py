@@ -1097,7 +1097,10 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             else:
                 results.append(
                     self._to_chat_completion_chunk(
-                        c, self.reasoning_parser, req.previous_texts
+                        c,
+                        self.reasoning_parser,
+                        req.previous_texts,
+                        ensure_role=not results,
                     )
                 )
 
