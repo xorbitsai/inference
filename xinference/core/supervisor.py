@@ -640,256 +640,28 @@ class SupervisorActor(xo.StatelessActor):
             return item.get("model_name").lower()
 
         ret = []
-        if not self.is_local_deployment():
-            workers = list(self._worker_address_to_worker.values())
-            for worker in workers:
-                ret.extend(await worker.list_model_registrations(model_type, detailed))
 
-        if model_type == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+        # Always get model registrations from workers, including local deployment
+        # In local deployment, supervisor acts as its own worker
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            ret.extend(await worker.list_model_registrations(model_type, detailed))
 
-            for family in BUILTIN_LLM_FAMILIES:
-                if detailed:
-                    ret.append(await self._to_llm_reg(family, True))
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": True})
-
-            for family in get_user_defined_llm_families():
-                if detailed:
-                    ret.append(await self._to_llm_reg(family, False))
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": False})
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
-            from ..model.embedding.custom import get_user_defined_embeddings
-
-            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
-                # family_list is a list of EmbeddingModelFamilyV2 objects
-                for family in family_list:
-                    if detailed:
-                        ret.append(
-                            await self._to_embedding_model_reg(family, is_builtin=True)
-                        )
-                    else:
-                        ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_embeddings():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.custom import get_user_defined_images
-
-            for model_name, families in BUILTIN_IMAGE_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_image_model_reg(family, is_builtin=True)
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_images():
-                if detailed:
-                    ret.append(
-                        await self._to_image_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS
-            from ..model.audio.custom import get_user_defined_audios
-
-            for model_name, families in BUILTIN_AUDIO_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_audio_model_reg(family, is_builtin=True)
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_audios():
-                if detailed:
-                    ret.append(
-                        await self._to_audio_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "video":
-            from ..model.video import BUILTIN_VIDEO_MODELS
-
-            for model_name, families in BUILTIN_VIDEO_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_video_model_reg(family, is_builtin=True)
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS
-            from ..model.rerank.custom import get_user_defined_reranks
-
-            for model_name, family_list in BUILTIN_RERANK_MODELS.items():
-                # family_list is a list of RerankModelFamilyV2 objects
-                for family in family_list:
-                    if detailed:
-                        ret.append(
-                            await self._to_rerank_model_reg(family, is_builtin=True)
-                        )
-                    else:
-                        ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_reranks():
-                if detailed:
-                    ret.append(
-                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "flexible":
-            from ..model.flexible import get_flexible_models
-
-            ret = []
-
-            for model_spec in get_flexible_models():
-                if detailed:
-                    ret.append(
-                        await self._to_flexible_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
+        ret.sort(key=sort_helper)
+        return ret
 
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
-        # search in worker first
-        if not self.is_local_deployment():
-            workers = list(self._worker_address_to_worker.values())
-            for worker in workers:
-                f = await worker.get_model_registration(model_type, model_name)
-                if f is not None:
-                    return f
+        # Always search in workers first, including local deployment
+        # In local deployment, supervisor acts as its own worker
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            f = await worker.get_model_registration(model_type, model_name)
+            if f is not None:
+                return f
 
-        if model_type == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+        raise ValueError(f"Model {model_name} not found")
 
-            for f in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families():
-                if f.model_name == model_name:
-                    return f
-
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
-            from ..model.embedding.custom import get_user_defined_embeddings
-
-            for family_list in BUILTIN_EMBEDDING_MODELS.values():
-                # family_list is a list of EmbeddingModelFamilyV2 objects
-                for f in family_list:
-                    if f.model_name == model_name:
-                        return f
-            for f in get_user_defined_embeddings():
-                if f.model_name == model_name:
-                    return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.custom import get_user_defined_images
-
-            if model_name in BUILTIN_IMAGE_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_IMAGE_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            else:
-                for f in get_user_defined_images():
-                    if f.model_name == model_name:
-                        return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS
-            from ..model.audio.custom import get_user_defined_audios
-
-            if model_name in BUILTIN_AUDIO_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_AUDIO_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            else:
-                for f in get_user_defined_audios():
-                    if f.model_name == model_name:
-                        return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS
-            from ..model.rerank.custom import get_user_defined_reranks
-
-            for family_list in BUILTIN_RERANK_MODELS.values():
-                # family_list is a list of RerankModelFamilyV2 objects
-                for f in family_list:
-                    if f.model_name == model_name:
-                        return f
-            for f in get_user_defined_reranks():
-                if f.model_name == model_name:
-                    return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "flexible":
-            from ..model.flexible import get_flexible_models
-
-            for f in get_flexible_models():
-                if f.model_name == model_name:
-                    return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "video":
-            from ..model.video import BUILTIN_VIDEO_MODELS
-
-            if model_name in BUILTIN_VIDEO_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_VIDEO_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            raise ValueError(f"Model {model_name} not found")
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
-
-    @log_async(logger=logger)
     async def query_engines_by_model_name(
         self, model_name: str, model_type: Optional[str] = None
     ):

@@ -809,55 +809,145 @@ class WorkerActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        ret = []
+
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = []
+            # Add built-in LLM families with detailed information including download_hubs
+            for family in BUILTIN_LLM_FAMILIES:
+                if detailed:
+                    ret.append(await self._to_llm_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
 
+            # Add user-defined LLM families
             for family in get_user_defined_llm_families():
-                ret.append({"model_name": family.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(await self._to_llm_reg(family, is_builtin=False))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            ret = []
+            # Add built-in embedding models
+            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                for family in family_list:
+                    if detailed:
+                        ret.append(
+                            await self._to_embedding_model_reg(family, is_builtin=True)
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined embedding models
             for model_spec in get_user_defined_embeddings():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            ret = []
+            # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_IMAGE_MODELS.items():
+                if detailed:
+                    # Get the huggingface family from the list
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
+                    ret.append(await self._to_image_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined image models
             for model_spec in get_user_defined_images():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        await self._to_image_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            ret = []
+            # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_AUDIO_MODELS.items():
+                if detailed:
+                    # Get the huggingface family from the list
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
+                    ret.append(await self._to_audio_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined audio models
             for model_spec in get_user_defined_audios():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        await self._to_audio_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            return []
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_VIDEO_MODELS.items():
+                if detailed:
+                    # Get the huggingface family from the list
+                    family = [x for x in families if x.model_hub == "huggingface"][0]
+                    ret.append(await self._to_video_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            # Note: video doesn't have user-defined models currently
+            ret.sort(key=sort_helper)
+            return ret
         elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            ret = []
+            # Add built-in rerank models (BUILTIN_RERANK_MODELS contains model_name -> family_list list)
+            for model_name, family_list in BUILTIN_RERANK_MODELS.items():
+                for family in family_list:
+                    if detailed:
+                        ret.append(
+                            await self._to_rerank_model_reg(family, is_builtin=True)
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined rerank models
             for model_spec in get_user_defined_reranks():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
