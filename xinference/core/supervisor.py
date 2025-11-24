@@ -372,10 +372,33 @@ class SupervisorActor(xo.StatelessActor):
 
         if self.is_local_deployment():
             return gpu_count()
-        # distributed deployment, choose a worker and return its device_count.
-        # Assume that each worker has the same count of cards.
-        worker_ref = await self._choose_worker()
-        return await worker_ref.get_devices_count()
+        
+        # Distributed deployment: aggregate GPU count from all workers
+        # Use worker status information instead of choosing a single worker
+        if not self._worker_status:
+            # No workers have reported status yet, fallback to local detection
+            logger.debug(
+                "No worker status available for GPU count, falling back to local detection"
+            )
+            return gpu_count()
+        
+        # Get maximum GPU count from all workers
+        # This allows WebUI to show GPU options even when supervisor has no GPU
+        max_gpu_count = 0
+        for worker_addr, worker_status in self._worker_status.items():
+            # Count GPU devices (excluding 'cpu' key)
+            worker_gpu_count = len(
+                [k for k in worker_status.status.keys() if k != "cpu"]
+            )
+            if worker_gpu_count > max_gpu_count:
+                max_gpu_count = worker_gpu_count
+                logger.debug(
+                    f"Worker {worker_addr} has {worker_gpu_count} GPUs, "
+                    f"current max: {max_gpu_count}"
+                )
+        
+        logger.debug(f"Returning GPU count: {max_gpu_count} from worker status")
+        return max_gpu_count
 
     async def _choose_worker(
         self, available_workers: Optional[List[str]] = None
