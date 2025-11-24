@@ -298,11 +298,12 @@ class ChatModelMixin:
             and choices
             and "delta" in choices[0]
         ):
-            if choices[0]["finish_reason"] is None:
+            first_choice = cast(ChatCompletionChunkChoice, choices[0])
+            delta = first_choice["delta"]
+            if first_choice["finish_reason"] is None:
                 if reasoning_parser and reasoning_parser.check_content_parser():
                     # process parsing reasoning content
                     assert previous_texts is not None
-                    delta = choices[0]["delta"]  # type: ignore
                     if text := delta.get("content"):
                         current_text = previous_texts[-1] + text
                         delta = reasoning_parser.extract_reasoning_content_streaming(
@@ -311,23 +312,21 @@ class ChatModelMixin:
                             delta_text=text,
                         )
                         previous_texts[-1] = current_text
-                        choices[0]["delta"] = delta  # type: ignore
-            elif choices[0]["finish_reason"] is not None:
-                delta = choices[0]["delta"]  # type: ignore
+                        first_choice["delta"] = delta
+            elif first_choice["finish_reason"] is not None:
                 if "content" not in delta:
-                    delta["content"] = ""  # type: ignore
+                    delta["content"] = ""
                 if reasoning_parser and reasoning_parser.check_content_parser():
-                    delta["reasoning_content"] = None  # type: ignore
+                    delta["reasoning_content"] = None
             if ensure_role:
-                delta = choices[0]["delta"]  # type: ignore
                 if delta.get("role") is None:
-                    delta["role"] = "assistant"  # type: ignore
+                    delta["role"] = "assistant"
                 if "content" not in delta:
-                    delta["content"] = None  # type: ignore
+                    delta["content"] = None
             # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
 
-        choices_list = []
+        choices_list: List[ChatCompletionChunkChoice] = []
         for i, choice in enumerate(choices):  # type: ignore
             delta = ChatCompletionChunkDelta()
             if "text" in choice and choice["finish_reason"] is None:
@@ -370,7 +369,7 @@ class ChatModelMixin:
             "usage": usage,
         }
         if ensure_role and choices_list:
-            first_delta = choices_list[0]["delta"]
+            first_delta: ChatCompletionChunkDelta = choices_list[0]["delta"]
             if first_delta.get("role") is None:
                 first_delta["role"] = "assistant"
             if "content" not in first_delta:
