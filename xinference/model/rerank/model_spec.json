@@ -126,43 +126,10 @@
             ]
           }
         }
-      },
-      {
-        "model_format": "ggufv2",
-        "model_src": {
-          "huggingface": {
-            "model_id": "gpustack/bge-reranker-v2-m3-GGUF",
-            "quantizations": [
-              "Q3_K",
-              "Q3_K_M",
-              "Q4_0",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "bge-reranker-v2-m3-{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "gpustack/bge-reranker-v2-m3-GGUF",
-            "quantizations": [
-              "Q3_K",
-              "Q3_K_M",
-              "Q4_0",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "bge-reranker-v2-m3-{quantization}.gguf"
-          }
-        }
       }
     ],
-    "updated_at": 1763970351,
-    "featured": false
+    "featured": false,
+    "updated_at": 1763975327
   },
   {
     "version": 2,
@@ -322,55 +289,10 @@
             ]
           }
         }
-      },
-      {
-        "model_format": "ggufv2",
-        "model_src": {
-          "huggingface": {
-            "model_id": "QuantFactory/Qwen3-Reranker-0.6B-GGUF",
-            "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "Qwen3-Reranker-0.6B.{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "QuantFactory/Qwen3-Reranker-0.6B-GGUF",
-            "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "Qwen3-Reranker-0.6B.{quantization}.gguf"
-          }
-        }
       }
     ],
     "featured": false,
-    "updated_at": 1763970430
+    "updated_at": 1763975299
   },
   {
     "version": 2,
@@ -399,55 +321,10 @@
             ]
           }
         }
-      },
-      {
-        "model_format": "ggufv2",
-        "model_src": {
-          "huggingface": {
-            "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
-            "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
-            "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
-          }
-        }
       }
     ],
     "featured": false,
-    "updated_at": 1763970479
+    "updated_at": 1763975273
   },
   {
     "version": 2,
@@ -476,55 +353,10 @@
             ]
           }
         }
-      },
-      {
-        "model_format": "ggufv2",
-        "model_src": {
-          "huggingface": {
-            "model_id": "QuantFactory/Qwen3-Reranker-8B-GGUF",
-            "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "Qwen3-Reranker-8B.{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "QuantFactory/Qwen3-Reranker-8B-GGUF",
-            "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
-            ],
-            "model_file_name_template": "Qwen3-Reranker-8B.{quantization}.gguf"
-          }
-        }
       }
     ],
     "featured": false,
-    "updated_at": 1763970533
+    "updated_at": 1763975242
   },
   {
     "version": 2,
