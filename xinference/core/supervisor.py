@@ -293,7 +293,7 @@ class SupervisorActor(xo.StatelessActor):
         import psutil
 
         supervisor_device_info = {
-            "ip_address": self.address.split(":")[0],
+            "ip_address": self.address,
             "gpu_count": 0,
             "gpu_vram_total": 0,
         }
@@ -318,7 +318,7 @@ class SupervisorActor(xo.StatelessActor):
             )
             info = {
                 "node_type": "Worker",
-                "ip_address": worker_addr.split(":")[0],
+                "ip_address": worker_addr,
                 "gpu_count": len(worker_status.status) - 1,
                 "gpu_vram_total": total,
             }
