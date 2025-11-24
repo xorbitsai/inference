@@ -817,7 +817,14 @@ class WorkerActor(xo.StatelessActor):
             # Add built-in LLM families
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
-                    download_hubs = [spec.model_hub for spec in family.model_specs]
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in family.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
                     ret.append(
                         {
                             **family.dict(),
@@ -831,7 +838,14 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined LLM families
             for family in get_user_defined_llm_families():
                 if detailed:
-                    download_hubs = [spec.model_hub for spec in family.model_specs]
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in family.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
                     ret.append(
                         {
                             **family.dict(),
@@ -852,7 +866,14 @@ class WorkerActor(xo.StatelessActor):
             for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
                 for family in family_list:
                     if detailed:
-                        download_hubs = [spec.model_hub for spec in family.model_specs]
+                        # Remove duplicate hubs while preserving order
+                        seen_hubs = set()
+                        download_hubs = []
+                        for spec in family.model_specs:
+                            if spec.model_hub not in seen_hubs:
+                                seen_hubs.add(spec.model_hub)
+                                download_hubs.append(spec.model_hub)
+
                         ret.append(
                             {
                                 **family.dict(),
@@ -866,7 +887,14 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined embedding models
             for model_spec in get_user_defined_embeddings():
                 if detailed:
-                    download_hubs = [spec.model_hub for spec in model_spec.model_specs]
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in model_spec.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
                     ret.append(
                         {
                             **model_spec.dict(),
@@ -978,7 +1006,14 @@ class WorkerActor(xo.StatelessActor):
             for model_name, family_list in BUILTIN_RERANK_MODELS.items():
                 for family in family_list:
                     if detailed:
-                        download_hubs = [spec.model_hub for spec in family.model_specs]
+                        # Remove duplicate hubs while preserving order
+                        seen_hubs = set()
+                        download_hubs = []
+                        for spec in family.model_specs:
+                            if spec.model_hub not in seen_hubs:
+                                seen_hubs.add(spec.model_hub)
+                                download_hubs.append(spec.model_hub)
+
                         ret.append(
                             {
                                 **family.dict(),
@@ -992,7 +1027,14 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined rerank models
             for model_spec in get_user_defined_reranks():
                 if detailed:
-                    download_hubs = [spec.model_hub for spec in model_spec.model_specs]
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in model_spec.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
                     ret.append(
                         {
                             **model_spec.dict(),
