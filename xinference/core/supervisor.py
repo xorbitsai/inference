@@ -372,7 +372,6 @@ class SupervisorActor(xo.StatelessActor):
 
         if self.is_local_deployment():
             return gpu_count()
-        
         # Distributed deployment: aggregate GPU count from all workers
         # Use worker status information instead of choosing a single worker
         if not self._worker_status:
@@ -381,7 +380,6 @@ class SupervisorActor(xo.StatelessActor):
                 "No worker status available for GPU count, falling back to local detection"
             )
             return gpu_count()
-        
         # Get maximum GPU count from all workers
         # This allows WebUI to show GPU options even when supervisor has no GPU
         max_gpu_count = 0
@@ -396,7 +394,6 @@ class SupervisorActor(xo.StatelessActor):
                     f"Worker {worker_addr} has {worker_gpu_count} GPUs, "
                     f"current max: {max_gpu_count}"
                 )
-        
         logger.debug(f"Returning GPU count: {max_gpu_count} from worker status")
         return max_gpu_count
 
