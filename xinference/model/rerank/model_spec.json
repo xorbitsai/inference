@@ -399,9 +399,54 @@
             ]
           }
         }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_1",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
+          },
+          "modelscope": {
+            "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_1",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
+          }
+        }
       }
     ],
-    "updated_at": 1763445676,
+    "updated_at": 1763975735,
     "featured": false
   },
   {
