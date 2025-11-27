@@ -19,7 +19,7 @@ import warnings
 from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
-from ..utils import flatten_model_src
+from ..utils import flatten_quantizations
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
@@ -147,7 +147,7 @@ def load_model_family_from_json(json_filename, target_families):
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         flattened = []
         for spec in json_obj["model_specs"]:
-            flattened.extend(flatten_model_src(spec))
+            flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
         if json_obj["model_name"] not in target_families:
             target_families[json_obj["model_name"]] = [RerankModelFamilyV2(**json_obj)]
