@@ -39,7 +39,7 @@ def get_rerank_model_descriptions():
 
 
 # class RerankSpecV1(BaseModel):
-#     model_format: Literal["pytorch"]
+#     model_format: Literal["pytorch", "ggufv2"]
 #     model_hub: str = "huggingface"
 #     model_id: Optional[str] = None
 #     model_revision: Optional[str] = None

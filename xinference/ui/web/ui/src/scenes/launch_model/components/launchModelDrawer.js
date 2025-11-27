@@ -407,9 +407,9 @@ const LaunchModelDrawer = ({
   }, [])
 
   useEffect(() => {
-    if (modelEngineType.includes(modelType))
+    if (open && modelEngineType.includes(modelType))
       fetchModelEngine(modelData.model_name, modelType)
-  }, [modelData.model_name, modelType])
+  }, [open, modelData.model_name, modelType])
 
   useEffect(() => {
     if (formData.__isInitializing) {

@@ -198,6 +198,10 @@ class RegisterModelRequest(BaseModel):
     persist: bool
 
 
+class UpdateModelRequest(BaseModel):
+    model_type: str
+
+
 class BuildGradioInterfaceRequest(BaseModel):
     model_type: str
     model_name: str
@@ -891,6 +895,16 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/models/update_type",
+            self.update_model_type,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:add"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
@@ -926,6 +940,26 @@ class RESTfulAPI(CancelMixin):
             methods=["DELETE"],
             dependencies=(
                 [Security(self._auth_service, scopes=["cache:delete"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/virtualenvs",
+            self.list_virtual_envs,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["virtualenv:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/virtualenvs",
+            self.remove_virtual_env,
+            methods=["DELETE"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["virtualenv:delete"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -3130,6 +3164,42 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
 
+    async def update_model_type(self, request: Request) -> JSONResponse:
+        try:
+            # Parse request
+            raw_json = await request.json()
+            body = UpdateModelRequest.parse_obj(raw_json)
+            model_type = body.model_type
+
+            # Get supervisor reference
+            supervisor_ref = await self._get_supervisor_ref()
+
+            # Call supervisor with model_type
+            await supervisor_ref.update_model_type(model_type)
+
+        except ValueError as re:
+            logger.error(f"ValueError in update_model_type API: {re}", exc_info=True)
+            logger.error(f"ValueError details: {type(re).__name__}: {re}")
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in update_model_type API: {e}", exc_info=True
+            )
+            logger.error(f"Error details: {type(e).__name__}: {e}")
+            import traceback
+
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        response_data = {
+            "data": {
+                "model_type": model_type,
+                "message": f"Successfully updated model type: {model_type}",
+            }
+        }
+
+        return JSONResponse(content=response_data)
+
     async def list_model_registrations(
         self, model_type: str, detailed: bool = Query(False)
     ) -> JSONResponse:
@@ -3283,6 +3353,51 @@ class RESTfulAPI(CancelMixin):
         try:
             res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
+            )
+            return JSONResponse(content={"result": res})
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_virtual_envs(
+        self, model_name: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
+        """List all virtual environments or filter by model name."""
+        try:
+            data = await (await self._get_supervisor_ref()).list_virtual_envs(
+                model_name, worker_ip
+            )
+            resp = {
+                "list": data,
+            }
+            return JSONResponse(content=resp)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def remove_virtual_env(
+        self,
+        model_name: str = Query(None),
+        python_version: str = Query(None),
+        worker_ip: str = Query(None),
+    ) -> JSONResponse:
+        """Remove a virtual environment for a specific model."""
+        if not model_name:
+            raise HTTPException(
+                status_code=400, detail="model_name parameter is required"
+            )
+
+        try:
+            res = await (await self._get_supervisor_ref()).remove_virtual_env(
+                model_name=model_name,
+                python_version=python_version,
+                worker_ip=worker_ip,
             )
             return JSONResponse(content={"result": res})
         except ValueError as re:

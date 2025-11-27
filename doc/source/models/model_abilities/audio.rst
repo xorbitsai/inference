@@ -757,5 +757,67 @@ Here are several examples of how to use IndexTTS2:
             use_random=False
         )
 
+IndexTTS2 Offline Usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+IndexTTS2 requires several small models that are downloaded automatically during initialization.
+For offline environments, you can download these models to a single directory and specify the directory path.
+
+**Easy Setup Method**
+
+The simplest way to set up offline usage is to Use the `hf download` command to download the small model in advance:
+
+.. code-block:: bash
+
+    # Create your local models directory
+    mkdir -p /path/to/small_models
+
+    # Download models from Hugging Face
+    hf download facebook/w2v-bert-2.0 --local-dir /path/to/small_models/w2v-bert-2.0
+    hf download funasr/campplus --local-dir /path/to/small_models/campplus
+    hf download nvidia/bigvgan_v2_22khz_80band_256x --local-dir /path/to/small_models/bigvgan
+    hf download amphion/MaskGCT --local-dir /path/to/small_models/MaskGCT
+
+The final directory structure should look like this:
+
+.. code-block:: text
+
+    /path/to/small_models/
+    ├── w2v-bert-2.0/                 # Feature extraction model
+    ├── campplus/                     # Speaker recognition model
+    ├── bigvgan/                      # Vocoder model
+    └── MaskGCT/                      # Semantic codec model
+
+**Required Models**
+
+The small models are automatically mapped as follows:
+
+1. **w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - Feature extraction model
+2. **campplus** (``models--funasr--campplus``) - Speaker recognition model
+3. **bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - Vocoder model
+4. **semantic_codec** (``models--amphion--MaskGCT``) - Semantic encoding/decoding model
+
+**Launching IndexTTS2 with Offline Models**
+
+When launching IndexTTS2 with Web UI, you can add an additional parameter:
+- ``small_models_dir`` - Path to directory containing all small models
+
+When launching with command line, you can add the option:
+
+.. code-block:: bash
+
+    xinference launch --model-name IndexTTS2 --model-type audio \
+        --small_models_dir /path/to/small_models
+
+When launching with Python client:
+
+.. code-block:: python
+
+    model_uid = client.launch_model(
+        model_name="IndexTTS2",
+        model_type="audio",
+        small_models_dir="/path/to/small_models"
+    )
+
 
 

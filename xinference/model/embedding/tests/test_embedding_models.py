@@ -80,7 +80,7 @@ def test_engine_supported():
     assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
 
 
-def test_model_from_modelscope():
+async def test_model_from_modelscope():
     from ..core import create_embedding_model_instance
 
     model_path = CacheManager(TEST_MODEL_SPEC_FROM_MODELSCOPE).cache()
@@ -93,7 +93,7 @@ def test_model_from_modelscope():
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
     model.load()
-    r = model.create_embedding(input_text)
+    r = await model.create_embedding(input_text)
     assert len(r["data"]) == 1
     for d in r["data"]:
         assert len(d["embedding"]) == 512

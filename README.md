@@ -37,6 +37,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Auto batch: Multiple concurrent requests are automatically batched, significantly improving throughput: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): New llama.cpp Python binding, maintained by Xinference team, supports continuous batching and is more production-ready.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
@@ -44,7 +45,6 @@ potential of cutting-edge AI models.
 - Support MLX backend for Apple Silicon chips: [#1765](https://github.com/xorbitsai/inference/pull/1765)
 - Support specifying worker and GPU indexes for launching models: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
-- Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### New Models
 - Built-in support for [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR): [#4187](https://github.com/xorbitsai/inference/pull/4187)
 - Built-in support for [Qwen3-Omni](https://github.com/QwenLM/Qwen3-Omni): [#4137](https://github.com/xorbitsai/inference/pull/4137)
@@ -99,9 +99,6 @@ with popular third-party libraries including [LangChain](https://python.langchai
 | More OpenAI Functionalities (Function Calling) | ✅ | ❌ | ❌ | ❌ |
 
 ## Using Xinference
-
-- **Cloud </br>**
-We host a [Xinference Cloud](https://inference.top) service for anyone to try with zero setup. 
 
 - **Self-hosting Xinference Community Edition</br>**
 Quickly get Xinference running in your environment with this [starter guide](#getting-started).

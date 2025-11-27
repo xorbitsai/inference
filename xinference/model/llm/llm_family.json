@@ -73,7 +73,11 @@
         }
       }
     ],
-    "updated_at": 1762510020
+    "updated_at": 1763957613,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -132,7 +136,11 @@
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510022
+    "updated_at": 1763957615,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -160,7 +168,11 @@
         }
       }
     ],
-    "updated_at": 1762510023
+    "updated_at": 1763957616,
+    "featured": false,
+    "architectures": [
+      "GPT2LMHeadModel"
+    ]
   },
   {
     "version": 2,
@@ -367,7 +379,11 @@
         }
       }
     ],
-    "updated_at": 1762510024
+    "updated_at": 1763957617,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -449,7 +465,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510025
+    "updated_at": 1763957618,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -597,7 +617,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510026
+    "updated_at": 1763957619,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -656,7 +680,11 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1762510028
+    "updated_at": 1763957621,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -684,7 +712,11 @@
         }
       }
     ],
-    "updated_at": 1762510029
+    "updated_at": 1763957622,
+    "featured": false,
+    "architectures": [
+      "OPTForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -736,7 +768,11 @@
         }
       }
     ],
-    "updated_at": 1762510030
+    "updated_at": 1763957624,
+    "featured": false,
+    "architectures": [
+      "PhiForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -787,7 +823,11 @@
         }
       }
     ],
-    "updated_at": 1762510031
+    "updated_at": 1763957625,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -838,7 +878,11 @@
         }
       }
     ],
-    "updated_at": 1762510033
+    "updated_at": 1763957627,
+    "featured": false,
+    "architectures": [
+      "GemmaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1021,7 +1065,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510034
+    "updated_at": 1763957628,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1085,7 +1133,11 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1762510035
+    "updated_at": 1763957629,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1150,7 +1202,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510036
+    "updated_at": 1763957630,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1433,7 +1489,11 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1762510037
+    "updated_at": 1763957632,
+    "featured": false,
+    "architectures": [
+      "InternVLChatModel"
+    ]
   },
   {
     "version": 2,
@@ -1499,7 +1559,11 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510039
+    "updated_at": 1763957633,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV"
+    ]
   },
   {
     "version": 2,
@@ -1725,7 +1789,11 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510040
+    "updated_at": 1763957634,
+    "featured": false,
+    "architectures": [
+      "Ovis"
+    ]
   },
   {
     "version": 2,
@@ -1795,7 +1863,11 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510041
+    "updated_at": 1763957635,
+    "featured": false,
+    "architectures": [
+      "Qwen2VLForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -1969,7 +2041,11 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510043
+    "updated_at": 1763957637,
+    "featured": true,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2100,7 +2176,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510044
+    "updated_at": 1763957638,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2136,7 +2216,11 @@
         }
       }
     ],
-    "updated_at": 1762510045
+    "updated_at": 1763957639,
+    "featured": false,
+    "architectures": [
+      "SkyworkForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2172,7 +2256,11 @@
         }
       }
     ],
-    "updated_at": 1762510046
+    "updated_at": 1763957640,
+    "featured": false,
+    "architectures": [
+      "SkyworkForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2237,7 +2325,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510048
+    "updated_at": 1763957642,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2349,7 +2441,11 @@
         }
       }
     ],
-    "updated_at": 1762510049
+    "updated_at": 1763957643,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2437,7 +2533,11 @@
         }
       }
     ],
-    "updated_at": 1762510050
+    "updated_at": 1763957644,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2778,7 +2878,11 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1762510051
+    "updated_at": 1763957645,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2895,7 +2999,11 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1762510052
+    "updated_at": 1763957646,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2957,7 +3065,11 @@
         }
       }
     ],
-    "updated_at": 1762510054
+    "updated_at": 1763957648,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3069,7 +3181,11 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1762510055
+    "updated_at": 1763957649,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3137,7 +3253,11 @@
         }
       }
     ],
-    "updated_at": 1762510057
+    "updated_at": 1763957650,
+    "featured": false,
+    "architectures": [
+      "BaichuanForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3211,7 +3331,11 @@
       195
     ],
     "stop": [],
-    "updated_at": 1762510058
+    "updated_at": 1763957652,
+    "featured": false,
+    "architectures": [
+      "BaichuanForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3358,7 +3482,11 @@
         }
       }
     ],
-    "updated_at": 1762510059
+    "updated_at": 1763957653,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3536,7 +3664,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510061
+    "updated_at": 1763957654,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3713,7 +3845,11 @@
         }
       }
     ],
-    "updated_at": 1762510062
+    "updated_at": 1763957655,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3791,7 +3927,11 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510063
+    "updated_at": 1763957657,
+    "featured": false,
+    "architectures": [
+      "ChatGLMModel"
+    ]
   },
   {
     "version": 2,
@@ -3831,7 +3971,11 @@
         }
       }
     ],
-    "updated_at": 1762510064
+    "updated_at": 1763957658,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3934,7 +4078,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510065
+    "updated_at": 1763957659,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3970,7 +4118,11 @@
         }
       }
     ],
-    "updated_at": 1762510067
+    "updated_at": 1763957660,
+    "featured": false,
+    "architectures": [
+      "CodeShellForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -4015,7 +4167,11 @@
       "|||",
       "|<end>|"
     ],
-    "updated_at": 1762510068
+    "updated_at": 1763957662,
+    "featured": false,
+    "architectures": [
+      "CodeShellForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -4061,7 +4217,11 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510069
+    "updated_at": 1763957663,
+    "featured": false,
+    "architectures": [
+      "ChatGLMForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -4163,7 +4323,11 @@
         }
       }
     ],
-    "updated_at": 1762510070
+    "updated_at": 1763957664,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -4272,7 +4436,11 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510071
+    "updated_at": 1763957665,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -4531,7 +4699,11 @@
         }
       }
     ],
-    "updated_at": 1762510072
+    "updated_at": 1763957666,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -4797,7 +4969,11 @@
     "stop": [
       "<|EOT|>"
     ],
-    "updated_at": 1762510074
+    "updated_at": 1763957668,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -4878,7 +5054,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510075
+    "updated_at": 1763957669,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5299,7 +5479,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510076
+    "updated_at": 1763957670,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5369,7 +5553,11 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1762510077
+    "updated_at": 1763957671,
+    "featured": true,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5451,7 +5639,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510079
+    "updated_at": 1763957673,
+    "featured": true,
+    "architectures": [
+      "Qwen3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5718,7 +5910,11 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1762510080
+    "updated_at": 1763957674,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6142,7 +6338,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510081
+    "updated_at": 1763957675,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6205,7 +6405,11 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510082
+    "updated_at": 1763957677,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6248,7 +6452,11 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510084
+    "updated_at": 1763957678,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6291,7 +6499,11 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510085
+    "updated_at": 1763957679,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6572,7 +6784,11 @@
       "<｜end▁of▁sentence｜>"
     ],
     "tool_parser": "deepseek_v3",
-    "updated_at": 1762510086
+    "updated_at": 1763957680,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6648,7 +6864,11 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510087
+    "updated_at": 1763957682,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6729,7 +6949,11 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1762510089
+    "updated_at": 1763957683,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6812,7 +7036,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510090
+    "updated_at": 1763957684,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6935,7 +7163,11 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1762510091
+    "updated_at": 1763957685,
+    "featured": false,
+    "architectures": [
+      "Gemma3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -7283,7 +7515,11 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1762510093
+    "updated_at": 1763957687,
+    "featured": true,
+    "architectures": [
+      "Gemma3ForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -7337,7 +7573,11 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510094
+    "updated_at": 1763957688,
+    "featured": false,
+    "architectures": [
+      "ChatGLMModel"
+    ]
   },
   {
     "version": 2,
@@ -7524,7 +7764,11 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1762510095
+    "updated_at": 1763957689,
+    "featured": false,
+    "architectures": [
+      "GlmForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -7773,7 +8017,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510096
+    "updated_at": 1763957691,
+    "featured": false,
+    "architectures": [
+      "Glm4ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -7882,7 +8130,11 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1762510098
+    "updated_at": 1763957692,
+    "featured": false,
+    "architectures": [
+      "GlmForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -7991,7 +8243,11 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1762510099
+    "updated_at": 1763957693,
+    "featured": false,
+    "architectures": [
+      "GlmForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -8123,7 +8379,11 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510100
+    "updated_at": 1763957694,
+    "featured": false,
+    "architectures": [
+      "InternLM3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -8372,7 +8632,8 @@
       2
     ],
     "stop": [],
-    "updated_at": 1762510102
+    "updated_at": 1763446212,
+    "featured": false
   },
   {
     "version": 2,
@@ -8463,7 +8724,8 @@
         }
       }
     ],
-    "updated_at": 1762510103
+    "updated_at": 1763446213,
+    "featured": false
   },
   {
     "version": 2,
@@ -8677,7 +8939,8 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
-    "updated_at": 1762510104
+    "updated_at": 1763446215,
+    "featured": false
   },
   {
     "version": 2,
@@ -8785,7 +9048,8 @@
         }
       }
     ],
-    "updated_at": 1762510105
+    "updated_at": 1763446216,
+    "featured": false
   },
   {
     "version": 2,
@@ -9160,7 +9424,8 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1762510107
+    "updated_at": 1763446217,
+    "featured": false
   },
   {
     "version": 2,
@@ -9219,7 +9484,8 @@
         }
       }
     ],
-    "updated_at": 1762510108
+    "updated_at": 1763446219,
+    "featured": false
   },
   {
     "version": 2,
@@ -9289,7 +9555,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1762510109
+    "updated_at": 1763446220,
+    "featured": false
   },
   {
     "version": 2,
@@ -9429,7 +9696,8 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1762510110
+    "updated_at": 1763446221,
+    "featured": false
   },
   {
     "version": 2,
@@ -9521,7 +9789,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510112
+    "updated_at": 1763957705,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9571,7 +9843,11 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510113
+    "updated_at": 1763957707,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9615,7 +9891,11 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510114
+    "updated_at": 1763957708,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9659,7 +9939,11 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510115
+    "updated_at": 1763957709,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9709,7 +9993,11 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510117
+    "updated_at": 1763957710,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9753,7 +10041,11 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510118
+    "updated_at": 1763957712,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9823,7 +10115,11 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1762510119
+    "updated_at": 1763957713,
+    "featured": false,
+    "architectures": [
+      "MiniCPM3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9901,7 +10197,11 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510120
+    "updated_at": 1763957714,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9991,7 +10291,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510122
+    "updated_at": 1763957716,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10087,7 +10391,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510123
+    "updated_at": 1763957718,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10280,7 +10588,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510124
+    "updated_at": 1763957719,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10456,7 +10768,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510125
+    "updated_at": 1763957720,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10540,7 +10856,11 @@
         }
       }
     ],
-    "updated_at": 1762510127
+    "updated_at": 1763957722,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10630,7 +10950,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510128
+    "updated_at": 1763957723,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10701,7 +11025,11 @@
         }
       }
     ],
-    "updated_at": 1762510129
+    "updated_at": 1763957724,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10742,7 +11070,11 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1762510130
+    "updated_at": 1763957726,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10806,7 +11138,11 @@
       "</s>",
       "<unk>"
     ],
-    "updated_at": 1762510132
+    "updated_at": 1763957727,
+    "featured": false,
+    "architectures": [
+      "OrionForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10852,7 +11188,11 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1762510133
+    "updated_at": 1763957728,
+    "featured": false,
+    "architectures": [
+      "Phi3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -10912,7 +11252,11 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1762510134
+    "updated_at": 1763957730,
+    "featured": false,
+    "architectures": [
+      "Phi3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -11163,7 +11507,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510135
+    "updated_at": 1763957731,
+    "featured": false,
+    "architectures": [
+      "QWenLMHeadModel"
+    ]
   },
   {
     "version": 2,
@@ -11914,7 +12262,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510137
+    "updated_at": 1763957733,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -11979,7 +12331,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510138
+    "updated_at": 1763957735,
+    "featured": false,
+    "architectures": [
+      "Qwen2MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -12028,7 +12384,11 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1762510140
+    "updated_at": 1763957736,
+    "featured": false,
+    "architectures": [
+      "Qwen2AudioForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -12078,7 +12438,11 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1762510141
+    "updated_at": 1763957737,
+    "featured": false,
+    "architectures": [
+      "Qwen2AudioForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -12708,7 +13072,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510142
+    "updated_at": 1763957739,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -12831,7 +13199,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510143
+    "updated_at": 1763957740,
+    "featured": false,
+    "architectures": [
+      "Qwen2MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -13147,7 +13519,11 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510145
+    "updated_at": 1763957741,
+    "featured": false,
+    "architectures": [
+      "Qwen2VLForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -13333,7 +13709,11 @@
         }
       }
     ],
-    "updated_at": 1762510146
+    "updated_at": 1763957743,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -13463,7 +13843,11 @@
         }
       }
     ],
-    "updated_at": 1762510147
+    "updated_at": 1763957744,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -14018,7 +14402,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510148
+    "updated_at": 1763957745,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -15530,7 +15918,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510150
+    "updated_at": 1763957747,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -15591,7 +15983,11 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510151
+    "updated_at": 1763957748,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -15663,7 +16059,11 @@
         "soundfile"
       ]
     },
-    "updated_at": 1762510152
+    "updated_at": 1763957749,
+    "featured": false,
+    "architectures": [
+      "Qwen2_5OmniModel"
+    ]
   },
   {
     "version": 2,
@@ -15929,7 +16329,11 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1762510153
+    "updated_at": 1763957750,
+    "featured": true,
+    "architectures": [
+      "Qwen2_5_VLForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -17445,7 +17849,11 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1762510154
+    "updated_at": 1763957751,
+    "featured": true,
+    "architectures": [
+      "Qwen3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -18230,7 +18638,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510156
+    "updated_at": 1763957753,
+    "featured": false,
+    "architectures": [
+      "Qwen3MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -19012,7 +19424,11 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510157
+    "updated_at": 1763957754,
+    "featured": false,
+    "architectures": [
+      "Qwen3MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -19797,7 +20213,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510158
+    "updated_at": 1763957756,
+    "featured": false,
+    "architectures": [
+      "Qwen3MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -19869,7 +20289,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510160
+    "updated_at": 1763957757,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -19970,7 +20394,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510161
+    "updated_at": 1763957758,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20189,7 +20617,11 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510181
+    "updated_at": 1763957759,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20331,7 +20763,11 @@
       160133,
       160132
     ],
-    "updated_at": 1762510182
+    "updated_at": 1763957760,
+    "featured": false,
+    "architectures": [
+      "TelechatForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20378,7 +20814,8 @@
         }
       }
     ],
-    "updated_at": 1762510184
+    "updated_at": 1763446276,
+    "featured": false
   },
   {
     "version": 2,
@@ -20511,7 +20948,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510185
+    "updated_at": 1763957763,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20566,7 +21007,11 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1762510186
+    "updated_at": 1763957764,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20642,7 +21087,11 @@
         }
       }
     ],
-    "updated_at": 1762510187
+    "updated_at": 1763957765,
+    "featured": false,
+    "architectures": [
+      "XverseForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20705,7 +21154,11 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "updated_at": 1762510189
+    "updated_at": 1763957766,
+    "featured": false,
+    "architectures": [
+      "XverseForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20766,7 +21219,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510190
+    "updated_at": 1763957769,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21094,7 +21551,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510191
+    "updated_at": 1763957770,
+    "featured": true,
+    "architectures": [
+      "Ernie4_5ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21189,7 +21650,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510193
+    "updated_at": 1763957771,
+    "featured": false,
+    "architectures": [
+      "Glm4vForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -21424,7 +21889,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510194
+    "updated_at": 1763957773,
+    "featured": true,
+    "architectures": [
+      "Glm4MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21545,7 +22014,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510195
+    "updated_at": 1763957774,
+    "featured": false,
+    "architectures": [
+      "Glm4vMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -21634,7 +22107,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762510197
+    "updated_at": 1763957775,
+    "featured": true,
+    "architectures": [
+      "GptOssForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21713,7 +22190,11 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "updated_at": 1762510198
+    "updated_at": 1763957777,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21824,7 +22305,11 @@
         "transformers==4.53.0"
       ]
     },
-    "updated_at": 1762510199
+    "updated_at": 1763957778,
+    "featured": true,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -22015,7 +22500,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510201
+    "updated_at": 1763957779,
+    "featured": false,
+    "architectures": [
+      "SeedOssForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -22083,7 +22572,11 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1762510202
+    "updated_at": 1763957780,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -22740,7 +23233,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510203
+    "updated_at": 1763957782,
+    "featured": false,
+    "architectures": [
+      "Qwen3VLMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -23214,7 +23711,11 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510205
+    "updated_at": 1763957783,
+    "featured": false,
+    "architectures": [
+      "Qwen3VLMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -23325,7 +23826,11 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1762510206
+    "updated_at": 1763957784,
+    "featured": false,
+    "architectures": [
+      "Qwen3NextForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -23439,7 +23944,11 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1762510207
+    "updated_at": 1763957786,
+    "featured": false,
+    "architectures": [
+      "Qwen3NextForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -23507,7 +24016,11 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1762510208
+    "updated_at": 1763957787,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV"
+    ]
   },
   {
     "version": 2,
@@ -23588,7 +24101,11 @@
         "soundfile"
       ]
     },
-    "updated_at": 1762510209
+    "updated_at": 1763957788,
+    "featured": false,
+    "architectures": [
+      "Qwen3OmniMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -23666,7 +24183,11 @@
         "soundfile"
       ]
     },
-    "updated_at": 1762510211
+    "updated_at": 1763957790,
+    "featured": false,
+    "architectures": [
+      "Qwen3OmniMoeForConditionalGeneration"
+    ]
   },
   {
     "model_name": "MiniMax-M2",
@@ -23762,6 +24283,10 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1762510212
+    "updated_at": 1763957791,
+    "featured": false,
+    "architectures": [
+      "MiniMaxM2ForCausalLM"
+    ]
   }
 ]

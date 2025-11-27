@@ -372,10 +372,30 @@ class SupervisorActor(xo.StatelessActor):
 
         if self.is_local_deployment():
             return gpu_count()
-        # distributed deployment, choose a worker and return its device_count.
-        # Assume that each worker has the same count of cards.
-        worker_ref = await self._choose_worker()
-        return await worker_ref.get_devices_count()
+        # Distributed deployment: aggregate GPU count from all workers
+        # Use worker status information instead of choosing a single worker
+        if not self._worker_status:
+            # No workers have reported status yet, fallback to local detection
+            logger.debug(
+                "No worker status available for GPU count, falling back to local detection"
+            )
+            return gpu_count()
+        # Get maximum GPU count from all workers
+        # This allows WebUI to show GPU options even when supervisor has no GPU
+        max_gpu_count = 0
+        for worker_addr, worker_status in self._worker_status.items():
+            # Count GPU devices (excluding 'cpu' key)
+            worker_gpu_count = len(
+                [k for k in worker_status.status.keys() if k != "cpu"]
+            )
+            if worker_gpu_count > max_gpu_count:
+                max_gpu_count = worker_gpu_count
+                logger.debug(
+                    f"Worker {worker_addr} has {worker_gpu_count} GPUs, "
+                    f"current max: {max_gpu_count}"
+                )
+        logger.debug(f"Returning GPU count: {max_gpu_count} from worker status")
+        return max_gpu_count
 
     async def _choose_worker(
         self, available_workers: Optional[List[str]] = None
@@ -516,9 +536,19 @@ class SupervisorActor(xo.StatelessActor):
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_manager = ImageCacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -537,13 +567,23 @@ class SupervisorActor(xo.StatelessActor):
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_manager = CacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -562,13 +602,23 @@ class SupervisorActor(xo.StatelessActor):
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
-        cache_manager = CacheManager(model_family)
 
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_manager = CacheManager(model_family)
+            # Create model_specs with cache_status for frontend compatibility
+            model_specs = [
+                {
+                    "model_format": "pytorch",
+                    "model_hub": model_family.model_hub,
+                    "model_id": model_family.model_id,
+                    "cache_status": cache_manager.get_cache_status(),
+                }
+            ]
             res = {
                 **model_family.dict(),
-                "cache_status": cache_manager.get_cache_status(),
+                "model_specs": model_specs,
+                "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
         else:
@@ -610,245 +660,28 @@ class SupervisorActor(xo.StatelessActor):
             return item.get("model_name").lower()
 
         ret = []
-        if not self.is_local_deployment():
-            workers = list(self._worker_address_to_worker.values())
-            for worker in workers:
-                ret.extend(await worker.list_model_registrations(model_type, detailed))
 
-        if model_type == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+        # Always get model registrations from workers, including local deployment
+        # In local deployment, supervisor acts as its own worker
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            ret.extend(await worker.list_model_registrations(model_type, detailed))
 
-            for family in BUILTIN_LLM_FAMILIES:
-                if detailed:
-                    ret.append(await self._to_llm_reg(family, True))
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": True})
-
-            for family in get_user_defined_llm_families():
-                if detailed:
-                    ret.append(await self._to_llm_reg(family, False))
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": False})
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
-            from ..model.embedding.custom import get_user_defined_embeddings
-
-            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(family, is_builtin=True)
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_embeddings():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.custom import get_user_defined_images
-
-            for model_name, families in BUILTIN_IMAGE_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_image_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_images():
-                if detailed:
-                    ret.append(
-                        await self._to_image_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS
-            from ..model.audio.custom import get_user_defined_audios
-
-            for model_name, families in BUILTIN_AUDIO_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_audio_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_audios():
-                if detailed:
-                    ret.append(
-                        await self._to_audio_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "video":
-            from ..model.video import BUILTIN_VIDEO_MODELS
-
-            for model_name, families in BUILTIN_VIDEO_MODELS.items():
-                if detailed:
-                    family = [x for x in families if x.model_hub == "huggingface"][0]
-                    info = await self._to_video_model_reg(family, is_builtin=True)
-                    info["download_hubs"] = [x.model_hub for x in families]
-                    ret.append(info)
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS
-            from ..model.rerank.custom import get_user_defined_reranks
-
-            for model_name, family in BUILTIN_RERANK_MODELS.items():
-                if detailed:
-                    ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
-
-            for model_spec in get_user_defined_reranks():
-                if detailed:
-                    ret.append(
-                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        elif model_type == "flexible":
-            from ..model.flexible import get_flexible_models
-
-            ret = []
-
-            for model_spec in get_flexible_models():
-                if detailed:
-                    ret.append(
-                        await self._to_flexible_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
-
-            ret.sort(key=sort_helper)
-            return ret
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
+        ret.sort(key=sort_helper)
+        return ret
 
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
-        # search in worker first
-        if not self.is_local_deployment():
-            workers = list(self._worker_address_to_worker.values())
-            for worker in workers:
-                f = await worker.get_model_registration(model_type, model_name)
-                if f is not None:
-                    return f
+        # Always search in workers first, including local deployment
+        # In local deployment, supervisor acts as its own worker
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            f = await worker.get_model_registration(model_type, model_name)
+            if f is not None:
+                return f
 
-        if model_type == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+        raise ValueError(f"Model {model_name} not found")
 
-            for f in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families():
-                if f.model_name == model_name:
-                    return f
-
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
-            from ..model.embedding.custom import get_user_defined_embeddings
-
-            for f in (
-                list(BUILTIN_EMBEDDING_MODELS.values()) + get_user_defined_embeddings()
-            ):
-                if f.model_name == model_name:
-                    return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.custom import get_user_defined_images
-
-            if model_name in BUILTIN_IMAGE_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_IMAGE_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            else:
-                for f in get_user_defined_images():
-                    if f.model_name == model_name:
-                        return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS
-            from ..model.audio.custom import get_user_defined_audios
-
-            if model_name in BUILTIN_AUDIO_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_AUDIO_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            else:
-                for f in get_user_defined_audios():
-                    if f.model_name == model_name:
-                        return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS
-            from ..model.rerank.custom import get_user_defined_reranks
-
-            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
-                if f.model_name == model_name:
-                    return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "flexible":
-            from ..model.flexible import get_flexible_models
-
-            for f in get_flexible_models():
-                if f.model_name == model_name:
-                    return f
-            raise ValueError(f"Model {model_name} not found")
-        elif model_type == "video":
-            from ..model.video import BUILTIN_VIDEO_MODELS
-
-            if model_name in BUILTIN_VIDEO_MODELS:
-                return [
-                    x
-                    for x in BUILTIN_VIDEO_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ][0]
-            raise ValueError(f"Model {model_name} not found")
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
-
-    @log_async(logger=logger)
     async def query_engines_by_model_name(
         self, model_name: str, model_type: Optional[str] = None
     ):
@@ -970,6 +803,41 @@ class SupervisorActor(xo.StatelessActor):
             await self._cache_tracker_ref.unregister_model_version(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by forwarding
+        the request to all workers.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+
+        try:
+            # Forward the update_model_type request to all workers
+            tasks = []
+            for worker_address, worker_ref in self._worker_address_to_worker.items():
+                tasks.append(worker_ref.update_model_type(model_type))
+
+            # Wait for all workers to complete the operation
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        pass  # Worker failed, continue
+                    else:
+                        pass  # Worker succeeded, continue
+            else:
+                logger.warning(
+                    f"No workers available to forward update_model_type request"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Error during update_model_type forwarding: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model type: {str(e)}")
 
     def _gen_model_uid(self, model_name: str) -> str:
         if model_name not in self._model_uid_to_replica_info:
@@ -1895,6 +1763,126 @@ class SupervisorActor(xo.StatelessActor):
             ret = ret and await worker.confirm_and_remove_model(
                 model_version=model_version,
             )
+        return ret
+
+    # Virtual environment management methods
+    async def list_virtual_envs(
+        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List virtual environments across the cluster."""
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # If specific worker is requested, query only that worker
+        if target_ip_worker_ref:
+            virtual_envs = await target_ip_worker_ref.list_virtual_envs(model_name)
+            return sorted(virtual_envs, key=lambda x: x["model_name"])
+
+        # Otherwise, query all workers
+        virtual_envs = []
+        for worker_address, worker in self._worker_address_to_worker.items():
+            try:
+                envs = await worker.list_virtual_envs(model_name)
+                virtual_envs.extend(envs)
+            except Exception as e:
+                logger.warning(f"Failed to list virtual environments on worker: {e}")
+
+        return sorted(virtual_envs, key=lambda x: x["model_name"])
+
+    async def list_virtual_env_packages(
+        self, model_name: str, worker_ip: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """List packages in a virtual environment across the cluster."""
+        if not model_name:
+            raise ValueError("model_name is required")
+
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # If specific worker is requested, query only that worker
+        if target_ip_worker_ref:
+            return await target_ip_worker_ref.list_virtual_env_packages(model_name)
+
+        # Otherwise, try all workers until we find the virtual environment
+        for worker in self._worker_address_to_worker.values():
+            try:
+                package_info = await worker.list_virtual_env_packages(model_name)
+                if "error" not in package_info:
+                    return package_info
+            except Exception as e:
+                logger.debug(
+                    f"Worker doesn't have virtual environment for {model_name}: {e}"
+                )
+
+        # If no worker has the virtual environment
+        return {
+            "model_name": model_name,
+            "worker_ip": None,
+            "error": f"Virtual environment for model {model_name} not found on any worker",
+        }
+
+    async def remove_virtual_env(
+        self,
+        model_name: str,
+        python_version: Optional[str] = None,
+        worker_ip: Optional[str] = None,
+    ) -> bool:
+        """Remove a virtual environment across the cluster."""
+        if not model_name:
+            raise ValueError("model_name is required")
+
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # If specific worker is requested, remove only from that worker
+        if target_ip_worker_ref:
+            return await target_ip_worker_ref.remove_virtual_env(
+                model_name, python_version
+            )
+
+        # Otherwise, remove from all workers that have the virtual environment
+        ret = True
+        workers_with_env = []
+
+        # First, identify which workers have the virtual environment
+        for worker in self._worker_address_to_worker.values():
+            try:
+                envs = await worker.list_virtual_envs(model_name)
+                if envs:
+                    workers_with_env.append(worker)
+            except Exception as e:
+                logger.debug(f"Failed to check worker for virtual environment: {e}")
+
+        # Then remove from those workers
+        for worker in workers_with_env:
+            try:
+                result = await worker.remove_virtual_env(model_name, python_version)
+                ret = ret and result
+            except Exception as e:
+                logger.error(f"Failed to remove virtual environment from worker: {e}")
+                ret = False
+
         return ret
 
     async def get_workers_info(self) -> List[Dict[str, Any]]:

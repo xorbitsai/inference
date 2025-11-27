@@ -69,6 +69,18 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from vllm.outputs import RequestOutput
 
+    # Handle ExecutorBase type import for different vLLM versions
+    # vLLM >= 0.11.1: from vllm.v1.executor import Executor
+    # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
+    try:
+        from vllm.v1.executor import Executor as ExecutorBase
+    except ImportError:
+        try:
+            from vllm.executor.executor_base import ExecutorBase
+        except ImportError:
+            # If vLLM is not installed, define a placeholder for type checking
+            ExecutorBase = Any  # type: ignore
+
 
 class VLLMModelConfig(TypedDict, total=False):
     tokenizer_mode: Optional[str]
@@ -375,13 +387,35 @@ class VLLMModel(LLM):
         # to call aynsc method with asyncio.run_coroutine_threadsafe
         self._loop = loop  # type: ignore
 
+    def _is_vllm_v1(self) -> bool:
+        """
+        Check if vLLM v1 is being used.
+
+        For vLLM >= 0.11.1: v1 is the default, no VLLM_USE_V1 env var needed
+        For vLLM < 0.11.1: check VLLM_USE_V1 environment variable
+        """
+        from vllm import envs
+
+        # For vLLM >= 0.11.1, v1 is default
+        if VLLM_VERSION > version.parse("0.11.0"):
+            return True
+
+        # For older versions, check the environment variable
+        return envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
+
     def load(self):
         try:
-            from vllm import envs
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
-            from vllm.executor.executor_base import ExecutorBase
             from vllm.lora.request import LoRARequest
+
+            # Handle ExecutorBase import for different vLLM versions
+            # vLLM >= 0.11.1: from vllm.v1.executor import Executor
+            # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
+            try:
+                from vllm.v1.executor import Executor as ExecutorBase
+            except ImportError:
+                from vllm.executor.executor_base import ExecutorBase
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -511,7 +545,7 @@ class VLLMModel(LLM):
                         assert worker_addresses
                         loop = self._loop
 
-                        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+                        if not self._is_vllm_v1():
                             # vLLM v0
                             from .distributed_executor import (
                                 XinferenceDistributedExecutor,
@@ -535,9 +569,15 @@ class VLLMModel(LLM):
                         else:
                             from vllm.v1.executor.abstract import Executor
 
-                            from .distributed_executor import (
-                                XinferenceDistributedExecutorV1,
-                            )
+                            # Import the appropriate executor based on vLLM version
+                            if VLLM_VERSION > version.parse("0.11.0"):
+                                from .distributed_executor_v1 import (
+                                    XinferenceDistributedExecutorV1,
+                                )
+                            else:
+                                from .distributed_executor import (
+                                    XinferenceDistributedExecutorV1,
+                                )
 
                             # vLLM V1
                             # NOTE: loop has to be None for vLLM v1
@@ -589,9 +629,7 @@ class VLLMModel(LLM):
             self._set_context_length()
 
     def _set_context_length(self):
-        from vllm import envs
-
-        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+        if not self._is_vllm_v1():
             # v0
             self._context_length = (
                 self._engine.engine.vllm_config.model_config.max_model_len
@@ -603,6 +641,13 @@ class VLLMModel(LLM):
         logger.debug("Model context length: %s", self._context_length)
 
     def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
+        # For vLLM >= 0.11.1, v1 is the default, no need to set environment variable
+        if VLLM_VERSION >= version.parse("0.11.1"):
+            logger.debug(
+                "vLLM >= 0.11.1 detected, v1 is default, skip setting VLLM_USE_V1"
+            )
+            return
+
         if os.getenv("VLLM_USE_V1") is not None:
             logger.debug(
                 "Setting vLLM v1 via environment variable already, skip checking"
@@ -619,7 +664,6 @@ class VLLMModel(LLM):
                 VLLM_VERSION,
             )
             return
-
         model_config = engine_args.create_model_config()
         old_main_thread = threading.main_thread()
         try:
@@ -685,8 +729,6 @@ class VLLMModel(LLM):
             )
 
     def stop(self):
-        from vllm import envs
-
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
@@ -694,7 +736,7 @@ class VLLMModel(LLM):
         if self._check_health_task:
             self._check_health_task.cancel()
         if self._engine:
-            if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+            if not self._is_vllm_v1():
                 # v0
                 if model_executor := getattr(
                     self._engine.engine, "model_executor", None
@@ -1163,7 +1205,7 @@ class VLLMModel(LLM):
             prompt_or_token_ids,
             sampling_params,
             request_id,
-            lora_request,
+            lora_request=lora_request,
         )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:

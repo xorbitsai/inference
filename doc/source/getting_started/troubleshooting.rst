@@ -180,7 +180,63 @@ To avoid this issue when installing the xinference audio package, use multiple m
    # Optional: Set this globally in your uv config
    mkdir -p ~/.config/uv
    cat >> ~/.config/uv/uv.toml << EOF
-   [tool.uv]
    index-url = "https://mirrors.aliyun.com/pypi/simple"
    extra-index-url = ["https://pypi.tuna.tsinghua.edu.cn/simple"]
    EOF
+
+Installing Xinference 1.12.0 with uv Fails (As of November 2025)
+=================================================================
+
+**Note:** This is a temporary issue due to the current package ecosystem and uv prioritizing **higher versions for direct dependencies** over **indirect dependencies**.
+
+Symptom
+-------
+
+When installing xinference 1.12.0 as of November 2025 using ``uv pip install xinference``, you may encounter an issue where very old package versions are installed, particularly:
+
+- ``transformers==4.12.2`` (from 2021)
+- ``tokenizers==0.10.3`` (from 2021)  
+- ``huggingface-hub==1.0.1``
+
+Then uv fails with "Failed to build `tokenizers==0.10.3`"
+
+Root Cause
+----------
+
+This occurs because uv prioritizes **higher versions for direct dependencies** over **indirect dependencies**:
+
+1. xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct dependency** (no upper bound)
+2. uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025
+3. However, ``transformers`` (an **indirect dependency** via ``peft``) requires ``huggingface-hub<1.0``
+4. To resolve the conflict, uv keeps the direct dependency at 1.0.1 and downgrades the indirect dependency ``transformers`` to ancient version 4.12.2
+
+**This is by design in uv**: it prioritizes what you explicitly ask for (direct dependencies) over transitive dependencies. Refer to https://github.com/astral-sh/uv/issues/16601
+
+Solutions
+---------
+
+**Solution 1: Pre-constrain huggingface-hub (Recommended)**
+
+Explicitly constrain ``huggingface-hub`` to a compatible version range:
+
+.. code-block:: bash
+
+   uv pip install "huggingface-hub>=0.34.0,<1.0" xinference
+
+This forces uv to select a ``huggingface-hub`` version that's compatible with modern ``transformers``.
+
+**Solution 2: Make transformers a direct dependency**
+
+By specifying ``transformers`` explicitly, it becomes a direct dependency and uv will prefer higher versions:
+
+.. code-block:: bash
+
+   uv pip install transformers xinference
+
+**Solution 3: Use pip**
+
+Or just resort to using ``pip install xinference`` which will resolve to the following versions
+
+- ``transformers==4.57.1``
+- ``huggingface-hub==0.36.0``
+- ``tokenizers==0.22.1``  

@@ -39,7 +39,7 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
 )
 
 
-def test_embedding_model_with_xllamacpp():
+async def test_embedding_model_with_xllamacpp():
     model_path = None
     try:
         model_path = CacheManager(TEST_MODEL_SPEC).cache()
@@ -62,10 +62,10 @@ def test_embedding_model_with_xllamacpp():
             "sorting algorithms",
         ]
         # test sparse and dense
-        r = model.create_embedding(input_texts)
+        r = await model.create_embedding(input_texts)
         assert len(r["data"]) == 4
 
-        r = model.create_embedding(input_texts)
+        r = await model.create_embedding(input_texts)
         for d in r["data"]:
             assert len(d["embedding"]) == 1024
     finally:
