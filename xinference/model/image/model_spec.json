@@ -805,6 +805,33 @@
   },
   {
     "version": 2,
+    "model_name": "PaddleOCR-VL",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.30.0",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1732708800,
+    "featured": true
+  },
+  {
+    "version": 2,
     "model_name": "Qwen-Image-Edit",
     "model_family": "stable_diffusion",
     "model_ability": [
