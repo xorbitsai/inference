@@ -23,6 +23,7 @@ from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .ocr.deepseek_ocr import DeepSeekOCRModel
 from .ocr.got_ocr2 import GotOCR2Model
+from .ocr.hunyuan_ocr import HunyuanOCRModel
 from .stable_diffusion.core import DiffusionModel
 from .stable_diffusion.mlx import MLXDiffusionModel
 
@@ -160,7 +161,7 @@ def create_ocr_model_instance(
     model_spec: ImageModelFamilyV2,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Union[DeepSeekOCRModel, GotOCR2Model]:
+) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel]:
     from .cache_manager import ImageCacheManager
 
     if not model_path:
@@ -170,6 +171,13 @@ def create_ocr_model_instance(
     # Choose OCR model based on model_name
     if model_spec.model_name == "DeepSeek-OCR":
         return DeepSeekOCRModel(
+            model_uid,
+            model_path,
+            model_spec=model_spec,
+            **kwargs,
+        )
+    if model_spec.model_name == "HunyuanOCR":
+        return HunyuanOCRModel(
             model_uid,
             model_path,
             model_spec=model_spec,
@@ -198,7 +206,9 @@ def create_image_model_instance(
     lightning_version: Optional[str] = None,
     lightning_model_path: Optional[str] = None,
     **kwargs,
-) -> Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model, DeepSeekOCRModel]:
+) -> Union[
+    DiffusionModel, MLXDiffusionModel, GotOCR2Model, DeepSeekOCRModel, HunyuanOCRModel
+]:
     from .cache_manager import ImageCacheManager
 
     model_spec = match_diffusion(model_name, download_hub)
