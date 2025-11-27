@@ -16349,7 +16349,7 @@
       "hybrid",
       "tools"
     ],
-    "model_description": "Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support",
+    "model_description": "Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support.",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -17849,7 +17849,7 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1763957751,
+    "updated_at": 1764215115,
     "featured": true,
     "architectures": [
       "Qwen3ForCausalLM"
