@@ -1028,15 +1028,33 @@
     },
     "model_src": {
       "huggingface": {
-        "model_id": "tencent/HunyuanOCR",
-        "model_revision": "9a0c8183f1cb1b544793b6e7ccc0612cf4f622da"
+        "model_id": "black-forest-labs/FLUX.2-dev",
+        "model_revision": "420f8eb9f7869bf378c45a5206424814561903e7",
+        "gguf_model_id": "city96/FLUX.2-dev-gguf",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux2-dev-{quantization}.gguf"
       },
       "modelscope": {
-        "model_id": "Tencent-Hunyuan/HunyuanOCR",
+        "model_id": "black-forest-labs/FLUX.2-dev",
         "model_revision": "master"
       }
     },
-    "featured": false,
-    "updated_at": 1764237221
+    "featured": true,
+    "updated_at": 1764238415
   }
 ]
