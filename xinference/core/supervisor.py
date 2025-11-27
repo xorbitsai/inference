@@ -887,13 +887,15 @@ class SupervisorActor(xo.StatelessActor):
         )
 
     def _get_worker_refs_by_ip(self, ip: str) -> List[xo.ActorRefType["WorkerActor"]]:
-        refs = []
+        ip_list = [item.strip() for item in ip.split(",") if item.strip()]
+        refs_set = set()
         for addr, ref in self._worker_address_to_worker.items():
             existing_ip = addr.split(":")[0]
-            if existing_ip == ip:
-                refs.append(ref)
+            if existing_ip in ip_list:
+                refs_set.add(ref)
+            refs = list(refs_set)
         logger.debug(
-            f"Found {len(refs)} workers for IP {ip}: {[r.address for r in refs]}"
+            f"Found {len(refs)} workers for IPs {ip_list}: {[r.address for r in refs]}"
         )
         return refs
 
