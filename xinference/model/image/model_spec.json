@@ -812,7 +812,6 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers>=4.46.0",
         "#system_numpy#",
         "#system_torch#"
       ]
