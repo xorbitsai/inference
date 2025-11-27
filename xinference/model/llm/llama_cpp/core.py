@@ -30,20 +30,16 @@ from ..utils import ChatModelMixin, normalize_response_format
 logger = logging.getLogger(__name__)
 
 
-def _schema_to_gbnf(schema: Dict[str, Any]) -> Optional[str]:
+def _schema_to_grammar(schema: Dict[str, Any]) -> Optional[str]:
     try:
-        from llama_cpp.llama_grammar import (
-            json_schema_to_gbnf,  # type: ignore[attr-defined]
-        )
+        import xllamacpp
     except Exception as e:  # pragma: no cover - optional dependency
-        logger.warning(
-            "json_schema provided but llama_cpp grammar support missing: %s", e
-        )
+        logger.warning("json_schema provided but xllamacpp missing: %s", e)
         return None
     try:
-        return json_schema_to_gbnf(schema)
+        return xllamacpp.json_schema_to_grammar(schema)  # type: ignore[attr-defined]
     except Exception as e:  # pragma: no cover - conversion failure
-        logger.warning("Failed to convert json_schema to GBNF for llama.cpp: %s", e)
+        logger.warning("Failed to convert json_schema to grammar for xllamacpp: %s", e)
         return None
 
 
@@ -56,7 +52,7 @@ def _apply_response_format(generate_config: Dict[str, Any]) -> None:
     if not schema_dict:
         return
     generate_config.setdefault("json_schema", schema_dict)
-    grammar = _schema_to_gbnf(schema_dict)
+    grammar = _schema_to_grammar(schema_dict)
     if grammar:
         generate_config.setdefault("grammar", grammar)
 
