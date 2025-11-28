@@ -15,9 +15,9 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
-from ..._compat import BaseModel
+from ..._compat import BaseModel, Field
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -38,13 +38,31 @@ def get_rerank_model_descriptions():
     return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
-class RerankSpecV1(BaseModel):
+class TransformersRerankSpecV1(BaseModel):
     model_format: Literal["pytorch"]
     model_hub: str = "huggingface"
     model_id: Optional[str] = None
     model_revision: Optional[str] = None
     model_uri: Optional[str] = None
     quantization: str = "none"
+
+
+class LlamaCppRerankSpecV1(BaseModel):
+    model_format: Literal["ggufv2"]
+    model_hub: str = "huggingface"
+    model_id: Optional[str]
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+    quantization: str
+    model_file_name_template: str
+    model_file_name_split_template: Optional[str]
+    quantization_parts: Optional[Dict[str, List[str]]]
+
+
+RerankSpecV1 = Annotated[
+    Union[TransformersRerankSpecV1, LlamaCppRerankSpecV1],
+    Field(discriminator="model_format"),
+]
 
 
 class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):

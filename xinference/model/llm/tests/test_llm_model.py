@@ -388,6 +388,13 @@ async def test_qwen3_enable_thinking(
     endpoint, _ = setup_cluster
     from ....client import Client
 
+    if (
+        engine == "vLLM"
+        and enable_model_thinking
+        and torch.cuda.is_available()
+        and torch.cuda.get_device_capability()[0] < 8
+    ):
+        pytest.skip("vLLM reasoning requires compute capability >=8.0 (Ampere).")
     client = Client(endpoint)
 
     kwargs = {}

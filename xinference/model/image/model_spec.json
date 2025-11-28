@@ -70,6 +70,11 @@
       "quantize_text_encoder": "text_encoder_2",
       "torch_dtype": "bfloat16"
     },
+    "cache_config": {
+      "ignore_patterns": [
+        "flux1-dev.safetensors"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "black-forest-labs/FLUX.1-dev",
@@ -110,8 +115,8 @@
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
     },
-    "updated_at": 1763445576,
-    "featured": true
+    "featured": true,
+    "updated_at": 1764238627
   },
   {
     "version": 2,
@@ -1005,5 +1010,33 @@
     },
     "updated_at": 1763445602,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "HunyuanOCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4",
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "tencent/HunyuanOCR",
+        "model_revision": "9a0c8183f1cb1b544793b6e7ccc0612cf4f622da"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/HunyuanOCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1764237221
   }
 ]
