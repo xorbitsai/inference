@@ -287,7 +287,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     **self._kwargs,
                 )
             except ValueError:
-                if "kontext" in self._model_spec.model_name.lower():
+                model_name_lower = self._model_spec.model_name.lower()
+                if "flux.2" in model_name_lower:
+                    from diffusers import Flux2Pipeline
+
+                    self._model = Flux2Pipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "flux" in model_name_lower:
+                    from diffusers import FluxPipeline
+
+                    self._model = FluxPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "kontext" in model_name_lower:
                     # TODO: remove this branch when auto pipeline supports
                     # flux.1-kontext-dev
                     from diffusers import FluxKontextPipeline
@@ -295,7 +308,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     self._model = FluxKontextPipeline.from_pretrained(
                         self._model_path, **self._kwargs
                     )
-                elif "qwen" in self._model_spec.model_name.lower():
+                elif "qwen" in model_name_lower:
                     # TODO: remove this branch when auto pipeline supports
                     # Qwen-Image
                     from diffusers import DiffusionPipeline
