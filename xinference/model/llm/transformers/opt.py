@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from builtins import classmethod
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 from ....types import LoRA
 from ...scheduler.request import InferenceRequest
@@ -42,12 +42,12 @@ class OptPytorchModel(PytorchModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format != "pytorch":
-            return False
+            return False, "OPT transformer only supports pytorch format"
         model_family = llm_family.model_family or llm_family.model_name
         if model_family != "opt":
-            return False
+            return False, f"Model family {model_family} is not OPT"
         return True
 
     def build_prefill_position_ids(
