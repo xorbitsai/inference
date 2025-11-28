@@ -17,7 +17,7 @@ import logging
 import os
 import pprint
 import queue
-from typing import Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from packaging import version
 
@@ -25,9 +25,36 @@ from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, normalize_response_format
 
 logger = logging.getLogger(__name__)
+
+
+def _schema_to_grammar(schema: Dict[str, Any]) -> Optional[str]:
+    try:
+        import xllamacpp
+    except Exception as e:  # pragma: no cover - optional dependency
+        logger.warning("json_schema provided but xllamacpp missing: %s", e)
+        return None
+    try:
+        return xllamacpp.json_schema_to_grammar(schema)  # type: ignore[attr-defined]
+    except Exception as e:  # pragma: no cover - conversion failure
+        logger.warning("Failed to convert json_schema to grammar for xllamacpp: %s", e)
+        return None
+
+
+def _apply_response_format(generate_config: Dict[str, Any]) -> None:
+    response_format = generate_config.pop("response_format", None)
+    normalized = normalize_response_format(response_format)
+    if not normalized or normalized.get("type") != "json_schema":
+        return
+    schema_dict = normalized.get("schema_dict")
+    if not schema_dict:
+        return
+    generate_config.setdefault("json_schema", schema_dict)
+    grammar = _schema_to_grammar(schema_dict)
+    if grammar:
+        generate_config.setdefault("grammar", grammar)
 
 
 class _Done:
@@ -49,7 +76,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         model_path: str,
         llamacpp_model_config: Optional[dict] = None,
     ):
-        super().__init__(model_uid, model_family, model_path)
+        super().__init__(model_uid, model_family, model_path)  # type: ignore[call-arg]
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
@@ -243,6 +270,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config = generate_config or {}
         if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
             generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
 
@@ -302,6 +330,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config = generate_config or {}
         if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
             generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
 
         chat_template_kwargs = (
