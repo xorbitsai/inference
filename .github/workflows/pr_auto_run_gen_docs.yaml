@@ -87,8 +87,8 @@ jobs:
             echo "Copying main/doc/source/gen_docs.py into PR workspace"
             mkdir -p doc/source
             cp -f ../main/doc/source/gen_docs.py doc/source/gen_docs.py
-            echo "Running pr/doc/source/gen_docs.py"
-            python -u doc/source/gen_docs.py
+            echo "Running pr/doc/source/gen_docs.py from its directory"
+            (cd doc/source && python -u gen_docs.py)
           elif [ -f "../main/gen_docs.py" ]; then
             echo "Copying main/gen_docs.py into PR workspace"
             cp -f ../main/gen_docs.py gen_docs.py
