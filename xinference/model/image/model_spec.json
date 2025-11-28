@@ -1028,6 +1028,38 @@
     },
     "model_src": {
       "huggingface": {
+        "model_id": "tencent/HunyuanOCR",
+        "model_revision": "9a0c8183f1cb1b544793b6e7ccc0612cf4f622da"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/HunyuanOCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1764237221
+  },
+  {
+    "version": 2,
+    "model_name": "FLUX.2-dev",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "flux2-dev.safetensors"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
         "model_id": "black-forest-labs/FLUX.2-dev",
         "model_revision": "420f8eb9f7869bf378c45a5206424814561903e7",
         "gguf_model_id": "city96/FLUX.2-dev-gguf",
