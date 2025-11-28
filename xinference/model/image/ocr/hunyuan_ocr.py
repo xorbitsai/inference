@@ -83,7 +83,7 @@ class HunyuanOCRModel:
             image = image.convert("RGB")
 
         if prompt is None:
-            prompt = "检测并识别图片中的文字，将文本坐标格式化输出。"
+            prompt = "Detect and recognize text within images, then output the text coordinates in a formatted manner."
 
         messages = [
             {"role": "system", "content": ""},
