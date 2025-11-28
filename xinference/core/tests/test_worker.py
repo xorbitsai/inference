@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ..launch_strategy import MemoryAwareLaunchStrategy
 from ..worker import WorkerActor
 
 
@@ -29,6 +30,13 @@ class MockWorkerActor(WorkerActor):
         cuda_devices: List[int],
     ):
         super().__init__(supervisor_address, main_pool, cuda_devices)
+        gpu_memory_info = {
+            idx: {"total": 24000.0, "used": 0.0, "available": 24000.0}
+            for idx in cuda_devices
+        }
+        self._launch_strategy = MemoryAwareLaunchStrategy(
+            cuda_devices, gpu_memory_info=gpu_memory_info
+        )
 
     async def __post_create__(self):
         pass
@@ -112,8 +120,8 @@ async def test_allocate_cuda_devices(setup_pool):
     devices = await worker.allocate_devices(model_uid="mock_model_3", n_gpu=3)
     assert devices == [5, 6, 7]
 
-    with pytest.raises(RuntimeError):
-        await worker.allocate_devices(model_uid="mock_model_4", n_gpu=5)
+    devices = await worker.allocate_devices(model_uid="mock_model_4", n_gpu=5)
+    assert len(devices) == 5
 
 
 @pytest.mark.asyncio
@@ -339,11 +347,18 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert 1 in llm_info
     assert 3 in llm_info
 
-    # launch without gpu_idx again, error
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "normal_model_model_6", "mock_model_name", None, None, None, "LLM", n_gpu=1
-        )
+    # launch without gpu_idx again, should succeed with GPU reuse
+    await worker.launch_builtin_model(
+        "normal_model_model_6", "mock_model_name", None, None, None, "LLM", n_gpu=1
+    )
+    llm_info = await worker.get_gpu_to_model_uid()
+    # Should have 3 GPUs in auto-allocation (GPU 2 is used by user-specified model_model_4)
+    assert len(llm_info) == 3
+    # Check that all GPUs are used (including user-specified ones)
+    user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
+    total_used_gpus = set(llm_info.keys()).union(set(user_specified_info.keys()))
+    assert len(total_used_gpus) == 4  # All 4 GPUs are used
+    assert total_used_gpus == {0, 1, 2, 3}
 
     #  test terminate and cleanup
     await worker.terminate_model("normal_model_model_1")
@@ -351,6 +366,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     await worker.terminate_model("vllm_model_model_3")
     await worker.terminate_model("model_model_4")
     await worker.terminate_model("normal_model_model_5")
+    await worker.terminate_model("normal_model_model_6")
 
     llm_info = await worker.get_gpu_to_model_uid()
     assert len(llm_info) == 0
@@ -379,11 +395,15 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[0])[0][0] == "vllm_mock_model_2"
     assert list(user_specified_info[0])[0][1] == "LLM"
 
-    # never choose gpu 0 again
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "normal_mock_model_3", "mock_model_name", None, None, None, "LLM", n_gpu=4
-        )
+    # should succeed with GPU reuse, even though gpu 0 is occupied
+    await worker.launch_builtin_model(
+        "normal_mock_model_3", "mock_model_name", None, None, None, "LLM", n_gpu=4
+    )
+    llm_info = await worker.get_gpu_to_model_uid()
+    user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
+    total_used_gpus = set(llm_info.keys()).union(set(user_specified_info.keys()))
+    # Should use available GPUs, possibly reusing some
+    assert len(total_used_gpus) <= 4
 
     # should be on gpu 1
     await worker.launch_builtin_model(
@@ -420,6 +440,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     # cleanup
     await worker.terminate_model("embedding_1")
     await worker.terminate_model("vllm_mock_model_2")
+    await worker.terminate_model("normal_mock_model_3")
     await worker.terminate_model("embedding_3")
     await worker.terminate_model("rerank_4")
     await worker.terminate_model("embedding_5")
