@@ -283,8 +283,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._kwargs["device_map"] = get_available_device()
 
         if (
-            device_count := gpu_count()
-        ) > 1 and "device_map" not in self._kwargs and not self._is_flux2_model():
+            (device_count := gpu_count()) > 1
+            and "device_map" not in self._kwargs
+            and not self._is_flux2_model()
+        ):
             logger.debug(
                 "Device count (%d) > 1, force to set device_map=balanced", device_count
             )
