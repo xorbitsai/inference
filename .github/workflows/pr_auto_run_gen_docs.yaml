@@ -50,15 +50,12 @@ jobs:
           fi
 
           HEAD_SHA="$(git rev-parse HEAD)"
-          if git rev-parse HEAD^ >/dev/null 2>&1; then
-            RANGE="$(git rev-parse HEAD^)..$HEAD_SHA"
-          else
-            RANGE="${{ github.event.pull_request.base.sha }}...$HEAD_SHA"
-          fi
-          echo "Diff range: $RANGE"
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          RANGE="$BASE_SHA...$HEAD_SHA"
+          echo "Diff range (full PR): $RANGE"
 
           CHANGED_FILES="$(git diff --name-only "$RANGE" || true)"
-          echo "Changed files in latest commit range:"
+          echo "Changed files in PR range:"
           echo "$CHANGED_FILES"
 
           RUN="false"
@@ -75,6 +72,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
+      - name: Install gen_docs dependencies
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install jinja2
 
       - name: Run gen_docs.py if present
         if: steps.decide.outputs.run == 'true'
