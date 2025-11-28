@@ -777,7 +777,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.55.0",
+        "transformers==4.47.1",
         "httpx==0.24.0",
         "deepspeed==0.12.3",
         "peft==0.4.0",
@@ -812,6 +812,7 @@
     ],
     "virtualenv": {
       "packages": [
+        "transformers==4.55.0",
         "#system_numpy#",
         "#system_torch#"
       ]
