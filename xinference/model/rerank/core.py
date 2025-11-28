@@ -38,15 +38,6 @@ def get_rerank_model_descriptions():
     return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
-# class RerankSpecV1(BaseModel):
-#     model_format: Literal["pytorch", "ggufv2"]
-#     model_hub: str = "huggingface"
-#     model_id: Optional[str] = None
-#     model_revision: Optional[str] = None
-#     model_uri: Optional[str] = None
-#     quantization: str = "none"
-
-
 class TransformersRerankSpecV1(BaseModel):
     model_format: Literal["pytorch"]
     model_hub: str = "huggingface"
