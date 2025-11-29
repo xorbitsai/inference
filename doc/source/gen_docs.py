@@ -32,9 +32,9 @@ def mock_engine_libraries():
     vllm_mock.__file__ = "mock_vllm.py"
     
     # Create mock mlx module with core submodule
-    
+
     mlx_mock = ModuleType('mlx')
-    mlx_mock.__version__ = "0.1.0"
+    mlx_mock.__version__ = "1.0.0"
     mlx_mock.__spec__ = ModuleSpec('mlx', None)
     mlx_mock.__file__ = "mock_mlx.py"
     
@@ -56,25 +56,57 @@ def mock_engine_libraries():
     sglang_mock.__version__ = "0.3.0"
     sglang_mock.__spec__ = ModuleSpec('sglang', None)
     sglang_mock.__file__ = "mock_sglang.py"
-    
+
+    # Create mock xllamacpp module with proper module spec for importlib.util.find_spec
+    import importlib.util
+    import importlib.machinery
+
+    xllamacpp_mock = ModuleType('xllamacpp')
+    xllamacpp_mock.__version__ = "1.0.0"
+
+    # Create a proper ModuleSpec that importlib.util.find_spec can find
+    xllamacpp_spec = importlib.machinery.ModuleSpec('xllamacpp', None)
+    xllamacpp_spec.origin = "mock_xllamacpp.py"
+    xllamacpp_mock.__spec__ = xllamacpp_spec
+    xllamacpp_mock.__file__ = "mock_xllamacpp.py"
+
+    # Create mock mlx_lm module
+    mlx_lm_mock = ModuleType('mlx_lm')
+    mlx_lm_mock.__version__ = "1.0.0"
+    mlx_lm_mock.__spec__ = ModuleSpec('mlx_lm', None)
+    mlx_lm_mock.__file__ = "mock_mlx_lm.py"
+
+    # Create mock mlx_vlm module
+    mlx_vlm_mock = ModuleType('mlx_vlm')
+    mlx_vlm_mock.__version__ = "1.0.0"
+    mlx_vlm_mock.__spec__ = ModuleSpec('mlx_vlm', None)
+    mlx_vlm_mock.__file__ = "mock_mlx_vlm.py"
+
     # Mock these modules in sys.modules
     sys.modules['vllm'] = vllm_mock
     sys.modules['mlx'] = mlx_mock
     sys.modules['mlx.core'] = mlx_core_mock
     sys.modules['lmdeploy'] = lmdeploy_mock
     sys.modules['sglang'] = sglang_mock
+    sys.modules['xllamacpp'] = xllamacpp_mock
+    sys.modules['mlx_lm'] = mlx_lm_mock
+    sys.modules['mlx_vlm'] = mlx_vlm_mock
 
 # Apply mocking before importing xinference modules
 mock_engine_libraries()
 
-from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
-from xinference.model.llm.vllm.core import VLLM_INSTALLED, VLLM_SUPPORTED_MODELS, VLLM_SUPPORTED_CHAT_MODELS
-
-# Additional mocking for platform/hardware checks in documentation generation
+# Mock platform checks BEFORE importing xinference modules
 def mock_platform_checks():
     """Mock platform and hardware checks for documentation generation"""
     from unittest.mock import patch
-    
+    import sys
+    import platform
+
+    # Mock platform system for MLX (make it appear as Apple Silicon)
+    sys.platform = "darwin"
+    platform.system = lambda: "Darwin"
+    platform.processor = lambda: "arm"
+
     # Mock vLLM platform checks
     import xinference.model.llm.vllm.core as vllm_core
     vllm_core.VLLMModel._is_linux = lambda: True
@@ -83,7 +115,7 @@ def mock_platform_checks():
     vllm_core.VLLMChatModel._has_cuda_device = lambda: True
     vllm_core.VLLMMultiModel._is_linux = lambda: True
     vllm_core.VLLMMultiModel._has_cuda_device = lambda: True
-    
+
     # Mock SGLang platform checks if available
     try:
         import xinference.model.llm.sglang.core as sglang_core
@@ -95,7 +127,7 @@ def mock_platform_checks():
         sglang_core.SGLANGVisionModel._has_cuda_device = lambda: True
     except ImportError:
         pass
-    
+
     # Mock LMDEPLOY platform checks if available
     try:
         import xinference.model.llm.lmdeploy.core as lmdeploy_core
@@ -107,6 +139,11 @@ def mock_platform_checks():
         pass
 
 mock_platform_checks()
+
+from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
+from xinference.model.llm.vllm.core import VLLM_INSTALLED, VLLM_SUPPORTED_MODELS, VLLM_SUPPORTED_CHAT_MODELS
+
+# Mock platform checks again after imports to ensure they stick
 
 # Re-register engines with mocked platform checks
 from xinference.model.llm import generate_engine_config_by_model_family
