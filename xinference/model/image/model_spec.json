@@ -812,6 +812,7 @@
     ],
     "virtualenv": {
       "packages": [
+        "pillow==11.3.0",
         "transformers==4.55.0",
         "#system_numpy#",
         "#system_torch#"
