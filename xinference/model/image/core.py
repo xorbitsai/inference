@@ -24,6 +24,7 @@ from ..utils import ModelInstanceInfoMixin
 from .ocr.deepseek_ocr import DeepSeekOCRModel
 from .ocr.got_ocr2 import GotOCR2Model
 from .ocr.hunyuan_ocr import HunyuanOCRModel
+from .ocr.paddleocr_vl import PaddleOCRVLModel
 from .stable_diffusion.core import DiffusionModel
 from .stable_diffusion.mlx import MLXDiffusionModel
 
@@ -161,7 +162,7 @@ def create_ocr_model_instance(
     model_spec: ImageModelFamilyV2,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel]:
+) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel, PaddleOCRVLModel]:
     from .cache_manager import ImageCacheManager
 
     if not model_path:
@@ -178,6 +179,13 @@ def create_ocr_model_instance(
         )
     if model_spec.model_name == "HunyuanOCR":
         return HunyuanOCRModel(
+            model_uid,
+            model_path,
+            model_spec=model_spec,
+            **kwargs,
+        )
+    elif model_spec.model_name == "PaddleOCR-VL":
+        return PaddleOCRVLModel(
             model_uid,
             model_path,
             model_spec=model_spec,
@@ -207,7 +215,7 @@ def create_image_model_instance(
     lightning_model_path: Optional[str] = None,
     **kwargs,
 ) -> Union[
-    DiffusionModel, MLXDiffusionModel, GotOCR2Model, DeepSeekOCRModel, HunyuanOCRModel
+    DiffusionModel, MLXDiffusionModel, GotOCR2Model, DeepSeekOCRModel, HunyuanOCRModel, PaddleOCRVLModel
 ]:
     from .cache_manager import ImageCacheManager
 
