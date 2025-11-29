@@ -957,14 +957,6 @@ class SupervisorActor(xo.StatelessActor):
                 **kwargs,
             )
 
-        # search in worker first
-        if not self.is_local_deployment() and worker_ip is None:
-            workers = list(self._worker_address_to_worker.values())
-            for worker in workers:
-                res = await worker.get_model_registration(model_type, model_name)
-                if res is not None:
-                    worker_ip = worker.address.split(":")[0]
-
         target_worker_refs = (
             self._get_worker_refs_by_ip(worker_ip) if worker_ip is not None else []
         )
