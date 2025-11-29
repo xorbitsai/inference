@@ -89,7 +89,7 @@
     "optionalConfigurations": "선택적 구성",
     "modelUID.optional": "(선택) 모델 UID, 기본값은 모델 이름",
     "requestLimits.optional": "(선택) 요청 제한, 이 모델의 요청 제한 수, 기본값은 없음",
-    "workerIp.optional": "(선택) 워커 IP, 분산 시나리오에서 모델이 위치한 워커 IP 지정",
+    "workerIp.optional": "(선택) 워커 IP, 분산 시나리오에서 모델이 위치한 워커 IP 지정,여러 개의 IP를 쉼표로 구분하여 지정할 수 있습니다.",
     "workerIp": "워커 IP, 분산 시나리오에서 모델이 위치한 워커 IP 지정",
     "workerCount.optional": "(선택) 워커 수",
     "GPUIdx.optional": "(선택) GPU 인덱스, 모델이 위치한 GPU 인덱스 지정",

@@ -87,7 +87,7 @@
     "optionalConfigurations": "可选配置",
     "modelUID.optional": "(可选) 模型 UID，默认是模型名称",
     "requestLimits.optional": "(可选) 请求限制，模型的请求限制数，默认值为无",
-    "workerIp.optional": "(可选) 工作节点 IP，在分布式场景中指定模型所在的工作节点 IP",
+    "workerIp.optional": "(可选) 工作节点 IP，在分布式场景中指定模型所在的工作节点 IP,可以用英文逗号分隔指定多个 IP",
     "workerIp": "工作节点 IP，在分布式场景中指定模型所在的工作节点 IP",
     "workerCount.optional": "(可选) Worker 数量",
     "GPUIdx.optional": "(可选) GPU 索引，指定模型所在的 GPU 索引",

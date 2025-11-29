@@ -89,7 +89,7 @@
     "optionalConfigurations": "オプション設定",
     "modelUID.optional": "(オプション) モデルUID、デフォルトはモデル名",
     "requestLimits.optional": "(オプション) リクエスト制限、このモデルのリクエスト制限数、デフォルトは無制限",
-    "workerIp.optional": "(オプション) ワーカーIP、分散シナリオでモデルが配置されているワーカーIPを指定",
+    "workerIp.optional": "(オプション) ワーカーIP、分散シナリオでモデルが配置されているワーカーIPを指定,カンマで区切ることで複数の IP を指定できます。",
     "workerIp": "ワーカーIP、分散シナリオでモデルが配置されているワーカーIPを指定",
     "workerCount.optional": "(オプション) ワーカー数",
     "GPUIdx.optional": "(オプション) GPUインデックス、モデルが配置されているGPUインデックスを指定",
