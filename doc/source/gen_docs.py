@@ -98,44 +98,95 @@ mock_engine_libraries()
 # Mock platform checks BEFORE importing xinference modules
 def mock_platform_checks():
     """Mock platform and hardware checks for documentation generation"""
-    from unittest.mock import patch
-    import sys
-    import platform
-
-    # Mock platform system for MLX (make it appear as Apple Silicon)
-    sys.platform = "darwin"
-    platform.system = lambda: "Darwin"
-    platform.processor = lambda: "arm"
-
-    # Mock vLLM platform checks
-    import xinference.model.llm.vllm.core as vllm_core
-    vllm_core.VLLMModel._is_linux = lambda: True
-    vllm_core.VLLMModel._has_cuda_device = lambda: True
-    vllm_core.VLLMChatModel._is_linux = lambda: True
-    vllm_core.VLLMChatModel._has_cuda_device = lambda: True
-    vllm_core.VLLMMultiModel._is_linux = lambda: True
-    vllm_core.VLLMMultiModel._has_cuda_device = lambda: True
-
-    # Mock SGLang platform checks if available
+    # Import and mock engine checks without modifying system-wide platform settings
     try:
-        import xinference.model.llm.sglang.core as sglang_core
-        sglang_core.SGLANGModel._is_linux = lambda: True
-        sglang_core.SGLANGModel._has_cuda_device = lambda: True
-        sglang_core.SGLANGChatModel._is_linux = lambda: True
-        sglang_core.SGLANGChatModel._has_cuda_device = lambda: True
-        sglang_core.SGLANGVisionModel._is_linux = lambda: True
-        sglang_core.SGLANGVisionModel._has_cuda_device = lambda: True
-    except ImportError:
-        pass
+        # Mock vLLM platform checks
+        import xinference.model.llm.vllm.core as vllm_core
+        vllm_core.VLLMModel._is_linux = lambda: True
+        vllm_core.VLLMModel._has_cuda_device = lambda: True
+        vllm_core.VLLMChatModel._is_linux = lambda: True
+        vllm_core.VLLMChatModel._has_cuda_device = lambda: True
+        vllm_core.VLLMMultiModel._is_linux = lambda: True
+        vllm_core.VLLMMultiModel._has_cuda_device = lambda: True
 
-    # Mock LMDEPLOY platform checks if available
-    try:
-        import xinference.model.llm.lmdeploy.core as lmdeploy_core
-        lmdeploy_core.LMDeployModel._is_linux = lambda: True
-        lmdeploy_core.LMDeployModel._has_cuda_device = lambda: True
-        lmdeploy_core.LMDeployChatModel._is_linux = lambda: True
-        lmdeploy_core.LMDeployChatModel._has_cuda_device = lambda: True
-    except ImportError:
+        # Mock SGLang platform checks if available
+        try:
+            import xinference.model.llm.sglang.core as sglang_core
+            sglang_core.SGLANGModel._is_linux = lambda: True
+            sglang_core.SGLANGModel._has_cuda_device = lambda: True
+            sglang_core.SGLANGChatModel._is_linux = lambda: True
+            sglang_core.SGLANGChatModel._has_cuda_device = lambda: True
+            sglang_core.SGLANGVisionModel._is_linux = lambda: True
+            sglang_core.SGLANGVisionModel._has_cuda_device = lambda: True
+        except ImportError:
+            pass
+
+        # Mock LMDEPLOY platform checks if available
+        try:
+            import xinference.model.llm.lmdeploy.core as lmdeploy_core
+            lmdeploy_core.LMDeployModel._is_linux = lambda: True
+            lmdeploy_core.LMDeployModel._has_cuda_device = lambda: True
+            lmdeploy_core.LMDeployChatModel._is_linux = lambda: True
+            lmdeploy_core.LMDeployChatModel._has_cuda_device = lambda: True
+        except ImportError:
+            pass
+
+        # Mock MLX engine platform checks by monkey-patching the imports within MLX module
+        try:
+            # First, let's monkey-patch sys and platform imports within the MLX module only
+            import xinference.model.llm.mlx.core as mlx_core
+
+            # Create mock objects that look like sys.platform and platform functions
+            class MockSys:
+                platform = "darwin"
+
+            class MockPlatform:
+                @staticmethod
+                def system():
+                    return "Darwin"
+
+                @staticmethod
+                def processor():
+                    return "arm"
+
+            # Store original references
+            original_mlx_match = mlx_core.MLXModel.match_json
+            original_mlx_chat_match = mlx_core.MLXChatModel.match_json
+            original_mlx_vision_match = mlx_core.MLXVisionModel.match_json
+
+            # Now create wrapper functions that replace sys and platform only during the platform check
+            def create_wrapped_match_json(original_match):
+                def wrapped_match_json(cls, llm_family, llm_spec, quantization):
+                    # Temporarily replace sys and platform in the MLX module
+                    import sys as original_sys
+                    import platform as original_platform
+
+                    # Replace sys and platform temporarily
+                    mlx_core.sys = MockSys()
+                    mlx_core.platform = MockPlatform()
+
+                    try:
+                        # Call the original match_json which will now see the mocked platform
+                        result = original_match.__func__(cls, llm_family, llm_spec, quantization)
+                        return result
+                    finally:
+                        # Restore original sys and platform
+                        mlx_core.sys = original_sys
+                        mlx_core.platform = original_platform
+
+                return classmethod(wrapped_match_json)
+
+            # Apply the wrapped match_json methods
+            mlx_core.MLXModel.match_json = create_wrapped_match_json(original_mlx_match)
+            mlx_core.MLXChatModel.match_json = create_wrapped_match_json(original_mlx_chat_match)
+            mlx_core.MLXVisionModel.match_json = create_wrapped_match_json(original_mlx_vision_match)
+
+        except ImportError:
+            pass
+
+    except Exception as e:
+        # If any mocking fails, continue without it
+        print(f"Warning: Could not mock some engine platform checks: {e}")
         pass
 
 mock_platform_checks()
