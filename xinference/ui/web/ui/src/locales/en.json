@@ -89,7 +89,7 @@
     "optionalConfigurations": "Optional Configurations",
     "modelUID.optional": "(Optional) Model UID, model name by default",
     "requestLimits.optional": "(Optional) Request Limits, the number of request limits for this model, default is None",
-    "workerIp.optional": "(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario",
+    "workerIp.optional": "(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario,multiple IPs can be specified by separating them with commas.",
     "workerIp": "Worker Ip, specify the worker ip where the model is located in a distributed scenario",
     "workerCount.optional": "(Optional) Worker Count",
     "GPUIdx.optional": "(Optional) GPU Idx, Specify the GPU index where the model is located",
@@ -157,7 +157,8 @@
     "noRunningModelsMatches": "No Running Models Matches",
     "copy": "Copy",
     "copied": "Copied!",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "viewDetails": "View Details"
   },
 
   "registerModel": {

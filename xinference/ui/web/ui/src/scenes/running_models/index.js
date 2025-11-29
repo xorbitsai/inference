@@ -2,7 +2,28 @@ import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import OpenInBrowserOutlinedIcon from '@mui/icons-material/OpenInBrowserOutlined'
 import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Badge, Box, IconButton, Stack, Tab, Tooltip } from '@mui/material'
+import {
+  Badge,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Stack,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
+  Typography,
+} from '@mui/material'
 import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -66,6 +87,9 @@ const RunningModels = () => {
   const [videoModelData, setVideoModelData] = useState([])
   const [rerankModelData, setRerankModelData] = useState([])
   const [flexibleModelData, setFlexibleModelData] = useState([])
+  const [replicaDialogOpen, setReplicaDialogOpen] = useState(false)
+  const [selectedModelReplicas, setSelectedModelReplicas] = useState([])
+  const [selectedModelUid, setSelectedModelUid] = useState('')
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -176,10 +200,58 @@ const RunningModels = () => {
     }
   }
 
+  const handleViewReplicas = async (modelUid) => {
+    try {
+      const response = await fetch(`${endPoint}/v1/models/${modelUid}/replicas`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch replica status')
+      }
+      const replicas = await response.json()
+      setSelectedModelReplicas(replicas)
+      setSelectedModelUid(modelUid)
+      setReplicaDialogOpen(true)
+    } catch (error) {
+      console.error('Error fetching replica details:', error)
+      setErrorMsg('Failed to load replica details: ' + error.message)
+    }
+  }
+
   useEffect(() => {
     update(isCallingApi)
     // eslint-disable-next-line
   }, [isCallingApi, cookie.token])
+
+  const replicaColumn = {
+    field: 'replica',
+    headerName: t('runningModels.replica'),
+    flex: 1,
+    renderCell: ({ row }) => {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            paddingRight: 2,
+          }}
+        >
+          <span>{row.replica}</span>
+          <Button
+            size="small"
+            variant="text"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleViewReplicas(row.id)
+            }}
+            sx={{ minWidth: 'auto', padding: '4px 8px' }}
+          >
+            {t('runningModels.viewDetails')}
+          </Button>
+        </Box>
+      )
+    },
+  }
 
   const llmColumns = [
     {
@@ -219,11 +291,7 @@ const RunningModels = () => {
       headerName: t('runningModels.quantization'),
       flex: 1,
     },
-    {
-      field: 'replica',
-      headerName: t('runningModels.replica'),
-      flex: 1,
-    },
+    replicaColumn,
     {
       field: 'url',
       headerName: t('runningModels.actions'),
@@ -408,11 +476,7 @@ const RunningModels = () => {
       headerName: t('runningModels.gpuIndexes'),
       flex: 1,
     },
-    {
-      field: 'replica',
-      headerName: t('runningModels.replica'),
-      flex: 1,
-    },
+    replicaColumn,
     {
       field: 'url',
       headerName: t('runningModels.actions'),
@@ -515,11 +579,7 @@ const RunningModels = () => {
       headerName: t('runningModels.gpuIndexes'),
       flex: 1,
     },
-    {
-      field: 'replica',
-      headerName: t('runningModels.replica'),
-      flex: 1,
-    },
+    replicaColumn,
     {
       field: 'url',
       headerName: t('runningModels.actions'),
@@ -976,6 +1036,99 @@ const RunningModels = () => {
           </Box>
         </TabPanel>
       </TabContext>
+
+      {/* Replica Details Dialog */}
+      <Dialog
+        open={replicaDialogOpen}
+        onClose={() => setReplicaDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Model Replica Details
+          <Typography variant="caption" display="block" color="text.secondary">
+            Model UID: {selectedModelUid}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Replica ID</TableCell>
+                  <TableCell>Model UID</TableCell>
+                  <TableCell>Worker Address</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Created Time</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {selectedModelReplicas.map((replica) => (
+                  <TableRow key={replica.replica_id}>
+                    <TableCell>{replica.replica_id}</TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                      >
+                        {replica.replica_model_uid}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{replica.worker_address}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={replica.status}
+                        color={
+                          replica.status === 'READY'
+                            ? 'success'
+                            : replica.status === 'ERROR'
+                            ? 'error'
+                            : 'default'
+                        }
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {new Date(replica.created_ts * 1000).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {selectedModelReplicas.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography variant="body2" color="text.secondary">
+                        No replica information available
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {selectedModelReplicas.some((r) => r.error_message) && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" color="error">
+                Errors:
+              </Typography>
+              {selectedModelReplicas
+                .filter((r) => r.error_message)
+                .map((replica, idx) => (
+                  <Typography
+                    key={idx}
+                    variant="caption"
+                    display="block"
+                    color="error"
+                  >
+                    Replica {replica.replica_id}: {replica.error_message}
+                  </Typography>
+                ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReplicaDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

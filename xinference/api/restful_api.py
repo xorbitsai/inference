@@ -526,6 +526,16 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/models/{model_uid}/replicas",
+            self.get_model_replicas,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/models/{model_uid}/requests/{request_id}/abort",
             self.abort_request,
             methods=["POST"],
@@ -1323,6 +1333,20 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=infos)
+
+    async def get_model_replicas(self, model_uid: str) -> JSONResponse:
+        """Get detailed status of all replicas for a model"""
+        try:
+            replicas = await (await self._get_supervisor_ref()).get_replica_statuses(
+                model_uid
+            )
+            return JSONResponse(content=replicas)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
         try:

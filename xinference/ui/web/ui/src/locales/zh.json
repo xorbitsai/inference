@@ -7,7 +7,6 @@
     "contactUs": "联系我们",
     "documentation": "文档"
   },
-
   "model": {
     "languageModels": "语言模型",
     "embeddingModels": "嵌入模型",
@@ -18,7 +17,6 @@
     "customModels": "自定义模型",
     "flexibleModels": "灵活模型"
   },
-
   "launchModel": {
     "modelAbility": "模型能力",
     "generate": "文本生成",
@@ -89,7 +87,7 @@
     "optionalConfigurations": "可选配置",
     "modelUID.optional": "(可选) 模型 UID，默认是模型名称",
     "requestLimits.optional": "(可选) 请求限制，模型的请求限制数，默认值为无",
-    "workerIp.optional": "(可选) 工作节点 IP，在分布式场景中指定模型所在的工作节点 IP",
+    "workerIp.optional": "(可选) 工作节点 IP，在分布式场景中指定模型所在的工作节点 IP,可以用英文逗号分隔指定多个 IP",
     "workerIp": "工作节点 IP，在分布式场景中指定模型所在的工作节点 IP",
     "workerCount.optional": "(可选) Worker 数量",
     "GPUIdx.optional": "(可选) GPU 索引，指定模型所在的 GPU 索引",
@@ -144,7 +142,6 @@
     "mustBeUnique": "{{key}} 必须唯一",
     "update": "更新"
   },
-
   "runningModels": {
     "name": "名称",
     "address": "地址",
@@ -157,9 +154,9 @@
     "noRunningModelsMatches": "没有匹配的运行模型",
     "copy": "复制",
     "copied": "已复制!",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "viewDetails": "查看详情"
   },
-
   "registerModel": {
     "modelName": "模型名称",
     "modelDescription": "模型描述（可选）",
@@ -219,7 +216,6 @@
     "stopControlStringForChatModels": "字符串类型，用于控制聊天模型的停止。",
     "enterJsonFormattedDictionary": "请输入 JSON 格式的字典。"
   },
-
   "clusterInfo": {
     "supervisor": "主管",
     "workers": "工作节点",
@@ -247,7 +243,6 @@
     "gpuMemTotal": "GPU 内存总量",
     "worker": "工作节点"
   },
-
   "components": {
     "suggestsCommonParameters": "提示常用参数，也允许输入其他参数",
     "warning": "警告",
