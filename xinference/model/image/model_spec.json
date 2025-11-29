@@ -1059,6 +1059,10 @@
       ]
     },
     "model_src": {
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-dev",
+        "model_revision": "master"
+      },
       "huggingface": {
         "model_id": "black-forest-labs/FLUX.2-dev",
         "model_revision": "420f8eb9f7869bf378c45a5206424814561903e7",
@@ -1080,13 +1084,9 @@
           "Q8_0"
         ],
         "gguf_model_file_name_template": "flux2-dev-{quantization}.gguf"
-      },
-      "modelscope": {
-        "model_id": "black-forest-labs/FLUX.2-dev",
-        "model_revision": "master"
       }
     },
     "featured": true,
-    "updated_at": 1764238415
+    "updated_at": 1764322840
   }
 ]
