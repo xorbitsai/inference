@@ -168,7 +168,8 @@
     "noRunningModelsMatches": "一致する実行中のモデルはありません",
     "copy": "コピー",
     "copied": "コピーしました！",
-    "copyFailed": "コピーに失敗しました"
+    "copyFailed": "コピーに失敗しました",
+    "viewDetails": "詳細を表示"
   },
   "registerModel": {
     "modelName": "モデル名",

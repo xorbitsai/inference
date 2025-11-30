@@ -168,7 +168,8 @@
     "noRunningModelsMatches": "일치하는 실행 중인 모델이 없습니다",
     "copy": "복사",
     "copied": "복사되었습니다!",
-    "copyFailed": "복사 실패"
+    "copyFailed": "복사 실패",
+    "viewDetails": "상세 보기"
   },
   "registerModel": {
     "modelName": "모델 이름",
