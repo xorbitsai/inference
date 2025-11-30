@@ -1045,9 +1045,9 @@ const RunningModels = () => {
         fullWidth
       >
         <DialogTitle>
-          Model Replica Details
+          {t('modelReplicaDetails.title')}
           <Typography variant="caption" display="block" color="text.secondary">
-            Model UID: {selectedModelUid}
+            {t('modelReplicaDetails.modelUid')}: {selectedModelUid}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -1055,11 +1055,11 @@ const RunningModels = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Replica ID</TableCell>
-                  <TableCell>Model UID</TableCell>
-                  <TableCell>Worker Address</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created Time</TableCell>
+                  <TableCell>{t('modelReplicaDetails.replicaId')}</TableCell>
+                  <TableCell>{t('modelReplicaDetails.modelUid')}</TableCell>
+                  <TableCell>{t('modelReplicaDetails.workerAddress')}</TableCell>
+                  <TableCell>{t('modelReplicaDetails.status')}</TableCell>
+                  <TableCell>{t('modelReplicaDetails.createdTime')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1097,7 +1097,7 @@ const RunningModels = () => {
                   <TableRow>
                     <TableCell colSpan={5} align="center">
                       <Typography variant="body2" color="text.secondary">
-                        No replica information available
+                        {t('modelReplicaDetails.noReplicaInfo')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -1108,7 +1108,7 @@ const RunningModels = () => {
           {selectedModelReplicas.some((r) => r.error_message) && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" color="error">
-                Errors:
+                {t('modelReplicaDetails.errors')}:
               </Typography>
               {selectedModelReplicas
                 .filter((r) => r.error_message)
@@ -1119,14 +1119,14 @@ const RunningModels = () => {
                     display="block"
                     color="error"
                   >
-                    Replica {replica.replica_id}: {replica.error_message}
+                    {t('modelReplicaDetails.replica')} {replica.replica_id}: {replica.error_message}
                   </Typography>
                 ))}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setReplicaDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setReplicaDialogOpen(false)}>{t('modelReplicaDetails.close')}</Button>
         </DialogActions>
       </Dialog>
     </Box>
