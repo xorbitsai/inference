@@ -1057,7 +1057,9 @@ const RunningModels = () => {
                 <TableRow>
                   <TableCell>{t('modelReplicaDetails.replicaId')}</TableCell>
                   <TableCell>{t('modelReplicaDetails.modelUid')}</TableCell>
-                  <TableCell>{t('modelReplicaDetails.workerAddress')}</TableCell>
+                  <TableCell>
+                    {t('modelReplicaDetails.workerAddress')}
+                  </TableCell>
                   <TableCell>{t('modelReplicaDetails.status')}</TableCell>
                   <TableCell>{t('modelReplicaDetails.createdTime')}</TableCell>
                 </TableRow>
@@ -1119,14 +1121,17 @@ const RunningModels = () => {
                     display="block"
                     color="error"
                   >
-                    {t('modelReplicaDetails.replica')} {replica.replica_id}: {replica.error_message}
+                    {t('modelReplicaDetails.replica')} {replica.replica_id}:{' '}
+                    {replica.error_message}
                   </Typography>
                 ))}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setReplicaDialogOpen(false)}>{t('modelReplicaDetails.close')}</Button>
+          <Button onClick={() => setReplicaDialogOpen(false)}>
+            {t('modelReplicaDetails.close')}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

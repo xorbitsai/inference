@@ -187,8 +187,8 @@ const LaunchModelDrawer = ({
             result[key] === null
               ? 'none'
               : result[key] === false
-                ? false
-                : result[key],
+              ? false
+              : result[key],
         })
     }
     if (customData.length) result.custom = customData
@@ -477,7 +477,7 @@ const LaunchModelDrawer = ({
               (item) =>
                 item.model_format === formData.model_format &&
                 item.model_size_in_billions ===
-                convertModelSize(formData.model_size_in_billions)
+                  convertModelSize(formData.model_size_in_billions)
             )
             .flatMap((item) => item.quantizations)
         ),
@@ -489,7 +489,7 @@ const LaunchModelDrawer = ({
               (item) =>
                 item.model_format === formData.model_format &&
                 item.model_size_in_billions ===
-                convertModelSize(formData.model_size_in_billions)
+                  convertModelSize(formData.model_size_in_billions)
             )
             .flatMap((item) => item.multimodal_projectors || [])
         ),
@@ -590,7 +590,7 @@ const LaunchModelDrawer = ({
         .filter((spec) =>
           modelType === 'LLM'
             ? spec.model_size_in_billions ===
-            convertModelSize(formData.model_size_in_billions)
+              convertModelSize(formData.model_size_in_billions)
             : true
         )
 
@@ -736,12 +736,12 @@ const LaunchModelDrawer = ({
     }
 
     const peft_model_config = {}
-      ;['image_lora_load_kwargs', 'image_lora_fuse_kwargs'].forEach((key) => {
-        if (result[key]?.length) {
-          peft_model_config[key] = arrayToObject(result[key], handleValueType)
-          delete result[key]
-        }
-      })
+    ;['image_lora_load_kwargs', 'image_lora_fuse_kwargs'].forEach((key) => {
+      if (result[key]?.length) {
+        peft_model_config[key] = arrayToObject(result[key], handleValueType)
+        delete result[key]
+      }
+    })
     if (result.lora_list?.length) {
       peft_model_config.lora_list = result.lora_list
       delete result.lora_list
@@ -1136,7 +1136,8 @@ const LaunchModelDrawer = ({
                             }}
                           >
                             <Typography variant="caption">
-                              {t('modelReplicaDetails.replica')} {replica.replica_id}:
+                              {t('modelReplicaDetails.replica')}{' '}
+                              {replica.replica_id}:
                             </Typography>
                             <Chip
                               label={replica.status}
@@ -1144,8 +1145,8 @@ const LaunchModelDrawer = ({
                                 replica.status === 'READY'
                                   ? 'success'
                                   : replica.status === 'ERROR'
-                                    ? 'error'
-                                    : 'default'
+                                  ? 'error'
+                                  : 'default'
                               }
                               size="small"
                               sx={{ height: 20, fontSize: '0.7rem' }}
