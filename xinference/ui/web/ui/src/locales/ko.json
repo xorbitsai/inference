@@ -7,7 +7,6 @@
     "contactUs": "문의하기",
     "documentation": "문서"
   },
-
   "model": {
     "languageModels": "언어 모델",
     "embeddingModels": "임베딩 모델",
@@ -18,7 +17,6 @@
     "customModels": "커스텀 모델",
     "flexibleModels": "유연한 모델"
   },
-
   "launchModel": {
     "modelAbility": "모델 기능",
     "generate": "텍스트 생성",
@@ -142,9 +140,22 @@
     "all": "모두",
     "cancelledSuccessfully": "성공적으로 취소되었습니다!",
     "mustBeUnique": "{{key}} 는 고유해야 합니다",
-    "update": "업데이트"
+    "update": "업데이트",
+    "launchProgress": "시작 진행 상황",
+    "initializing": "초기화 중..."
   },
-
+  "modelReplicaDetails": {
+    "title": "모델 복제본 세부 정보",
+    "modelUid": "모델 UID",
+    "replicaId": "복제본 ID",
+    "workerAddress": "워커 주소",
+    "status": "상태",
+    "createdTime": "생성 시간",
+    "noReplicaInfo": "복제본 정보를 사용할 수 없습니다",
+    "errors": "오류",
+    "replica": "복제본",
+    "close": "닫기"
+  },
   "runningModels": {
     "name": "이름",
     "address": "주소",
@@ -159,7 +170,6 @@
     "copied": "복사되었습니다!",
     "copyFailed": "복사 실패"
   },
-
   "registerModel": {
     "modelName": "모델 이름",
     "modelDescription": "모델 설명 (선택)",
@@ -219,7 +229,6 @@
     "stopControlStringForChatModels": "string 유형, 채팅 모델의 중지를 제어하는 데 사용",
     "enterJsonFormattedDictionary": "JSON 형식의 사전을 입력하세요."
   },
-
   "clusterInfo": {
     "supervisor": "슈퍼바이저",
     "workers": "워커",
@@ -247,7 +256,6 @@
     "gpuMemTotal": "GPU 메모리 총계",
     "worker": "워커"
   },
-
   "components": {
     "suggestsCommonParameters": "일반적인 매개변수를 제안합니다. 다른 매개변수도 사용 가능합니다.",
     "warning": "경고",

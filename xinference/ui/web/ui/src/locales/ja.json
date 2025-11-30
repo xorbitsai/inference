@@ -7,7 +7,6 @@
     "contactUs": "お問い合わせ",
     "documentation": "ドキュメント"
   },
-
   "model": {
     "languageModels": "言語モデル",
     "embeddingModels": "埋め込みモデル",
@@ -18,7 +17,6 @@
     "customModels": "カスタムモデル",
     "flexibleModels": "フレキシブルモデル"
   },
-
   "launchModel": {
     "modelAbility": "モデル機能",
     "generate": "テキスト生成",
@@ -142,9 +140,22 @@
     "all": "すべて",
     "cancelledSuccessfully": "正常にキャンセルされました！",
     "mustBeUnique": "{{key}} は一意でなければなりません",
-    "update": "更新"
+    "update": "更新",
+    "launchProgress": "起動状況",
+    "initializing": "初期化中..."
   },
-
+  "modelReplicaDetails": {
+    "title": "モデルレプリカの詳細",
+    "modelUid": "モデル UID",
+    "replicaId": "レプリカ ID",
+    "workerAddress": "ワーカーアドレス",
+    "status": "ステータス",
+    "createdTime": "作成日時",
+    "noReplicaInfo": "レプリカ情報はありません",
+    "errors": "エラー",
+    "replica": "レプリカ",
+    "close": "閉じる"
+  },
   "runningModels": {
     "name": "名前",
     "address": "アドレス",
@@ -159,7 +170,6 @@
     "copied": "コピーしました！",
     "copyFailed": "コピーに失敗しました"
   },
-
   "registerModel": {
     "modelName": "モデル名",
     "modelDescription": "モデル説明（オプション）",
@@ -219,7 +229,6 @@
     "stopControlStringForChatModels": "string型、チャットモデルの停止を制御するために使用",
     "enterJsonFormattedDictionary": "JSON形式の辞書を入力してください。"
   },
-
   "clusterInfo": {
     "supervisor": "スーパーバイザー",
     "workers": "ワーカー",
@@ -247,7 +256,6 @@
     "gpuMemTotal": "GPUメモリ合計",
     "worker": "ワーカー"
   },
-
   "components": {
     "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。",
     "warning": "警告",
