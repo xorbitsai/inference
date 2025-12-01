@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import importlib
 import importlib.util
 import itertools
 import json
@@ -893,8 +894,12 @@ class VLLMModel(LLM):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("vllm") is None:
-            return False, "vLLM library is not installed"
+        try:
+            importlib.import_module("vllm")
+        except ImportError as exc:  # includes missing shared libs such as libcudart
+            return False, f"Failed to import vLLM: {exc}"
+        except OSError as exc:  # native extension load errors
+            return False, f"Failed to load vLLM native extension: {exc}"
         return True
 
     @classmethod

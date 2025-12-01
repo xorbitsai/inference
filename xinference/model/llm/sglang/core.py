@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib.util
 import json
 import logging
 import multiprocessing
@@ -33,6 +32,7 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
 )
+from ...utils import check_dependency_available
 from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..llm_family import CustomLLMFamilyV2
@@ -335,8 +335,9 @@ class SGLANGModel(LLM):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("sglang") is None:
-            return False, "sglang library is not installed"
+        dep_check = check_dependency_available("sglang", "sglang")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

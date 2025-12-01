@@ -15,7 +15,6 @@
 import asyncio
 import concurrent.futures
 import importlib
-import importlib.util
 import logging
 import pathlib
 import platform
@@ -49,6 +48,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
+from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
@@ -405,8 +405,9 @@ class MLXModel(LLM):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("mlx_lm") is None:
-            return False, "mlx_lm library is not installed"
+        dep_check = check_dependency_available("mlx_lm", "mlx_lm")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod
@@ -778,8 +779,9 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 class MLXVisionModel(MLXModel, ChatModelMixin):
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("mlx_vlm") is None:
-            return False, "mlx_vlm library is not installed"
+        dep_check = check_dependency_available("mlx_vlm", "mlx_vlm")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

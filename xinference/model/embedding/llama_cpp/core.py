@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import concurrent.futures
-import importlib.util
 import logging
 import os
 import platform
@@ -26,6 +25,7 @@ from packaging import version
 
 from ....types import Embedding
 from ...batch import BatchMixin
+from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -230,8 +230,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("xllamacpp") is None:
-            return False, "xllamacpp library is not installed"
+        dep_check = check_dependency_available("xllamacpp", "xllamacpp")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

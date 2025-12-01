@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
 import json
 import logging
 from typing import List, Tuple, Union
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
-from ...utils import cache_clean
+from ...utils import cache_clean, check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -152,8 +151,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("vllm") is None:
-            return False, "vLLM library is not installed"
+        dep_check = check_dependency_available("vllm", "vLLM")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod
