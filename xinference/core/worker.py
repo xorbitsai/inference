@@ -65,6 +65,7 @@ from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -127,6 +128,9 @@ class WorkerActor(xo.StatelessActor):
             CacheTrackerActor
         ] = None  # type: ignore
 
+        # Virtual environment management
+        self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
+
         # internal states.
         # temporary placeholder during model launch process:
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
@@ -173,6 +177,9 @@ class WorkerActor(xo.StatelessActor):
                     pass
             else:
                 raise Exception("Metrics server thread exit.")
+
+        # Initialize virtual environment manager
+        self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
 
         self._lock = asyncio.Lock()
 
@@ -802,55 +809,243 @@ class WorkerActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        ret = []
+
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = []
+            # Add built-in LLM families
+            for family in BUILTIN_LLM_FAMILIES:
+                if detailed:
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in family.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
 
+                    ret.append(
+                        {
+                            **family.dict(),
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
+
+            # Add user-defined LLM families
             for family in get_user_defined_llm_families():
-                ret.append({"model_name": family.model_name, "is_builtin": False})
+                if detailed:
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in family.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
+                    ret.append(
+                        {
+                            **family.dict(),
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            ret = []
+            # Add built-in embedding models
+            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                for family in family_list:
+                    if detailed:
+                        # Remove duplicate hubs while preserving order
+                        seen_hubs = set()
+                        download_hubs = []
+                        for spec in family.model_specs:
+                            if spec.model_hub not in seen_hubs:
+                                seen_hubs.add(spec.model_hub)
+                                download_hubs.append(spec.model_hub)
 
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": download_hubs,
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
+
+            # Add user-defined embedding models
             for model_spec in get_user_defined_embeddings():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in model_spec.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            ret = []
+            # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_IMAGE_MODELS.items():
+                for family in families:
+                    if detailed:
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined image models
             for model_spec in get_user_defined_images():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": [model_spec.model_hub],
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            ret = []
+            # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_AUDIO_MODELS.items():
+                for family in families:
+                    if detailed:
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined audio models
             for model_spec in get_user_defined_audios():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": [model_spec.model_hub],
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            return []
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_VIDEO_MODELS.items():
+                for family in families:
+                    if detailed:
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
         elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            ret = []
+            # Add built-in rerank models (BUILTIN_RERANK_MODELS contains model_name -> family_list list)
+            for model_name, family_list in BUILTIN_RERANK_MODELS.items():
+                for family in family_list:
+                    if detailed:
+                        # Remove duplicate hubs while preserving order
+                        seen_hubs = set()
+                        download_hubs = []
+                        for spec in family.model_specs:
+                            if spec.model_hub not in seen_hubs:
+                                seen_hubs.add(spec.model_hub)
+                                download_hubs.append(spec.model_hub)
 
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "is_builtin": True,
+                                "download_hubs": download_hubs,
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
+
+            # Add user-defined rerank models
             for model_spec in get_user_defined_reranks():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    # Remove duplicate hubs while preserving order
+                    seen_hubs = set()
+                    download_hubs = []
+                    for spec in model_spec.model_specs:
+                        if spec.model_hub not in seen_hubs:
+                            seen_hubs.add(spec.model_hub)
+                            download_hubs.append(spec.model_hub)
+
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -870,34 +1065,85 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
+            # Check built-in LLM families
+            for f in BUILTIN_LLM_FAMILIES:
+                if f.model_name == model_name:
+                    return f
+
+            # Check user-defined LLM families
             for f in get_user_defined_llm_families():
                 if f.model_name == model_name:
                     return f
         elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
+            # Check built-in embedding models
+            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                if model_name == model_name:
+                    # Return the huggingface family from the list
+                    for family in family_list:
+                        if family.model_hub == "huggingface":
+                            return family
+
+            # Check user-defined embedding models
             for f in get_user_defined_embeddings():
                 if f.model_name == model_name:
                     return f
         elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
+            # Check built-in image models
+            if model_name in BUILTIN_IMAGE_MODELS:
+                families = BUILTIN_IMAGE_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined image models
             for f in get_user_defined_images():
                 if f.model_name == model_name:
                     return f
         elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
+            # Check built-in audio models
+            if model_name in BUILTIN_AUDIO_MODELS:
+                families = BUILTIN_AUDIO_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined audio models
             for f in get_user_defined_audios():
                 if f.model_name == model_name:
                     return f
         elif model_type == "video":
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            # Check built-in video models
+            if model_name in BUILTIN_VIDEO_MODELS:
+                families = BUILTIN_VIDEO_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
             return None
         elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
+            # Check built-in rerank models
+            if model_name in BUILTIN_RERANK_MODELS:
+                family_list = BUILTIN_RERANK_MODELS[model_name]
+                for f in family_list:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined rerank models
             for f in get_user_defined_reranks():
                 if f.model_name == model_name:
                     return f
@@ -1138,8 +1384,10 @@ class WorkerActor(xo.StatelessActor):
 
             # virtualenv
             virtual_env_name = kwargs.pop("virtual_env_name", None)
+            # Use v3 structure: .xinference/virtualenv/v3/model_name/python_version
+            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
             virtual_env_path = os.path.join(
-                XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
+                XINFERENCE_VIRTUAL_ENV_DIR, "v3", model_name, python_version
             )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
@@ -1293,9 +1541,8 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
-            self._model_uid_to_model_spec[model_uid] = (
-                model.model_family.to_description()
-            )
+            model_spec = model.model_family.to_description()
+            self._model_uid_to_model_spec[model_uid] = model_spec
             self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
@@ -1304,6 +1551,26 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_launch_args[model_uid] = launch_args
         finally:
             del self._model_uid_launching_guard[model_uid]
+
+        # Record virtual environment information if applicable
+        if virtual_env_manager is not None and virtual_env_path is not None:
+            try:
+                # Get package information from virtual environment settings
+                packages: List[str] = []
+                package_info: Dict[str, Any] = {}
+                if (
+                    model_spec
+                    and hasattr(model_spec, "virtualenv")
+                    and model_spec.virtualenv
+                ):
+                    packages = model_spec.virtualenv.packages or []
+
+                # Virtual environment tracking is no longer needed
+                logger.info(
+                    f"Virtual environment created for model: {model.model_family.model_name}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to handle virtual environment info: {e}")
 
         # update status to READY
         abilities = await self._get_model_ability(model, model_type)
@@ -1434,6 +1701,9 @@ class WorkerActor(xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
+            # Clean up virtual environment tracking
+            # Virtual environment tracking is no longer needed
+
             self._model_uid_to_model.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
             self.release_devices(model_uid)
@@ -1603,6 +1873,40 @@ class WorkerActor(xo.StatelessActor):
             model_version, self.address
         )
         return True
+
+    # Virtual environment management methods
+    async def list_virtual_envs(
+        self, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        """List all virtual environments or filter by model name."""
+        try:
+            result = self._virtual_env_manager.list_virtual_envs(model_name)
+            # Add IP address to each virtual environment, same as cache implementation
+            virtual_envs = []
+            for env in result:
+                virtual_env = {
+                    "model_name": env.get("model_name"),
+                    "path": env.get("path"),
+                    "real_path": env.get("real_path"),
+                    "python_version": env.get("python_version"),
+                    "actor_ip_address": self.address,
+                }
+                virtual_envs.append(virtual_env)
+
+            return virtual_envs
+        except Exception as e:
+            logger.error(f"Error in list_virtual_envs: {e}")
+            raise
+
+    async def list_virtual_env_packages(self, model_name: str) -> Dict[str, Any]:
+        """List packages installed in a specific virtual environment."""
+        return self._virtual_env_manager.list_virtual_env_packages(model_name)
+
+    async def remove_virtual_env(
+        self, model_name: str, python_version: Optional[str] = None
+    ) -> bool:
+        """Remove a virtual environment for a specific model."""
+        return self._virtual_env_manager.remove_virtual_env(model_name, python_version)
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {

@@ -17,7 +17,7 @@ import logging
 import time
 import uuid
 from threading import Thread
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
 
@@ -54,16 +54,29 @@ class QwenOmniChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+            return (
+                False,
+                "Qwen Omni transformer supports pytorch/gptq/awq/bnb formats only",
+            )
         llm_family = model_family.model_family or model_family.model_name
-        if (
+        if not (
             "qwen2.5-omni".lower() in llm_family.lower()
             or "qwen3-omni".lower() in llm_family.lower()
         ):
-            return True
-        return False
+            return False, f"Model family {llm_family} is not Qwen Omni"
+        abilities = model_family.model_ability
+        if (
+            "omni" not in abilities
+            and "vision" not in abilities
+            and "audio" not in abilities
+        ):
+            return (
+                False,
+                "Qwen Omni transformer requires omni, vision, or audio ability",
+            )
+        return True
 
     def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")

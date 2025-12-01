@@ -14,7 +14,16 @@
 import importlib.util
 import logging
 import uuid
-from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
+from typing import (
+    AsyncGenerator,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import torch
 
@@ -114,14 +123,16 @@ class LMDeployModel(LLM):
         raise ValueError("LMDEPLOY engine has not supported generate yet.")
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("lmdeploy") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("lmdeploy") is None:
+            return False, "lmdeploy library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        return False, "LMDeploy engine has no standalone generate capability"
 
     def generate(
         self,
@@ -173,14 +184,18 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
-                return False
+                return False, "LMDeploy chat only supports 4-bit AWQ weights"
         if llm_family.model_name not in LMDEPLOY_SUPPORTED_CHAT_MODELS:
-            return False
-        return LMDEPLOY_INSTALLED
+            return (
+                False,
+                f"Model {llm_family.model_name} is not in LMDeploy supported chat list",
+            )
+        if not LMDEPLOY_INSTALLED:
+            return False, "lmdeploy library is not installed"
+        return True
 
     async def async_chat(
         self,

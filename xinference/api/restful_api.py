@@ -526,6 +526,16 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/models/{model_uid}/replicas",
+            self.get_model_replicas,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/models/{model_uid}/requests/{request_id}/abort",
             self.abort_request,
             methods=["POST"],
@@ -945,6 +955,26 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/virtualenvs",
+            self.list_virtual_envs,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["virtualenv:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/virtualenvs",
+            self.remove_virtual_env,
+            methods=["DELETE"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["virtualenv:delete"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/workers",
             self.get_workers_info,
             methods=["GET"],
@@ -1303,6 +1333,20 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=infos)
+
+    async def get_model_replicas(self, model_uid: str) -> JSONResponse:
+        """Get detailed status of all replicas for a model"""
+        try:
+            replicas = await (await self._get_supervisor_ref()).get_replica_statuses(
+                model_uid
+            )
+            return JSONResponse(content=replicas)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
         try:
@@ -3333,6 +3377,51 @@ class RESTfulAPI(CancelMixin):
         try:
             res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
+            )
+            return JSONResponse(content={"result": res})
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_virtual_envs(
+        self, model_name: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
+        """List all virtual environments or filter by model name."""
+        try:
+            data = await (await self._get_supervisor_ref()).list_virtual_envs(
+                model_name, worker_ip
+            )
+            resp = {
+                "list": data,
+            }
+            return JSONResponse(content=resp)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def remove_virtual_env(
+        self,
+        model_name: str = Query(None),
+        python_version: str = Query(None),
+        worker_ip: str = Query(None),
+    ) -> JSONResponse:
+        """Remove a virtual environment for a specific model."""
+        if not model_name:
+            raise HTTPException(
+                status_code=400, detail="model_name parameter is required"
+            )
+
+        try:
+            res = await (await self._get_supervisor_ref()).remove_virtual_env(
+                model_name=model_name,
+                python_version=python_version,
+                worker_ip=worker_ip,
             )
             return JSONResponse(content={"result": res})
         except ValueError as re:

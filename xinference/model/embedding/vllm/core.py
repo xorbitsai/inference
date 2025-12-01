@@ -15,7 +15,7 @@
 import importlib.util
 import json
 import logging
-from typing import List, Union
+from typing import List, Tuple, Union
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
@@ -151,8 +151,10 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("vllm") is None:
+            return False, "vLLM library is not installed"
+        return True
 
     @classmethod
     def match_json(
@@ -160,12 +162,16 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        if model_spec.model_format in ["pytorch"]:
-            prefix = model_family.model_name.split("-", 1)[0]
-            if prefix in SUPPORTED_MODELS_PREFIXES:
-                return True
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "vLLM embedding engine only supports pytorch format"
+        prefix = model_family.model_name.split("-", 1)[0]
+        if prefix not in SUPPORTED_MODELS_PREFIXES:
+            return (
+                False,
+                f"Model family {model_family.model_name} is not in the supported prefix list for vLLM embeddings",
+            )
+        return True
 
     def wait_for_load(self):
         # set context length after engine inited

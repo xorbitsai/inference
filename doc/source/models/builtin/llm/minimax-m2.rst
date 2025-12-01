@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 230 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 230
 - **Quantizations:** 3bit, 4bit, 5bit, 6bit, 8bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/MiniMax-M2-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/MiniMax-M2-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/MiniMax-M2-{quantization}>`__
 

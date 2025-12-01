@@ -14,7 +14,7 @@
 import logging
 from io import BytesIO
 from threading import Thread
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple, Union
 from urllib.request import urlopen
 
 import numpy as np
@@ -33,11 +33,13 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         llm_family = model_family.model_family or model_family.model_name
-        if "qwen2-audio".lower() in llm_family.lower():
-            return True
-        return False
+        if "qwen2-audio".lower() not in llm_family.lower():
+            return False, f"Model family {llm_family} is not Qwen2-Audio"
+        if "audio" not in model_family.model_ability:
+            return False, "Qwen2-Audio transformer requires audio ability"
+        return True
 
     def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")

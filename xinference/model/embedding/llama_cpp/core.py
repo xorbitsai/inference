@@ -20,7 +20,7 @@ import platform
 import pprint
 import queue
 import sys
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from packaging import version
 
@@ -229,8 +229,10 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         return Embedding(**r)  # type: ignore
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("xllamacpp") is None:
+            return False, "xllamacpp library is not installed"
+        return True
 
     @classmethod
     def match_json(
@@ -238,7 +240,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["ggufv2"]:
-            return False
+            return False, "llama.cpp embedding engine only supports ggufv2 format"
         return True

@@ -16,7 +16,7 @@ import importlib.util
 import logging
 import threading
 import uuid
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -331,8 +331,10 @@ class SentenceTransformerRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("sentence_transformers") is None:
+            return False, "sentence_transformers library is not installed"
+        return True
 
     @classmethod
     def match_json(
@@ -340,6 +342,7 @@ class SentenceTransformerRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "SentenceTransformer rerank engine requires pytorch format"
+        return True

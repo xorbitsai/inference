@@ -14,5 +14,6 @@
 
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
+from .hunyuan_ocr import HunyuanOCRModel
 
-__all__ = ["DeepSeekOCRModel", "GotOCR2Model"]
+__all__ = ["DeepSeekOCRModel", "GotOCR2Model", "HunyuanOCRModel"]

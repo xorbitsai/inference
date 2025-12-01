@@ -69,6 +69,18 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from vllm.outputs import RequestOutput
 
+    # Handle ExecutorBase type import for different vLLM versions
+    # vLLM >= 0.11.1: from vllm.v1.executor import Executor
+    # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
+    try:
+        from vllm.v1.executor import Executor as ExecutorBase
+    except ImportError:
+        try:
+            from vllm.executor.executor_base import ExecutorBase
+        except ImportError:
+            # If vLLM is not installed, define a placeholder for type checking
+            ExecutorBase = Any  # type: ignore
+
 
 class VLLMModelConfig(TypedDict, total=False):
     tokenizer_mode: Optional[str]
@@ -375,13 +387,35 @@ class VLLMModel(LLM):
         # to call aynsc method with asyncio.run_coroutine_threadsafe
         self._loop = loop  # type: ignore
 
+    def _is_vllm_v1(self) -> bool:
+        """
+        Check if vLLM v1 is being used.
+
+        For vLLM >= 0.11.1: v1 is the default, no VLLM_USE_V1 env var needed
+        For vLLM < 0.11.1: check VLLM_USE_V1 environment variable
+        """
+        from vllm import envs
+
+        # For vLLM >= 0.11.1, v1 is default
+        if VLLM_VERSION > version.parse("0.11.0"):
+            return True
+
+        # For older versions, check the environment variable
+        return envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
+
     def load(self):
         try:
-            from vllm import envs
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
-            from vllm.executor.executor_base import ExecutorBase
             from vllm.lora.request import LoRARequest
+
+            # Handle ExecutorBase import for different vLLM versions
+            # vLLM >= 0.11.1: from vllm.v1.executor import Executor
+            # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
+            try:
+                from vllm.v1.executor import Executor as ExecutorBase
+            except ImportError:
+                from vllm.executor.executor_base import ExecutorBase
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -511,7 +545,7 @@ class VLLMModel(LLM):
                         assert worker_addresses
                         loop = self._loop
 
-                        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+                        if not self._is_vllm_v1():
                             # vLLM v0
                             from .distributed_executor import (
                                 XinferenceDistributedExecutor,
@@ -535,9 +569,15 @@ class VLLMModel(LLM):
                         else:
                             from vllm.v1.executor.abstract import Executor
 
-                            from .distributed_executor import (
-                                XinferenceDistributedExecutorV1,
-                            )
+                            # Import the appropriate executor based on vLLM version
+                            if VLLM_VERSION > version.parse("0.11.0"):
+                                from .distributed_executor_v1 import (
+                                    XinferenceDistributedExecutorV1,
+                                )
+                            else:
+                                from .distributed_executor import (
+                                    XinferenceDistributedExecutorV1,
+                                )
 
                             # vLLM V1
                             # NOTE: loop has to be None for vLLM v1
@@ -589,9 +629,7 @@ class VLLMModel(LLM):
             self._set_context_length()
 
     def _set_context_length(self):
-        from vllm import envs
-
-        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+        if not self._is_vllm_v1():
             # v0
             self._context_length = (
                 self._engine.engine.vllm_config.model_config.max_model_len
@@ -603,6 +641,13 @@ class VLLMModel(LLM):
         logger.debug("Model context length: %s", self._context_length)
 
     def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
+        # For vLLM >= 0.11.1, v1 is the default, no need to set environment variable
+        if VLLM_VERSION >= version.parse("0.11.1"):
+            logger.debug(
+                "vLLM >= 0.11.1 detected, v1 is default, skip setting VLLM_USE_V1"
+            )
+            return
+
         if os.getenv("VLLM_USE_V1") is not None:
             logger.debug(
                 "Setting vLLM v1 via environment variable already, skip checking"
@@ -619,7 +664,6 @@ class VLLMModel(LLM):
                 VLLM_VERSION,
             )
             return
-
         model_config = engine_args.create_model_config()
         old_main_thread = threading.main_thread()
         try:
@@ -685,8 +729,6 @@ class VLLMModel(LLM):
             )
 
     def stop(self):
-        from vllm import envs
-
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
@@ -694,7 +736,7 @@ class VLLMModel(LLM):
         if self._check_health_task:
             self._check_health_task.cancel()
         if self._engine:
-            if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+            if not self._is_vllm_v1():
                 # v0
                 if model_executor := getattr(
                     self._engine.engine, "model_executor", None
@@ -850,42 +892,54 @@ class VLLMModel(LLM):
         return sanitized
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("vllm") is None:
+            return False, "vLLM library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False
+            return False, "vLLM requires CUDA or MLU GPUs"
         if not cls._is_linux():
-            return False
+            return False, "vLLM backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return False, "vLLM supports pytorch/gptq/awq/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported by vLLM",
+                )
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
-                return False
+                return False, "vLLM only supports 4-bit AWQ weights"
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return False, "gptq quantization must be 3/4/8 bit for vLLM >=0.3.3"
             else:
                 if "4" not in quantization:
-                    return False
+                    return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not in vLLM supported list",
+                )
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by vLLM",
+                )
         if "generate" not in llm_family.model_ability:
-            return False
-        return VLLM_INSTALLED
+            return False, "vLLM base engine requires generate ability"
+        if not VLLM_INSTALLED:
+            return False, "vLLM library is not installed"
+        return True
 
     @staticmethod
     def _convert_request_output_to_completion_chunk(
@@ -1163,7 +1217,7 @@ class VLLMModel(LLM):
             prompt_or_token_ids,
             sampling_params,
             request_id,
-            lora_request,
+            lora_request=lora_request,
         )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
@@ -1292,7 +1346,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in [
             "pytorch",
             "gptq",
@@ -1301,32 +1355,46 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             "bnb",
             "ggufv2",
         ]:
-            return False
+            return (
+                False,
+                "vLLM chat mode supports pytorch/gptq/awq/fp8/bnb/ggufv2 formats only",
+            )
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported in vLLM chat",
+                )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
-                return False
+                return False, "awq quantization must be 4 or 8 bit for vLLM chat"
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return False, "gptq quantization must be 3/4/8 bit for vLLM >=0.3.3"
             else:
                 if "4" not in quantization:
-                    return False
+                    return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
-                return False
+                return False, "ggufv2 support requires vLLM >= 0.8.2"
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by vLLM chat",
+                )
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by vLLM chat",
+                )
         if "chat" not in llm_family.model_ability:
-            return False
-        return VLLM_INSTALLED
+            return False, "vLLM chat engine requires chat ability"
+        if not VLLM_INSTALLED:
+            return False, "vLLM library is not installed"
+        return True
 
     def _sanitize_chat_config(
         self,
@@ -1470,39 +1538,56 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False
+            return False, "vLLM multimodal engine requires CUDA or MLU GPUs"
         if not cls._is_linux():
-            return False
+            return False, "vLLM multimodal engine is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return (
+                False,
+                "vLLM multimodal engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported for vLLM multimodal",
+                )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
-                return False
+                return False, "awq quantization must be 4 or 8 bit for vLLM multimodal"
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return False, "gptq quantization must be 3/4/8 bit for vLLM >=0.3.3"
             else:
                 if "4" not in quantization:
-                    return False
+                    return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by vLLM multimodal engine",
+                )
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by vLLM multimodal engine",
+                )
         if (
             "vision" not in llm_family.model_ability
             and "audio" not in llm_family.model_ability
             and "omni" not in llm_family.model_ability
         ):
-            return False
-        return VLLM_INSTALLED
+            return (
+                False,
+                "vLLM multimodal engine requires vision, audio, or omni ability",
+            )
+        if not VLLM_INSTALLED:
+            return False, "vLLM library is not installed"
+        return True
 
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]

@@ -53,7 +53,8 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509515
+    "updated_at": 1763445575,
+    "featured": true
   },
   {
     "version": 2,
@@ -68,6 +69,11 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_2",
       "torch_dtype": "bfloat16"
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "flux1-dev.safetensors"
+      ]
     },
     "model_src": {
       "huggingface": {
@@ -109,7 +115,8 @@
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509517
+    "featured": true,
+    "updated_at": 1764238627
   },
   {
     "version": 2,
@@ -178,7 +185,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509518
+    "updated_at": 1763445577,
+    "featured": true
   },
   {
     "version": 2,
@@ -269,7 +277,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509519
+    "updated_at": 1763445579,
+    "featured": true
   },
   {
     "version": 2,
@@ -294,7 +303,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509520
+    "updated_at": 1763445580,
+    "featured": false
   },
   {
     "version": 2,
@@ -354,7 +364,8 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509521
+    "updated_at": 1763445581,
+    "featured": true
   },
   {
     "version": 2,
@@ -401,7 +412,8 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509523
+    "updated_at": 1763445582,
+    "featured": true
   },
   {
     "version": 2,
@@ -452,7 +464,8 @@
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
     },
-    "updated_at": 1762509524
+    "updated_at": 1763445583,
+    "featured": false
   },
   {
     "version": 2,
@@ -471,7 +484,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509525
+    "updated_at": 1763445585,
+    "featured": true
   },
   {
     "version": 2,
@@ -490,7 +504,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509526
+    "updated_at": 1763445586,
+    "featured": false
   },
   {
     "version": 2,
@@ -513,7 +528,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509528
+    "updated_at": 1763445587,
+    "featured": false
   },
   {
     "version": 2,
@@ -536,7 +552,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509529
+    "updated_at": 1763445588,
+    "featured": false
   },
   {
     "version": 2,
@@ -600,7 +617,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509530
+    "updated_at": 1763445589,
+    "featured": false
   },
   {
     "version": 2,
@@ -640,7 +658,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509531
+    "updated_at": 1763445591,
+    "featured": false
   },
   {
     "version": 2,
@@ -669,7 +688,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509533
+    "updated_at": 1763445592,
+    "featured": false
   },
   {
     "version": 2,
@@ -697,7 +717,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509534
+    "updated_at": 1763445593,
+    "featured": true
   },
   {
     "version": 2,
@@ -712,7 +733,8 @@
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
     },
-    "updated_at": 1762509535
+    "updated_at": 1763445594,
+    "featured": false
   },
   {
     "version": 2,
@@ -727,7 +749,8 @@
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
     },
-    "updated_at": 1762509536
+    "updated_at": 1763445596,
+    "featured": false
   },
   {
     "version": 2,
@@ -742,7 +765,8 @@
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
     },
-    "updated_at": 1762509537
+    "updated_at": 1763445597,
+    "featured": false
   },
   {
     "version": 2,
@@ -776,7 +800,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509539
+    "updated_at": 1763445598,
+    "featured": false
   },
   {
     "version": 2,
@@ -862,7 +887,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509540
+    "updated_at": 1763445599,
+    "featured": false
   },
   {
     "version": 2,
@@ -948,7 +974,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1762509541
+    "updated_at": 1763445601,
+    "featured": true
   },
   {
     "version": 2,
@@ -981,6 +1008,85 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509542
+    "updated_at": 1763445602,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "HunyuanOCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4",
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "tencent/HunyuanOCR",
+        "model_revision": "9a0c8183f1cb1b544793b6e7ccc0612cf4f622da"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/HunyuanOCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1764237221
+  },
+  {
+    "version": 2,
+    "model_name": "FLUX.2-dev",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "flux2-dev.safetensors"
+      ]
+    },
+    "model_src": {
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-dev",
+        "model_revision": "master"
+      },
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-dev",
+        "model_revision": "420f8eb9f7869bf378c45a5206424814561903e7",
+        "gguf_model_id": "city96/FLUX.2-dev-gguf",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux2-dev-{quantization}.gguf"
+      }
+    },
+    "featured": true,
+    "updated_at": 1764322840
   }
 ]

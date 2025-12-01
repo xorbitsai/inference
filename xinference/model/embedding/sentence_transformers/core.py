@@ -14,7 +14,7 @@
 
 import importlib.util
 import logging
-from typing import List, Optional, Union, no_type_check
+from typing import List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 import torch
@@ -429,8 +429,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("sentence_transformers") is None:
+            return False, "sentence_transformers library is not installed"
+        return True
 
     @classmethod
     def match_json(
@@ -438,6 +440,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "SentenceTransformer embeddings require pytorch format"
+        return True

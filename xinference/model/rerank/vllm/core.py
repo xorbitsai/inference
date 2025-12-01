@@ -1,6 +1,6 @@
 import importlib.util
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import cache_clean
@@ -139,8 +139,10 @@ class VLLMRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("vllm") is None:
+            return False, "vLLM library is not installed"
+        return True
 
     @classmethod
     def match_json(
@@ -148,9 +150,13 @@ class VLLMRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-        if model_spec.model_format in ["pytorch"]:
-            prefix = model_family.model_name.split("-", 1)[0]
-            if prefix in SUPPORTED_MODELS_PREFIXES:
-                return True
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "vLLM rerank engine only supports pytorch format"
+        prefix = model_family.model_name.split("-", 1)[0]
+        if prefix not in SUPPORTED_MODELS_PREFIXES:
+            return (
+                False,
+                f"Model family {model_family.model_name} is not supported by vLLM rerank engine",
+            )
+        return True

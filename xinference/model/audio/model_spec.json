@@ -13,7 +13,8 @@
         "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
       }
     },
-    "updated_at": 1762509346
+    "updated_at": 1763445258,
+    "featured": false
   },
   {
     "version": 2,
@@ -29,7 +30,8 @@
         "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
       }
     },
-    "updated_at": 1762509347
+    "updated_at": 1763445260,
+    "featured": false
   },
   {
     "version": 2,
@@ -45,7 +47,8 @@
         "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
       }
     },
-    "updated_at": 1762509348
+    "updated_at": 1763445261,
+    "featured": false
   },
   {
     "version": 2,
@@ -61,7 +64,8 @@
         "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
       }
     },
-    "updated_at": 1762509350
+    "updated_at": 1763445262,
+    "featured": false
   },
   {
     "version": 2,
@@ -77,7 +81,8 @@
         "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
       }
     },
-    "updated_at": 1762509351
+    "updated_at": 1763445264,
+    "featured": false
   },
   {
     "version": 2,
@@ -93,7 +98,8 @@
         "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
       }
     },
-    "updated_at": 1762509352
+    "updated_at": 1763445265,
+    "featured": false
   },
   {
     "version": 2,
@@ -109,7 +115,8 @@
         "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
       }
     },
-    "updated_at": 1762509354
+    "updated_at": 1763445266,
+    "featured": false
   },
   {
     "version": 2,
@@ -125,7 +132,8 @@
         "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
       }
     },
-    "updated_at": 1762509355
+    "updated_at": 1763445268,
+    "featured": false
   },
   {
     "version": 2,
@@ -145,7 +153,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509356
+    "updated_at": 1763445269,
+    "featured": true
   },
   {
     "version": 2,
@@ -165,7 +174,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509357
+    "updated_at": 1763445270,
+    "featured": false
   },
   {
     "version": 2,
@@ -181,7 +191,8 @@
         "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8"
       }
     },
-    "updated_at": 1762509359
+    "updated_at": 1763445272,
+    "featured": false
   },
   {
     "version": 2,
@@ -197,7 +208,8 @@
         "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9"
       }
     },
-    "updated_at": 1762509360
+    "updated_at": 1763445273,
+    "featured": false
   },
   {
     "version": 2,
@@ -217,7 +229,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509361
+    "updated_at": 1763445274,
+    "featured": false
   },
   {
     "version": 2,
@@ -233,7 +246,8 @@
         "model_id": "mlx-community/whisper-tiny"
       }
     },
-    "updated_at": 1762509362
+    "updated_at": 1763445276,
+    "featured": false
   },
   {
     "version": 2,
@@ -249,7 +263,8 @@
         "model_id": "mlx-community/whisper-tiny.en-mlx"
       }
     },
-    "updated_at": 1762509363
+    "updated_at": 1763445277,
+    "featured": false
   },
   {
     "version": 2,
@@ -265,7 +280,8 @@
         "model_id": "mlx-community/whisper-base-mlx"
       }
     },
-    "updated_at": 1762509365
+    "updated_at": 1763445278,
+    "featured": false
   },
   {
     "version": 2,
@@ -281,7 +297,8 @@
         "model_id": "mlx-community/whisper-base.en-mlx"
       }
     },
-    "updated_at": 1762509366
+    "updated_at": 1763445279,
+    "featured": false
   },
   {
     "version": 2,
@@ -297,7 +314,8 @@
         "model_id": "mlx-community/whisper-small-mlx"
       }
     },
-    "updated_at": 1762509367
+    "updated_at": 1763445280,
+    "featured": false
   },
   {
     "version": 2,
@@ -313,7 +331,8 @@
         "model_id": "mlx-community/whisper-small.en-mlx"
       }
     },
-    "updated_at": 1762509368
+    "updated_at": 1763445282,
+    "featured": false
   },
   {
     "version": 2,
@@ -329,7 +348,8 @@
         "model_id": "mlx-community/whisper-medium-mlx"
       }
     },
-    "updated_at": 1762509369
+    "updated_at": 1763445283,
+    "featured": false
   },
   {
     "version": 2,
@@ -345,7 +365,8 @@
         "model_id": "mlx-community/whisper-medium.en-mlx"
       }
     },
-    "updated_at": 1762509371
+    "updated_at": 1763445284,
+    "featured": false
   },
   {
     "version": 2,
@@ -361,7 +382,8 @@
         "model_id": "mlx-community/whisper-large-v3-mlx"
       }
     },
-    "updated_at": 1762509372
+    "updated_at": 1763445285,
+    "featured": false
   },
   {
     "version": 2,
@@ -377,7 +399,8 @@
         "model_id": "mlx-community/whisper-large-v3-turbo"
       }
     },
-    "updated_at": 1762509373
+    "updated_at": 1763445286,
+    "featured": false
   },
   {
     "version": 2,
@@ -409,7 +432,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509374
+    "updated_at": 1763445306,
+    "featured": true
   },
   {
     "version": 2,
@@ -436,7 +460,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509375
+    "updated_at": 1763445308,
+    "featured": false
   },
   {
     "version": 2,
@@ -464,7 +489,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509376
+    "updated_at": 1763445309,
+    "featured": false
   },
   {
     "version": 2,
@@ -491,7 +517,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509378
+    "updated_at": 1763445310,
+    "featured": false
   },
   {
     "version": 2,
@@ -519,7 +546,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509379
+    "updated_at": 1763445311,
+    "featured": false
   },
   {
     "version": 2,
@@ -547,7 +575,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509380
+    "updated_at": 1763445312,
+    "featured": false
   },
   {
     "version": 2,
@@ -575,7 +604,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509381
+    "updated_at": 1763445314,
+    "featured": true
   },
   {
     "version": 2,
@@ -596,7 +626,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509383
+    "updated_at": 1763445315,
+    "featured": false
   },
   {
     "version": 2,
@@ -617,7 +648,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509384
+    "updated_at": 1763445316,
+    "featured": false
   },
   {
     "version": 2,
@@ -638,7 +670,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509385
+    "updated_at": 1763445317,
+    "featured": false
   },
   {
     "version": 2,
@@ -680,7 +713,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509386
+    "updated_at": 1763445319,
+    "featured": true
   },
   {
     "version": 2,
@@ -702,7 +736,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509387
+    "updated_at": 1763445320,
+    "featured": true
   },
   {
     "version": 2,
@@ -724,7 +759,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509388
+    "updated_at": 1763445321,
+    "featured": true
   },
   {
     "version": 2,
@@ -742,7 +778,8 @@
         "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93"
       }
     },
-    "updated_at": 1762509390
+    "updated_at": 1763445322,
+    "featured": false
   },
   {
     "version": 2,
@@ -760,7 +797,8 @@
         "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef"
       }
     },
-    "updated_at": 1762509391
+    "updated_at": 1763445323,
+    "featured": false
   },
   {
     "version": 2,
@@ -778,7 +816,8 @@
         "model_revision": "a53e3509c4ee4ff16d79272feb2474ff864e18f3"
       }
     },
-    "updated_at": 1762509392
+    "updated_at": 1763445325,
+    "featured": false
   },
   {
     "version": 2,
@@ -796,7 +835,8 @@
         "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
       }
     },
-    "updated_at": 1762509393
+    "updated_at": 1763445326,
+    "featured": false
   },
   {
     "version": 2,
@@ -814,7 +854,8 @@
         "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf"
       }
     },
-    "updated_at": 1762509395
+    "updated_at": 1763445327,
+    "featured": false
   },
   {
     "version": 2,
@@ -832,7 +873,8 @@
         "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891"
       }
     },
-    "updated_at": 1762509396
+    "updated_at": 1763445328,
+    "featured": false
   },
   {
     "version": 2,
@@ -850,7 +892,8 @@
         "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb"
       }
     },
-    "updated_at": 1762509397
+    "updated_at": 1763445329,
+    "featured": false
   },
   {
     "version": 2,
@@ -868,7 +911,8 @@
         "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16"
       }
     },
-    "updated_at": 1762509398
+    "updated_at": 1763445330,
+    "featured": false
   },
   {
     "version": 2,
@@ -886,7 +930,8 @@
         "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323"
       }
     },
-    "updated_at": 1762509399
+    "updated_at": 1763445332,
+    "featured": false
   },
   {
     "version": 2,
@@ -907,7 +952,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509400
+    "updated_at": 1763445333,
+    "featured": false
   },
   {
     "version": 2,
@@ -937,7 +983,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1762509402
+    "updated_at": 1763445334,
+    "featured": false
   },
   {
     "version": 2,
@@ -958,7 +1005,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509403
+    "updated_at": 1763445335,
+    "featured": false
   },
   {
     "version": 2,
@@ -979,7 +1027,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762509404
+    "updated_at": 1763445337,
+    "featured": false
   },
   {
     "version": 2,
@@ -1020,6 +1069,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1762945404
+    "updated_at": 1763445338,
+    "featured": true
   }
 ]

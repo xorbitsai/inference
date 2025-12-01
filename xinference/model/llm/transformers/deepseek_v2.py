@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from typing import Tuple, Union
 
 import torch
 
@@ -62,12 +63,12 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format != "pytorch":
-            return False
+            return False, "DeepSeek v2 transformer only supports pytorch format"
         model_family = llm_family.model_family or llm_family.model_name
         if "deepseek-v2" not in model_family:
-            return False
+            return False, f"Model family {model_family} is not a DeepSeek v2 variant"
         if "chat" not in llm_family.model_ability:
-            return False
+            return False, "DeepSeek v2 transformer requires chat ability"
         return True

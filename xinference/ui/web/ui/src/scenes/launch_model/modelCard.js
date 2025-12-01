@@ -2,6 +2,7 @@ import './styles/modelCardStyle.css'
 
 import {
   ChatOutlined,
+  Computer,
   Delete,
   EditNote,
   EditNoteOutlined,
@@ -18,7 +19,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import React, { useContext, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
@@ -28,6 +29,7 @@ import fetchWrapper from '../../components/fetchWrapper'
 import TitleTypography from '../../components/titleTypography'
 import CachedListDialog from './components/cachedListDialog'
 import EditCustomModel from './components/editCustomModelDialog'
+import VirtualEnvListDialog from './components/virtualenvListDialog'
 
 const modelAbilityIcons = {
   chat: <ChatOutlined />,
@@ -42,6 +44,7 @@ const ModelCard = ({
   onGetCollectionArr,
   onUpdate,
   onClick,
+  virtualEnvs = [],
 }) => {
   const navigate = useNavigate()
   const { t } = useTranslation()
@@ -50,6 +53,8 @@ const ModelCard = ({
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
   const [isJsonShow, setIsJsonShow] = useState(false)
   const [isOpenCachedList, setIsOpenCachedList] = useState(false)
+  const [isOpenVirtualenvList, setIsOpenVirtualenvList] = useState(false)
+  const [hasVirtualEnv, setHasVirtualEnv] = useState(null) // null = not checked yet
 
   const isCached = (spec) => {
     if (Array.isArray(spec.cache_status)) {
@@ -58,6 +63,16 @@ const ModelCard = ({
       return spec.cache_status === true
     }
   }
+
+  // Check if model has virtual environment using virtualEnvs data from parent
+  useEffect(() => {
+    if (modelData?.model_name) {
+      const hasEnv = virtualEnvs.some(
+        (env) => env.model_name === modelData.model_name
+      )
+      setHasVirtualEnv(hasEnv)
+    }
+  }, [modelData?.model_name, virtualEnvs])
 
   // Handle favorite feature
   const handleCollection = (shouldAdd) => {
@@ -131,6 +146,26 @@ const ModelCard = ({
         onClick={(e) => {
           e?.stopPropagation()
           handleOpenCachedList()
+        }}
+      />
+    )
+  }
+
+  const renderVirtualEnvChip = () => {
+    // Only show if we've determined the model might have a virtual environment
+    if (!hasVirtualEnv) return null
+
+    return (
+      <Chip
+        label={t('launchModel.manageVirtualEnvironments')}
+        variant="outlined"
+        color="secondary"
+        size="small"
+        deleteIcon={<Computer />}
+        onDelete={() => setIsOpenVirtualenvList(true)}
+        onClick={(e) => {
+          e?.stopPropagation()
+          setIsOpenVirtualenvList(true)
         }}
       />
     )
@@ -295,6 +330,7 @@ const ModelCard = ({
                 {renderAbilityChips()}
                 {renderLanguageChips()}
                 {renderCacheChip()}
+                {renderVirtualEnvChip()}
               </Stack>
             </Box>
 
@@ -419,6 +455,13 @@ const ModelCard = ({
         modelType={modelType}
         onClose={() => setIsOpenCachedList(false)}
         onUpdate={onUpdate}
+      />
+
+      <VirtualEnvListDialog
+        open={isOpenVirtualenvList}
+        onClose={() => setIsOpenVirtualenvList(false)}
+        onUpdate={onUpdate}
+        modelData={modelData}
       />
 
       <EditCustomModel

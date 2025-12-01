@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple, Union
 
 from ...scheduler.request import InferenceRequest
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
@@ -27,13 +27,16 @@ class Gemma3TextChatModel(PytorchChatModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+            return (
+                False,
+                "Gemma3 transformer supports pytorch/gptq/awq/bnb formats only",
+            )
         llm_family = model_family.model_family or model_family.model_name
-        if "gemma-3-1b-it".lower() in llm_family.lower():
-            return True
-        return False
+        if "gemma-3-1b-it".lower() not in llm_family.lower():
+            return False, f"Model family {llm_family} is not Gemma-3-1B-it"
+        return True
 
     def _load_model(self, **kwargs):
         import torch

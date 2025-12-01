@@ -13,7 +13,7 @@
 # limitations under the License.
 import inspect
 import logging
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from ....types import (
     ChatCompletion,
@@ -41,14 +41,17 @@ class GPTOSSPytorchChatModel(PytorchChatModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+            return (
+                False,
+                "GPT-OSS transformer supports pytorch/gptq/awq/bnb formats only",
+            )
         model_family = llm_family.model_family or llm_family.model_name
         if "gpt" not in model_family and "oss" not in model_family:
-            return False
+            return False, f"Model family {model_family} is not GPT-OSS"
         if "chat" not in llm_family.model_ability:
-            return False
+            return False, "GPT-OSS transformer requires chat ability"
         return True
 
     async def chat(  # type:ignore

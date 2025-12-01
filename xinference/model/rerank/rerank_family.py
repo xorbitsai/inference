@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 FLAG_RERANKER_CLASSES: List[Type["RerankModel"]] = []
 SENTENCE_TRANSFORMER_CLASSES: List[Type["RerankModel"]] = []
 VLLM_CLASSES: List[Type["RerankModel"]] = []
+LLAMA_CPP_CLASSES: List[Type["RerankModel"]] = []
 
 BUILTIN_RERANK_MODELS: Dict[str, "RerankModelFamilyV2"] = {}
 
