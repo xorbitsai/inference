@@ -64,3 +64,40 @@ def test_apply_response_format_ignores_non_schema(monkeypatch):
     _apply_response_format(cfg)
     assert "grammar" not in cfg
     assert "json_schema" not in cfg
+
+
+def test_apply_response_format_uses_real_xllamacpp_if_available():
+    import importlib.util
+
+    import pytest
+
+    if importlib.util.find_spec("xllamacpp") is None:
+        pytest.skip("xllamacpp not installed")
+
+    import importlib
+
+    xllamacpp = importlib.import_module("xllamacpp")
+    if not hasattr(xllamacpp, "json_schema_to_grammar"):
+        pytest.skip("xllamacpp does not expose json_schema_to_grammar")
+
+    from xinference.model.llm.llama_cpp.core import _apply_response_format
+
+    cfg = {
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"c": {"type": "integer"}},
+                    "required": ["c"],
+                }
+            },
+        }
+    }
+
+    _apply_response_format(cfg)
+
+    assert "response_format" not in cfg
+    # Real xllamacpp should attach grammar alongside json_schema
+    assert "json_schema" in cfg
+    assert "grammar" in cfg and cfg["grammar"]
