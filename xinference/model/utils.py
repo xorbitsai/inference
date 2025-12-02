@@ -607,6 +607,8 @@ def get_engine_params_by_name(
                             error_type = m_err_type
                         if m_details:
                             error_details = m_details
+                        # Return the first failure to avoid later specs overwriting the root cause.
+                        break
                     if relevant and error_reason:
                         break
                 except Exception as e:
