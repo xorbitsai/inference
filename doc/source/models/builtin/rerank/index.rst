@@ -25,6 +25,8 @@ The following is a list of built-in rerank models in Xinference:
   
    jina-reranker-v2
   
+   jina-reranker-v3
+  
    minicpm-reranker
   
    qwen3-reranker-0.6b

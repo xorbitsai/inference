@@ -18,15 +18,14 @@ import logging
 import os
 import platform
 import pprint
-import queue
 import sys
-from typing import List, Optional, Tuple, Union
+import uuid
+from typing import List, Optional
 
 from packaging import version
 
-from ....types import Embedding
-from ...batch import BatchMixin
-from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ....types import DocumentObj, Meta, Rerank, RerankTokens
+from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +39,9 @@ class _Error:
         self.msg = msg
 
 
-class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
+class XllamaCppRerankModel(RerankModel):
     def __init__(self, *args, **kwargs) -> None:
-        EmbeddingModel.__init__(self, *args, **kwargs)
-        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         llamacpp_model_config = self._kwargs.get("llamacpp_model_config")
@@ -53,7 +51,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         if llamacpp_model_config is None:
             llamacpp_model_config = {}
 
-        llamacpp_model_config.setdefault("embedding", True)
+        llamacpp_model_config.setdefault("rerank", True)
         llamacpp_model_config.setdefault("use_mmap", False)
         llamacpp_model_config.setdefault("use_mlock", True)
 
@@ -71,11 +69,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         return sys.platform.startswith("linux")
 
     def load(self):
-        # add truncate_dim args hint
-        if "dimensions" in self._kwargs:
-            raise NotImplementedError(
-                "LlamaCpp embedder does not support dimensions argument now."
-            )
         try:
             from xllamacpp import (
                 CommonParams,
@@ -88,9 +81,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
             )
 
             try:
-                if version.parse(__version__) < version.parse("0.2.0"):
+                if version.parse(__version__) < version.parse("0.2.2"):
                     raise RuntimeError(
-                        "Please update xllamacpp to >= 0.2.0 by `pip install -U xllamacpp`"
+                        "Please update xllamacpp to >= 0.2.2 by `pip install -U xllamacpp`"
                     )
             except version.InvalidVersion:
                 pass  # If the version parse failed, we just skip the version check.
@@ -131,8 +124,10 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
 
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
-            params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
+            params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_RANK
             for k, v in self._llamacpp_model_config.items():
+                if k == "rerank":
+                    continue
                 try:
                     if "." in k:
                         parts = k.split(".")
@@ -186,61 +181,65 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                     logger.exception(
                         "Estimate num gpu layers for llama.cpp backend failed: %s", e
                     )
-
             self._llm = Server(params)
             self._executor = concurrent.futures.ThreadPoolExecutor(
                 max_workers=max(10, n_threads)
             )
+
         except AssertionError:
             raise RuntimeError(f"Load model {self._model_name} failed")
+        pass
 
-    def _create_embedding(
-        self, sentences: Union[str, List[str]], **kwargs
-    ) -> Embedding:
-        if self._llm is None:
-            raise RuntimeError("Model is not loaded.")
-
-        q: queue.Queue = queue.Queue()
-        if isinstance(sentences, str):
-            sentences = [sentences]
-
-        def _handle_embedding():
-            data = {"input": sentences}
-            model_uid: Optional[str] = kwargs.pop("model_uid", None)
-            if model_uid:
-                data["model"] = model_uid
-            try:
-                res = self._llm.handle_embeddings(data)
-                if res.get("code"):
-                    q.put(_Error(res))
-                else:
-                    q.put(res)
-            except Exception as ex:
-                q.put(_Error(str(ex)))
-            q.put(_Done)
-
-        assert self._executor
-        self._executor.submit(_handle_embedding)
-
-        r = q.get()
-        if type(r) is _Error:
-            raise Exception(f"Failed to create embedding: {r.msg}")
-        r["model_replica"] = self._model_uid
-        return Embedding(**r)  # type: ignore
+    def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int],
+        max_chunks_per_doc: Optional[int],
+        return_documents: Optional[bool],
+        return_len: Optional[bool],
+        **kwargs,
+    ) -> Rerank:
+        if kwargs:
+            raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
+        assert self._llm is not None
+        result = self._llm.handle_rerank({"query": query, "documents": documents})
+        if top_n is not None:
+            result["results"] = result["results"][:top_n]
+        reranked_docs = list(
+            map(
+                lambda doc: DocumentObj(
+                    index=doc["index"],
+                    relevance_score=doc["relevance_score"],
+                    document=documents[doc["index"]] if return_documents else None,
+                ),
+                result["results"],
+            )
+        )
+        tokens = result["usage"]["total_tokens"]
+        metadata = Meta(
+            api_version=None,
+            billed_units=None,
+            tokens=(
+                RerankTokens(input_tokens=tokens, output_tokens=tokens)
+                if return_len
+                else None
+            ),
+            warnings=None,
+        )
+        return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("xllamacpp") is None:
-            return False, "xllamacpp library is not installed"
-        return True
+    def check_lib(cls) -> bool:
+        return importlib.util.find_spec("xllamacpp") is not None
 
     @classmethod
     def match_json(
         cls,
-        model_family: EmbeddingModelFamilyV2,
-        model_spec: EmbeddingSpecV1,
+        model_family: RerankModelFamilyV2,
+        model_spec: RerankSpecV1,
         quantization: str,
-    ) -> Union[bool, Tuple[bool, str]]:
+    ) -> bool:
         if model_spec.model_format not in ["ggufv2"]:
-            return False, "llama.cpp embedding engine only supports ggufv2 format"
+            return False
         return True

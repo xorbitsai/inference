@@ -290,6 +290,7 @@ class ChatModelMixin:
         chunk: CompletionChunk,
         reasoning_parser: Optional[ReasoningParser] = None,
         previous_texts: Optional[List[str]] = None,
+        ensure_role: bool = False,
     ) -> ChatCompletionChunk:
         choices = chunk.get("choices")
         if (
@@ -297,11 +298,12 @@ class ChatModelMixin:
             and choices
             and "delta" in choices[0]
         ):
-            if choices[0]["finish_reason"] is None:
+            first_choice = cast(ChatCompletionChunkChoice, choices[0])
+            delta = first_choice["delta"]
+            if first_choice["finish_reason"] is None:
                 if reasoning_parser and reasoning_parser.check_content_parser():
                     # process parsing reasoning content
                     assert previous_texts is not None
-                    delta = choices[0]["delta"]  # type: ignore
                     if text := delta.get("content"):
                         current_text = previous_texts[-1] + text
                         delta = reasoning_parser.extract_reasoning_content_streaming(
@@ -310,17 +312,21 @@ class ChatModelMixin:
                             delta_text=text,
                         )
                         previous_texts[-1] = current_text
-                        choices[0]["delta"] = delta  # type: ignore
-            elif choices[0]["finish_reason"] is not None:
-                delta = choices[0]["delta"]  # type: ignore
+                        first_choice["delta"] = delta
+            elif first_choice["finish_reason"] is not None:
                 if "content" not in delta:
-                    delta["content"] = ""  # type: ignore
+                    delta["content"] = ""
                 if reasoning_parser and reasoning_parser.check_content_parser():
-                    delta["reasoning_content"] = None  # type: ignore
+                    delta["reasoning_content"] = None
+            if ensure_role:
+                if delta.get("role") is None:
+                    delta["role"] = "assistant"
+                if "content" not in delta:
+                    delta["content"] = None
             # Already a ChatCompletionChunk, we don't need to convert chunk.
             return cast(ChatCompletionChunk, chunk)
 
-        choices_list = []
+        choices_list: List[ChatCompletionChunkChoice] = []
         for i, choice in enumerate(choices):  # type: ignore
             delta = ChatCompletionChunkDelta()
             if "text" in choice and choice["finish_reason"] is None:
@@ -362,6 +368,12 @@ class ChatModelMixin:
             "choices": choices_list,
             "usage": usage,
         }
+        if ensure_role and choices_list:
+            first_delta: ChatCompletionChunkDelta = choices_list[0]["delta"]
+            if first_delta.get("role") is None:
+                first_delta["role"] = "assistant"
+            if "content" not in first_delta:
+                first_delta["content"] = None
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
@@ -405,7 +417,11 @@ class ChatModelMixin:
             "model": chunk["model"],
             "created": chunk["created"],
             "object": "chat.completion.chunk",
-            "choices": [],
+            "choices": [
+                ChatCompletionChunkChoice(
+                    index=0, delta=ChatCompletionChunkDelta(), finish_reason="stop"
+                )
+            ],
         }
         usage = chunk.get("usage")
         if usage is not None:
@@ -419,18 +435,36 @@ class ChatModelMixin:
         reasoning_parse: Optional[ReasoningParser] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
+        is_first_chunk = True
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
         for _, chunk in enumerate(chunks):
             # usage
             choices = chunk.get("choices")
             if not choices:
-                yield cls._get_final_chat_completion_chunk(chunk)
-            else:
-                r = cls._to_chat_completion_chunk(
-                    chunk, reasoning_parse, previous_texts
-                )
-                yield r
+                # Fallback: convert plain content to choices for streaming
+                content = cast(Optional[str], chunk.get("content"))
+                if content is not None:
+                    finish_reason = cast(Optional[str], chunk.get("finish_reason"))
+                    chunk = chunk.copy()
+                    chunk["choices"] = [
+                        CompletionChoice(
+                            index=0,
+                            text=content,
+                            logprobs=None,
+                            finish_reason=finish_reason,
+                        )
+                    ]
+                    choices = chunk["choices"]
+                else:
+                    yield cls._get_final_chat_completion_chunk(chunk)
+                    continue
+
+            r = cls._to_chat_completion_chunk(
+                chunk, reasoning_parse, previous_texts, ensure_role=is_first_chunk
+            )
+            is_first_chunk = False
+            yield r
 
     @classmethod
     def _tools_to_messages_for_deepseek(
@@ -474,6 +508,7 @@ class ChatModelMixin:
 
         previous_texts = [""]
         full_text = ""
+        is_first_chunk = True
         # Process chunks
         if reasoning_parser:
             set_context()
@@ -489,8 +524,12 @@ class ChatModelMixin:
                     full_text += choices[0]["text"]  # type: ignore
 
                 chat_chunk = cls._to_chat_completion_chunk(
-                    chunk, reasoning_parser, previous_texts
+                    chunk,
+                    reasoning_parser,
+                    previous_texts,
+                    ensure_role=is_first_chunk,
                 )
+            is_first_chunk = False
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)
 
@@ -1021,7 +1060,10 @@ class ChatModelMixin:
         async for completion_chunk in chunks:
             set_context()
             chat_chunk = self._to_chat_completion_chunk(
-                completion_chunk, self.reasoning_parser, previous_texts
+                completion_chunk,
+                self.reasoning_parser,
+                previous_texts,
+                ensure_role=i == 0,
             )
             if (
                 chat_chunk["choices"]

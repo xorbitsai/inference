@@ -3,13 +3,6 @@ name: Auto run gen_docs.py and commit changes to PR
 on:
   pull_request_target:
     types: [opened, synchronize]
-    paths:
-      - 'xinference/model/llm/llm_family.json'
-      - 'xinference/model/embedding/model_spec.json'
-      - 'xinference/model/rerank/model_spec.json'
-      - 'xinference/model/image/model_spec.json'
-      - 'xinference/model/audio/model_spec.json'
-      - 'xinference/model/video/model_spec.json'
 
 permissions:
   contents: write
@@ -71,13 +64,14 @@ jobs:
         if: steps.decide.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.10'
 
       - name: Install gen_docs dependencies
         if: steps.decide.outputs.run == 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install jinja2
+          python -m pip install "xinference[doc]"
 
       - name: Run gen_docs.py if present
         if: steps.decide.outputs.run == 'true'
@@ -89,12 +83,21 @@ jobs:
           echo "[Debug] List ../main/doc/source:"
           ls -la ../main/doc/source || true
 
-          if [ -f "../main/doc/source/gen_docs.py" ]; then
+          # Use PR branch's gen_docs.py if it exists, otherwise use main branch's
+          if [ -f "doc/source/gen_docs.py" ]; then
+            echo "Using PR branch's doc/source/gen_docs.py"
+            echo "Running pr/doc/source/gen_docs.py from its directory"
+            (cd doc/source && python -u gen_docs.py)
+          elif [ -f "../main/doc/source/gen_docs.py" ]; then
             echo "Copying main/doc/source/gen_docs.py into PR workspace"
             mkdir -p doc/source
             cp -f ../main/doc/source/gen_docs.py doc/source/gen_docs.py
-            echo "Running pr/doc/source/gen_docs.py"
-            python -u doc/source/gen_docs.py
+            echo "Running pr/doc/source/gen_docs.py from its directory"
+            (cd doc/source && python -u gen_docs.py)
+          elif [ -f "gen_docs.py" ]; then
+            echo "Using PR branch's gen_docs.py"
+            echo "Running pr/gen_docs.py"
+            python -u gen_docs.py
           elif [ -f "../main/gen_docs.py" ]; then
             echo "Copying main/gen_docs.py into PR workspace"
             cp -f ../main/gen_docs.py gen_docs.py
@@ -121,7 +124,7 @@ jobs:
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore(docs): auto-run gen_docs.py [skip ci]"
+            git commit -m "chore(docs): auto-run gen_docs.py"
           else
             echo "No changes to commit."
           fi

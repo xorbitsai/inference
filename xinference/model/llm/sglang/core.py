@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 import uuid
-from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
+from typing import AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
 
 from xoscar.utils import get_next_port
 
@@ -334,31 +334,44 @@ class SGLANGModel(LLM):
         return generate_config
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sglang") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        if importlib.util.find_spec("sglang") is None:
+            return False, "sglang library is not installed"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if not cls._has_cuda_device():
-            return False
+            return False, "SGLang requires CUDA GPUs"
         if not cls._is_linux():
-            return False
+            return False, "SGLang backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return False, "SGLang supports pytorch/gptq/awq/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported by SGLang",
+                )
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by SGLang",
+                )
         else:
             if llm_family.model_name not in SGLANG_SUPPORTED_MODELS:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by SGLang",
+                )
         if "generate" not in llm_family.model_ability:
-            return False
-        return SGLANG_INSTALLED
+            return False, "SGLang base engine requires generate ability"
+        if not SGLANG_INSTALLED:
+            return False, "sglang library is not installed"
+        return True
 
     @staticmethod
     def _convert_state_to_completion_chunk(
@@ -646,21 +659,35 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return (
+                False,
+                "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported by SGLang chat",
+                )
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by SGLang chat",
+                )
         else:
             if llm_family.model_name not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by SGLang chat",
+                )
         if "chat" not in llm_family.model_ability:
-            return False
-        return SGLANG_INSTALLED
+            return False, "SGLang chat engine requires chat ability"
+        if not SGLANG_INSTALLED:
+            return False, "sglang library is not installed"
+        return True
 
     def _sanitize_chat_config(
         self,
@@ -733,25 +760,39 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if not cls._has_cuda_device():
-            return False
+            return False, "SGLang vision engine requires CUDA GPUs"
         if not cls._is_linux():
-            return False
+            return False, "SGLang vision engine is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return (
+                False,
+                "SGLang vision engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported by SGLang vision",
+                )
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by SGLang vision",
+                )
         else:
             if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by SGLang vision",
+                )
         if "vision" not in llm_family.model_ability:
-            return False
-        return SGLANG_INSTALLED
+            return False, "SGLang vision engine requires vision ability"
+        if not SGLANG_INSTALLED:
+            return False, "sglang library is not installed"
+        return True
 
     def _sanitize_chat_config(
         self,

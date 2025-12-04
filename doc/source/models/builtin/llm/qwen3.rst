@@ -8,7 +8,7 @@ qwen3
 - **Model Name:** qwen3
 - **Languages:** en, zh
 - **Abilities:** chat, reasoning, hybrid, tools
-- **Description:** Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support
+- **Description:** Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support.
 
 Specifications
 ^^^^^^^^^^^^^^

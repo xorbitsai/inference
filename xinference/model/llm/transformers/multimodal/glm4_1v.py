@@ -14,7 +14,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple, Union
 
 import torch
 
@@ -33,11 +33,13 @@ class Glm4_1VModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         family = model_family.model_family or model_family.model_name
-        if "glm-4.1v" in family.lower() or "glm-4.5v" in family.lower():
-            return True
-        return False
+        if "glm-4.1v" not in family.lower() and "glm-4.5v" not in family.lower():
+            return False, f"Model family {family} is not GLM-4.1V/4.5V"
+        if "vision" not in model_family.model_ability:
+            return False, "GLM-4.1V transformer requires vision ability"
+        return True
 
     def decide_device(self):
         device = self._pytorch_model_config.get("device", "auto")

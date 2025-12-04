@@ -41,6 +41,10 @@ The following is a list of built-in embedding models in Xinference:
   
    e5-large-v2
   
+   gme-qwen2-vl-2b-instruct
+  
+   gme-qwen2-vl-7b-instruct
+  
    gte-base
   
    gte-large

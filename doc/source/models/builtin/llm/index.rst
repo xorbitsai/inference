@@ -366,6 +366,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - MiniCPM4 series are highly efficient large language models (LLMs) designed explicitly for end-side devices, which achieves this efficiency through systematic innovation in four key dimensions: model architecture, training data, training algorithms, and inference systems.
 
+   * - :ref:`minimax-m2 <models_llm_minimax-m2>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -534,7 +539,7 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`qwen3 <models_llm_qwen3>`
      - chat, reasoning, hybrid, tools
      - 40960
-     - Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support
+     - Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support.
 
    * - :ref:`qwen3-coder <models_llm_qwen3-coder>`
      - chat, tools
@@ -845,6 +850,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm3-4b
   
    minicpm4
+  
+   minimax-m2
   
    mistral-instruct-v0.1
   

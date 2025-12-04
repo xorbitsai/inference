@@ -46,14 +46,14 @@ potential of cutting-edge AI models.
 - Support specifying worker and GPU indexes for launching models: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 ### New Models
+- Built-in support for [FLUX.2-dev](https://github.com/black-forest-labs/flux2): [#4292](https://github.com/xorbitsai/inference/pull/4292)
+- Built-in support for [HunyuanOCR](https://github.com/Tencent-Hunyuan/HunyuanOCR): [#4290](https://github.com/xorbitsai/inference/pull/4290)
 - Built-in support for [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR): [#4187](https://github.com/xorbitsai/inference/pull/4187)
 - Built-in support for [Qwen3-Omni](https://github.com/QwenLM/Qwen3-Omni): [#4137](https://github.com/xorbitsai/inference/pull/4137)
 - Built-in support for [MiniMax-M2](https://github.com/MiniMax-AI/MiniMax-M2): [#4191](https://github.com/xorbitsai/inference/pull/4191)
 - Built-in support for [gme-Qwen2-VL](https://arxiv.org/abs/2412.16855): [#4188](https://github.com/xorbitsai/inference/pull/4188)
 - Built-in support for [jina-reranker-v3](https://huggingface.co/jinaai/jina-reranker-v3): [#4156](https://github.com/xorbitsai/inference/pull/4156)
 - Built-in support for [minicpm-v-4.5](https://github.com/OpenBMB/MiniCPM-V): [#4136](https://github.com/xorbitsai/inference/pull/4136)
-- Built-in support for [Qwen3-VL](https://qwen.ai/blog?id=99f0335c4ad9ff6153e517418d48535ab6d8afef&from=research.latest-advancements-list): [#4112](https://github.com/xorbitsai/inference/pull/4112)
-- Built-in support for [Qwen3-Next](https://qwen.ai/blog?id=4074cca80393150c248e508aa62983f9cb7d27cd&from=research.latest-advancements-list): [#4113](https://github.com/xorbitsai/inference/pull/4113)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
