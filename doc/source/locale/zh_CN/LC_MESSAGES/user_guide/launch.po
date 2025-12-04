@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-21 18:03+0800\n"
+"POT-Creation-Date: 2025-12-04 17:34+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -78,83 +78,44 @@ msgid ""
 msgstr "控制是否启用单GPU多副本功能，默认值：1"
 
 #: ../../source/user_guide/launch.rst:36
-msgid "Key Features: Four new launch strategies"
-msgstr "关键特性：四个新的启动策略"
+msgid "Launch strategy"
+msgstr "启动策略"
 
-#: ../../source/user_guide/launch.rst:39
-msgid "Memory-Aware Strategy"
-msgstr "内存感知策略"
+#: ../../source/user_guide/launch.rst:38
+msgid "Xinference now keeps a single GPU allocation strategy:"
+msgstr "Xinference 现采用单一 GPU 分配策略："
+
+#: ../../source/user_guide/launch.rst:40
+msgid "Try to place the model on the GPU where xinference started."
+msgstr "尝试将模型放置在启动推理的GPU上。"
 
 #: ../../source/user_guide/launch.rst:41
-msgid "**Strategy Name:** `memory_aware` (default)"
-msgstr "**策略名称:** `memory_aware` (默认)"
-
-#: ../../source/user_guide/launch.rst:43
 msgid ""
-"**Description:** Advanced memory-aware allocation with intelligent GPU "
-"reuse. Estimates model memory requirements using formula: `model_size(GB)"
-" × 1024 × 1.5`, adjusts for quantization, and checks actual GPU "
-"availability before allocation."
+"If that GPU cannot host the model, pick the most idle GPU among the "
+"remaining allowed devices (highest available memory) and continue "
+"allocating there before reusing other GPUs."
 msgstr ""
-"**描述:** 先进的内存感知分配，支持智能GPU复用。"
-"使用公式 `模型大小(GB) × 1024 × 1.5` 估算模型内存需求，"
-"根据量化级别调整，并在分配前检查实际GPU可用性。"
+"如果该GPU无法托管模型，则从“剩余可用设备”中选择空闲程度最高的GPU（"
+"可用内存最大者），继续在此分配资源，之后再复用其他GPU。"
+
+#: ../../source/user_guide/launch.rst:44
+msgid "Environment variables"
+msgstr "环境变量"
+
+#: ../../source/user_guide/launch.rst:46
+msgid ""
+"`XINFERENCE_LAUNCH_STRATEGY` and `XINFERENCE_LAUNCH_ALLOWED_GPUS` are two"
+" environment variables that allow you to independently select the launch "
+"strategy and which GPUs that can be allocated."
+msgstr ""
+" `XINFERENCE_LAUNCH_STRATEGY` 和 `XINFERENCE_LAUNCH_ALLOWED_GPUS` "
+"为两个环境变量，可以自主选择启动策略和可被分配的gpu。"
 
 #: ../../source/user_guide/launch.rst:49
-msgid "Packing-First Strategy"
-msgstr "打包优先策略"
-
-#: ../../source/user_guide/launch.rst:51
-msgid "**Strategy Name:** `packing_first`"
-msgstr "**策略名称:** `packing_first`"
-
-#: ../../source/user_guide/launch.rst:53
-msgid ""
-"**Description:** Prioritizes filling GPUs with the most available memory "
-"before moving to the next. Optimizes for GPU utilization by consolidating"
-" instances."
-msgstr ""
-"**描述:** 优先填满可用内存最多的GPU，然后再使用下一个。通过整合实例来优化GPU利用率。"
-
-#: ../../source/user_guide/launch.rst:58
-msgid "Spread-First Strategy"
-msgstr "分散优先策略"
-
-#: ../../source/user_guide/launch.rst:60
-msgid "**Strategy Name:** `spread_first`"
-msgstr "**策略名称:** `spread_first`"
-
-#: ../../source/user_guide/launch.rst:62
-msgid ""
-"**Description:** Distributes replicas across available GPUs using round-"
-"robin. Promotes load balancing and even resource utilization. Still sorts"
-" by available memory to prioritize better GPUs."
-msgstr ""
-"**描述:** 在可用GPU间使用轮询分布副本。促进负载均衡和均匀资源利用。"
-"仍然按可用内存排序以优先选择更好的GPU。"
-
-#: ../../source/user_guide/launch.rst:66
-msgid "Quota-Aware Strategy"
-msgstr "配额感知策略"
-
-#: ../../source/user_guide/launch.rst:68
-msgid "**Strategy Name:** `quota_aware`"
-msgstr "**策略名称:** `quota_aware`"
-
-#: ../../source/user_guide/launch.rst:70
-msgid ""
-"**Description:** Restricts allocation to a specified GPU quota, then "
-"applies spread-first distribution within that quota. Ideal for multi-"
-"tenant resource isolation and cost allocation."
-msgstr ""
-"**描述:** 将分配限制在指定的GPU配额内，然后在配额内应用分散优先分发。"
-"适合多租户资源隔离和成本分配。"
-
-#: ../../source/user_guide/launch.rst:74
 msgid "Set Environment Variables"
 msgstr "设置环境变量"
 
-#: ../../source/user_guide/launch.rst:78
+#: ../../source/user_guide/launch.rst:53
 msgid ""
 "Sometimes, we want to specify environment variables for a particular "
 "model at runtime. Since v1.8.1, Xinference provides the capability to "
@@ -164,21 +125,21 @@ msgstr ""
 "有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference "
 "提供了单独配置环境变量的功能，无需在启动 Xinference 前设置。"
 
-#: ../../source/user_guide/launch.rst:81
+#: ../../source/user_guide/launch.rst:56
 msgid "For Web UI."
 msgstr "针对 Web UI。"
 
-#: ../../source/user_guide/launch.rst:87
+#: ../../source/user_guide/launch.rst:62
 msgid ""
 "When using the command line, use ``--env`` to specify an environment "
 "variable."
 msgstr "命令行使用时，使用 ``--env`` 指定环境变量。"
 
-#: ../../source/user_guide/launch.rst:89
+#: ../../source/user_guide/launch.rst:64
 msgid "Example usage:"
 msgstr "示例用法："
 
-#: ../../source/user_guide/launch.rst:95
+#: ../../source/user_guide/launch.rst:70
 msgid ""
 "Take vLLM as an example: it has versions V1 and V0, and by default, it "
 "automatically determines which version to use. If you want to force the "
@@ -189,11 +150,11 @@ msgstr ""
 "在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
 "。"
 
-#: ../../source/user_guide/launch.rst:99
+#: ../../source/user_guide/launch.rst:74
 msgid "Configuring Model Virtual Environment"
 msgstr "配置模型虚拟空间"
 
-#: ../../source/user_guide/launch.rst:103
+#: ../../source/user_guide/launch.rst:78
 msgid ""
 "For this part, please refer to :ref:`toggling virtual environments and "
 "customizing dependencies <model_launching_virtualenv>`."
@@ -238,4 +199,82 @@ msgstr ""
 
 #~ msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
 #~ msgstr "结果: GPU0运行2个实例，GPU1运行1个实例"
+
+#~ msgid "Key Features: Four new launch strategies"
+#~ msgstr "关键特性：四个新的启动策略"
+
+#~ msgid "Memory-Aware Strategy"
+#~ msgstr "内存感知策略"
+
+#~ msgid "**Strategy Name:** `memory_aware` (default)"
+#~ msgstr "**策略名称:** `memory_aware` (默认)"
+
+#~ msgid ""
+#~ "**Description:** Advanced memory-"
+#~ "aware allocation with intelligent GPU "
+#~ "reuse. Estimates model memory requirements"
+#~ " using formula: `model_size(GB)"
+#~ " × 1024 × 1.5`, adjusts for"
+#~ " quantization, and checks actual GPU "
+#~ "availability before allocation."
+#~ msgstr ""
+#~ "**描述:** 先进的内存感知分配，"
+#~ "支持智能GPU复用。使用公式 `模型大小("
+#~ "GB) × 1024 × 1.5` 估算模型"
+#~ "内存需求，根据量化级别调整，并在分配"
+#~ "前检查实际GPU可用性。"
+
+#~ msgid "Packing-First Strategy"
+#~ msgstr "打包优先策略"
+
+#~ msgid "**Strategy Name:** `packing_first`"
+#~ msgstr "**策略名称:** `packing_first`"
+
+#~ msgid ""
+#~ "**Description:** Prioritizes filling GPUs with"
+#~ " the most available memory before "
+#~ "moving to the next. Optimizes for "
+#~ "GPU utilization by consolidating instances."
+#~ msgstr ""
+#~ "**描述:** 优先填满可用内存最多的"
+#~ "GPU，然后再使用下一个。通过整合实例来"
+#~ "优化GPU利用率。"
+
+#~ msgid "Spread-First Strategy"
+#~ msgstr "分散优先策略"
+
+#~ msgid "**Strategy Name:** `spread_first`"
+#~ msgstr "**策略名称:** `spread_first`"
+
+#~ msgid ""
+#~ "**Description:** Distributes replicas across "
+#~ "available GPUs using round-robin. "
+#~ "Promotes load balancing and even "
+#~ "resource utilization. Still sorts by "
+#~ "available memory to prioritize better "
+#~ "GPUs."
+#~ msgstr ""
+#~ "**描述:** 在可用GPU间使用轮询"
+#~ "分布副本。促进负载均衡和均匀资源利用。"
+#~ "仍然按可用内存排序以优先选择更好的GPU。"
+
+#~ msgid "Quota-Aware Strategy"
+#~ msgstr "配额感知策略"
+
+#~ msgid "**Strategy Name:** `quota_aware`"
+#~ msgstr "**策略名称:** `quota_aware`"
+
+#~ msgid ""
+#~ "**Description:** Restricts allocation to a "
+#~ "specified GPU quota, then applies "
+#~ "spread-first distribution within that "
+#~ "quota. Ideal for multi-tenant resource"
+#~ " isolation and cost allocation."
+#~ msgstr ""
+#~ "**描述:** 将分配限制在指定的GPU"
+#~ "配额内，然后在配额内应用分散优先分发"
+#~ "。适合多租户资源隔离和成本分配。"
+
+#~ msgid "Single launch strategy"
+#~ msgstr ""
 

@@ -547,6 +547,7 @@ class WorkerActor(xo.StatelessActor):
         model_size: Union[int, str],
         model_format: Optional[str],
         quantization: Optional[str],
+        context_length: Optional[int],
         n_gpu: int = 1,
     ) -> List[int]:
         spec = LaunchModelSpec(
@@ -556,6 +557,7 @@ class WorkerActor(xo.StatelessActor):
             model_size=model_size,
             model_format=model_format,
             quantization=quantization,
+            context_length=context_length,
         )
         devices = self._launch_strategy.allocate(
             spec=spec,
@@ -640,6 +642,11 @@ class WorkerActor(xo.StatelessActor):
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
         start_python: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_size_in_billions: Optional[Union[int, str]] = None,
+        model_format: Optional[str] = None,
+        quantization: Optional[str] = None,
+        context_length: Optional[int] = None,
     ) -> Tuple[str, List[str]]:
         env = {} if env is None else env
         devices = []
@@ -651,7 +658,15 @@ class WorkerActor(xo.StatelessActor):
                 devices = (
                     [await self.allocate_devices_for_embedding(model_uid)]
                     if model_type in ["embedding", "rerank"]
-                    else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+                    else self.allocate_devices_for_model(
+                        model_uid=model_uid,
+                        model_name=model_name or model_uid,
+                        model_size=model_size_in_billions or 0,
+                        model_format=model_format,
+                        quantization=quantization,
+                        context_length=context_length,
+                        n_gpu=gpu_cnt,  # type: ignore
+                    )
                 )
                 env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
@@ -1446,6 +1461,11 @@ class WorkerActor(xo.StatelessActor):
                 gpu_idx=gpu_idx,
                 start_python=subpool_python_path,
                 env=envs,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                model_format=model_format,
+                quantization=quantization,
+                context_length=kwargs.get("context_length"),
             )
             all_subpool_addresses = [subpool_address]
             try:

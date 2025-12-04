@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Union
 
 from ..device_utils import initialize_gpu_memory_info, update_gpu_memory_info
+from ..model.llm.memory import estimate_llm_gpu_memory
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class LaunchModelSpec:
 
     model_uid: str
     n_gpu: int
+    context_length: Optional[int] = None
     model_name: Optional[str] = None
     model_size: Optional[Union[int, str]] = None
     model_format: Optional[str] = None
@@ -77,13 +79,18 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
     chooses the most idle GPU from the remaining pool.
     """
 
+    _DEFAULT_MIN_MEMORY_MB = 1024
+    _DEFAULT_CONTEXT_LENGTH = 2048
+
+    _DEFAULT_MIN_MEMORY_MB = 1024
+
     def __init__(
         self,
         total_gpu_devices: List[int],
         allowed_devices: Optional[Set[int]] = None,
         gpu_memory_info: Optional[Dict[int, Dict[str, Union[int, float]]]] = None,
     ):
-        self._total_gpu_devices = total_gpu_devices
+        self._total_gpu_devices = sorted(total_gpu_devices)
         self._allowed_devices = allowed_devices
         self._gpu_memory_info = gpu_memory_info or {}
         self._model_memory_usage: Dict[str, int] = {}
@@ -129,34 +136,40 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
                     "available": 0,
                 }
 
+    def _normalize_quantization(self, quantization: Optional[str]) -> Optional[str]:
+        if quantization is None:
+            return None
+        quant_str = quantization.strip().lower()
+        if quant_str in {"", "none", "null"}:
+            return None
+        return quantization
+
     def _estimate_model_memory_usage(
         self,
         model_name: str,
         model_size: Union[int, str],
         model_format: Optional[str],
         quantization: Optional[str],
+        context_length: Optional[int],
     ) -> int:
-        """Estimate memory usage for a model based on its characteristics"""
-        if isinstance(model_size, str):
-            if "B" in model_size:
-                size_gb = float(model_size.replace("B", ""))
-            else:
-                size_gb = float(model_size)
-        else:
-            size_gb = float(model_size)
+        """Estimate memory usage using cal-model-mem algorithm."""
+        ctx_len = context_length or self._DEFAULT_CONTEXT_LENGTH
+        fmt = model_format or "pytorch"
+        quant_norm = self._normalize_quantization(quantization)
+        try:
+            mem_info = estimate_llm_gpu_memory(
+                model_size_in_billions=model_size,
+                quantization=quant_norm,
+                context_length=ctx_len,
+                model_format=fmt,
+                model_name=model_name,
+            )
+            if mem_info is not None:
+                return max(int(mem_info.total), self._DEFAULT_MIN_MEMORY_MB)
+        except Exception as e:
+            logger.warning(f"Failed to estimate memory for {model_name}: {e}")
 
-        base_memory_mb = int(size_gb * 1024 * 1.5)
-
-        if quantization:
-            if "4bit" in quantization.lower() or "4-bit" in quantization.lower():
-                base_memory_mb = base_memory_mb // 3
-            elif "8bit" in quantization.lower() or "8-bit" in quantization.lower():
-                base_memory_mb = base_memory_mb // 2
-
-        if model_format and "mlx" in model_format.lower():
-            base_memory_mb = int(base_memory_mb * 0.8)
-
-        return max(base_memory_mb, 1024)
+        return self._DEFAULT_MIN_MEMORY_MB
 
     def _filter_available_devices(
         self, total_gpu_devices: List[int], user_specified_allocated_devices: Set[int]
@@ -234,7 +247,7 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
             if self._can_fit_model_on_gpu(gpu, estimated_memory_mb, memory_snapshot):
                 return gpu
 
-        return sorted_candidates[0] if sorted_candidates else None
+        return None
 
     def allocate(
         self,
@@ -260,36 +273,40 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
         estimated_memory_mb = 0
         if spec.model_name and spec.model_size:
             estimated_memory_mb = self._estimate_model_memory_usage(
-                spec.model_name, spec.model_size, spec.model_format, spec.quantization
+                spec.model_name,
+                spec.model_size,
+                spec.model_format,
+                spec.quantization,
+                spec.context_length,
             )
             self._model_memory_usage[model_uid] = estimated_memory_mb
+        else:
+            estimated_memory_mb = self._DEFAULT_MIN_MEMORY_MB
+            self._model_memory_usage[model_uid] = estimated_memory_mb
         selected: List[int] = []
+        # user-specified slots不能被自动策略占用，其余已分配的GPU允许复用，靠可用显存判断是否还能放得下
         in_use_gpus: Set[int] = set(user_specified_allocated_devices)
-        in_use_gpus.update(allocated_gpus.keys())
 
-        preferred_gpu = (
-            self._current_gpu if self._current_gpu in candidate_gpus else None
-        )
-        if preferred_gpu is not None and preferred_gpu not in in_use_gpus:
-            if self._can_fit_model_on_gpu(
-                preferred_gpu, estimated_memory_mb, memory_snapshot
-            ):
-                selected.append(preferred_gpu)
-                self._consume_allocation(
-                    preferred_gpu, estimated_memory_mb, memory_snapshot
-                )
-                in_use_gpus.add(preferred_gpu)
+        target_gpu = self._current_gpu if self._current_gpu in candidate_gpus else None
 
         while len(selected) < n_gpu:
-            gpu_idx = self._select_most_idle_gpu(
+            if target_gpu is not None and self._can_fit_model_on_gpu(
+                target_gpu, estimated_memory_mb, memory_snapshot
+            ):
+                selected.append(target_gpu)
+                self._consume_allocation(
+                    target_gpu, estimated_memory_mb, memory_snapshot
+                )
+                continue
+
+            next_gpu = self._select_most_idle_gpu(
                 candidate_gpus, in_use_gpus, memory_snapshot, estimated_memory_mb
             )
-            if gpu_idx is None:
+            if next_gpu is None:
                 raise RuntimeError("No available slot found for the model")
 
-            selected.append(gpu_idx)
-            self._consume_allocation(gpu_idx, estimated_memory_mb, memory_snapshot)
-            in_use_gpus.add(gpu_idx)
+            target_gpu = next_gpu
+            in_use_gpus.add(next_gpu)
 
         if estimated_memory_mb > 0:
             for gpu_idx in selected:

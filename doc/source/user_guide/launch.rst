@@ -32,43 +32,18 @@ Introduce a new environment variable:
 Control whether to enable the single GPU multi-copy feature
 Default value: 1
 
-Key Features: Four new launch strategies
+Launch strategy
 ~~~~~~~~~~
 
-Memory-Aware Strategy
-^^^^^^^^
+Xinference now keeps a single GPU allocation strategy:
 
-**Strategy Name:** `memory_aware` (default)
+- Try to place the model on the GPU where xinference started.
+- If that GPU cannot host the model, pick the most idle GPU among the remaining allowed devices (highest available memory) and continue allocating there before reusing other GPUs.
 
-**Description:**
-Advanced memory-aware allocation with intelligent GPU reuse.
-Estimates model memory requirements using formula: `model_size(GB) × 1024 × 1.5`,
-adjusts for quantization, and checks actual GPU availability before allocation.
+Environment variables
+^^^^^^^^^^^^^^^^^^^^^
 
-Packing-First Strategy
-^^^^^^^^
-
-**Strategy Name:** `packing_first`
-
-**Description:**
-Prioritizes filling GPUs with the most available memory before moving to the next.
-Optimizes for GPU utilization by consolidating instances.
-
-Spread-First Strategy
-^^^^^^^^
-
-**Strategy Name:** `spread_first`
-
-**Description:**
-Distributes replicas across available GPUs using round-robin. Promotes load balancing and even resource utilization. Still sorts by available memory to prioritize better GPUs.
-
-Quota-Aware Strategy
-^^^^^^^^
-
-**Strategy Name:** `quota_aware`
-
-**Description:**
-Restricts allocation to a specified GPU quota, then applies spread-first distribution within that quota. Ideal for multi-tenant resource isolation and cost allocation.
+`XINFERENCE_LAUNCH_STRATEGY` and `XINFERENCE_LAUNCH_ALLOWED_GPUS` are two environment variables that allow you to independently select the launch strategy and which GPUs that can be allocated.
 
 Set Environment Variables
 =========================
