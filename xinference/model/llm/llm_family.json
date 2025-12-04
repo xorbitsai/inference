@@ -9,7 +9,7 @@
     "model_ability": [
       "generate"
     ],
-    "model_description": "Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash",
+    "model_description": "  Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash",
     "model_specs": [
       {
         "model_format": "pytorch",
