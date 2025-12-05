@@ -14,6 +14,37 @@ you can set the replica count to 2. This way, two identical instances of the mod
 Xinference automatically load-balances requests to ensure even distribution across multiple GPUs.
 Meanwhile, users see it as a single model, which greatly improves overall resource utilization.
 
+Traditional Multi-Instance Deployment：
+
+When you have multiple GPU cards, each capable of hosting one model instance, you can set the number of instances equal to the number of GPUs. For example:
+
+- 2 GPUs, 2 instances: Each GPU runs one model instance
+- 4 GPUs, 4 instances: Each GPU runs one model instance
+
+.. versionadded:: v1.14.0
+
+Introduce a new environment variable:
+
+.. code-block:: bash
+
+    XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA
+
+Control whether to enable the single GPU multi-copy feature
+Default value: 1
+
+Launch strategy
+~~~~~~~~~~
+
+Xinference now keeps a single GPU allocation strategy:
+
+- Try to place the model on the GPU where xinference started.
+- If that GPU cannot host the model, pick the most idle GPU among the remaining allowed devices (highest available memory) and continue allocating there before reusing other GPUs.
+
+Environment variables
+^^^^^^^^^^^^^^^^^^^^^
+
+`XINFERENCE_LAUNCH_STRATEGY` and `XINFERENCE_LAUNCH_ALLOWED_GPUS` are two environment variables that allow you to independently select the launch strategy and which GPUs that can be allocated.
+
 Set Environment Variables
 =========================
 

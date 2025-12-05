@@ -61,6 +61,7 @@ from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
+from .launch_strategy import LaunchModelSpec, create_launch_strategy
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
@@ -147,6 +148,16 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+        from ..constants import (
+            XINFERENCE_LAUNCH_ALLOWED_GPUS,
+            XINFERENCE_LAUNCH_STRATEGY,
+        )
+
+        self._launch_strategy = create_launch_strategy(
+            strategy_name=XINFERENCE_LAUNCH_STRATEGY,
+            total_gpu_devices=self._total_gpu_devices,
+            allowed_devices=XINFERENCE_LAUNCH_ALLOWED_GPUS,
+        )
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -501,7 +512,8 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_embedding_model_uids[device].add(model_uid)
         return device
 
-    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
+    def _collect_user_specified_devices(self) -> Set[int]:
+        """收集用户指定且非 embedding/rerank 的占用卡"""
         user_specified_allocated_devices: Set[int] = set()
         for dev, model_infos in self._user_specified_gpu_to_model_uids.items():
             allocated_non_embedding_rerank_models = False
@@ -514,21 +526,47 @@ class WorkerActor(xo.StatelessActor):
                     break
             if allocated_non_embedding_rerank_models:
                 user_specified_allocated_devices.add(dev)
-        allocated_devices = set(self._gpu_to_model_uid.keys()).union(
-            user_specified_allocated_devices
-        )
-        if n_gpu > len(self._total_gpu_devices) - len(allocated_devices):
-            raise RuntimeError("No available slot found for the model")
+        return user_specified_allocated_devices
 
-        devices: List[int] = [
-            dev
-            for dev in self._total_gpu_devices
-            if dev not in self._gpu_to_model_uid
-            and dev not in user_specified_allocated_devices
-        ][:n_gpu]
+    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
+        spec = LaunchModelSpec(model_uid=model_uid, n_gpu=n_gpu)
+        devices = self._launch_strategy.allocate(
+            spec=spec,
+            total_gpu_devices=self._total_gpu_devices,
+            user_specified_allocated_devices=self._collect_user_specified_devices(),
+            allocated_gpus=self._gpu_to_model_uid,
+        )
         for dev in devices:
             self._gpu_to_model_uid[int(dev)] = model_uid
+        return sorted(devices)
 
+    def allocate_devices_for_model(
+        self,
+        model_uid: str,
+        model_name: str,
+        model_size: Union[int, str],
+        model_format: Optional[str],
+        quantization: Optional[str],
+        context_length: Optional[int],
+        n_gpu: int = 1,
+    ) -> List[int]:
+        spec = LaunchModelSpec(
+            model_uid=model_uid,
+            n_gpu=n_gpu,
+            model_name=model_name,
+            model_size=model_size,
+            model_format=model_format,
+            quantization=quantization,
+            context_length=context_length,
+        )
+        devices = self._launch_strategy.allocate(
+            spec=spec,
+            total_gpu_devices=self._total_gpu_devices,
+            user_specified_allocated_devices=self._collect_user_specified_devices(),
+            allocated_gpus=self._gpu_to_model_uid,
+        )
+        for dev in devices:
+            self._gpu_to_model_uid[int(dev)] = model_uid
         return sorted(devices)
 
     async def allocate_devices_with_gpu_idx(
@@ -593,6 +631,9 @@ class WorkerActor(xo.StatelessActor):
             for model_info in model_infos:
                 self._user_specified_gpu_to_model_uids[dev].remove(model_info)
 
+        # Use launch strategy to handle memory tracking rollback
+        self._launch_strategy.release(model_uid, devices)
+
     async def _create_subpool(
         self,
         model_uid: str,
@@ -601,6 +642,11 @@ class WorkerActor(xo.StatelessActor):
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
         start_python: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_size_in_billions: Optional[Union[int, str]] = None,
+        model_format: Optional[str] = None,
+        quantization: Optional[str] = None,
+        context_length: Optional[int] = None,
     ) -> Tuple[str, List[str]]:
         env = {} if env is None else env
         devices = []
@@ -612,7 +658,15 @@ class WorkerActor(xo.StatelessActor):
                 devices = (
                     [await self.allocate_devices_for_embedding(model_uid)]
                     if model_type in ["embedding", "rerank"]
-                    else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+                    else self.allocate_devices_for_model(
+                        model_uid=model_uid,
+                        model_name=model_name or model_uid,
+                        model_size=model_size_in_billions or 0,
+                        model_format=model_format,
+                        quantization=quantization,
+                        context_length=context_length,
+                        n_gpu=gpu_cnt,  # type: ignore
+                    )
                 )
                 env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
@@ -1407,6 +1461,11 @@ class WorkerActor(xo.StatelessActor):
                 gpu_idx=gpu_idx,
                 start_python=subpool_python_path,
                 env=envs,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                model_format=model_format,
+                quantization=quantization,
+                context_length=kwargs.get("context_length"),
             )
             all_subpool_addresses = [subpool_address]
             try:
