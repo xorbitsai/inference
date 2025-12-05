@@ -35,6 +35,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     Union,
     no_type_check,
 )
@@ -241,6 +242,28 @@ class WorkerActor(xo.StatelessActor):
     @classmethod
     def default_uid(cls) -> str:
         return "worker"
+
+    def _get_spec_dicts_with_cache_status(
+        self, model_family: Any, cache_manager_cls: Type
+    ) -> Tuple[List[dict], List[str]]:
+        """
+        Build model_specs with cache_status and collect download_hubs.
+        """
+
+        specs: List[dict] = []
+        download_hubs: List[str] = []
+        for spec in model_family.model_specs:
+            model_hub = spec.model_hub
+            if model_hub not in download_hubs:
+                download_hubs.append(model_hub)
+
+            family_copy = model_family.copy()
+            family_copy.model_specs = [spec]
+            cache_manager = cache_manager_cls(family_copy)
+            specs.append(
+                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
+            )
+        return specs, download_hubs
 
     async def __post_create__(self):
         from ..model.audio import (
@@ -813,21 +836,18 @@ class WorkerActor(xo.StatelessActor):
 
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+            from ..model.llm.cache_manager import LLMCacheManager
 
             # Add built-in LLM families
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
-                    # Remove duplicate hubs while preserving order
-                    seen_hubs = set()
-                    download_hubs = []
-                    for spec in family.model_specs:
-                        if spec.model_hub not in seen_hubs:
-                            seen_hubs.add(spec.model_hub)
-                            download_hubs.append(spec.model_hub)
-
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        family, LLMCacheManager
+                    )
                     ret.append(
                         {
                             **family.dict(),
+                            "model_specs": specs,
                             "is_builtin": True,
                             "download_hubs": download_hubs,
                         }
@@ -838,17 +858,13 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined LLM families
             for family in get_user_defined_llm_families():
                 if detailed:
-                    # Remove duplicate hubs while preserving order
-                    seen_hubs = set()
-                    download_hubs = []
-                    for spec in family.model_specs:
-                        if spec.model_hub not in seen_hubs:
-                            seen_hubs.add(spec.model_hub)
-                            download_hubs.append(spec.model_hub)
-
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        family, LLMCacheManager
+                    )
                     ret.append(
                         {
                             **family.dict(),
+                            "model_specs": specs,
                             "is_builtin": False,
                             "download_hubs": download_hubs,
                         }
@@ -860,23 +876,20 @@ class WorkerActor(xo.StatelessActor):
             return ret
         elif model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+            from ..model.embedding.cache_manager import EmbeddingCacheManager
             from ..model.embedding.custom import get_user_defined_embeddings
 
             # Add built-in embedding models
             for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
                 for family in family_list:
                     if detailed:
-                        # Remove duplicate hubs while preserving order
-                        seen_hubs = set()
-                        download_hubs = []
-                        for spec in family.model_specs:
-                            if spec.model_hub not in seen_hubs:
-                                seen_hubs.add(spec.model_hub)
-                                download_hubs.append(spec.model_hub)
-
+                        specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                            family, EmbeddingCacheManager
+                        )
                         ret.append(
                             {
                                 **family.dict(),
+                                "model_specs": specs,
                                 "is_builtin": True,
                                 "download_hubs": download_hubs,
                             }
@@ -887,17 +900,13 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined embedding models
             for model_spec in get_user_defined_embeddings():
                 if detailed:
-                    # Remove duplicate hubs while preserving order
-                    seen_hubs = set()
-                    download_hubs = []
-                    for spec in model_spec.model_specs:
-                        if spec.model_hub not in seen_hubs:
-                            seen_hubs.add(spec.model_hub)
-                            download_hubs.append(spec.model_hub)
-
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        model_spec, EmbeddingCacheManager
+                    )
                     ret.append(
                         {
                             **model_spec.dict(),
+                            "model_specs": specs,
                             "is_builtin": False,
                             "download_hubs": download_hubs,
                         }
@@ -911,15 +920,26 @@ class WorkerActor(xo.StatelessActor):
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
+            from ..model.image.cache_manager import ImageCacheManager
             from ..model.image.custom import get_user_defined_images
 
             # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
                 for family in families:
                     if detailed:
+                        cache_manager = ImageCacheManager(family)
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": cache_manager.get_cache_status(),
+                            }
+                        ]
                         ret.append(
                             {
                                 **family.dict(),
+                                "model_specs": model_specs,
                                 "is_builtin": True,
                                 "download_hubs": [family.model_hub],
                             }
@@ -930,9 +950,19 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined image models
             for model_spec in get_user_defined_images():
                 if detailed:
+                    cache_manager = ImageCacheManager(model_spec)
+                    model_specs = [
+                        {
+                            "model_format": "pytorch",
+                            "model_hub": model_spec.model_hub,
+                            "model_id": model_spec.model_id,
+                            "cache_status": cache_manager.get_cache_status(),
+                        }
+                    ]
                     ret.append(
                         {
                             **model_spec.dict(),
+                            "model_specs": model_specs,
                             "is_builtin": False,
                             "download_hubs": [model_spec.model_hub],
                         }
@@ -947,14 +977,25 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
+            from ..model.cache_manager import CacheManager
 
             # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
                 for family in families:
                     if detailed:
+                        cache_manager = CacheManager(family)
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": cache_manager.get_cache_status(),
+                            }
+                        ]
                         ret.append(
                             {
                                 **family.dict(),
+                                "model_specs": model_specs,
                                 "is_builtin": True,
                                 "download_hubs": [family.model_hub],
                             }
@@ -965,9 +1006,19 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined audio models
             for model_spec in get_user_defined_audios():
                 if detailed:
+                    cache_manager = CacheManager(model_spec)
+                    model_specs = [
+                        {
+                            "model_format": "pytorch",
+                            "model_hub": model_spec.model_hub,
+                            "model_id": model_spec.model_id,
+                            "cache_status": cache_manager.get_cache_status(),
+                        }
+                    ]
                     ret.append(
                         {
                             **model_spec.dict(),
+                            "model_specs": model_specs,
                             "is_builtin": False,
                             "download_hubs": [model_spec.model_hub],
                         }
@@ -980,15 +1031,26 @@ class WorkerActor(xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
+            from ..model.cache_manager import CacheManager
             from ..model.video import BUILTIN_VIDEO_MODELS
 
             # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
                 for family in families:
                     if detailed:
+                        cache_manager = CacheManager(family)
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": cache_manager.get_cache_status(),
+                            }
+                        ]
                         ret.append(
                             {
                                 **family.dict(),
+                                "model_specs": model_specs,
                                 "is_builtin": True,
                                 "download_hubs": [family.model_hub],
                             }
@@ -1000,23 +1062,20 @@ class WorkerActor(xo.StatelessActor):
             return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.cache_manager import RerankCacheManager
             from ..model.rerank.custom import get_user_defined_reranks
 
             # Add built-in rerank models (BUILTIN_RERANK_MODELS contains model_name -> family_list list)
             for model_name, family_list in BUILTIN_RERANK_MODELS.items():
                 for family in family_list:
                     if detailed:
-                        # Remove duplicate hubs while preserving order
-                        seen_hubs = set()
-                        download_hubs = []
-                        for spec in family.model_specs:
-                            if spec.model_hub not in seen_hubs:
-                                seen_hubs.add(spec.model_hub)
-                                download_hubs.append(spec.model_hub)
-
+                        specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                            family, RerankCacheManager
+                        )
                         ret.append(
                             {
                                 **family.dict(),
+                                "model_specs": specs,
                                 "is_builtin": True,
                                 "download_hubs": download_hubs,
                             }
@@ -1027,17 +1086,13 @@ class WorkerActor(xo.StatelessActor):
             # Add user-defined rerank models
             for model_spec in get_user_defined_reranks():
                 if detailed:
-                    # Remove duplicate hubs while preserving order
-                    seen_hubs = set()
-                    download_hubs = []
-                    for spec in model_spec.model_specs:
-                        if spec.model_hub not in seen_hubs:
-                            seen_hubs.add(spec.model_hub)
-                            download_hubs.append(spec.model_hub)
-
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        model_spec, RerankCacheManager
+                    )
                     ret.append(
                         {
                             **model_spec.dict(),
+                            "model_specs": specs,
                             "is_builtin": False,
                             "download_hubs": download_hubs,
                         }
@@ -1055,7 +1110,18 @@ class WorkerActor(xo.StatelessActor):
             ret = []
 
             for model_spec in get_flexible_models():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "cache_status": True,
+                            "is_builtin": False,
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
