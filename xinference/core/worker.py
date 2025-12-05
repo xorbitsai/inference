@@ -1038,13 +1038,13 @@ class WorkerActor(xo.StatelessActor):
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
                 for family in families:
                     if detailed:
-                        cache_manager = CacheManager(family)
+                        video_cache_manager = CacheManager(family)
                         model_specs = [
                             {
                                 "model_format": "pytorch",
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
-                                "cache_status": cache_manager.get_cache_status(),
+                                "cache_status": video_cache_manager.get_cache_status(),
                             }
                         ]
                         ret.append(
