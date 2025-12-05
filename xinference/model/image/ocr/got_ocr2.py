@@ -77,4 +77,8 @@ class GotOCR2Model:
             image = image.convert("RGB")
         assert self._model is not None
         # This chat API limits the max new tokens inside.
-        return self._model.chat(self._tokenizer, image, gradio_input=True, **kwargs)
+        result = self._model.chat(self._tokenizer, image, gradio_input=True, **kwargs)
+        if result is None:
+            logger.warning("Got OCR 2.0 returned empty result.")
+            return ""
+        return result
