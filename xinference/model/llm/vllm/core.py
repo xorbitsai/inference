@@ -128,6 +128,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     guided_json_object: Optional[bool]
     guided_decoding_backend: Optional[str]
     guided_whitespace_pattern: Optional[str]
+    ignore_eos: Optional[bool]
 
 
 try:
@@ -888,6 +889,20 @@ class VLLMModel(LLM):
         sanitized.setdefault(
             "guided_json_object",
             generate_config.get("guided_json_object", guided_json_object),
+        )
+        # 1. Try to get from generate config
+        ignore_eos_val = generate_config.get("ignore_eos")
+
+        # 2. else, get from extra_body
+        # sometimes Xinference put unrecognized params into extra_body
+        if ignore_eos_val is None:
+            extra_body = generate_config.get("extra_body")
+            if isinstance(extra_body, dict):
+                ignore_eos_val = extra_body.get("ignore_eos")
+
+        # 3. write into sanitized
+        sanitized.setdefault(
+            "ignore_eos", ignore_eos_val if ignore_eos_val is not None else False
         )
 
         return sanitized
