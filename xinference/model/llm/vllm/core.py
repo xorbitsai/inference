@@ -900,7 +900,7 @@ class VLLMModel(LLM):
             if isinstance(extra_body, dict):
                 ignore_eos_val = extra_body.get("ignore_eos")
 
-        # 3. 强制写入 sanitized
+        # 3. write into sanitized
         sanitized.setdefault(
             "ignore_eos", ignore_eos_val if ignore_eos_val is not None else False
         )
