@@ -133,10 +133,12 @@ jobs:
             sudo rm -rf /opt/ghc
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+            sudo apt-get update
+            sudo apt-get install -y build-essential cmake ninja-build
           fi
           pip install -e ".[dev]"
-          CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" \
-          pip install --no-binary xllamacpp xllamacpp>=0.2.6
+          CMAKE_ARGS="-DLLAMA_NATIVE=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX=ON -DLLAMA_AVX2=ON -DLLAMA_FMA=ON -DLLAMA_F16C=ON" \
+          pip install --no-binary xllamacpp xllamacpp>=0.2.0
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
