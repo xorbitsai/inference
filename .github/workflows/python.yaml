@@ -136,8 +136,10 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y build-essential cmake ninja-build
           fi
+          pip install -U pip setuptools wheel scikit-build-core ninja cmake
           pip install -e ".[dev]"
-          CMAKE_ARGS="-DLLAMA_NATIVE=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX=ON -DLLAMA_AVX2=ON -DLLAMA_FMA=ON -DLLAMA_F16C=ON" \
+          # Build xllamacpp 0.2.6 from source with safe CPU flags (no AVX512/native) to avoid SIGILL
+          CMAKE_ARGS="-DLLAMA_NATIVE=OFF -DLLAMA_AVX512=OFF" \
           pip install --no-binary xllamacpp xllamacpp>=0.2.0
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
