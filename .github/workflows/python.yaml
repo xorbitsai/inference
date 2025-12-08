@@ -135,7 +135,8 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install "xllamacpp==0.2.5"
+          CMAKE_ARGS="-DGGML_NATIVE=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" \
+          pip install --no-binary xllamacpp xllamacpp>=0.2.6
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
