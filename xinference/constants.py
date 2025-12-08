@@ -122,7 +122,7 @@ XINFERENCE_ALLOWED_IPS = os.getenv(XINFERENCE_ENV_ALLOWED_IPS)
 XINFERENCE_ENABLE_SINGLE_GPU_MULTI_REPLICA = bool(
     int(os.getenv(XINFERENCE_ENV_ENABLE_SINGLE_GPU_MULTI_REPLICA, "1"))
 )  # Enable by default
-XINFERENCE_LAUNCH_STRATEGY = os.getenv(XINFERENCE_ENV_LAUNCH_STRATEGY, "memory_aware")
+XINFERENCE_LAUNCH_STRATEGY = os.getenv(XINFERENCE_ENV_LAUNCH_STRATEGY, "local_first")
 _allowed_gpu_str = os.getenv(XINFERENCE_ENV_LAUNCH_ALLOWED_GPUS, "")
 XINFERENCE_LAUNCH_ALLOWED_GPUS = (
     {int(x) for x in _allowed_gpu_str.split(",") if x.strip().isdigit()}

@@ -146,7 +146,7 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
         self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
-        self._gpu_to_model_uid: Dict[int, str] = {}
+        self._gpu_to_model_uid: Dict[int, Set[str]] = defaultdict(set)
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
         self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
@@ -504,10 +504,12 @@ class WorkerActor(xo.StatelessActor):
             else:  # need to judge that whether to have vllm model on this device
                 has_vllm_model = False
                 if _dev in self._gpu_to_model_uid:
-                    existing_model_uid = self._gpu_to_model_uid[_dev]
-                    has_vllm_model = await self.is_model_vllm_backend(
-                        existing_model_uid
-                    )
+                    for existing_model_uid in self._gpu_to_model_uid[_dev]:
+                        has_vllm_model = await self.is_model_vllm_backend(
+                            existing_model_uid
+                        )
+                        if has_vllm_model:
+                            break
                 if (
                     not has_vllm_model
                     and _dev in self._user_specified_gpu_to_model_uids
@@ -532,7 +534,7 @@ class WorkerActor(xo.StatelessActor):
             if _dev in self._gpu_to_embedding_model_uids:
                 existing_cnt += len(self._gpu_to_embedding_model_uids[_dev])
             if _dev in self._gpu_to_model_uid:
-                existing_cnt += 1
+                existing_cnt += len(self._gpu_to_model_uid[_dev])
             if _dev in self._user_specified_gpu_to_model_uids:
                 existing_cnt += len(self._user_specified_gpu_to_model_uids[_dev])
             if min_cnt == -1 or existing_cnt < min_cnt:
@@ -566,7 +568,7 @@ class WorkerActor(xo.StatelessActor):
             allocated_gpus=self._gpu_to_model_uid,
         )
         for dev in devices:
-            self._gpu_to_model_uid[int(dev)] = model_uid
+            self._gpu_to_model_uid[int(dev)].add(model_uid)
         return sorted(devices)
 
     def allocate_devices_for_model(
@@ -593,7 +595,7 @@ class WorkerActor(xo.StatelessActor):
             allocated_gpus=self._gpu_to_model_uid,
         )
         for dev in devices:
-            self._gpu_to_model_uid[int(dev)] = model_uid
+            self._gpu_to_model_uid[int(dev)].add(model_uid)
         return sorted(devices)
 
     async def allocate_devices_with_gpu_idx(
@@ -612,14 +614,14 @@ class WorkerActor(xo.StatelessActor):
         for idx in gpu_idx:
             existing_model_uids = []
             if idx in self._gpu_to_model_uid:
-                rep_uid = self._gpu_to_model_uid[idx]
-                is_vllm_model = await self.is_model_vllm_backend(rep_uid)
-                if is_vllm_model:
-                    raise RuntimeError(
-                        f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
-                        f"therefore cannot allocate GPU memory for a new model."
-                    )
-                existing_model_uids.append(rep_uid)
+                for rep_uid in self._gpu_to_model_uid[idx]:
+                    is_vllm_model = await self.is_model_vllm_backend(rep_uid)
+                    if is_vllm_model:
+                        raise RuntimeError(
+                            f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
+                            f"therefore cannot allocate GPU memory for a new model."
+                        )
+                    existing_model_uids.append(rep_uid)
             if idx in self._gpu_to_embedding_model_uids:
                 existing_model_uids.extend(self._gpu_to_embedding_model_uids[idx])
 
@@ -631,16 +633,18 @@ class WorkerActor(xo.StatelessActor):
 
         for idx in gpu_idx:
             self._user_specified_gpu_to_model_uids[idx].add((model_uid, model_type))
+            self._gpu_to_model_uid[idx].add(model_uid)
         return sorted(gpu_idx)
 
     def release_devices(self, model_uid: str):
         devices = [
-            dev
-            for dev in self._gpu_to_model_uid
-            if self._gpu_to_model_uid[dev] == model_uid
+            dev for dev, uids in self._gpu_to_model_uid.items() if model_uid in uids
         ]
         for dev in devices:
-            del self._gpu_to_model_uid[dev]
+            if model_uid in self._gpu_to_model_uid[dev]:
+                self._gpu_to_model_uid[dev].remove(model_uid)
+            if not self._gpu_to_model_uid[dev]:
+                del self._gpu_to_model_uid[dev]
 
         # check embedding
         for dev in self._gpu_to_embedding_model_uids:
