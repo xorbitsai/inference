@@ -138,8 +138,7 @@ jobs:
           fi
           pip install -U pip setuptools wheel scikit-build-core ninja cmake
           pip install -e ".[dev]"
-          CMAKE_ARGS="-DLLAMA_NATIVE=OFF -DLLAMA_AVX512=OFF" \
-          pip install --no-binary xllamacpp "xllamacpp>=0.2.0"
+          pip install -e xllamacpp>=0.2.0
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
