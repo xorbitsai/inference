@@ -212,9 +212,11 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
             if dev not in allocated_gpus and dev not in user_specified_allocated_devices
         ]
 
-        # If all visible GPUs are already occupied (by allocated or user-specified),
-        # keep legacy behavior and fail fast instead of oversubscribing.
-        if len(completely_available_gpus) < n_gpu:
+        if not total_gpu_devices:
+            raise RuntimeError("No available slot found for the model")
+
+        # If there are user-specified allocations and no fully free GPUs, keep legacy behavior and fail fast to avoid oversubscription.
+        if len(completely_available_gpus) < n_gpu and user_specified_allocated_devices:
             raise RuntimeError("No available slot found for the model")
 
         if estimated_memory_mb > 0:
@@ -245,39 +247,35 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
             if len(completely_available_gpus) >= n_gpu:
                 selected = completely_available_gpus[:n_gpu]
             else:
-                # For single GPU deployment without memory estimation, allow sharing
-                if n_gpu == 1 and total_gpu_devices:
-                    # Use the first available GPU or the one with most available memory
-                    if completely_available_gpus:
-                        selected = [completely_available_gpus[0]]
-                    else:
-                        # No completely available GPU, find one with most available memory
-                        best_gpu = self._get_gpu_with_most_available_memory()
-                        selected = [best_gpu]
-                else:
-                    # Use GPUs with most available memory
-                    remaining_needed = n_gpu - len(completely_available_gpus)
-                    candidate_gpus = [
-                        dev
-                        for dev in total_gpu_devices
-                        if dev not in completely_available_gpus
-                        and dev not in allocated_gpus
-                    ]
+                # Use GPUs (including already allocated ones) ordered by available memory
+                candidate_gpus = [
+                    dev
+                    for dev in total_gpu_devices
+                    if dev not in completely_available_gpus
+                ]
 
-                    gpu_memory_list = []
+                ordered_candidates: List[int]
+                gpu_memory_list = []
+                if self._gpu_memory_info:
                     for dev in candidate_gpus:
                         update_gpu_memory_info(
                             self._gpu_memory_info, dev, logger=logger
                         )
                         available_memory = self._gpu_memory_info[dev]["available"]
                         gpu_memory_list.append((dev, available_memory))
-
-                    # Sort by available memory (descending)
                     gpu_memory_list.sort(key=lambda x: x[1], reverse=True)
+                    ordered_candidates = [dev for dev, _ in gpu_memory_list]
+                else:
+                    ordered_candidates = candidate_gpus
 
-                    selected = completely_available_gpus.copy()
-                    for dev, available_memory in gpu_memory_list[:remaining_needed]:
-                        selected.append(dev)
+                if not ordered_candidates:
+                    raise RuntimeError("No available slot found for the model")
+
+                selected = completely_available_gpus.copy()
+                idx = 0
+                while len(selected) < n_gpu:
+                    selected.append(ordered_candidates[idx % len(ordered_candidates)])
+                    idx += 1
 
         if len(selected) < n_gpu:
             if not selected:
