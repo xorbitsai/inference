@@ -138,13 +138,7 @@ jobs:
           fi
           pip install -U pip setuptools wheel scikit-build-core ninja cmake
           pip install -e ".[dev]"
-          # Linux builds from source with safe CPU flags; other OS use prebuilt wheels
-          if [ "$OS" == "ubuntu-latest" ]; then
-            CMAKE_ARGS="-DLLAMA_NATIVE=OFF -DLLAMA_AVX512=OFF" \
-            pip install --no-binary xllamacpp "xllamacpp>=0.2.0"
-          else
-            pip install "xllamacpp>=0.2.0"
-          fi
+          pip install -e xllamacpp>=0.2.0
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
