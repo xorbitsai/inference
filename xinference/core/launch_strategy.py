@@ -212,6 +212,11 @@ class MemoryAwareLaunchStrategy(LaunchStrategy):
             if dev not in allocated_gpus and dev not in user_specified_allocated_devices
         ]
 
+        # If all visible GPUs are already occupied (by allocated or user-specified),
+        # keep legacy behavior and fail fast instead of oversubscribing.
+        if len(completely_available_gpus) < n_gpu:
+            raise RuntimeError("No available slot found for the model")
+
         if estimated_memory_mb > 0:
             suitable_with_mem: List[Tuple[int, Union[int, float]]] = []
 
