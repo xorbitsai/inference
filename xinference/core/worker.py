@@ -1888,15 +1888,29 @@ class WorkerActor(xo.StatelessActor):
         path = await self._cache_tracker_ref.list_deletable_models(
             model_version, self.address
         )
+        if not path:
+            return []
+
+        # Always keep the symlink itself so broken links can be unlinked.
+        if os.path.islink(path):
+            paths.add(path)
+
         if os.path.isfile(path):
             path = os.path.dirname(path)
 
         if os.path.isdir(path):
+            paths.add(path)
             files = os.listdir(path)
             paths.update([os.path.join(path, file) for file in files])
             # search real path
             if paths:
-                paths.update([os.path.realpath(path) for path in paths])
+                paths.update(
+                    [
+                        real_path
+                        for path in paths
+                        if os.path.exists((real_path := os.path.realpath(path)))
+                    ]
+                )
 
             # get tensorizer path
             from ..model.llm.transformers.tensorizer_utils import get_tensorizer_dir
@@ -1910,9 +1924,7 @@ class WorkerActor(xo.StatelessActor):
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
         paths = await self.list_deletable_models(model_version)
-        dir_paths = set()
         for path in paths:
-            dir_paths.add(os.path.dirname(path))
             try:
                 if os.path.islink(path):
                     os.unlink(path)
@@ -1924,15 +1936,6 @@ class WorkerActor(xo.StatelessActor):
                     logger.debug(f"{path} is not a valid path.")
             except Exception as e:
                 logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
-                return False
-
-        for _dir in dir_paths:
-            try:
-                shutil.rmtree(_dir)
-            except Exception as e:
-                logger.error(
-                    f"Fail to delete parent dir {_dir} with error:{e}."
-                )  # noqa: E231
                 return False
 
         await self._cache_tracker_ref.confirm_and_remove_model(
