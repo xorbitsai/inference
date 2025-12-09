@@ -1609,16 +1609,60 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             return False, "vLLM library is not installed"
         return True
 
+    @staticmethod
+    def _attach_video_metadata(
+        videos: List[Any], fps_list: Optional[List[Any]]
+    ) -> List[Any]:
+        if not fps_list:
+            return videos
+
+        attached: List[Any] = []
+        for idx, video in enumerate(videos):
+            fps = fps_list[idx] if idx < len(fps_list) else None
+            data = video
+            metadata: Dict[str, Any] = {}
+            if (
+                isinstance(video, tuple)
+                and len(video) == 2
+                and isinstance(video[1], dict)
+            ):
+                data = video[0]
+                metadata = dict(video[1])
+            if fps is not None:
+                metadata.setdefault("fps", fps)
+                metadata.setdefault("video_fps", fps)
+            attached.append((data, metadata) if metadata else data)
+        return attached
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
         model_config = super()._sanitize_model_config(model_config)
         if VLLM_VERSION >= version.parse("0.5.5"):
-            if model_config.get("limit_mm_per_prompt"):
-                model_config["limit_mm_per_prompt"] = json.loads(
-                    model_config.get("limit_mm_per_prompt")  # type: ignore
-                )
-            else:
+            raw_limit = model_config.get("limit_mm_per_prompt")
+            if raw_limit:
+                parsed_limit: Dict[str, int]
+                if isinstance(raw_limit, dict):
+                    parsed_limit = raw_limit
+                else:
+                    try:
+                        if isinstance(raw_limit, list):
+                            # Web UI may split the JSON string into multiple list items.
+                            raw_value = ",".join(
+                                str(item).strip() for item in raw_limit
+                            )
+                        else:
+                            raw_value = str(raw_limit)
+                        parsed_limit = json.loads(raw_value)
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning(
+                            "Failed to parse limit_mm_per_prompt %r, fallback to default: %s",
+                            raw_limit,
+                            e,
+                        )
+                        parsed_limit = {}
+                model_config["limit_mm_per_prompt"] = parsed_limit
+            if not model_config.get("limit_mm_per_prompt"):
                 if "omni" in self.model_family.model_ability:
                     model_config["limit_mm_per_prompt"] = {
                         "image": 2,
@@ -1681,7 +1725,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
-        audios, images, videos = None, None, None
+        audios, images, videos, video_kwargs = None, None, None, None
         if "internvl" not in model_family.lower():
             from qwen_omni_utils import (
                 process_audio_info,
@@ -1703,14 +1747,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
             if "omni" in self.model_family.model_ability:
-                audios, images, videos = process_mm_info(
-                    messages, use_audio_in_video=True
+                audios, images, videos, video_kwargs = process_mm_info(
+                    messages, use_audio_in_video=True, return_video_kwargs=True
                 )
             elif "audio" in self.model_family.model_ability:
                 audios = process_audio_info(messages, use_audio_in_video=False)
             elif "vision" in self.model_family.model_ability:
-                images, videos = process_vision_info(  # type: ignore
-                    messages, return_video_kwargs=False
+                images, videos, video_kwargs = process_vision_info(  # type: ignore
+                    messages, return_video_kwargs=True
                 )
 
             prompt = self.get_full_context(
@@ -1723,6 +1767,12 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         if images:
             inputs["multi_modal_data"]["image"] = images
         if videos:
+            fps_list = None
+            if isinstance(video_kwargs, dict):
+                fps_list = video_kwargs.get("fps")
+            videos = self._attach_video_metadata(videos, fps_list)
+            if fps_list:
+                inputs["mm_processor_kwargs"]["video_fps"] = fps_list
             inputs["multi_modal_data"]["video"] = videos
         if audios:
             inputs["multi_modal_data"]["audio"] = audios
