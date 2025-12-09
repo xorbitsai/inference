@@ -1146,18 +1146,28 @@ class WorkerActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
+            def _select_huggingface_family(family: Any) -> Any:
+                spec = next(
+                    (s for s in family.model_specs if s.model_hub == "huggingface"),
+                    None,
+                )
+                if spec is None:
+                    return family
+                family_copy = family.copy(deep=True)
+                family_copy.model_specs = [spec]
+                return family_copy
+
             # Check built-in embedding models
-            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
-                if model_name == model_name:
-                    # Return the huggingface family from the list
-                    for family in family_list:
-                        if family.model_hub == "huggingface":
-                            return family
+            for builtin_model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                if builtin_model_name != model_name:
+                    continue
+                for family in family_list:
+                    return _select_huggingface_family(family)
 
             # Check user-defined embedding models
             for f in get_user_defined_embeddings():
                 if f.model_name == model_name:
-                    return f
+                    return _select_huggingface_family(f)
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
