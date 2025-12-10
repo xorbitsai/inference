@@ -65,7 +65,13 @@ from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
-from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+from .utils import (
+    log_async,
+    log_sync,
+    merge_virtual_env_packages,
+    parse_replica_model_uid,
+    purge_dir,
+)
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 
 try:
@@ -1306,9 +1312,8 @@ class WorkerActor(xo.StatelessActor):
                     setattr(settings, k, v)
 
         conf = dict(settings)
-        packages = settings.packages.copy() if settings.packages else []
-        if virtual_env_packages:
-            packages.extend(virtual_env_packages)
+        base_packages = settings.packages.copy() if settings.packages else []
+        packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:

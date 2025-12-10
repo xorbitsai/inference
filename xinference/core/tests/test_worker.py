@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
 
@@ -164,6 +165,24 @@ async def test_terminate_model_flag(setup_pool):
     gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
         assert dev not in gpu_to_model_id
+
+
+def test_merge_virtual_env_packages_override_and_append():
+    base_packages = [
+        "transformers @ git+https://github.com/huggingface/transformers@abcdef",
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+    ]
+    extra_packages = ["transformers==5.0.0.dev0", "numpy==2.1.0"]
+
+    merged = merge_virtual_env_packages(base_packages, extra_packages)
+
+    assert merged == [
+        "transformers==5.0.0.dev0",  # user-specified overrides default
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+        "numpy==2.1.0",
+    ]
 
 
 @pytest.mark.asyncio
