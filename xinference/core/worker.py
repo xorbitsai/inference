@@ -1153,12 +1153,12 @@ class WorkerActor(xo.StatelessActor):
             from ..model.embedding.custom import get_user_defined_embeddings
 
             # Check built-in embedding models
-            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
-                if model_name == model_name:
-                    # Return the huggingface family from the list
-                    for family in family_list:
-                        if family.model_hub == "huggingface":
-                            return family
+            for builtin_model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                if builtin_model_name != model_name:
+                    continue
+                for family in family_list:
+                    if family.model_hub == "huggingface":
+                        return family
 
             # Check user-defined embedding models
             for f in get_user_defined_embeddings():
