@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
 
@@ -174,9 +175,7 @@ def test_merge_virtual_env_packages_override_and_append():
     ]
     extra_packages = ["transformers==5.0.0.dev0", "numpy==2.1.0"]
 
-    merged = WorkerActor._merge_virtual_env_packages(
-        base_packages, extra_packages
-    )  # type: ignore[attr-defined]
+    merged = merge_virtual_env_packages(base_packages, extra_packages)
 
     assert merged == [
         "transformers==5.0.0.dev0",  # user-specified overrides default
