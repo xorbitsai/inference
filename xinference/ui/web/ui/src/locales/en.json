@@ -142,7 +142,21 @@
     "all": "all",
     "cancelledSuccessfully": "Cancelled Successfully!",
     "mustBeUnique": "{{key}} must be unique",
-    "update": "Update"
+    "update": "Update",
+    "launchProgress": "Launch Progress",
+    "initializing": "Initializing..."
+  },
+  "modelReplicaDetails": {
+    "title": "Model Replica Details",
+    "modelUid": "Model UID",
+    "replicaId": "Replica ID",
+    "workerAddress": "Worker Address",
+    "status": "Status",
+    "createdTime": "Created Time",
+    "noReplicaInfo": "No replica information available",
+    "errors": "Errors",
+    "replica": "Replica",
+    "close": "Close"
   },
 
   "runningModels": {

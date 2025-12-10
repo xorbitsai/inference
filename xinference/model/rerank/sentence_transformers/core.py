@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gc
-import importlib.util
 import logging
 import threading
 import uuid
@@ -24,7 +23,7 @@ import torch.nn as nn
 
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ...utils import is_flash_attn_available
+from ...utils import check_dependency_available, is_flash_attn_available
 from ..core import (
     RERANK_EMPTY_CACHE_COUNT,
     RerankModel,
@@ -332,8 +331,11 @@ class SentenceTransformerRerankModel(RerankModel):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("sentence_transformers") is None:
-            return False, "sentence_transformers library is not installed"
+        dep_check = check_dependency_available(
+            "sentence_transformers", "sentence-transformers"
+        )
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

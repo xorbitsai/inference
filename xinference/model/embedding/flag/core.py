@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
 import logging
 from typing import List, Optional, Tuple, Union, no_type_check
 
@@ -31,6 +30,7 @@ except ImportError:
 from ....device_utils import get_available_device
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
+from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
@@ -283,8 +283,9 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("FlagEmbedding") is None:
-            return False, "FlagEmbedding library is not installed"
+        dep_check = check_dependency_available("FlagEmbedding", "FlagEmbedding")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

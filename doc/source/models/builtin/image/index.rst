@@ -61,3 +61,5 @@ The following is a list of built-in image models in Xinference:
   
    stable-diffusion-xl-inpainting
   
+   z-image-turbo
+  

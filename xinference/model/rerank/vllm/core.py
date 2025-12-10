@@ -1,9 +1,8 @@
-import importlib.util
 import uuid
 from typing import List, Optional, Tuple, Union
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ...utils import cache_clean
+from ...utils import cache_clean, check_dependency_available
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
@@ -140,8 +139,9 @@ class VLLMRerankModel(RerankModel):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("vllm") is None:
-            return False, "vLLM library is not installed"
+        dep_check = check_dependency_available("vllm", "vLLM")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

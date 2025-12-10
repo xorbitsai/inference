@@ -130,16 +130,20 @@ jobs:
           fi
 
       - name: Push back for same-repo PR
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
         if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name == github.repository
         working-directory: pr
         run: |
           echo "Pushing changes to same-repo PR..."
-          git push origin HEAD:${{ github.event.pull_request.head.ref }} || echo "No changes to push."
+          git push origin HEAD:$BRANCH || echo "No changes to push."
 
       - name: Push back for fork PR using maintainer PAT
         if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.maintainer_can_modify
         env:
           PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
         working-directory: pr
         run: |
           if [ -z "$PUSH_TOKEN" ]; then
@@ -147,8 +151,8 @@ jobs:
             exit 0
           fi
           echo "Pushing changes to fork PR using maintainer PAT..."
-          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }} || echo "No changes to push."
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_FULL_NAME}.git"
+          git push origin HEAD:$BRANCH || echo "No changes to push."
 
       - name: Skip push for fork PR without maintainer edit permission
         if: steps.decide.outputs.run != 'true' && github.event.pull_request.head.repo.full_name != github.repository && !github.event.pull_request.maintainer_can_modify

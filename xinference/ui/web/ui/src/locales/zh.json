@@ -140,7 +140,21 @@
     "all": "全部",
     "cancelledSuccessfully": "取消成功!",
     "mustBeUnique": "{{key}} 必须唯一",
-    "update": "更新"
+    "update": "更新",
+    "launchProgress": "启动进度",
+    "initializing": "初始化中..."
+  },
+  "modelReplicaDetails": {
+    "title": "模型副本详情",
+    "modelUid": "模型 UID",
+    "replicaId": "副本 ID",
+    "workerAddress": "工作节点地址",
+    "status": "状态",
+    "createdTime": "创建时间",
+    "noReplicaInfo": "暂无副本信息",
+    "errors": "错误",
+    "replica": "副本",
+    "close": "关闭"
   },
   "runningModels": {
     "name": "名称",

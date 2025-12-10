@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
-import importlib.util
 import logging
 import os
 import pprint
@@ -23,6 +22,7 @@ from packaging import version
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
+from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin
@@ -80,8 +80,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("xllamacpp") is None:
-            return False, "xllamacpp library is not installed"
+        dep_check = check_dependency_available("xllamacpp", "xllamacpp")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod

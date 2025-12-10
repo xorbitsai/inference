@@ -14,6 +14,7 @@
 
 import asyncio
 import functools
+import importlib
 import json
 import logging
 import os
@@ -56,6 +57,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
+
+
+def check_dependency_available(
+    module_name: str, friendly_name: Optional[str] = None
+) -> Union[bool, Tuple[bool, str]]:
+    """Check whether a dependency can be imported, returning detailed errors."""
+    try:
+        importlib.import_module(module_name)
+    except ImportError as exc:
+        return False, f"Failed to import {friendly_name or module_name}: {exc}"
+    except OSError as exc:
+        return (
+            False,
+            f"Failed to load {friendly_name or module_name} native extension: {exc}",
+        )
+    except Exception as exc:
+        return False, f"Error while importing {friendly_name or module_name}: {exc}"
+    return True
 
 
 def is_locale_chinese_simplified() -> bool:
@@ -588,6 +607,8 @@ def get_engine_params_by_name(
                             error_type = m_err_type
                         if m_details:
                             error_details = m_details
+                        # Return the first failure to avoid later specs overwriting the root cause.
+                        break
                     if relevant and error_reason:
                         break
                 except Exception as e:

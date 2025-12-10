@@ -331,6 +331,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     self._model = DiffusionPipeline.from_pretrained(
                         self._model_path, **self._kwargs
                     )
+                elif "z-image" in model_name_lower or "zimage" in model_name_lower:
+                    # TODO: remove this branch when auto pipeline supports Z-Image
+                    from diffusers import DiffusionPipeline
+
+                    self._model = DiffusionPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
                 else:
                     raise
             self._load_to_device(self._model)

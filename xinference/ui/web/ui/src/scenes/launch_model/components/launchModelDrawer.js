@@ -1122,7 +1122,7 @@ const LaunchModelDrawer = ({
                   isShowCancel ? (
                     <Box sx={{ minWidth: 200 }}>
                       <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                        Launch Progress:
+                        {t('launchModel.launchProgress')}:
                       </Typography>
                       {replicaStatuses.length > 0 ? (
                         replicaStatuses.map((replica) => (
@@ -1136,7 +1136,8 @@ const LaunchModelDrawer = ({
                             }}
                           >
                             <Typography variant="caption">
-                              Replica {replica.replica_id}:
+                              {t('modelReplicaDetails.replica')}{' '}
+                              {replica.replica_id}:
                             </Typography>
                             <Chip
                               label={replica.status}
@@ -1154,7 +1155,7 @@ const LaunchModelDrawer = ({
                         ))
                       ) : (
                         <Typography variant="caption">
-                          Initializing...
+                          {t('launchModel.initializing')}
                         </Typography>
                       )}
                     </Box>

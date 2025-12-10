@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib.util
 import json
 import logging
 import os
@@ -37,7 +36,7 @@ from ....types import (
     PytorchModelConfig,
 )
 from ...scheduler.request import InferenceRequest
-from ...utils import select_device
+from ...utils import check_dependency_available, select_device
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
@@ -494,8 +493,9 @@ class PytorchModel(LLM):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        if importlib.util.find_spec("transformers") is None:
-            return False, "transformers library is not installed"
+        dep_check = check_dependency_available("transformers", "transformers")
+        if dep_check != True:
+            return dep_check
         return True
 
     @classmethod
