@@ -42,6 +42,7 @@ from typing import (
 
 import xoscar as xo
 from async_timeout import timeout
+from packaging.requirements import Requirement
 from xoscar import MainActorPoolType
 
 from ..constants import (
@@ -1306,9 +1307,8 @@ class WorkerActor(xo.StatelessActor):
                     setattr(settings, k, v)
 
         conf = dict(settings)
-        packages = settings.packages.copy() if settings.packages else []
-        if virtual_env_packages:
-            packages.extend(virtual_env_packages)
+        base_packages = settings.packages.copy() if settings.packages else []
+        packages = cls._merge_virtual_env_packages(base_packages, virtual_env_packages)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
@@ -1321,6 +1321,49 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         virtual_env_manager.install_packages(packages, **conf)
+
+    @staticmethod
+    def _merge_virtual_env_packages(
+        base_packages: List[str], extra_packages: Optional[List[str]]
+    ) -> List[str]:
+        """
+        Merge default virtualenv packages with user provided ones. Packages with the
+        same name will be replaced by the user supplied version instead of appended.
+        """
+
+        def get_key(package: str) -> str:
+            if package.startswith("#"):
+                # special placeholders like #system_torch#
+                return package
+            try:
+                return Requirement(package).name.lower()
+            except Exception:
+                # fallback: strip version/url markers best effort
+                for sep in ["@", "==", ">=", "<=", "~=", "!=", "[", " "]:
+                    if sep in package:
+                        return package.split(sep, 1)[0].strip().lower()
+                return package.lower()
+
+        merged: List[str] = []
+        index_map: Dict[str, int] = {}
+        for pkg in base_packages:
+            key = get_key(pkg)
+            if key in index_map:
+                merged[index_map[key]] = pkg
+            else:
+                index_map[key] = len(merged)
+                merged.append(pkg)
+
+        if extra_packages:
+            for pkg in extra_packages:
+                key = get_key(pkg)
+                if key in index_map:
+                    merged[index_map[key]] = pkg
+                else:
+                    index_map[key] = len(merged)
+                    merged.append(pkg)
+
+        return merged
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
