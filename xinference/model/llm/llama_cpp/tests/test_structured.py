@@ -4,6 +4,7 @@ import json
 import sys
 from enum import Enum
 from types import SimpleNamespace
+from typing import Any, Dict
 
 import pytest
 from pydantic import BaseModel
@@ -24,7 +25,7 @@ class CarDescription(BaseModel):
     car_type: CarType
 
 
-def _load_json_from_message(message) -> dict:
+def _load_json_from_message(message: Any) -> Dict[str, Any]:
     def _strip_think(text: str) -> str:
         stripped = text.lstrip()
         if stripped.startswith("<think>"):
@@ -55,6 +56,7 @@ def _load_json_from_message(message) -> dict:
             return json.loads("".join(text_blocks))
 
     pytest.fail(f"Unexpected message content format: {raw_content!r}")
+    raise AssertionError("Unreachable")
 
 
 def test_apply_response_format_sets_grammar(monkeypatch):
