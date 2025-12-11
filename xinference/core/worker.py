@@ -1429,6 +1429,10 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, str) and n_gpu != "auto":
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
 
+        device = kwargs.get("device")
+        if device and device.lower().startswith("cpu"):
+            n_gpu = None
+
         if peft_model_config is not None:
             if model_type in ("embedding", "rerank"):
                 raise ValueError(
