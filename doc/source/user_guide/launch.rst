@@ -16,12 +16,12 @@ Meanwhile, users see it as a single model, which greatly improves overall resour
 
 Traditional Multi-Instance Deployment：
 
-When you have multiple GPU cards, each capable of hosting one model instance, you can set the number of instances equal to the number of GPUs. For example:
+Before v1.15.0：When you have multiple GPU cards, each capable of hosting one model instance, you can set the number of instances equal to the number of GPUs. For example:
 
 - 2 GPUs, 2 instances: Each GPU runs one model instance
 - 4 GPUs, 4 instances: Each GPU runs one model instance
 
-.. versionadded:: v1.12.0
+.. versionadded:: v1.15.0
 
 Introduce a new environment variable:
 
@@ -49,6 +49,11 @@ Smart Allocation: Number of replicas may differ from GPU count; system intellige
 - Scenario: You have 2 GPUs and need 3 replicas
 - Configuration: Replicas=3, GPUs=2
 - Result: GPU0 runs 2 instances, GPU1 runs 1 instance
+
+GPU Allocation Strategy
+=======================
+
+The current strategy is *idle-first with a first round spread*: the scheduler first tries to place one replica on each available GPU (always picking the emptiest unused GPU). Once every GPU has at least one replica, remaining replicas keep stacking onto the GPU that is currently the emptiest (single-GPU multi-replica is allowed). Use ``XINFERENCE_LAUNCH_ALLOWED_GPUS`` to limit which GPUs can be chosen.
 
 Set Environment Variables
 =========================

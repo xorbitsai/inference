@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ..launch_strategy import IdleFirstLaunchStrategy
 from ..launch_strategy import LocalFirstLaunchStrategy
 from ..launch_strategy import MemoryAwareLaunchStrategy
 from ..utils import merge_virtual_env_packages
@@ -32,12 +33,17 @@ class MockWorkerActor(WorkerActor):
         cuda_devices: List[int],
     ):
         super().__init__(supervisor_address, main_pool, cuda_devices)
-        gpu_memory_info = {
+        self._test_gpu_memory_info = {
             idx: {"total": 24000.0, "used": 0.0, "available": 24000.0}
             for idx in cuda_devices
         }
-        self._launch_strategy = LocalFirstLaunchStrategy(
-            cuda_devices, gpu_memory_info=gpu_memory_info
+
+    def _create_launch_strategy_instance(self):
+        return IdleFirstLaunchStrategy(
+            self._total_gpu_devices,
+            gpu_memory_info=self._test_gpu_memory_info,
+            model_spread_used_gpus=self._model_spread_used_gpus,
+            active_model_counts=self._active_model_counts,
         )
 
     async def __post_create__(self):

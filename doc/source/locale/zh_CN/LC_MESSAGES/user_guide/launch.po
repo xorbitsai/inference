@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-20 16:28+0800\n"
+"POT-Creation-Date: 2025-12-11 16:32+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -52,10 +52,12 @@ msgstr "旧版本多实例部署："
 
 #: ../../source/user_guide/launch.rst:19
 msgid ""
-"When you have multiple GPU cards, each capable of hosting one model "
-"instance, you can set the number of instances equal to the number of "
-"GPUs. For example:"
-msgstr "当您拥有多张GPU显卡时，每张显卡可承载一个模型实例，此时可将实例数量设置为等于GPU数量。例如:"
+"Before v1.15.0：When you have multiple GPU cards, each capable of hosting"
+" one model instance, you can set the number of instances equal to the "
+"number of GPUs. For example:"
+msgstr ""
+"在v1.15.0版本前：当您拥有多张GPU显卡时，每张显卡可承载一个模型实例，此时可将实例数量设置为"
+"等于GPU数量。例如:"
 
 #: ../../source/user_guide/launch.rst:21
 msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
@@ -122,10 +124,27 @@ msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
 msgstr "结果: GPU0运行2个实例，GPU1运行1个实例"
 
 #: ../../source/user_guide/launch.rst:54
+msgid "GPU Allocation Strategy"
+msgstr "GPU分配策略"
+
+#: ../../source/user_guide/launch.rst:56
+msgid ""
+"The current strategy is *idle-first with a first round spread*: the "
+"scheduler first tries to place one replica on each available GPU (always "
+"picking the emptiest unused GPU). Once every GPU has at least one "
+"replica, remaining replicas keep stacking onto the GPU that is currently "
+"the emptiest (single-GPU multi-replica is allowed). Use "
+"``XINFERENCE_LAUNCH_ALLOWED_GPUS`` to limit which GPUs can be chosen."
+msgstr ""
+"当前策略为 *空闲优先且首轮分散* ：调度器首先尝试将每个副本分配至可用GPU（始终选择最空闲的未用GPU）。"
+"当每块GPU至少承载一个副本后，剩余副本将持续堆叠至当前最空闲的GPU（允许单GPU承载多个副本）。"
+"使用 ``XINFERENCE_LAUNCH_ALLOWED_GPUS`` 参数限制可选GPU范围。"
+
+#: ../../source/user_guide/launch.rst:59
 msgid "Set Environment Variables"
 msgstr "设置环境变量"
 
-#: ../../source/user_guide/launch.rst:58
+#: ../../source/user_guide/launch.rst:63
 msgid ""
 "Sometimes, we want to specify environment variables for a particular "
 "model at runtime. Since v1.8.1, Xinference provides the capability to "
@@ -135,21 +154,21 @@ msgstr ""
 "有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference "
 "提供了单独配置环境变量的功能，无需在启动 Xinference 前设置。"
 
-#: ../../source/user_guide/launch.rst:61
+#: ../../source/user_guide/launch.rst:66
 msgid "For Web UI."
 msgstr "针对 Web UI。"
 
-#: ../../source/user_guide/launch.rst:67
+#: ../../source/user_guide/launch.rst:72
 msgid ""
 "When using the command line, use ``--env`` to specify an environment "
 "variable."
 msgstr "命令行使用时，使用 ``--env`` 指定环境变量。"
 
-#: ../../source/user_guide/launch.rst:69
+#: ../../source/user_guide/launch.rst:74
 msgid "Example usage:"
 msgstr "示例用法："
 
-#: ../../source/user_guide/launch.rst:75
+#: ../../source/user_guide/launch.rst:80
 msgid ""
 "Take vLLM as an example: it has versions V1 and V0, and by default, it "
 "automatically determines which version to use. If you want to force the "
@@ -160,11 +179,11 @@ msgstr ""
 "在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
 "。"
 
-#: ../../source/user_guide/launch.rst:79
+#: ../../source/user_guide/launch.rst:84
 msgid "Configuring Model Virtual Environment"
 msgstr "配置模型虚拟空间"
 
-#: ../../source/user_guide/launch.rst:83
+#: ../../source/user_guide/launch.rst:88
 msgid ""
 "For this part, please refer to :ref:`toggling virtual environments and "
 "customizing dependencies <model_launching_virtualenv>`."

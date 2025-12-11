@@ -64,7 +64,7 @@ from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
 from .launch_strategy import LaunchModelSpec, create_launch_strategy
 from .metrics import launch_metrics_export_server, record_metrics
-from .resource import gather_node_info
+from .resource import GPUStatus, gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import (
     log_async,
@@ -155,16 +155,16 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+        # Share launch spread/replica counts across strategy instances
+        self._model_spread_used_gpus: Dict[str, Set[int]] = {}
+        self._active_model_counts: Dict[str, int] = {}
         from ..constants import (
             XINFERENCE_LAUNCH_ALLOWED_GPUS,
             XINFERENCE_LAUNCH_STRATEGY,
         )
 
-        self._launch_strategy = create_launch_strategy(
-            strategy_name=XINFERENCE_LAUNCH_STRATEGY,
-            total_gpu_devices=self._total_gpu_devices,
-            allowed_devices=XINFERENCE_LAUNCH_ALLOWED_GPUS,
-        )
+        self._launch_strategy_name = XINFERENCE_LAUNCH_STRATEGY
+        self._launch_allowed_gpus = XINFERENCE_LAUNCH_ALLOWED_GPUS
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -559,9 +559,37 @@ class WorkerActor(xo.StatelessActor):
                 user_specified_allocated_devices.add(dev)
         return user_specified_allocated_devices
 
+    def _create_launch_strategy_instance(self):
+        # Try to seed strategy with current GPU memory snapshot from NVML
+        initial_gpu_memory_info: Optional[Dict[int, Dict[str, float]]] = None
+        try:
+            node_info = gather_node_info()
+            gpu_info: Dict[int, Dict[str, float]] = {}
+            for dev in self._total_gpu_devices:
+                status = node_info.get(f"gpu-{dev}")
+                if isinstance(status, GPUStatus):
+                    gpu_info[dev] = {
+                        "total": status.mem_total // (1024**2),
+                        "used": status.mem_used // (1024**2),
+                        "available": status.mem_free // (1024**2),
+                    }
+            initial_gpu_memory_info = gpu_info or None
+        except Exception:
+            initial_gpu_memory_info = None
+
+        return create_launch_strategy(
+            strategy_name=self._launch_strategy_name,
+            total_gpu_devices=self._total_gpu_devices,
+            allowed_devices=self._launch_allowed_gpus,
+            gpu_memory_info=initial_gpu_memory_info,
+            model_spread_used_gpus=self._model_spread_used_gpus,
+            active_model_counts=self._active_model_counts,
+        )
+
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
         spec = LaunchModelSpec(model_uid=model_uid, n_gpu=n_gpu)
-        devices = self._launch_strategy.allocate(
+        strategy = self._create_launch_strategy_instance()
+        devices = strategy.allocate(
             spec=spec,
             total_gpu_devices=self._total_gpu_devices,
             user_specified_allocated_devices=self._collect_user_specified_devices(),
@@ -588,7 +616,8 @@ class WorkerActor(xo.StatelessActor):
             model_format=model_format,
             quantization=quantization,
         )
-        devices = self._launch_strategy.allocate(
+        strategy = self._create_launch_strategy_instance()
+        devices = strategy.allocate(
             spec=spec,
             total_gpu_devices=self._total_gpu_devices,
             user_specified_allocated_devices=self._collect_user_specified_devices(),
@@ -659,11 +688,12 @@ class WorkerActor(xo.StatelessActor):
                     self._user_specified_gpu_to_model_uids[dev],
                 )
             )
-            for model_info in model_infos:
-                self._user_specified_gpu_to_model_uids[dev].remove(model_info)
+        for model_info in model_infos:
+            self._user_specified_gpu_to_model_uids[dev].remove(model_info)
 
-        # Use launch strategy to handle memory tracking rollback
-        self._launch_strategy.release(model_uid, devices)
+        # Keep strategy bookkeeping in sync for spread逻辑
+        strategy = self._create_launch_strategy_instance()
+        strategy.release(model_uid, devices)
 
     async def _create_subpool(
         self,
