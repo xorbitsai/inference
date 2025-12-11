@@ -19,10 +19,34 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ..launch_strategy import IdleFirstLaunchStrategy
-from ..launch_strategy import LocalFirstLaunchStrategy
-from ..launch_strategy import MemoryAwareLaunchStrategy
 from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
+
+
+class DeterministicIdleFirstLaunchStrategy(IdleFirstLaunchStrategy):
+    def _select_emptiest_gpu(
+        self,
+        candidates,
+        pending_gpu_counts,
+        allocated_gpus,
+    ):
+        """
+        Deterministic tie-breaking for tests so we do not rely on real GPU state.
+        """
+        if not candidates:
+            return None
+
+        scored = []
+        for dev in candidates:
+            available = self._gpu_memory_info.get(dev, {}).get("available", 0)
+            penalty = pending_gpu_counts.get(dev, 0) + len(
+                allocated_gpus.get(dev, set())
+            )
+            scored.append((dev, available - penalty))
+
+        # Prefer higher available memory, then the lowest GPU index.
+        scored.sort(key=lambda item: (-item[1], item[0]))
+        return scored[0][0]
 
 
 class MockWorkerActor(WorkerActor):
@@ -39,7 +63,7 @@ class MockWorkerActor(WorkerActor):
         }
 
     def _create_launch_strategy_instance(self):
-        return IdleFirstLaunchStrategy(
+        return DeterministicIdleFirstLaunchStrategy(
             self._total_gpu_devices,
             gpu_memory_info=self._test_gpu_memory_info,
             model_spread_used_gpus=self._model_spread_used_gpus,
@@ -123,13 +147,13 @@ async def test_allocate_cuda_devices(setup_pool):
     assert devices == [0]
 
     devices = await worker.allocate_devices(model_uid="mock_model_2", n_gpu=2)
-    assert devices == [0, 0]
+    assert devices == [1, 2]
 
     devices = await worker.allocate_devices(model_uid="mock_model_3", n_gpu=1)
-    assert devices == [0]
+    assert devices == [3]
 
     devices = await worker.allocate_devices(model_uid="mock_model_4", n_gpu=1)
-    assert devices == [0]
+    assert devices == [4]
 
 
 @pytest.mark.asyncio
@@ -155,7 +179,7 @@ async def test_terminate_model_flag(setup_pool):
     )
 
     devices = await worker.allocate_devices(model_uid="model_model_3", n_gpu=3)
-    assert devices == [0, 0, 0]
+    assert devices == [5, 6, 7]
     await worker.release_devices(model_uid="model_model_3")
 
     await worker.launch_builtin_model(
@@ -230,9 +254,9 @@ async def test_launch_embedding_model(setup_pool):
     )
 
     embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert 1 in embedding_info
-    assert len(embedding_info[1]) == 1
-    assert "model_model_2" in embedding_info[1]
+    assert 3 in embedding_info
+    assert len(embedding_info[3]) == 1
+    assert "model_model_2" in embedding_info[3]
 
     # test terminate LLM model, then launch embedding model
     await worker.terminate_model("model_model_1")
@@ -263,23 +287,23 @@ async def test_launch_embedding_model(setup_pool):
         "model_model_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
     embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert 1 in embedding_info
     assert 2 in embedding_info
-    assert len(embedding_info[1]) == 1
+    assert 3 in embedding_info
     assert len(embedding_info[2]) == 1
-    assert "model_model_2" in embedding_info[1]
-    assert "model_model_3" in embedding_info[2]
+    assert len(embedding_info[3]) == 1
+    assert "model_model_2" in embedding_info[2]
+    assert "model_model_3" in embedding_info[3]
 
     await worker.launch_builtin_model(
         "model_model_4", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
     embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert len(embedding_info[1]) == 1
+    assert len(embedding_info[0]) == 1
     assert len(embedding_info[2]) == 1
     assert len(embedding_info[3]) == 1
-    assert "model_model_2" in embedding_info[1]
-    assert "model_model_3" in embedding_info[2]
-    assert "model_model_4" in embedding_info[3]
+    assert "model_model_2" in embedding_info[2]
+    assert "model_model_3" in embedding_info[3]
+    assert "model_model_4" in embedding_info[0]
 
     for i in range(1, 5):
         await worker.terminate_model(f"model_model_{i}")

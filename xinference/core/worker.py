@@ -681,15 +681,16 @@ class WorkerActor(xo.StatelessActor):
                 self._gpu_to_embedding_model_uids[dev].remove(model_uid)
 
         # check user-specified slots
-        for dev in self._user_specified_gpu_to_model_uids:
-            model_infos = list(
-                filter(
-                    lambda x: x[0] == model_uid,
-                    self._user_specified_gpu_to_model_uids[dev],
-                )
-            )
-        for model_info in model_infos:
-            self._user_specified_gpu_to_model_uids[dev].remove(model_info)
+        for dev in list(self._user_specified_gpu_to_model_uids):
+            model_infos = [
+                info
+                for info in self._user_specified_gpu_to_model_uids[dev]
+                if info[0] == model_uid
+            ]
+            for model_info in model_infos:
+                self._user_specified_gpu_to_model_uids[dev].remove(model_info)
+            if not self._user_specified_gpu_to_model_uids[dev]:
+                del self._user_specified_gpu_to_model_uids[dev]
 
         # Keep strategy bookkeeping in sync for spread逻辑
         strategy = self._create_launch_strategy_instance()
