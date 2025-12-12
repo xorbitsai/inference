@@ -149,7 +149,6 @@ def test_apply_response_format_uses_real_xllamacpp_if_available():
 
 
 def test_llamacpp_qwen3_json_schema(setup):
-
     endpoint, _ = setup
     client = Client(endpoint)
     model_uid = client.launch_model(
