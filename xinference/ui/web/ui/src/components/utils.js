@@ -28,23 +28,25 @@ export async function copyToClipboard(text) {
     } catch {
       return false
     }
-  } else {
-    const textArea = document.createElement('textarea')
-    textArea.value = text
-    textArea.style.position = 'absolute'
-    textArea.style.left = '-9999px'
-    document.body.appendChild(textArea)
-    textArea.select()
-    textArea.setSelectionRange(0, textArea.value.length)
+  }
 
-    let success = false
-    try {
-      success = document.execCommand('copy')
-    } catch {
-      success = false
-    }
+  try {
+    const container = document.querySelector('[role="dialog"]') ||
+      document.querySelector('.drawerCard') ||
+      document.body;
 
-    document.body.removeChild(textArea)
-    return success
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    container.appendChild(textArea);
+
+    textArea.select();
+    const success = document.execCommand('copy');
+
+    container.removeChild(textArea);
+    return success;
+  } catch {
+    return false;
   }
 }
