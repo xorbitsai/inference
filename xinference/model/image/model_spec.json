@@ -1137,7 +1137,7 @@
     "model_src": {
       "huggingface": {
         "model_id": "PaddlePaddle/PaddleOCR-VL",
-        "model_revision": "master"
+        "model_revision": "main"
       }
     },
     "default_model_config": {},
@@ -1153,6 +1153,6 @@
       ]
     },
     "featured": false,
-    "updated_at": 1765499961
+    "updated_at": 1765500223
   }
 ]
