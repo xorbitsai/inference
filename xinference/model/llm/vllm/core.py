@@ -36,6 +36,7 @@ from typing import (
     Type,
     TypedDict,
     Union,
+    cast,
 )
 
 import xoscar as xo
@@ -1206,8 +1207,9 @@ class VLLMModel(LLM):
                     for key in list(sanitized_generate_config.keys())
                     if key not in sp_sig.parameters
                 ]
+                config_dict = cast(Dict[str, Any], sanitized_generate_config)
                 for key in unsupported_keys:
-                    sanitized_generate_config.pop(key, None)
+                    config_dict.pop(key, None)
                 if unsupported_keys:
                     logger.warning(
                         "Dropping unsupported sampling params for vLLM %s: %s",
@@ -1264,8 +1266,9 @@ class VLLMModel(LLM):
                 for key in list(sanitized_generate_config.keys())
                 if key not in sp_sig.parameters
             ]
+            config_dict = cast(Dict[str, Any], sanitized_generate_config)
             for key in unsupported_keys:
-                sanitized_generate_config.pop(key, None)
+                config_dict.pop(key, None)
             if unsupported_keys:
                 logger.warning(
                     "Dropping unsupported sampling params for vLLM %s: %s",
