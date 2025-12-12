@@ -158,6 +158,10 @@ class WorkerActor(xo.StatelessActor):
         # Share launch spread/replica counts across strategy instances
         self._model_spread_used_gpus: Dict[str, Set[int]] = {}
         self._active_model_counts: Dict[str, int] = {}
+        # Cached launch strategies per base model
+        self._launch_strategies: Dict[str, Any] = {}
+        # Protect concurrent allocations/releases so bookings stay consistent
+        self._allocation_lock = threading.Lock()
         from ..constants import (
             XINFERENCE_LAUNCH_ALLOWED_GPUS,
             XINFERENCE_LAUNCH_STRATEGY,
@@ -559,7 +563,7 @@ class WorkerActor(xo.StatelessActor):
                 user_specified_allocated_devices.add(dev)
         return user_specified_allocated_devices
 
-    def _create_launch_strategy_instance(self):
+    def _gather_initial_gpu_memory_info(self) -> Optional[Dict[int, Dict[str, float]]]:
         # Try to seed strategy with current GPU memory snapshot from NVML
         initial_gpu_memory_info: Optional[Dict[int, Dict[str, float]]] = None
         try:
@@ -576,27 +580,64 @@ class WorkerActor(xo.StatelessActor):
             initial_gpu_memory_info = gpu_info or None
         except Exception:
             initial_gpu_memory_info = None
+        return initial_gpu_memory_info
 
+    def _create_launch_strategy_instance(
+        self, gpu_memory_info: Optional[Dict[int, Dict[str, float]]] = None
+    ):
+        if gpu_memory_info is None:
+            raise ValueError("gpu_memory_info is required to create launch strategy")
         return create_launch_strategy(
             strategy_name=self._launch_strategy_name,
             total_gpu_devices=self._total_gpu_devices,
             allowed_devices=self._launch_allowed_gpus,
-            gpu_memory_info=initial_gpu_memory_info,
-            model_spread_used_gpus=self._model_spread_used_gpus,
-            active_model_counts=self._active_model_counts,
+            gpu_memory_info=gpu_memory_info,
         )
+
+    def _get_base_model_uid(self, model_uid: str) -> str:
+        try:
+            base_model_uid, _ = parse_replica_model_uid(model_uid)
+            return base_model_uid
+        except Exception:
+            return model_uid
+
+    def _get_or_create_launch_strategy(self, model_uid: str):
+        base_model_uid = self._get_base_model_uid(model_uid)
+        strategy = self._launch_strategies.get(base_model_uid)
+        if strategy is not None:
+            return strategy
+        strategy = self._create_launch_strategy_instance(
+            gpu_memory_info=self._gather_initial_gpu_memory_info()
+        )
+        self._launch_strategies[base_model_uid] = strategy
+        return strategy
+
+    def ensure_launch_strategy(self, model_uid: str):
+        """
+        Ensure a launch strategy exists for the given base model.
+        This is intended to be triggered from supervisor before concurrent launches.
+        """
+        base_model_uid = self._get_base_model_uid(model_uid)
+        with self._allocation_lock:
+            if base_model_uid in self._launch_strategies:
+                return
+            strategy = self._create_launch_strategy_instance(
+                gpu_memory_info=self._gather_initial_gpu_memory_info()
+            )
+            self._launch_strategies[base_model_uid] = strategy
 
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
         spec = LaunchModelSpec(model_uid=model_uid, n_gpu=n_gpu)
-        strategy = self._create_launch_strategy_instance()
-        devices = strategy.allocate(
-            spec=spec,
-            total_gpu_devices=self._total_gpu_devices,
-            user_specified_allocated_devices=self._collect_user_specified_devices(),
-            allocated_gpus=self._gpu_to_model_uid,
-        )
-        for dev in devices:
-            self._gpu_to_model_uid[int(dev)].add(model_uid)
+        strategy = self._get_or_create_launch_strategy(model_uid)
+        with self._allocation_lock:
+            devices = strategy.allocate(
+                spec=spec,
+                total_gpu_devices=self._total_gpu_devices,
+                user_specified_allocated_devices=self._collect_user_specified_devices(),
+                allocated_gpus=self._gpu_to_model_uid,
+            )
+            for dev in devices:
+                self._gpu_to_model_uid[int(dev)].add(model_uid)
         return sorted(devices)
 
     def allocate_devices_for_model(
@@ -616,15 +657,16 @@ class WorkerActor(xo.StatelessActor):
             model_format=model_format,
             quantization=quantization,
         )
-        strategy = self._create_launch_strategy_instance()
-        devices = strategy.allocate(
-            spec=spec,
-            total_gpu_devices=self._total_gpu_devices,
-            user_specified_allocated_devices=self._collect_user_specified_devices(),
-            allocated_gpus=self._gpu_to_model_uid,
-        )
-        for dev in devices:
-            self._gpu_to_model_uid[int(dev)].add(model_uid)
+        strategy = self._get_or_create_launch_strategy(model_uid)
+        with self._allocation_lock:
+            devices = strategy.allocate(
+                spec=spec,
+                total_gpu_devices=self._total_gpu_devices,
+                user_specified_allocated_devices=self._collect_user_specified_devices(),
+                allocated_gpus=self._gpu_to_model_uid,
+            )
+            for dev in devices:
+                self._gpu_to_model_uid[int(dev)].add(model_uid)
         return sorted(devices)
 
     async def allocate_devices_with_gpu_idx(
@@ -666,35 +708,40 @@ class WorkerActor(xo.StatelessActor):
         return sorted(gpu_idx)
 
     def release_devices(self, model_uid: str):
-        devices = [
-            dev for dev, uids in self._gpu_to_model_uid.items() if model_uid in uids
-        ]
-        for dev in devices:
-            if model_uid in self._gpu_to_model_uid[dev]:
-                self._gpu_to_model_uid[dev].remove(model_uid)
-            if not self._gpu_to_model_uid[dev]:
-                del self._gpu_to_model_uid[dev]
-
-        # check embedding
-        for dev in self._gpu_to_embedding_model_uids:
-            if model_uid in self._gpu_to_embedding_model_uids[dev]:
-                self._gpu_to_embedding_model_uids[dev].remove(model_uid)
-
-        # check user-specified slots
-        for dev in list(self._user_specified_gpu_to_model_uids):
-            model_infos = [
-                info
-                for info in self._user_specified_gpu_to_model_uids[dev]
-                if info[0] == model_uid
+        base_model_uid = self._get_base_model_uid(model_uid)
+        strategy = self._launch_strategies.get(base_model_uid)
+        with self._allocation_lock:
+            devices = [
+                dev for dev, uids in self._gpu_to_model_uid.items() if model_uid in uids
             ]
-            for model_info in model_infos:
-                self._user_specified_gpu_to_model_uids[dev].remove(model_info)
-            if not self._user_specified_gpu_to_model_uids[dev]:
-                del self._user_specified_gpu_to_model_uids[dev]
+            for dev in devices:
+                if model_uid in self._gpu_to_model_uid[dev]:
+                    self._gpu_to_model_uid[dev].remove(model_uid)
+                if not self._gpu_to_model_uid[dev]:
+                    del self._gpu_to_model_uid[dev]
 
-        # Keep strategy bookkeeping in sync for spread逻辑
-        strategy = self._create_launch_strategy_instance()
-        strategy.release(model_uid, devices)
+            # check embedding
+            for dev in self._gpu_to_embedding_model_uids:
+                if model_uid in self._gpu_to_embedding_model_uids[dev]:
+                    self._gpu_to_embedding_model_uids[dev].remove(model_uid)
+
+            # check user-specified slots
+            for dev in list(self._user_specified_gpu_to_model_uids):
+                model_infos = [
+                    info
+                    for info in self._user_specified_gpu_to_model_uids[dev]
+                    if info[0] == model_uid
+                ]
+                for model_info in model_infos:
+                    self._user_specified_gpu_to_model_uids[dev].remove(model_info)
+                if not self._user_specified_gpu_to_model_uids[dev]:
+                    del self._user_specified_gpu_to_model_uids[dev]
+
+            # Keep strategy bookkeeping in sync for spread逻辑
+            if strategy is not None:
+                strategy.release(model_uid, devices)
+                if strategy.is_idle():
+                    self._launch_strategies.pop(base_model_uid, None)
 
     async def _create_subpool(
         self,

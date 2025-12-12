@@ -1096,6 +1096,9 @@ class SupervisorActor(xo.StatelessActor):
             model_type = model_type or "LLM"
 
             try:
+                # Ensure per-base-model launch strategy is ready on worker before concurrent launches
+                await worker_ref.ensure_launch_strategy(model_uid)
+
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
                     model_name=model_name,

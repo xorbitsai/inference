@@ -44,7 +44,7 @@ class DeterministicIdleFirstLaunchStrategy(IdleFirstLaunchStrategy):
             )
             scored.append((dev, available - penalty))
 
-        # Prefer higher available memory, then the lowest GPU index.
+        # Prefer higher available memory, then lowest GPU index.
         scored.sort(key=lambda item: (-item[1], item[0]))
         return scored[0][0]
 
@@ -62,12 +62,13 @@ class MockWorkerActor(WorkerActor):
             for idx in cuda_devices
         }
 
-    def _create_launch_strategy_instance(self):
+    def _gather_initial_gpu_memory_info(self):
+        return self._test_gpu_memory_info
+
+    def _create_launch_strategy_instance(self, gpu_memory_info=None):
         return DeterministicIdleFirstLaunchStrategy(
             self._total_gpu_devices,
-            gpu_memory_info=self._test_gpu_memory_info,
-            model_spread_used_gpus=self._model_spread_used_gpus,
-            active_model_counts=self._active_model_counts,
+            gpu_memory_info=gpu_memory_info or self._test_gpu_memory_info,
         )
 
     async def __post_create__(self):
