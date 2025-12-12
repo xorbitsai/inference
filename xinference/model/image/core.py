@@ -215,7 +215,12 @@ def create_image_model_instance(
     lightning_model_path: Optional[str] = None,
     **kwargs,
 ) -> Union[
-    DiffusionModel, MLXDiffusionModel, GotOCR2Model, DeepSeekOCRModel, HunyuanOCRModel, PaddleOCRVLModel
+    DiffusionModel,
+    MLXDiffusionModel,
+    GotOCR2Model,
+    DeepSeekOCRModel,
+    HunyuanOCRModel,
+    PaddleOCRVLModel,
 ]:
     from .cache_manager import ImageCacheManager
 
