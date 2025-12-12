@@ -1125,5 +1125,33 @@
     },
     "featured": true,
     "updated_at": 1765166124
+  },
+  {
+    "version": 2,
+    "model_name": "PaddleOCR-VL",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "pillow==11.3.0",
+        "transformers==4.55.0",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1765507528,
+    "featured": true
   }
 ]
