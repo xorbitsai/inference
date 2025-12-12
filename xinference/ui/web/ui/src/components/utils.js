@@ -31,22 +31,23 @@ export async function copyToClipboard(text) {
   }
 
   try {
-    const container = document.querySelector('[role="dialog"]') ||
+    const container =
+      document.querySelector('[role="dialog"]') ||
       document.querySelector('.drawerCard') ||
-      document.body;
+      document.body
 
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'absolute';
-    textArea.style.left = '-9999px';
-    container.appendChild(textArea);
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'absolute'
+    textArea.style.left = '-9999px'
+    container.appendChild(textArea)
 
-    textArea.select();
-    const success = document.execCommand('copy');
+    textArea.select()
+    const success = document.execCommand('copy')
 
-    container.removeChild(textArea);
-    return success;
+    container.removeChild(textArea)
+    return success
   } catch {
-    return false;
+    return false
   }
 }
