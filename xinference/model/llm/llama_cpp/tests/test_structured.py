@@ -6,8 +6,11 @@ from enum import Enum
 from types import SimpleNamespace
 from typing import Any, Dict
 
+import openai
 import pytest
 from pydantic import BaseModel
+
+from xinference.client import Client
 
 from ..core import _apply_response_format
 
@@ -146,12 +149,6 @@ def test_apply_response_format_uses_real_xllamacpp_if_available():
 
 
 def test_llamacpp_qwen3_json_schema(setup):
-    pytest.importorskip(
-        "llama_cpp", reason="llama_cpp backend is required for this test"
-    )
-    import openai
-
-    from xinference.client import Client
 
     endpoint, _ = setup
     client = Client(endpoint)
