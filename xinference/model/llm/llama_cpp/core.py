@@ -51,10 +51,13 @@ def _apply_response_format(generate_config: Dict[str, Any]) -> None:
     schema_dict = normalized.get("schema_dict")
     if not schema_dict:
         return
-    generate_config.setdefault("json_schema", schema_dict)
     grammar = _schema_to_grammar(schema_dict)
     if grammar:
-        generate_config.setdefault("grammar", grammar)
+        # xllamacpp rejects configs containing both json_schema and grammar
+        generate_config.pop("json_schema", None)
+        generate_config["grammar"] = grammar
+    else:
+        generate_config.setdefault("json_schema", schema_dict)
 
 
 class _Done:

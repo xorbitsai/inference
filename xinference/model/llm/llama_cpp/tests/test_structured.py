@@ -82,7 +82,7 @@ def test_apply_response_format_sets_grammar(monkeypatch):
     _apply_response_format(cfg)
 
     assert "response_format" not in cfg
-    assert cfg["json_schema"]["required"] == ["a"]
+    assert "json_schema" not in cfg
     assert cfg["grammar"] == "GRAMMAR"
 
 
@@ -143,8 +143,8 @@ def test_apply_response_format_uses_real_xllamacpp_if_available():
     _apply_response_format(cfg)
 
     assert "response_format" not in cfg
-    # Real xllamacpp should attach grammar alongside json_schema
-    assert "json_schema" in cfg
+    # Real xllamacpp should prefer grammar to avoid passing both
+    assert "json_schema" not in cfg
     assert "grammar" in cfg and cfg["grammar"]
 
 
