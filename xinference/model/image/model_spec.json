@@ -1125,5 +1125,34 @@
     },
     "featured": true,
     "updated_at": 1765166124
+  },
+  {
+    "model_name": "PaddleOCR-VL",
+    "model_description": "PaddleOCR-VL is a SOTA and resource-efficient model tailored for document parsing. Its core component is PaddleOCR-VL-0.9B, a compact yet powerful vision-language model (VLM) that integrates a NaViT-style dynamic resolution visual encoder with the ERNIE-4.5-0.3B language model to enable accurate element recognition. This innovative model efficiently supports 109 languages and excels in recognizing complex elements (e.g., text, tables, formulas, and charts), while maintaining minimal resource consumption. Through comprehensive evaluations on widely used public benchmarks and in-house benchmarks, PaddleOCR-VL achieves SOTA performance in both page-level document parsing and element-level recognition. It significantly outperforms existing solutions, exhibits strong competitiveness against top-tier VLMs, and delivers fast inference speeds. These strengths make it highly suitable for practical deployment in real-world scenarios.",
+    "model_ability": [
+      "ocr"
+    ],
+    "model_family": "ocr",
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {},
+    "cache_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.55.0",
+        "#system_numpy#",
+        "#system_torch#",
+        "pillow==11.3.0"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1765499961
   }
 ]
