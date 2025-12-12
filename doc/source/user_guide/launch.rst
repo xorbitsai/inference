@@ -53,7 +53,7 @@ Smart Allocation: Number of replicas may differ from GPU count; system intellige
 GPU Allocation Strategy
 =======================
 
-The current strategy is *idle-first with a first round spread*: the scheduler first tries to place one replica on each available GPU (always picking the emptiest unused GPU). Once every GPU has at least one replica, remaining replicas keep stacking onto the GPU that is currently the emptiest (single-GPU multi-replica is allowed). Use ``XINFERENCE_LAUNCH_ALLOWED_GPUS`` to limit which GPUs can be chosen.
+The current policy is *Idle Priority*: The scheduler always attempts to assign replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_ALLOWED_GPUS`` parameter to restrict the range of available GPUs.
 
 Set Environment Variables
 =========================
