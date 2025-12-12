@@ -16,7 +16,6 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
 
-from ..device_utils import update_gpu_memory_info
 from .utils import parse_replica_model_uid
 
 logger = logging.getLogger(__name__)
@@ -57,10 +56,7 @@ class LaunchStrategy:
 
 
 class IdleFirstLaunchStrategy(LaunchStrategy):
-    """
-    Prefer the GPU running Xinference, otherwise keep allocating onto the emptiest
-    remaining GPU.
-    """
+    """Always place replicas onto the currently emptiest GPU."""
 
     _DEFAULT_BOOKED_MB = 1024  # logical reservation per replica
 
@@ -104,7 +100,6 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
 
         scored: List[Tuple[int, Union[int, float]]] = []
         for dev in candidates:
-            update_gpu_memory_info(self._gpu_memory_info, dev, logger=logger)
             available = self._gpu_memory_info.get(dev, {}).get("available", 0)
             # Deduct logical reservations to avoid stacking replicas too quickly
             available -= self._reserved_memory_mb.get(dev, 0)
@@ -112,9 +107,22 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
             penalty = pending_gpu_counts.get(dev, 0) + len(
                 allocated_gpus.get(dev, set())
             )
-            scored.append((dev, available - penalty))
+            score = available - penalty
+            scored.append((dev, score))
 
-        scored.sort(key=lambda item: (-item[1], item[0]))
+        # If scores are infinite (heartbeat missing => infinite available),
+        # fall back to smallest reserved/penalty; tie-break by GPU index.
+        if any(val[1] == float("inf") for val in scored):
+            scored.sort(
+                key=lambda item: (
+                    self._reserved_memory_mb.get(item[0], 0.0)
+                    + pending_gpu_counts.get(item[0], 0)
+                    + len(allocated_gpus.get(item[0], set())),
+                    item[0],
+                )
+            )
+        else:
+            scored.sort(key=lambda item: (-item[1], item[0]))
         return scored[0][0] if scored else None
 
     def allocate(
@@ -133,36 +141,18 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
             base_model_uid, _ = parse_replica_model_uid(model_uid)
         except Exception:
             base_model_uid = model_uid
-        used_in_spread = self._model_spread_used_gpus.setdefault(base_model_uid, set())
         n_gpu = spec.n_gpu
 
         pending_gpu_counts: Dict[int, int] = {}
         selected: List[int] = []
 
         while len(selected) < n_gpu:
-            # Prefer truly idle GPUs first: those without existing allocations
-            unoccupied_gpus = [
+            # Always pick the emptiest eligible GPU (excludes user-specified ones)
+            candidate_pool = [
                 dev
                 for dev in available_total
                 if dev not in user_specified_allocated_devices
-                and not allocated_gpus.get(dev)
             ]
-            spreading_phase = bool(unoccupied_gpus) and len(used_in_spread) < len(
-                unoccupied_gpus
-            )
-            if spreading_phase:
-                # First round: try to place replicas on distinct, unoccupied GPUs
-                candidate_pool = [
-                    dev for dev in unoccupied_gpus if dev not in used_in_spread
-                ]
-                if not candidate_pool:
-                    candidate_pool = [dev for dev in unoccupied_gpus]
-            else:
-                candidate_pool = [
-                    dev
-                    for dev in available_total
-                    if dev not in user_specified_allocated_devices
-                ]
             emptiest_gpu = self._select_emptiest_gpu(
                 candidate_pool, pending_gpu_counts, allocated_gpus
             )
@@ -173,10 +163,9 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
             pending_gpu_counts[emptiest_gpu] = (
                 pending_gpu_counts.get(emptiest_gpu, 0) + 1
             )
-            used_in_spread.add(emptiest_gpu)
 
-        # Persist spread history for this base model
-        self._model_spread_used_gpus[base_model_uid] = used_in_spread
+        # Persist spread history for compatibility with release bookkeeping
+        self._model_spread_used_gpus.setdefault(base_model_uid, set()).update(selected)
         self._active_model_counts[base_model_uid] = (
             self._active_model_counts.get(base_model_uid, 0) + 1
         )

@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import os
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, Literal, Union
 
 import torch
 
@@ -194,33 +193,3 @@ def get_nvidia_gpu_info() -> Dict:
             nvmlShutdown()
         except:
             pass
-
-
-def update_gpu_memory_info(
-    gpu_memory_info: Dict[int, Dict[str, Union[int, float]]],
-    gpu_idx: int,
-    logger: Optional[logging.Logger] = None,
-) -> None:
-    """
-    Update memory information for a specific GPU using NVML
-
-    Args:
-        gpu_memory_info: Dictionary to update with memory information
-        gpu_idx: GPU index to update
-        logger: Optional logger instance
-    """
-    try:
-        import pynvml
-
-        handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_idx)
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-
-        gpu_memory_info[gpu_idx] = {
-            "total": mem_info.total // (1024**2),
-            "used": mem_info.used // (1024**2),
-            "available": mem_info.free // (1024**2),
-        }
-
-    except:
-        # Keep existing values if update fails
-        pass

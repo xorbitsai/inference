@@ -49,6 +49,20 @@ class DeterministicIdleFirstLaunchStrategy(IdleFirstLaunchStrategy):
         return scored[0][0]
 
 
+async def install_strategy_for_worker(worker, model_uid: str):
+    """
+    Simulate supervisor-side strategy preparation for tests.
+    """
+    ctx = await worker.get_launch_strategy_context()
+    gpu_memory_info = await worker.get_test_gpu_memory_info()
+    strategy = DeterministicIdleFirstLaunchStrategy(
+        ctx["total_gpu_devices"],
+        allowed_devices=ctx["allowed_devices"],
+        gpu_memory_info=gpu_memory_info,
+    )
+    await worker.install_launch_strategy(model_uid, strategy)
+
+
 class MockWorkerActor(WorkerActor):
     def __init__(
         self,
@@ -85,6 +99,9 @@ class MockWorkerActor(WorkerActor):
 
     def get_user_specified_gpu_to_model_uids(self):
         return self._user_specified_gpu_to_model_uids
+
+    def get_test_gpu_memory_info(self):
+        return self._test_gpu_memory_info
 
     async def is_model_vllm_backend(self, model_uid):
         if model_uid.startswith("normal_"):
@@ -144,15 +161,19 @@ async def test_allocate_cuda_devices(setup_pool):
         cuda_devices=[i for i in range(8)],
     )
 
+    await install_strategy_for_worker(worker, "mock_model_1")
     devices = await worker.allocate_devices(model_uid="mock_model_1", n_gpu=1)
     assert devices == [0]
 
+    await install_strategy_for_worker(worker, "mock_model_2")
     devices = await worker.allocate_devices(model_uid="mock_model_2", n_gpu=2)
     assert devices == [1, 2]
 
+    await install_strategy_for_worker(worker, "mock_model_3")
     devices = await worker.allocate_devices(model_uid="mock_model_3", n_gpu=1)
     assert devices == [3]
 
+    await install_strategy_for_worker(worker, "mock_model_4")
     devices = await worker.allocate_devices(model_uid="mock_model_4", n_gpu=1)
     assert devices == [4]
 
@@ -171,18 +192,23 @@ async def test_terminate_model_flag(setup_pool):
         cuda_devices=[i for i in range(8)],
     )
 
+    await install_strategy_for_worker(worker, "model_model_1")
     await worker.launch_builtin_model(
         "model_model_1", "mock_model_name", None, None, None, n_gpu=1
     )
 
+    await install_strategy_for_worker(worker, "model_model_2")
     await worker.launch_builtin_model(
         "model_model_2", "mock_model_name", None, None, None, n_gpu=4
     )
 
+    await install_strategy_for_worker(worker, "model_model_3")
     devices = await worker.allocate_devices(model_uid="model_model_3", n_gpu=3)
     assert devices == [5, 6, 7]
     await worker.release_devices(model_uid="model_model_3")
 
+    # ensure strategy is ready before relaunch
+    await install_strategy_for_worker(worker, "model_model_3")
     await worker.launch_builtin_model(
         "model_model_3", "mock_model_name", None, None, None, n_gpu=3
     )
@@ -244,12 +270,14 @@ async def test_launch_embedding_model(setup_pool):
     )
 
     # test embedding device candidates 1
+    await install_strategy_for_worker(worker, "model_model_1")
     await worker.launch_builtin_model(
         "model_model_1", "mock_model_name", None, None, None, n_gpu=3
     )
     embedding_info = await worker.get_gpu_to_embedding_model_uids()
     assert len(embedding_info) == 0
 
+    await install_strategy_for_worker(worker, "model_model_2")
     await worker.launch_builtin_model(
         "model_model_2", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
@@ -261,6 +289,7 @@ async def test_launch_embedding_model(setup_pool):
 
     # test terminate LLM model, then launch embedding model
     await worker.terminate_model("model_model_1")
+    await install_strategy_for_worker(worker, "model_model_3")
     await worker.launch_builtin_model(
         "model_model_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
@@ -276,14 +305,17 @@ async def test_launch_embedding_model(setup_pool):
     assert len(embedding_info[1]) == 0
 
     # test embedding device candidates 2
+    await install_strategy_for_worker(worker, "model_model_1")
     await worker.launch_builtin_model(
         "model_model_1", "mock_model_name", None, None, None, n_gpu=2
     )
 
+    await install_strategy_for_worker(worker, "model_model_2")
     await worker.launch_builtin_model(
         "model_model_2", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
 
+    await install_strategy_for_worker(worker, "model_model_3")
     await worker.launch_builtin_model(
         "model_model_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
@@ -295,6 +327,7 @@ async def test_launch_embedding_model(setup_pool):
     assert "model_model_2" in embedding_info[2]
     assert "model_model_3" in embedding_info[3]
 
+    await install_strategy_for_worker(worker, "model_model_4")
     await worker.launch_builtin_model(
         "model_model_4", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
@@ -314,9 +347,11 @@ async def test_launch_embedding_model(setup_pool):
 
     # test no slots
     for i in range(1, 5):
+        await install_strategy_for_worker(worker, f"model_model_{i}")
         await worker.launch_builtin_model(
             f"model_model_{i}", "mock_model_name", None, None, None, n_gpu=1
         )
+    await install_strategy_for_worker(worker, "model_model_5")
     await worker.launch_builtin_model(
         "model_model_5", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
@@ -344,6 +379,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert (await xo.actor_ref(addr, WorkerActor.default_uid())).uid == b"worker"
 
     # test normal model
+    await install_strategy_for_worker(worker, "normal_model_model_1")
     await worker.launch_builtin_model(
         "normal_model_model_1", "mock_model_name", None, None, None, "LLM", n_gpu=1
     )
@@ -351,6 +387,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert 0 in llm_info
     assert "normal_model_model_1" in llm_info[0]
 
+    await install_strategy_for_worker(worker, "model_model_2")
     await worker.launch_builtin_model(
         "model_model_2", "mock_model_name", None, None, None, "LLM", gpu_idx=[0]
     )
@@ -366,6 +403,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[0])[0][1] == "LLM"
 
     # test vllm model
+    await install_strategy_for_worker(worker, "vllm_model_model_3")
     await worker.launch_builtin_model(
         "vllm_model_model_3", "mock_model_name", None, None, None, "LLM", n_gpu=1
     )
@@ -387,6 +425,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
         )
 
     target_gpu = next(dev for dev in [1, 2, 3] if dev != vllm_gpu)
+    await install_strategy_for_worker(worker, "model_model_4")
     await worker.launch_builtin_model(
         "model_model_4",
         "mock_model_name",
@@ -409,6 +448,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[target_gpu])[0][1] == "LLM"
 
     # then launch a LLM without gpu_idx
+    await install_strategy_for_worker(worker, "normal_model_model_5")
     await worker.launch_builtin_model(
         "normal_model_model_5", "mock_model_name", None, None, None, "LLM", n_gpu=1
     )
@@ -416,6 +456,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert 0 in llm_info
 
     # launch without gpu_idx again, error
+    await install_strategy_for_worker(worker, "normal_model_model_6")
     await worker.launch_builtin_model(
         "normal_model_model_6", "mock_model_name", None, None, None, "LLM", n_gpu=1
     )
@@ -436,6 +477,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
         assert len(model_infos) == 0
 
     # next, test with embedding models
+    await install_strategy_for_worker(worker, "embedding_1")
     await worker.launch_builtin_model(
         "embedding_1", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
@@ -443,6 +485,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert len(embedding_info) == 1
     assert 0 in embedding_info
 
+    await install_strategy_for_worker(worker, "vllm_mock_model_2")
     await worker.launch_builtin_model(
         "vllm_mock_model_2", "mock_model_name", None, None, None, "LLM", gpu_idx=[0]
     )
@@ -456,27 +499,33 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[0])[0][1] == "LLM"
 
     # never choose gpu 0 again
+    await install_strategy_for_worker(worker, "normal_mock_model_3")
     devices = await worker.allocate_devices(model_uid="normal_mock_model_3", n_gpu=4)
     assert all(dev != 0 for dev in devices)
 
     # should be on gpu 1
+    await install_strategy_for_worker(worker, "embedding_3")
     await worker.launch_builtin_model(
         "embedding_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
     # should be on gpu 0
+    await install_strategy_for_worker(worker, "rerank_4")
     with pytest.raises(RuntimeError):
         await worker.launch_builtin_model(
             "rerank_4", "mock_model_name", None, None, None, "rerank", gpu_idx=[0]
         )
     # should be on gpu 2
+    await install_strategy_for_worker(worker, "embedding_5")
     await worker.launch_builtin_model(
         "embedding_5", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
     # should be on gpu 3
+    await install_strategy_for_worker(worker, "rerank_6")
     await worker.launch_builtin_model(
         "rerank_6", "mock_model_name", None, None, None, "rerank", n_gpu=1
     )
     # should be on gpu 1, due to there are the fewest models on it
+    await install_strategy_for_worker(worker, "rerank_7")
     await worker.launch_builtin_model(
         "rerank_7", "mock_model_name", None, None, None, "rerank", n_gpu=1
     )

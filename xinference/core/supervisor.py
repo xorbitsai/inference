@@ -30,6 +30,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -48,6 +49,7 @@ from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.utils import get_engine_params_by_name
 from ..types import PeftModelConfig
+from .launch_strategy import create_launch_strategy
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
@@ -899,6 +901,44 @@ class SupervisorActor(xo.StatelessActor):
         )
         return refs
 
+    def _build_gpu_memory_info(
+        self, worker_ref
+    ) -> Optional[Dict[int, Dict[str, float]]]:
+        """Use latest heartbeat data for GPU memory snapshot."""
+        worker_status = self._worker_status.get(worker_ref.address)
+        if worker_status is None:
+            return None
+        gpu_info: Dict[int, Dict[str, float]] = {}
+        for dev, status in worker_status.status.items():
+            if isinstance(status, GPUStatus) and str(dev).startswith("gpu-"):
+                try:
+                    idx = int(str(dev).split("-", 1)[1])
+                except Exception:
+                    continue
+                gpu_info[idx] = {
+                    "total": status.mem_total // (1024**2),
+                    "used": status.mem_used // (1024**2),
+                    "available": status.mem_free // (1024**2),
+                }
+        return gpu_info or None
+
+    async def _install_strategy_on_worker(self, model_uid: str, worker_ref) -> None:
+        ctx = await worker_ref.get_launch_strategy_context()
+        gpu_memory_info = self._build_gpu_memory_info(worker_ref)
+        if gpu_memory_info is None:
+            # Heartbeat disabled or missing: assume all visible GPUs are available with "infinite" mem
+            gpu_memory_info = {
+                dev: {"total": float("inf"), "used": 0.0, "available": float("inf")}
+                for dev in ctx["total_gpu_devices"]
+            }
+        strategy = create_launch_strategy(
+            strategy_name=ctx["launch_strategy_name"],
+            total_gpu_devices=ctx["total_gpu_devices"],
+            allowed_devices=ctx["allowed_devices"],
+            gpu_memory_info=gpu_memory_info,
+        )
+        await worker_ref.install_launch_strategy(model_uid, strategy)
+
     @log_async(logger=logger)
     async def launch_builtin_model(
         self,
@@ -1096,9 +1136,6 @@ class SupervisorActor(xo.StatelessActor):
             model_type = model_type or "LLM"
 
             try:
-                # Ensure per-base-model launch strategy is ready on worker before concurrent launches
-                await worker_ref.ensure_launch_strategy(model_uid)
-
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
                     model_name=model_name,
@@ -1140,6 +1177,7 @@ class SupervisorActor(xo.StatelessActor):
             try:
                 # Pre-fetch worker loads for balanced scheduling
                 worker_candidates = []
+                prepared_workers: Set[str] = set()
 
                 if target_worker_refs:
                     workers = target_worker_refs
@@ -1187,6 +1225,11 @@ class SupervisorActor(xo.StatelessActor):
                     self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
                         _idx
                     ].append(worker_ref)
+
+                    # Prepare launch strategy per worker once before launching replicas
+                    if worker_ref.address not in prepared_workers:
+                        await self._install_strategy_on_worker(model_uid, worker_ref)
+                        prepared_workers.add(worker_ref.address)
 
                     if enable_xavier and _idx == 0:
                         """
@@ -1359,6 +1402,7 @@ class SupervisorActor(xo.StatelessActor):
                     "n_worker cannot be larger than the number of available workers."
                 )
             try:
+                prepared_workers: Set[str] = set()
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
@@ -1375,6 +1419,11 @@ class SupervisorActor(xo.StatelessActor):
                         ].replica_to_worker_refs[_idx].append(worker_ref)
                         nonlocal model_type
                         model_type = model_type or "LLM"
+                        if worker_ref.address not in prepared_workers:
+                            await self._install_strategy_on_worker(
+                                model_uid, worker_ref
+                            )
+                            prepared_workers.add(worker_ref.address)
                         if i_worker > 1:
                             assert (
                                 driver_info is not None
