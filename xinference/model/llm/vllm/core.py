@@ -1123,24 +1123,30 @@ class VLLMModel(LLM):
             GuidedDecodingParams = None
             StructuredOutputsParams = None
             supports_guided = VLLM_VERSION < version.parse("1.12.0")
-            if supports_guided:
-                try:
-                    from vllm.sampling_params import GuidedDecodingParams as GDP
-
-                    GuidedDecodingParams = GDP
-                except ImportError:
-                    # Some vLLM builds expose StructuredOutputsParams instead
+            try:
+                import vllm.sampling_params as _sampling_params
+            except ImportError:
+                if supports_guided:
                     logger.info(
                         "GuidedDecodingParams not found in vLLM %s, "
                         "trying StructuredOutputsParams fallback.",
                         VLLM_VERSION,
                     )
-            try:
-                from vllm.sampling_params import StructuredOutputsParams as SOP
+            else:
+                if supports_guided and hasattr(
+                    _sampling_params, "GuidedDecodingParams"
+                ):
+                    GuidedDecodingParams = _sampling_params.GuidedDecodingParams
+                elif supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
 
-                StructuredOutputsParams = SOP
-            except ImportError:
-                if GuidedDecodingParams is None:
+                if hasattr(_sampling_params, "StructuredOutputsParams"):
+                    StructuredOutputsParams = _sampling_params.StructuredOutputsParams
+                elif GuidedDecodingParams is None:
                     logger.warning(
                         "No guided decoding support found in vLLM %s "
                         "(GuidedDecodingParams / StructuredOutputsParams).",
@@ -1298,7 +1304,7 @@ class VLLMModel(LLM):
         assert self._engine is not None
         start_wall_time = time.time()
         start_perf = time.perf_counter()
-        logger.info(
+        logger.debug(
             "Generate start, request_id: %s, stream: %s, start_time: %s",
             request_id,
             stream,
@@ -1389,7 +1395,7 @@ class VLLMModel(LLM):
                 completion_tokens / elapsed if elapsed > 0 else completion_tokens
             )
             total_tps = total_tokens / elapsed if elapsed > 0 else total_tokens
-            logger.info(
+            logger.debug(
                 "Generate finished, request_id: %s, stop reason: %s, prompt tokens: %s, "
                 "completion tokens: %s, all tokens: %s, elapsed: %.3fs, "
                 "throughput: completion %.2f tok/s, total %.2f tok/s",
