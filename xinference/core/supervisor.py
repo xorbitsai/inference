@@ -43,11 +43,13 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
+    XINFERENCE_LAUNCH_STRATEGY,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.utils import get_engine_params_by_name
 from ..types import PeftModelConfig
+from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
@@ -1034,7 +1036,9 @@ class SupervisorActor(xo.StatelessActor):
             f"worker_ip: {worker_ip}, kwargs: {kwargs}"
         )
 
-        async def _launch_one_model(worker_ref, _replica_model_uid, rank: int):
+        async def _launch_one_model(
+            worker_ref, _replica_model_uid, rank: int, target_gpu_idx=None
+        ):
             if _replica_model_uid in self._replica_model_uid_to_worker:
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
@@ -1089,7 +1093,11 @@ class SupervisorActor(xo.StatelessActor):
                 )
                 return rank0_address
 
-            replica_gpu_idx = assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
+            replica_gpu_idx = (
+                target_gpu_idx
+                if target_gpu_idx is not None
+                else assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
+            )
             nonlocal model_type
 
             # LLM as default for compatibility
@@ -1135,6 +1143,17 @@ class SupervisorActor(xo.StatelessActor):
 
         async def _launch_model():
             try:
+                strategy = None
+                if gpu_idx is None:
+                    strategy_name = (XINFERENCE_LAUNCH_STRATEGY or "").lower()
+                    normalized = strategy_name.replace("-", "_")
+                    if normalized in ("idlefirst", "idle_first_launch_strategy"):
+                        strategy = IdleFirstLaunchStrategy(self._worker_status)
+                    else:
+                        logger.debug(
+                            "Launch strategy %s not recognized, fallback to load-first",
+                            strategy_name,
+                        )
                 # Pre-fetch worker loads for balanced scheduling
                 worker_candidates = []
 
@@ -1173,14 +1192,30 @@ class SupervisorActor(xo.StatelessActor):
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
-                    # Balanced scheduling: pick least loaded and increment virtual count
-                    worker_candidates.sort(key=lambda x: (x["count"], x["ref"].address))
-                    best_candidate = worker_candidates[0]
-                    logger.debug(
-                        f"Replica {_idx} assigned to {best_candidate['ref'].address} (count: {best_candidate['count']})"
-                    )
-                    worker_ref = best_candidate["ref"]
-                    best_candidate["count"] += 1
+                    if strategy is not None:
+                        worker_ref, target_gpu_idx = strategy.select_worker(
+                            worker_candidates
+                        )
+                        current_count = None
+                        for candidate in worker_candidates:
+                            if candidate["ref"] == worker_ref:
+                                candidate["count"] += 1
+                                current_count = candidate["count"]
+                                break
+                        logger.debug(
+                            f"Replica {_idx} assigned to {worker_ref.address} (count: {current_count})"
+                        )
+                    else:
+                        worker_candidates.sort(
+                            key=lambda x: (x["count"], x["ref"].address)
+                        )
+                        best_candidate = worker_candidates[0]
+                        worker_ref = best_candidate["ref"]
+                        target_gpu_idx = None
+                        best_candidate["count"] += 1
+                        logger.debug(
+                            f"Replica {_idx} assigned to {worker_ref.address} (count: {best_candidate['count']})"
+                        )
                     self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
                         _idx
                     ].append(worker_ref)
@@ -1192,14 +1227,18 @@ class SupervisorActor(xo.StatelessActor):
                         """
                         _uid = model_uid + "-rank0"
                         # For Xavier, rank0 must be launched first, so we await it immediately
-                        rank0_address = await _launch_one_model(worker_ref, _uid, 0)
+                        rank0_address = await _launch_one_model(
+                            worker_ref, _uid, 0, target_gpu_idx
+                        )
                         task_metadata.append(
                             (worker_ref, _uid, True, _idx, rank0_address)
                         )
 
                     # Add regular replica launch task to parallel batch
                     launch_tasks.append(
-                        _launch_one_model(worker_ref, rep_model_uid, _idx + 1)
+                        _launch_one_model(
+                            worker_ref, rep_model_uid, _idx + 1, target_gpu_idx
+                        )
                     )
                     task_metadata.append((worker_ref, rep_model_uid, False, _idx, None))
 
