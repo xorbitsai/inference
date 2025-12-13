@@ -562,19 +562,21 @@ class WorkerActor(xo.StatelessActor):
             return sorted(selected_devices)
 
         # Default: allow multi-tenant GPUs, pick least-loaded devices.
-        gpu_loads: List[Tuple[int, int]] = []
+        gpu_loads: List[Tuple[int, int, int]] = []
         for dev in self._total_gpu_devices:
-            load = len(self._gpu_to_model_uids.get(dev, set())) + len(
+            running_models = len(self._gpu_to_model_uids.get(dev, set()))
+            load = running_models + len(
                 self._user_specified_gpu_to_model_uids.get(dev, set())
             )
-            gpu_loads.append((load, dev))
+            # Prefer devices with fewer existing model processes when loads tie
+            gpu_loads.append((load, running_models, dev))
 
         devices: List[int] = []
         for _ in range(n_gpu):
-            gpu_loads.sort(key=lambda x: (x[0], x[1]))
-            load, dev = gpu_loads[0]
+            gpu_loads.sort(key=lambda x: (x[0], x[1], x[2]))
+            load, running_models, dev = gpu_loads[0]
             devices.append(dev)
-            gpu_loads[0] = (load + 1, dev)
+            gpu_loads[0] = (load + 1, running_models + 1, dev)
 
         for dev in devices:
             self._gpu_to_model_uids[int(dev)].add(model_uid)
