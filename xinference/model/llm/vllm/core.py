@@ -36,6 +36,7 @@ from typing import (
     Type,
     TypedDict,
     Union,
+    cast,
 )
 
 import xoscar as xo
@@ -1119,7 +1120,38 @@ class VLLMModel(LLM):
 
         if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
             # guided decoding only available for vllm >= 0.6.3
-            from vllm.sampling_params import GuidedDecodingParams
+            GuidedDecodingParams = None
+            StructuredOutputsParams = None
+            supports_guided = VLLM_VERSION < version.parse("1.12.0")
+            try:
+                import vllm.sampling_params as _sampling_params
+            except ImportError:
+                if supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
+            else:
+                if supports_guided and hasattr(
+                    _sampling_params, "GuidedDecodingParams"
+                ):
+                    GuidedDecodingParams = _sampling_params.GuidedDecodingParams
+                elif supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
+
+                if hasattr(_sampling_params, "StructuredOutputsParams"):
+                    StructuredOutputsParams = _sampling_params.StructuredOutputsParams
+                elif GuidedDecodingParams is None:
+                    logger.warning(
+                        "No guided decoding support found in vLLM %s "
+                        "(GuidedDecodingParams / StructuredOutputsParams).",
+                        VLLM_VERSION,
+                    )
 
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
@@ -1157,19 +1189,39 @@ class VLLMModel(LLM):
             if guided_whitespace_pattern:
                 guided_params["whitespace_pattern"] = guided_whitespace_pattern
 
-            # Create GuidedDecodingParams if we have any guided parameters
+            # Create GuidedDecodingParams / StructuredOutputsParams if we have any guided parameters
             guided_options = None
-            if guided_params:
+            if guided_params and GuidedDecodingParams:
                 try:
                     guided_options = GuidedDecodingParams(**guided_params)
                 except Exception as e:
                     logger.warning(f"Failed to create GuidedDecodingParams: {e}")
+                    guided_options = None
+            elif guided_params and StructuredOutputsParams:
+                try:
+                    guided_options = StructuredOutputsParams(**guided_params)
+                except Exception as e:
+                    logger.warning(f"Failed to create StructuredOutputsParams: {e}")
                     guided_options = None
 
             try:
                 import inspect
 
                 sp_sig = inspect.signature(SamplingParams)
+                unsupported_keys = [
+                    key
+                    for key in list(sanitized_generate_config.keys())
+                    if key not in sp_sig.parameters
+                ]
+                config_dict = cast(Dict[str, Any], sanitized_generate_config)
+                for key in unsupported_keys:
+                    config_dict.pop(key, None)
+                if unsupported_keys:
+                    logger.warning(
+                        "Dropping unsupported sampling params for vLLM %s: %s",
+                        VLLM_VERSION,
+                        unsupported_keys,
+                    )
                 # For v0.9.2 and similar versions, prioritize guided_decoding over structured_outputs
                 # structured_outputs was introduced later (around v0.11.0) and may not accept
                 # GuidedDecodingParams in earlier versions even if the parameter exists
@@ -1212,6 +1264,23 @@ class VLLMModel(LLM):
             sanitized_generate_config.pop("guided_json_object", None)
             sanitized_generate_config.pop("guided_decoding_backend", None)
             sanitized_generate_config.pop("guided_whitespace_pattern", None)
+            import inspect
+
+            sp_sig = inspect.signature(SamplingParams)
+            unsupported_keys = [
+                key
+                for key in list(sanitized_generate_config.keys())
+                if key not in sp_sig.parameters
+            ]
+            config_dict = cast(Dict[str, Any], sanitized_generate_config)
+            for key in unsupported_keys:
+                config_dict.pop(key, None)
+            if unsupported_keys:
+                logger.warning(
+                    "Dropping unsupported sampling params for vLLM %s: %s",
+                    VLLM_VERSION,
+                    unsupported_keys,
+                )
             sampling_params = SamplingParams(**sanitized_generate_config)
 
         prompt_or_token_ids: Union[str, Dict[str, Any], List[int]] = prompt
@@ -1233,6 +1302,14 @@ class VLLMModel(LLM):
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
+        start_wall_time = time.time()
+        start_perf = time.perf_counter()
+        logger.debug(
+            "Generate start, request_id: %s, stream: %s, start_time: %s",
+            request_id,
+            stream,
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_wall_time)),
+        )
         results_generator = self._engine.generate(
             prompt_or_token_ids,
             sampling_params,
@@ -1313,14 +1390,23 @@ class VLLMModel(LLM):
                 assert chunk is not None
                 yield chunk
 
-            logger.info(
+            elapsed = time.perf_counter() - start_perf
+            completion_tps = (
+                completion_tokens / elapsed if elapsed > 0 else completion_tokens
+            )
+            total_tps = total_tokens / elapsed if elapsed > 0 else total_tokens
+            logger.debug(
                 "Generate finished, request_id: %s, stop reason: %s, prompt tokens: %s, "
-                "completion tokens: %s, all tokens: %s",
+                "completion tokens: %s, all tokens: %s, elapsed: %.3fs, "
+                "throughput: completion %.2f tok/s, total %.2f tok/s",
                 request_id,
                 finish_reason,
                 prompt_tokens,
                 completion_tokens,
                 total_tokens,
+                elapsed,
+                completion_tps,
+                total_tps,
             )
 
             # match OpenAI API stream
