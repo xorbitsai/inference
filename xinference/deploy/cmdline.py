@@ -1249,6 +1249,13 @@ def model_generate(
         # TODO: when stream=True, RestfulClient cannot generate words one by one.
         # So use Client in temporary. The implementation needs to be changed to
         # RestfulClient in the future.
+        model = client.get_model(model_uid=model_uid)
+        if not isinstance(model, (RESTfulChatModelHandle, RESTfulGenerateModelHandle)):
+            raise ValueError(
+                f"Model {model_uid} does not support text generation. "
+                "Please select a chat/generate model or use embeddings/rerank APIs accordingly."
+            )
+
         async def generate_internal():
             while True:
                 # the prompt will be written to stdout.
@@ -1267,8 +1274,6 @@ def model_generate(
                     else:
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
-
-        model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
         coro = generate_internal()
@@ -1291,7 +1296,10 @@ def model_generate(
         if not isinstance(
             restful_model, (RESTfulChatModelHandle, RESTfulGenerateModelHandle)
         ):
-            raise ValueError(f"model {model_uid} has no generate method")
+            raise ValueError(
+                f"Model {model_uid} does not support text generation. "
+                "Please select a chat/generate model or use embeddings/rerank APIs accordingly."
+            )
 
         while True:
             prompt = input("User: ")
@@ -1346,6 +1354,13 @@ def model_chat(
         # TODO: when stream=True, RestfulClient cannot generate words one by one.
         # So use Client in temporary. The implementation needs to be changed to
         # RestfulClient in the future.
+        model = client.get_model(model_uid=model_uid)
+        if not isinstance(model, RESTfulChatModelHandle):
+            raise ValueError(
+                f"Model {model_uid} does not support chat. "
+                "Please select a chat-capable model."
+            )
+
         async def chat_internal():
             while True:
                 # the prompt will be written to stdout.
@@ -1375,8 +1390,6 @@ def model_chat(
                 print("", file=sys.stdout)
                 messages.append(dict(role="assistant", content=response_content))
 
-        model = client.get_model(model_uid=model_uid)
-
         loop = asyncio.get_event_loop()
         coro = chat_internal()
 
@@ -1396,7 +1409,10 @@ def model_chat(
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(restful_model, RESTfulChatModelHandle):
-            raise ValueError(f"model {model_uid} has no chat method")
+            raise ValueError(
+                f"Model {model_uid} does not support chat. "
+                "Please select a chat-capable model."
+            )
 
         while True:
             prompt = input("User: ")
