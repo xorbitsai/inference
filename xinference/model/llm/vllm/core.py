@@ -44,6 +44,7 @@ from packaging import version
 from typing_extensions import NotRequired
 
 from ....constants import XINFERENCE_MAX_TOKENS
+from ....device_utils import is_vacc_available
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -133,6 +134,9 @@ class VLLMGenerateConfig(TypedDict, total=False):
 
 
 try:
+    if is_vacc_available():
+        import vllm_vacc  # noqa: F401
+
     import vllm  # noqa: F401
 
     if not getattr(vllm, "__version__", None):

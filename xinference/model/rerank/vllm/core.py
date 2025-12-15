@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Optional, Tuple, Union
 
+from ....device_utils import is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ...utils import cache_clean, check_dependency_available
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
@@ -11,6 +12,8 @@ SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 class VLLMRerankModel(RerankModel):
     def load(self):
         try:
+            if is_vacc_available():
+                import vllm_vacc  # noqa: F401
             from vllm import LLM
 
         except ImportError:
