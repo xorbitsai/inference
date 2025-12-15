@@ -203,7 +203,7 @@ class PaddleOCRVLModel:
 
         # Decode output
         # Slice to remove input prompt from output
-        generated_ids = outputs[:, inputs.input_ids.shape[1] :]
+        generated_ids = outputs[:, inputs.input_ids.shape[1]:]
         result = self._processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
         return result
