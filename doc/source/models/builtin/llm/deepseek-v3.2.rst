@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 671 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** deepseek-ai/DeepSeek-V3.2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V3.2>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.2>`__
 
