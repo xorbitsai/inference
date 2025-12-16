@@ -299,7 +299,11 @@ def assign_replica_gpu(
     if isinstance(gpu_idx, int):
         gpu_idx = [gpu_idx]
     if isinstance(gpu_idx, list) and gpu_idx:
-        return gpu_idx[rep_id::replica]
+        num_gpus = len(gpu_idx)
+        gpus_per_replica = num_gpus // replica
+        start = rep_id * gpus_per_replica
+        end = start + gpus_per_replica
+        return gpu_idx[start:end]
     return gpu_idx
 
 
