@@ -24336,5 +24336,56 @@
     },
     "featured": true,
     "updated_at": 1765344087
+  },
+  {
+    "model_name": "DeepSeek-V3.2-Exp",
+    "model_description": "We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.",
+    "context_length": 163840,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 671,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV32ForCausalLM"
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}\n  {% set add_generation_prompt = false %}\n{% endif %}\n{% if not thinking is defined %}\n  {% set thinking = false %}\n{% endif %}\n{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false, is_only_sys=false, is_prefix=false) %}\n{%- for message in messages %}\n  {%- if message['role'] == 'system' %}\n    {%- if ns.is_first_sp %}\n      {% set ns.system_prompt = ns.system_prompt + message['content'] %}\n      {% set ns.is_first_sp = false %}\n    {%- else %}\n      {% set ns.system_prompt = ns.system_prompt + '\\n\\n' + message['content'] %}\n    {%- endif %}\n    {% set ns.is_only_sys = true %}\n  {%- endif %}\n{%- endfor %}\n{{ bos_token }}{{ ns.system_prompt }}\n{%- for message in messages %}\n  {%- if message['role'] == 'user' %}\n    {%- set ns.is_tool = false -%}\n    {%- set ns.is_first = false -%}\n    {%- set ns.is_last_user = true -%}\n    {{'<｜User｜>' + message['content']}}\n  {%- endif %}\n  {%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}\n    {%- if ns.is_last_user or ns.is_only_sys %}\n      {{'<｜Assistant｜></think>'}}\n    {%- endif %}\n    {%- set ns.is_last_user = false -%}\n    {%- set ns.is_first = false %}\n    {%- set ns.is_tool = false -%}\n    {%- for tool in message['tool_calls'] %}\n      {%- if not ns.is_first %}\n        {%- if message['content'] is none %}\n          {{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n        {%- else %}\n          {{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n        {%- endif %}\n        {%- set ns.is_first = true -%}\n      {%- else %}\n        {{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n      {%- endif %}\n    {%- endfor %}\n    {{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}\n  {%- endif %}\n  {%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}\n    {%- if ns.is_last_user %}\n      {{'<｜Assistant｜>'}}\n      {%- if message['prefix'] is defined and message['prefix'] and thinking %}\n        {{'<think>'}}\n      {%- else %}\n        {{'</think>'}}\n      {%- endif %}\n    {%- endif %}\n    {%- if message['prefix'] is defined and message['prefix'] %}\n      {%- set ns.is_prefix = true -%}\n    {%- endif %}\n    {%- set ns.is_last_user = false -%}\n    {%- if ns.is_tool %}\n      {{message['content'] + '<｜end▁of▁sentence｜>'}}\n      {%- set ns.is_tool = false -%}\n    {%- else %}\n      {%- set content = message['content'] -%}\n      {%- if '</think>' in content %}\n        {%- set content = content.split('</think>', 1)[1] -%}\n      {%- endif %}\n      {{content + '<｜end▁of▁sentence｜>'}}\n    {%- endif %}\n  {%- endif %}\n  {%- if message['role'] == 'tool' %}\n    {%- set ns.is_last_user = false -%}\n    {%- set ns.is_tool = true -%}\n    {{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}\n  {%- endif %}\n  {%- if message['role'] != 'system' %}\n    {% set ns.is_only_sys = false %}\n  {%- endif %}\n{%- endfor -%}\n{% if add_generation_prompt and not ns.is_tool%}\n  {% if ns.is_last_user or ns.is_only_sys or not ns.is_prefix %}\n    {{'<｜Assistant｜>'}}\n    {%- if not thinking %}\n      {{'</think>'}}\n    {%- else %}\n      {{'<think>'}}\n    {%- endif %}\n  {% endif %}\n{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": []
+    },
+    "featured": true,
+    "updated_at": 1765887343
   }
 ]
