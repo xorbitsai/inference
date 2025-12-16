@@ -29,3 +29,19 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name DeepSeek-V3.2-Exp --size-in-billions 671 --model-format pytorch --quantization ${quantization}
 
+
+Model Spec 2 (awq, 671 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 671
+- **Quantizations:** AWQ, AWQ-Lite
+- **Engines**: 
+- **Model ID:** QuantTrio/DeepSeek-V3.2-Exp-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-V3.2-Exp-{quantization}>`__, `ModelScope <https://modelscope.cn/models/tclf90/DeepSeek-V3.2-Exp-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name DeepSeek-V3.2-Exp --size-in-billions 671 --model-format awq --quantization ${quantization}
+
