@@ -273,6 +273,26 @@ class WorkerActor(xo.StatelessActor):
             )
         return specs, download_hubs
 
+    def _prefer_model_hub(self, model_family: Any, preferred_hub: str = "huggingface"):
+        """
+        Return a copy of model_family with a single spec, preferring the given hub.
+        """
+        specs = getattr(model_family, "model_specs", None)
+        if not specs:
+            return model_family
+
+        target_spec = next(
+            (
+                spec
+                for spec in specs
+                if getattr(spec, "model_hub", None) == preferred_hub
+            ),
+            specs[0],
+        )
+        family_copy = model_family.copy()
+        family_copy.model_specs = [target_spec]
+        return family_copy
+
     async def __post_create__(self):
         from ..model.audio import (
             CustomAudioModelFamilyV2,
@@ -1186,13 +1206,12 @@ class WorkerActor(xo.StatelessActor):
                 if builtin_model_name != model_name:
                     continue
                 for family in family_list:
-                    if family.model_hub == "huggingface":
-                        return family
+                    return self._prefer_model_hub(family)
 
             # Check user-defined embedding models
             for f in get_user_defined_embeddings():
                 if f.model_name == model_name:
-                    return f
+                    return self._prefer_model_hub(f)
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
@@ -1241,13 +1260,12 @@ class WorkerActor(xo.StatelessActor):
             if model_name in BUILTIN_RERANK_MODELS:
                 family_list = BUILTIN_RERANK_MODELS[model_name]
                 for f in family_list:
-                    if f.model_hub == "huggingface":
-                        return f
+                    return self._prefer_model_hub(f)
 
             # Check user-defined rerank models
             for f in get_user_defined_reranks():
                 if f.model_name == model_name:
-                    return f
+                    return self._prefer_model_hub(f)
         return None
 
     @log_async(logger=logger)
