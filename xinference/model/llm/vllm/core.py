@@ -315,6 +315,9 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
     VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Thinking")
     VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Instruct")
 
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("DeepSeek-V3.2")
+
 
 class VLLMModel(LLM):
     allow_batch = True
