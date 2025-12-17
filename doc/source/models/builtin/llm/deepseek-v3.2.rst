@@ -4,7 +4,7 @@
 DeepSeek-V3.2
 ========================================
 
-- **Context Length:** 131072
+- **Context Length:** 163840
 - **Model Name:** DeepSeek-V3.2
 - **Languages:** en, zh
 - **Abilities:** chat
