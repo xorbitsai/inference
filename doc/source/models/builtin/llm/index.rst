@@ -163,7 +163,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`deepseek-v3.2 <models_llm_deepseek-v3.2>`
      - chat
-     - 131072
+     - 163840
      - We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance
 
    * - :ref:`deepseek-v3.2-exp <models_llm_deepseek-v3.2-exp>`
