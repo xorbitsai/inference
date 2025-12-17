@@ -166,11 +166,6 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance
 
-   * - :ref:`deepseek-v3.2-exp <models_llm_deepseek-v3.2-exp>`
-     - chat, reasoning
-     - 163840
-     - We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
-
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -780,8 +775,6 @@ The following is a list of built-in LLM in Xinference:
    deepseek-v3.1
   
    deepseek-v3.2
-  
-   deepseek-v3.2-exp
   
    deepseek-vl2
   
