@@ -60,21 +60,33 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
         for candidate in worker_candidates:
             ref = candidate["ref"]
             alloc = candidate.get("alloc")
-            if not alloc or "models" not in alloc:
+            if not alloc:
                 continue
+            total = alloc.get("total", [])
             models = alloc.get("models", {})
             embeddings = alloc.get("embeddings", {})
             user_specified = alloc.get("user_specified", {})
-            for dev_key, models_on_dev in models.items():
-                try:
-                    dev = int(dev_key)
-                except Exception:
-                    continue
+            if total:
+                dev_iter = total
+            else:
+                dev_iter = []
+                keys = set(models.keys())
+                keys.update(embeddings.keys())
+                keys.update(user_specified.keys())
+                for dev_key in keys:
+                    try:
+                        dev_iter.append(int(dev_key))
+                    except Exception:
+                        continue
+            for dev in dev_iter:
+                models_on_dev = models.get(dev, [])
                 load = len(models_on_dev)
                 load += len(embeddings.get(dev, []))
                 load += len(user_specified.get(dev, []))
-                if best is None or load < best["load"] or (
-                    load == best["load"] and ref.address < best["ref"].address
+                if (
+                    best is None
+                    or load < best["load"]
+                    or (load == best["load"] and ref.address < best["ref"].address)
                 ):
                     best = {"ref": ref, "gpu_idx": [dev], "load": load}
         return (best["ref"], best["gpu_idx"]) if best else None
