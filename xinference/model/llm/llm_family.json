@@ -21568,7 +21568,8 @@
     "model_ability": [
       "chat",
       "vision",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.",
     "model_specs": [
@@ -21650,11 +21651,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957771,
     "featured": false,
     "architectures": [
       "Glm4vForConditionalGeneration"
-    ]
+    ],
+    "updated_at": 1766117752
   },
   {
     "version": 2,
