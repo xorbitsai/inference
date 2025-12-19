@@ -136,3 +136,18 @@ def test_multi_worker_multi_gpu_even_distribution():
     assert gpu_count[(w1.address, 1)] == 2
     assert gpu_count[(w2.address, 0)] == 2
     assert gpu_count[(w2.address, 1)] == 2
+
+
+def test_cpu_fallback_no_gpu_alloc():
+    random.seed(0)
+    strategy = IdleFirstLaunchStrategy(worker_status={})
+    w1 = DummyRef("w1:1000")
+    w2 = DummyRef("w2:1000")
+    # Simulate no GPU allocation info (e.g., CPU-only workers)
+    candidates = [
+        {"ref": w1, "count": 2, "alloc": None},
+        {"ref": w2, "count": 1, "alloc": None},
+    ]
+    ref, gpu_idx = strategy.select_worker(candidates)
+    assert ref is w2  # choose least-loaded worker
+    assert gpu_idx is None  # let worker decide (CPU path)
