@@ -207,7 +207,7 @@ The following is a list of built-in LLM in Xinference:
      - GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.
 
    * - :ref:`glm-4.5 <models_llm_glm-4.5>`
-     - chat, reasoning, hybrid
+     - chat, reasoning, hybrid, tools
      - 131072
      - The GLM-4.5 series models are foundation models designed for intelligent agents. 
 
