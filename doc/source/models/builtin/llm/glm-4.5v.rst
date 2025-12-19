@@ -7,7 +7,7 @@ glm-4.5v
 - **Context Length:** 131072
 - **Model Name:** glm-4.5v
 - **Languages:** en, zh
-- **Abilities:** chat, vision, reasoning
+- **Abilities:** chat, vision, reasoning, tools
 - **Description:** GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
 Specifications
