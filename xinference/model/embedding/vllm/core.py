@@ -16,6 +16,7 @@ import json
 import logging
 from typing import List, Tuple, Union
 
+from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import cache_clean, check_dependency_available
@@ -33,6 +34,8 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     def load(self):
         try:
+            if is_vacc_available():
+                import vllm_vacc  # noqa: F401
             from vllm import LLM
 
         except ImportError:
