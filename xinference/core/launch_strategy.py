@@ -79,6 +79,21 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
                     best = {"ref": ref, "gpu_idx": [dev], "load": load}
         return (best["ref"], best["gpu_idx"]) if best else None
 
+    def _reserve_slot(
+        self, worker_candidates: List[Dict], ref: xo.ActorRefType, dev: int
+    ):
+        """
+        Update local snapshot so subsequent replicas see the reserved slot.
+        """
+        for candidate in worker_candidates:
+            if candidate["ref"] != ref:
+                continue
+            alloc = candidate.setdefault("alloc", {})
+            models = alloc.setdefault("models", {})
+            models.setdefault(dev, [])
+            models[dev].append("__reserved__")
+            break
+
     def select_worker(
         self, worker_candidates: List[Dict]
     ) -> Tuple[xo.ActorRefType, Optional[List[int]]]:
@@ -87,7 +102,10 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
         # Use allocation snapshot to pick the least-loaded GPU slot.
         gpu_choice = self._select_least_loaded_gpu(worker_candidates)
         if gpu_choice is not None:
-            return gpu_choice
+            ref, gpu_idx = gpu_choice
+            # Update local snapshot to reflect the reservation.
+            self._reserve_slot(worker_candidates, ref, gpu_idx[0])
+            return ref, gpu_idx
 
         # Fallback: least-loaded worker by count, stable by address.
         for candidate in worker_candidates:
