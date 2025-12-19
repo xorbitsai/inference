@@ -21568,7 +21568,8 @@
     "model_ability": [
       "chat",
       "vision",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.",
     "model_specs": [
@@ -21650,7 +21651,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957771,
+    "updated_at": 1766117752,
     "featured": false,
     "architectures": [
       "Glm4vForConditionalGeneration"
@@ -21667,7 +21668,8 @@
     "model_ability": [
       "chat",
       "reasoning",
-      "hybrid"
+      "hybrid",
+      "tools"
     ],
     "model_description": "The GLM-4.5 series models are foundation models designed for intelligent agents. ",
     "model_specs": [
@@ -21843,6 +21845,19 @@
         }
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "cpatonn-mirror/GLM-4.5-Air-AWQ-4bit"
+          }
+        }
+      },
+      {
         "model_format": "mlx",
         "model_size_in_billions": 106,
         "activated_size_in_billions": 12,
@@ -21889,11 +21904,12 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957773,
+    "updated_at": 1766115830,
     "featured": true,
     "architectures": [
       "Glm4MoeForCausalLM"
-    ]
+    ],
+    "tool_parser": "glm4"
   },
   {
     "version": 2,
@@ -21906,7 +21922,8 @@
     "model_ability": [
       "chat",
       "vision",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.",
     "model_specs": [
@@ -22014,11 +22031,12 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957774,
+    "updated_at": 1766117786,
     "featured": false,
     "architectures": [
       "Glm4vMoeForConditionalGeneration"
-    ]
+    ],
+    "tool_parser": "glm4"
   },
   {
     "version": 2,
