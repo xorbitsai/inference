@@ -22,7 +22,7 @@ from .....types import (
     PytorchGenerateConfig,
 )
 from ....utils import cache_clean
-from ...utils import generate_chat_completion, generate_completion_chunk
+from ...utils import generate_completion, generate_completion_chunk
 from ..core import PytorchChatModel
 
 
@@ -57,6 +57,12 @@ class PytorchMultiModalModel(PytorchChatModel):
 
     def load(self):
         self.decide_device()
+        reasoning_content = self._pytorch_model_config.pop("reasoning_content")
+        enable_thinking = self._pytorch_model_config.pop("enable_thinking", False)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
+        self.prepare_parse_tool_calls()
         self.load_processor()
         self.load_multimodal_model()
 
@@ -114,6 +120,7 @@ class PytorchMultiModalModel(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> ChatCompletion:
         generate_config = generate_config if generate_config else {}  # type: ignore
+        tools = generate_config.get("tools", None)
         streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)  # type: ignore
         completion_tokens, total_tokens = 0, 0
         res = ""
@@ -124,13 +131,20 @@ class PytorchMultiModalModel(PytorchChatModel):
             completion_tokens = i
             total_tokens = prompt_tokens + completion_tokens
             res += new_text
-        return generate_chat_completion(
+        completion = generate_completion(
             self.model_uid,
             res,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens if prompt_tokens != -1 else -1,
             total_tokens=total_tokens if prompt_tokens != -1 else -1,
         )
+        if tools and self.tool_parser:
+            return self._post_process_completion(
+                self.model_family,
+                self.model_uid,
+                completion,
+            )
+        return self._to_chat_completion(completion, self.reasoning_parser)
 
     def generate_streaming(
         self,
@@ -138,6 +152,8 @@ class PytorchMultiModalModel(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Iterator[CompletionChunk]:
         generate_config = generate_config if generate_config else {}  # type: ignore
+        tools = generate_config.get("tools", None)
+        use_tool_calls = bool(tools and self.tool_parser)
         streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)  # type: ignore
         stream_options = generate_config.pop("stream_options", None)
         include_usage = (
@@ -148,13 +164,16 @@ class PytorchMultiModalModel(PytorchChatModel):
 
         completion_id = str(uuid.uuid1())
         completion_tokens, total_tokens = 0, 0
+        previous_texts = [""]
+        previous_tools_texts = [""]
+        i = 0
         for i, new_text in enumerate(streamer):
             new_text, should_stop = self.check_conditions(new_text)
             if should_stop:
                 break
             completion_tokens = i
             total_tokens = prompt_tokens + completion_tokens
-            yield generate_completion_chunk(
+            completion_chunk = generate_completion_chunk(
                 chunk_text=new_text,
                 finish_reason=None,
                 chunk_id=completion_id,
@@ -165,7 +184,32 @@ class PytorchMultiModalModel(PytorchChatModel):
                 has_choice=True,
                 has_content=True,
             )
-        yield generate_completion_chunk(
+            if use_tool_calls:
+                chat_chunk = self._to_chat_completion_chunk(
+                    completion_chunk,
+                    self.reasoning_parser,
+                    previous_texts,
+                    ensure_role=i == 0,
+                )
+                if (
+                    chat_chunk["choices"]
+                    and "reasoning_content" in chat_chunk["choices"][0]["delta"]
+                    and chat_chunk["choices"][0]["delta"]["reasoning_content"]
+                    is not None
+                ):
+                    yield chat_chunk
+                else:
+                    processed_chunk = self._post_process_completion_chunk(
+                        self.model_family,
+                        self.model_uid,
+                        chat_chunk,
+                        previous_texts=previous_tools_texts,
+                    )
+                    if processed_chunk:
+                        yield processed_chunk
+            else:
+                yield completion_chunk
+        completion_chunk = generate_completion_chunk(
             chunk_text=None,
             finish_reason="stop",
             chunk_id=completion_id,
@@ -176,8 +220,25 @@ class PytorchMultiModalModel(PytorchChatModel):
             has_choice=True,
             has_content=False,
         )
+        if use_tool_calls:
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk,
+                self.reasoning_parser,
+                previous_texts,
+                ensure_role=i == 0,
+            )
+            processed_chunk = self._post_process_completion_chunk(
+                self.model_family,
+                self.model_uid,
+                chat_chunk,
+                previous_texts=previous_tools_texts,
+            )
+            if processed_chunk:
+                yield processed_chunk
+        else:
+            yield completion_chunk
         if include_usage:
-            yield generate_completion_chunk(
+            completion_chunk = generate_completion_chunk(
                 chunk_text=None,
                 finish_reason=None,
                 chunk_id=completion_id,
@@ -188,6 +249,23 @@ class PytorchMultiModalModel(PytorchChatModel):
                 has_choice=False,
                 has_content=False,
             )
+            if use_tool_calls:
+                chat_chunk = self._to_chat_completion_chunk(
+                    completion_chunk,
+                    self.reasoning_parser,
+                    previous_texts,
+                    ensure_role=i == 0,
+                )
+                processed_chunk = self._post_process_completion_chunk(
+                    self.model_family,
+                    self.model_uid,
+                    chat_chunk,
+                    previous_texts=previous_tools_texts,
+                )
+                if processed_chunk:
+                    yield processed_chunk
+            else:
+                yield completion_chunk
 
     @cache_clean
     def chat(
