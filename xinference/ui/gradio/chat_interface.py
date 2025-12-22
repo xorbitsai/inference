@@ -16,14 +16,12 @@ import base64
 import html
 import logging
 import os
-import mimetypes
 import tempfile
 from io import BytesIO
 from typing import Generator, List, Optional
 
 import gradio as gr
 import PIL.Image
-from PIL import UnidentifiedImageError
 from gradio import ChatMessage
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
@@ -419,22 +417,12 @@ class GradioInterface:
                 audio,
             )
             if image:
-                mime_type = "image/jpeg"
-                try:
-                    buffered = BytesIO()
-                    with PIL.Image.open(image) as img:
-                        img.thumbnail((500, 500))
-                        img.save(buffered, format="JPEG")
-                    img_b64_str = base64.b64encode(buffered.getvalue()).decode()
-                except UnidentifiedImageError:
-                    with open(image, "rb") as f:
-                        raw = f.read()
-                    mime_type = mimetypes.guess_type(image)[0] or "image/svg+xml"
-                    img_b64_str = base64.b64encode(raw).decode()
-                data_url = f"data:{mime_type};base64,{img_b64_str}"
-                display_content = (
-                    f'<img src="{data_url}" alt="user upload image" />\n{text}'
-                )
+                buffered = BytesIO()
+                with PIL.Image.open(image) as img:
+                    img.thumbnail((500, 500))
+                    img.save(buffered, format="JPEG")
+                img_b64_str = base64.b64encode(buffered.getvalue()).decode()
+                display_content = f'<img src="data:image/png;base64,{img_b64_str}" alt="user upload image" />\n{text}'
                 message = {
                     "role": "user",
                     "content": [
@@ -442,7 +430,7 @@ class GradioInterface:
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": data_url
+                                "url": f"data:image/png;base64,{img_b64_str}"
                             },
                         },
                     ],
