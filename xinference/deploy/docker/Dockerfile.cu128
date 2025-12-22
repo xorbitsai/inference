@@ -1,4 +1,4 @@
-FROM vllm/vllm-openai:v0.10.2
+FROM vllm/vllm-openai:v0.11.2
 
 COPY . /opt/inference
 WORKDIR /opt/inference
@@ -26,7 +26,7 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvi
 
 # Install pip dependencies
 ARG LLAMA_CPP_USE_CUDA=true
-ARG PIP_INDEX=https://pypi.org/simple
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple/
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     apt-get -y update && \
     ( wget -O openfst-1.7.2.tar.gz http://www.openslr.org/resources/2/openfst-1.7.2.tar.gz \
@@ -43,14 +43,15 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_12.8/requirements-cu128-models.txt && \
-    pip install -i "$PIP_INDEX" transformers==4.53.2 && \
-    pip install -i "$PIP_INDEX" --no-deps sglang==0.4.9.post5 && \
-    pip install -i "$PIP_INDEX" sgl-kernel==0.3.15 && \
+    pip install -i "$PIP_INDEX" transformers==4.55.2 && \
+    pip install -i "$PIP_INDEX" --no-deps sglang==0.5.6 && \
+    pip install -i "$PIP_INDEX" sgl-kernel==0.3.18.post2 && \
     pip install -i "$PIP_INDEX" wetext && \
     pip uninstall flashinfer -y && \
-    pip install -i "$PIP_INDEX" flashinfer-python==0.4.0rc3 && \
+    pip install -i "$PIP_INDEX" flashinfer-python==0.5.3 flashinfer-cubin==0.5.3 && \
+    pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.5.3/flashinfer_jit_cache-0.5.3+cu129-cp39-abi3-manylinux_2_28_x86_64.whl && \ 
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
-    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.3.14/flash_attn-2.8.2+cu128torch2.8-cp312-cp312-linux_x86_64.whl && \
+    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.5.4/flash_attn-2.8.3+cu128torch2.9-cp312-cp312-linux_x86_64.whl && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
@@ -76,7 +77,10 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
 
 # The pre-release version used should be noted for date changes
 RUN pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 \
-    --no-deps
+    --no-deps && \
+    pip install triton==3.4.0 && \
+    pip install torchcodec==0.9.0 && \
+    pip cache purge
 
 # Override the default entrypoint of the vllm base image
 ENTRYPOINT []
