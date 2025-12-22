@@ -24316,7 +24316,10 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
     ],
     "model_specs": [
       {
@@ -24373,7 +24376,8 @@
       "packages": []
     },
     "featured": true,
-    "updated_at": 1765965063
+    "updated_at": 1766398041,
+    "tool_parser": "deepseek-r1"
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -24385,7 +24389,9 @@
     ],
     "model_ability": [
       "chat",
-      "reasoning"
+      "reasoning",
+      "hybrid",
+      "tools"
     ],
     "model_specs": [
       {
@@ -24446,6 +24452,7 @@
       "packages": []
     },
     "featured": true,
-    "updated_at": 1765887682
+    "updated_at": 1766398109,
+    "tool_parser": "deepseek-r1"
   }
 ]
