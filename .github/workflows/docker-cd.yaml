@@ -65,7 +65,7 @@ jobs:
             docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --progress=plain -f xinference/deploy/docker/Dockerfile.cpu .
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu"
             docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cu129" --progress=plain -f xinference/deploy/docker/Dockerfile.cu129 .
-            docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cu128"
+            docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cu129"
             echo "XINFERENCE_IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
           done
           
