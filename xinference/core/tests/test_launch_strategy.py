@@ -14,6 +14,8 @@
 
 import random
 
+import pytest
+
 from xinference.core.launch_strategy import IdleFirstLaunchStrategy
 from xinference.core.utils import assign_replica_gpu
 
@@ -24,9 +26,9 @@ class DummyRef:
 
 
 def test_assign_replica_gpu_single_slot_reused():
-    # single gpu_idx should be reused for all replicas
-    gpu_idx = assign_replica_gpu("foo-0", replica=6, gpu_idx=[1])
-    assert gpu_idx == [1]
+    # single gpu_idx with multiple replicas should be invalid
+    with pytest.raises(ValueError):
+        assign_replica_gpu("foo-0", replica=6, gpu_idx=[1])
 
 
 def test_assign_replica_gpu_slicing():
