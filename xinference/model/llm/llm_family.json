@@ -24386,7 +24386,9 @@
     ],
     "model_ability": [
       "chat",
-      "reasoning"
+      "reasoning",
+      "hybrid",
+      "tools"
     ],
     "model_specs": [
       {
@@ -24446,7 +24448,8 @@
     "virtualenv": {
       "packages": []
     },
+    "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1765887682
+    "updated_at": 1766398109
   }
 ]
