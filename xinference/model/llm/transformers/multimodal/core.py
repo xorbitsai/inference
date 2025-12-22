@@ -13,7 +13,7 @@
 # limitations under the License.
 import uuid
 from abc import abstractmethod
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from .....types import (
     ChatCompletion,
@@ -197,7 +197,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                     and chat_chunk["choices"][0]["delta"]["reasoning_content"]
                     is not None
                 ):
-                    yield chat_chunk
+                    yield cast(CompletionChunk, chat_chunk)
                 else:
                     processed_chunk = self._post_process_completion_chunk(
                         self.model_family,
@@ -206,7 +206,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                         previous_texts=previous_tools_texts,
                     )
                     if processed_chunk:
-                        yield processed_chunk
+                        yield cast(CompletionChunk, processed_chunk)
             else:
                 yield completion_chunk
         completion_chunk = generate_completion_chunk(
@@ -234,7 +234,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                 previous_texts=previous_tools_texts,
             )
             if processed_chunk:
-                yield processed_chunk
+                yield cast(CompletionChunk, processed_chunk)
         else:
             yield completion_chunk
         if include_usage:
@@ -263,7 +263,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                     previous_texts=previous_tools_texts,
                 )
                 if processed_chunk:
-                    yield processed_chunk
+                    yield cast(CompletionChunk, processed_chunk)
             else:
                 yield completion_chunk
 
