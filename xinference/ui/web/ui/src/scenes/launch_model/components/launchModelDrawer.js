@@ -13,18 +13,15 @@ import {
   CircularProgress,
   Collapse,
   Drawer,
-  FormControl,
   FormControlLabel,
-  InputLabel,
   ListItemButton,
   ListItemText,
-  MenuItem,
   Radio,
   RadioGroup,
-  Select,
   Switch,
   TextField,
   Tooltip,
+  Typography,
 } from '@mui/material'
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -39,44 +36,10 @@ import DynamicFieldList from './dynamicFieldList'
 import getModelFormConfig from './modelFormConfig'
 import PasteDialog from './pasteDialog'
 import Progress from './progress'
+import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
 const modelEngineType = ['LLM', 'embedding', 'rerank']
-
-const SelectField = ({
-  label,
-  labelId,
-  name,
-  value,
-  onChange,
-  options = [],
-  disabled = false,
-  required = false,
-}) => (
-  <FormControl
-    variant="outlined"
-    margin="normal"
-    disabled={disabled}
-    required={required}
-    fullWidth
-  >
-    <InputLabel id={labelId}>{label}</InputLabel>
-    <Select
-      labelId={labelId}
-      name={name}
-      value={value}
-      onChange={onChange}
-      label={label}
-      className="textHighlight"
-    >
-      {options.map((item) => (
-        <MenuItem key={item.value || item} value={item.value || item}>
-          {item.label || item}
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-)
 
 const LaunchModelDrawer = ({
   modelData,
@@ -113,6 +76,7 @@ const LaunchModelDrawer = ({
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [checkDynamicFieldComplete, setCheckDynamicFieldComplete] = useState([])
+  const [replicaStatuses, setReplicaStatuses] = useState([])
 
   const intervalRef = useRef(null)
 
@@ -367,13 +331,24 @@ const LaunchModelDrawer = ({
 
   const fetchProgress = async () => {
     try {
+      const data = getFinalFormData()
+      const modelUid = data.model_uid || data.model_name
+
+      // Fetch overall progress (existing logic)
       const res = await fetchWrapper.get(
         `/v1/models/${modelData.model_name}/progress`
       )
       if (res.progress !== 1.0) setProgress(Number(res.progress))
+
+      // Fetch replica statuses (new logic)
+      const replicaRes = await fetchWrapper.get(
+        `/v1/models/${modelUid}/replicas`
+      )
+      setReplicaStatuses(replicaRes)
     } catch (error) {
       console.error('Error:', error)
-      if (error?.response?.status !== 403) {
+      // Suppress 404 errors during early launch phase as model might not exist yet
+      if (error?.response?.status !== 403 && error?.response?.status !== 404) {
         setErrorMsg(error.message)
       }
     }
@@ -407,9 +382,9 @@ const LaunchModelDrawer = ({
   }, [])
 
   useEffect(() => {
-    if (modelEngineType.includes(modelType))
+    if (open && modelEngineType.includes(modelType))
       fetchModelEngine(modelData.model_name, modelType)
-  }, [modelData.model_name, modelType])
+  }, [open, modelData.model_name, modelType])
 
   useEffect(() => {
     if (formData.__isInitializing) {
@@ -549,19 +524,32 @@ const LaunchModelDrawer = ({
 
   const engineItems = useMemo(() => {
     return engineOptions.map((engine) => {
-      const modelFormats = Array.from(
-        new Set(enginesObj[engine]?.map((item) => item.model_format))
-      )
+      const engineData = enginesObj[engine]
+      let modelFormats = []
+      let label = engine
+      let disabled = false
 
-      const relevantSpecs = modelData.model_specs.filter((spec) =>
-        modelFormats.includes(spec.model_format)
-      )
+      if (Array.isArray(engineData)) {
+        modelFormats = Array.from(
+          new Set(engineData.map((item) => item.model_format))
+        )
 
-      const cached = relevantSpecs.some((spec) => isCached(spec))
+        const relevantSpecs = modelData.model_specs.filter((spec) =>
+          modelFormats.includes(spec.model_format)
+        )
+
+        const cached = relevantSpecs.some((spec) => isCached(spec))
+
+        label = cached ? `${engine} ${t('launchModel.cached')}` : engine
+      } else if (typeof engineData === 'string') {
+        label = `${engine} (${engineData})`
+        disabled = true
+      }
 
       return {
         value: engine,
-        label: cached ? `${engine} ${t('launchModel.cached')}` : engine,
+        label,
+        disabled,
       }
     })
   }, [engineOptions, enginesObj, modelData])
@@ -1129,30 +1117,79 @@ const LaunchModelDrawer = ({
               )}
             </Box>
             <Box display="flex" gap={2}>
-              <Button
-                style={{ flex: 1 }}
-                variant="outlined"
-                color="primary"
-                title={t(
-                  isShowCancel ? 'launchModel.cancel' : 'launchModel.launch'
-                )}
-                disabled={
-                  !isShowCancel &&
-                  (!areRequiredFieldsFilled ||
-                    isLoading ||
-                    isCallingApi ||
-                    checkDynamicFieldComplete.some((item) => !item.isComplete))
+              <Tooltip
+                title={
+                  isShowCancel ? (
+                    <Box sx={{ minWidth: 200 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        {t('launchModel.launchProgress')}:
+                      </Typography>
+                      {replicaStatuses.length > 0 ? (
+                        replicaStatuses.map((replica) => (
+                          <Box
+                            key={replica.replica_id}
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              mb: 0.5,
+                            }}
+                          >
+                            <Typography variant="caption">
+                              {t('modelReplicaDetails.replica')}{' '}
+                              {replica.replica_id}:
+                            </Typography>
+                            <Chip
+                              label={replica.status}
+                              color={
+                                replica.status === 'READY'
+                                  ? 'success'
+                                  : replica.status === 'ERROR'
+                                  ? 'error'
+                                  : 'default'
+                              }
+                              size="small"
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                          </Box>
+                        ))
+                      ) : (
+                        <Typography variant="caption">
+                          {t('launchModel.initializing')}
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    t('launchModel.launch')
+                  )
                 }
-                onClick={() => {
-                  if (isShowCancel) {
-                    fetchCancelModel()
-                  } else {
-                    handleSubmit()
-                  }
-                }}
+                placement="top"
+                arrow
               >
-                {renderButtonContent()}
-              </Button>
+                <Button
+                  style={{ flex: 1 }}
+                  variant="outlined"
+                  color="primary"
+                  disabled={
+                    !isShowCancel &&
+                    (!areRequiredFieldsFilled ||
+                      isLoading ||
+                      isCallingApi ||
+                      checkDynamicFieldComplete.some(
+                        (item) => !item.isComplete
+                      ))
+                  }
+                  onClick={() => {
+                    if (isShowCancel) {
+                      fetchCancelModel()
+                    } else {
+                      handleSubmit()
+                    }
+                  }}
+                >
+                  {renderButtonContent()}
+                </Button>
+              </Tooltip>
               <Button
                 style={{ flex: 1 }}
                 variant="outlined"

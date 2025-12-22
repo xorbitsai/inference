@@ -22,7 +22,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from contextvars import ContextVar
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
@@ -70,7 +70,7 @@ class LLM(abc.ABC):
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> bool:
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         raise NotImplementedError
 
     @staticmethod
@@ -123,6 +123,20 @@ class LLM(abc.ABC):
 
     @staticmethod
     @lru_cache
+    def _has_vacc_device():
+        """
+        Use glob command to detect VACC devices.
+        DO NOT USE torch to impl this, which will lead to some unexpected errors.
+        """
+        try:
+            import glob
+
+            return len(glob.glob("/dev/vacc*")) > 0
+        except:
+            return False
+
+    @staticmethod
+    @lru_cache
     def _get_cuda_count():
         from ...device_utils import get_available_device_env_name
         from ...utils import cuda_count
@@ -148,15 +162,17 @@ class LLM(abc.ABC):
     def match(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not cls.check_lib():
+        lib_result = cls.check_lib()
+        if lib_result != True:
             return False
-        return cls.match_json(llm_family, llm_spec, quantization)
+        match_result = cls.match_json(llm_family, llm_spec, quantization)
+        return match_result == True
 
     @classmethod
     @abstractmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         raise NotImplementedError
 
     def prepare_parse_reasoning_content(

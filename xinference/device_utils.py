@@ -17,12 +17,23 @@ from typing import Dict, Literal, Union
 
 import torch
 
-DeviceType = Literal["cuda", "mps", "xpu", "npu", "mlu", "cpu"]
+DeviceType = Literal["cuda", "mps", "xpu", "vacc", "npu", "mlu", "cpu"]
 DEVICE_TO_ENV_NAME = {
     "cuda": "CUDA_VISIBLE_DEVICES",
     "npu": "ASCEND_RT_VISIBLE_DEVICES",
     "mlu": "MLU_VISIBLE_DEVICES",
+    "vacc": "VACC_VISIBLE_DEVICES",
 }
+
+
+def is_vacc_available() -> bool:
+    try:
+        import torch
+        import torch_vacc  # noqa: F401
+
+        return torch.vacc.is_available()
+    except ImportError:
+        return False
 
 
 def is_xpu_available() -> bool:
@@ -60,6 +71,8 @@ def get_available_device() -> DeviceType:
         return "npu"
     elif is_mlu_available():
         return "mlu"
+    elif is_vacc_available():
+        return "vacc"
     return "cpu"
 
 
@@ -74,6 +87,8 @@ def is_device_available(device: str) -> bool:
         return is_npu_available()
     elif device == "mlu":
         return is_mlu_available()
+    elif device == "vacc":
+        return is_vacc_available()
     elif device == "cpu":
         return True
 
@@ -92,7 +107,13 @@ def move_model_to_available_device(model):
 def get_device_preferred_dtype(device: str) -> Union[torch.dtype, None]:
     if device == "cpu":
         return torch.float32
-    elif device == "cuda" or device == "mps" or device == "npu" or device == "mlu":
+    elif (
+        device == "cuda"
+        or device == "mps"
+        or device == "npu"
+        or device == "mlu"
+        or device == "vacc"
+    ):
         return torch.float16
     elif device == "xpu":
         return torch.bfloat16
@@ -125,6 +146,8 @@ def empty_cache():
         torch.npu.empty_cache()
     if is_mlu_available():
         torch.mlu.empty_cache()
+    if is_vacc_available():
+        torch.vacc.empty_cache()
 
 
 def get_available_device_env_name():
@@ -149,6 +172,17 @@ def gpu_count():
         return torch.npu.device_count()
     elif is_mlu_available():
         return torch.mlu.device_count()
+    elif is_vacc_available():
+        vacc_visible_devices_env = os.getenv("VACC_VISIBLE_DEVICES", None)
+
+        if vacc_visible_devices_env is None:
+            return torch.vacc.device_count()
+
+        vacc_visible_devices = (
+            vacc_visible_devices_env.split(",") if vacc_visible_devices_env else []
+        )
+
+        return min(torch.vacc.device_count(), len(vacc_visible_devices))
     else:
         return 0
 

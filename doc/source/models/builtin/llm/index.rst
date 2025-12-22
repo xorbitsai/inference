@@ -161,6 +161,16 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.
 
+   * - :ref:`deepseek-v3.2 <models_llm_deepseek-v3.2>`
+     - chat
+     - 163840
+     - We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance
+
+   * - :ref:`deepseek-v3.2-exp <models_llm_deepseek-v3.2-exp>`
+     - chat, reasoning
+     - 163840
+     - We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -197,7 +207,7 @@ The following is a list of built-in LLM in Xinference:
      - GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.
 
    * - :ref:`glm-4.5 <models_llm_glm-4.5>`
-     - chat, reasoning, hybrid
+     - chat, reasoning, hybrid, tools
      - 131072
      - The GLM-4.5 series models are foundation models designed for intelligent agents. 
 
@@ -365,6 +375,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 32768
      - MiniCPM4 series are highly efficient large language models (LLMs) designed explicitly for end-side devices, which achieves this efficiency through systematic innovation in four key dimensions: model architecture, training data, training algorithms, and inference systems.
+
+   * - :ref:`minimax-m2 <models_llm_minimax-m2>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -534,7 +549,7 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`qwen3 <models_llm_qwen3>`
      - chat, reasoning, hybrid, tools
      - 40960
-     - Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support
+     - Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support.
 
    * - :ref:`qwen3-coder <models_llm_qwen3-coder>`
      - chat, tools
@@ -764,6 +779,10 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-v3.1
   
+   deepseek-v3.2
+  
+   deepseek-v3.2-exp
+  
    deepseek-vl2
   
    dianjin-r1
@@ -845,6 +864,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm3-4b
   
    minicpm4
+  
+   minimax-m2
   
    mistral-instruct-v0.1
   

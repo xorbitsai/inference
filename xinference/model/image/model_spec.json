@@ -52,7 +52,9 @@
         ],
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1763445575,
+    "featured": true
   },
   {
     "version": 2,
@@ -67,6 +69,11 @@
       "quantize": true,
       "quantize_text_encoder": "text_encoder_2",
       "torch_dtype": "bfloat16"
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "flux1-dev.safetensors"
+      ]
     },
     "model_src": {
       "huggingface": {
@@ -107,7 +114,9 @@
         ],
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
-    }
+    },
+    "featured": true,
+    "updated_at": 1764238627
   },
   {
     "version": 2,
@@ -175,7 +184,9 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1763445577,
+    "featured": true
   },
   {
     "version": 2,
@@ -265,7 +276,9 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1763445579,
+    "featured": true
   },
   {
     "version": 2,
@@ -289,7 +302,9 @@
         "model_id": "AI-ModelScope/stable-diffusion-3-medium-diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445580,
+    "featured": false
   },
   {
     "version": 2,
@@ -348,7 +363,9 @@
         ],
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1763445581,
+    "featured": true
   },
   {
     "version": 2,
@@ -394,7 +411,9 @@
         ],
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1763445582,
+    "featured": true
   },
   {
     "version": 2,
@@ -444,7 +463,9 @@
         ],
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
-    }
+    },
+    "updated_at": 1763445583,
+    "featured": false
   },
   {
     "version": 2,
@@ -462,7 +483,9 @@
         "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445585,
+    "featured": true
   },
   {
     "version": 2,
@@ -480,7 +503,9 @@
         "model_id": "Xorbits/HunyuanDiT-v1.2-Diffusers-Distilled",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445586,
+    "featured": false
   },
   {
     "version": 2,
@@ -502,7 +527,9 @@
         "model_id": "AI-ModelScope/sd-turbo",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445587,
+    "featured": false
   },
   {
     "version": 2,
@@ -524,7 +551,9 @@
         "model_id": "AI-ModelScope/sdxl-turbo",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445588,
+    "featured": false
   },
   {
     "version": 2,
@@ -587,7 +616,9 @@
         "model_id": "AI-ModelScope/stable-diffusion-v1-5",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445589,
+    "featured": false
   },
   {
     "version": 2,
@@ -626,7 +657,9 @@
         "model_id": "AI-ModelScope/stable-diffusion-xl-base-1.0",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445591,
+    "featured": false
   },
   {
     "version": 2,
@@ -654,7 +687,9 @@
         "model_id": "JunHowie/Kolors-diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445592,
+    "featured": false
   },
   {
     "version": 2,
@@ -681,7 +716,9 @@
         "model_id": "ZhipuAI/CogView4-6B",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445593,
+    "featured": true
   },
   {
     "version": 2,
@@ -695,7 +732,9 @@
         "model_id": "runwayml/stable-diffusion-inpainting",
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
-    }
+    },
+    "updated_at": 1763445594,
+    "featured": false
   },
   {
     "version": 2,
@@ -709,7 +748,9 @@
         "model_id": "stabilityai/stable-diffusion-2-inpainting",
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
-    }
+    },
+    "updated_at": 1763445596,
+    "featured": false
   },
   {
     "version": 2,
@@ -723,7 +764,9 @@
         "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
-    }
+    },
+    "updated_at": 1763445597,
+    "featured": false
   },
   {
     "version": 2,
@@ -756,7 +799,9 @@
         "model_id": "stepfun-ai/GOT-OCR2_0",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445598,
+    "featured": false
   },
   {
     "version": 2,
@@ -841,7 +886,9 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1763445599,
+    "featured": false
   },
   {
     "version": 2,
@@ -926,7 +973,9 @@
         "#system_numpy#"
       ],
       "no_build_isolation": true
-    }
+    },
+    "updated_at": 1763445601,
+    "featured": true
   },
   {
     "version": 2,
@@ -937,9 +986,6 @@
     ],
     "virtualenv": {
       "packages": [
-        "torch==2.6.0",
-        "torchvision==0.21.0",
-        "torchaudio==2.6.0",
         "transformers==4.46.3",
         "tokenizers==0.20.3",
         "PyMuPDF",
@@ -948,10 +994,9 @@
         "easydict",
         "addict",
         "Pillow",
-        "numpy",
-        "flash-attn==2.7.3"
-      ],
-      "no_build_isolation": true
+        "#system_torch#",
+        "#system_numpy#"
+      ]
     },
     "model_src": {
       "huggingface": {
@@ -962,6 +1007,151 @@
         "model_id": "deepseek-ai/DeepSeek-OCR",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445602,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "HunyuanOCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4",
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "tencent/HunyuanOCR",
+        "model_revision": "9a0c8183f1cb1b544793b6e7ccc0612cf4f622da"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/HunyuanOCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1764237221
+  },
+  {
+    "version": 2,
+    "model_name": "FLUX.2-dev",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "flux2-dev.safetensors"
+      ]
+    },
+    "model_src": {
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-dev",
+        "model_revision": "master"
+      },
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-dev",
+        "model_revision": "420f8eb9f7869bf378c45a5206424814561903e7",
+        "gguf_model_id": "city96/FLUX.2-dev-gguf",
+        "gguf_quantizations": [
+          "BF16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "flux2-dev-{quantization}.gguf"
+      }
+    },
+    "featured": true,
+    "updated_at": 1764322840
+  },
+  {
+    "version": 2,
+    "model_name": "Z-Image-Turbo",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "low_cpu_mem_usage": false
+    },
+    "default_generate_config": {
+      "num_inference_steps": 9,
+      "guidance_scale": 0
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Tongyi-MAI/Z-Image-Turbo",
+        "model_revision": "013496ad041be2e9ded1c291c00d8cc4054a6422"
+      },
+      "modelscope": {
+        "model_id": "Tongyi-MAI/Z-Image-Turbo",
+        "model_revision": "master"
+      }
+    },
+    "featured": true,
+    "updated_at": 1765166124
+  },
+  {
+    "version": 2,
+    "model_name": "PaddleOCR-VL",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "pillow==11.3.0",
+        "transformers==4.55.0",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1765507528,
+    "featured": true
   }
 ]

@@ -13,11 +13,15 @@ The following is a list of built-in image models in Xinference:
   
    cogview4
   
+   deepseek-ocr
+  
    flux.1-dev
   
    flux.1-kontext-dev
   
    flux.1-schnell
+  
+   flux.2-dev
   
    got-ocr2_0
   
@@ -25,7 +29,11 @@ The following is a list of built-in image models in Xinference:
   
    hunyuandit-v1.2-distilled
   
+   hunyuanocr
+  
    kolors
+  
+   paddleocr-vl
   
    qwen-image
   
@@ -54,4 +62,6 @@ The following is a list of built-in image models in Xinference:
    stable-diffusion-xl-base-1.0
   
    stable-diffusion-xl-inpainting
+  
+   z-image-turbo
   

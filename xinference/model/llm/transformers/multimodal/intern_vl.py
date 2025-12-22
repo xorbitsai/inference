@@ -36,11 +36,13 @@ class InternVLChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         family = model_family.model_family or model_family.model_name
-        if "internvl3" in family.lower():
-            return True
-        return False
+        if "internvl3" not in family.lower():
+            return False, f"Model family {family} is not InternVL3"
+        if "vision" not in model_family.model_ability:
+            return False, "InternVL transformer requires vision ability"
+        return True
 
     def decide_device(self):
         from transformers import AutoConfig

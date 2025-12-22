@@ -15,7 +15,6 @@
 import asyncio
 import concurrent.futures
 import importlib
-import importlib.util
 import logging
 import pathlib
 import platform
@@ -49,6 +48,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
+from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
@@ -404,23 +404,24 @@ class MLXModel(LLM):
         self._context_length = get_context_length(config)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_lm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("mlx_lm", "mlx_lm")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["mlx"]:
-            return False
+            return False, "MLX base engine only supports mlx format"
         if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
+            return False, "MLX base engine only works on Apple silicon Macs"
         if "generate" not in llm_family.model_ability:
-            return False
+            return False, "MLX base engine requires generate ability"
         if "chat" in llm_family.model_ability or "vision" in llm_family.model_ability:
-            # do not process chat or vision
-            return False
+            return False, "MLX base engine does not handle chat or vision models"
         return True
 
     def _get_prompt_cache(
@@ -518,17 +519,19 @@ class MLXModel(LLM):
         start = time.time()
         output = ""
         tokens = []
-        for i, chunk_resp in enumerate(
-            self._generate_stream_inner(
-                prompt_token_ids=prompt_token_ids,
-                max_tokens=max_tokens,
-                temperature=kwargs["temperature"],
-                top_p=kwargs["top_p"],
-                repetition_penalty=kwargs["repetition_penalty"],
-                repetition_context_size=kwargs["repetition_context_size"],
-                prompt_cache=self._prompt_cache.cache if self._prompt_cache else None,  # type: ignore
-            )
-        ):
+        # For VLM models, let generate_step handle cache creation internally
+        # to avoid incompatible cache types between mlx_lm and mlx_vlm
+        stream_kwargs = {
+            "prompt_token_ids": prompt_token_ids,
+            "max_tokens": max_tokens,
+            "temperature": kwargs["temperature"],
+            "top_p": kwargs["top_p"],
+            "repetition_penalty": kwargs["repetition_penalty"],
+            "repetition_context_size": kwargs["repetition_context_size"],
+            # Don't pass prompt_cache for VLM models to let mlx_vlm handle it
+        }
+
+        for i, chunk_resp in enumerate(self._generate_stream_inner(**stream_kwargs)):
             token = chunk_resp.token
             tokens.append(token)
 
@@ -719,17 +722,15 @@ class MLXChatModel(MLXModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["mlx"]:
-            return False
+            return False, "MLX chat engine only supports mlx format"
         if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
+            return False, "MLX chat engine only works on Apple silicon Macs"
         if "chat" not in llm_family.model_ability:
-            return False
+            return False, "MLX chat engine requires chat ability"
         if "vision" in llm_family.model_ability:
-            # do not process vision
-            return False
+            return False, "MLX chat engine does not support vision models"
         return True
 
     def chat(
@@ -777,20 +778,22 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("mlx_vlm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("mlx_vlm", "mlx_vlm")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["mlx"]:
-            return False
+            return False, "MLX vision engine only supports mlx format"
         if sys.platform != "darwin" or platform.processor() != "arm":
-            # only work for Mac M chips
-            return False
+            return False, "MLX vision engine only works on Apple silicon Macs"
         if "vision" not in llm_family.model_ability:
-            return False
+            return False, "MLX vision engine requires vision ability"
         return True
 
     def _load_model(self, **kwargs):
@@ -833,7 +836,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         except ImportError:
             # for mlx-lm >= 0.22.3
             from mlx_lm.generate import GenerationResponse
-        from mlx_vlm.utils import generate_step
+        from mlx_vlm.generate import generate_step
 
         inputs = kwargs.pop("prompt_token_ids")
 
@@ -910,9 +913,31 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             kwargs = {}
             input_token_len = input_ids.size
         else:
-            inputs = prepare_inputs(
-                processor, images, prompt_str, image_token_index, resize_shape
+            # Check if processor supports audio to avoid feature_extractor errors
+            supports_audio = hasattr(processor, "feature_extractor") or (
+                hasattr(processor, "audio_tokenizer")
+                and processor.audio_tokenizer is not None
             )
+
+            # For processors that don't support audio (like Qwen3VLProcessor),
+            # explicitly set audio=None to prevent mlx-vlm from trying to process audio
+            if not supports_audio:
+                inputs = prepare_inputs(
+                    processor=processor,
+                    images=images,
+                    audio=None,
+                    prompts=prompt_str,
+                    image_token_index=image_token_index,
+                    resize_shape=resize_shape,
+                )
+            else:
+                inputs = prepare_inputs(
+                    processor=processor,
+                    images=images,
+                    prompts=prompt_str,
+                    image_token_index=image_token_index,
+                    resize_shape=resize_shape,
+                )
             input_ids = inputs["input_ids"]
             pixel_values = inputs["pixel_values"]
             mask = inputs["attention_mask"]

@@ -7,7 +7,6 @@
     "contactUs": "お問い合わせ",
     "documentation": "ドキュメント"
   },
-
   "model": {
     "languageModels": "言語モデル",
     "embeddingModels": "埋め込みモデル",
@@ -18,7 +17,6 @@
     "customModels": "カスタムモデル",
     "flexibleModels": "フレキシブルモデル"
   },
-
   "launchModel": {
     "modelAbility": "モデル機能",
     "generate": "テキスト生成",
@@ -43,6 +41,7 @@
     "status": "ステータス",
     "cached": "キャッシュ済み",
     "manageCachedModels": "キャッシュモデル管理",
+    "manageVirtualEnvironments": "仮想環境を管理",
     "favorite": "お気に入り",
     "unfavorite": "お気に入り解除",
     "search": "モデル名と説明を検索",
@@ -58,6 +57,21 @@
     "generateModel": "生成モデル",
     "otherModel": "その他モデル",
     "confirmDeleteCustomModel": "このカスタムモデルを削除しますか？この操作は元に戻せません。",
+    "modelName": "모델 이름",
+    "envPath": "환경 경로",
+    "realPath": "실제 경로",
+    "copyEnvPath": "환경 경로 복사",
+    "viewPackages": "패키지 목록 보기",
+    "installedPackages": "설치된 패키지",
+    "packageName": "패키지 이름",
+    "version": "버전",
+    "location": "위치",
+    "packagesCount": "패키지 수",
+    "size": "크기",
+    "pythonVersion": "Python 버전",
+    "createdAt": "생성 시간",
+    "noVirtualEnvironmentsForNow": "현재 가상환경이 없습니다!",
+    "noPackagesInstalled": "설치된 패키지가 없습니다",
     "lastConfig": "最終設定",
     "commandLineParsing": "コマンドライン引数解析",
     "copyToCommandLine": "コマンドラインコマンドとしてコピー",
@@ -73,7 +87,7 @@
     "optionalConfigurations": "オプション設定",
     "modelUID.optional": "(オプション) モデルUID、デフォルトはモデル名",
     "requestLimits.optional": "(オプション) リクエスト制限、このモデルのリクエスト制限数、デフォルトは無制限",
-    "workerIp.optional": "(オプション) ワーカーIP、分散シナリオでモデルが配置されているワーカーIPを指定",
+    "workerIp.optional": "(オプション) ワーカーIP、分散シナリオでモデルが配置されているワーカーIPを指定,カンマで区切ることで複数の IP を指定できます。",
     "workerIp": "ワーカーIP、分散シナリオでモデルが配置されているワーカーIPを指定",
     "workerCount.optional": "(オプション) ワーカー数",
     "GPUIdx.optional": "(オプション) GPUインデックス、モデルが配置されているGPUインデックスを指定",
@@ -120,13 +134,28 @@
     "copyPath": "パスをコピー",
     "noCacheForNow": "現在キャッシュはありません！",
     "confirmDeleteCacheFiles": "キャッシュファイルを削除しますか？この操作は元に戻せません。",
+    "confirmDeleteVirtualEnv": "仮想環境を削除しますか？この操作は元に戻せません。",
     "commandLineTip": "モデル名が一致しているか確認してください。",
     "featured": "おすすめとお気に入り",
     "all": "すべて",
     "cancelledSuccessfully": "正常にキャンセルされました！",
-    "mustBeUnique": "{{key}} は一意でなければなりません"
+    "mustBeUnique": "{{key}} は一意でなければなりません",
+    "update": "更新",
+    "launchProgress": "起動状況",
+    "initializing": "初期化中..."
   },
-
+  "modelReplicaDetails": {
+    "title": "モデルレプリカの詳細",
+    "modelUid": "モデル UID",
+    "replicaId": "レプリカ ID",
+    "workerAddress": "ワーカーアドレス",
+    "status": "ステータス",
+    "createdTime": "作成日時",
+    "noReplicaInfo": "レプリカ情報はありません",
+    "errors": "エラー",
+    "replica": "レプリカ",
+    "close": "閉じる"
+  },
   "runningModels": {
     "name": "名前",
     "address": "アドレス",
@@ -139,9 +168,9 @@
     "noRunningModelsMatches": "一致する実行中のモデルはありません",
     "copy": "コピー",
     "copied": "コピーしました！",
-    "copyFailed": "コピーに失敗しました"
+    "copyFailed": "コピーに失敗しました",
+    "viewDetails": "詳細を表示"
   },
-
   "registerModel": {
     "modelName": "モデル名",
     "modelDescription": "モデル説明（オプション）",
@@ -201,7 +230,6 @@
     "stopControlStringForChatModels": "string型、チャットモデルの停止を制御するために使用",
     "enterJsonFormattedDictionary": "JSON形式の辞書を入力してください。"
   },
-
   "clusterInfo": {
     "supervisor": "スーパーバイザー",
     "workers": "ワーカー",
@@ -229,7 +257,6 @@
     "gpuMemTotal": "GPUメモリ合計",
     "worker": "ワーカー"
   },
-
   "components": {
     "suggestsCommonParameters": "一般的なパラメータを提案します。他のパラメータも使用可能です。",
     "warning": "警告",

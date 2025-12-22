@@ -13,18 +13,19 @@
 # limitations under the License.
 
 import concurrent.futures
-import importlib.util
 import logging
 import os
 import platform
 import pprint
 import queue
 import sys
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from packaging import version
 
 from ....types import Embedding
+from ...batch import BatchMixin
+from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -39,9 +40,10 @@ class _Error:
         self.msg = msg
 
 
-class XllamaCppEmbeddingModel(EmbeddingModel):
+class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         llamacpp_model_config = self._kwargs.get("llamacpp_model_config")
@@ -192,7 +194,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         except AssertionError:
             raise RuntimeError(f"Load model {self._model_name} failed")
 
-    def create_embedding(self, sentences: Union[str, List[str]], **kwargs) -> Embedding:
+    def _create_embedding(
+        self, sentences: Union[str, List[str]], **kwargs
+    ) -> Embedding:
         if self._llm is None:
             raise RuntimeError("Model is not loaded.")
 
@@ -225,8 +229,11 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         return Embedding(**r)  # type: ignore
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("xllamacpp", "xllamacpp")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
@@ -234,7 +241,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["ggufv2"]:
-            return False
+            return False, "llama.cpp embedding engine only supports ggufv2 format"
         return True

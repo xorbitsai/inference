@@ -43,6 +43,7 @@
     "status": "Status",
     "cached": "Cached",
     "manageCachedModels": "Manage Cached Models",
+    "manageVirtualEnvironments": "Manage Virtual Environments",
     "favorite": "Favorite",
     "unfavorite": "Unfavorite",
     "search": "Search for model name and description",
@@ -58,6 +59,21 @@
     "generateModel": "generate model",
     "otherModel": "other model",
     "confirmDeleteCustomModel": "Are you sure to delete this custom model? This behavior is irreversible.",
+    "modelName": "Model Name",
+    "envPath": "Environment Path",
+    "realPath": "Real Path",
+    "copyEnvPath": "Copy environment path",
+    "viewPackages": "View Packages",
+    "installedPackages": "Installed Packages",
+    "packageName": "Package Name",
+    "version": "Version",
+    "location": "Location",
+    "packagesCount": "Packages Count",
+    "size": "Size",
+    "pythonVersion": "Python Version",
+    "createdAt": "Created At",
+    "noVirtualEnvironmentsForNow": "No virtual environments for now!",
+    "noPackagesInstalled": "No packages installed",
     "lastConfig": "Last Config",
     "commandLineParsing": "Command Line Argument Parsing",
     "copyToCommandLine": "Copy as Command Line Command",
@@ -73,7 +89,7 @@
     "optionalConfigurations": "Optional Configurations",
     "modelUID.optional": "(Optional) Model UID, model name by default",
     "requestLimits.optional": "(Optional) Request Limits, the number of request limits for this model, default is None",
-    "workerIp.optional": "(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario",
+    "workerIp.optional": "(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario,multiple IPs can be specified by separating them with commas.",
     "workerIp": "Worker Ip, specify the worker ip where the model is located in a distributed scenario",
     "workerCount.optional": "(Optional) Worker Count",
     "GPUIdx.optional": "(Optional) GPU Idx, Specify the GPU index where the model is located",
@@ -120,11 +136,27 @@
     "copyPath": "Copy path",
     "noCacheForNow": "No cache for now!",
     "confirmDeleteCacheFiles": "Confirm deletion of cache files? This action is irreversible.",
+    "confirmDeleteVirtualEnv": "Confirm deletion of virtual environment? This action is irreversible.",
     "commandLineTip": "Please confirm whether the model names are consistent.",
     "featured": "featured",
     "all": "all",
     "cancelledSuccessfully": "Cancelled Successfully!",
-    "mustBeUnique": "{{key}} must be unique"
+    "mustBeUnique": "{{key}} must be unique",
+    "update": "Update",
+    "launchProgress": "Launch Progress",
+    "initializing": "Initializing..."
+  },
+  "modelReplicaDetails": {
+    "title": "Model Replica Details",
+    "modelUid": "Model UID",
+    "replicaId": "Replica ID",
+    "workerAddress": "Worker Address",
+    "status": "Status",
+    "createdTime": "Created Time",
+    "noReplicaInfo": "No replica information available",
+    "errors": "Errors",
+    "replica": "Replica",
+    "close": "Close"
   },
 
   "runningModels": {
@@ -139,7 +171,8 @@
     "noRunningModelsMatches": "No Running Models Matches",
     "copy": "Copy",
     "copied": "Copied!",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "viewDetails": "View Details"
   },
 
   "registerModel": {

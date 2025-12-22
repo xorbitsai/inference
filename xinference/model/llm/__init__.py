@@ -48,6 +48,11 @@ from .llm_family import (
 )
 
 
+def register_builtin_model():
+    """Register built-in LLM models."""
+    _install()
+
+
 def check_format_with_engine(model_format, engine):
     # only llama-cpp-python support and only support ggufv2
     if model_format in ["ggufv2"] and engine not in ["llama.cpp", "vLLM"]:
@@ -128,8 +133,41 @@ def register_custom_model():
                 warnings.warn(f"{user_defined_llm_dir}/{f} has error, {e}")
 
 
+def has_downloaded_models():
+    """Check if downloaded JSON configurations exist."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
+    json_file_path = os.path.join(builtin_dir, "llm_models.json")
+    return os.path.exists(json_file_path)
+
+
+def load_downloaded_models():
+    """Load downloaded JSON configurations from the builtin directory."""
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "llm")
+    json_file_path = os.path.join(builtin_dir, "llm_models.json")
+
+    try:
+        load_model_family_from_json(json_file_path, BUILTIN_LLM_FAMILIES)
+    except Exception as e:
+        warnings.warn(
+            f"Failed to load downloaded llm models from {json_file_path}: {e}"
+        )
+        # Fall back to built-in models if download fails
+        load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+
+
 def load_model_family_from_json(json_filename, target_families):
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), json_filename)
+    # Handle both relative (module directory) and absolute paths
+    if os.path.isabs(json_filename):
+        json_path = json_filename
+    else:
+        json_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), json_filename
+        )
+
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         flattened = []
         for spec in json_obj["model_specs"]:
@@ -197,7 +235,46 @@ def _install():
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
 
+    # Install models with intelligent merging based on timestamps
+    # LLM models use a different structure (list instead of dict), so we need special handling
+
+    # Always load built-in models first to ensure we have the latest models
     load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+
+    # Then load user-defined models and merge with built-in models
+    if has_downloaded_models():
+        user_models = []
+        from ..utils import load_downloaded_models_to_dict
+
+        load_downloaded_models_to_dict(
+            {"temp": user_models},
+            "llm",
+            "llm_models.json",
+            lambda path, target: load_model_family_from_json(path, target["temp"]),
+        )
+
+        if user_models:
+            # Create a copy of built-in models for merging
+            built_in_models_copy = list(BUILTIN_LLM_FAMILIES)
+
+            # Merge models, keeping the latest version based on updated_at
+            all_models = built_in_models_copy + user_models
+
+            # Sort by updated_at (newest first) and keep the latest for each model name
+            all_models.sort(key=lambda x: x.updated_at, reverse=True)
+
+            # Remove duplicates, keeping the first (newest) occurrence of each model name
+            seen_models = set()
+            merged_models = []
+
+            for model in all_models:
+                if model.model_name not in seen_models:
+                    seen_models.add(model.model_name)
+                    merged_models.append(model)
+
+            # Update BUILTIN_LLM_FAMILIES with merged results
+            BUILTIN_LLM_FAMILIES.clear()
+            BUILTIN_LLM_FAMILIES.extend(merged_models)
 
     for family in BUILTIN_LLM_FAMILIES:
         if family.model_name not in LLM_VERSION_INFOS:

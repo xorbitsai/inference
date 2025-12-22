@@ -37,6 +37,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Auto batch: Multiple concurrent requests are automatically batched, significantly improving throughput: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): New llama.cpp Python binding, maintained by Xinference team, supports continuous batching and is more production-ready.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
@@ -44,16 +45,15 @@ potential of cutting-edge AI models.
 - Support MLX backend for Apple Silicon chips: [#1765](https://github.com/xorbitsai/inference/pull/1765)
 - Support specifying worker and GPU indexes for launching models: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
-- Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 ### New Models
-- Built-in support for [minicpm-v-4.5](https://github.com/OpenBMB/MiniCPM-V): [#4136](https://github.com/xorbitsai/inference/pull/4136)
-- Built-in support for [Qwen3-VL](https://qwen.ai/blog?id=99f0335c4ad9ff6153e517418d48535ab6d8afef&from=research.latest-advancements-list): [#4112](https://github.com/xorbitsai/inference/pull/4112)
-- Built-in support for [Qwen3-Next](https://qwen.ai/blog?id=4074cca80393150c248e508aa62983f9cb7d27cd&from=research.latest-advancements-list): [#4113](https://github.com/xorbitsai/inference/pull/4113)
-- Built-in support for [Deepseek-V3.1](https://api-docs.deepseek.com/news/news250821): [#4022](https://github.com/xorbitsai/inference/pull/4022)
-- Built-in support for [Qwen-Image-Edit](https://huggingface.co/Qwen/Qwen-Image-Edit): [#3989](https://github.com/xorbitsai/inference/pull/3989)
-- Built-in support for [Wan2.2](https://github.com/Wan-Video/Wan2.2): [#3996](https://github.com/xorbitsai/inference/pull/3996)
-- Built-in support for [seed-oss](https://github.com/ByteDance-Seed/seed-oss): [#4020](https://github.com/xorbitsai/inference/pull/4020)
-- Built-in support for [gpt-oss](https://openai.com/zh-Hans-CN/index/introducing-gpt-oss/): [#3924](https://github.com/xorbitsai/inference/pull/3924)
+- Built-in support for [DeepSeek-V3.2](https://api-docs.deepseek.com/news/news251201): [#4344](https://github.com/xorbitsai/inference/pull/4344)
+- Built-in support for [Z-Image-Turbo](https://tongyi-mai.github.io/Z-Image-blog/): [#4333](https://github.com/xorbitsai/inference/pull/4333)
+- Built-in support for [PaddleOCR-VL](https://ernie.baidu.com/blog/posts/paddleocr-vl/): [#4304](https://github.com/xorbitsai/inference/pull/4304)
+- Built-in support for [FLUX.2-dev](https://github.com/black-forest-labs/flux2): [#4292](https://github.com/xorbitsai/inference/pull/4292)
+- Built-in support for [HunyuanOCR](https://github.com/Tencent-Hunyuan/HunyuanOCR): [#4290](https://github.com/xorbitsai/inference/pull/4290)
+- Built-in support for [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR): [#4187](https://github.com/xorbitsai/inference/pull/4187)
+- Built-in support for [Qwen3-Omni](https://github.com/QwenLM/Qwen3-Omni): [#4137](https://github.com/xorbitsai/inference/pull/4137)
+- Built-in support for [MiniMax-M2](https://github.com/MiniMax-AI/MiniMax-M2): [#4191](https://github.com/xorbitsai/inference/pull/4191)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
@@ -99,9 +99,6 @@ with popular third-party libraries including [LangChain](https://python.langchai
 | More OpenAI Functionalities (Function Calling) | ✅ | ❌ | ❌ | ❌ |
 
 ## Using Xinference
-
-- **Cloud </br>**
-We host a [Xinference Cloud](https://inference.top) service for anyone to try with zero setup. 
 
 - **Self-hosting Xinference Community Edition</br>**
 Quickly get Xinference running in your environment with this [starter guide](#getting-started).

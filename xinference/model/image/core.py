@@ -21,7 +21,10 @@ from typing import Dict, List, Literal, Optional, Union
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .ocr.deepseek_ocr import DeepSeekOCRModel
 from .ocr.got_ocr2 import GotOCR2Model
+from .ocr.hunyuan_ocr import HunyuanOCRModel
+from .ocr.paddleocr_vl import PaddleOCRVLModel
 from .stable_diffusion.core import DiffusionModel
 from .stable_diffusion.mlx import MLXDiffusionModel
 
@@ -159,21 +162,43 @@ def create_ocr_model_instance(
     model_spec: ImageModelFamilyV2,
     model_path: Optional[str] = None,
     **kwargs,
-):
+) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel, PaddleOCRVLModel]:
     from .cache_manager import ImageCacheManager
 
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         model_path = cache_manager.cache()
 
-    # Use GOT-OCR2 for all OCR models
-    model = GotOCR2Model(
-        model_uid,
-        model_path,
-        model_spec=model_spec,
-        **kwargs,
-    )
-    return model
+    # Choose OCR model based on model_name
+    if model_spec.model_name == "DeepSeek-OCR":
+        return DeepSeekOCRModel(
+            model_uid,
+            model_path,
+            model_spec=model_spec,
+            **kwargs,
+        )
+    if model_spec.model_name == "HunyuanOCR":
+        return HunyuanOCRModel(
+            model_uid,
+            model_path,
+            model_spec=model_spec,
+            **kwargs,
+        )
+    elif model_spec.model_name == "PaddleOCR-VL":
+        return PaddleOCRVLModel(
+            model_uid,
+            model_path,
+            model_spec=model_spec,
+            **kwargs,
+        )
+    else:
+        # Default to GOT-OCR2 for other OCR models
+        return GotOCR2Model(
+            model_uid,
+            model_path,
+            model_spec=model_spec,
+            **kwargs,
+        )
 
 
 def create_image_model_instance(
@@ -189,7 +214,14 @@ def create_image_model_instance(
     lightning_version: Optional[str] = None,
     lightning_model_path: Optional[str] = None,
     **kwargs,
-) -> Union[DiffusionModel, MLXDiffusionModel, GotOCR2Model]:
+) -> Union[
+    DiffusionModel,
+    MLXDiffusionModel,
+    GotOCR2Model,
+    DeepSeekOCRModel,
+    HunyuanOCRModel,
+    PaddleOCRVLModel,
+]:
     from .cache_manager import ImageCacheManager
 
     model_spec = match_diffusion(model_name, download_hub)

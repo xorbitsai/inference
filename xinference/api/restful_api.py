@@ -20,7 +20,6 @@ import logging
 import multiprocessing
 import os
 import pprint
-import sys
 import time
 import uuid
 import warnings
@@ -196,6 +195,10 @@ class RegisterModelRequest(BaseModel):
     model: str
     worker_ip: Optional[str]
     persist: bool
+
+
+class UpdateModelRequest(BaseModel):
+    model_type: str
 
 
 class BuildGradioInterfaceRequest(BaseModel):
@@ -517,6 +520,16 @@ class RESTfulAPI(CancelMixin):
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/models/{model_uid}/replicas",
+            self.get_model_replicas,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -891,6 +904,16 @@ class RESTfulAPI(CancelMixin):
             ),
         )
         self._router.add_api_route(
+            "/v1/models/update_type",
+            self.update_model_type,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:add"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
@@ -926,6 +949,26 @@ class RESTfulAPI(CancelMixin):
             methods=["DELETE"],
             dependencies=(
                 [Security(self._auth_service, scopes=["cache:delete"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/virtualenvs",
+            self.list_virtual_envs,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["virtualenv:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/virtualenvs",
+            self.remove_virtual_env,
+            methods=["DELETE"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["virtualenv:delete"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -1290,6 +1333,20 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=infos)
 
+    async def get_model_replicas(self, model_uid: str) -> JSONResponse:
+        """Get detailed status of all replicas for a model"""
+        try:
+            replicas = await (await self._get_supervisor_ref()).get_replica_statuses(
+                model_uid
+            )
+            return JSONResponse(content=replicas)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
         try:
             progress = await (
@@ -1363,18 +1420,6 @@ class RESTfulAPI(CancelMixin):
         assert self._app is not None
         assert body.model_type == "LLM"
 
-        # asyncio.Lock() behaves differently in 3.9 than 3.10+
-        # A event loop is required in 3.9 but not 3.10+
-        if sys.version_info < (3, 10):
-            try:
-                asyncio.get_event_loop()
-            except RuntimeError:
-                warnings.warn(
-                    "asyncio.Lock() requires an event loop in Python 3.9"
-                    + "a placeholder event loop has been created"
-                )
-                asyncio.set_event_loop(asyncio.new_event_loop())
-
         from ..ui.gradio.chat_interface import GradioInterface
 
         try:
@@ -1415,18 +1460,6 @@ class RESTfulAPI(CancelMixin):
         body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
         assert self._app is not None
         assert body.model_type in ("image", "video", "audio")
-
-        # asyncio.Lock() behaves differently in 3.9 than 3.10+
-        # A event loop is required in 3.9 but not 3.10+
-        if sys.version_info < (3, 10):
-            try:
-                asyncio.get_event_loop()
-            except RuntimeError:
-                warnings.warn(
-                    "asyncio.Lock() requires an event loop in Python 3.9"
-                    + "a placeholder event loop has been created"
-                )
-                asyncio.set_event_loop(asyncio.new_event_loop())
 
         from ..ui.gradio.media_interface import MediaInterface
 
@@ -2448,7 +2481,14 @@ class RESTfulAPI(CancelMixin):
 
             # Read and process all images (needed for both streaming and non-streaming)
             images = []
+            original_filenames = []
             for i, img in enumerate(image_files):
+                # Store original filename before processing
+                original_filename = (
+                    img.filename if hasattr(img, "filename") else f"upload_{i}"
+                )
+                original_filenames.append(original_filename)
+
                 image_content = await img.read()
                 image_file = io.BytesIO(image_content)
                 pil_image = Image.open(image_file)
@@ -2480,7 +2520,7 @@ class RESTfulAPI(CancelMixin):
             logger.info(f"Processing {len(images)} images:")
             for i, img in enumerate(images):
                 logger.info(
-                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={image_files[i].filename if hasattr(image_files[i], 'filename') else 'unknown'}"
+                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={original_filenames[i]}"
                 )
 
             # Handle streaming if requested
@@ -3123,6 +3163,42 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
 
+    async def update_model_type(self, request: Request) -> JSONResponse:
+        try:
+            # Parse request
+            raw_json = await request.json()
+            body = UpdateModelRequest.parse_obj(raw_json)
+            model_type = body.model_type
+
+            # Get supervisor reference
+            supervisor_ref = await self._get_supervisor_ref()
+
+            # Call supervisor with model_type
+            await supervisor_ref.update_model_type(model_type)
+
+        except ValueError as re:
+            logger.error(f"ValueError in update_model_type API: {re}", exc_info=True)
+            logger.error(f"ValueError details: {type(re).__name__}: {re}")
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in update_model_type API: {e}", exc_info=True
+            )
+            logger.error(f"Error details: {type(e).__name__}: {e}")
+            import traceback
+
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        response_data = {
+            "data": {
+                "model_type": model_type,
+                "message": f"Successfully updated model type: {model_type}",
+            }
+        }
+
+        return JSONResponse(content=response_data)
+
     async def list_model_registrations(
         self, model_type: str, detailed: bool = Query(False)
     ) -> JSONResponse:
@@ -3276,6 +3352,51 @@ class RESTfulAPI(CancelMixin):
         try:
             res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
+            )
+            return JSONResponse(content={"result": res})
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_virtual_envs(
+        self, model_name: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
+        """List all virtual environments or filter by model name."""
+        try:
+            data = await (await self._get_supervisor_ref()).list_virtual_envs(
+                model_name, worker_ip
+            )
+            resp = {
+                "list": data,
+            }
+            return JSONResponse(content=resp)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def remove_virtual_env(
+        self,
+        model_name: str = Query(None),
+        python_version: str = Query(None),
+        worker_ip: str = Query(None),
+    ) -> JSONResponse:
+        """Remove a virtual environment for a specific model."""
+        if not model_name:
+            raise HTTPException(
+                status_code=400, detail="model_name parameter is required"
+            )
+
+        try:
+            res = await (await self._get_supervisor_ref()).remove_virtual_env(
+                model_name=model_name,
+                python_version=python_version,
+                worker_ip=worker_ip,
             )
             return JSONResponse(content={"result": res})
         except ValueError as re:

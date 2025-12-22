@@ -1,0 +1,72 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-14 14:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/models/model_update.rst:5
+msgid "Model Update"
+msgstr "模型更新"
+
+#: ../../source/models/model_update.rst:8
+msgid ""
+"This section briefly introduces a common operation on the \"Launch "
+"Model\" page: updating the model list. It corresponds to the \"Type "
+"Selection + Update\" button at the top of the page, which is used to "
+"quickly refresh models of a specific type."
+msgstr ""
+"本节简要介绍“启动模型”页面上的一项常见操作：更新模型列表。它对应页面"
+"顶部的“类型选择 + 更新”按钮，用于快速刷新某一类型的模型。"
+
+#: ../../source/models/model_update.rst:10
+msgid ""
+"Model update rely on the online model list service provided by "
+":ref:`xinference_models_hub` ."
+msgstr "模型更新依赖 :ref:`xinference_models_hub` 提供的在线模型列表服务。"
+
+#: ../../source/models/model_update.rst:17
+msgid "Update Models"
+msgstr "更新模型"
+
+#: ../../source/models/model_update.rst:19
+msgid ""
+"Operation Location: \"Type Selection\" dropdown and \"Update\" button at "
+"the top right of the page."
+msgstr "操作位置：页面右上角的“类型选择”下拉框和“更新”按钮。"
+
+#: ../../source/models/model_update.rst:20
+msgid "Usage:"
+msgstr "使用方法："
+
+#: ../../source/models/model_update.rst:21
+msgid ""
+"Select a model type from the dropdown (such as llm, embedding, rerank, "
+"image, audio, video)."
+msgstr ""
+"从下拉菜单中选择模型类型（例如 llm、embedding、rerank、image、audio、"
+"video）。"
+
+#: ../../source/models/model_update.rst:22
+msgid ""
+"Click the \"Update\" button, the page will send an update request to the "
+"backend, then automatically jump to the corresponding Tab and refresh the"
+" model list of that type."
+msgstr ""
+"点击“更新”按钮后，页面会向后端发送更新请求，并自动跳转到对应的选项卡，"
+"刷新该类型的模型列表。"
+

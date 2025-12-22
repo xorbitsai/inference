@@ -35,6 +35,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     Union,
     no_type_check,
 )
@@ -44,6 +45,7 @@ from async_timeout import timeout
 from xoscar import MainActorPoolType
 
 from ..constants import (
+    XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DISABLE_METRICS,
@@ -64,7 +66,14 @@ from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
-from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
+from .utils import (
+    log_async,
+    log_sync,
+    merge_virtual_env_packages,
+    parse_replica_model_uid,
+    purge_dir,
+)
+from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -127,6 +136,9 @@ class WorkerActor(xo.StatelessActor):
             CacheTrackerActor
         ] = None  # type: ignore
 
+        # Virtual environment management
+        self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
+
         # internal states.
         # temporary placeholder during model launch process:
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
@@ -134,12 +146,13 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
         self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
-        self._gpu_to_model_uid: Dict[int, str] = {}
+        self._gpu_to_model_uids: Dict[int, Set[str]] = defaultdict(set)
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
         self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
             defaultdict(set)
         )
+        self._allow_multi_replica_per_gpu = XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
@@ -173,6 +186,9 @@ class WorkerActor(xo.StatelessActor):
                     pass
             else:
                 raise Exception("Metrics server thread exit.")
+
+        # Initialize virtual environment manager
+        self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
 
         self._lock = asyncio.Lock()
 
@@ -235,6 +251,48 @@ class WorkerActor(xo.StatelessActor):
     def default_uid(cls) -> str:
         return "worker"
 
+    def _get_spec_dicts_with_cache_status(
+        self, model_family: Any, cache_manager_cls: Type
+    ) -> Tuple[List[dict], List[str]]:
+        """
+        Build model_specs with cache_status and collect download_hubs.
+        """
+
+        specs: List[dict] = []
+        download_hubs: List[str] = []
+        for spec in model_family.model_specs:
+            model_hub = spec.model_hub
+            if model_hub not in download_hubs:
+                download_hubs.append(model_hub)
+
+            family_copy = model_family.copy()
+            family_copy.model_specs = [spec]
+            cache_manager = cache_manager_cls(family_copy)
+            specs.append(
+                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
+            )
+        return specs, download_hubs
+
+    def _prefer_model_hub(self, model_family: Any, preferred_hub: str = "huggingface"):
+        """
+        Return a copy of model_family with a single spec, preferring the given hub.
+        """
+        specs = getattr(model_family, "model_specs", None)
+        if not specs:
+            return model_family
+
+        target_spec = next(
+            (
+                spec
+                for spec in specs
+                if getattr(spec, "model_hub", None) == preferred_hub
+            ),
+            specs[0],
+        )
+        family_copy = model_family.copy()
+        family_copy.model_specs = [target_spec]
+        return family_copy
+
     async def __post_create__(self):
         from ..model.audio import (
             CustomAudioModelFamilyV2,
@@ -271,6 +329,12 @@ class WorkerActor(xo.StatelessActor):
             generate_rerank_description,
             register_rerank,
             unregister_rerank,
+        )
+        from ..model.video import (
+            CustomVideoModelFamilyV2,
+            generate_video_description,
+            register_video,
+            unregister_video,
         )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
@@ -309,6 +373,12 @@ class WorkerActor(xo.StatelessActor):
                 register_flexible_model,
                 unregister_flexible_model,
                 generate_flexible_model_description,
+            ),
+            "video": (
+                CustomVideoModelFamilyV2,
+                register_video,
+                unregister_video,
+                generate_video_description,
             ),
         }
 
@@ -438,17 +508,19 @@ class WorkerActor(xo.StatelessActor):
         candidates = []
         for _dev in self._total_gpu_devices:
             if (
-                _dev not in self._gpu_to_model_uid
+                _dev not in self._gpu_to_model_uids
                 and _dev not in self._user_specified_gpu_to_model_uids
             ):  # no possible vllm model on it, add it to candidates
                 candidates.append(_dev)
             else:  # need to judge that whether to have vllm model on this device
                 has_vllm_model = False
-                if _dev in self._gpu_to_model_uid:
-                    existing_model_uid = self._gpu_to_model_uid[_dev]
-                    has_vllm_model = await self.is_model_vllm_backend(
-                        existing_model_uid
-                    )
+                if _dev in self._gpu_to_model_uids:
+                    for existing_model_uid in self._gpu_to_model_uids[_dev]:
+                        has_vllm_model = await self.is_model_vllm_backend(
+                            existing_model_uid
+                        )
+                        if has_vllm_model:
+                            break
                 if (
                     not has_vllm_model
                     and _dev in self._user_specified_gpu_to_model_uids
@@ -472,8 +544,8 @@ class WorkerActor(xo.StatelessActor):
             existing_cnt = 0
             if _dev in self._gpu_to_embedding_model_uids:
                 existing_cnt += len(self._gpu_to_embedding_model_uids[_dev])
-            if _dev in self._gpu_to_model_uid:
-                existing_cnt += 1
+            if _dev in self._gpu_to_model_uids:
+                existing_cnt += len(self._gpu_to_model_uids[_dev])
             if _dev in self._user_specified_gpu_to_model_uids:
                 existing_cnt += len(self._user_specified_gpu_to_model_uids[_dev])
             if min_cnt == -1 or existing_cnt < min_cnt:
@@ -483,32 +555,51 @@ class WorkerActor(xo.StatelessActor):
         return device
 
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
-        user_specified_allocated_devices: Set[int] = set()
-        for dev, model_infos in self._user_specified_gpu_to_model_uids.items():
-            allocated_non_embedding_rerank_models = False
-            for _, model_type in model_infos:
-                allocated_non_embedding_rerank_models = model_type not in [
-                    "embedding",
-                    "rerank",
-                ]
-                if allocated_non_embedding_rerank_models:
-                    break
-            if allocated_non_embedding_rerank_models:
-                user_specified_allocated_devices.add(dev)
-        allocated_devices = set(self._gpu_to_model_uid.keys()).union(
-            user_specified_allocated_devices
-        )
-        if n_gpu > len(self._total_gpu_devices) - len(allocated_devices):
-            raise RuntimeError("No available slot found for the model")
+        if n_gpu > len(self._total_gpu_devices):
+            raise RuntimeError("Requested GPUs exceed the number of available devices")
 
-        devices: List[int] = [
-            dev
-            for dev in self._total_gpu_devices
-            if dev not in self._gpu_to_model_uid
-            and dev not in user_specified_allocated_devices
-        ][:n_gpu]
+        # If multi-replica-per-GPU is disabled, only pick currently idle GPUs.
+        if not self._allow_multi_replica_per_gpu:
+            occupied_devices: Set[int] = set()
+            for dev, model_uids in self._gpu_to_model_uids.items():
+                if model_uids:
+                    occupied_devices.add(dev)
+            for dev, model_infos in self._user_specified_gpu_to_model_uids.items():
+                if model_infos:
+                    occupied_devices.add(dev)
+            for dev, model_uids in self._gpu_to_embedding_model_uids.items():
+                if model_uids:
+                    occupied_devices.add(dev)
+
+            available_devices = [
+                dev for dev in self._total_gpu_devices if dev not in occupied_devices
+            ]
+            if n_gpu > len(available_devices):
+                raise RuntimeError("No available slot found for the model")
+            selected_devices = available_devices[:n_gpu]
+            for dev in selected_devices:
+                self._gpu_to_model_uids[int(dev)].add(model_uid)
+            return sorted(selected_devices)
+
+        # Default: allow multi-tenant GPUs, pick least-loaded devices.
+        gpu_loads: List[Tuple[int, int, int]] = []
+        for dev in self._total_gpu_devices:
+            running_models = len(self._gpu_to_model_uids.get(dev, set()))
+            load = running_models + len(
+                self._user_specified_gpu_to_model_uids.get(dev, set())
+            )
+            # Prefer devices with fewer existing model processes when loads tie
+            gpu_loads.append((load, running_models, dev))
+
+        devices: List[int] = []
+        for _ in range(n_gpu):
+            gpu_loads.sort(key=lambda x: (x[0], x[1], x[2]))
+            load, running_models, dev = gpu_loads[0]
+            devices.append(dev)
+            gpu_loads[0] = (load + 1, running_models + 1, dev)
+
         for dev in devices:
-            self._gpu_to_model_uid[int(dev)] = model_uid
+            self._gpu_to_model_uids[int(dev)].add(model_uid)
 
         return sorted(devices)
 
@@ -527,17 +618,25 @@ class WorkerActor(xo.StatelessActor):
         # currently just report a warning log when there are already models on these GPUs
         for idx in gpu_idx:
             existing_model_uids = []
-            if idx in self._gpu_to_model_uid:
-                rep_uid = self._gpu_to_model_uid[idx]
-                is_vllm_model = await self.is_model_vllm_backend(rep_uid)
-                if is_vllm_model:
-                    raise RuntimeError(
-                        f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
-                        f"therefore cannot allocate GPU memory for a new model."
-                    )
-                existing_model_uids.append(rep_uid)
+            if idx in self._gpu_to_model_uids:
+                for rep_uid in self._gpu_to_model_uids[idx]:
+                    is_vllm_model = await self.is_model_vllm_backend(rep_uid)
+                    if is_vllm_model:
+                        raise RuntimeError(
+                            f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
+                            f"therefore cannot allocate GPU memory for a new model."
+                        )
+                    existing_model_uids.append(rep_uid)
             if idx in self._gpu_to_embedding_model_uids:
                 existing_model_uids.extend(self._gpu_to_embedding_model_uids[idx])
+            if not self._allow_multi_replica_per_gpu and (
+                existing_model_uids
+                or len(self._user_specified_gpu_to_model_uids.get(idx, set())) > 0
+            ):
+                raise RuntimeError(
+                    f"GPU index {idx} has been occupied with models: {existing_model_uids}, "
+                    f"and multi-replica-per-GPU is disabled."
+                )
 
             if existing_model_uids:
                 logger.warning(
@@ -550,13 +649,11 @@ class WorkerActor(xo.StatelessActor):
         return sorted(gpu_idx)
 
     def release_devices(self, model_uid: str):
-        devices = [
-            dev
-            for dev in self._gpu_to_model_uid
-            if self._gpu_to_model_uid[dev] == model_uid
-        ]
-        for dev in devices:
-            del self._gpu_to_model_uid[dev]
+        for dev, model_uids in list(self._gpu_to_model_uids.items()):
+            if model_uid in model_uids:
+                model_uids.remove(model_uid)
+                if not model_uids:
+                    del self._gpu_to_model_uids[dev]
 
         # check embedding
         for dev in self._gpu_to_embedding_model_uids:
@@ -653,6 +750,136 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
+    async def update_model_type(self, model_type: str):
+        """
+        Update model configurations for a specific model type by downloading
+        the latest JSON from the remote API and storing it locally.
+
+        Args:
+            model_type: Type of model (LLM, embedding, image, etc.)
+        """
+        import json
+
+        import requests
+
+        supported_types = list(self._custom_register_type_to_cls.keys())
+
+        normalized_for_validation = model_type
+        if model_type.lower() == "llm" and "LLM" in supported_types:
+            normalized_for_validation = "LLM"
+        elif model_type.lower() == "llm" and "llm" in supported_types:
+            normalized_for_validation = "llm"
+
+        if normalized_for_validation not in supported_types:
+            logger.error(f"Unsupported model type: {normalized_for_validation}")
+            raise ValueError(
+                f"Unsupported model type '{model_type}'. "
+                f"Supported types are: {', '.join(supported_types)}"
+            )
+
+        # Construct the URL to download JSON
+        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+
+        try:
+            # Download JSON from remote API
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            # Parse JSON response
+            model_data = response.json()
+
+            # Store the JSON data using CacheManager as built-in models
+            await self._store_complete_model_configurations(model_type, model_data)
+
+            # Dynamically reload built-in models to make them immediately available
+            try:
+                if model_type.lower() == "llm":
+                    from ..model.llm import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "embedding":
+                    from ..model.embedding import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "audio":
+                    from ..model.audio import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "image":
+                    from ..model.image import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "rerank":
+                    from ..model.rerank import register_builtin_model
+
+                    register_builtin_model()
+                elif model_type.lower() == "video":
+                    from ..model.video import register_builtin_model
+
+                    register_builtin_model()
+                else:
+                    logger.warning(
+                        f"No dynamic loading available for model type: {model_type}"
+                    )
+            except Exception as reload_error:
+                logger.error(
+                    f"Error reloading built-in models: {reload_error}",
+                    exc_info=True,
+                )
+                # Don't fail the update if reload fails, just log the error
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error downloading model configurations: {e}")
+            raise ValueError(f"Failed to download model configurations: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise ValueError(f"Invalid JSON response from remote API: {str(e)}")
+        except Exception as e:
+            logger.error(
+                f"Unexpected error during model update: {e}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to update model configurations: {str(e)}")
+
+    async def _store_complete_model_configurations(self, model_type: str, model_data):
+        """
+        Store complete model configurations as a unified JSON file.
+        This is used by update_model_type to preserve the original JSON structure.
+
+        Args:
+            model_type: Type of model (as provided by user, e.g., "llm")
+            model_data: JSON data containing model configurations (complete array)
+        """
+        import json
+
+        from ..constants import XINFERENCE_MODEL_DIR
+
+        try:
+            model_type_lower = model_type.lower()
+
+            # Use the unified JSON file path (same as original update_model_type logic)
+            builtin_dir = os.path.join(
+                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
+            )
+            json_file_path = os.path.join(
+                builtin_dir, f"{model_type_lower}_models.json"
+            )
+
+            # Ensure directory exists
+            os.makedirs(builtin_dir, exist_ok=True)
+
+            # Store the complete JSON file (preserving original structure)
+            with open(json_file_path, "w", encoding="utf-8") as f:
+                json.dump(model_data, f, indent=2, ensure_ascii=False)
+
+        except Exception as e:
+            logger.error(
+                f"Error storing complete model configurations: {str(e)}",
+                exc_info=True,
+            )
+            raise ValueError(f"Failed to store complete model configurations: {str(e)}")
+
+    @log_async(logger=logger)
     async def list_model_registrations(
         self, model_type: str, detailed: bool = False
     ) -> List[Dict[str, Any]]:
@@ -660,55 +887,275 @@ class WorkerActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        ret = []
+
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+            from ..model.llm.cache_manager import LLMCacheManager
 
-            ret = []
+            # Add built-in LLM families
+            for family in BUILTIN_LLM_FAMILIES:
+                if detailed:
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        family, LLMCacheManager
+                    )
+                    ret.append(
+                        {
+                            **family.dict(),
+                            "model_specs": specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
 
+            # Add user-defined LLM families
             for family in get_user_defined_llm_families():
-                ret.append({"model_name": family.model_name, "is_builtin": False})
+                if detailed:
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        family, LLMCacheManager
+                    )
+                    ret.append(
+                        {
+                            **family.dict(),
+                            "model_specs": specs,
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+            from ..model.embedding.cache_manager import EmbeddingCacheManager
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            ret = []
+            # Add built-in embedding models
+            for model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                for family in family_list:
+                    if detailed:
+                        specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                            family, EmbeddingCacheManager
+                        )
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": specs,
+                                "is_builtin": True,
+                                "download_hubs": download_hubs,
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined embedding models
             for model_spec in get_user_defined_embeddings():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        model_spec, EmbeddingCacheManager
+                    )
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "model_specs": specs,
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
+            from ..model.image.cache_manager import ImageCacheManager
             from ..model.image.custom import get_user_defined_images
 
-            ret = []
+            # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_IMAGE_MODELS.items():
+                for family in families:
+                    if detailed:
+                        cache_manager = ImageCacheManager(family)
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": cache_manager.get_cache_status(),
+                            }
+                        ]
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": model_specs,
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined image models
             for model_spec in get_user_defined_images():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    cache_manager = ImageCacheManager(model_spec)
+                    model_specs = [
+                        {
+                            "model_format": "pytorch",
+                            "model_hub": model_spec.model_hub,
+                            "model_id": model_spec.model_id,
+                            "cache_status": cache_manager.get_cache_status(),
+                        }
+                    ]
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": False,
+                            "download_hubs": [model_spec.model_hub],
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
+            from ..model.cache_manager import CacheManager
 
-            ret = []
+            # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_AUDIO_MODELS.items():
+                for family in families:
+                    if detailed:
+                        audio_cache_manager = CacheManager(family)
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": audio_cache_manager.get_cache_status(),
+                            }
+                        ]
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": model_specs,
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined audio models
             for model_spec in get_user_defined_audios():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    audio_cache_manager = CacheManager(model_spec)
+                    model_specs = [
+                        {
+                            "model_format": "pytorch",
+                            "model_hub": model_spec.model_hub,
+                            "model_id": model_spec.model_id,
+                            "cache_status": audio_cache_manager.get_cache_status(),
+                        }
+                    ]
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": False,
+                            "download_hubs": [model_spec.model_hub],
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            return []
+            from ..model.cache_manager import CacheManager
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
+            for model_name, families in BUILTIN_VIDEO_MODELS.items():
+                for family in families:
+                    if detailed:
+                        video_cache_manager = CacheManager(family)
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": video_cache_manager.get_cache_status(),
+                            }
+                        ]
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": model_specs,
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
         elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.cache_manager import RerankCacheManager
             from ..model.rerank.custom import get_user_defined_reranks
 
-            ret = []
+            # Add built-in rerank models (BUILTIN_RERANK_MODELS contains model_name -> family_list list)
+            for model_name, family_list in BUILTIN_RERANK_MODELS.items():
+                for family in family_list:
+                    if detailed:
+                        specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                            family, RerankCacheManager
+                        )
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": specs,
+                                "is_builtin": True,
+                                "download_hubs": download_hubs,
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
+            # Add user-defined rerank models
             for model_spec in get_user_defined_reranks():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    specs, download_hubs = self._get_spec_dicts_with_cache_status(
+                        model_spec, RerankCacheManager
+                    )
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "model_specs": specs,
+                            "is_builtin": False,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -718,7 +1165,18 @@ class WorkerActor(xo.StatelessActor):
             ret = []
 
             for model_spec in get_flexible_models():
-                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+                if detailed:
+                    ret.append(
+                        {
+                            **model_spec.dict(),
+                            "cache_status": True,
+                            "is_builtin": False,
+                        }
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -728,37 +1186,86 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
         if model_type == "LLM":
-            from ..model.llm import get_user_defined_llm_families
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
+            # Check built-in LLM families
+            for f in BUILTIN_LLM_FAMILIES:
+                if f.model_name == model_name:
+                    return f
+
+            # Check user-defined LLM families
             for f in get_user_defined_llm_families():
                 if f.model_name == model_name:
                     return f
         elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
+            # Check built-in embedding models
+            for builtin_model_name, family_list in BUILTIN_EMBEDDING_MODELS.items():
+                if builtin_model_name != model_name:
+                    continue
+                for family in family_list:
+                    return self._prefer_model_hub(family)
+
+            # Check user-defined embedding models
             for f in get_user_defined_embeddings():
                 if f.model_name == model_name:
-                    return f
+                    return self._prefer_model_hub(f)
         elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
+            # Check built-in image models
+            if model_name in BUILTIN_IMAGE_MODELS:
+                families = BUILTIN_IMAGE_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined image models
             for f in get_user_defined_images():
                 if f.model_name == model_name:
                     return f
         elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
+            # Check built-in audio models
+            if model_name in BUILTIN_AUDIO_MODELS:
+                families = BUILTIN_AUDIO_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
+
+            # Check user-defined audio models
             for f in get_user_defined_audios():
                 if f.model_name == model_name:
                     return f
         elif model_type == "video":
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            # Check built-in video models
+            if model_name in BUILTIN_VIDEO_MODELS:
+                families = BUILTIN_VIDEO_MODELS[model_name]
+                for f in families:
+                    if f.model_hub == "huggingface":
+                        return f
             return None
         elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
+            # Check built-in rerank models
+            if model_name in BUILTIN_RERANK_MODELS:
+                family_list = BUILTIN_RERANK_MODELS[model_name]
+                for f in family_list:
+                    return self._prefer_model_hub(f)
+
+            # Check user-defined rerank models
             for f in get_user_defined_reranks():
                 if f.model_name == model_name:
-                    return f
+                    return self._prefer_model_hub(f)
         return None
 
     @log_async(logger=logger)
@@ -852,9 +1359,8 @@ class WorkerActor(xo.StatelessActor):
                     setattr(settings, k, v)
 
         conf = dict(settings)
-        packages = settings.packages.copy() if settings.packages else []
-        if virtual_env_packages:
-            packages.extend(virtual_env_packages)
+        base_packages = settings.packages.copy() if settings.packages else []
+        packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
@@ -970,6 +1476,10 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, str) and n_gpu != "auto":
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
 
+        device = kwargs.get("device")
+        if device and device.lower().startswith("cpu"):
+            n_gpu = None
+
         if peft_model_config is not None:
             if model_type in ("embedding", "rerank"):
                 raise ValueError(
@@ -996,8 +1506,10 @@ class WorkerActor(xo.StatelessActor):
 
             # virtualenv
             virtual_env_name = kwargs.pop("virtual_env_name", None)
+            # Use v3 structure: .xinference/virtualenv/v3/model_name/python_version
+            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
             virtual_env_path = os.path.join(
-                XINFERENCE_VIRTUAL_ENV_DIR, "v2", model_name
+                XINFERENCE_VIRTUAL_ENV_DIR, "v3", model_name, python_version
             )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
@@ -1151,9 +1663,8 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
-            self._model_uid_to_model_spec[model_uid] = (
-                model.model_family.to_description()
-            )
+            model_spec = model.model_family.to_description()
+            self._model_uid_to_model_spec[model_uid] = model_spec
             self._model_uid_to_model_status[model_uid] = ModelStatus()
             self._model_uid_to_addr[model_uid] = subpool_address
             self._model_uid_to_recover_count.setdefault(
@@ -1162,6 +1673,26 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_launch_args[model_uid] = launch_args
         finally:
             del self._model_uid_launching_guard[model_uid]
+
+        # Record virtual environment information if applicable
+        if virtual_env_manager is not None and virtual_env_path is not None:
+            try:
+                # Get package information from virtual environment settings
+                packages: List[str] = []
+                package_info: Dict[str, Any] = {}
+                if (
+                    model_spec
+                    and hasattr(model_spec, "virtualenv")
+                    and model_spec.virtualenv
+                ):
+                    packages = model_spec.virtualenv.packages or []
+
+                # Virtual environment tracking is no longer needed
+                logger.info(
+                    f"Virtual environment created for model: {model.model_family.model_name}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to handle virtual environment info: {e}")
 
         # update status to READY
         abilities = await self._get_model_ability(model, model_type)
@@ -1292,6 +1823,9 @@ class WorkerActor(xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
+            # Clean up virtual environment tracking
+            # Virtual environment tracking is no longer needed
+
             self._model_uid_to_model.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
             self.release_devices(model_uid)
@@ -1410,15 +1944,29 @@ class WorkerActor(xo.StatelessActor):
         path = await self._cache_tracker_ref.list_deletable_models(
             model_version, self.address
         )
+        if not path:
+            return []
+
+        # Always keep the symlink itself so broken links can be unlinked.
+        if os.path.islink(path):
+            paths.add(path)
+
         if os.path.isfile(path):
             path = os.path.dirname(path)
 
         if os.path.isdir(path):
+            paths.add(path)
             files = os.listdir(path)
             paths.update([os.path.join(path, file) for file in files])
             # search real path
             if paths:
-                paths.update([os.path.realpath(path) for path in paths])
+                paths.update(
+                    [
+                        real_path
+                        for path in paths
+                        if os.path.exists((real_path := os.path.realpath(path)))
+                    ]
+                )
 
             # get tensorizer path
             from ..model.llm.transformers.tensorizer_utils import get_tensorizer_dir
@@ -1432,9 +1980,7 @@ class WorkerActor(xo.StatelessActor):
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
         paths = await self.list_deletable_models(model_version)
-        dir_paths = set()
         for path in paths:
-            dir_paths.add(os.path.dirname(path))
             try:
                 if os.path.islink(path):
                     os.unlink(path)
@@ -1448,19 +1994,44 @@ class WorkerActor(xo.StatelessActor):
                 logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
                 return False
 
-        for _dir in dir_paths:
-            try:
-                shutil.rmtree(_dir)
-            except Exception as e:
-                logger.error(
-                    f"Fail to delete parent dir {_dir} with error:{e}."
-                )  # noqa: E231
-                return False
-
         await self._cache_tracker_ref.confirm_and_remove_model(
             model_version, self.address
         )
         return True
+
+    # Virtual environment management methods
+    async def list_virtual_envs(
+        self, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        """List all virtual environments or filter by model name."""
+        try:
+            result = self._virtual_env_manager.list_virtual_envs(model_name)
+            # Add IP address to each virtual environment, same as cache implementation
+            virtual_envs = []
+            for env in result:
+                virtual_env = {
+                    "model_name": env.get("model_name"),
+                    "path": env.get("path"),
+                    "real_path": env.get("real_path"),
+                    "python_version": env.get("python_version"),
+                    "actor_ip_address": self.address,
+                }
+                virtual_envs.append(virtual_env)
+
+            return virtual_envs
+        except Exception as e:
+            logger.error(f"Error in list_virtual_envs: {e}")
+            raise
+
+    async def list_virtual_env_packages(self, model_name: str) -> Dict[str, Any]:
+        """List packages installed in a specific virtual environment."""
+        return self._virtual_env_manager.list_virtual_env_packages(model_name)
+
+    async def remove_virtual_env(
+        self, model_name: str, python_version: Optional[str] = None
+    ) -> bool:
+        """Remove a virtual environment for a specific model."""
+        return self._virtual_env_manager.remove_virtual_env(model_name, python_version)
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {

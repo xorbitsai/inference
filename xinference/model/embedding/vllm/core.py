@@ -12,26 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
 import json
 import logging
-from typing import List, Union
+from typing import List, Tuple, Union
 
+from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
-from ...utils import cache_clean
+from ...batch import BatchMixin
+from ...utils import cache_clean, check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
 
-class VLLMEmbeddingModel(EmbeddingModel):
+class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._context_length = None
 
     def load(self):
         try:
+            if is_vacc_available():
+                import vllm_vacc  # noqa: F401
             from vllm import LLM
 
         except ImportError:
@@ -69,7 +73,7 @@ class VLLMEmbeddingModel(EmbeddingModel):
         return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
     @cache_clean
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,
@@ -149,8 +153,11 @@ class VLLMEmbeddingModel(EmbeddingModel):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("vllm", "vLLM")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
@@ -158,12 +165,16 @@ class VLLMEmbeddingModel(EmbeddingModel):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        if model_spec.model_format in ["pytorch"]:
-            prefix = model_family.model_name.split("-", 1)[0]
-            if prefix in SUPPORTED_MODELS_PREFIXES:
-                return True
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "vLLM embedding engine only supports pytorch format"
+        prefix = model_family.model_name.split("-", 1)[0]
+        if prefix not in SUPPORTED_MODELS_PREFIXES:
+            return (
+                False,
+                f"Model family {model_family.model_name} is not in the supported prefix list for vLLM embeddings",
+            )
+        return True
 
     def wait_for_load(self):
         # set context length after engine inited

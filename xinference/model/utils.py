@@ -14,6 +14,7 @@
 
 import asyncio
 import functools
+import importlib
 import json
 import logging
 import os
@@ -34,6 +35,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    no_type_check,
 )
 
 import huggingface_hub
@@ -55,6 +57,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
+
+
+def check_dependency_available(
+    module_name: str, friendly_name: Optional[str] = None
+) -> Union[bool, Tuple[bool, str]]:
+    """Check whether a dependency can be imported, returning detailed errors."""
+    try:
+        importlib.import_module(module_name)
+    except ImportError as exc:
+        return False, f"Failed to import {friendly_name or module_name}: {exc}"
+    except OSError as exc:
+        return (
+            False,
+            f"Failed to load {friendly_name or module_name} native extension: {exc}",
+        )
+    except Exception as exc:
+        return False, f"Error while importing {friendly_name or module_name}: {exc}"
+    return True
 
 
 def is_locale_chinese_simplified() -> bool:
@@ -470,53 +490,203 @@ class CancellableDownloader:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
 
 
+@no_type_check
 def get_engine_params_by_name(
     model_type: Optional[str], model_name: str
-) -> Optional[Dict[str, List[dict]]]:
+) -> Optional[Dict[str, Any]]:
+    engine_params: Dict[str, Any] = {}
+
+    def _normalize_match_result(
+        result: Any, default_error: str, default_type: str
+    ) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+        if result is True:
+            return True, None, None, None
+        if result is False or result is None:
+            return False, default_error, default_type, None
+
+        if isinstance(result, tuple) and len(result) >= 2:
+            flag, reason = result[0], result[1]
+            if isinstance(flag, bool):
+                if flag:
+                    return True, None, None, None
+                reason_str = str(reason) if reason is not None else default_error
+                return False, reason_str, default_type, None
+
+        if hasattr(result, "is_match"):
+            is_match = bool(getattr(result, "is_match"))
+            reason = getattr(result, "reason", None)
+            err_type = getattr(result, "error_type", default_type)
+            technical_details = getattr(result, "technical_details", None)
+            return is_match, reason, err_type, technical_details
+
+        if isinstance(result, str):
+            return False, result, default_type, None
+
+        return False, str(result), default_type, None
+
+    def _append_available_engine(
+        engine: str, params: List[Dict[str, Any]], class_field: str
+    ):
+        cleaned_params: List[Dict[str, Any]] = []
+        for param in params:
+            new_param = {k: v for k, v in param.items() if k != class_field}
+            cleaned_params.append(new_param)
+        engine_params[engine] = cleaned_params
+
+    def _append_unavailable_engine(
+        engine: str,
+        reason: Optional[str],
+        error_type: Optional[str],
+        technical_details: Optional[str],
+    ):
+        # Keep legacy string format for unavailable engines
+        engine_params[engine] = (
+            reason
+            or technical_details
+            or f"Engine {engine} is not compatible with current model or environment"
+        )
+
+    def _collect_supported_engines(
+        family: Optional[Any],
+        supported_engines: Dict[str, List[Type[Any]]],
+        engine_type_label: str,
+    ):
+        if family is None:
+            return
+        specs = getattr(family, "model_specs", [])
+        for engine_name, engine_classes in supported_engines.items():
+            if engine_name in engine_params:
+                continue
+
+            error_reason: Optional[str] = None
+            error_type: Optional[str] = None
+            error_details: Optional[str] = None
+            relevant = False
+
+            for engine_class in engine_classes:
+                try:
+                    lib_ok, lib_reason, lib_type, lib_details = _normalize_match_result(
+                        engine_class.check_lib(),
+                        f"Engine {engine_name} library is not installed",
+                        "dependency_missing",
+                    )
+                    if not lib_ok:
+                        relevant = True
+                        error_reason = lib_reason
+                        error_type = lib_type
+                        error_details = lib_details
+                        break
+
+                    for spec in specs:
+                        quantization = getattr(spec, "quantization", None) or "none"
+                        match_func = getattr(engine_class, "match_json", None)
+                        match_res = (
+                            match_func(family, spec, quantization)
+                            if callable(match_func)
+                            else False
+                        )
+                        (
+                            is_match,
+                            reason,
+                            m_err_type,
+                            m_details,
+                        ) = _normalize_match_result(
+                            match_res,
+                            f"Engine {engine_name} is not compatible with current {engine_type_label} model or environment",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            relevant = False
+                            error_reason = None
+                            break
+
+                        relevant = True
+                        if reason:
+                            error_reason = reason
+                        if m_err_type:
+                            error_type = m_err_type
+                        if m_details:
+                            error_details = m_details
+                        # Return the first failure to avoid later specs overwriting the root cause.
+                        break
+                    if relevant and error_reason:
+                        break
+                except Exception as e:
+                    relevant = True
+                    error_reason = f"Engine {engine_name} is not available: {str(e)}"
+                    error_type = "configuration_error"
+                    break
+
+            if relevant:
+                _append_unavailable_engine(
+                    engine_name, error_reason, error_type, error_details
+                )
+
     if model_type == "LLM":
-        from .llm.llm_family import LLM_ENGINES
+        from .llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
 
         if model_name not in LLM_ENGINES:
             return None
 
-        # filter llm_class
-        engine_params = deepcopy(LLM_ENGINES[model_name])
-        for engine, params in engine_params.items():
-            for param in params:
-                del param["llm_class"]
+        available_engines = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "llm_class")
+
+        llm_family = next(
+            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+        )
+        _collect_supported_engines(llm_family, SUPPORTED_ENGINES, "LLM")
 
         return engine_params
+
     elif model_type == "embedding":
-        from .embedding.embed_family import EMBEDDING_ENGINES
+        from .embedding.embed_family import (
+            BUILTIN_EMBEDDING_MODELS,
+            EMBEDDING_ENGINES,
+        )
+        from .embedding.embed_family import (
+            SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
+        )
 
         if model_name not in EMBEDDING_ENGINES:
             return None
 
-        # filter embedding_class
-        engine_params = deepcopy(EMBEDDING_ENGINES[model_name])
-        for engine, params in engine_params.items():
-            for param in params:
-                del param["embedding_class"]
+        available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "embedding_class")
+
+        embedding_family_list = BUILTIN_EMBEDDING_MODELS.get(model_name, [])
+        embedding_family = embedding_family_list[0] if embedding_family_list else None
+        _collect_supported_engines(
+            embedding_family, EMBEDDING_SUPPORTED_ENGINES, "embedding"
+        )
 
         return engine_params
+
     elif model_type == "rerank":
-        from .rerank.rerank_family import RERANK_ENGINES
+        from .rerank.rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+        from .rerank.rerank_family import SUPPORTED_ENGINES as RERANK_SUPPORTED_ENGINES
 
         if model_name not in RERANK_ENGINES:
             return None
 
-        # filter rerank_class
-        engine_params = deepcopy(RERANK_ENGINES[model_name])
-        for engine, params in engine_params.items():
-            for param in params:
-                del param["rerank_class"]
+        available_engines = deepcopy(RERANK_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "rerank_class")
+
+        from .rerank.core import RerankModelFamilyV2
+
+        rerank_family_list: List[RerankModelFamilyV2] = BUILTIN_RERANK_MODELS.get(
+            model_name, []
+        )
+        rerank_family = rerank_family_list[0] if rerank_family_list else None
+        _collect_supported_engines(rerank_family, RERANK_SUPPORTED_ENGINES, "rerank")
 
         return engine_params
-    else:
-        raise ValueError(
-            f"Cannot support model_engine for {model_type}, "
-            f"only available for LLM, embedding"
-        )
+
+    raise ValueError(
+        f"Cannot support model_engine for {model_type}, only available for LLM, embedding, rerank"
+    )
 
 
 def generate_model_file_names_with_quantization_parts(
@@ -709,3 +879,129 @@ def cache_clean(fn):
         return _async_wrapper
     else:
         return _wrapper
+
+
+def load_downloaded_models_to_dict(
+    target_dict: Dict[str, Any], model_type: str, json_filename: str, load_func
+):
+    """Load downloaded JSON configurations into the specified dictionary.
+
+    Args:
+        target_dict: Dictionary to load models into
+        model_type: Type of model (e.g., "llm", "embedding", "audio", "image", "rerank")
+        json_filename: Name of the JSON file to load
+        load_func: Function to load model family from JSON
+    """
+    from ..constants import XINFERENCE_MODEL_DIR
+
+    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", model_type)
+    json_file_path = os.path.join(builtin_dir, json_filename)
+
+    try:
+        load_func(json_file_path, target_dict)
+    except Exception as e:
+        import warnings
+
+        warnings.warn(
+            f"Failed to load downloaded {model_type} models from {json_file_path}: {e}"
+        )
+
+
+def merge_models_by_timestamp(
+    built_in_models: Dict[str, List[Any]], user_models: Dict[str, List[Any]]
+) -> Dict[str, List[Any]]:
+    """Merge built-in and user models, keeping the latest version based on updated_at.
+
+    Args:
+        built_in_models: Dictionary of built-in models
+        user_models: Dictionary of user-defined models
+
+    Returns:
+        Merged dictionary with latest models based on updated_at timestamp
+    """
+    merged_models = {}
+
+    # First, add all built-in models
+    for model_name, model_list in built_in_models.items():
+        merged_models[model_name] = model_list.copy()
+
+    # Then merge with user models, keeping the latest based on updated_at
+    for model_name, user_model_list in user_models.items():
+        if model_name not in merged_models:
+            # New model from user, just add it
+            merged_models[model_name] = user_model_list.copy()
+        else:
+            # Existing model, need to compare and merge based on updated_at
+            built_in_list = merged_models[model_name]
+
+            # Create a mapping of updated_at to model for comparison
+            all_models = []
+
+            # Add built-in models
+            for model in built_in_list:
+                all_models.append((model.updated_at, model))
+
+            # Add user models
+            for model in user_model_list:
+                all_models.append((model.updated_at, model))
+
+            # Sort by updated_at (newest first) and keep the latest
+            all_models.sort(key=lambda x: x[0], reverse=True)
+
+            # Keep the latest version(s) - in case there are multiple with the same updated_at
+            latest_updated_at = all_models[0][0]
+            latest_models = [
+                model
+                for updated_at, model in all_models
+                if updated_at == latest_updated_at
+            ]
+
+            merged_models[model_name] = latest_models
+
+    return merged_models
+
+
+def install_models_with_merge(
+    built_in_dict: Dict[str, Any],
+    builtin_json_file: str,
+    user_model_type: str,
+    user_json_filename: str,
+    has_downloaded_models_func,
+    load_model_family_func,
+) -> None:
+    """Install models with intelligent merging based on timestamps.
+
+    Args:
+        built_in_dict: Dictionary to store built-in models
+        builtin_json_file: Path to built-in JSON file (relative to the model module)
+        user_model_type: Type of model for user models (e.g., "llm", "embedding")
+        user_json_filename: Name of user JSON file
+        has_downloaded_models_func: Function to check if user models exist
+        load_model_family_func: Function to load model family from JSON
+    """
+    import os.path
+
+    # Always load built-in models first to ensure we have the latest models
+    # For built-in models, use the path relative to the current model module
+    current_dir = os.path.dirname(
+        os.path.abspath(load_model_family_func.__code__.co_filename)
+    )
+    builtin_json_path = os.path.join(current_dir, builtin_json_file)
+    load_model_family_func(builtin_json_path, built_in_dict)
+
+    # Then load user-defined models and merge with built-in models
+    if has_downloaded_models_func():
+        user_models: Dict[str, Any] = {}
+        load_downloaded_models_to_dict(
+            user_models, user_model_type, user_json_filename, load_model_family_func
+        )
+
+        # Create a copy of built-in models for merging
+        built_in_models_copy = dict(built_in_dict)
+
+        # Merge models, keeping the latest version based on updated_at
+        merged_models = merge_models_by_timestamp(built_in_models_copy, user_models)
+
+        # Update the dictionary with merged results
+        built_in_dict.clear()
+        built_in_dict.update(merged_models)

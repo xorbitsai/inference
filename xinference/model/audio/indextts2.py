@@ -56,13 +56,25 @@ class Indextts2:
         use_fp16 = self._kwargs.get("use_fp16", False)
         use_deepspeed = self._kwargs.get("use_deepspeed", False)
 
-        logger.info("Loading IndexTTS2 model...")
+        # Handle small model directory for offline deployment
+        small_models_config = (
+            self._model_spec.default_model_config
+            if getattr(self._model_spec, "default_model_config", None)
+            else {}
+        )
+        small_models_config.update(self._kwargs)
+
+        small_models_dir = small_models_config.get("small_models_dir")
+        logger.info(
+            f"Loading IndexTTS2 model... (small_models_dir: {small_models_dir})"
+        )
         self._model = IndexTTS2(
             cfg_path=config_path,
             model_dir=self._model_path,
             use_fp16=use_fp16,
             device=self._device,
             use_deepspeed=use_deepspeed,
+            small_models_dir=small_models_dir,
         )
 
     def speech(
@@ -78,8 +90,7 @@ class Indextts2:
 
         import soundfile
 
-        if stream:
-            raise Exception("IndexTTS2 does not support stream generation.")
+        # Streaming support is now implemented
 
         prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
         emo_prompt_speech: Optional[bytes] = kwargs.pop("emo_prompt_speech", None)
@@ -127,13 +138,11 @@ class Indextts2:
                 temp_emo.write(emo_prompt_speech)
                 emo_prompt_path = temp_emo.name
 
-        try:
-            # Generate audio
-            with tempfile.NamedTemporaryFile(
-                suffix=".wav", delete=False
-            ) as temp_output:
-                output_path = temp_output.name
+        # Generate complete audio first
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
+            output_path = temp_output.name
 
+        try:
             self._model.infer(
                 spk_audio_prompt=temp_prompt_path,
                 text=input,
@@ -146,20 +155,44 @@ class Indextts2:
                 use_emo_text=use_emo_text,
             )
 
-            # Read generated audio and convert to requested format
+            # Read generated audio
             audio, sample_rate = soundfile.read(output_path)
 
-            with BytesIO() as out:
-                with soundfile.SoundFile(
-                    out, "w", sample_rate, 1, format=response_format.upper()
-                ) as f:
-                    f.write(audio)
-                return out.getvalue()
+            if stream:
+                # Streaming mode - return generator that yields chunks
+                def audio_stream_generator():
+                    with BytesIO() as out:
+                        with soundfile.SoundFile(
+                            out, "w", sample_rate, 1, format=response_format.upper()
+                        ) as f:
+                            f.write(audio)
+                        complete_audio = out.getvalue()
+
+                    # Clean up temp file
+                    os.unlink(output_path)
+
+                    # Yield the complete audio in chunks
+                    chunk_size = 8192  # 8KB chunks
+                    for i in range(0, len(complete_audio), chunk_size):
+                        yield complete_audio[i : i + chunk_size]
+
+                return audio_stream_generator()
+            else:
+                # Non-streaming mode - return bytes directly
+                with BytesIO() as out:
+                    with soundfile.SoundFile(
+                        out, "w", sample_rate, 1, format=response_format.upper()
+                    ) as f:
+                        f.write(audio)
+                    result = out.getvalue()
+
+                # Clean up temp file
+                os.unlink(output_path)
+                return result
         finally:
             # Clean up temp files
             try:
                 os.unlink(temp_prompt_path)
-                os.unlink(output_path)
                 if emo_prompt_path:
                     os.unlink(emo_prompt_path)
             except:

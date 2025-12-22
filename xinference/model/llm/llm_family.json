@@ -72,6 +72,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957613,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -130,6 +135,11 @@
     "stop": [
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957615,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -157,6 +167,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957616,
+    "featured": false,
+    "architectures": [
+      "GPT2LMHeadModel"
     ]
   },
   {
@@ -363,6 +378,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957617,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -444,6 +464,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957618,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -591,6 +616,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957619,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
     ]
   },
   {
@@ -649,6 +679,11 @@
     ],
     "stop": [
       "<|im_end|>"
+    ],
+    "updated_at": 1763957621,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -676,6 +711,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957622,
+    "featured": false,
+    "architectures": [
+      "OPTForCausalLM"
     ]
   },
   {
@@ -727,6 +767,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957624,
+    "featured": false,
+    "architectures": [
+      "PhiForCausalLM"
     ]
   },
   {
@@ -777,6 +822,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957625,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -827,6 +877,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957627,
+    "featured": false,
+    "architectures": [
+      "GemmaForCausalLM"
     ]
   },
   {
@@ -1009,7 +1064,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957628,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1072,7 +1132,12 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "tool_parser": "llama3"
+    "tool_parser": "llama3",
+    "updated_at": 1763957629,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1136,7 +1201,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957630,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -1418,6 +1488,11 @@
     ],
     "stop": [
       "<|im_end|>"
+    ],
+    "updated_at": 1763957632,
+    "featured": false,
+    "architectures": [
+      "InternVLChatModel"
     ]
   },
   {
@@ -1483,6 +1558,11 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957633,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV"
     ]
   },
   {
@@ -1708,6 +1788,11 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957634,
+    "featured": false,
+    "architectures": [
+      "Ovis"
     ]
   },
   {
@@ -1777,6 +1862,11 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957635,
+    "featured": false,
+    "architectures": [
+      "Qwen2VLForConditionalGeneration"
     ]
   },
   {
@@ -1950,7 +2040,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957637,
+    "featured": true,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2080,6 +2175,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957638,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -2115,6 +2215,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957639,
+    "featured": false,
+    "architectures": [
+      "SkyworkForCausalLM"
     ]
   },
   {
@@ -2150,6 +2255,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957640,
+    "featured": false,
+    "architectures": [
+      "SkyworkForCausalLM"
     ]
   },
   {
@@ -2214,7 +2324,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957642,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -2325,6 +2440,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957643,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -2412,6 +2532,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957644,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -2752,6 +2877,11 @@
       "<|im_start|>",
       "<|im_end|>",
       "<|im_sep|>"
+    ],
+    "updated_at": 1763957645,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -2868,6 +2998,11 @@
       "<|im_start|>",
       "<|im_end|>",
       "<|im_sep|>"
+    ],
+    "updated_at": 1763957646,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -2929,6 +3064,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957648,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -3040,6 +3180,11 @@
       "<|im_start|>",
       "<|im_end|>",
       "<|im_sep|>"
+    ],
+    "updated_at": 1763957649,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -3107,6 +3252,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957650,
+    "featured": false,
+    "architectures": [
+      "BaichuanForCausalLM"
     ]
   },
   {
@@ -3180,7 +3330,12 @@
       2,
       195
     ],
-    "stop": []
+    "stop": [],
+    "updated_at": 1763957652,
+    "featured": false,
+    "architectures": [
+      "BaichuanForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -3326,6 +3481,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957653,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -3503,6 +3663,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957654,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -3679,6 +3844,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957655,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -3756,6 +3926,11 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
+    ],
+    "updated_at": 1763957657,
+    "featured": false,
+    "architectures": [
+      "ChatGLMModel"
     ]
   },
   {
@@ -3795,6 +3970,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957658,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -3897,6 +4077,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957659,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -3932,6 +4117,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957660,
+    "featured": false,
+    "architectures": [
+      "CodeShellForCausalLM"
     ]
   },
   {
@@ -3976,6 +4166,11 @@
       "<|endoftext|>",
       "|||",
       "|<end>|"
+    ],
+    "updated_at": 1763957662,
+    "featured": false,
+    "architectures": [
+      "CodeShellForCausalLM"
     ]
   },
   {
@@ -4021,6 +4216,11 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
+    ],
+    "updated_at": 1763957663,
+    "featured": false,
+    "architectures": [
+      "ChatGLMForConditionalGeneration"
     ]
   },
   {
@@ -4122,6 +4322,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957664,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -4230,6 +4435,11 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957665,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -4488,6 +4698,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957666,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -4753,6 +4968,11 @@
     ],
     "stop": [
       "<|EOT|>"
+    ],
+    "updated_at": 1763957668,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -4833,7 +5053,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957669,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5253,7 +5478,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957670,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5322,7 +5552,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "deepseek-r1"
+    "tool_parser": "deepseek-r1",
+    "updated_at": 1763957671,
+    "featured": true,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5403,7 +5638,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957673,
+    "featured": true,
+    "architectures": [
+      "Qwen3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -5669,7 +5909,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "deepseek-r1"
+    "tool_parser": "deepseek-r1",
+    "updated_at": 1763957674,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6092,7 +6337,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957675,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6154,6 +6404,11 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957677,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
     ]
   },
   {
@@ -6196,6 +6451,11 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957678,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
     ]
   },
   {
@@ -6238,6 +6498,11 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957679,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
     ]
   },
   {
@@ -6518,7 +6783,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "tool_parser": "deepseek_v3"
+    "tool_parser": "deepseek_v3",
+    "updated_at": 1763957680,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -6593,6 +6863,11 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957682,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
     ]
   },
   {
@@ -6673,6 +6948,11 @@
     ],
     "stop": [
       "<｜end▁of▁sentence｜>"
+    ],
+    "updated_at": 1763957683,
+    "featured": false,
+    "architectures": [
+      "DeepseekV2ForCausalLM"
     ]
   },
   {
@@ -6755,6 +7035,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957684,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -6877,6 +7162,11 @@
       "<eos>",
       "<end_of_turn>",
       "<start_of_turn>"
+    ],
+    "updated_at": 1763957685,
+    "featured": false,
+    "architectures": [
+      "Gemma3ForCausalLM"
     ]
   },
   {
@@ -7224,6 +7514,11 @@
       "<eos>",
       "<end_of_turn>",
       "<start_of_turn>"
+    ],
+    "updated_at": 1763957687,
+    "featured": true,
+    "architectures": [
+      "Gemma3ForConditionalGeneration"
     ]
   },
   {
@@ -7277,6 +7572,11 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
+    ],
+    "updated_at": 1763957688,
+    "featured": false,
+    "architectures": [
+      "ChatGLMModel"
     ]
   },
   {
@@ -7463,6 +7763,11 @@
       "<|endoftext|>",
       "<|user|>",
       "<|observation|>"
+    ],
+    "updated_at": 1763957689,
+    "featured": false,
+    "architectures": [
+      "GlmForCausalLM"
     ]
   },
   {
@@ -7711,7 +8016,12 @@
         "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1763957691,
+    "featured": false,
+    "architectures": [
+      "Glm4ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -7819,7 +8129,12 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "tool_parser": "glm4"
+    "tool_parser": "glm4",
+    "updated_at": 1763957692,
+    "featured": false,
+    "architectures": [
+      "GlmForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -7927,7 +8242,12 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "tool_parser": "glm4"
+    "tool_parser": "glm4",
+    "updated_at": 1763957693,
+    "featured": false,
+    "architectures": [
+      "GlmForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -8058,6 +8378,11 @@
     "stop": [
       "</s>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957694,
+    "featured": false,
+    "architectures": [
+      "InternLM3ForCausalLM"
     ]
   },
   {
@@ -8306,7 +8631,9 @@
     "stop_token_ids": [
       2
     ],
-    "stop": []
+    "stop": [],
+    "updated_at": 1763446212,
+    "featured": false
   },
   {
     "version": 2,
@@ -8396,7 +8723,9 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1763446213,
+    "featured": false
   },
   {
     "version": 2,
@@ -8609,7 +8938,9 @@
     "stop": [
       "<|end_of_text|>",
       "<|eot_id|>"
-    ]
+    ],
+    "updated_at": 1763446215,
+    "featured": false
   },
   {
     "version": 2,
@@ -8716,7 +9047,9 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1763446216,
+    "featured": false
   },
   {
     "version": 2,
@@ -9090,7 +9423,9 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "tool_parser": "llama3"
+    "tool_parser": "llama3",
+    "updated_at": 1763446217,
+    "featured": false
   },
   {
     "version": 2,
@@ -9148,7 +9483,9 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1763446219,
+    "featured": false
   },
   {
     "version": 2,
@@ -9217,7 +9554,9 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "updated_at": 1763446220,
+    "featured": false
   },
   {
     "version": 2,
@@ -9356,7 +9695,9 @@
       "<|end_of_text|>",
       "<|eot_id|>",
       "<|eom_id|>"
-    ]
+    ],
+    "updated_at": 1763446221,
+    "featured": false
   },
   {
     "version": 2,
@@ -9447,6 +9788,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957705,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -9496,6 +9842,11 @@
     "stop": [
       "<s>",
       "</s>"
+    ],
+    "updated_at": 1763957707,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
     ]
   },
   {
@@ -9539,6 +9890,11 @@
     "stop": [
       "<s>",
       "</s>"
+    ],
+    "updated_at": 1763957708,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
     ]
   },
   {
@@ -9582,6 +9938,11 @@
     "stop": [
       "<s>",
       "</s>"
+    ],
+    "updated_at": 1763957709,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
     ]
   },
   {
@@ -9631,6 +9992,11 @@
     "stop": [
       "<s>",
       "</s>"
+    ],
+    "updated_at": 1763957710,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
     ]
   },
   {
@@ -9674,6 +10040,11 @@
     "stop": [
       "<s>",
       "</s>"
+    ],
+    "updated_at": 1763957712,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
     ]
   },
   {
@@ -9743,6 +10114,11 @@
     "stop": [
       "<s>",
       "</s>"
+    ],
+    "updated_at": 1763957713,
+    "featured": false,
+    "architectures": [
+      "MiniCPM3ForCausalLM"
     ]
   },
   {
@@ -9820,6 +10196,11 @@
     "stop": [
       "</s>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957714,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
     ]
   },
   {
@@ -9909,6 +10290,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957716,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -10004,6 +10390,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957718,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -10196,6 +10587,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957719,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -10371,6 +10767,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957720,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -10454,6 +10855,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957722,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
     ]
   },
   {
@@ -10543,6 +10949,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957723,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
     ]
   },
   {
@@ -10613,6 +11024,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957724,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
     ]
   },
   {
@@ -10653,6 +11069,11 @@
     ],
     "stop": [
       "<|im_end|>"
+    ],
+    "updated_at": 1763957726,
+    "featured": false,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
     ]
   },
   {
@@ -10716,6 +11137,11 @@
       "<s>",
       "</s>",
       "<unk>"
+    ],
+    "updated_at": 1763957727,
+    "featured": false,
+    "architectures": [
+      "OrionForCausalLM"
     ]
   },
   {
@@ -10761,6 +11187,11 @@
       "<|endoftext|>",
       "<|assistant|>",
       "<|end|>"
+    ],
+    "updated_at": 1763957728,
+    "featured": false,
+    "architectures": [
+      "Phi3ForCausalLM"
     ]
   },
   {
@@ -10820,6 +11251,11 @@
       "<|endoftext|>",
       "<|assistant|>",
       "<|end|>"
+    ],
+    "updated_at": 1763957730,
+    "featured": false,
+    "architectures": [
+      "Phi3ForCausalLM"
     ]
   },
   {
@@ -11070,6 +11506,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957731,
+    "featured": false,
+    "architectures": [
+      "QWenLMHeadModel"
     ]
   },
   {
@@ -11820,7 +12261,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957733,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -11884,7 +12330,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957735,
+    "featured": false,
+    "architectures": [
+      "Qwen2MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -11932,7 +12383,12 @@
         "<|im_end|>",
         "<|endoftext|>"
       ]
-    }
+    },
+    "updated_at": 1763957736,
+    "featured": false,
+    "architectures": [
+      "Qwen2AudioForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -11981,7 +12437,12 @@
         "<|im_end|>",
         "<|endoftext|>"
       ]
-    }
+    },
+    "updated_at": 1763957737,
+    "featured": false,
+    "architectures": [
+      "Qwen2AudioForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -12610,7 +13071,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957739,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -12732,7 +13198,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957740,
+    "featured": false,
+    "architectures": [
+      "Qwen2MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -13047,6 +13518,11 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957741,
+    "featured": false,
+    "architectures": [
+      "Qwen2VLForConditionalGeneration"
     ]
   },
   {
@@ -13232,6 +13708,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957743,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -13361,6 +13842,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957744,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -13915,7 +14401,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957745,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -15426,7 +15917,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957747,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -15486,6 +15982,11 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957748,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -15557,7 +16058,12 @@
         "qwen_omni_utils",
         "soundfile"
       ]
-    }
+    },
+    "updated_at": 1763957749,
+    "featured": false,
+    "architectures": [
+      "Qwen2_5OmniModel"
+    ]
   },
   {
     "version": 2,
@@ -15822,6 +16328,11 @@
     "stop": [
       "<|im_end|>",
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957750,
+    "featured": true,
+    "architectures": [
+      "Qwen2_5_VLForConditionalGeneration"
     ]
   },
   {
@@ -15838,7 +16349,7 @@
       "hybrid",
       "tools"
     ],
-    "model_description": "Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support",
+    "model_description": "Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support.",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -17337,7 +17848,12 @@
         "#system_numpy#"
       ]
     },
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1764215115,
+    "featured": true,
+    "architectures": [
+      "Qwen3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -18121,7 +18637,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957753,
+    "featured": false,
+    "architectures": [
+      "Qwen3MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -18902,7 +19423,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957754,
+    "featured": false,
+    "architectures": [
+      "Qwen3MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -19686,7 +20212,12 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957756,
+    "featured": false,
+    "architectures": [
+      "Qwen3MoeForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -19757,6 +20288,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957757,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -19857,7 +20393,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957758,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20075,6 +20616,11 @@
       "<|endoftext|>",
       "<|im_start|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957759,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -20216,6 +20762,11 @@
     "stop_token_ids": [
       160133,
       160132
+    ],
+    "updated_at": 1763957760,
+    "featured": false,
+    "architectures": [
+      "TelechatForCausalLM"
     ]
   },
   {
@@ -20262,7 +20813,9 @@
           }
         }
       }
-    ]
+    ],
+    "updated_at": 1763446276,
+    "featured": false
   },
   {
     "version": 2,
@@ -20394,6 +20947,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957763,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -20448,6 +21006,11 @@
     ],
     "stop": [
       "</s>"
+    ],
+    "updated_at": 1763957764,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
     ]
   },
   {
@@ -20523,6 +21086,11 @@
           }
         }
       }
+    ],
+    "updated_at": 1763957765,
+    "featured": false,
+    "architectures": [
+      "XverseForCausalLM"
     ]
   },
   {
@@ -20585,6 +21153,11 @@
     ],
     "stop": [
       "<|endoftext|>"
+    ],
+    "updated_at": 1763957766,
+    "featured": false,
+    "architectures": [
+      "XverseForCausalLM"
     ]
   },
   {
@@ -20645,7 +21218,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957769,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20972,7 +21550,12 @@
         "mlx-lm>=0.25.2 ; sys_platform=='darwin'",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1763957770,
+    "featured": true,
+    "architectures": [
+      "Ernie4_5ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21066,7 +21649,12 @@
         "transformers>=4.53.2",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1763957771,
+    "featured": false,
+    "architectures": [
+      "Glm4vForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -21079,7 +21667,8 @@
     "model_ability": [
       "chat",
       "reasoning",
-      "hybrid"
+      "hybrid",
+      "tools"
     ],
     "model_description": "The GLM-4.5 series models are foundation models designed for intelligent agents. ",
     "model_specs": [
@@ -21255,6 +21844,19 @@
         }
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 106,
+        "activated_size_in_billions": 12,
+        "model_src": {
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "cpatonn-mirror/GLM-4.5-Air-AWQ-4bit"
+          }
+        }
+      },
+      {
         "model_format": "mlx",
         "model_size_in_billions": 106,
         "activated_size_in_billions": 12,
@@ -21293,6 +21895,7 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "tool_parser": "glm4",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "virtualenv": {
@@ -21300,7 +21903,12 @@
         "transformers>=4.54.0",
         "#system_numpy#"
       ]
-    }
+    },
+    "featured": true,
+    "architectures": [
+      "Glm4MoeForCausalLM"
+    ],
+    "updated_at": 1766115830
   },
   {
     "version": 2,
@@ -21420,7 +22028,12 @@
         "transformers>=4.55.0",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1763957774,
+    "featured": false,
+    "architectures": [
+      "Glm4vMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -21508,7 +22121,12 @@
         "kernels==0.9.0",
         "#system_numpy#"
       ]
-    }
+    },
+    "updated_at": 1763957775,
+    "featured": true,
+    "architectures": [
+      "GptOssForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21586,6 +22204,11 @@
     "stop": [
       "<|endoftext|>",
       "<|im_end|>"
+    ],
+    "updated_at": 1763957777,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
     ]
   },
   {
@@ -21696,7 +22319,12 @@
       "packages": [
         "transformers==4.53.0"
       ]
-    }
+    },
+    "updated_at": 1763957778,
+    "featured": true,
+    "architectures": [
+      "DeepseekV3ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21886,7 +22514,12 @@
       "<seed:eos>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957779,
+    "featured": false,
+    "architectures": [
+      "SeedOssForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -21953,7 +22586,12 @@
       "<|im_end|>"
     ],
     "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>"
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1763957780,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -22287,6 +22925,317 @@
             "model_id": "Qwen/Qwen3-VL-2B-Instruct-FP8"
           }
         }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-32B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-32B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "activated_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Instruct-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Instruct-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-3bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-8bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-8bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Instruct-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-3bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "5bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-5bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "5bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-5bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Instruct-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 30,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-3bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 30,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-32B-Instruct-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-32B-Instruct-3bit"
+          }
+        }
       }
     ],
     "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {%- if messages[0].content is string %}\n            {{- messages[0].content }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' }}\n        {%- if messages[0].content is string %}\n            {{- messages[0].content }}\n        {%- else %}\n            {%- for content in messages[0].content %}\n                {%- if 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- for message in messages %}\n    {%- if message.role == \"user\" %}\n        {{- '<|im_start|>' + message.role + '\\n' }}\n        {%- if message.content is string %}\n            {{- message.content }}\n        {%- else %}\n            {%- for content in message.content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                    {%- if add_vision_id %}Picture {{ image_count.value }}: {% endif -%}\n                    <|vision_start|><|image_pad|><|vision_end|>\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                    {%- if add_vision_id %}Video {{ video_count.value }}: {% endif -%}\n                    <|vision_start|><|video_pad|><|vision_end|>\n                {%- elif 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role + '\\n' }}\n        {%- if message.content is string %}\n            {{- message.content }}\n        {%- else %}\n            {%- for content_item in message.content %}\n                {%- if 'text' in content_item %}\n                    {{- content_item.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and message.content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {%- if message.content is string %}\n            {{- message.content }}\n        {%- else %}\n            {%- for content in message.content %}\n                {%- if content.type == 'image' or 'image' in content or 'image_url' in content %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                    {%- if add_vision_id %}Picture {{ image_count.value }}: {% endif -%}\n                    <|vision_start|><|image_pad|><|vision_end|>\n                {%- elif content.type == 'video' or 'video' in content %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                    {%- if add_vision_id %}Video {{ video_count.value }}: {% endif -%}\n                    <|vision_start|><|video_pad|><|vision_end|>\n                {%- elif 'text' in content %}\n                    {{- content.text }}\n                {%- endif %}\n            {%- endfor %}\n        {%- endif %}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
@@ -22298,7 +23247,12 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957782,
+    "featured": false,
+    "architectures": [
+      "Qwen3VLMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -22431,6 +23385,333 @@
             "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}"
           }
         }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 22,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "activated_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Thinking-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Thinking-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "activated_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Thinking-8bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Thinking-8bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "activated_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Thinking-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-2B-Thinking-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-3bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-8bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-8bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 4,
+        "activated_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-4B-Thinking-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-3bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "5bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-5bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "5bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-5bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-8bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-8bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "activated_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-8B-Thinking-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 30,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-3bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 30,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-bf16"
+          },
+          "modelscope": {
+            "quantizations": [
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 235,
+        "activated_size_in_billions": 235,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-3bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit"
+            ],
+            "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-3bit"
+          }
+        }
       }
     ],
     "chat_template": "{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- macro render_content(content, do_vision_count) %}\n    {%- if content is string %}\n        {{- content }}\n    {%- else %}\n        {%- for item in content %}\n            {%- if 'image' in item or 'image_url' in item or item.type == 'image' %}\n                {%- if do_vision_count %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}Picture {{ image_count.value }}: {% endif -%}\n                <|vision_start|><|image_pad|><|vision_end|>\n            {%- elif 'video' in item or item.type == 'video' %}\n                {%- if do_vision_count %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}Video {{ video_count.value }}: {% endif -%}\n                <|vision_start|><|video_pad|><|vision_end|>\n            {%- elif 'text' in item %}\n                {{- item.text }}\n            {%- endif %}\n        {%- endfor %}\n    {%- endif %}\n{%- endmacro %}\n{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- render_content(messages[0].content, false) + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + render_content(messages[0].content, false) + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" %}\n        {%- set content = render_content(message.content, false) %}\n        {%- if not(content.startswith('<tool_response>') and content.endswith('</tool_response>')) %}\n            {%- set ns.multi_step_tool = false %}\n            {%- set ns.last_query_index = index %}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- set content = render_content(message.content, True) %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if loop.last or (not loop.last and reasoning_content) %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>\\n{\"name\": \"' }}\n                {{- tool_call.name }}\n                {{- '\", \"arguments\": ' }}\n                {%- if tool_call.arguments is string %}\n                    {{- tool_call.arguments }}\n                {%- else %}\n                    {{- tool_call.arguments | tojson }}\n                {%- endif %}\n                {{- '}\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n<think>\\n' }}\n{%- endif %}\n",
@@ -22444,7 +23725,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957783,
+    "featured": false,
+    "architectures": [
+      "Qwen3VLMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -22554,7 +23840,12 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957784,
+    "featured": false,
+    "architectures": [
+      "Qwen3NextForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -22667,7 +23958,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "tool_parser": "qwen"
+    "tool_parser": "qwen",
+    "updated_at": 1763957786,
+    "featured": false,
+    "architectures": [
+      "Qwen3NextForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -22734,7 +24030,12 @@
     ],
     "virtualenv": {
       "packages": []
-    }
+    },
+    "updated_at": 1763957787,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV"
+    ]
   },
   {
     "version": 2,
@@ -22814,7 +24115,12 @@
         "qwen_omni_utils",
         "soundfile"
       ]
-    }
+    },
+    "updated_at": 1763957788,
+    "featured": false,
+    "architectures": [
+      "Qwen3OmniMoeForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -22891,7 +24197,12 @@
         "qwen_omni_utils",
         "soundfile"
       ]
-    }
+    },
+    "updated_at": 1763957790,
+    "featured": false,
+    "architectures": [
+      "Qwen3OmniMoeForConditionalGeneration"
+    ]
   },
   {
     "model_name": "MiniMax-M2",
@@ -22909,7 +24220,7 @@
     "model_specs": [
       {
         "model_size_in_billions": 230,
-        "activated_size_in_billions": 3,
+        "activated_size_in_billions": 10,
         "model_format": "pytorch",
         "model_src": {
           "huggingface": {
@@ -22928,7 +24239,7 @@
       },
       {
         "model_size_in_billions": 230,
-        "activated_size_in_billions": 3,
+        "activated_size_in_billions": 10,
         "model_format": "awq",
         "model_src": {
           "huggingface": {
@@ -22947,7 +24258,7 @@
       },
       {
         "model_size_in_billions": 230,
-        "activated_size_in_billions": 3,
+        "activated_size_in_billions": 10,
         "model_format": "mlx",
         "model_src": {
           "huggingface": {
@@ -22986,6 +24297,152 @@
     "version": 2,
     "virtualenv": {
       "packages": []
-    }
+    },
+    "updated_at": 1765287275,
+    "featured": false,
+    "architectures": [
+      "MiniMaxM2ForCausalLM"
+    ]
+  },
+  {
+    "model_name": "DeepSeek-V3.2",
+    "model_description": "We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance",
+    "context_length": 163840,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V3.2",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V3.2",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_format": "awq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "QuantTrio/DeepSeek-V3.2-AWQ",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "tclf90/DeepSeek-V3.2-AWQ",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV32ForCausalLM"
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}\n  {% set add_generation_prompt = false %}\n{% endif %}\n{% if not thinking is defined %}\n  {% set thinking = false %}\n{% endif %}\n{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false, is_only_sys=false, is_prefix=false) %}\n{%- for message in messages %}\n  {%- if message['role'] == 'system' %}\n    {%- if ns.is_first_sp %}\n      {% set ns.system_prompt = ns.system_prompt + message['content'] %}\n      {% set ns.is_first_sp = false %}\n    {%- else %}\n      {% set ns.system_prompt = ns.system_prompt + '\\n\\n' + message['content'] %}\n    {%- endif %}\n    {% set ns.is_only_sys = true %}\n  {%- endif %}\n{%- endfor %}\n{{ bos_token }}{{ ns.system_prompt }}\n{%- for message in messages %}\n  {%- if message['role'] == 'user' %}\n    {%- set ns.is_tool = false -%}\n    {%- set ns.is_first = false -%}\n    {%- set ns.is_last_user = true -%}\n    {{'<｜User｜>' + message['content']}}\n  {%- endif %}\n  {%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}\n    {%- if ns.is_last_user or ns.is_only_sys %}\n      {{'<｜Assistant｜></think>'}}\n    {%- endif %}\n    {%- set ns.is_last_user = false -%}\n    {%- set ns.is_first = false %}\n    {%- set ns.is_tool = false -%}\n    {%- for tool in message['tool_calls'] %}\n      {%- if not ns.is_first %}\n        {%- if message['content'] is none %}\n          {{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n        {%- else %}\n          {{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n        {%- endif %}\n        {%- set ns.is_first = true -%}\n      {%- else %}\n        {{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n      {%- endif %}\n    {%- endfor %}\n    {{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}\n  {%- endif %}\n  {%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}\n    {%- if ns.is_last_user %}\n      {{'<｜Assistant｜>'}}\n      {%- if message['prefix'] is defined and message['prefix'] and thinking %}\n        {{'<think>'}}\n      {%- else %}\n        {{'</think>'}}\n      {%- endif %}\n    {%- endif %}\n    {%- if message['prefix'] is defined and message['prefix'] %}\n      {%- set ns.is_prefix = true -%}\n    {%- endif %}\n    {%- set ns.is_last_user = false -%}\n    {%- if ns.is_tool %}\n      {{message['content'] + '<｜end▁of▁sentence｜>'}}\n      {%- set ns.is_tool = false -%}\n    {%- else %}\n      {%- set content = message['content'] -%}\n      {%- if '</think>' in content %}\n        {%- set content = content.split('</think>', 1)[1] -%}\n      {%- endif %}\n      {{content + '<｜end▁of▁sentence｜>'}}\n    {%- endif %}\n  {%- endif %}\n  {%- if message['role'] == 'tool' %}\n    {%- set ns.is_last_user = false -%}\n    {%- set ns.is_tool = true -%}\n    {{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}\n  {%- endif %}\n  {%- if message['role'] != 'system' %}\n    {% set ns.is_only_sys = false %}\n  {%- endif %}\n{%- endfor -%}\n{% if add_generation_prompt and not ns.is_tool%}\n  {% if ns.is_last_user or ns.is_only_sys or not ns.is_prefix %}\n    {{'<｜Assistant｜>'}}\n    {%- if not thinking %}\n      {{'</think>'}}\n    {%- else %}\n      {{'<think>'}}\n    {%- endif %}\n  {% endif %}\n{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "version": 2,
+    "virtualenv": {
+      "packages": []
+    },
+    "featured": true,
+    "updated_at": 1765965063
+  },
+  {
+    "model_name": "DeepSeek-V3.2-Exp",
+    "model_description": "We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.",
+    "context_length": 163840,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 671,
+        "activated_size_in_billions": 37,
+        "model_format": "awq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "QuantTrio/DeepSeek-V3.2-Exp-{quantization}",
+            "quantizations": [
+              "AWQ",
+              "AWQ-Lite"
+            ]
+          },
+          "modelscope": {
+            "model_id": "tclf90/DeepSeek-V3.2-Exp-{quantization}",
+            "quantizations": [
+              "AWQ",
+              "AWQ-Lite"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV32ForCausalLM"
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}\n  {% set add_generation_prompt = false %}\n{% endif %}\n{% if not thinking is defined %}\n  {% set thinking = false %}\n{% endif %}\n{% set ns = namespace(is_first=false, is_tool=false, system_prompt='', is_first_sp=true, is_last_user=false, is_only_sys=false, is_prefix=false) %}\n{%- for message in messages %}\n  {%- if message['role'] == 'system' %}\n    {%- if ns.is_first_sp %}\n      {% set ns.system_prompt = ns.system_prompt + message['content'] %}\n      {% set ns.is_first_sp = false %}\n    {%- else %}\n      {% set ns.system_prompt = ns.system_prompt + '\\n\\n' + message['content'] %}\n    {%- endif %}\n    {% set ns.is_only_sys = true %}\n  {%- endif %}\n{%- endfor %}\n{{ bos_token }}{{ ns.system_prompt }}\n{%- for message in messages %}\n  {%- if message['role'] == 'user' %}\n    {%- set ns.is_tool = false -%}\n    {%- set ns.is_first = false -%}\n    {%- set ns.is_last_user = true -%}\n    {{'<｜User｜>' + message['content']}}\n  {%- endif %}\n  {%- if message['role'] == 'assistant' and message['tool_calls'] is defined and message['tool_calls'] is not none %}\n    {%- if ns.is_last_user or ns.is_only_sys %}\n      {{'<｜Assistant｜></think>'}}\n    {%- endif %}\n    {%- set ns.is_last_user = false -%}\n    {%- set ns.is_first = false %}\n    {%- set ns.is_tool = false -%}\n    {%- for tool in message['tool_calls'] %}\n      {%- if not ns.is_first %}\n        {%- if message['content'] is none %}\n          {{'<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n        {%- else %}\n          {{message['content'] + '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>' + tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n        {%- endif %}\n        {%- set ns.is_first = true -%}\n      {%- else %}\n        {{'<｜tool▁call▁begin｜>'+ tool['function']['name'] + '<｜tool▁sep｜>' + tool['function']['arguments'] + '<｜tool▁call▁end｜>'}}\n      {%- endif %}\n    {%- endfor %}\n    {{'<｜tool▁calls▁end｜><｜end▁of▁sentence｜>'}}\n  {%- endif %}\n  {%- if message['role'] == 'assistant' and (message['tool_calls'] is not defined or message['tool_calls'] is none) %}\n    {%- if ns.is_last_user %}\n      {{'<｜Assistant｜>'}}\n      {%- if message['prefix'] is defined and message['prefix'] and thinking %}\n        {{'<think>'}}\n      {%- else %}\n        {{'</think>'}}\n      {%- endif %}\n    {%- endif %}\n    {%- if message['prefix'] is defined and message['prefix'] %}\n      {%- set ns.is_prefix = true -%}\n    {%- endif %}\n    {%- set ns.is_last_user = false -%}\n    {%- if ns.is_tool %}\n      {{message['content'] + '<｜end▁of▁sentence｜>'}}\n      {%- set ns.is_tool = false -%}\n    {%- else %}\n      {%- set content = message['content'] -%}\n      {%- if '</think>' in content %}\n        {%- set content = content.split('</think>', 1)[1] -%}\n      {%- endif %}\n      {{content + '<｜end▁of▁sentence｜>'}}\n    {%- endif %}\n  {%- endif %}\n  {%- if message['role'] == 'tool' %}\n    {%- set ns.is_last_user = false -%}\n    {%- set ns.is_tool = true -%}\n    {{'<｜tool▁output▁begin｜>' + message['content'] + '<｜tool▁output▁end｜>'}}\n  {%- endif %}\n  {%- if message['role'] != 'system' %}\n    {% set ns.is_only_sys = false %}\n  {%- endif %}\n{%- endfor -%}\n{% if add_generation_prompt and not ns.is_tool%}\n  {% if ns.is_last_user or ns.is_only_sys or not ns.is_prefix %}\n    {{'<｜Assistant｜>'}}\n    {%- if not thinking %}\n      {{'</think>'}}\n    {%- else %}\n      {{'<think>'}}\n    {%- endif %}\n  {% endif %}\n{% endif %}",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": []
+    },
+    "featured": true,
+    "updated_at": 1765887682
   }
 ]

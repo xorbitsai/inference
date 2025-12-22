@@ -7,7 +7,6 @@
     "contactUs": "문의하기",
     "documentation": "문서"
   },
-
   "model": {
     "languageModels": "언어 모델",
     "embeddingModels": "임베딩 모델",
@@ -18,7 +17,6 @@
     "customModels": "커스텀 모델",
     "flexibleModels": "유연한 모델"
   },
-
   "launchModel": {
     "modelAbility": "모델 기능",
     "generate": "텍스트 생성",
@@ -43,6 +41,7 @@
     "status": "상태",
     "cached": "캐시됨",
     "manageCachedModels": "캐시 모델 관리",
+    "manageVirtualEnvironments": "가상 환경 관리",
     "favorite": "즐겨찾기",
     "unfavorite": "즐겨찾기 해제",
     "search": "모델 이름 및 설명 검색",
@@ -58,6 +57,21 @@
     "generateModel": "생성 모델",
     "otherModel": "기타 모델",
     "confirmDeleteCustomModel": "이 커스텀 모델을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "modelName": "모델 이름",
+    "envPath": "환경 경로",
+    "realPath": "실제 경로",
+    "copyEnvPath": "환경 경로 복사",
+    "viewPackages": "패키지 목록 보기",
+    "installedPackages": "설치된 패키지",
+    "packageName": "패키지 이름",
+    "version": "버전",
+    "location": "위치",
+    "packagesCount": "패키지 수",
+    "size": "크기",
+    "pythonVersion": "Python 버전",
+    "createdAt": "생성 시간",
+    "noVirtualEnvironmentsForNow": "현재 가상환경이 없습니다!",
+    "noPackagesInstalled": "설치된 패키지가 없습니다",
     "lastConfig": "마지막 설정",
     "commandLineParsing": "명령줄 인수 파싱",
     "copyToCommandLine": "명령줄 명령으로 복사",
@@ -73,7 +87,7 @@
     "optionalConfigurations": "선택적 구성",
     "modelUID.optional": "(선택) 모델 UID, 기본값은 모델 이름",
     "requestLimits.optional": "(선택) 요청 제한, 이 모델의 요청 제한 수, 기본값은 없음",
-    "workerIp.optional": "(선택) 워커 IP, 분산 시나리오에서 모델이 위치한 워커 IP 지정",
+    "workerIp.optional": "(선택) 워커 IP, 분산 시나리오에서 모델이 위치한 워커 IP 지정,여러 개의 IP를 쉼표로 구분하여 지정할 수 있습니다.",
     "workerIp": "워커 IP, 분산 시나리오에서 모델이 위치한 워커 IP 지정",
     "workerCount.optional": "(선택) 워커 수",
     "GPUIdx.optional": "(선택) GPU 인덱스, 모델이 위치한 GPU 인덱스 지정",
@@ -120,13 +134,28 @@
     "copyPath": "경로 복사",
     "noCacheForNow": "현재 캐시가 없습니다!",
     "confirmDeleteCacheFiles": "캐시 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+    "confirmDeleteVirtualEnv": "가상 환경을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "commandLineTip": "모델 이름이 일치하는지 확인하세요.",
     "featured": "추천 및 즐겨찾기",
     "all": "모두",
     "cancelledSuccessfully": "성공적으로 취소되었습니다!",
-    "mustBeUnique": "{{key}} 는 고유해야 합니다"
+    "mustBeUnique": "{{key}} 는 고유해야 합니다",
+    "update": "업데이트",
+    "launchProgress": "시작 진행 상황",
+    "initializing": "초기화 중..."
   },
-
+  "modelReplicaDetails": {
+    "title": "모델 복제본 세부 정보",
+    "modelUid": "모델 UID",
+    "replicaId": "복제본 ID",
+    "workerAddress": "워커 주소",
+    "status": "상태",
+    "createdTime": "생성 시간",
+    "noReplicaInfo": "복제본 정보를 사용할 수 없습니다",
+    "errors": "오류",
+    "replica": "복제본",
+    "close": "닫기"
+  },
   "runningModels": {
     "name": "이름",
     "address": "주소",
@@ -139,9 +168,9 @@
     "noRunningModelsMatches": "일치하는 실행 중인 모델이 없습니다",
     "copy": "복사",
     "copied": "복사되었습니다!",
-    "copyFailed": "복사 실패"
+    "copyFailed": "복사 실패",
+    "viewDetails": "상세 보기"
   },
-
   "registerModel": {
     "modelName": "모델 이름",
     "modelDescription": "모델 설명 (선택)",
@@ -201,7 +230,6 @@
     "stopControlStringForChatModels": "string 유형, 채팅 모델의 중지를 제어하는 데 사용",
     "enterJsonFormattedDictionary": "JSON 형식의 사전을 입력하세요."
   },
-
   "clusterInfo": {
     "supervisor": "슈퍼바이저",
     "workers": "워커",
@@ -229,7 +257,6 @@
     "gpuMemTotal": "GPU 메모리 총계",
     "worker": "워커"
   },
-
   "components": {
     "suggestsCommonParameters": "일반적인 매개변수를 제안합니다. 다른 매개변수도 사용 가능합니다.",
     "warning": "경고",

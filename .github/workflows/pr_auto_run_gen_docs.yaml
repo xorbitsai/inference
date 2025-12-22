@@ -1,0 +1,160 @@
+name: Auto run gen_docs.py and commit changes to PR
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run-gen-docs-and-commit:
+    if: startsWith(github.event.pull_request.head.ref, 'chore/models-sync/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base repository (trusted scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          repository: ${{ github.repository }}
+          path: main
+          fetch-depth: 0
+
+      - name: Checkout PR head branch (working copy)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          path: pr
+          fetch-depth: 0
+
+      - name: Decide whether to run gen_docs for latest commit
+        id: decide
+        working-directory: pr
+        run: |
+          set -e
+          MSG="$(git log -1 --pretty=%B || echo "")"
+          echo "Latest commit message: $MSG"
+          if echo "$MSG" | grep -Eiq '\[(skip ci|ci skip)\]'; then
+            echo "Skip token found in commit message; will not run."
+            echo "run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          HEAD_SHA="$(git rev-parse HEAD)"
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          RANGE="$BASE_SHA...$HEAD_SHA"
+          echo "Diff range (full PR): $RANGE"
+
+          CHANGED_FILES="$(git diff --name-only "$RANGE" || true)"
+          echo "Changed files in PR range:"
+          echo "$CHANGED_FILES"
+
+          RUN="false"
+          for f in $CHANGED_FILES; do
+            case "$f" in
+              xinference/model/llm/llm_family.json|xinference/model/embedding/model_spec.json|xinference/model/rerank/model_spec.json|xinference/model/image/model_spec.json|xinference/model/audio/model_spec.json|xinference/model/video/model_spec.json)
+                RUN="true"; break;;
+            esac
+          done
+          echo "run=$RUN" >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        if: steps.decide.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install gen_docs dependencies
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install jinja2
+          python -m pip install "xinference[doc]"
+
+      - name: Run gen_docs.py if present
+        if: steps.decide.outputs.run == 'true'
+        working-directory: pr
+        run: |
+          echo "[Debug] CWD: $(pwd)"
+          echo "[Debug] List ../main:"
+          ls -la ../main || true
+          echo "[Debug] List ../main/doc/source:"
+          ls -la ../main/doc/source || true
+
+          # Use PR branch's gen_docs.py if it exists, otherwise use main branch's
+          if [ -f "doc/source/gen_docs.py" ]; then
+            echo "Using PR branch's doc/source/gen_docs.py"
+            echo "Running pr/doc/source/gen_docs.py from its directory"
+            (cd doc/source && python -u gen_docs.py)
+          elif [ -f "../main/doc/source/gen_docs.py" ]; then
+            echo "Copying main/doc/source/gen_docs.py into PR workspace"
+            mkdir -p doc/source
+            cp -f ../main/doc/source/gen_docs.py doc/source/gen_docs.py
+            echo "Running pr/doc/source/gen_docs.py from its directory"
+            (cd doc/source && python -u gen_docs.py)
+          elif [ -f "gen_docs.py" ]; then
+            echo "Using PR branch's gen_docs.py"
+            echo "Running pr/gen_docs.py"
+            python -u gen_docs.py
+          elif [ -f "../main/gen_docs.py" ]; then
+            echo "Copying main/gen_docs.py into PR workspace"
+            cp -f ../main/gen_docs.py gen_docs.py
+            echo "Running pr/gen_docs.py"
+            python -u gen_docs.py
+          else
+            echo "gen_docs.py not found in main repository, skipping."
+          fi
+
+      - name: Stage and commit changes back to PR branch
+        if: steps.decide.outputs.run == 'true'
+        working-directory: pr
+        run: |
+          echo "[Debug] Before staging:" && git status --porcelain
+
+          echo "[Debug] check-ignore for generated file:"
+          git check-ignore -v doc/source/_generated/auto_generated.txt || echo "Not ignored"
+          git add -A
+          git add -f doc/source/_generated || true
+
+          echo "[Debug] After staging:" && git status --porcelain
+          echo "[Debug] Staged diff:" && git diff --cached --name-status || true
+
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(docs): auto-run gen_docs.py"
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Push back for same-repo PR
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        working-directory: pr
+        run: |
+          echo "Pushing changes to same-repo PR..."
+          git push origin HEAD:$BRANCH || echo "No changes to push."
+
+      - name: Push back for fork PR using maintainer PAT
+        if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.maintainer_can_modify
+        env:
+          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
+        working-directory: pr
+        run: |
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "Missing secrets.PUSH_TOKEN; cannot push to fork. Skipping push."
+            exit 0
+          fi
+          echo "Pushing changes to fork PR using maintainer PAT..."
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_FULL_NAME}.git"
+          git push origin HEAD:$BRANCH || echo "No changes to push."
+
+      - name: Skip push for fork PR without maintainer edit permission
+        if: steps.decide.outputs.run != 'true' && github.event.pull_request.head.repo.full_name != github.repository && !github.event.pull_request.maintainer_can_modify
+        run: |
+          echo "Fork PR does not allow edits by maintainers; run succeeded but skip pushing commits."

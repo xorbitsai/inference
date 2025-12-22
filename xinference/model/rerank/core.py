@@ -15,9 +15,9 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
 
-from ..._compat import BaseModel
+from ..._compat import BaseModel, Field
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -38,13 +38,31 @@ def get_rerank_model_descriptions():
     return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
-class RerankSpecV1(BaseModel):
+class TransformersRerankSpecV1(BaseModel):
     model_format: Literal["pytorch"]
     model_hub: str = "huggingface"
     model_id: Optional[str] = None
     model_revision: Optional[str] = None
     model_uri: Optional[str] = None
     quantization: str = "none"
+
+
+class LlamaCppRerankSpecV1(BaseModel):
+    model_format: Literal["ggufv2"]
+    model_hub: str = "huggingface"
+    model_id: Optional[str]
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+    quantization: str
+    model_file_name_template: str
+    model_file_name_split_template: Optional[str]
+    quantization_parts: Optional[Dict[str, List[str]]]
+
+
+RerankSpecV1 = Annotated[
+    Union[TransformersRerankSpecV1, LlamaCppRerankSpecV1],
+    Field(discriminator="model_format"),
+]
 
 
 class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
@@ -118,7 +136,7 @@ class RerankModel:
 
     @classmethod
     @abstractmethod
-    def check_lib(cls) -> bool:
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         pass
 
     @classmethod
@@ -128,7 +146,7 @@ class RerankModel:
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         pass
 
     @classmethod
@@ -141,9 +159,11 @@ class RerankModel:
         """
         Return if the model_spec can be matched.
         """
-        if not cls.check_lib():
+        lib_result = cls.check_lib()
+        if lib_result != True:
             return False
-        return cls.match_json(model_family, model_spec, quantization)
+        match_result = cls.match_json(model_family, model_spec, quantization)
+        return match_result == True
 
     @staticmethod
     def _get_tokenizer(model_path):

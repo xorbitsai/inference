@@ -7,7 +7,7 @@ glm-4.5
 - **Context Length:** 131072
 - **Model Name:** glm-4.5
 - **Languages:** en, zh
-- **Abilities:** chat, reasoning, hybrid
+- **Abilities:** chat, reasoning, hybrid, tools
 - **Description:** The GLM-4.5 series models are foundation models designed for intelligent agents. 
 
 Specifications
@@ -158,7 +158,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 106 --model-format awq --quantization ${quantization}
 
 
-Model Spec 10 (mlx, 106 Billion)
+Model Spec 10 (awq, 106 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 106
+- **Quantizations:** 4bit
+- **Engines**: 
+- **Model ID:** cpatonn-mirror/GLM-4.5-Air-AWQ-4bit
+- **Model Hubs**:  `ModelScope <https://modelscope.cn/models/cpatonn-mirror/GLM-4.5-Air-AWQ-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name glm-4.5 --size-in-billions 106 --model-format awq --quantization ${quantization}
+
+
+Model Spec 11 (mlx, 106 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx

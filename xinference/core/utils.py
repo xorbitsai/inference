@@ -19,9 +19,10 @@ import string
 import uuid
 import weakref
 from enum import Enum
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
 import orjson
+from packaging.requirements import Requirement
 
 from .._compat import BaseModel
 from ..constants import (
@@ -247,6 +248,49 @@ def parse_model_version(model_version: str, model_type: str) -> Tuple:
         raise ValueError(f"Not supported model_type: {model_type}")
 
 
+def merge_virtual_env_packages(
+    base_packages: List[str], extra_packages: Optional[List[str]]
+) -> List[str]:
+    """
+    Merge default virtualenv packages with user provided ones. Packages with the
+    same name will be replaced by the user supplied version instead of appended.
+    """
+
+    def get_key(package: str) -> str:
+        if package.startswith("#"):
+            # special placeholders like #system_torch#
+            return package
+        try:
+            return Requirement(package).name.lower()
+        except Exception:
+            # fallback: strip version/url markers best effort
+            for sep in ["@", "==", ">=", "<=", "~=", "!=", "[", " "]:
+                if sep in package:
+                    return package.split(sep, 1)[0].strip().lower()
+            return package.lower()
+
+    merged: List[str] = []
+    index_map: Dict[str, int] = {}
+    for pkg in base_packages:
+        key = get_key(pkg)
+        if key in index_map:
+            merged[index_map[key]] = pkg
+        else:
+            index_map[key] = len(merged)
+            merged.append(pkg)
+
+    if extra_packages:
+        for pkg in extra_packages:
+            key = get_key(pkg)
+            if key in index_map:
+                merged[index_map[key]] = pkg
+            else:
+                index_map[key] = len(merged)
+                merged.append(pkg)
+
+    return merged
+
+
 def assign_replica_gpu(
     _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
 ) -> Optional[List[int]]:
@@ -255,7 +299,11 @@ def assign_replica_gpu(
     if isinstance(gpu_idx, int):
         gpu_idx = [gpu_idx]
     if isinstance(gpu_idx, list) and gpu_idx:
-        return gpu_idx[rep_id::replica]
+        num_gpus = len(gpu_idx)
+        gpus_per_replica = num_gpus // replica
+        start = rep_id * gpus_per_replica
+        end = start + gpus_per_replica
+        return gpu_idx[start:end]
     return gpu_idx
 
 

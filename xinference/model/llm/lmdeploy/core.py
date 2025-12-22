@@ -11,14 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib.util
 import logging
 import uuid
-from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
+from typing import (
+    AsyncGenerator,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import torch
 
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
+from ...utils import check_dependency_available
 from ..core import LLM
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, generate_chat_completion, generate_completion_chunk
@@ -114,14 +123,17 @@ class LMDeployModel(LLM):
         raise ValueError("LMDEPLOY engine has not supported generate yet.")
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("lmdeploy") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("lmdeploy", "lmdeploy")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        return False, "LMDeploy engine has no standalone generate capability"
 
     def generate(
         self,
@@ -173,14 +185,18 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
-                return False
+                return False, "LMDeploy chat only supports 4-bit AWQ weights"
         if llm_family.model_name not in LMDEPLOY_SUPPORTED_CHAT_MODELS:
-            return False
-        return LMDEPLOY_INSTALLED
+            return (
+                False,
+                f"Model {llm_family.model_name} is not in LMDeploy supported chat list",
+            )
+        if not LMDEPLOY_INSTALLED:
+            return False, "lmdeploy library is not installed"
+        return True
 
     async def async_chat(
         self,

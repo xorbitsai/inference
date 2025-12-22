@@ -22,7 +22,9 @@
         "model_id": "ZhipuAI/CogVideoX-2b",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445104,
+    "featured": false
   },
   {
     "version": 2,
@@ -47,7 +49,9 @@
         "model_id": "ZhipuAI/CogVideoX-5b",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445106,
+    "featured": false
   },
   {
     "version": 2,
@@ -70,7 +74,9 @@
         "model_id": "Xorbits/HunyuanVideo",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445107,
+    "featured": false
   },
   {
     "version": 2,
@@ -101,7 +107,9 @@
         "model_id": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445108,
+    "featured": false
   },
   {
     "version": 2,
@@ -132,7 +140,9 @@
         "model_id": "Wan-AI/Wan2.1-T2V-14B-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445109,
+    "featured": false
   },
   {
     "version": 2,
@@ -168,7 +178,9 @@
         "model_id": "Wan-AI/Wan2.1-I2V-14B-480P-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445111,
+    "featured": false
   },
   {
     "version": 2,
@@ -204,7 +216,9 @@
         "model_id": "Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445112,
+    "featured": false
   },
   {
     "version": 2,
@@ -240,7 +254,9 @@
         "model_id": "Wan-AI/Wan2.1-FLF2V-14B-720P-diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445113,
+    "featured": false
   },
   {
     "version": 2,
@@ -271,7 +287,9 @@
         "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445115,
+    "featured": false
   },
   {
     "version": 2,
@@ -302,7 +320,9 @@
         "model_id": "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445116,
+    "featured": false
   },
   {
     "version": 2,
@@ -334,6 +354,8 @@
         "model_id": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
         "model_revision": "master"
       }
-    }
+    },
+    "updated_at": 1763445117,
+    "featured": false
   }
 ]

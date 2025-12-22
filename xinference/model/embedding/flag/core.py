@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
 import logging
-from typing import List, Optional, Union, no_type_check
+from typing import List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 import torch
@@ -30,13 +29,15 @@ except ImportError:
 
 from ....device_utils import get_available_device
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ...batch import BatchMixin
+from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
 logger = logging.getLogger(__name__)
 
 
-class FlagEmbeddingModel(EmbeddingModel):
+class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(
         self,
         model_uid: str,
@@ -47,14 +48,10 @@ class FlagEmbeddingModel(EmbeddingModel):
         return_sparse: bool = False,
         **kwargs,
     ):
-        super().__init__(
-            model_uid,
-            model_path,
-            model_family,
-            quantization,
-            device,
-            **kwargs,
+        EmbeddingModel.__init__(
+            self, model_uid, model_path, model_family, quantization, device, **kwargs
         )
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._return_sparse = return_sparse
 
     def load(self):
@@ -105,7 +102,7 @@ class FlagEmbeddingModel(EmbeddingModel):
         )
         self._tokenizer = self._model.tokenizer
 
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,
@@ -285,8 +282,11 @@ class FlagEmbeddingModel(EmbeddingModel):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("FlagEmbedding") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("FlagEmbedding", "FlagEmbedding")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
@@ -294,10 +294,9 @@ class FlagEmbeddingModel(EmbeddingModel):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        if (
-            model_spec.model_format in ["pytorch"]
-            and model_family.model_name in FLAG_EMBEDDER_MODEL_LIST
-        ):
-            return True
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "FlagEmbedding engine only supports pytorch format"
+        if model_family.model_name not in FLAG_EMBEDDER_MODEL_LIST:
+            return False, f"{model_family.model_name} is not supported by FlagEmbedding"
+        return True

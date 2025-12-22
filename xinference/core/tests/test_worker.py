@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
 
@@ -37,7 +38,7 @@ class MockWorkerActor(WorkerActor):
         pass
 
     def get_gpu_to_model_uid(self):
-        return self._gpu_to_model_uid
+        return self._gpu_to_model_uids
 
     def get_gpu_to_embedding_model_uids(self):
         return self._gpu_to_embedding_model_uids
@@ -50,8 +51,8 @@ class MockWorkerActor(WorkerActor):
             return False
         if model_uid.startswith("vllm_"):
             return True
-        for _dev in self._gpu_to_model_uid:
-            if model_uid == self._gpu_to_model_uid[_dev]:
+        for _dev, model_uids in self._gpu_to_model_uids.items():
+            if model_uid in model_uids:
                 return True
         return False
 
@@ -112,8 +113,8 @@ async def test_allocate_cuda_devices(setup_pool):
     devices = await worker.allocate_devices(model_uid="mock_model_3", n_gpu=3)
     assert devices == [5, 6, 7]
 
-    with pytest.raises(RuntimeError):
-        await worker.allocate_devices(model_uid="mock_model_4", n_gpu=5)
+    devices = await worker.allocate_devices(model_uid="mock_model_4", n_gpu=5)
+    assert devices == [0, 1, 2, 3, 4]
 
 
 @pytest.mark.asyncio
@@ -158,12 +159,30 @@ async def test_terminate_model_flag(setup_pool):
 
     gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
-        assert "model_model_3" == gpu_to_model_id[dev]
+        assert "model_model_3" in gpu_to_model_id[dev]
     await worker.terminate_model("model_model_3")
 
     gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
         assert dev not in gpu_to_model_id
+
+
+def test_merge_virtual_env_packages_override_and_append():
+    base_packages = [
+        "transformers @ git+https://github.com/huggingface/transformers@abcdef",
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+    ]
+    extra_packages = ["transformers==5.0.0.dev0", "numpy==2.1.0"]
+
+    merged = merge_virtual_env_packages(base_packages, extra_packages)
+
+    assert merged == [
+        "transformers==5.0.0.dev0",  # user-specified overrides default
+        "accelerate>=0.34.2",
+        "#system_numpy#",
+        "numpy==2.1.0",
+    ]
 
 
 @pytest.mark.asyncio
@@ -339,11 +358,12 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert 1 in llm_info
     assert 3 in llm_info
 
-    # launch without gpu_idx again, error
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "normal_model_model_6", "mock_model_name", None, None, None, "LLM", n_gpu=1
-        )
+    # launch without gpu_idx again, should reuse the least loaded GPU
+    await worker.launch_builtin_model(
+        "normal_model_model_6", "mock_model_name", None, None, None, "LLM", n_gpu=1
+    )
+    llm_info = await worker.get_gpu_to_model_uid()
+    assert len(llm_info) == 4
 
     #  test terminate and cleanup
     await worker.terminate_model("normal_model_model_1")
@@ -351,6 +371,7 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     await worker.terminate_model("vllm_model_model_3")
     await worker.terminate_model("model_model_4")
     await worker.terminate_model("normal_model_model_5")
+    await worker.terminate_model("normal_model_model_6")
 
     llm_info = await worker.get_gpu_to_model_uid()
     assert len(llm_info) == 0
@@ -379,11 +400,10 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert list(user_specified_info[0])[0][0] == "vllm_mock_model_2"
     assert list(user_specified_info[0])[0][1] == "LLM"
 
-    # never choose gpu 0 again
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "normal_mock_model_3", "mock_model_name", None, None, None, "LLM", n_gpu=4
-        )
+    # launch should reuse all GPUs starting from the least loaded ones
+    await worker.launch_builtin_model(
+        "normal_mock_model_3", "mock_model_name", None, None, None, "LLM", n_gpu=4
+    )
 
     # should be on gpu 1
     await worker.launch_builtin_model(
@@ -407,15 +427,16 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     )
     embedding_info = await worker.get_gpu_to_embedding_model_uids()
     user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
-    assert "rerank_7" in embedding_info[1]
-    assert len(embedding_info[0]) == 1
+    all_embeddings = set().union(*embedding_info.values())
+    assert {
+        "embedding_1",
+        "embedding_3",
+        "embedding_5",
+        "rerank_6",
+        "rerank_7",
+    } <= all_embeddings
+    # GPU0 has user-specified vLLM plus rerank_4, so two entries expected there
     assert len(user_specified_info[0]) == 2
-    assert len(embedding_info[1]) == 2
-    assert len(user_specified_info[1]) == 0
-    assert len(embedding_info[2]) == 1
-    assert len(user_specified_info[2]) == 0
-    assert len(embedding_info[3]) == 1
-    assert len(user_specified_info[3]) == 0
 
     # cleanup
     await worker.terminate_model("embedding_1")

@@ -12,22 +12,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
-import importlib.util
 import logging
 import os
 import pprint
 import queue
-from typing import Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from packaging import version
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
+from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, normalize_response_format
 
 logger = logging.getLogger(__name__)
+
+
+def _schema_to_grammar(schema: Dict[str, Any]) -> Optional[str]:
+    try:
+        import xllamacpp
+    except Exception as e:  # pragma: no cover - optional dependency
+        logger.warning("json_schema provided but xllamacpp missing: %s", e)
+        return None
+    try:
+        return xllamacpp.json_schema_to_grammar(schema)  # type: ignore[attr-defined]
+    except Exception as e:  # pragma: no cover - conversion failure
+        logger.warning("Failed to convert json_schema to grammar for xllamacpp: %s", e)
+        return None
+
+
+def _apply_response_format(generate_config: Dict[str, Any]) -> None:
+    response_format = generate_config.pop("response_format", None)
+    normalized = normalize_response_format(response_format)
+    if not normalized or normalized.get("type") != "json_schema":
+        return
+    schema_dict = normalized.get("schema_dict")
+    if not schema_dict:
+        return
+    grammar = _schema_to_grammar(schema_dict)
+    if grammar:
+        # xllamacpp rejects configs containing both json_schema and grammar
+        generate_config.pop("json_schema", None)
+        generate_config["grammar"] = grammar
+    else:
+        generate_config.setdefault("json_schema", schema_dict)
 
 
 class _Done:
@@ -49,7 +79,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         model_path: str,
         llamacpp_model_config: Optional[dict] = None,
     ):
-        super().__init__(model_uid, model_family, model_path)
+        super().__init__(model_uid, model_family, model_path)  # type: ignore[call-arg]
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
@@ -79,20 +109,23 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return llamacpp_model_config
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("xllamacpp") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("xllamacpp", "xllamacpp")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in ["ggufv2"]:
-            return False
+            return False, "llama.cpp engine only supports ggufv2 format"
         if (
             "chat" not in llm_family.model_ability
             and "generate" not in llm_family.model_ability
         ):
-            return False
+            return False, "llama.cpp engine requires chat or generate ability"
         return True
 
     def load(self):
@@ -243,6 +276,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config = generate_config or {}
         if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
             generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
 
@@ -262,7 +296,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             try:
 
                 def _callback(res):
-                    if res.get("code"):
+                    if type(res) is list:
+                        for r in res:
+                            q.put(r)
+                    elif res.get("code"):
                         q.put(_Error(res))
                     else:
                         q.put(res)
@@ -299,6 +336,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config = generate_config or {}
         if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
             generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
 
         chat_template_kwargs = (
@@ -332,7 +370,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             try:
 
                 def _callback(res):
-                    if res.get("code"):
+                    if type(res) is list:
+                        for r in res:
+                            q.put(r)
+                    elif res.get("code"):
                         q.put(_Error(res))
                     else:
                         q.put(res)
@@ -352,12 +393,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
                         raise Exception(f"Got error in chat stream: {r.msg}")
-                    # Get valid keys (O(1) lookup)
-                    chunk_keys = ChatCompletionChunk.__annotations__
-                    # The chunk may contain additional keys (e.g., system_fingerprint),
-                    # which might not conform to OpenAI/DeepSeek formats.
-                    # Filter out keys that are not part of ChatCompletionChunk.
-                    yield {key: r[key] for key in chunk_keys if key in r}
+                    yield r
 
             return self._to_chat_completion_chunks(
                 _to_iterator(), self.reasoning_parser

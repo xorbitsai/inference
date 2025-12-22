@@ -1,9 +1,9 @@
-import importlib.util
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
+from ....device_utils import is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ...utils import cache_clean
+from ...utils import cache_clean, check_dependency_available
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
@@ -12,6 +12,8 @@ SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 class VLLMRerankModel(RerankModel):
     def load(self):
         try:
+            if is_vacc_available():
+                import vllm_vacc  # noqa: F401
             from vllm import LLM
 
         except ImportError:
@@ -139,8 +141,11 @@ class VLLMRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid4()), results=reranked_docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available("vllm", "vLLM")
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
@@ -148,9 +153,13 @@ class VLLMRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-        if model_spec.model_format in ["pytorch"]:
-            prefix = model_family.model_name.split("-", 1)[0]
-            if prefix in SUPPORTED_MODELS_PREFIXES:
-                return True
-        return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "vLLM rerank engine only supports pytorch format"
+        prefix = model_family.model_name.split("-", 1)[0]
+        if prefix not in SUPPORTED_MODELS_PREFIXES:
+            return (
+                False,
+                f"Model family {model_family.model_name} is not supported by vLLM rerank engine",
+            )
+        return True

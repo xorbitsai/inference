@@ -13,7 +13,7 @@
 # limitations under the License.
 import logging
 from threading import Thread
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
@@ -30,13 +30,16 @@ class Gemma3ChatModel(PytorchMultiModalModel):
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False
+            return (
+                False,
+                "Gemma-3 multimodal transformer supports pytorch/gptq/awq/bnb formats only",
+            )
         llm_family = model_family.model_family or model_family.model_name
-        if "gemma-3-it".lower() in llm_family.lower():
-            return True
-        return False
+        if "gemma-3-it".lower() not in llm_family.lower():
+            return False, f"Model family {llm_family} is not Gemma-3-it"
+        return True
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]

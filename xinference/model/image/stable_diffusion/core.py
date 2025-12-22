@@ -120,6 +120,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._model_spec = model_spec
         self._abilities = model_spec.model_ability or []  # type: ignore
         self._kwargs = kwargs
+        self._has_bnb_quantization = False
         # gguf
         self._gguf_model_path = gguf_model_path
         # lightning
@@ -128,6 +129,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
     @property
     def model_ability(self):
         return self._abilities
+
+    def _is_flux2_model(self) -> bool:
+        return bool(
+            self._model_spec
+            and "flux.2" in self._model_spec.model_name.lower()  # type: ignore
+        )
 
     @staticmethod
     def _get_pipeline_type(ability: str) -> type:
@@ -271,7 +278,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             self._quantize_transformer()
 
-        if (device_count := gpu_count()) > 1 and "device_map" not in self._kwargs:
+        if self._has_bnb_quantization and not self._kwargs.get("device_map"):
+            # Ensure bnb-loaded modules are placed explicitly on one device to avoid CPU/GPU mixing
+            self._kwargs["device_map"] = get_available_device()
+
+        if (
+            (device_count := gpu_count()) > 1
+            and "device_map" not in self._kwargs
+            and not self._is_flux2_model()
+        ):
             logger.debug(
                 "Device count (%d) > 1, force to set device_map=balanced", device_count
             )
@@ -287,7 +302,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     **self._kwargs,
                 )
             except ValueError:
-                if "kontext" in self._model_spec.model_name.lower():
+                model_name_lower = self._model_spec.model_name.lower()
+                if "flux.2" in model_name_lower:
+                    from diffusers import Flux2Pipeline
+
+                    self._model = Flux2Pipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "flux" in model_name_lower:
+                    from diffusers import FluxPipeline
+
+                    self._model = FluxPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "kontext" in model_name_lower:
                     # TODO: remove this branch when auto pipeline supports
                     # flux.1-kontext-dev
                     from diffusers import FluxKontextPipeline
@@ -295,9 +323,16 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     self._model = FluxKontextPipeline.from_pretrained(
                         self._model_path, **self._kwargs
                     )
-                elif "qwen" in self._model_spec.model_name.lower():
+                elif "qwen" in model_name_lower:
                     # TODO: remove this branch when auto pipeline supports
                     # Qwen-Image
+                    from diffusers import DiffusionPipeline
+
+                    self._model = DiffusionPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "z-image" in model_name_lower or "zimage" in model_name_lower:
+                    # TODO: remove this branch when auto pipeline supports Z-Image
                     from diffusers import DiffusionPipeline
 
                     self._model = DiffusionPipeline.from_pretrained(
@@ -342,6 +377,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def _get_quantize_config(self, method: str, quantization: str, module: str):
         if method == "bnb":
+            self._has_bnb_quantization = True
             try:
                 import bitsandbytes  # noqa: F401
             except ImportError:
@@ -427,7 +463,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             )
             self._kwargs[text_encoder_name] = text_encoder
         else:
-            if not self._kwargs.get("device_map"):
+            if not self._kwargs.get("device_map") and not self._is_flux2_model():
                 self._kwargs["device_map"] = "balanced"
 
     def _quantize_transformer(self):
@@ -520,6 +556,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             yield
 
     def _load_to_device(self, model):
+        if self._has_bnb_quantization and not any(
+            self._kwargs.get(flag) for flag in ["cpu_offload", "sequential_cpu_offload"]
+        ):
+            # Bitsandbytes modules do not support manual .to(); they are already on target device
+            logger.debug("Skip manual device move for bitsandbytes-quantized model")
+            return
         if self._kwargs.get("cpu_offload", False):
             logger.debug("CPU offloading model")
             model.enable_model_cpu_offload()

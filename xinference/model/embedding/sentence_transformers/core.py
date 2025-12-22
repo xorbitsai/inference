@@ -12,22 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
 import logging
-from typing import List, Optional, Union, no_type_check
+from typing import List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 import torch
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
-from ...utils import is_flash_attn_available
+from ...batch import BatchMixin
+from ...utils import check_dependency_available, is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
-class SentenceTransformerEmbeddingModel(EmbeddingModel):
+class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
+    def __init__(self, *args, **kwargs) -> None:
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
+
     def load(self):
         # TODO: load model
         try:
@@ -128,7 +132,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
 
-    def create_embedding(
+    def _create_embedding(
         self,
         sentences: Union[str, List[str]],
         **kwargs,
@@ -424,8 +428,13 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         return result
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available(
+            "sentence_transformers", "sentence-transformers"
+        )
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
@@ -433,6 +442,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel):
         model_family: EmbeddingModelFamilyV2,
         model_spec: EmbeddingSpecV1,
         quantization: str,
-    ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "SentenceTransformer embeddings require pytorch format"
+        return True

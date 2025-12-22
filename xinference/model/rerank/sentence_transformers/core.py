@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gc
-import importlib.util
 import logging
 import threading
 import uuid
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -24,7 +23,7 @@ import torch.nn as nn
 
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ...utils import is_flash_attn_available
+from ...utils import check_dependency_available, is_flash_attn_available
 from ..core import (
     RERANK_EMPTY_CACHE_COUNT,
     RerankModel,
@@ -331,8 +330,13 @@ class SentenceTransformerRerankModel(RerankModel):
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("sentence_transformers") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        dep_check = check_dependency_available(
+            "sentence_transformers", "sentence-transformers"
+        )
+        if dep_check != True:
+            return dep_check
+        return True
 
     @classmethod
     def match_json(
@@ -340,6 +344,7 @@ class SentenceTransformerRerankModel(RerankModel):
         model_family: RerankModelFamilyV2,
         model_spec: RerankSpecV1,
         quantization: str,
-    ) -> bool:
-        # As default embedding engine, sentence-transformer support all models
-        return model_spec.model_format in ["pytorch"]
+    ) -> Union[bool, Tuple[bool, str]]:
+        if model_spec.model_format not in ["pytorch"]:
+            return False, "SentenceTransformer rerank engine requires pytorch format"
+        return True

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import importlib
 import importlib.util
 import itertools
 import json
@@ -35,6 +36,7 @@ from typing import (
     Type,
     TypedDict,
     Union,
+    cast,
 )
 
 import xoscar as xo
@@ -42,6 +44,7 @@ from packaging import version
 from typing_extensions import NotRequired
 
 from ....constants import XINFERENCE_MAX_TOKENS
+from ....device_utils import is_vacc_available
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -68,6 +71,18 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from vllm.outputs import RequestOutput
+
+    # Handle ExecutorBase type import for different vLLM versions
+    # vLLM >= 0.11.1: from vllm.v1.executor import Executor
+    # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
+    try:
+        from vllm.v1.executor import Executor as ExecutorBase
+    except ImportError:
+        try:
+            from vllm.executor.executor_base import ExecutorBase
+        except ImportError:
+            # If vLLM is not installed, define a placeholder for type checking
+            ExecutorBase = Any  # type: ignore
 
 
 class VLLMModelConfig(TypedDict, total=False):
@@ -115,9 +130,13 @@ class VLLMGenerateConfig(TypedDict, total=False):
     guided_json_object: Optional[bool]
     guided_decoding_backend: Optional[str]
     guided_whitespace_pattern: Optional[str]
+    ignore_eos: Optional[bool]
 
 
 try:
+    if is_vacc_available():
+        import vllm_vacc  # noqa: F401
+
     import vllm  # noqa: F401
 
     if not getattr(vllm, "__version__", None):
@@ -299,6 +318,10 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
     VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Instruct")
     VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Thinking")
     VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("DeepSeek-V3.2-Exp")
+
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
+    VLLM_SUPPORTED_CHAT_MODELS.append("DeepSeek-V3.2")
 
 
 class VLLMModel(LLM):
@@ -375,13 +398,35 @@ class VLLMModel(LLM):
         # to call aynsc method with asyncio.run_coroutine_threadsafe
         self._loop = loop  # type: ignore
 
+    def _is_vllm_v1(self) -> bool:
+        """
+        Check if vLLM v1 is being used.
+
+        For vLLM >= 0.11.1: v1 is the default, no VLLM_USE_V1 env var needed
+        For vLLM < 0.11.1: check VLLM_USE_V1 environment variable
+        """
+        from vllm import envs
+
+        # For vLLM >= 0.11.1, v1 is default
+        if VLLM_VERSION > version.parse("0.11.0"):
+            return True
+
+        # For older versions, check the environment variable
+        return envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
+
     def load(self):
         try:
-            from vllm import envs
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
-            from vllm.executor.executor_base import ExecutorBase
             from vllm.lora.request import LoRARequest
+
+            # Handle ExecutorBase import for different vLLM versions
+            # vLLM >= 0.11.1: from vllm.v1.executor import Executor
+            # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
+            try:
+                from vllm.v1.executor import Executor as ExecutorBase
+            except ImportError:
+                from vllm.executor.executor_base import ExecutorBase
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -511,7 +556,7 @@ class VLLMModel(LLM):
                         assert worker_addresses
                         loop = self._loop
 
-                        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+                        if not self._is_vllm_v1():
                             # vLLM v0
                             from .distributed_executor import (
                                 XinferenceDistributedExecutor,
@@ -535,9 +580,15 @@ class VLLMModel(LLM):
                         else:
                             from vllm.v1.executor.abstract import Executor
 
-                            from .distributed_executor import (
-                                XinferenceDistributedExecutorV1,
-                            )
+                            # Import the appropriate executor based on vLLM version
+                            if VLLM_VERSION > version.parse("0.11.0"):
+                                from .distributed_executor_v1 import (
+                                    XinferenceDistributedExecutorV1,
+                                )
+                            else:
+                                from .distributed_executor import (
+                                    XinferenceDistributedExecutorV1,
+                                )
 
                             # vLLM V1
                             # NOTE: loop has to be None for vLLM v1
@@ -589,9 +640,7 @@ class VLLMModel(LLM):
             self._set_context_length()
 
     def _set_context_length(self):
-        from vllm import envs
-
-        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+        if not self._is_vllm_v1():
             # v0
             self._context_length = (
                 self._engine.engine.vllm_config.model_config.max_model_len
@@ -603,6 +652,13 @@ class VLLMModel(LLM):
         logger.debug("Model context length: %s", self._context_length)
 
     def _enable_v1_if_supported(self, engine_args: "vllm.AsyncEngineArgs"):
+        # For vLLM >= 0.11.1, v1 is the default, no need to set environment variable
+        if VLLM_VERSION >= version.parse("0.11.1"):
+            logger.debug(
+                "vLLM >= 0.11.1 detected, v1 is default, skip setting VLLM_USE_V1"
+            )
+            return
+
         if os.getenv("VLLM_USE_V1") is not None:
             logger.debug(
                 "Setting vLLM v1 via environment variable already, skip checking"
@@ -619,7 +675,6 @@ class VLLMModel(LLM):
                 VLLM_VERSION,
             )
             return
-
         model_config = engine_args.create_model_config()
         old_main_thread = threading.main_thread()
         try:
@@ -685,8 +740,6 @@ class VLLMModel(LLM):
             )
 
     def stop(self):
-        from vllm import envs
-
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
@@ -694,7 +747,7 @@ class VLLMModel(LLM):
         if self._check_health_task:
             self._check_health_task.cancel()
         if self._engine:
-            if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+            if not self._is_vllm_v1():
                 # v0
                 if model_executor := getattr(
                     self._engine.engine, "model_executor", None
@@ -846,46 +899,80 @@ class VLLMModel(LLM):
             "guided_json_object",
             generate_config.get("guided_json_object", guided_json_object),
         )
+        # 1. Try to get from generate config
+        ignore_eos_val = generate_config.get("ignore_eos")
+
+        # 2. else, get from extra_body
+        # sometimes Xinference put unrecognized params into extra_body
+        if ignore_eos_val is None:
+            extra_body = generate_config.get("extra_body")
+            if isinstance(extra_body, dict):
+                ignore_eos_val = extra_body.get("ignore_eos")
+
+        # 3. write into sanitized
+        sanitized.setdefault(
+            "ignore_eos", ignore_eos_val if ignore_eos_val is not None else False
+        )
 
         return sanitized
 
     @classmethod
-    def check_lib(cls) -> bool:
-        return importlib.util.find_spec("vllm") is not None
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        try:
+            importlib.import_module("vllm")
+        except ImportError as exc:  # includes missing shared libs such as libcudart
+            return False, f"Failed to import vLLM: {exc}"
+        except OSError as exc:  # native extension load errors
+            return False, f"Failed to load vLLM native extension: {exc}"
+        return True
 
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if (
+            not cls._has_cuda_device()
+            and not cls._has_mlu_device()
+            and not cls._has_vacc_device()
+        ):
+            return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs"
         if not cls._is_linux():
-            return False
+            return False, "vLLM backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return False, "vLLM supports pytorch/gptq/awq/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported by vLLM",
+                )
         if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
-                return False
+                return False, "vLLM only supports 4-bit AWQ weights"
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return False, "gptq quantization must be 3/4/8 bit for vLLM >=0.3.3"
             else:
                 if "4" not in quantization:
-                    return False
+                    return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not in vLLM supported list",
+                )
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by vLLM",
+                )
         if "generate" not in llm_family.model_ability:
-            return False
-        return VLLM_INSTALLED
+            return False, "vLLM base engine requires generate ability"
+        if not VLLM_INSTALLED:
+            return False, "vLLM library is not installed"
+        return True
 
     @staticmethod
     def _convert_request_output_to_completion_chunk(
@@ -1045,7 +1132,38 @@ class VLLMModel(LLM):
 
         if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
             # guided decoding only available for vllm >= 0.6.3
-            from vllm.sampling_params import GuidedDecodingParams
+            GuidedDecodingParams = None
+            StructuredOutputsParams = None
+            supports_guided = VLLM_VERSION < version.parse("1.12.0")
+            try:
+                import vllm.sampling_params as _sampling_params
+            except ImportError:
+                if supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
+            else:
+                if supports_guided and hasattr(
+                    _sampling_params, "GuidedDecodingParams"
+                ):
+                    GuidedDecodingParams = _sampling_params.GuidedDecodingParams
+                elif supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
+
+                if hasattr(_sampling_params, "StructuredOutputsParams"):
+                    StructuredOutputsParams = _sampling_params.StructuredOutputsParams
+                elif GuidedDecodingParams is None:
+                    logger.warning(
+                        "No guided decoding support found in vLLM %s "
+                        "(GuidedDecodingParams / StructuredOutputsParams).",
+                        VLLM_VERSION,
+                    )
 
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
@@ -1083,19 +1201,39 @@ class VLLMModel(LLM):
             if guided_whitespace_pattern:
                 guided_params["whitespace_pattern"] = guided_whitespace_pattern
 
-            # Create GuidedDecodingParams if we have any guided parameters
+            # Create GuidedDecodingParams / StructuredOutputsParams if we have any guided parameters
             guided_options = None
-            if guided_params:
+            if guided_params and GuidedDecodingParams:
                 try:
                     guided_options = GuidedDecodingParams(**guided_params)
                 except Exception as e:
                     logger.warning(f"Failed to create GuidedDecodingParams: {e}")
+                    guided_options = None
+            elif guided_params and StructuredOutputsParams:
+                try:
+                    guided_options = StructuredOutputsParams(**guided_params)
+                except Exception as e:
+                    logger.warning(f"Failed to create StructuredOutputsParams: {e}")
                     guided_options = None
 
             try:
                 import inspect
 
                 sp_sig = inspect.signature(SamplingParams)
+                unsupported_keys = [
+                    key
+                    for key in list(sanitized_generate_config.keys())
+                    if key not in sp_sig.parameters
+                ]
+                config_dict = cast(Dict[str, Any], sanitized_generate_config)
+                for key in unsupported_keys:
+                    config_dict.pop(key, None)
+                if unsupported_keys:
+                    logger.warning(
+                        "Dropping unsupported sampling params for vLLM %s: %s",
+                        VLLM_VERSION,
+                        unsupported_keys,
+                    )
                 # For v0.9.2 and similar versions, prioritize guided_decoding over structured_outputs
                 # structured_outputs was introduced later (around v0.11.0) and may not accept
                 # GuidedDecodingParams in earlier versions even if the parameter exists
@@ -1138,6 +1276,23 @@ class VLLMModel(LLM):
             sanitized_generate_config.pop("guided_json_object", None)
             sanitized_generate_config.pop("guided_decoding_backend", None)
             sanitized_generate_config.pop("guided_whitespace_pattern", None)
+            import inspect
+
+            sp_sig = inspect.signature(SamplingParams)
+            unsupported_keys = [
+                key
+                for key in list(sanitized_generate_config.keys())
+                if key not in sp_sig.parameters
+            ]
+            config_dict = cast(Dict[str, Any], sanitized_generate_config)
+            for key in unsupported_keys:
+                config_dict.pop(key, None)
+            if unsupported_keys:
+                logger.warning(
+                    "Dropping unsupported sampling params for vLLM %s: %s",
+                    VLLM_VERSION,
+                    unsupported_keys,
+                )
             sampling_params = SamplingParams(**sanitized_generate_config)
 
         prompt_or_token_ids: Union[str, Dict[str, Any], List[int]] = prompt
@@ -1159,11 +1314,19 @@ class VLLMModel(LLM):
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
+        start_wall_time = time.time()
+        start_perf = time.perf_counter()
+        logger.debug(
+            "Generate start, request_id: %s, stream: %s, start_time: %s",
+            request_id,
+            stream,
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_wall_time)),
+        )
         results_generator = self._engine.generate(
             prompt_or_token_ids,
             sampling_params,
             request_id,
-            lora_request,
+            lora_request=lora_request,
         )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
@@ -1239,14 +1402,23 @@ class VLLMModel(LLM):
                 assert chunk is not None
                 yield chunk
 
-            logger.info(
+            elapsed = time.perf_counter() - start_perf
+            completion_tps = (
+                completion_tokens / elapsed if elapsed > 0 else completion_tokens
+            )
+            total_tps = total_tokens / elapsed if elapsed > 0 else total_tokens
+            logger.debug(
                 "Generate finished, request_id: %s, stop reason: %s, prompt tokens: %s, "
-                "completion tokens: %s, all tokens: %s",
+                "completion tokens: %s, all tokens: %s, elapsed: %.3fs, "
+                "throughput: completion %.2f tok/s, total %.2f tok/s",
                 request_id,
                 finish_reason,
                 prompt_tokens,
                 completion_tokens,
                 total_tokens,
+                elapsed,
+                completion_tps,
+                total_tps,
             )
 
             # match OpenAI API stream
@@ -1292,7 +1464,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
+    ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format not in [
             "pytorch",
             "gptq",
@@ -1301,32 +1473,46 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             "bnb",
             "ggufv2",
         ]:
-            return False
+            return (
+                False,
+                "vLLM chat mode supports pytorch/gptq/awq/fp8/bnb/ggufv2 formats only",
+            )
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported in vLLM chat",
+                )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
-                return False
+                return False, "awq quantization must be 4 or 8 bit for vLLM chat"
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return False, "gptq quantization must be 3/4/8 bit for vLLM >=0.3.3"
             else:
                 if "4" not in quantization:
-                    return False
+                    return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
-                return False
+                return False, "ggufv2 support requires vLLM >= 0.8.2"
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by vLLM chat",
+                )
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by vLLM chat",
+                )
         if "chat" not in llm_family.model_ability:
-            return False
-        return VLLM_INSTALLED
+            return False, "vLLM chat engine requires chat ability"
+        if not VLLM_INSTALLED:
+            return False, "vLLM library is not installed"
+        return True
 
     def _sanitize_chat_config(
         self,
@@ -1470,50 +1656,118 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
-    ) -> bool:
-        if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False
+    ) -> Union[bool, Tuple[bool, str]]:
+        if (
+            not cls._has_cuda_device()
+            and not cls._has_mlu_device()
+            and not cls._has_vacc_device()
+        ):
+            return (
+                False,
+                "vLLM multimodal engine requires CUDA or MLU GPUs or VACC GPUs",
+            )
         if not cls._is_linux():
-            return False
+            return False, "vLLM multimodal engine is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False
+            return (
+                False,
+                "vLLM multimodal engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and quantization is not None:
-                return False
+            if quantization not in (None, "none"):
+                return (
+                    False,
+                    "pytorch format with quantization is not supported for vLLM multimodal",
+                )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
-                return False
+                return False, "awq quantization must be 4 or 8 bit for vLLM multimodal"
         if llm_spec.model_format == "gptq":
             if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
                 if not any(q in quantization for q in ("3", "4", "8")):
-                    return False
+                    return False, "gptq quantization must be 3/4/8 bit for vLLM >=0.3.3"
             else:
                 if "4" not in quantization:
-                    return False
+                    return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if isinstance(llm_family, CustomLLMFamilyV2):
             if llm_family.model_family not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return False
+                return (
+                    False,
+                    f"Custom family {llm_family.model_family} not supported by vLLM multimodal engine",
+                )
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return False
+                return (
+                    False,
+                    f"Model {llm_family.model_name} is not supported by vLLM multimodal engine",
+                )
         if (
             "vision" not in llm_family.model_ability
             and "audio" not in llm_family.model_ability
             and "omni" not in llm_family.model_ability
         ):
-            return False
-        return VLLM_INSTALLED
+            return (
+                False,
+                "vLLM multimodal engine requires vision, audio, or omni ability",
+            )
+        if not VLLM_INSTALLED:
+            return False, "vLLM library is not installed"
+        return True
+
+    @staticmethod
+    def _attach_video_metadata(
+        videos: List[Any], fps_list: Optional[List[Any]]
+    ) -> List[Any]:
+        if not fps_list:
+            return videos
+
+        attached: List[Any] = []
+        for idx, video in enumerate(videos):
+            fps = fps_list[idx] if idx < len(fps_list) else None
+            data = video
+            metadata: Dict[str, Any] = {}
+            if (
+                isinstance(video, tuple)
+                and len(video) == 2
+                and isinstance(video[1], dict)
+            ):
+                data = video[0]
+                metadata = dict(video[1])
+            if fps is not None:
+                metadata.setdefault("fps", fps)
+                metadata.setdefault("video_fps", fps)
+            attached.append((data, metadata) if metadata else data)
+        return attached
 
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
         model_config = super()._sanitize_model_config(model_config)
         if VLLM_VERSION >= version.parse("0.5.5"):
-            if model_config.get("limit_mm_per_prompt"):
-                model_config["limit_mm_per_prompt"] = json.loads(
-                    model_config.get("limit_mm_per_prompt")  # type: ignore
-                )
-            else:
+            raw_limit = model_config.get("limit_mm_per_prompt")
+            if raw_limit:
+                parsed_limit: Dict[str, int]
+                if isinstance(raw_limit, dict):
+                    parsed_limit = raw_limit
+                else:
+                    try:
+                        if isinstance(raw_limit, list):
+                            # Web UI may split the JSON string into multiple list items.
+                            raw_value = ",".join(
+                                str(item).strip() for item in raw_limit
+                            )
+                        else:
+                            raw_value = str(raw_limit)
+                        parsed_limit = json.loads(raw_value)
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning(
+                            "Failed to parse limit_mm_per_prompt %r, fallback to default: %s",
+                            raw_limit,
+                            e,
+                        )
+                        parsed_limit = {}
+                model_config["limit_mm_per_prompt"] = parsed_limit
+            if not model_config.get("limit_mm_per_prompt"):
                 if "omni" in self.model_family.model_ability:
                     model_config["limit_mm_per_prompt"] = {
                         "image": 2,
@@ -1576,7 +1830,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
-        audios, images, videos = None, None, None
+        audios, images, videos, video_kwargs = None, None, None, None
         if "internvl" not in model_family.lower():
             from qwen_omni_utils import (
                 process_audio_info,
@@ -1598,14 +1852,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
             if "omni" in self.model_family.model_ability:
-                audios, images, videos = process_mm_info(
-                    messages, use_audio_in_video=True
+                audios, images, videos, video_kwargs = process_mm_info(
+                    messages, use_audio_in_video=True, return_video_kwargs=True
                 )
             elif "audio" in self.model_family.model_ability:
                 audios = process_audio_info(messages, use_audio_in_video=False)
             elif "vision" in self.model_family.model_ability:
-                images, videos = process_vision_info(  # type: ignore
-                    messages, return_video_kwargs=False
+                images, videos, video_kwargs = process_vision_info(  # type: ignore
+                    messages, return_video_kwargs=True
                 )
 
             prompt = self.get_full_context(
@@ -1618,6 +1872,12 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         if images:
             inputs["multi_modal_data"]["image"] = images
         if videos:
+            fps_list = None
+            if isinstance(video_kwargs, dict):
+                fps_list = video_kwargs.get("fps")
+            videos = self._attach_video_metadata(videos, fps_list)
+            if fps_list:
+                inputs["mm_processor_kwargs"]["video_fps"] = fps_list
             inputs["multi_modal_data"]["video"] = videos
         if audios:
             inputs["multi_modal_data"]["audio"] = audios
