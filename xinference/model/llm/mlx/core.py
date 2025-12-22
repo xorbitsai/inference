@@ -625,19 +625,19 @@ class MLXModel(LLM):
                 address=address, uid=self.raw_model_uid
             )
 
-            # we don't actually need to get the result from shard >= 1
-            # For distributed stream, `generate` returns a synchronous iterator.
-            # Consuming it directly in the event loop would block, and using
-            # `async for` (the previous behaviour) would fail because the
-            # iterator is not async, which caused the driver shard to hang and
-            # no tokens were streamed. Run the draining work in a thread instead.
-            def _drain_iterator(it):
-                for _ in it:
-                    pass
-
             if stream:
                 iterator = await getattr(model_actor_ref, method)(*args, **kwargs)
-                await asyncio.to_thread(_drain_iterator, iterator)
+                # The iterator may be async or sync depending on backend/xoscar wrapper.
+                if hasattr(iterator, "__aiter__"):
+                    async for _ in iterator:
+                        pass
+                else:
+
+                    def _drain_iterator(it):
+                        for _ in it:
+                            pass
+
+                    await asyncio.to_thread(_drain_iterator, iterator)
             else:
                 await getattr(model_actor_ref, method)(*args, **kwargs)
 
