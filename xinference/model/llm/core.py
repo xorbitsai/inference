@@ -123,6 +123,20 @@ class LLM(abc.ABC):
 
     @staticmethod
     @lru_cache
+    def _has_vacc_device():
+        """
+        Use glob command to detect VACC devices.
+        DO NOT USE torch to impl this, which will lead to some unexpected errors.
+        """
+        try:
+            import glob
+
+            return len(glob.glob("/dev/vacc*")) > 0
+        except:
+            return False
+
+    @staticmethod
+    @lru_cache
     def _get_cuda_count():
         from ...device_utils import get_available_device_env_name
         from ...utils import cuda_count
