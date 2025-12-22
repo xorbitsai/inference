@@ -648,6 +648,22 @@ class WorkerActor(xo.StatelessActor):
             self._user_specified_gpu_to_model_uids[idx].add((model_uid, model_type))
         return sorted(gpu_idx)
 
+    @log_async(logger=logger)
+    async def get_gpu_allocation_status(self) -> Dict[str, Any]:
+        """Return current device allocation snapshot for scheduling/diagnostics."""
+        return {
+            "total": list(self._total_gpu_devices),
+            "models": {int(k): list(v) for k, v in self._gpu_to_model_uids.items()},
+            "embeddings": {
+                int(k): list(v) for k, v in self._gpu_to_embedding_model_uids.items()
+            },
+            "user_specified": {
+                int(k): [list(t) for t in v]
+                for k, v in self._user_specified_gpu_to_model_uids.items()
+            },
+            "allow_multi_replica_per_gpu": self._allow_multi_replica_per_gpu,
+        }
+
     def release_devices(self, model_uid: str):
         for dev, model_uids in list(self._gpu_to_model_uids.items()):
             if model_uid in model_uids:
