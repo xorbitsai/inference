@@ -24313,7 +24313,10 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
     ],
     "model_specs": [
       {
@@ -24369,8 +24372,9 @@
     "virtualenv": {
       "packages": []
     },
+    "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1765965063
+    "updated_at": 1766398041
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
