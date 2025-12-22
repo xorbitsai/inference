@@ -14,6 +14,7 @@
 
 import io
 import logging
+import os
 import typing
 import wave
 from collections.abc import Callable
@@ -108,12 +109,49 @@ def audio_to_bytes(response_format: str, sample_rate: int, tensor: "torch.Tensor
     import torchaudio
 
     response_pcm = response_format.lower() == "pcm"
-    with io.BytesIO() as out:
-        if response_pcm:
-            logger.info(f"PCM output, num_channels: 1, sample_rate: {sample_rate}")
-            torchaudio.save(out, tensor, sample_rate, format="wav", encoding="PCM_S")
-            # http://soundfile.sapp.org/doc/WaveFormat
-            return _extract_pcm_from_wav_bytes(out.getvalue())
-        else:
-            torchaudio.save(out, tensor, sample_rate, format=response_format)
-            return out.getvalue()
+    if torchaudio.version.__version__ < "2.9.0":
+        with io.BytesIO() as out:
+            if response_pcm:
+                logger.info(f"PCM output, num_channels: 1, sample_rate: {sample_rate}")
+                torchaudio.save(
+                    out, tensor, sample_rate, format="wav", encoding="PCM_S"
+                )
+                # http://soundfile.sapp.org/doc/WaveFormat
+                return _extract_pcm_from_wav_bytes(out.getvalue())
+            else:
+                torchaudio.save(out, tensor, sample_rate, format=response_format)
+                return out.getvalue()
+    else:
+        import tempfile
+
+        try:
+            tmp_file_path = ""
+            with tempfile.NamedTemporaryFile(
+                delete=True, suffix=f".{response_format}"
+            ) as temp_file:
+                tmp_file_path = temp_file.name
+                if response_pcm:
+                    logger.info(
+                        f"PCM output, num_channels: 1, sample_rate: {sample_rate}"
+                    )
+                    torchaudio.save(
+                        temp_file.name,
+                        tensor,
+                        sample_rate,
+                        format="wav",
+                        encoding="PCM_S",
+                    )
+                    # Read the temporary file and extract PCM data
+                    with open(temp_file.name, "rb") as f:
+                        wav_bytes = f.read()
+                    return _extract_pcm_from_wav_bytes(wav_bytes)
+                else:
+                    torchaudio.save(
+                        temp_file.name, tensor, sample_rate, format=response_format
+                    )
+                    # Read the temporary file and return its content
+                    with open(temp_file.name, "rb") as f:
+                        return f.read()
+        finally:
+            if tmp_file_path and os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
