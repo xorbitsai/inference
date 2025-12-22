@@ -21568,7 +21568,8 @@
     "model_ability": [
       "chat",
       "vision",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.",
     "model_specs": [
@@ -21650,11 +21651,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957771,
     "featured": false,
     "architectures": [
       "Glm4vForConditionalGeneration"
-    ]
+    ],
+    "updated_at": 1766117752
   },
   {
     "version": 2,
@@ -21921,7 +21922,8 @@
     "model_ability": [
       "chat",
       "vision",
-      "reasoning"
+      "reasoning",
+      "tools"
     ],
     "model_description": "GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.",
     "model_specs": [
@@ -22021,6 +22023,7 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "tool_parser": "glm4",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "virtualenv": {
@@ -22029,11 +22032,11 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957774,
     "featured": false,
     "architectures": [
       "Glm4vMoeForConditionalGeneration"
-    ]
+    ],
+    "updated_at": 1766117786
   },
   {
     "version": 2,
