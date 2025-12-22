@@ -1144,7 +1144,8 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             try:
                 strategy = None
-                if gpu_idx is None:
+                use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
+                if gpu_idx is None and use_gpu:
                     strategy_name = (XINFERENCE_LAUNCH_STRATEGY or "").lower()
                     normalized = strategy_name.replace("-", "_")
                     if normalized in ("idlefirst", "idle_first_launch_strategy"):
