@@ -202,7 +202,7 @@ The following is a list of built-in LLM in Xinference:
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
    * - :ref:`glm-4.1v-thinking <models_llm_glm-4.1v-thinking>`
-     - chat, vision, reasoning
+     - chat, vision, reasoning, tools
      - 65536
      - GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.
 
@@ -212,7 +212,7 @@ The following is a list of built-in LLM in Xinference:
      - The GLM-4.5 series models are foundation models designed for intelligent agents. 
 
    * - :ref:`glm-4.5v <models_llm_glm-4.5v>`
-     - chat, vision, reasoning
+     - chat, vision, reasoning, tools
      - 131072
      - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 

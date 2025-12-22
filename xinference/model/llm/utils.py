@@ -83,6 +83,7 @@ GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat",
     "glm4-chat-1m",
     "glm-4.5",
+    "glm-4.5v",
 ]
 
 LLAMA3_TOOL_CALL_FAMILY = [

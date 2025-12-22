@@ -113,12 +113,22 @@ class Glm4_1VModel(PytorchMultiModalModel):
         generate_config: Dict,
     ):
         msgs = self._get_processed_msgs(messages)
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
+        tools = generate_config.get("tools", None) if generate_config else None
+        if tools:
+            chat_template_kwargs["tools"] = tools
         inputs = self._processor.apply_chat_template(
             msgs,
             add_generation_prompt=True,
             tokenize=True,
             return_tensors="pt",
             return_dict=True,
+            **chat_template_kwargs,
         )  # chat mode
         inputs = inputs.to(self._model.device)
         return inputs
