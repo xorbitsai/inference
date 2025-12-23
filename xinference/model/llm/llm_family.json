@@ -9057,7 +9057,10 @@
         }
       }
     ],
-    "updated_at": 1763446216,
+    "updated_at": 1766481614,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
@@ -9433,7 +9436,10 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1763446217,
+    "updated_at": 1766481639,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
@@ -9493,7 +9499,10 @@
         }
       }
     ],
-    "updated_at": 1763446219,
+    "updated_at": 1766481772,
+    "architectures": [
+      "MllamaForConditionalGeneration"
+    ],
     "featured": false
   },
   {
@@ -9564,7 +9573,10 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1763446220,
+    "updated_at": 1766481718,
+    "architectures": [
+      "MllamaForConditionalGeneration"
+    ],
     "featured": false
   },
   {
@@ -9705,7 +9717,10 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1763446221,
+    "updated_at": 1766481833,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
@@ -20823,7 +20838,10 @@
         }
       }
     ],
-    "updated_at": 1763446276,
+    "updated_at": 1766481884,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
