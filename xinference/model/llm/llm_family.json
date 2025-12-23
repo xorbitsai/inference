@@ -20829,7 +20829,10 @@
         }
       }
     ],
-    "updated_at": 1763446276,
+    "updated_at": 1766481884,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
