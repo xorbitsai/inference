@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
+    AsyncGenerator,
     Dict,
     Iterator,
     List,
@@ -61,6 +61,293 @@ from ..utils import (
 logger = logging.getLogger(__name__)
 
 
+class MLXBatchModel:
+    """Wrapper around MLX-LM BatchGenerator for continuous batching."""
+
+    # Class-level storage for multiple batch generators keyed by (temperature, top_p)
+    _batch_generators: Dict[Tuple[float, float], Dict[str, Any]] = (
+        {}
+    )  # (temp, top_p) -> {'generator': BatchGenerator, 'queues': dict, 'pending': dict, 'active': set, 'task': task}
+    _model_ref = None
+    _tokenizer_ref = None
+    _batch_size = 4
+    _max_context_length = 2048
+    _stop_tokens: set = set()
+    _lock = threading.Lock()
+
+    def __init__(
+        self, model, tokenizer, batch_size: int = 4, max_context_length: int = 2048
+    ):
+        # Store references for creating new generators on demand
+        MLXBatchModel._model_ref = model
+        MLXBatchModel._tokenizer_ref = tokenizer
+        MLXBatchModel._batch_size = batch_size
+        MLXBatchModel._max_context_length = max_context_length
+        eos_token_ids = tokenizer.eos_token_ids
+        if isinstance(eos_token_ids, int):
+            eos_token_ids = [eos_token_ids]
+        MLXBatchModel._stop_tokens = set(eos_token_ids or [])
+
+    def _get_or_create_generator(self, temperature: float, top_p: float):
+        """Get or create a BatchGenerator for the given sampling parameters."""
+        key = (round(temperature, 6), round(top_p, 6))
+
+        with MLXBatchModel._lock:
+            if key not in MLXBatchModel._batch_generators:
+                logger.info(
+                    f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
+                )
+                from mlx_lm.generate import BatchGenerator
+                from mlx_lm.sample_utils import make_sampler
+
+                # Create sampler with specific settings
+                sampler = make_sampler(temp=temperature, top_p=top_p)
+
+                # Create batch generator
+                batch_generator = BatchGenerator(
+                    model=MLXBatchModel._model_ref,
+                    max_tokens=MLXBatchModel._max_context_length,
+                    stop_tokens=MLXBatchModel._stop_tokens,
+                    sampler=sampler,
+                    completion_batch_size=MLXBatchModel._batch_size,
+                    prefill_batch_size=1,  # Use 1 for lowest latency
+                )
+
+                MLXBatchModel._batch_generators[key] = {
+                    "generator": batch_generator,
+                    "queues": {},  # uid -> asyncio.Queue
+                    "pending": {},  # uid -> list of results
+                    "active": set(),  # active uids
+                    "task": None,
+                }
+
+            return MLXBatchModel._batch_generators[key]
+
+    def _ensure_background_worker(self, gen_dict):
+        """Ensure background worker is running for this generator."""
+        if gen_dict["task"] is None:
+            loop = asyncio.get_event_loop()
+            gen_dict["task"] = loop.create_task(self._background_worker(gen_dict))
+
+    async def _background_worker(self, gen_dict):
+        """Background worker that continuously calls next() and distributes results."""
+        key = f"temp={gen_dict['generator'].sampler}"
+        logger.info(f"Starting BatchGenerator background worker for {key}")
+        batch_generator = gen_dict["generator"]
+
+        while True:
+            try:
+                # Get next batch of results for ALL active requests
+                batch_results = batch_generator.next()
+
+                if not batch_results:
+                    # No active requests, sleep briefly
+                    await asyncio.sleep(0.001)
+                    continue
+
+                # Distribute results to respective request queues
+                with MLXBatchModel._lock:
+                    for result in batch_results:
+                        if result.uid in gen_dict["queues"]:
+                            queue = gen_dict["queues"][result.uid]
+                            # Put result in queue
+                            try:
+                                queue.put_nowait(result)
+                            except asyncio.QueueFull:
+                                logger.warning(f"Queue full for uid {result.uid}")
+                        else:
+                            # Queue not ready yet, cache the result
+                            if result.uid not in gen_dict["pending"]:
+                                gen_dict["pending"][result.uid] = []
+                            gen_dict["pending"][result.uid].append(result)
+                            logger.debug(
+                                f"Cached result for uid {result.uid}, queue not ready yet"
+                            )
+
+                        # Remove from active requests if finished
+                        if result.finish_reason is not None:
+                            if result.uid in gen_dict["active"]:
+                                gen_dict["active"].remove(result.uid)
+                                logger.debug(
+                                    f"Request {result.uid} finished, removed from active set"
+                                )
+
+                # Small delay to prevent busy waiting
+                await asyncio.sleep(0.0001)
+
+            except Exception as e:
+                logger.error(f"Error in background worker: {e}", exc_info=True)
+                await asyncio.sleep(0.01)
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        max_tokens: int,
+        temperature: float = 0.0,
+        top_p: float = 1.0,
+        request_id: Optional[str] = None,
+        skip_special_tokens: bool = True,
+    ) -> AsyncGenerator[CompletionChunk, None]:
+        """Async stream generate method using BatchGenerator."""
+        # Get or create generator for this sampling configuration
+        gen_dict = self._get_or_create_generator(temperature, top_p)
+        batch_generator = gen_dict["generator"]
+
+        # Ensure background worker is running for this generator
+        self._ensure_background_worker(gen_dict)
+
+        # Prepare request
+        assert MLXBatchModel._tokenizer_ref is not None
+        prompt_tokens = MLXBatchModel._tokenizer_ref.encode(prompt)
+        input_echo_len = len(prompt_tokens)
+
+        # Create queue first
+        queue: asyncio.Queue = asyncio.Queue()
+
+        # Insert prompt into batch to get the real uid
+        request_ids = batch_generator.insert([prompt_tokens], max_tokens=max_tokens)
+        inserted_uid = request_ids[0]
+
+        logger.debug(
+            f"Inserted request {inserted_uid} into batch (temp={temperature}, top_p={top_p})"
+        )
+
+        # Add to active requests set
+        with MLXBatchModel._lock:
+            gen_dict["active"].add(inserted_uid)
+            gen_dict["queues"][inserted_uid] = queue
+
+            # Check if there are any pending results (early results that arrived before queue was ready)
+            if inserted_uid in gen_dict["pending"]:
+                logger.debug(
+                    f"Found {len(gen_dict['pending'][inserted_uid])} pending results for uid {inserted_uid}"
+                )
+                for result in gen_dict["pending"][inserted_uid]:
+                    try:
+                        queue.put_nowait(result)
+                    except asyncio.QueueFull:
+                        logger.warning(
+                            f"Queue full for uid {inserted_uid} while adding pending results"
+                        )
+                del gen_dict["pending"][inserted_uid]
+
+        try:
+            # Track generated text
+            generated_tokens = []
+            chunk_id = str(uuid.uuid4())
+            token_count = 0
+
+            # Wait for results from background worker
+            while True:
+                try:
+                    # Wait for result with short timeout (so we can check if request is still active)
+                    result = await asyncio.wait_for(queue.get(), timeout=0.5)
+
+                    if result.token is not None:
+                        generated_tokens.append(result.token)
+                        token_count += 1
+
+                        # Decode current token
+                        assert MLXBatchModel._tokenizer_ref is not None
+                        token_text = MLXBatchModel._tokenizer_ref.decode(
+                            [result.token], skip_special_tokens=skip_special_tokens
+                        )
+                        token_text = token_text.strip("�")
+
+                        # Generate completion chunk
+                        yield generate_completion_chunk(
+                            chunk_text=token_text,
+                            finish_reason=None,
+                            chunk_id=chunk_id,
+                            model_uid=None,
+                            prompt_tokens=input_echo_len,
+                            completion_tokens=token_count,
+                            total_tokens=input_echo_len + token_count,
+                        )
+
+                    # Check if generation is finished
+                    if result.finish_reason is not None:
+                        # Generate final chunk with finish reason
+                        finish_reason = (
+                            "length" if result.finish_reason == "length" else "stop"
+                        )
+                        yield generate_completion_chunk(
+                            chunk_text="",
+                            finish_reason=finish_reason,
+                            chunk_id=chunk_id,
+                            model_uid=None,
+                            prompt_tokens=input_echo_len,
+                            completion_tokens=token_count,
+                            total_tokens=input_echo_len + token_count,
+                        )
+                        logger.debug(
+                            f"Request {inserted_uid} finished with {finish_reason}"
+                        )
+                        return
+
+                except asyncio.TimeoutError:
+                    # Check if request is still in active set
+                    with MLXBatchModel._lock:
+                        is_active = inserted_uid in gen_dict["active"]
+
+                    if not is_active:
+                        # Request has finished (removed from active set by background worker)
+                        logger.debug(
+                            f"Request {inserted_uid} is no longer active, finishing"
+                        )
+                        return
+                    # Otherwise, continue waiting (request is still being processed)
+
+        except Exception as e:
+            logger.error(f"Error in generate_stream for request: {e}", exc_info=True)
+            # Generate error chunk
+            yield generate_completion_chunk(
+                chunk_text="",
+                finish_reason="error",
+                chunk_id=chunk_id,
+                model_uid=None,
+                prompt_tokens=input_echo_len,
+                completion_tokens=token_count,
+                total_tokens=input_echo_len + token_count,
+            )
+        finally:
+            # Clean up queue using the correct uid
+            with MLXBatchModel._lock:
+                if inserted_uid in gen_dict["queues"]:
+                    del gen_dict["queues"][inserted_uid]
+                    logger.debug(f"Cleaned up queue for uid {inserted_uid}")
+                # Also clean up any pending results
+                if inserted_uid in gen_dict["pending"]:
+                    del gen_dict["pending"][inserted_uid]
+                # And remove from active set (in case it's still there)
+                if inserted_uid in gen_dict["active"]:
+                    gen_dict["active"].remove(inserted_uid)
+
+    async def generate(
+        self,
+        prompt: str,
+        max_tokens: int,
+        temperature: float = 0.0,
+        top_p: float = 1.0,
+        stream: bool = False,
+        skip_special_tokens: bool = True,
+    ) -> str:
+        """Async generate method using BatchGenerator."""
+        # Non-streaming: collect all tokens
+        result_text = ""
+        async for chunk in self.generate_stream(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            request_id=None,
+            skip_special_tokens=skip_special_tokens,
+        ):
+            if chunk.get("choices") and len(chunk["choices"]) > 0:
+                result_text += chunk["choices"][0].get("text", "")
+        return result_text
+
+
 class MLXModelConfig(TypedDict, total=False):
     revision: Optional[str]
     max_gpu_memory: str
@@ -70,6 +357,9 @@ class MLXModelConfig(TypedDict, total=False):
     address: Optional[str]
     shard: Optional[int]
     n_worker: Optional[int]
+    # batch configuration
+    allow_batch: bool
+    batch_size: int
 
 
 class MLXGenerateConfig(TypedDict, total=False):
@@ -114,6 +404,17 @@ def get_context_length(config: dict) -> int:
 class MLXModel(LLM):
     _rank_to_addresses: Optional[Dict[int, str]]
 
+    @property
+    def allow_batch(self) -> bool:
+        """Dynamic check for continuous batching support.
+
+        Continuous batching is only supported for:
+        - Non-distributed inference (single worker)
+        - Models that explicitly enable it (MLXChatModel)
+        """
+        # Base MLXModel doesn't support continuous batching
+        return False
+
     def __init__(
         self,
         model_uid: str,
@@ -142,6 +443,7 @@ class MLXModel(LLM):
             raise ValueError("MLX engine has not supported lora yet")
         # used to call async
         self._loop = None
+        self._batch_model = None
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         # loop will be passed into ModelWrapper,
@@ -244,6 +546,11 @@ class MLXModel(LLM):
         if stop_token_ids := self.model_family.stop_token_ids:
             for stop_token_id in stop_token_ids:
                 tokenizer.add_eos_token(stop_token_id)
+
+        # Store model and tokenizer for batch model creation later
+        self._model = model
+        self._tokenizer = tokenizer
+
         return model, tokenizer
 
     def _load_model_shard(self, **kwargs):
@@ -403,6 +710,22 @@ class MLXModel(LLM):
         config.update(self._model_config)
         self._context_length = get_context_length(config)
 
+        # Create MLXBatchModel for continuous batching after context length is available
+        # Only enable continuous batching for non-distributed inference (single worker)
+        if (
+            self._batch_model is None
+            and hasattr(self, "_model")
+            and hasattr(self, "_tokenizer")
+            and self._n_worker <= 1  # Disable for distributed inference
+        ):
+            batch_size = self._model_config.get("batch_size", 4)
+            self._batch_model = MLXBatchModel(
+                model=self._model,
+                tokenizer=self._tokenizer,
+                batch_size=batch_size,
+                max_context_length=self._context_length,
+            )
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("mlx_lm", "mlx_lm")
@@ -528,6 +851,7 @@ class MLXModel(LLM):
             "top_p": kwargs["top_p"],
             "repetition_penalty": kwargs["repetition_penalty"],
             "repetition_context_size": kwargs["repetition_context_size"],
+            "stop_token_ids": stop_token_ids,
             # Don't pass prompt_cache for VLM models to let mlx_vlm handle it
         }
 
@@ -641,29 +965,16 @@ class MLXModel(LLM):
         assert self._loop is not None
         return asyncio.run_coroutine_threadsafe(run_non_driver_shards(), self._loop)
 
-    def generate(
+    async def async_generate(
         self,
         prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[MLXGenerateConfig] = None,
-        from_chat: bool = False,
-    ) -> Union[Completion, Iterator[CompletionChunk]]:
-        def generator_wrapper(
-            prompt: Union[str, Dict[str, Any]],
-            generate_config: MLXGenerateConfig,
-            cb: Callable,
-        ) -> Iterator[CompletionChunk]:
-            try:
-                for completion_chunk, completion_usage in self._generate_stream(
-                    prompt,
-                    generate_config,
-                ):
-                    completion_chunk["usage"] = completion_usage
-                    yield completion_chunk
-            finally:
-                cb()
-
+        request_id: Optional[str] = None,
+    ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         logger.debug(
-            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+            "Enter async_generate, prompt: %s, generate config: %s",
+            prompt,
+            generate_config,
         )
 
         generate_config = self._sanitize_generate_config(generate_config)
@@ -672,38 +983,137 @@ class MLXModel(LLM):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
-        fut = self._run_non_drivers(
-            "generate", stream, prompt, generate_config=generate_config
-        )
-        if not stream:
-            for completion_chunk, completion_usage in self._generate_stream(
-                prompt,
-                generate_config,
-            ):
-                pass
-            completion = Completion(
-                id=completion_chunk["id"],
-                object=completion_chunk["object"],
-                created=completion_chunk["created"],
-                model=completion_chunk["model"],
-                choices=completion_chunk["choices"],
-                usage=completion_usage,
-            )
-            try:
+
+        # If batch model is available (non-distributed inference), use continuous batching
+        if self._batch_model is not None:
+            # Extract prompt text
+            if isinstance(prompt, dict):
+                prompt_text = prompt.get("prompt", "")
+            else:
+                prompt_text = prompt
+
+            # Handle max_tokens - use auto-calculation if not set
+            max_tokens = generate_config.get("max_tokens")
+            if max_tokens is None:
+                # Calculate max_tokens automatically based on context length and prompt length
+                prompt_tokens = self._tokenizer.encode(prompt_text)
+                input_echo_len = len(prompt_tokens)
+                max_tokens = self._context_length - input_echo_len
+                logger.debug(
+                    f"Auto-calculated max_tokens: {max_tokens} (context_length: {self._context_length}, input_echo_len: {input_echo_len})"
+                )
+
+            if stream:
+                # Return async generator for streaming
+                async def stream_generator():
+                    async for chunk in self._batch_model.generate_stream(
+                        prompt=prompt_text,
+                        max_tokens=max_tokens,
+                        temperature=generate_config.get("temperature", 1.0),
+                        top_p=generate_config.get("top_p", 1.0),
+                        request_id=request_id or str(uuid.uuid4()),
+                        skip_special_tokens=generate_config.get(
+                            "skip_special_tokens", True
+                        ),
+                    ):
+                        # Set model_uid for each chunk
+                        if hasattr(chunk, "get"):
+                            chunk["model"] = self.model_uid
+                            if chunk.get("choices") and len(chunk["choices"]) > 0:
+                                chunk["choices"][0]["index"] = 0
+                        yield chunk
+
+                return stream_generator()
+            else:
+                # Non-streaming: get full result and return completion
+                result = await self._batch_model.generate(
+                    prompt=prompt_text,
+                    max_tokens=max_tokens,
+                    temperature=generate_config.get("temperature", 1.0),
+                    top_p=generate_config.get("top_p", 1.0),
+                    stream=False,
+                    skip_special_tokens=generate_config.get(
+                        "skip_special_tokens", True
+                    ),
+                )
+
+                # Return completion object
+                completion = Completion(
+                    id=str(uuid.uuid4()),
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[
+                        {
+                            "text": str(result),
+                            "index": 0,
+                            "logprobs": None,
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    usage=CompletionUsage(
+                        prompt_tokens=len(prompt_text),
+                        completion_tokens=len(str(result)),
+                        total_tokens=len(prompt_text) + len(str(result)),
+                    ),
+                )
                 return completion
-            finally:
-                if fut:
-                    fut.result()
+
+        # Fallback to original implementation for distributed inference
+        # For distributed inference, use _generate_stream which doesn't use BatchGenerator
+        if stream:
+
+            async def stream_generator():
+                loop = asyncio.get_event_loop()
+                chunk_iterator = await loop.run_in_executor(
+                    None, self._generate_stream, prompt, generate_config
+                )
+                for chunk, usage in chunk_iterator:
+                    chunk["model"] = self.model_uid
+                    yield chunk
+
+            return stream_generator()
         else:
+            # Non-streaming: collect all chunks and return completion
+            loop = asyncio.get_event_loop()
+            chunk_iterator = await loop.run_in_executor(
+                None, self._generate_stream, prompt, generate_config
+            )
 
-            def finish_callback():
-                if fut:
-                    fut.result()
+            text = ""
+            finish_reason = None
+            usage = None
+            for chunk, chunk_usage in chunk_iterator:
+                if chunk.get("choices") and len(chunk["choices"]) > 0:
+                    text += chunk["choices"][0].get("text", "")
+                    finish_reason = chunk["choices"][0].get("finish_reason")
+                usage = chunk_usage
 
-            return generator_wrapper(prompt, generate_config, finish_callback)
+            return Completion(
+                id=str(uuid.uuid4()),
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[
+                    {
+                        "text": text,
+                        "index": 0,
+                        "logprobs": None,
+                        "finish_reason": finish_reason,
+                    }
+                ],
+                usage=usage,
+            )
 
 
 class MLXChatModel(MLXModel, ChatModelMixin):
+    @property
+    def allow_batch(self) -> bool:
+        """MLXChatModel supports continuous batching only for non-distributed inference."""
+        # Only support continuous batching for single worker (non-distributed)
+        n_worker = self._n_worker if self._n_worker is not None else 1
+        return n_worker <= 1
+
     def _sanitize_generate_config(
         self,
         generate_config: Optional[MLXGenerateConfig],
@@ -733,11 +1143,12 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             return False, "MLX chat engine does not support vision models"
         return True
 
-    def chat(
+    async def async_chat(
         self,
         messages: List[Dict],
         generate_config: Optional[MLXGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
         chat_template_kwargs = (
@@ -763,12 +1174,23 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
         stream = generate_config.get("stream", False)
         if stream:
-            it = self.generate(full_prompt, generate_config, from_chat=True)
-            assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it, self.reasoning_parser)
+            # Use async_generate for streaming
+            chunks = await self.async_generate(full_prompt, generate_config)
+            assert hasattr(
+                chunks, "__aiter__"
+            ), "async_generate should return AsyncGenerator for streaming"
+            # Type narrowing: we know chunks is an AsyncGenerator when stream=True
+            return self._async_to_chat_completion_chunks(
+                chunks,  # type: ignore[arg-type]
+                self.reasoning_parser,
+                chat_template_kwargs,
+            )
         else:
-            c = self.generate(full_prompt, generate_config, from_chat=True)
-            assert not isinstance(c, Iterator)
+            # Use async_generate for non-streaming
+            c = await self.async_generate(full_prompt, generate_config)
+            assert not hasattr(
+                c, "__aiter__"
+            ), "async_generate should return Completion for non-streaming"
             if tools:
                 return self._post_process_completion(
                     self.model_family, self.model_uid, c
@@ -777,6 +1199,11 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
+    @property
+    def allow_batch(self) -> bool:
+        """Vision models don't support continuous batching."""
+        return False
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("mlx_vlm", "mlx_vlm")
@@ -796,6 +1223,58 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             return False, "MLX vision engine requires vision ability"
         return True
 
+    def generate(
+        self,
+        prompt: Union[str, Dict[str, Any]],
+        generate_config: Optional[MLXGenerateConfig] = None,
+        from_chat: bool = False,
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
+        """Generate method for vision models (not using continuous batching)."""
+        generate_config = self._sanitize_generate_config(generate_config)
+
+        assert self._model is not None
+        assert self._tokenizer is not None
+
+        stream = generate_config.get("stream", False)
+
+        if stream:
+            # Return generator for streaming
+            return self._generate_stream(prompt, generate_config)
+        else:
+            # Non-streaming: collect all chunks and return completion
+            text = ""
+            finish_reason = None
+            usage = None
+            for chunk, chunk_usage in self._generate_stream(prompt, generate_config):
+                if chunk.get("choices") and len(chunk["choices"]) > 0:
+                    text += chunk["choices"][0].get("text", "")
+                    finish_reason = chunk["choices"][0].get("finish_reason")
+                usage = chunk_usage
+
+            return Completion(
+                id=str(uuid.uuid4()),
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[
+                    {
+                        "text": text,
+                        "index": 0,
+                        "logprobs": None,
+                        "finish_reason": finish_reason,
+                    }
+                ],
+                usage=usage,
+            )
+
+    def wait_for_load(self):
+        """Override parent wait_for_load to skip MLXBatchModel creation."""
+        if self._loading_thread:
+            self._loading_thread.join()
+            if self._loading_error:
+                _, err, tb = self._loading_error
+                raise err.with_traceback(tb)
+
     def _load_model(self, **kwargs):
         try:
             from mlx_vlm import load
@@ -813,6 +1292,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         return load(self.model_path)
 
     def load(self):
+        from mlx_lm.utils import load_config
+
         if self._n_worker > 1:
             raise NotImplementedError(
                 "Distributed inference is not supported for vision models"
@@ -828,6 +1309,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         self._model, self._processor = self._load_model(**kwargs)
         self._tokenizer = self._processor.tokenizer
 
+        # get context length
+        config = load_config(Path(self.model_path))
+        config.update(self._model_config)
+        self._context_length = get_context_length(config)
+
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
 
@@ -839,6 +1325,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         from mlx_vlm.generate import generate_step
 
         inputs = kwargs.pop("prompt_token_ids")
+        stop_token_ids = kwargs.pop("stop_token_ids", [])
 
         extra_kwargs = kwargs.copy()
         input_ids, pixel_values, mask, kwargs = inputs
@@ -857,7 +1344,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     prompt_time = time.perf_counter() - tic
                     prompt_tps = len(input_ids) / prompt_time
                     tic = time.perf_counter()
-                if token == tokenizer.eos_token_id:
+                if token == tokenizer.eos_token_id or token in stop_token_ids:
                     break
                 detokenizer.add_token(token)
 
