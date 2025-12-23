@@ -8632,8 +8632,11 @@
       2
     ],
     "stop": [],
-    "updated_at": 1763446212,
-    "featured": false
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "featured": false,
+    "updated_at": 1766481538
   },
   {
     "version": 2,
@@ -8724,7 +8727,10 @@
         }
       }
     ],
-    "updated_at": 1763446213,
+    "updated_at": 1766481565,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
@@ -8939,7 +8945,10 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
-    "updated_at": 1763446215,
+    "updated_at": 1766481594,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
