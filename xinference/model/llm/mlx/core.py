@@ -403,17 +403,7 @@ def get_context_length(config: dict) -> int:
 
 class MLXModel(LLM):
     _rank_to_addresses: Optional[Dict[int, str]]
-
-    @property
-    def allow_batch(self) -> bool:
-        """Dynamic check for continuous batching support.
-
-        Continuous batching is only supported for:
-        - Non-distributed inference (single worker)
-        - Models that explicitly enable it (MLXChatModel)
-        """
-        # Base MLXModel doesn't support continuous batching
-        return False
+    allow_batch: bool = False
 
     def __init__(
         self,
@@ -710,13 +700,20 @@ class MLXModel(LLM):
         config.update(self._model_config)
         self._context_length = get_context_length(config)
 
+        # Update allow_batch based on distributed inference
+        # Only enable continuous batching for non-distributed inference (single worker)
+        n_worker = self._n_worker if self._n_worker is not None else 1
+        if self.__class__.allow_batch and n_worker > 1:
+            # Distributed inference: disable continuous batching
+            self.allow_batch = False
+
         # Create MLXBatchModel for continuous batching after context length is available
         # Only enable continuous batching for non-distributed inference (single worker)
         if (
             self._batch_model is None
             and hasattr(self, "_model")
             and hasattr(self, "_tokenizer")
-            and self._n_worker <= 1  # Disable for distributed inference
+            and self.allow_batch  # Check instance-level allow_batch
         ):
             batch_size = self._model_config.get("batch_size", 4)
             self._batch_model = MLXBatchModel(
@@ -1082,7 +1079,7 @@ class MLXModel(LLM):
 
             text = ""
             finish_reason = None
-            usage = None
+            usage: Optional[CompletionUsage] = None
             for chunk, chunk_usage in chunk_iterator:
                 if chunk.get("choices") and len(chunk["choices"]) > 0:
                     text += chunk["choices"][0].get("text", "")
@@ -1102,17 +1099,18 @@ class MLXModel(LLM):
                         "finish_reason": finish_reason,
                     }
                 ],
-                usage=usage,
+                usage=(
+                    usage
+                    if usage is not None
+                    else CompletionUsage(
+                        prompt_tokens=0, completion_tokens=0, total_tokens=0
+                    )
+                ),
             )
 
 
 class MLXChatModel(MLXModel, ChatModelMixin):
-    @property
-    def allow_batch(self) -> bool:
-        """MLXChatModel supports continuous batching only for non-distributed inference."""
-        # Only support continuous batching for single worker (non-distributed)
-        n_worker = self._n_worker if self._n_worker is not None else 1
-        return n_worker <= 1
+    allow_batch: bool = True
 
     def _sanitize_generate_config(
         self,
@@ -1199,10 +1197,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
-    @property
-    def allow_batch(self) -> bool:
-        """Vision models don't support continuous batching."""
-        return False
+    allow_batch: bool = False
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
@@ -1244,7 +1239,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             # Non-streaming: collect all chunks and return completion
             text = ""
             finish_reason = None
-            usage = None
+            usage: Optional[CompletionUsage] = None
             for chunk, chunk_usage in self._generate_stream(prompt, generate_config):
                 if chunk.get("choices") and len(chunk["choices"]) > 0:
                     text += chunk["choices"][0].get("text", "")
@@ -1264,7 +1259,13 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                         "finish_reason": finish_reason,
                     }
                 ],
-                usage=usage,
+                usage=(
+                    usage
+                    if usage is not None
+                    else CompletionUsage(
+                        prompt_tokens=0, completion_tokens=0, total_tokens=0
+                    )
+                ),
             )
 
     def wait_for_load(self):
