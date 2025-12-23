@@ -33,6 +33,8 @@ The following is a list of built-in audio models in Xinference:
   
    fishspeech-1.5
   
+   fun-asr-mlt-nano-2512
+  
    fun-asr-nano-2512
   
    indextts2
