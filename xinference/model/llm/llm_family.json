@@ -9427,7 +9427,10 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1763446217,
+    "updated_at": 1766481639,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
     "featured": false
   },
   {
