@@ -8632,8 +8632,11 @@
       2
     ],
     "stop": [],
-    "updated_at": 1763446212,
-    "featured": false
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "featured": false,
+    "updated_at": 1766481538
   },
   {
     "version": 2,
