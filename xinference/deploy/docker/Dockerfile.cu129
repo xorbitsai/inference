@@ -26,7 +26,7 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvi
 
 # Install pip dependencies
 ARG LLAMA_CPP_USE_CUDA=true
-ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple/
+ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     apt-get -y update && \
     ( wget -O openfst-1.7.2.tar.gz http://www.openslr.org/resources/2/openfst-1.7.2.tar.gz \
