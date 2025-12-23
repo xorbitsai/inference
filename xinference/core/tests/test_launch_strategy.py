@@ -49,7 +49,6 @@ def test_idle_first_prefers_empty_gpu(monkeypatch):
             "alloc": {
                 "total": [0, 1],
                 "models": {0: ["m0"]},  # gpu0 has load, gpu1 empty
-                "embeddings": {},
                 "user_specified": {},
             },
         }
@@ -70,7 +69,6 @@ def test_idle_first_balances_with_reserve(monkeypatch):
             "alloc": {
                 "total": [0, 1],
                 "models": {},
-                "embeddings": {},
                 "user_specified": {},
             },
         }
@@ -108,7 +106,6 @@ def test_multi_worker_multi_gpu_even_distribution():
             "alloc": {
                 "total": [0, 1],
                 "models": {},
-                "embeddings": {},
                 "user_specified": {},
             },
         },
@@ -118,7 +115,6 @@ def test_multi_worker_multi_gpu_even_distribution():
             "alloc": {
                 "total": [0, 1],
                 "models": {},
-                "embeddings": {},
                 "user_specified": {},
             },
         },

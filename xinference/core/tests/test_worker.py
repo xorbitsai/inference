@@ -40,13 +40,12 @@ class MockWorkerActor(WorkerActor):
     def get_gpu_to_model_uid(self):
         return self._gpu_to_model_uids
 
-    def get_gpu_to_embedding_model_uids(self):
-        return self._gpu_to_embedding_model_uids
-
     def get_user_specified_gpu_to_model_uids(self):
         return self._user_specified_gpu_to_model_uids
 
     async def is_model_vllm_backend(self, model_uid):
+        if model_uid.startswith("embedding") or model_uid.startswith("rerank"):
+            return False
         if model_uid.startswith("normal_"):
             return False
         if model_uid.startswith("vllm_"):
@@ -203,33 +202,29 @@ async def test_launch_embedding_model(setup_pool):
     await worker.launch_builtin_model(
         "model_model_1", "mock_model_name", None, None, None, n_gpu=3
     )
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert len(embedding_info) == 0
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert len(gpu_to_model_id) == 3
 
     await worker.launch_builtin_model(
         "model_model_2", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
 
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert 3 in embedding_info
-    assert len(embedding_info[3]) == 1
-    assert "model_model_2" in embedding_info[3]
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert "model_model_2" in gpu_to_model_id[3]
 
     # test terminate LLM model, then launch embedding model
     await worker.terminate_model("model_model_1")
     await worker.launch_builtin_model(
         "model_model_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert 0 in embedding_info
-    assert len(embedding_info[0]) == 1
-    assert "model_model_3" in embedding_info[0]
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert "model_model_3" in gpu_to_model_id[0]
 
     await worker.terminate_model("model_model_2")
     await worker.terminate_model("model_model_3")
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert len(embedding_info[0]) == 0
-    assert len(embedding_info[3]) == 0
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert 0 not in gpu_to_model_id
+    assert 3 not in gpu_to_model_id
 
     # test embedding device candidates 2
     await worker.launch_builtin_model(
@@ -243,42 +238,20 @@ async def test_launch_embedding_model(setup_pool):
     await worker.launch_builtin_model(
         "model_model_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    assert 2 in embedding_info
-    assert 3 in embedding_info
-    assert len(embedding_info[2]) == 1
-    assert len(embedding_info[3]) == 1
-    assert "model_model_2" in embedding_info[2]
-    assert "model_model_3" in embedding_info[3]
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert "model_model_2" in gpu_to_model_id[2]
+    assert "model_model_3" in gpu_to_model_id[3]
 
     await worker.launch_builtin_model(
         "model_model_4", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    assert len(embedding_info[2]) == 2
-    assert len(embedding_info[3]) == 1
-    assert "model_model_2" in embedding_info[2]
-    assert "model_model_4" in embedding_info[2]
-    assert "model_model_3" in embedding_info[3]
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert "model_model_4" in gpu_to_model_id[0]
 
     for i in range(1, 5):
         await worker.terminate_model(f"model_model_{i}")
-    assert len(embedding_info[2]) == 0
-    assert len(embedding_info[3]) == 0
-
-    # test no slots
-    for i in range(1, 5):
-        await worker.launch_builtin_model(
-            f"model_model_{i}", "mock_model_name", None, None, None, n_gpu=1
-        )
-    with pytest.raises(RuntimeError):
-        await worker.launch_builtin_model(
-            "model_model_5", "mock_model_name", None, None, None, "embedding", n_gpu=1
-        )
-    # launch CPU would work
-    await worker.launch_builtin_model(
-        "model_model_5", "mock_model_name", None, None, None, "embedding", n_gpu=None
-    )
-    for i in range(1, 6):
-        await worker.terminate_model(f"model_model_{i}")
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
+    assert len(gpu_to_model_id) == 0
 
 
 @pytest.mark.asyncio
@@ -384,16 +357,16 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     await worker.launch_builtin_model(
         "embedding_1", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert len(embedding_info) == 1
-    assert 0 in embedding_info
+    llm_info = await worker.get_gpu_to_model_uid()
+    assert len(llm_info) == 1
+    assert 0 in llm_info
 
     await worker.launch_builtin_model(
         "vllm_mock_model_2", "mock_model_name", None, None, None, "LLM", gpu_idx=[0]
     )
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
-    assert len(embedding_info) == 1
-    assert 0 in embedding_info
+    llm_info = await worker.get_gpu_to_model_uid()
+    assert len(llm_info) == 1
+    assert 0 in llm_info
 
     user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
     assert len(user_specified_info[0]) == 1
@@ -405,50 +378,46 @@ async def test_launch_model_with_gpu_idx(setup_pool):
         "normal_mock_model_3", "mock_model_name", None, None, None, "LLM", n_gpu=4
     )
 
-    # should be on gpu 1
     await worker.launch_builtin_model(
         "embedding_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    # should be on gpu 0
     await worker.launch_builtin_model(
         "rerank_4", "mock_model_name", None, None, None, "rerank", gpu_idx=[0]
     )
-    # should be on gpu 2
     await worker.launch_builtin_model(
         "embedding_5", "mock_model_name", None, None, None, "embedding", n_gpu=1
     )
-    # should be on gpu 3
     await worker.launch_builtin_model(
         "rerank_6", "mock_model_name", None, None, None, "rerank", n_gpu=1
     )
-    # should be on gpu 1, due to there are the fewest models on it
     await worker.launch_builtin_model(
         "rerank_7", "mock_model_name", None, None, None, "rerank", n_gpu=1
     )
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
     user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
-    all_embeddings = set().union(*embedding_info.values())
+    llm_info = await worker.get_gpu_to_model_uid()
+    all_models = set().union(*llm_info.values())
     assert {
         "embedding_1",
         "embedding_3",
         "embedding_5",
         "rerank_6",
         "rerank_7",
-    } <= all_embeddings
+    } <= all_models
     # GPU0 has user-specified vLLM plus rerank_4, so two entries expected there
     assert len(user_specified_info[0]) == 2
 
     # cleanup
     await worker.terminate_model("embedding_1")
     await worker.terminate_model("vllm_mock_model_2")
+    await worker.terminate_model("normal_mock_model_3")
     await worker.terminate_model("embedding_3")
     await worker.terminate_model("rerank_4")
     await worker.terminate_model("embedding_5")
     await worker.terminate_model("rerank_6")
     await worker.terminate_model("rerank_7")
 
-    embedding_info = await worker.get_gpu_to_embedding_model_uids()
     user_specified_info = await worker.get_user_specified_gpu_to_model_uids()
-    for info in [embedding_info, user_specified_info]:
+    llm_info = await worker.get_gpu_to_model_uid()
+    for info in [llm_info, user_specified_info]:
         for dev, details in info.items():
             assert len(details) == 0

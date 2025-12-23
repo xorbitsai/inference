@@ -64,14 +64,12 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
                 continue
             total = alloc.get("total", [])
             models = alloc.get("models", {})
-            embeddings = alloc.get("embeddings", {})
             user_specified = alloc.get("user_specified", {})
             if total:
                 dev_iter = total
             else:
                 dev_iter = []
                 keys = set(models.keys())
-                keys.update(embeddings.keys())
                 keys.update(user_specified.keys())
                 for dev_key in keys:
                     try:
@@ -81,7 +79,6 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
             for dev in dev_iter:
                 models_on_dev = models.get(dev, [])
                 load = len(models_on_dev)
-                load += len(embeddings.get(dev, []))
                 load += len(user_specified.get(dev, []))
                 if (
                     best is None
