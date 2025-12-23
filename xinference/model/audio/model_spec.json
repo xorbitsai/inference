@@ -1103,5 +1103,37 @@
     },
     "featured": false,
     "updated_at": 1766461277
+  },
+  {
+    "model_name": "Fun-ASR-MLT-Nano-2512",
+    "model_description": "This is a custom model description.",
+    "multilingual": false,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "funasr",
+    "model_src": {
+      "modelscope": {
+        "model_id": "FunAudioLLM/Fun-ASR-MLT-Nano-2512",
+        "model_revision": "master"
+      },
+      "huggingface": {
+        "model_id": "FunAudioLLM/Fun-ASR-MLT-Nano-2512",
+        "model_revision": "main"
+      }
+    },
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "vad_kwargs": {
+        "max_single_segment_time": 30000
+      }
+    },
+    "default_transcription_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": []
+    },
+    "featured": false,
+    "updated_at": 1766461632
   }
 ]
