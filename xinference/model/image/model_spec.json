@@ -1153,5 +1153,42 @@
     },
     "updated_at": 1765507528,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Layered",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Layered",
+        "model_revision": "8f0ca708dfff6ba1dd5f2d85d78f8c108a040bcf"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Layered",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.3",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": true,
+    "updated_at": 1766459860
   }
 ]
