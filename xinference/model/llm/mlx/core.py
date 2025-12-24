@@ -73,7 +73,7 @@ class MLXBatchModel:
     _batch_size = 4
     _max_context_length = 2048
     _stop_tokens: set = set()
-    _lock = threading.Lock()
+    _lock: Optional[asyncio.Lock] = None  # Will be initialized lazily
 
     def __init__(
         self, model, tokenizer, batch_size: int = 4, max_context_length: int = 2048
@@ -88,40 +88,46 @@ class MLXBatchModel:
             eos_token_ids = [eos_token_ids]
         MLXBatchModel._stop_tokens = set(eos_token_ids or [])
 
+    @staticmethod
+    def _get_lock() -> asyncio.Lock:
+        """Get or create the async lock."""
+        if MLXBatchModel._lock is None:
+            MLXBatchModel._lock = asyncio.Lock()
+        return MLXBatchModel._lock
+
     def _get_or_create_generator(self, temperature: float, top_p: float):
         """Get or create a BatchGenerator for the given sampling parameters."""
         key = (round(temperature, 6), round(top_p, 6))
 
-        with MLXBatchModel._lock:
-            if key not in MLXBatchModel._batch_generators:
-                logger.info(
-                    f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
-                )
-                from mlx_lm.generate import BatchGenerator
-                from mlx_lm.sample_utils import make_sampler
+        if key not in MLXBatchModel._batch_generators:
+            logger.info(
+                f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
+            )
+            from mlx_lm.generate import BatchGenerator
+            from mlx_lm.sample_utils import make_sampler
 
-                # Create sampler with specific settings
-                sampler = make_sampler(temp=temperature, top_p=top_p)
+            # Create sampler with specific settings
+            sampler = make_sampler(temp=temperature, top_p=top_p)
 
-                # Create batch generator
-                batch_generator = BatchGenerator(
-                    model=MLXBatchModel._model_ref,
-                    max_tokens=MLXBatchModel._max_context_length,
-                    stop_tokens=MLXBatchModel._stop_tokens,
-                    sampler=sampler,
-                    completion_batch_size=MLXBatchModel._batch_size,
-                    prefill_batch_size=1,  # Use 1 for lowest latency
-                )
+            # Create batch generator
+            batch_generator = BatchGenerator(
+                model=MLXBatchModel._model_ref,
+                max_tokens=MLXBatchModel._max_context_length,
+                stop_tokens=MLXBatchModel._stop_tokens,
+                sampler=sampler,
+                completion_batch_size=MLXBatchModel._batch_size,
+                prefill_batch_size=1,  # Use 1 for lowest latency
+            )
 
-                MLXBatchModel._batch_generators[key] = {
-                    "generator": batch_generator,
-                    "queues": {},  # uid -> asyncio.Queue
-                    "pending": {},  # uid -> list of results
-                    "active": set(),  # active uids
-                    "task": None,
-                }
+            MLXBatchModel._batch_generators[key] = {
+                "generator": batch_generator,
+                "queues": {},  # uid -> asyncio.Queue
+                "pending": {},  # uid -> list of results
+                "active": set(),  # active uids
+                "task": None,
+            }
 
-            return MLXBatchModel._batch_generators[key]
+        return MLXBatchModel._batch_generators[key]
 
     def _ensure_background_worker(self, gen_dict):
         """Ensure background worker is running for this generator."""
@@ -146,7 +152,7 @@ class MLXBatchModel:
                     continue
 
                 # Distribute results to respective request queues
-                with MLXBatchModel._lock:
+                async with MLXBatchModel._get_lock():
                     for result in batch_results:
                         if result.uid in gen_dict["queues"]:
                             queue = gen_dict["queues"][result.uid]
@@ -213,7 +219,7 @@ class MLXBatchModel:
         )
 
         # Add to active requests set
-        with MLXBatchModel._lock:
+        async with MLXBatchModel._get_lock():
             gen_dict["active"].add(inserted_uid)
             gen_dict["queues"][inserted_uid] = queue
 
@@ -287,7 +293,7 @@ class MLXBatchModel:
 
                 except asyncio.TimeoutError:
                     # Check if request is still in active set
-                    with MLXBatchModel._lock:
+                    async with MLXBatchModel._get_lock():
                         is_active = inserted_uid in gen_dict["active"]
 
                     if not is_active:
@@ -312,7 +318,7 @@ class MLXBatchModel:
             )
         finally:
             # Clean up queue using the correct uid
-            with MLXBatchModel._lock:
+            async with MLXBatchModel._get_lock():
                 if inserted_uid in gen_dict["queues"]:
                     del gen_dict["queues"][inserted_uid]
                     logger.debug(f"Cleaned up queue for uid {inserted_uid}")
