@@ -8633,7 +8633,10 @@
     ],
     "stop": [],
     "featured": false,
-    "updated_at": 1766473505
+    "updated_at": 1766567529,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -8724,8 +8727,11 @@
         }
       }
     ],
-    "updated_at": 1766473507,
-    "featured": false
+    "updated_at": 1766567530,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -8939,8 +8945,11 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
-    "updated_at": 1766473509,
-    "featured": false
+    "updated_at": 1766567531,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9048,8 +9057,11 @@
         }
       }
     ],
-    "updated_at": 1766473511,
-    "featured": false
+    "updated_at": 1766567531,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9424,8 +9436,11 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1766473517,
-    "featured": false
+    "updated_at": 1766567532,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -9484,8 +9499,11 @@
         }
       }
     ],
-    "updated_at": 1766473522,
-    "featured": false
+    "updated_at": 1766567533,
+    "featured": false,
+    "architectures": [
+      "MllamaForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -9555,8 +9573,11 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1766473524,
-    "featured": false
+    "updated_at": 1766567534,
+    "featured": false,
+    "architectures": [
+      "MllamaForConditionalGeneration"
+    ]
   },
   {
     "version": 2,
@@ -9696,8 +9717,11 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1766473526,
-    "featured": false
+    "updated_at": 1766567535,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
@@ -20814,8 +20838,11 @@
         }
       }
     ],
-    "updated_at": 1766473621,
-    "featured": false
+    "updated_at": 1766567536,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ]
   },
   {
     "version": 2,
