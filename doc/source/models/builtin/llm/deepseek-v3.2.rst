@@ -7,7 +7,7 @@ DeepSeek-V3.2
 - **Context Length:** 163840
 - **Model Name:** DeepSeek-V3.2
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, reasoning, hybrid, tools
 - **Description:** We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance
 
 Specifications
