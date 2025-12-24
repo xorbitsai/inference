@@ -1102,7 +1102,7 @@
       "packages": []
     },
     "featured": false,
-    "updated_at": 1766461277
+    "updated_at": 1766568011
   },
   {
     "model_name": "Fun-ASR-MLT-Nano-2512",
@@ -1134,6 +1134,6 @@
       "packages": []
     },
     "featured": false,
-    "updated_at": 1766461632
+    "updated_at": 1766568013
   }
 ]
