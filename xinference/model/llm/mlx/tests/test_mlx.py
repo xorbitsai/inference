@@ -185,20 +185,21 @@ def test_mlx_parallel_inference(setup):
     assert result2 is not None
     assert result3 is not None
 
-    # Check streaming results
+    # Check streaming results (should use 'delta' format)
     assert "choices" in result1
     assert len(result1["choices"]) > 0
-    assert "message" in result1["choices"][0]
-    assert "content" in result1["choices"][0]["message"]
+    assert "delta" in result1["choices"][0]
+    # Streaming can have empty content in last chunk (finish_reason only)
+    assert result1["choices"][0]["finish_reason"] in ["stop", "length"]
 
-    # Check non-streaming results
+    # Check non-streaming results (should use 'message' format)
     assert "choices" in result2
     assert len(result2["choices"]) > 0
     assert "message" in result2["choices"][0]
     assert "content" in result2["choices"][0]["message"]
 
-    # Check second streaming results
+    # Check second streaming results (should use 'delta' format)
     assert "choices" in result3
     assert len(result3["choices"]) > 0
-    assert "message" in result3["choices"][0]
-    assert "content" in result3["choices"][0]["message"]
+    assert "delta" in result3["choices"][0]
+    assert result3["choices"][0]["finish_reason"] in ["stop", "length"]
