@@ -162,12 +162,12 @@ The following is a list of built-in LLM in Xinference:
      - DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.
 
    * - :ref:`deepseek-v3.2 <models_llm_deepseek-v3.2>`
-     - chat, reasoning, hybrid, tools
+     - chat
      - 163840
      - We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance
 
    * - :ref:`deepseek-v3.2-exp <models_llm_deepseek-v3.2-exp>`
-     - chat, reasoning, hybrid, tools
+     - chat, reasoning
      - 163840
      - We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
 
