@@ -94,7 +94,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         llamacpp_model_config.setdefault("use_mlock", True)
 
         if (
-            "llama-2" in self.model_family.model_name
+            self.model_family.has_architecture("LlamaForCausalLM")
             and self.model_spec.model_size_in_billions == 70
         ):
             llamacpp_model_config["use_mlock"] = False

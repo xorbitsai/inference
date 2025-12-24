@@ -41,9 +41,9 @@ try:
 except ImportError:
     LMDEPLOY_INSTALLED = False
 
-LMDEPLOY_SUPPORTED_CHAT_MODELS = ["internvl2"]
+LMDEPLOY_SUPPORTED_CHAT_MODELS = ["InternVLChatModel"]
 LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME = {
-    "internvl2": "internvl-internlm2",
+    "InternVLChatModel": "internvl-internlm2",
 }
 
 
@@ -164,7 +164,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         chat_temp_name = ""
         family = self.model_family.model_family or self.model_family.model_name
         for key in LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME.keys():
-            if family in key:
+            if family in key or self.model_family.has_architecture(key):
                 chat_temp_name = LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME[key]
                 break
         if chat_temp_name == "":
@@ -189,10 +189,12 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         if llm_spec.model_format == "awq":
             if "4" not in quantization:
                 return False, "LMDeploy chat only supports 4-bit AWQ weights"
-        if llm_family.model_name not in LMDEPLOY_SUPPORTED_CHAT_MODELS:
+        if not llm_family.matches_supported_architectures(
+            LMDEPLOY_SUPPORTED_CHAT_MODELS
+        ):
             return (
                 False,
-                f"Model {llm_family.model_name} is not in LMDeploy supported chat list",
+                f"Model architectures {llm_family.architectures} are not in LMDeploy supported chat list",
             )
         if not LMDEPLOY_INSTALLED:
             return False, "lmdeploy library is not installed"

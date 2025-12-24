@@ -55,17 +55,17 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 
-# !!!!! Do not add model_name to this list, use `register_non_default_model` below instead!
+# !!!!! Do not add model_name to this list; register architectures via `register_non_default_model` instead!
 NON_DEFAULT_MODEL_LIST: List[str] = []
 
 
 # Define the decorator to support multiple names registration
-def register_non_default_model(*model_names: str):
+def register_non_default_model(*architectures: str):
     """
-    Decorator for registering new non-default model names (supports multiple names).
+    Decorator for registering non-default model architectures.
 
     Args:
-        *model_names (str): One or more model names to be registered as non-default models.
+        *architectures (str): One or more architecture names to be treated as non-default.
 
     Returns:
         A decorator function that adds the provided model names to the NON_DEFAULT_MODEL_LIST.
@@ -81,7 +81,7 @@ def register_non_default_model(*model_names: str):
         Returns:
             The original class after registering the model names.
         """
-        for name in model_names:
+        for name in architectures:
             if name not in NON_DEFAULT_MODEL_LIST:
                 NON_DEFAULT_MODEL_LIST.append(name)
         return cls
@@ -507,11 +507,10 @@ class PytorchModel(LLM):
                 False,
                 "Transformers engine supports pytorch/gptq/awq/bnb formats only",
             )
-        model_family = llm_family.model_family or llm_family.model_name
-        if model_family in NON_DEFAULT_MODEL_LIST:
+        if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
                 False,
-                f"Model family {model_family} requires a custom transformer implementation",
+                f"Model architectures {llm_family.architectures} require a custom transformer implementation",
             )
         if "generate" not in llm_family.model_ability:
             return False, "Transformers engine requires generate ability"
@@ -973,11 +972,10 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 False,
                 "Transformers chat engine supports pytorch/gptq/awq/bnb formats only",
             )
-        model_family = llm_family.model_family or llm_family.model_name
-        if model_family in NON_DEFAULT_MODEL_LIST:
+        if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
                 False,
-                f"Model family {model_family} requires a custom transformer implementation",
+                f"Model architectures {llm_family.architectures} require a custom transformer implementation",
             )
         if "chat" not in llm_family.model_ability:
             return False, "Transformers chat engine requires chat ability"
