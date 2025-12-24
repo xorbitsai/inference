@@ -13,7 +13,7 @@
         "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
       }
     },
-    "updated_at": 1763445258,
+    "updated_at": 1766386952,
     "featured": false
   },
   {
@@ -30,7 +30,7 @@
         "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
       }
     },
-    "updated_at": 1763445260,
+    "updated_at": 1766386982,
     "featured": false
   },
   {
@@ -47,7 +47,7 @@
         "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
       }
     },
-    "updated_at": 1763445261,
+    "updated_at": 1766387032,
     "featured": false
   },
   {
@@ -64,7 +64,7 @@
         "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
       }
     },
-    "updated_at": 1763445262,
+    "updated_at": 1766387034,
     "featured": false
   },
   {
@@ -81,7 +81,7 @@
         "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
       }
     },
-    "updated_at": 1763445264,
+    "updated_at": 1766387035,
     "featured": false
   },
   {
@@ -98,7 +98,7 @@
         "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
       }
     },
-    "updated_at": 1763445265,
+    "updated_at": 1766387036,
     "featured": false
   },
   {
@@ -115,7 +115,7 @@
         "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
       }
     },
-    "updated_at": 1763445266,
+    "updated_at": 1766387038,
     "featured": false
   },
   {
@@ -132,7 +132,7 @@
         "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
       }
     },
-    "updated_at": 1763445268,
+    "updated_at": 1766387039,
     "featured": false
   },
   {
@@ -153,7 +153,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445269,
+    "updated_at": 1766387040,
     "featured": true
   },
   {
@@ -174,7 +174,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445270,
+    "updated_at": 1766387042,
     "featured": false
   },
   {
@@ -191,7 +191,7 @@
         "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8"
       }
     },
-    "updated_at": 1763445272,
+    "updated_at": 1766387046,
     "featured": false
   },
   {
@@ -208,7 +208,7 @@
         "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9"
       }
     },
-    "updated_at": 1763445273,
+    "updated_at": 1766387048,
     "featured": false
   },
   {
@@ -229,7 +229,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445274,
+    "updated_at": 1766387049,
     "featured": false
   },
   {
@@ -246,7 +246,7 @@
         "model_id": "mlx-community/whisper-tiny"
       }
     },
-    "updated_at": 1763445276,
+    "updated_at": 1766387051,
     "featured": false
   },
   {
@@ -263,7 +263,7 @@
         "model_id": "mlx-community/whisper-tiny.en-mlx"
       }
     },
-    "updated_at": 1763445277,
+    "updated_at": 1766387052,
     "featured": false
   },
   {
@@ -280,7 +280,7 @@
         "model_id": "mlx-community/whisper-base-mlx"
       }
     },
-    "updated_at": 1763445278,
+    "updated_at": 1766387054,
     "featured": false
   },
   {
@@ -297,7 +297,7 @@
         "model_id": "mlx-community/whisper-base.en-mlx"
       }
     },
-    "updated_at": 1763445279,
+    "updated_at": 1766387055,
     "featured": false
   },
   {
@@ -314,7 +314,7 @@
         "model_id": "mlx-community/whisper-small-mlx"
       }
     },
-    "updated_at": 1763445280,
+    "updated_at": 1766387056,
     "featured": false
   },
   {
@@ -331,7 +331,7 @@
         "model_id": "mlx-community/whisper-small.en-mlx"
       }
     },
-    "updated_at": 1763445282,
+    "updated_at": 1766387057,
     "featured": false
   },
   {
@@ -348,7 +348,7 @@
         "model_id": "mlx-community/whisper-medium-mlx"
       }
     },
-    "updated_at": 1763445283,
+    "updated_at": 1766387058,
     "featured": false
   },
   {
@@ -365,7 +365,7 @@
         "model_id": "mlx-community/whisper-medium.en-mlx"
       }
     },
-    "updated_at": 1763445284,
+    "updated_at": 1766387060,
     "featured": false
   },
   {
@@ -382,7 +382,7 @@
         "model_id": "mlx-community/whisper-large-v3-mlx"
       }
     },
-    "updated_at": 1763445285,
+    "updated_at": 1766387061,
     "featured": false
   },
   {
@@ -399,7 +399,7 @@
         "model_id": "mlx-community/whisper-large-v3-turbo"
       }
     },
-    "updated_at": 1763445286,
+    "updated_at": 1766387062,
     "featured": false
   },
   {
@@ -432,7 +432,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445306,
+    "updated_at": 1766387063,
     "featured": true
   },
   {
@@ -460,7 +460,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445308,
+    "updated_at": 1766387065,
     "featured": false
   },
   {
@@ -489,7 +489,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445309,
+    "updated_at": 1766387068,
     "featured": false
   },
   {
@@ -517,7 +517,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445310,
+    "updated_at": 1766387070,
     "featured": false
   },
   {
@@ -546,7 +546,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445311,
+    "updated_at": 1766387072,
     "featured": false
   },
   {
@@ -575,7 +575,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445312,
+    "updated_at": 1766387074,
     "featured": false
   },
   {
@@ -604,7 +604,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445314,
+    "updated_at": 1766387076,
     "featured": true
   },
   {
@@ -626,7 +626,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445315,
+    "updated_at": 1766387078,
     "featured": false
   },
   {
@@ -648,7 +648,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445316,
+    "updated_at": 1766387080,
     "featured": false
   },
   {
@@ -670,7 +670,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445317,
+    "updated_at": 1766387082,
     "featured": false
   },
   {
@@ -713,7 +713,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445319,
+    "updated_at": 1766387084,
     "featured": true
   },
   {
@@ -736,7 +736,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445320,
+    "updated_at": 1766387086,
     "featured": true
   },
   {
@@ -759,7 +759,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445321,
+    "updated_at": 1766387087,
     "featured": true
   },
   {
@@ -778,7 +778,7 @@
         "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93"
       }
     },
-    "updated_at": 1763445322,
+    "updated_at": 1766387089,
     "featured": false
   },
   {
@@ -797,7 +797,7 @@
         "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef"
       }
     },
-    "updated_at": 1763445323,
+    "updated_at": 1766387090,
     "featured": false
   },
   {
@@ -816,7 +816,7 @@
         "model_revision": "a53e3509c4ee4ff16d79272feb2474ff864e18f3"
       }
     },
-    "updated_at": 1763445325,
+    "updated_at": 1766387091,
     "featured": false
   },
   {
@@ -835,7 +835,7 @@
         "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
       }
     },
-    "updated_at": 1763445326,
+    "updated_at": 1766387093,
     "featured": false
   },
   {
@@ -854,7 +854,7 @@
         "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf"
       }
     },
-    "updated_at": 1763445327,
+    "updated_at": 1766387094,
     "featured": false
   },
   {
@@ -873,7 +873,7 @@
         "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891"
       }
     },
-    "updated_at": 1763445328,
+    "updated_at": 1766387095,
     "featured": false
   },
   {
@@ -892,7 +892,7 @@
         "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb"
       }
     },
-    "updated_at": 1763445329,
+    "updated_at": 1766387096,
     "featured": false
   },
   {
@@ -911,7 +911,7 @@
         "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16"
       }
     },
-    "updated_at": 1763445330,
+    "updated_at": 1766387097,
     "featured": false
   },
   {
@@ -930,7 +930,7 @@
         "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323"
       }
     },
-    "updated_at": 1763445332,
+    "updated_at": 1766387099,
     "featured": false
   },
   {
@@ -952,7 +952,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445333,
+    "updated_at": 1766387100,
     "featured": false
   },
   {
@@ -983,7 +983,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763445334,
+    "updated_at": 1766387102,
     "featured": false
   },
   {
@@ -1005,7 +1005,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445335,
+    "updated_at": 1766387103,
     "featured": false
   },
   {
@@ -1027,7 +1027,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445337,
+    "updated_at": 1766387106,
     "featured": false
   },
   {
@@ -1069,7 +1069,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445338,
+    "updated_at": 1766387108,
     "featured": true
   },
   {

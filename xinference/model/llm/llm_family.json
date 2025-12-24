@@ -73,7 +73,7 @@
         }
       }
     ],
-    "updated_at": 1763957613,
+    "updated_at": 1766473345,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -136,7 +136,7 @@
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957615,
+    "updated_at": 1766473346,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -168,7 +168,7 @@
         }
       }
     ],
-    "updated_at": 1763957616,
+    "updated_at": 1766473347,
     "featured": false,
     "architectures": [
       "GPT2LMHeadModel"
@@ -379,7 +379,7 @@
         }
       }
     ],
-    "updated_at": 1763957617,
+    "updated_at": 1766473348,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -465,7 +465,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957618,
+    "updated_at": 1766473349,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -617,7 +617,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957619,
+    "updated_at": 1766473349,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
@@ -680,7 +680,7 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1763957621,
+    "updated_at": 1766473350,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -712,7 +712,7 @@
         }
       }
     ],
-    "updated_at": 1763957622,
+    "updated_at": 1766473351,
     "featured": false,
     "architectures": [
       "OPTForCausalLM"
@@ -768,7 +768,7 @@
         }
       }
     ],
-    "updated_at": 1763957624,
+    "updated_at": 1766473352,
     "featured": false,
     "architectures": [
       "PhiForCausalLM"
@@ -823,7 +823,7 @@
         }
       }
     ],
-    "updated_at": 1763957625,
+    "updated_at": 1766473353,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -878,7 +878,7 @@
         }
       }
     ],
-    "updated_at": 1763957627,
+    "updated_at": 1766473354,
     "featured": false,
     "architectures": [
       "GemmaForCausalLM"
@@ -1065,7 +1065,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957628,
+    "updated_at": 1766473355,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -1133,7 +1133,7 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1763957629,
+    "updated_at": 1766473357,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -1202,7 +1202,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957630,
+    "updated_at": 1766473358,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -1489,7 +1489,7 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1763957632,
+    "updated_at": 1766473389,
     "featured": false,
     "architectures": [
       "InternVLChatModel"
@@ -1559,7 +1559,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1763957633,
+    "updated_at": 1766473391,
     "featured": false,
     "architectures": [
       "MiniCPMV"
@@ -1789,7 +1789,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1763957634,
+    "updated_at": 1766473393,
     "featured": false,
     "architectures": [
       "Ovis"
@@ -1863,7 +1863,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1763957635,
+    "updated_at": 1766473395,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
@@ -2041,7 +2041,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1763957637,
+    "updated_at": 1766473397,
     "featured": true,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -2176,7 +2176,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957638,
+    "updated_at": 1766473400,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -2216,7 +2216,7 @@
         }
       }
     ],
-    "updated_at": 1763957639,
+    "updated_at": 1766473402,
     "featured": false,
     "architectures": [
       "SkyworkForCausalLM"
@@ -2256,7 +2256,7 @@
         }
       }
     ],
-    "updated_at": 1763957640,
+    "updated_at": 1766473405,
     "featured": false,
     "architectures": [
       "SkyworkForCausalLM"
@@ -2325,7 +2325,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957642,
+    "updated_at": 1766473408,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -2441,7 +2441,7 @@
         }
       }
     ],
-    "updated_at": 1763957643,
+    "updated_at": 1766473409,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -2533,7 +2533,7 @@
         }
       }
     ],
-    "updated_at": 1763957644,
+    "updated_at": 1766473410,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -2878,7 +2878,7 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1763957645,
+    "updated_at": 1766473412,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -2999,7 +2999,7 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1763957646,
+    "updated_at": 1766473414,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -3065,7 +3065,7 @@
         }
       }
     ],
-    "updated_at": 1763957648,
+    "updated_at": 1766473416,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -3181,7 +3181,7 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1763957649,
+    "updated_at": 1766473420,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -3253,7 +3253,7 @@
         }
       }
     ],
-    "updated_at": 1763957650,
+    "updated_at": 1766473421,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
@@ -3331,7 +3331,7 @@
       195
     ],
     "stop": [],
-    "updated_at": 1763957652,
+    "updated_at": 1766473424,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
@@ -3482,7 +3482,7 @@
         }
       }
     ],
-    "updated_at": 1763957653,
+    "updated_at": 1766473426,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -3664,7 +3664,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957654,
+    "updated_at": 1766473428,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -3845,7 +3845,7 @@
         }
       }
     ],
-    "updated_at": 1763957655,
+    "updated_at": 1766473430,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -3927,7 +3927,7 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1763957657,
+    "updated_at": 1766473432,
     "featured": false,
     "architectures": [
       "ChatGLMModel"
@@ -3971,7 +3971,7 @@
         }
       }
     ],
-    "updated_at": 1763957658,
+    "updated_at": 1766473434,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -4078,7 +4078,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957659,
+    "updated_at": 1766473436,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -4118,7 +4118,7 @@
         }
       }
     ],
-    "updated_at": 1763957660,
+    "updated_at": 1766473437,
     "featured": false,
     "architectures": [
       "CodeShellForCausalLM"
@@ -4167,7 +4167,7 @@
       "|||",
       "|<end>|"
     ],
-    "updated_at": 1763957662,
+    "updated_at": 1766473439,
     "featured": false,
     "architectures": [
       "CodeShellForCausalLM"
@@ -4217,7 +4217,7 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1763957663,
+    "updated_at": 1766473442,
     "featured": false,
     "architectures": [
       "ChatGLMForConditionalGeneration"
@@ -4323,7 +4323,7 @@
         }
       }
     ],
-    "updated_at": 1763957664,
+    "updated_at": 1766473444,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -4436,7 +4436,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957665,
+    "updated_at": 1766473446,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -4699,7 +4699,7 @@
         }
       }
     ],
-    "updated_at": 1763957666,
+    "updated_at": 1766473448,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -4969,7 +4969,7 @@
     "stop": [
       "<|EOT|>"
     ],
-    "updated_at": 1763957668,
+    "updated_at": 1766473449,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -5054,7 +5054,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957669,
+    "updated_at": 1766473451,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -5479,7 +5479,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957670,
+    "updated_at": 1766473460,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -5553,7 +5553,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1763957671,
+    "updated_at": 1766473462,
     "featured": true,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -5639,7 +5639,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957673,
+    "updated_at": 1766473466,
     "featured": true,
     "architectures": [
       "Qwen3ForCausalLM"
@@ -5910,7 +5910,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1763957674,
+    "updated_at": 1766473468,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -6338,7 +6338,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957675,
+    "updated_at": 1766473470,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -6405,7 +6405,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957677,
+    "updated_at": 1766473472,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
@@ -6452,7 +6452,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957678,
+    "updated_at": 1766473475,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
@@ -6499,7 +6499,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957679,
+    "updated_at": 1766473477,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
@@ -6784,7 +6784,7 @@
       "<｜end▁of▁sentence｜>"
     ],
     "tool_parser": "deepseek_v3",
-    "updated_at": 1763957680,
+    "updated_at": 1766473479,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -6864,7 +6864,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957682,
+    "updated_at": 1766473483,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -6949,7 +6949,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1763957683,
+    "updated_at": 1766473486,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
@@ -7036,7 +7036,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957684,
+    "updated_at": 1766473488,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -7163,7 +7163,7 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1763957685,
+    "updated_at": 1766473490,
     "featured": false,
     "architectures": [
       "Gemma3ForCausalLM"
@@ -7515,7 +7515,7 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1763957687,
+    "updated_at": 1766473492,
     "featured": true,
     "architectures": [
       "Gemma3ForConditionalGeneration"
@@ -7573,7 +7573,7 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1763957688,
+    "updated_at": 1766473493,
     "featured": false,
     "architectures": [
       "ChatGLMModel"
@@ -7764,7 +7764,7 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1763957689,
+    "updated_at": 1766473495,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
@@ -8017,7 +8017,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957691,
+    "updated_at": 1766473497,
     "featured": false,
     "architectures": [
       "Glm4ForCausalLM"
@@ -8130,7 +8130,7 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1763957692,
+    "updated_at": 1766473499,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
@@ -8243,7 +8243,7 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1763957693,
+    "updated_at": 1766473501,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
@@ -8379,7 +8379,7 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957694,
+    "updated_at": 1766473503,
     "featured": false,
     "architectures": [
       "InternLM3ForCausalLM"
@@ -8632,11 +8632,11 @@
       2
     ],
     "stop": [],
+    "featured": false,
+    "updated_at": 1766567529,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false,
-    "updated_at": 1766481538
+    ]
   },
   {
     "version": 2,
@@ -8727,11 +8727,11 @@
         }
       }
     ],
-    "updated_at": 1766481565,
+    "updated_at": 1766567530,
+    "featured": false,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -8945,11 +8945,11 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
-    "updated_at": 1766481594,
+    "updated_at": 1766567531,
+    "featured": false,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -9057,11 +9057,11 @@
         }
       }
     ],
-    "updated_at": 1766481614,
+    "updated_at": 1766567531,
+    "featured": false,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -9436,11 +9436,11 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1766481639,
+    "updated_at": 1766567532,
+    "featured": false,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -9499,11 +9499,11 @@
         }
       }
     ],
-    "updated_at": 1766481772,
+    "updated_at": 1766567533,
+    "featured": false,
     "architectures": [
       "MllamaForConditionalGeneration"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -9573,11 +9573,11 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1766481718,
+    "updated_at": 1766567534,
+    "featured": false,
     "architectures": [
       "MllamaForConditionalGeneration"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -9717,11 +9717,11 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1766481833,
+    "updated_at": 1766567535,
+    "featured": false,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -9813,7 +9813,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957705,
+    "updated_at": 1766473528,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -9867,7 +9867,7 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1763957707,
+    "updated_at": 1766473530,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -9915,7 +9915,7 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1763957708,
+    "updated_at": 1766473532,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -9963,7 +9963,7 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1763957709,
+    "updated_at": 1766473534,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -10017,7 +10017,7 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1763957710,
+    "updated_at": 1766473537,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -10065,7 +10065,7 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1763957712,
+    "updated_at": 1766473538,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -10139,7 +10139,7 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1763957713,
+    "updated_at": 1766473540,
     "featured": false,
     "architectures": [
       "MiniCPM3ForCausalLM"
@@ -10221,7 +10221,7 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957714,
+    "updated_at": 1766473542,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -10315,7 +10315,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957716,
+    "updated_at": 1766473543,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -10415,7 +10415,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957718,
+    "updated_at": 1766473545,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -10612,7 +10612,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957719,
+    "updated_at": 1766473546,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -10792,7 +10792,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957720,
+    "updated_at": 1766473548,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -10880,7 +10880,7 @@
         }
       }
     ],
-    "updated_at": 1763957722,
+    "updated_at": 1766473550,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
@@ -10974,7 +10974,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957723,
+    "updated_at": 1766473552,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
@@ -11049,7 +11049,7 @@
         }
       }
     ],
-    "updated_at": 1763957724,
+    "updated_at": 1766473553,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
@@ -11094,7 +11094,7 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1763957726,
+    "updated_at": 1766473555,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -11162,7 +11162,7 @@
       "</s>",
       "<unk>"
     ],
-    "updated_at": 1763957727,
+    "updated_at": 1766473557,
     "featured": false,
     "architectures": [
       "OrionForCausalLM"
@@ -11212,7 +11212,7 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1763957728,
+    "updated_at": 1766473560,
     "featured": false,
     "architectures": [
       "Phi3ForCausalLM"
@@ -11276,7 +11276,7 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1763957730,
+    "updated_at": 1766473561,
     "featured": false,
     "architectures": [
       "Phi3ForCausalLM"
@@ -11531,7 +11531,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957731,
+    "updated_at": 1766473563,
     "featured": false,
     "architectures": [
       "QWenLMHeadModel"
@@ -12286,7 +12286,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957733,
+    "updated_at": 1766473565,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -12355,7 +12355,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957735,
+    "updated_at": 1766473566,
     "featured": false,
     "architectures": [
       "Qwen2MoeForCausalLM"
@@ -12408,7 +12408,7 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1763957736,
+    "updated_at": 1766473568,
     "featured": false,
     "architectures": [
       "Qwen2AudioForConditionalGeneration"
@@ -12462,7 +12462,7 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1763957737,
+    "updated_at": 1766473570,
     "featured": false,
     "architectures": [
       "Qwen2AudioForConditionalGeneration"
@@ -13096,7 +13096,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957739,
+    "updated_at": 1766473572,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -13223,7 +13223,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957740,
+    "updated_at": 1766473573,
     "featured": false,
     "architectures": [
       "Qwen2MoeForCausalLM"
@@ -13543,7 +13543,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1763957741,
+    "updated_at": 1766473575,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
@@ -13733,7 +13733,7 @@
         }
       }
     ],
-    "updated_at": 1763957743,
+    "updated_at": 1766473577,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -13867,7 +13867,7 @@
         }
       }
     ],
-    "updated_at": 1763957744,
+    "updated_at": 1766473579,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -14426,7 +14426,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957745,
+    "updated_at": 1766473581,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -15942,7 +15942,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957747,
+    "updated_at": 1766473583,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -16007,7 +16007,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1763957748,
+    "updated_at": 1766473585,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -16083,7 +16083,7 @@
         "soundfile"
       ]
     },
-    "updated_at": 1763957749,
+    "updated_at": 1766473587,
     "featured": false,
     "architectures": [
       "Qwen2_5OmniModel"
@@ -16353,7 +16353,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1763957750,
+    "updated_at": 1766473589,
     "featured": true,
     "architectures": [
       "Qwen2_5_VLForConditionalGeneration"
@@ -17873,7 +17873,7 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1764215115,
+    "updated_at": 1766473592,
     "featured": true,
     "architectures": [
       "Qwen3ForCausalLM"
@@ -18662,7 +18662,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957753,
+    "updated_at": 1766473594,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
@@ -19448,7 +19448,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1763957754,
+    "updated_at": 1766473596,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
@@ -20237,7 +20237,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957756,
+    "updated_at": 1766473601,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
@@ -20313,7 +20313,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957757,
+    "updated_at": 1766473603,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -20418,7 +20418,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957758,
+    "updated_at": 1766473604,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -20641,7 +20641,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957759,
+    "updated_at": 1766473606,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -20787,7 +20787,7 @@
       160133,
       160132
     ],
-    "updated_at": 1763957760,
+    "updated_at": 1766473619,
     "featured": false,
     "architectures": [
       "TelechatForCausalLM"
@@ -20838,11 +20838,11 @@
         }
       }
     ],
-    "updated_at": 1766481884,
+    "updated_at": 1766567536,
+    "featured": false,
     "architectures": [
       "LlamaForCausalLM"
-    ],
-    "featured": false
+    ]
   },
   {
     "version": 2,
@@ -20975,7 +20975,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957763,
+    "updated_at": 1766473623,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -21034,7 +21034,7 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1763957764,
+    "updated_at": 1766473625,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
@@ -21114,7 +21114,7 @@
         }
       }
     ],
-    "updated_at": 1763957765,
+    "updated_at": 1766473627,
     "featured": false,
     "architectures": [
       "XverseForCausalLM"
@@ -21181,7 +21181,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "updated_at": 1763957766,
+    "updated_at": 1766473629,
     "featured": false,
     "architectures": [
       "XverseForCausalLM"
@@ -21246,7 +21246,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957769,
+    "updated_at": 1766473631,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -21578,7 +21578,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957770,
+    "updated_at": 1766473633,
     "featured": true,
     "architectures": [
       "Ernie4_5ForCausalLM"
@@ -21682,7 +21682,7 @@
     "architectures": [
       "Glm4vForConditionalGeneration"
     ],
-    "updated_at": 1766117752
+    "updated_at": 1766473847
   },
   {
     "version": 2,
@@ -21936,7 +21936,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1766115830
+    "updated_at": 1766473638
   },
   {
     "version": 2,
@@ -22063,7 +22063,7 @@
     "architectures": [
       "Glm4vMoeForConditionalGeneration"
     ],
-    "updated_at": 1766117786
+    "updated_at": 1766473643
   },
   {
     "version": 2,
@@ -22152,7 +22152,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1763957775,
+    "updated_at": 1766473648,
     "featured": true,
     "architectures": [
       "GptOssForCausalLM"
@@ -22235,7 +22235,7 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "updated_at": 1763957777,
+    "updated_at": 1766473650,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -22350,7 +22350,7 @@
         "transformers==4.53.0"
       ]
     },
-    "updated_at": 1763957778,
+    "updated_at": 1766473653,
     "featured": true,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -22545,7 +22545,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957779,
+    "updated_at": 1766473654,
     "featured": false,
     "architectures": [
       "SeedOssForCausalLM"
@@ -22617,7 +22617,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1763957780,
+    "updated_at": 1766473656,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -23278,7 +23278,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957782,
+    "updated_at": 1766473659,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
@@ -23756,7 +23756,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1763957783,
+    "updated_at": 1766473661,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
@@ -23871,7 +23871,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1763957784,
+    "updated_at": 1766473664,
     "featured": false,
     "architectures": [
       "Qwen3NextForCausalLM"
@@ -23989,7 +23989,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1763957786,
+    "updated_at": 1766473667,
     "featured": false,
     "architectures": [
       "Qwen3NextForCausalLM"
@@ -24061,7 +24061,7 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1763957787,
+    "updated_at": 1766473669,
     "featured": false,
     "architectures": [
       "MiniCPMV"
@@ -24146,7 +24146,7 @@
         "soundfile"
       ]
     },
-    "updated_at": 1763957788,
+    "updated_at": 1766473671,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
@@ -24228,7 +24228,7 @@
         "soundfile"
       ]
     },
-    "updated_at": 1763957790,
+    "updated_at": 1766473673,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
@@ -24328,7 +24328,7 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1765287275,
+    "updated_at": 1766473675,
     "featured": false,
     "architectures": [
       "MiniMaxM2ForCausalLM"
@@ -24400,7 +24400,7 @@
       "packages": []
     },
     "featured": true,
-    "updated_at": 1765965063
+    "updated_at": 1766473677
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -24473,6 +24473,6 @@
       "packages": []
     },
     "featured": true,
-    "updated_at": 1765887682
+    "updated_at": 1766542907
   }
 ]
