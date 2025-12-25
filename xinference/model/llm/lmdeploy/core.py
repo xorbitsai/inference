@@ -162,9 +162,8 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         chat_temp_name = ""
-        family = self.model_family.model_family or self.model_family.model_name
         for key in LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME.keys():
-            if family in key or self.model_family.has_architecture(key):
+            if self.model_family.has_architecture(key):
                 chat_temp_name = LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME[key]
                 break
         if chat_temp_name == "":
