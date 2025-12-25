@@ -253,6 +253,7 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
     _append_unique(
         VLLM_SUPPORTED_CHAT_MODELS, "SeedOssForCausalLM", "Qwen3NextForCausalLM"
     )
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
     _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV32ForCausalLM")
