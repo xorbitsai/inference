@@ -160,17 +160,29 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     class Config:
         extra = "allow"
 
+    def _resolve_architectures(self) -> Optional[List[str]]:
+        if self.architectures:
+            return self.architectures
+        if not self.model_family:
+            return None
+        for family in BUILTIN_LLM_FAMILIES:
+            if family.model_name == self.model_family:
+                return family.architectures
+        return None
+
     def has_architecture(self, *architectures: str) -> bool:
-        if not architectures or not self.architectures:
+        resolved = self._resolve_architectures()
+        if not architectures or not resolved:
             return False
-        return any(arch in self.architectures for arch in architectures)
+        return any(arch in resolved for arch in architectures)
 
     def matches_supported_architectures(
         self, supported_architectures: List[str]
     ) -> bool:
-        if not self.architectures:
+        resolved = self._resolve_architectures()
+        if not resolved:
             return False
-        return any(arch in supported_architectures for arch in self.architectures)
+        return any(arch in supported_architectures for arch in resolved)
 
     def to_description(self):
         spec = self.model_specs[0]
