@@ -32,15 +32,19 @@ logger = logging.getLogger(__name__)
 
 @register_batching_multimodal_models("MiniCPM-V-4.5")
 @register_transformer
-@register_non_default_model("MiniCPM-V-4.5")
+@register_non_default_model("MiniCPMV")
 class MiniCPMV45Model(PytorchMultiModalModel):
+    MINICPMV_ARCHITECTURES = {"MiniCPMV"}
+
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        family = model_family.model_family or model_family.model_name
-        if "minicpm-v-4.5".lower() not in family.lower():
-            return False, f"Model family {family} is not MiniCPM-V-4.5"
+        if not model_family.has_architecture(*cls.MINICPMV_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not MiniCPM-V-4.5",
+            )
         if "vision" not in model_family.model_ability:
             return False, "MiniCPM-V-4.5 transformer requires vision ability"
         return True

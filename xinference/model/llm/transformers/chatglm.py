@@ -35,8 +35,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("glm4-chat", "glm4-chat-1m")
+@register_non_default_model("GlmForCausalLM")
 class ChatglmPytorchChatModel(PytorchChatModel):
+    GLM4_ARCHITECTURES = {"GlmForCausalLM", "Glm4ForCausalLM", "Glm4MoeForCausalLM"}
+
     def __init__(
         self,
         model_uid: str,
@@ -88,9 +90,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
     ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format != "pytorch":
             return False, "ChatGLM transformer only supports pytorch format"
-        model_family = llm_family.model_family or llm_family.model_name
-        if "glm4" not in model_family:
-            return False, f"Model family {model_family} is not GLM4"
+        if not llm_family.has_architecture(*cls.GLM4_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not GLM4",
+            )
         if "chat" not in llm_family.model_ability:
             return False, "ChatGLM transformer requires chat ability"
         return True

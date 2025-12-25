@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("gemma-3-1b-it")
+@register_non_default_model("Gemma3ForCausalLM")
 class Gemma3TextChatModel(PytorchChatModel):
+    GEMMA3_ARCHITECTURES = {"Gemma3ForCausalLM"}
+
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
@@ -33,9 +35,11 @@ class Gemma3TextChatModel(PytorchChatModel):
                 False,
                 "Gemma3 transformer supports pytorch/gptq/awq/bnb formats only",
             )
-        llm_family = model_family.model_family or model_family.model_name
-        if "gemma-3-1b-it".lower() not in llm_family.lower():
-            return False, f"Model family {llm_family} is not Gemma-3-1B-it"
+        if not model_family.has_architecture(*cls.GEMMA3_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not Gemma-3-1B-it",
+            )
         return True
 
     def _load_model(self, **kwargs):
