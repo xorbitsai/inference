@@ -7,7 +7,7 @@ DeepSeek-V3.2-Exp
 - **Context Length:** 163840
 - **Model Name:** DeepSeek-V3.2-Exp
 - **Languages:** en, zh
-- **Abilities:** chat, reasoning
+- **Abilities:** chat, reasoning, hybrid, tools
 - **Description:** We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
 
 Specifications
