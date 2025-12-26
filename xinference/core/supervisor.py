@@ -49,7 +49,7 @@ from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.utils import get_engine_params_by_name
 from ..types import PeftModelConfig
-from .launch_strategy import IdleFirstLaunchStrategy
+from .launch_strategy import IdleFirstLaunchStrategy, select_least_loaded_gpus
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
@@ -1225,39 +1225,12 @@ class SupervisorActor(xo.StatelessActor):
                                     candidate = item
                                     break
                             alloc = candidate.get("alloc") if candidate else None
-                            if alloc:
-                                total = alloc.get("total", [])
-                                models = alloc.get("models", {})
-                                user_specified = alloc.get("user_specified", {})
-                                if total:
-                                    dev_iter = list(total)
-                                else:
-                                    dev_iter = []
-                                    keys = set(models.keys())
-                                    keys.update(user_specified.keys())
-                                    for dev_key in keys:
-                                        try:
-                                            dev_iter.append(int(dev_key))
-                                        except Exception:
-                                            continue
-                                loads = []
-                                for dev in dev_iter:
-                                    load = len(models.get(dev, []))
-                                    load += len(user_specified.get(dev, []))
-                                    loads.append((load, dev))
-                                if len(loads) >= n_gpu:
-                                    loads.sort(key=lambda x: (x[0], x[1]))
-                                    target_gpu_idx = [dev for _, dev in loads[:n_gpu]]
-                                    # Reserve the selected slots in the local snapshot.
-                                    models = alloc.setdefault("models", {})
-                                    for dev in target_gpu_idx:
-                                        models.setdefault(dev, []).append(
-                                            "__reserved__"
-                                        )
-                                else:
-                                    target_gpu_idx = None
-                            else:
-                                target_gpu_idx = None
+                            target_gpu_idx = select_least_loaded_gpus(alloc, n_gpu)
+                            if target_gpu_idx is not None and alloc is not None:
+                                # Reserve the selected slots in the local snapshot.
+                                models = alloc.setdefault("models", {})
+                                for dev in target_gpu_idx:
+                                    models.setdefault(dev, []).append("__reserved__")
                         current_count = None
                         for candidate in worker_candidates:
                             if candidate["ref"] == worker_ref:

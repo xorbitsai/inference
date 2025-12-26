@@ -22,6 +22,34 @@ if TYPE_CHECKING:
     from .supervisor import WorkerStatus
 
 
+def select_least_loaded_gpus(alloc: Optional[Dict], n_gpu: int) -> Optional[List[int]]:
+    if not alloc or n_gpu <= 0:
+        return None
+    total = alloc.get("total", [])
+    models = alloc.get("models", {})
+    user_specified = alloc.get("user_specified", {})
+    if total:
+        dev_iter = [int(dev) for dev in total]
+    else:
+        dev_iter = []
+        keys = set(models.keys())
+        keys.update(user_specified.keys())
+        for dev_key in keys:
+            try:
+                dev_iter.append(int(dev_key))
+            except Exception:
+                continue
+    loads = []
+    for dev in dev_iter:
+        load = len(models.get(dev, []))
+        load += len(user_specified.get(dev, []))
+        loads.append((load, dev))
+    if len(loads) < n_gpu:
+        return None
+    loads.sort(key=lambda x: (x[0], x[1]))
+    return [dev for _, dev in loads[:n_gpu]]
+
+
 class LaunchStrategy(ABC):
     """
     Base class for model replica launch strategies.

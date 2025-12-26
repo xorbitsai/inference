@@ -16,7 +16,10 @@ import random
 
 import pytest
 
-from xinference.core.launch_strategy import IdleFirstLaunchStrategy
+from xinference.core.launch_strategy import (
+    IdleFirstLaunchStrategy,
+    select_least_loaded_gpus,
+)
 from xinference.core.utils import assign_replica_gpu
 
 
@@ -149,3 +152,55 @@ def test_cpu_fallback_no_gpu_alloc():
     ref, gpu_idx = strategy.select_worker(candidates)
     assert ref is w2  # choose least-loaded worker
     assert gpu_idx is None  # let worker decide (CPU path)
+
+
+def test_idle_first_multi_gpu_single_worker():
+    random.seed(0)
+    strategy = IdleFirstLaunchStrategy(worker_status={})
+    worker = DummyRef("w1:1000")
+    candidates = [
+        {
+            "ref": worker,
+            "count": 0,
+            "alloc": {
+                "total": [0, 1],
+                "models": {},
+                "user_specified": {},
+            },
+        }
+    ]
+    ref, _ = strategy.select_worker(candidates)
+    assert ref is worker
+    gpu_idx = select_least_loaded_gpus(candidates[0]["alloc"], 2)
+    assert set(gpu_idx) == {0, 1}
+
+
+def test_idle_first_multi_gpu_two_workers():
+    random.seed(0)
+    strategy = IdleFirstLaunchStrategy(worker_status={})
+    w1 = DummyRef("w1:1000")
+    w2 = DummyRef("w2:1000")
+    candidates = [
+        {
+            "ref": w1,
+            "count": 0,
+            "alloc": {
+                "total": [0, 1],
+                "models": {0: ["m0"], 1: ["m1"]},
+                "user_specified": {},
+            },
+        },
+        {
+            "ref": w2,
+            "count": 0,
+            "alloc": {
+                "total": [0, 1],
+                "models": {},
+                "user_specified": {},
+            },
+        },
+    ]
+    ref, _ = strategy.select_worker(candidates)
+    assert ref is w2
+    gpu_idx = select_least_loaded_gpus(candidates[1]["alloc"], 2)
+    assert set(gpu_idx) == {0, 1}
