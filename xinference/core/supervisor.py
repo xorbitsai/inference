@@ -1218,6 +1218,46 @@ class SupervisorActor(xo.StatelessActor):
                         worker_ref, target_gpu_idx = strategy.select_worker(
                             worker_candidates
                         )
+                        if isinstance(n_gpu, int) and n_gpu > 1:
+                            candidate = None
+                            for item in worker_candidates:
+                                if item["ref"] == worker_ref:
+                                    candidate = item
+                                    break
+                            alloc = candidate.get("alloc") if candidate else None
+                            if alloc:
+                                total = alloc.get("total", [])
+                                models = alloc.get("models", {})
+                                user_specified = alloc.get("user_specified", {})
+                                if total:
+                                    dev_iter = list(total)
+                                else:
+                                    dev_iter = []
+                                    keys = set(models.keys())
+                                    keys.update(user_specified.keys())
+                                    for dev_key in keys:
+                                        try:
+                                            dev_iter.append(int(dev_key))
+                                        except Exception:
+                                            continue
+                                loads = []
+                                for dev in dev_iter:
+                                    load = len(models.get(dev, []))
+                                    load += len(user_specified.get(dev, []))
+                                    loads.append((load, dev))
+                                if len(loads) >= n_gpu:
+                                    loads.sort(key=lambda x: (x[0], x[1]))
+                                    target_gpu_idx = [dev for _, dev in loads[:n_gpu]]
+                                    # Reserve the selected slots in the local snapshot.
+                                    models = alloc.setdefault("models", {})
+                                    for dev in target_gpu_idx:
+                                        models.setdefault(dev, []).append(
+                                            "__reserved__"
+                                        )
+                                else:
+                                    target_gpu_idx = None
+                            else:
+                                target_gpu_idx = None
                         current_count = None
                         for candidate in worker_candidates:
                             if candidate["ref"] == worker_ref:
