@@ -1215,8 +1215,9 @@ class SupervisorActor(xo.StatelessActor):
                     iter_replica_model_uid(model_uid, replica)
                 ):
                     if strategy is not None:
+                        requested_gpu = n_gpu if isinstance(n_gpu, int) else None
                         worker_ref, target_gpu_idx = strategy.select_worker(
-                            worker_candidates
+                            worker_candidates, n_gpu=requested_gpu
                         )
                         current_count = None
                         for candidate in worker_candidates:

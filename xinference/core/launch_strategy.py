@@ -29,7 +29,7 @@ class LaunchStrategy(ABC):
 
     @abstractmethod
     def select_worker(
-        self, worker_candidates: List[Dict]
+        self, worker_candidates: List[Dict], n_gpu: Optional[int] = None
     ) -> Tuple[xo.ActorRefType, Optional[List[int]]]:
         """
         Pick a worker and the gpu_idx list for the next replica.
@@ -37,6 +37,7 @@ class LaunchStrategy(ABC):
         Args:
             worker_candidates: List of dicts that contain at least `ref` (worker ref)
             `count` (current load), and optionally `alloc` (GPU allocation snapshot).
+            n_gpu: Optional requested GPU count for this replica.
 
         Returns:
             worker_ref, gpu_idx list (None lets worker decide).
@@ -54,7 +55,7 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
         self._fallback_load: Dict[str, int] = {}
 
     def _select_least_loaded_gpu(
-        self, worker_candidates: List[Dict]
+        self, worker_candidates: List[Dict], n_gpu: int
     ) -> Optional[Tuple[xo.ActorRefType, List[int]]]:
         best = None
         for candidate in worker_candidates:
@@ -76,16 +77,23 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
                         dev_iter.append(int(dev_key))
                     except Exception:
                         continue
+            loads = []
             for dev in dev_iter:
                 models_on_dev = models.get(dev, [])
                 load = len(models_on_dev)
                 load += len(user_specified.get(dev, []))
-                if (
-                    best is None
-                    or load < best["load"]
-                    or (load == best["load"] and ref.address < best["ref"].address)
-                ):
-                    best = {"ref": ref, "gpu_idx": [dev], "load": load}
+                loads.append((load, dev))
+            if len(loads) < n_gpu:
+                continue
+            loads.sort(key=lambda x: (x[0], x[1]))
+            selected = loads[:n_gpu]
+            score = tuple([sum(load for load, _ in selected), ref.address])
+            if best is None or score < best["score"]:
+                best = {
+                    "ref": ref,
+                    "gpu_idx": [dev for _, dev in selected],
+                    "score": score,
+                }
         return (best["ref"], best["gpu_idx"]) if best else None
 
     def _reserve_slot(
@@ -104,16 +112,18 @@ class IdleFirstLaunchStrategy(LaunchStrategy):
             break
 
     def select_worker(
-        self, worker_candidates: List[Dict]
+        self, worker_candidates: List[Dict], n_gpu: Optional[int] = None
     ) -> Tuple[xo.ActorRefType, Optional[List[int]]]:
         random.shuffle(worker_candidates)
 
         # Use allocation snapshot to pick the least-loaded GPU slot.
-        gpu_choice = self._select_least_loaded_gpu(worker_candidates)
+        requested_gpu = n_gpu if isinstance(n_gpu, int) and n_gpu > 0 else 1
+        gpu_choice = self._select_least_loaded_gpu(worker_candidates, requested_gpu)
         if gpu_choice is not None:
             ref, gpu_idx = gpu_choice
             # Update local snapshot to reflect the reservation.
-            self._reserve_slot(worker_candidates, ref, gpu_idx[0])
+            for dev in gpu_idx:
+                self._reserve_slot(worker_candidates, ref, dev)
             return ref, gpu_idx
 
         # Fallback: least-loaded worker by count, stable by address.
