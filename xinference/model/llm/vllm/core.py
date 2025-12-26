@@ -263,7 +263,6 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
         "Qwen3OmniMoeForConditionalGeneration",
     )
 
-8888
 
 class VLLMModel(LLM):
     allow_batch = True
