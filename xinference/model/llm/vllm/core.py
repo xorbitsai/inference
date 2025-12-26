@@ -263,6 +263,9 @@ if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
         "Qwen3OmniMoeForConditionalGeneration",
     )
 
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniMaxM2ForCausalLM")
+
 
 class VLLMModel(LLM):
     allow_batch = True
