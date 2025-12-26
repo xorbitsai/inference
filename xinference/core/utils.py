@@ -299,6 +299,10 @@ def assign_replica_gpu(
     if isinstance(gpu_idx, int):
         gpu_idx = [gpu_idx]
     if isinstance(gpu_idx, list) and gpu_idx:
+        if len(gpu_idx) % replica != 0:
+            raise ValueError(
+                "gpu_idx length must be a multiple of replica when specifying GPUs."
+            )
         num_gpus = len(gpu_idx)
         gpus_per_replica = num_gpus // replica
         start = rep_id * gpus_per_replica

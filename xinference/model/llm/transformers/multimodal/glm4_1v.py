@@ -28,15 +28,25 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("glm-4.1v-thinking", "glm-4.5v")
+@register_non_default_model(
+    "Glm4vForConditionalGeneration",
+    "Glm4vMoeForConditionalGeneration",
+)
 class Glm4_1VModel(PytorchMultiModalModel):
+    GLM4V_ARCHITECTURES = {
+        "Glm4vForConditionalGeneration",
+        "Glm4vMoeForConditionalGeneration",
+    }
+
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        family = model_family.model_family or model_family.model_name
-        if "glm-4.1v" not in family.lower() and "glm-4.5v" not in family.lower():
-            return False, f"Model family {family} is not GLM-4.1V/4.5V"
+        if not model_family.has_architecture(*cls.GLM4V_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not GLM-4.1V/4.5V",
+            )
         if "vision" not in model_family.model_ability:
             return False, "GLM-4.1V transformer requires vision ability"
         return True
@@ -113,12 +123,22 @@ class Glm4_1VModel(PytorchMultiModalModel):
         generate_config: Dict,
     ):
         msgs = self._get_processed_msgs(messages)
+        chat_template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
+        tools = generate_config.get("tools", None) if generate_config else None
+        if tools:
+            chat_template_kwargs["tools"] = tools
         inputs = self._processor.apply_chat_template(
             msgs,
             add_generation_prompt=True,
             tokenize=True,
             return_tensors="pt",
             return_dict=True,
+            **chat_template_kwargs,
         )  # chat mode
         inputs = inputs.to(self._model.device)
         return inputs

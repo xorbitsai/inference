@@ -765,6 +765,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._filter_kwargs(model, kwargs)
             images = model(**kwargs).images
 
+        if images and isinstance(images[0], (list, tuple)):
+            images = list(itertools.chain.from_iterable(images))
+
         # revert padding if padded
         if is_padded and origin_size:
             new_images = []
@@ -876,6 +879,33 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         padding = (0, 0, padding_x, padding_y)
         return ImageOps.expand(image, padding)
 
+    @staticmethod
+    def _model_expects_four_channel_input(model: Any) -> bool:
+        vae = getattr(model, "vae", None)
+        input_channels = getattr(getattr(vae, "config", None), "input_channels", None)
+        return input_channels == 4
+
+    @staticmethod
+    def _ensure_four_channel_image(image: Any, model: Any):
+        image_processor = getattr(model, "image_processor", None)
+        if (
+            image_processor is not None
+            and getattr(image_processor, "config", None) is not None
+        ):
+            image_processor.config.do_convert_rgb = False
+
+        if isinstance(image, list):
+            if not image:
+                return image
+            if isinstance(image[0], PIL.Image.Image):
+                return [
+                    img.convert("RGBA") if img.mode != "RGBA" else img for img in image
+                ]
+            return image
+        if isinstance(image, PIL.Image.Image):
+            return image.convert("RGBA") if image.mode != "RGBA" else image
+        return image
+
     def image_to_image(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
@@ -923,6 +953,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     kwargs["width"], kwargs["height"] = image[0].size
                 else:
                     kwargs["width"], kwargs["height"] = image.size
+
+        if self._model_expects_four_channel_input(model):
+            image = self._ensure_four_channel_image(image, model)
 
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)

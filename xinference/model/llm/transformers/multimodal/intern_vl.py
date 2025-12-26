@@ -28,8 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("InternVL3")
+@register_non_default_model("InternVLChatModel")
 class InternVLChatModel(PytorchMultiModalModel):
+    INTERN_VL_ARCHITECTURES = {"InternVLChatModel"}
+
     IMAGENET_MEAN = (0.485, 0.456, 0.406)
     IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -37,9 +39,11 @@ class InternVLChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        family = model_family.model_family or model_family.model_name
-        if "internvl3" not in family.lower():
-            return False, f"Model family {family} is not InternVL3"
+        if not model_family.has_architecture(*cls.INTERN_VL_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not InternVL3",
+            )
         if "vision" not in model_family.model_ability:
             return False, "InternVL transformer requires vision ability"
         return True

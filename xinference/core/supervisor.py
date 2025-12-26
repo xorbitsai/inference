@@ -1144,7 +1144,8 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             try:
                 strategy = None
-                if gpu_idx is None:
+                use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
+                if gpu_idx is None and use_gpu:
                     strategy_name = (XINFERENCE_LAUNCH_STRATEGY or "").lower()
                     normalized = strategy_name.replace("-", "_")
                     if normalized in ("idlefirst", "idle_first_launch_strategy"):
@@ -1169,20 +1170,41 @@ class SupervisorActor(xo.StatelessActor):
                 counts = await asyncio.gather(
                     *[w.get_model_count() for w in workers], return_exceptions=True
                 )
+                # Fetch per-worker GPU allocation snapshots for visibility/scheduling.
+                allocations = await asyncio.gather(
+                    *[w.get_gpu_allocation_status() for w in workers],
+                    return_exceptions=True,
+                )
 
-                for w_ref, count in zip(workers, counts):
+                for w_ref, count, alloc in zip(workers, counts, allocations):
                     if isinstance(count, Exception):
                         logger.warning(
                             f"Failed to get model count from worker: {count}"
                         )
                         continue
-                    worker_candidates.append({"ref": w_ref, "count": count})
+                    if isinstance(alloc, Exception):
+                        logger.debug(
+                            "Failed to fetch GPU allocation snapshot from worker %s: %s",
+                            w_ref.address,
+                            alloc,
+                        )
+                        alloc = None
+                    worker_candidates.append(
+                        {"ref": w_ref, "count": count, "alloc": alloc}
+                    )
 
                 if not worker_candidates:
                     raise RuntimeError("No available worker found")
 
                 logger.debug(
                     f"Worker candidates for {model_uid}: {[{'addr': c['ref'].address, 'count': c['count']} for c in worker_candidates]}"
+                )
+                logger.debug(
+                    "GPU allocation snapshots: %s",
+                    [
+                        {"addr": c["ref"].address, "alloc": c.get("alloc")}
+                        for c in worker_candidates
+                    ],
                 )
 
                 # Prepare all launch tasks for parallel execution
@@ -1193,8 +1215,9 @@ class SupervisorActor(xo.StatelessActor):
                     iter_replica_model_uid(model_uid, replica)
                 ):
                     if strategy is not None:
+                        requested_gpu = n_gpu if isinstance(n_gpu, int) else None
                         worker_ref, target_gpu_idx = strategy.select_worker(
-                            worker_candidates
+                            worker_candidates, n_gpu=requested_gpu
                         )
                         current_count = None
                         for candidate in worker_candidates:

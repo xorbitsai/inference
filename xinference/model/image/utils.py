@@ -37,21 +37,46 @@ def get_model_version(
     )
 
 
+def _flatten_images(images):
+    if images and isinstance(images[0], (list, tuple)):
+        flat_images = []
+        for group in images:
+            if isinstance(group, (list, tuple)):
+                flat_images.extend(group)
+            else:
+                flat_images.append(group)
+        return flat_images
+    return images
+
+
+def _needs_png(image) -> bool:
+    if image.mode in ("RGBA", "LA"):
+        return True
+    if image.mode == "P" and "transparency" in image.info:
+        return True
+    return False
+
+
 def handle_image_result(response_format: str, images) -> ImageList:
+    images = _flatten_images(images)
     if response_format == "url":
         os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
         image_list = []
         with ThreadPoolExecutor() as executor:
             for img in images:
-                path = os.path.join(XINFERENCE_IMAGE_DIR, uuid.uuid4().hex + ".jpg")
+                use_png = _needs_png(img)
+                suffix = ".png" if use_png else ".jpg"
+                path = os.path.join(XINFERENCE_IMAGE_DIR, uuid.uuid4().hex + suffix)
                 image_list.append(Image(url=path, b64_json=None))
-                executor.submit(img.save, path, "jpeg")
+                fmt = "png" if use_png else "jpeg"
+                executor.submit(img.save, path, fmt)
         return ImageList(created=int(time.time()), data=image_list)
     elif response_format == "b64_json":
 
         def _gen_base64_image(_img):
             buffered = BytesIO()
-            _img.save(buffered, format="jpeg")
+            fmt = "png" if _needs_png(_img) else "jpeg"
+            _img.save(buffered, format=fmt)
             return base64.b64encode(buffered.getvalue()).decode()
 
         with ThreadPoolExecutor() as executor:

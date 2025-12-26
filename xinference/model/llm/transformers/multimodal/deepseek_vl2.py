@@ -31,8 +31,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("deepseek-vl2")
+@register_non_default_model("DeepseekV2ForCausalLM")
 class DeepSeekVL2ChatModel(PytorchMultiModalModel):
+    DEEPSEEK_VL2_ARCHITECTURES = {"DeepseekV2ForCausalLM"}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._type = None
@@ -41,9 +43,11 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        llm_family = model_family.model_family or model_family.model_name
-        if "deepseek-vl2" != llm_family.lower():
-            return False, f"Model family {llm_family} is not DeepSeek-VL2"
+        if not model_family.has_architecture(*cls.DEEPSEEK_VL2_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not DeepSeek-VL2",
+            )
         if "vision" not in model_family.model_ability:
             return False, "DeepSeek-VL2 transformer requires vision ability"
         return True
