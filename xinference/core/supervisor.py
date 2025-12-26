@@ -49,7 +49,7 @@ from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.utils import get_engine_params_by_name
 from ..types import PeftModelConfig
-from .launch_strategy import IdleFirstLaunchStrategy, select_least_loaded_gpus
+from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
@@ -1215,22 +1215,10 @@ class SupervisorActor(xo.StatelessActor):
                     iter_replica_model_uid(model_uid, replica)
                 ):
                     if strategy is not None:
+                        requested_gpu = n_gpu if isinstance(n_gpu, int) else None
                         worker_ref, target_gpu_idx = strategy.select_worker(
-                            worker_candidates
+                            worker_candidates, n_gpu=requested_gpu
                         )
-                        if isinstance(n_gpu, int) and n_gpu > 1:
-                            candidate = None
-                            for item in worker_candidates:
-                                if item["ref"] == worker_ref:
-                                    candidate = item
-                                    break
-                            alloc = candidate.get("alloc") if candidate else None
-                            target_gpu_idx = select_least_loaded_gpus(alloc, n_gpu)
-                            if target_gpu_idx is not None and alloc is not None:
-                                # Reserve the selected slots in the local snapshot.
-                                models = alloc.setdefault("models", {})
-                                for dev in target_gpu_idx:
-                                    models.setdefault(dev, []).append("__reserved__")
                         current_count = None
                         for candidate in worker_candidates:
                             if candidate["ref"] == worker_ref:
