@@ -35,6 +35,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        self._kwargs.pop("batch_size", None)
+        self._kwargs.pop("batch_interval", None)
+
         if self.model_family.model_name in {
             "Qwen3-Reranker-0.6B",
             "Qwen3-Reranker-4B",
@@ -229,7 +232,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             kwargs = group["kwargs"]
             offsets = group["offsets"]
             indices = group["indices"]
-
             score_list = self._rerank(documents, query, **kwargs)
 
             top_n = kwargs.pop("top_n", None)
@@ -310,9 +312,13 @@ class VLLMRerankModel(RerankModel, BatchMixin):
 
         documents = bound.arguments["documents"]
         query = bound.arguments["query"]
-        extra_kwargs = {
-            k: v for k, v in kwargs.items() if k != "documents" or k != "query"
+
+        extra_args = {
+            k: v
+            for k, v in bound.arguments.items()
+            if k not in ("documents", "query", "kwargs")
         }
+        extra_kwargs = {**extra_args, **bound.arguments.get("kwargs", {})}
         return documents, query, extra_kwargs
 
     def _get_batch_size(self, *args, **kwargs) -> int:
