@@ -24404,7 +24404,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1766473677
+    "updated_at": 1766740801
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -24480,6 +24480,6 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1766542907
+    "updated_at": 1766740801
   }
 ]
