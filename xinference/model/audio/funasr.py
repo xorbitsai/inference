@@ -86,6 +86,7 @@ class FunASRModel:
     def load(self):
         try:
             from funasr import AutoModel
+            from funasr.models.fun_asr_nano.model import FunASRNano
         except ImportError:
             error_message = "Failed to import module 'funasr'"
             installation_guide = [
