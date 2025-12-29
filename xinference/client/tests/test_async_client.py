@@ -27,6 +27,31 @@ from ..restful.async_restful_client import (
 )
 
 
+class _DummyAsyncResponse:
+    status = 200
+
+    async def json(self):
+        return {"choices": [{"message": {"content": "ok"}}]}
+
+    def release(self):
+        return None
+
+    async def wait_for_close(self):
+        return None
+
+
+class _DummyAsyncSession:
+    def __init__(self):
+        self.last_json = None
+
+    async def post(self, url, json=None, headers=None):
+        self.last_json = json
+        return _DummyAsyncResponse()
+
+    async def close(self):
+        return None
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 @pytest.mark.asyncio
 async def test_async_RESTful_client(setup):
@@ -589,3 +614,21 @@ async def test_model_error(set_test_oom_error, setup_cluster):
         await model.generate("Once upon a time, there was a very old computer")
     await model.close()
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_async_restful_chat_enable_thinking_injected():
+    handle = AsyncRESTfulChatModelHandle.__new__(AsyncRESTfulChatModelHandle)
+    handle._model_uid = "test-model"
+    handle._base_url = "http://localhost"
+    handle.auth_headers = {}
+    handle.session = _DummyAsyncSession()
+
+    messages = [{"role": "user", "content": "hi"}]
+    await handle.chat(messages, enable_thinking=True)
+
+    assert handle.session.last_json["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
+    handle.session = None

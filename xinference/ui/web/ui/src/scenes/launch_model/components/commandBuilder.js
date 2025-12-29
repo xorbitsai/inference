@@ -8,7 +8,7 @@ import { copyToClipboard } from '../../../components/utils'
 const keyMap = {
   model_size_in_billions: '--size-in-billions',
   download_hub: '--download_hub',
-  enable_thinking: '--enable_thinking',
+  enable_thinking: '--enable-thinking',
   reasoning_content: '--reasoning_content',
   lightning_version: '--lightning_version',
   lightning_model_path: '--lightning_model_path',
@@ -65,6 +65,10 @@ const CopyComponent = ({ getData, predefinedKeys }) => {
         } else if (key === 'enable_virtual_env') {
           if (value === true) return `--enable-virtual-env`
           if (value === false) return `--disable-virtual-env`
+          return []
+        } else if (key === 'enable_thinking') {
+          if (value === true) return `--enable-thinking`
+          if (value === false) return `--disable-thinking`
           return []
         } else if (predefinedKeys.includes(key)) {
           const newKey = keyMap[key] ?? `--${key.replace(/_/g, '-')}`

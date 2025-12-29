@@ -2982,6 +2982,27 @@ class RESTfulAPI(CancelMixin):
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
+        enable_thinking = raw_body.get("enable_thinking")
+        if enable_thinking is None:
+            extra_body = raw_body.get("extra_body")
+            if isinstance(extra_body, dict):
+                enable_thinking = extra_body.get("enable_thinking")
+        if isinstance(enable_thinking, bool):
+            raw_kwargs.pop("enable_thinking", None)
+            chat_template_kwargs = raw_kwargs.get("chat_template_kwargs") or {}
+            if isinstance(chat_template_kwargs, str):
+                try:
+                    chat_template_kwargs = json.loads(chat_template_kwargs)
+                except json.JSONDecodeError:
+                    chat_template_kwargs = {}
+            if not isinstance(chat_template_kwargs, dict):
+                chat_template_kwargs = {}
+            chat_template_kwargs = dict(chat_template_kwargs)
+            chat_template_kwargs["enable_thinking"] = enable_thinking
+            chat_template_kwargs["thinking"] = enable_thinking
+            raw_kwargs["chat_template_kwargs"] = chat_template_kwargs
+            kwargs["chat_template_kwargs"] = chat_template_kwargs
+
         # guided_decoding params
         kwargs.update(self.extract_guided_params(raw_body=raw_body))
 
