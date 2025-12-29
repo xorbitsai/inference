@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-29 12:09+0800\n"
+"POT-Creation-Date: 2025-12-29 12:19+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -518,7 +518,7 @@ msgid ""
 msgstr "CUDA 12.8 版本是实验性质，欢迎给我们反馈以改进。"
 
 #: ../../source/getting_started/using_xinference.rst:456
-msgid "CUDA 12.8 version is removed in  v1.16.0"
+msgid "CUDA 12.8 version is removed in v1.16.0 ."
 msgstr "CUDA 12.8 版本已在 v1.16.0 中移除。"
 
 #: ../../source/getting_started/using_xinference.rst:463

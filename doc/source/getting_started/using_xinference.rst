@@ -454,7 +454,7 @@ For cuda 12.8:
   CUDA 12.8 version is experimental, welcome to give us feedbacks to help us to improve.
 
 .. versionchanged:: v1.16.0
-  CUDA 12.8 version is removed in  v1.16.0
+  CUDA 12.8 version is removed in v1.16.0 .
 
 .. code-block:: bash
 
