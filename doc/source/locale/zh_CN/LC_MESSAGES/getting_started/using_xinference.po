@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-21 13:27+0800\n"
+"POT-Creation-Date: 2025-12-29 12:09+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -383,8 +383,9 @@ msgid ""
 "Code and so forth. Refer to :ref:`anthropic client <anthropic_client>` "
 "for more details."
 msgstr ""
-"Xinference 还支持通过基础 URL ``http://127.0.0.1:9997/anthropic`` 调用 Anthropic API，"
-"你可以在 Claude Code 等环境中使用 Xinference。更多详情请参阅 :ref:`anthropic client <anthropic_client>`。"
+"Xinference 还支持通过基础 URL ``http://127.0.0.1:9997/anthropic`` 调用 "
+"Anthropic API，你可以在 Claude Code 等环境中使用 Xinference。更多详情"
+"请参阅 :ref:`anthropic client <anthropic_client>`。"
 
 #: ../../source/getting_started/using_xinference.rst:333
 msgid "Manage Models"
@@ -516,11 +517,23 @@ msgid ""
 "us to improve."
 msgstr "CUDA 12.8 版本是实验性质，欢迎给我们反馈以改进。"
 
-#: ../../source/getting_started/using_xinference.rst:461
+#: ../../source/getting_started/using_xinference.rst:456
+msgid "CUDA 12.8 version is removed in  v1.16.0"
+msgstr "CUDA 12.8 版本已在 v1.16.0 中移除。"
+
+#: ../../source/getting_started/using_xinference.rst:463
+msgid "For cuda 12.9:"
+msgstr "对于 cuda 12.9："
+
+#: ../../source/getting_started/using_xinference.rst:465
+msgid "CUDA 12.9 will become the default version when Xinference v2.0.0 released."
+msgstr "在 Xinference v2.0.0 发布后，CUDA 12.9 将成为默认版本。"
+
+#: ../../source/getting_started/using_xinference.rst:473
 msgid "Run On CPU Only Host"
 msgstr "在只有 CPU 的机器上运行"
 
-#: ../../source/getting_started/using_xinference.rst:467
+#: ../../source/getting_started/using_xinference.rst:479
 msgid ""
 "Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
 "``latest`` can be used for the latest version."
@@ -528,17 +541,17 @@ msgstr ""
 "将 ``<your_version>`` 替换为 Xinference 的版本，比如 ``v0.10.3``，可以用 "
 "``latest`` 来用于最新版本。"
 
-#: ../../source/getting_started/using_xinference.rst:469
+#: ../../source/getting_started/using_xinference.rst:481
 msgid ""
 "For more docker usage, refer to :ref:`Using Docker Image "
 "<using_docker_image>`."
 msgstr "更多 docker 使用，请参考 :ref:`使用 docker 镜像 <using_docker_image>`。"
 
-#: ../../source/getting_started/using_xinference.rst:473
+#: ../../source/getting_started/using_xinference.rst:485
 msgid "What's Next?"
 msgstr "更多"
 
-#: ../../source/getting_started/using_xinference.rst:475
+#: ../../source/getting_started/using_xinference.rst:487
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
@@ -547,12 +560,22 @@ msgstr ""
 "恭喜你，已经初步掌握了 Xinference 的用法！为了帮助你更好地使用工具，下面"
 "是其他的一些文档和指导资源："
 
-#: ../../source/getting_started/using_xinference.rst:478
+#: ../../source/getting_started/using_xinference.rst:490
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ":ref:`如何使用 Python 创建不同类型的模型 <user_guide_client_api>`"
 
-#: ../../source/getting_started/using_xinference.rst:480
+#: ../../source/getting_started/using_xinference.rst:492
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
+
+#~ msgid ". code-block:: bash"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "docker run -e XINFERENCE_MODEL_SRC=modelscope "
+#~ "-p 9998:9997 --gpus all "
+#~ "xprobe/xinference:<your_version>-cu129 xinference-local"
+#~ " -H 0.0.0.0 --log-level debug"
+#~ msgstr ""

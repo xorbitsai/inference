@@ -453,9 +453,21 @@ For cuda 12.8:
 .. versionadded:: v1.8.1
   CUDA 12.8 version is experimental, welcome to give us feedbacks to help us to improve.
 
+.. versionchanged:: v1.16.0
+  CUDA 12.8 version is removed in  v1.16.0
+
 .. code-block:: bash
 
   docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version>-cu128 xinference-local -H 0.0.0.0 --log-level debug
+
+For cuda 12.9:
+
+.. versionadded:: v1.16.0
+  CUDA 12.9 will become the default version when Xinference v2.0.0 released.
+
+.. code-block:: bash
+
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-level debug
 
 Run On CPU Only Host
 -----------------------
