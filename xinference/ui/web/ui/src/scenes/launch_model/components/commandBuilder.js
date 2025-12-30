@@ -68,7 +68,6 @@ const CopyComponent = ({ getData, predefinedKeys }) => {
           return []
         } else if (key === 'enable_thinking') {
           if (value === true) return `--enable-thinking`
-          if (value === false) return `--disable-thinking`
           return []
         } else if (predefinedKeys.includes(key)) {
           const newKey = keyMap[key] ?? `--${key.replace(/_/g, '-')}`

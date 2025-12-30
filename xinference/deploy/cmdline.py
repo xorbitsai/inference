@@ -862,13 +862,6 @@ def remove_cache(
     help="Enable thinking mode for hybrid reasoning LLMs (e.g., Qwen3).",
 )
 @click.option(
-    "--disable-thinking",
-    "enable_thinking",
-    flag_value=False,
-    default=None,
-    help="Disable thinking mode for hybrid reasoning LLMs (e.g., Qwen3).",
-)
-@click.option(
     "--enable-virtual-env",
     is_flag=True,
     default=None,

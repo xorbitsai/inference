@@ -61,24 +61,6 @@ Xinference Client
         generate_config={"max_tokens": 1024}
     )
 
-For hybrid reasoning LLMs (for example, Qwen3), you can toggle thinking mode at launch
-and at request time:
-
-.. code-block::
-
-    model_uid = client.launch_model(
-        model_name="qwen3",
-        model_engine="transformers",
-        model_format="pytorch",
-        model_size_in_billions="0_6",
-        enable_thinking=False,
-    )
-    model = client.get_model(model_uid)
-    model.chat(
-        messages,
-        generate_config={"chat_template_kwargs": {"enable_thinking": False}},
-    )
-
 OpenAI Client
 =============
 

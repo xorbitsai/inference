@@ -80,18 +80,6 @@ Example usage:
 Take vLLM as an example: it has versions V1 and V0, and by default, it automatically determines which version to use.
 If you want to force the use of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify this during model launching.
 
-Thinking Mode (Hybrid LLMs)
-===========================
-
-Some hybrid reasoning models (for example, Qwen3) can run with or without thinking mode.
-You can enable or disable it at launch time.
-
-.. code-block:: bash
-
-  xinference launch --model-engine transformers -n qwen3 -s 0_6 -f pytorch --disable-thinking
-
-You can also control it in the Web UI by toggling "Enable Thinking" on the launch form for hybrid models.
-
 Configuring Model Virtual Environment
 =====================================
 

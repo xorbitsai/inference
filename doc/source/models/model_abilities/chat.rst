@@ -151,6 +151,65 @@ You can find more examples of Chat API in the tutorial notebook:
 
       Learn from an example of utilizing the Chat API with the Xinference Python client.
 
+Hybrid Thinking Models
+======================
+
+Some LLMs are marked as ``hybrid`` and can run with or without thinking mode. Xinference exposes a
+request-level ``enable_thinking`` switch that works across different model templates (e.g. Qwen
+uses ``enable_thinking`` while some DeepSeek templates use ``thinking``).
+
+Usage examples:
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/chat/completions' \
+      -H 'accept: application/json' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "messages": [
+            {"role": "user", "content": "What is the largest animal?"}
+        ],
+        "enable_thinking": false
+      }'
+
+  .. code-tab:: python OpenAI Python Client
+
+    import openai
+
+    client = openai.Client(
+        api_key="cannot be empty",
+        base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1"
+    )
+    client.chat.completions.create(
+        model="<MODEL_UID>",
+        messages=[
+            {"role": "user", "content": "What is the largest animal?"}
+        ],
+        extra_body={"enable_thinking": False}
+    )
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import RESTfulClient
+
+    client = RESTfulClient("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    model.chat(
+        [{"role": "user", "content": "What is the largest animal?"}],
+        enable_thinking=False,
+    )
+
+  .. code-tab:: python Xinference Python Client (explicit chat_template_kwargs)
+
+    model.chat(
+        [{"role": "user", "content": "What is the largest animal?"}],
+        generate_config={"chat_template_kwargs": {"enable_thinking": False}},
+    )
+
 
 Generate API 
 ----------------

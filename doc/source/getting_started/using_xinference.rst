@@ -240,37 +240,6 @@ The default unique ID will be identical to the model name.
   `gpu_memory_utilization=0.9` will pass to vllm when launching model.
 
 .. note::
-  For hybrid reasoning models (for example, Qwen3), you can control thinking mode at launch:
-
-  .. code-block:: bash
-
-    xinference launch --model-engine transformers -n qwen3 -s 0_6 -f pytorch --disable-thinking
-
-  .. code-block:: bash
-
-    curl -X 'POST' \
-      'http://127.0.0.1:9997/v1/models' \
-      -H 'accept: application/json' \
-      -H 'Content-Type: application/json' \
-      -d '{
-      "model_engine": "transformers",
-      "model_name": "qwen3",
-      "model_format": "pytorch",
-      "size_in_billions": "0_6",
-      "enable_thinking": false
-    }'
-
-  .. code-block:: python
-
-    model_uid = client.launch_model(
-      model_engine="transformers",
-      model_name="qwen3",
-      model_format="pytorch",
-      size_in_billions="0_6",
-      enable_thinking=False,
-    )
-
-.. note::
   For more tips on model launching, refer to :ref:`launch`.
 
 Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once the model is running, we can try it out either via cURL,
