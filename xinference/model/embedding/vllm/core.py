@@ -19,7 +19,7 @@ from typing import List, Tuple, Union
 from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
-from ...utils import cache_clean, check_dependency_available
+from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,6 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     def _get_detailed_instruct(task_description: str, query: str) -> str:
         return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
-    @cache_clean
     def _create_embedding(
         self,
         sentences: Union[str, List[str]],
@@ -149,6 +148,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             data=embedding_list,
             usage=usage,
         )
+        self._clean_cache_if_needed(all_token_nums)
 
         return result
 

@@ -1,17 +1,25 @@
+import gc
 import inspect
+import logging
 import uuid
 from collections import defaultdict
 from typing import Any, List, Optional, Tuple, Union
 
 from xoscar import extensible
 
-from ....device_utils import is_vacc_available
+from ....device_utils import empty_cache, is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import make_hashable
 from ...batch import BatchMixin
-from ...utils import cache_clean, check_dependency_available
-from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
+from ...utils import check_dependency_available
+from ..core import (
+    RERANK_EMPTY_CACHE_COUNT,
+    RerankModel,
+    RerankModelFamilyV2,
+    RerankSpecV1,
+)
 
+logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
 
@@ -58,7 +66,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
-    @cache_clean
     def _rerank(
         self,
         documents: List[str],
@@ -128,6 +135,12 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 query_list,
                 use_tqdm=False,
             )
+        # clear cache if possible
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            gc.collect()
+            empty_cache()
         return outputs
 
     @extensible
