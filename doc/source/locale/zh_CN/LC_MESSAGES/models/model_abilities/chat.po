@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-30 15:41+0800\n"
+"POT-Creation-Date: 2025-12-31 13:49+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/chat.rst:5
 msgid "Chat & Generate"
@@ -114,7 +114,7 @@ msgid "generate"
 msgstr ""
 
 #: ../../source/models/model_abilities/chat.rst:43
-#: ../../source/models/model_abilities/chat.rst:215
+#: ../../source/models/model_abilities/chat.rst:218
 msgid "Generate API"
 msgstr ""
 
@@ -135,8 +135,8 @@ msgstr ""
 ">`。"
 
 #: ../../source/models/model_abilities/chat.rst:53
-msgid "Quickstart"
-msgstr "快速入门"
+msgid "Chat Models"
+msgstr "聊天模型"
 
 #: ../../source/models/model_abilities/chat.rst:58
 msgid ""
@@ -174,14 +174,19 @@ msgid ""
 "``enable_thinking`` while some DeepSeek templates use ``thinking``)."
 msgstr ""
 "部分大型语言模型标记为 ``混合型`` ，可选择是否启用思考模式运行。"
-"Xinference提供请求级别的 ``enable_thinking`` 开关，"
-"该开关适用于不同模型模板（例如Qwen使用 ``enable_thinking`` ，而部分DeepSeek模板使用 ``thinking`` ）。"
+"Xinference提供请求级别的 ``enable_thinking`` 开关，该开关适用于不同模型"
+"模板（例如Qwen使用 ``enable_thinking`` ，而部分DeepSeek模板使用 ``"
+"thinking`` ）。"
 
 #: ../../source/models/model_abilities/chat.rst:161
 msgid "Usage examples:"
 msgstr "使用示例："
 
-#: ../../source/models/model_abilities/chat.rst:217
+#: ../../source/models/model_abilities/chat.rst:215
+msgid "Generate Models"
+msgstr "生成模型"
+
+#: ../../source/models/model_abilities/chat.rst:220
 msgid ""
 "The Generate API mirrors OpenAI's legacy `Completions API "
 "<https://platform.openai.com/docs/api-reference/completions/create>`__."
@@ -189,7 +194,7 @@ msgstr ""
 "Generate API 复刻了 OpenAI 的 `Completions API <https://platform.openai."
 "com/docs/api-reference/completions/create>`__。 "
 
-#: ../../source/models/model_abilities/chat.rst:219
+#: ../../source/models/model_abilities/chat.rst:222
 msgid ""
 "The difference between the Generate API and the Chat API lies primarily "
 "in the form of input. Opposite to the Chat API that takes a list of "
@@ -200,31 +205,34 @@ msgstr ""
 "消息列表作为输入，Generate API 接受一个名为 prompt 的自由文本字符串作为"
 "输入。"
 
-#: ../../source/models/model_abilities/chat.rst:290
+#: ../../source/models/model_abilities/chat.rst:293
 msgid "FAQ"
 msgstr ""
 
-#: ../../source/models/model_abilities/chat.rst:293
+#: ../../source/models/model_abilities/chat.rst:296
 msgid ""
 "Does Xinference's LLM provide integration methods for LangChain or "
 "LlamaIndex?"
 msgstr "Xinference 的 LLM 是否提供与 LangChain 或 LlamaIndex 的集成方法？"
 
-#: ../../source/models/model_abilities/chat.rst:295
+#: ../../source/models/model_abilities/chat.rst:298
 msgid ""
 "Yes, you can refer to the related sections in their respective official "
 "Xinference documentation. Here are the links:"
 msgstr "是的，你可以参考它们各自官方Xinference文档中的相关部分。以下是链接："
 
-#: ../../source/models/model_abilities/chat.rst:297
+#: ../../source/models/model_abilities/chat.rst:300
 msgid ""
 "`LangChain LLMs: Xinference "
 "<https://python.langchain.com/docs/integrations/llms/xinference>`__"
 msgstr ""
 
-#: ../../source/models/model_abilities/chat.rst:299
+#: ../../source/models/model_abilities/chat.rst:302
 msgid ""
 "`LlamaIndex LLM integrations: Xinference  "
 "<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`__"
 msgstr ""
+
+#~ msgid "Quickstart"
+#~ msgstr "快速入门"
 

@@ -49,7 +49,7 @@ Supported models
 
 You can examine the abilities of all the :ref:`builtin LLM models in Xinference <models_llm_index>`.
 
-Quickstart
+Chat Models
 ===================
 
 Chat API 
@@ -152,7 +152,7 @@ You can find more examples of Chat API in the tutorial notebook:
       Learn from an example of utilizing the Chat API with the Xinference Python client.
 
 Hybrid Thinking Models
-======================
+----------------------
 
 Some LLMs are marked as ``hybrid`` and can run with or without thinking mode. Xinference exposes a
 request-level ``enable_thinking`` switch that works across different model templates (e.g. Qwen
@@ -211,8 +211,11 @@ Usage examples:
     )
 
 
-Generate API 
-----------------
+Generate Models
+================
+
+Generate API
+-------------
 
 The Generate API mirrors OpenAI's legacy `Completions API <https://platform.openai.com/docs/api-reference/completions/create>`__.
 
