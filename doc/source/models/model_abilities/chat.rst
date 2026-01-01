@@ -154,8 +154,12 @@ You can find more examples of Chat API in the tutorial notebook:
 Hybrid Thinking Models
 ----------------------
 
-Some LLMs are marked as ``hybrid`` and can run with or without thinking mode. Xinference exposes a
-request-level ``enable_thinking`` switch that works across different model templates (e.g. Qwen
+Some LLMs are marked as ``hybrid`` and can run with or without thinking mode.
+
+.. versionadded:: v1.17.0
+  Request-level ``enable_thinking`` is added in v1.17.0
+
+Xinference exposes a request-level ``enable_thinking`` switch that works across different model templates (e.g. Qwen
 uses ``enable_thinking`` while some DeepSeek templates use ``thinking``).
 
 Usage examples:
