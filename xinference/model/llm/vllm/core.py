@@ -89,6 +89,10 @@ class VLLMModelConfig(TypedDict, total=False):
     tokenizer_mode: Optional[str]
     trust_remote_code: bool
     tensor_parallel_size: int
+    pipeline_parallel_size: int
+    nnodes: int
+    node_rank: int
+    distributed_executor_backend: str
     block_size: int
     swap_space: int  # GiB
     gpu_memory_utilization: float
@@ -735,6 +739,16 @@ class VLLMModel(LLM):
         model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
         model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
+        if (
+            self._n_worker > 1
+            and VLLM_VERSION
+            and VLLM_VERSION >= version.parse("0.11.0")
+        ):
+            # vLLM v1 requires nnodes/node_rank for multi-node world sizes.
+            model_config.setdefault("nnodes", self._n_worker)  # type: ignore
+            model_config.setdefault("node_rank", self._shard)  # type: ignore
+            # Use mp backend to satisfy vLLM validation; executor is patched later.
+            model_config.setdefault("distributed_executor_backend", "mp")
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
