@@ -906,6 +906,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return image.convert("RGBA") if image.mode != "RGBA" else image
         return image
 
+    @staticmethod
+    def _ensure_three_channel_image(image: Any):
+        if isinstance(image, list):
+            if not image:
+                return image
+            if isinstance(image[0], PIL.Image.Image):
+                return [
+                    img.convert("RGB") if img.mode != "RGB" else img for img in image
+                ]
+            return image
+        if isinstance(image, PIL.Image.Image):
+            return image.convert("RGB") if image.mode != "RGB" else image
+        return image
+
     def image_to_image(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
@@ -956,6 +970,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         if self._model_expects_four_channel_input(model):
             image = self._ensure_four_channel_image(image, model)
+        else:
+            image = self._ensure_three_channel_image(image)
 
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)
