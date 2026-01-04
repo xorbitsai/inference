@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gc
+import inspect
 import logging
 import threading
 import uuid
-from typing import List, Optional, Sequence, Tuple, Union
+from collections import defaultdict
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
+from xoscar import extensible
 
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ....utils import make_hashable
+from ...batch import BatchMixin
 from ...utils import check_dependency_available, is_flash_attn_available
 from ..core import (
     RERANK_EMPTY_CACHE_COUNT,
@@ -45,9 +50,29 @@ class _ModelWrapper(nn.Module):
     def n_tokens(self):
         return getattr(self._local_data, "n_tokens", 0)
 
+    @property
+    def input_tokens(self):
+        if not hasattr(self._local_data, "input_tokens"):
+            self._local_data.input_tokens = []
+        return self._local_data.input_tokens
+
+    @property
+    def input_ids(self):
+        if not hasattr(self._local_data, "input_ids"):
+            self._local_data.input_ids = []
+        return self._local_data.input_ids
+
     @n_tokens.setter
     def n_tokens(self, value):
         self._local_data.n_tokens = value
+
+    @input_tokens.setter
+    def input_tokens(self, value):
+        self._local_data.input_tokens = value
+
+    @input_ids.setter
+    def input_ids(self, value):
+        self._local_data.input_ids = value
 
     def forward(self, **kwargs):
         attention_mask = kwargs.get("attention_mask")
@@ -55,6 +80,11 @@ class _ModelWrapper(nn.Module):
         # thus we just sum up it to get the total number of tokens
         if attention_mask is not None:
             self.n_tokens += attention_mask.sum().item()
+            per_sample_tokens = attention_mask.sum(dim=1).tolist()
+            # sentence transformers always process batch size > 1
+            self.input_tokens.extend(per_sample_tokens)
+            self.input_ids.extend(kwargs.get("input_ids"))
+
         return self.model(**kwargs)
 
     def __getattr__(self, attr):
@@ -64,13 +94,21 @@ class _ModelWrapper(nn.Module):
             return getattr(self.model, attr)
 
 
-class SentenceTransformerRerankModel(RerankModel):
+class SentenceTransformerRerankModel(RerankModel, BatchMixin):
+    def __init__(self, *args, **kwargs) -> None:
+        RerankModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.rerank, **kwargs)  # type: ignore
+
     def load(self):
         # TODO: Split FlagReranker and sentence_transformers into different model_engines like FlagRerankModel
         logger.info("Loading rerank model: %s", self._model_path)
         enable_flash_attn = self._kwargs.pop(
             "enable_flash_attn", is_flash_attn_available()
         )
+
+        self._kwargs.pop("batch_size", None)
+        self._kwargs.pop("batch_interval", None)
+
         if enable_flash_attn:
             logger.warning(
                 "flash_attn can only support fp16 and bf16, will force set `use_fp16` to True"
@@ -109,6 +147,7 @@ class SentenceTransformerRerankModel(RerankModel):
             )
             if self._use_fp16:
                 self._model.model.half()
+            self._tokenizer = self._model.tokenizer
         elif (
             "qwen3" in self.model_family.model_name.lower()
             or "jina-reranker-v3" in self.model_family.model_name.lower()
@@ -182,6 +221,8 @@ class SentenceTransformerRerankModel(RerankModel):
 
             self.process_inputs = process_inputs
             self.compute_logits = compute_logits
+
+            self._tokenizer = tokenizer
         else:
             try:
                 if self.model_family.type == "LLM-based":
@@ -201,30 +242,42 @@ class SentenceTransformerRerankModel(RerankModel):
 
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
             self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
+            self._tokenizer = self._model.tokenizer
         # Wrap transformers model to record number of tokens
         self._model.model = _ModelWrapper(self._model.model)
 
-    def rerank(
+    def _rerank(
         self,
         documents: List[str],
-        query: str,
+        query: List[str],
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
         return_len: Optional[bool],
         **kwargs,
-    ) -> Rerank:
+    ) -> List[Any]:
         assert self._model is not None
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
 
-        pre_query = preprocess_sentence(
-            query, kwargs.get("instruction", None), self.model_family.model_name
-        )
-        sentence_combinations = [[pre_query, doc] for doc in documents]
+        sentence_combinations = [
+            [
+                preprocess_sentence(
+                    pre_query,
+                    kwargs.get("instruction", None),
+                    self.model_family.model_name,
+                ),
+                doc,
+            ]
+            for doc, pre_query in zip(documents, query)
+        ]
         # reset n tokens
         self._model.model.n_tokens = 0
+        # reset input_tokens
+        self._model.model.input_tokens = []
+        # reset input_tokens
+        self._model.model.input_ids = []
         if (
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
@@ -257,9 +310,10 @@ class SentenceTransformerRerankModel(RerankModel):
             similarity_scores = []
             for i in range(0, len(documents), micro_bs):
                 sub_docs = documents[i : i + micro_bs]
+                sub_queries = query[i : i + micro_bs]
                 pairs = [
-                    format_instruction(kwargs.get("instruction", None), query, doc)
-                    for doc in sub_docs
+                    format_instruction(kwargs.get("instruction", None), pre_query, doc)
+                    for doc, pre_query in zip(sub_docs, sub_queries)
                 ]
                 # Tokenize the input texts
                 inputs = self.process_inputs(pairs)
@@ -279,6 +333,31 @@ class SentenceTransformerRerankModel(RerankModel):
             ):
                 similarity_scores = similarity_scores[0]
 
+        return similarity_scores
+
+    @extensible
+    def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int] = None,
+        max_chunks_per_doc: Optional[int] = None,
+        return_documents: Optional[bool] = True,
+        return_len: Optional[bool] = False,
+        **kwargs,
+    ) -> Rerank:
+        documents_size = len(documents)
+        query_list = [query] * documents_size
+
+        similarity_scores = self._rerank(
+            documents,
+            query_list,
+            top_n,
+            max_chunks_per_doc,
+            return_documents,
+            return_len,
+            **kwargs,
+        )
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]
@@ -319,7 +398,6 @@ class SentenceTransformerRerankModel(RerankModel):
             warnings=None,
         )
 
-        del similarity_scores
         # clear cache if possible
         self._counter += 1
         if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
@@ -328,6 +406,214 @@ class SentenceTransformerRerankModel(RerankModel):
             empty_cache()
 
         return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
+
+    @rerank.batch  # type: ignore
+    def rerank(self, args_list, kwargs_list):
+        grouped = defaultdict(
+            lambda: {
+                "documents": [],
+                "query": [],
+                "offsets": [],
+                "kwargs": None,
+                "indices": [],
+            }
+        )
+
+        # 1. Group by kwargs hash
+        for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
+
+            documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
+
+            key = make_hashable(extra_kwargs)
+            group = grouped[key]
+            group["kwargs"] = extra_kwargs
+
+            current_offset = len(group["documents"])
+            documents_size = len(documents)
+            group["offsets"].append((current_offset, documents_size))
+            group["documents"].extend(documents)
+            group["query"].extend([query] * documents_size)
+            group["indices"].append(i)  # remember original position
+
+        results_with_index = []
+
+        # 2. Process each group separately
+        for key, group in grouped.items():
+            documents = group["documents"]
+            query = group["query"]
+            kwargs = group["kwargs"]
+            offsets = group["offsets"]
+            indices = group["indices"]
+            score_list = self._rerank(documents, query, **kwargs)
+            top_n = kwargs.pop("top_n", None)
+            return_documents = kwargs.pop("return_documents", None)
+            return_len = kwargs.pop("return_len", None)
+
+            # 3. Split and attach original index
+            for (offset, n), idx in zip(offsets, indices):
+                tmp_documents = group["documents"][offset : offset + n]
+                tmp_queries = group["query"][offset : offset + n]
+                data = score_list[offset : offset + n]
+                sim_scores_argsort = list(reversed(np.argsort(data)))
+                if top_n is not None:
+                    sim_scores_argsort = sim_scores_argsort[:top_n]
+                if return_documents:
+                    docs = [
+                        DocumentObj(
+                            index=int(arg),
+                            relevance_score=float(data[arg]),
+                            document=Document(text=tmp_documents[arg]),
+                        )
+                        for arg in sim_scores_argsort
+                    ]
+                else:
+                    docs = [
+                        DocumentObj(
+                            index=int(arg),
+                            relevance_score=float(data[arg]),
+                            document=None,
+                        )
+                        for arg in sim_scores_argsort
+                    ]
+                if return_len:
+                    if (
+                        self.model_family.type == "normal"
+                        and "qwen3" not in self.model_family.model_name.lower()
+                        and "jina-reranker-v3"
+                        not in self.model_family.model_name.lower()
+                    ):
+                        input_len = sum(
+                            self._model.model.input_tokens[offset : offset + n]
+                        )
+                    elif (
+                        "qwen3" in self.model_family.model_name.lower()
+                        or "jina-reranker-v3" in self.model_family.model_name.lower()
+                    ):
+                        input_len = sum(
+                            self._model.model.input_tokens[offset : offset + n]
+                        )
+                    else:
+                        # flagEmbedding reranker, forward twice
+                        # input_ids was sorted, so we should traverse all prompt to match them
+                        input_len = 0
+                        for doc, q in zip(tmp_documents, tmp_queries):
+                            for index, input_id in enumerate(
+                                self._model.model.input_ids
+                            ):
+                                prompt = self._tokenizer.decode(input_id)
+                                if self.flag_engine_match_query_doc(prompt, q, doc):
+                                    input_len += (
+                                        self._model.model.input_tokens[index] * 2
+                                    )
+                                    break
+                    # Rerank Model output is just score or documents
+                    # while return_documents = True
+                    output_len = input_len
+
+                # api_version, billed_units, warnings
+                # is for Cohere API compatibility, set to None
+                metadata = Meta(
+                    api_version=None,
+                    billed_units=None,
+                    tokens=(
+                        RerankTokens(input_tokens=input_len, output_tokens=output_len)
+                        if return_len
+                        else None
+                    ),
+                    warnings=None,
+                )
+
+                # clear cache if possible
+                self._counter += 1
+                if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+                    logger.debug("Empty rerank cache.")
+                    gc.collect()
+                    empty_cache()
+                result = Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
+                results_with_index.append((idx, result))
+
+        # 4. Sort by original call order
+        results_with_index.sort(key=lambda x: x[0])
+        results = [r for _, r in results_with_index]
+        return results
+
+    def _extract_rerank_kwargs(self, args, kwargs):
+        """
+        Extract the 'documents' and 'query' argument and remaining kwargs from (*args, **kwargs)
+        for a given function.
+
+        This uses inspect.signature(func).bind_partial() to automatically match
+        both positional and keyword arguments, while handling bound methods
+        (functions with 'self' as the first parameter).
+
+        Args:
+            func: The target function whose parameters define how to bind args/kwargs.
+            args: The positional arguments passed to the function.
+            kwargs: The keyword arguments passed to the function.
+
+        Returns:
+            A tuple (documents, query, extra_kwargs), where:
+              - documents: The extracted 'documents' argument (never None).
+              - query: The extracted 'query' argument (never None).
+              - extra_kwargs: Remaining keyword arguments excluding 'documents' and 'query'.
+
+        Raises:
+            KeyError: If 'documents' or 'query' argument is not found.
+            TypeError: If args/kwargs do not match the function signature.
+        """
+        sig = inspect.signature(self._rerank)
+        bound = sig.bind_partial(*args, **kwargs)
+        bound.apply_defaults()
+
+        if "documents" not in bound.arguments or "query" not in bound.arguments:
+            raise KeyError("'documents' or 'query' argument not found in args/kwargs")
+
+        documents = bound.arguments["documents"]
+        query = bound.arguments["query"]
+
+        extra_args = {
+            k: v
+            for k, v in bound.arguments.items()
+            if k not in ("documents", "query", "kwargs")
+        }
+        extra_kwargs = {**extra_args, **bound.arguments.get("kwargs", {})}
+        return documents, query, extra_kwargs
+
+    def _get_batch_size(self, *args, **kwargs) -> int:
+        reranks = self._extract_rerank_kwargs(args, kwargs)[0]
+        if isinstance(reranks, list):
+            return len(reranks)
+        else:
+            return 1
+
+    @staticmethod
+    def flag_engine_match_query_doc(prompt: str, query: str, doc: str) -> bool:
+        """
+        prompt: str, query: str, doc: str
+        """
+        try:
+            a_start = prompt.index("A: ") + len("A: ")
+            b_start = prompt.index("B: ") + len("B: ")
+        except ValueError:
+            return False
+
+        # from A: after exact match query
+        a_slice = prompt[a_start : a_start + len(query)]
+        if a_slice != query:
+            return False
+
+        remain_prompt = prompt[a_start + len(query) :]
+        try:
+            b_start = remain_prompt.index("B: ") + len("B: ")
+        except ValueError:
+            return False
+
+        # from B: after exact match doc
+        b_slice = remain_prompt[b_start : b_start + len(doc)]
+        if b_slice != doc:
+            return False
+
+        return True
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
