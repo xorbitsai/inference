@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 32 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Skywork/Skywork-OR1-32B-Preview
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Skywork/Skywork-OR1-32B-Preview>`__, `ModelScope <https://modelscope.cn/models/Skywork/Skywork-OR1-32B-Preview>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 32 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 32
 - **Quantizations:** Int4, int8
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** JunHowie/Skywork-OR1-32B-Preview-GPTQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/JunHowie/Skywork-OR1-32B-Preview-GPTQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/JunHowie/Skywork-OR1-32B-Preview-GPTQ-{quantization}>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Skywork/Skywork-OR1-7B-Preview
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Skywork/Skywork-OR1-7B-Preview>`__, `ModelScope <https://modelscope.cn/models/Skywork/Skywork-OR1-7B-Preview>`__
 
