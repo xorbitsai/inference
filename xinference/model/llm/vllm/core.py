@@ -877,6 +877,7 @@ class VLLMModel(LLM):
             not cls._has_cuda_device()
             and not cls._has_mlu_device()
             and not cls._has_vacc_device()
+            and not cls._has_musa_device()
         ):
             return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs"
         if not cls._is_linux():
@@ -1590,6 +1591,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             not cls._has_cuda_device()
             and not cls._has_mlu_device()
             and not cls._has_vacc_device()
+            and not cls._has_musa_device()
         ):
             return (
                 False,
