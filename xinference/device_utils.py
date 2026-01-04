@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from typing import Dict, Literal, Union
 
 import torch
 
-DeviceType = Literal["cuda", "mps", "xpu", "vacc", "npu", "mlu", "cpu"]
+DeviceType = Literal["cuda", "mps", "xpu", "vacc", "npu", "mlu", "musa", "cpu"]
 DEVICE_TO_ENV_NAME = {
     "cuda": "CUDA_VISIBLE_DEVICES",
     "npu": "ASCEND_RT_VISIBLE_DEVICES",
     "mlu": "MLU_VISIBLE_DEVICES",
     "vacc": "VACC_VISIBLE_DEVICES",
+    "musa": "MUSA_VISIBLE_DEVICES",
 }
 
 
@@ -60,6 +60,17 @@ def is_mlu_available() -> bool:
         return False
 
 
+def is_musa_available() -> bool:
+    try:
+        import torch
+        import torch_musa  # noqa: F401
+        import torchada  # noqa: F401
+
+        return torch.musa.is_available()
+    except ImportError:
+        return False
+
+
 def get_available_device() -> DeviceType:
     if torch.cuda.is_available():
         return "cuda"
@@ -73,6 +84,8 @@ def get_available_device() -> DeviceType:
         return "mlu"
     elif is_vacc_available():
         return "vacc"
+    elif is_musa_available():
+        return "musa"
     return "cpu"
 
 
@@ -89,6 +102,8 @@ def is_device_available(device: str) -> bool:
         return is_mlu_available()
     elif device == "vacc":
         return is_vacc_available()
+    elif device == "musa":
+        return is_musa_available()
     elif device == "cpu":
         return True
 
@@ -113,6 +128,7 @@ def get_device_preferred_dtype(device: str) -> Union[torch.dtype, None]:
         or device == "npu"
         or device == "mlu"
         or device == "vacc"
+        or device == "musa"
     ):
         return torch.float16
     elif device == "xpu":
@@ -122,7 +138,13 @@ def get_device_preferred_dtype(device: str) -> Union[torch.dtype, None]:
 
 
 def is_hf_accelerate_supported(device: str) -> bool:
-    return device == "cuda" or device == "xpu" or device == "npu" or device == "mlu"
+    return (
+        device == "cuda"
+        or device == "xpu"
+        or device == "npu"
+        or device == "mlu"
+        or device == "musa"
+    )
 
 
 def empty_cache():
@@ -148,6 +170,8 @@ def empty_cache():
         torch.mlu.empty_cache()
     if is_vacc_available():
         torch.vacc.empty_cache()
+    if is_musa_available():
+        torch.musa.empty_cache()
 
 
 def get_available_device_env_name():
@@ -155,34 +179,18 @@ def get_available_device_env_name():
 
 
 def gpu_count():
-    if torch.cuda.is_available():
-        cuda_visible_devices_env = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    device_module = torch.get_device_module(get_available_device())
+    if torch.cuda.is_available() or is_vacc_available() or is_musa_available():
+        visible_devices_env = get_available_device_env_name()
 
-        if cuda_visible_devices_env is None:
-            return torch.cuda.device_count()
+        if visible_devices_env is None:
+            return device_module.device_count()
 
-        cuda_visible_devices = (
-            cuda_visible_devices_env.split(",") if cuda_visible_devices_env else []
-        )
+        visible_devices = visible_devices_env.split(",") if visible_devices_env else []
 
-        return min(torch.cuda.device_count(), len(cuda_visible_devices))
-    elif is_xpu_available():
-        return torch.xpu.device_count()
-    elif is_npu_available():
-        return torch.npu.device_count()
-    elif is_mlu_available():
-        return torch.mlu.device_count()
-    elif is_vacc_available():
-        vacc_visible_devices_env = os.getenv("VACC_VISIBLE_DEVICES", None)
-
-        if vacc_visible_devices_env is None:
-            return torch.vacc.device_count()
-
-        vacc_visible_devices = (
-            vacc_visible_devices_env.split(",") if vacc_visible_devices_env else []
-        )
-
-        return min(torch.vacc.device_count(), len(vacc_visible_devices))
+        return min(device_module.device_count(), len(visible_devices))
+    elif is_xpu_available() or is_npu_available() or is_mlu_available():
+        return device_module.device_count()
     else:
         return 0
 

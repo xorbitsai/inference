@@ -137,6 +137,29 @@ class LLM(abc.ABC):
 
     @staticmethod
     @lru_cache
+    def _has_musa_device():
+        """
+        Use pymtml to impl this interface.
+        DO NOT USE torch to impl this, which will lead to some unexpected errors.
+        """
+        from pymtml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+        device_count = 0
+        try:
+            nvmlInit()
+            device_count = nvmlDeviceGetCount()
+        except:
+            pass
+        finally:
+            try:
+                nvmlShutdown()
+            except:
+                pass
+
+        return device_count > 0
+
+    @staticmethod
+    @lru_cache
     def _get_cuda_count():
         from ...device_utils import get_available_device_env_name
         from ...utils import cuda_count
@@ -255,8 +278,8 @@ def create_llm_model_instance(
 
     if not llm_family:
         raise ValueError(
-            f"Model not found, name: {model_name}, format: {model_format},"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
+            f"Model not found, name: {model_name}, format: {model_format}, "
+            f"size: {model_size_in_billions}, quantization: {quantization}"
         )
 
     llm_cls = check_engine_by_spec_parameters(

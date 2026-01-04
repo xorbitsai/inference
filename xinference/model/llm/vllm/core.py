@@ -877,8 +877,9 @@ class VLLMModel(LLM):
             not cls._has_cuda_device()
             and not cls._has_mlu_device()
             and not cls._has_vacc_device()
+            and not cls._has_musa_device()
         ):
-            return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs"
+            return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs or MUSA GPUs"
         if not cls._is_linux():
             return False, "vLLM backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
@@ -1590,10 +1591,11 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             not cls._has_cuda_device()
             and not cls._has_mlu_device()
             and not cls._has_vacc_device()
+            and not cls._has_musa_device()
         ):
             return (
                 False,
-                "vLLM multimodal engine requires CUDA or MLU GPUs or VACC GPUs",
+                "vLLM multimodal engine requires CUDA or MLU GPUs or VACC GPUs or MUSA GPUs",
             )
         if not cls._is_linux():
             return False, "vLLM multimodal engine is only supported on Linux"
