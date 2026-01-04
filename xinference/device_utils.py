@@ -63,6 +63,7 @@ def is_mlu_available() -> bool:
 def is_musa_available() -> bool:
     try:
         import torch
+        import torch_musa  # noqa: F401
         import torchada  # noqa: F401
 
         return torch.musa.is_available()
