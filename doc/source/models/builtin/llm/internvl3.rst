@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-1B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-1B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-1B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 1 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 1
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-1B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-1B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-1B-AWQ>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 2 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-2B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-2B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-2B>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (awq, 2 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 2
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-2B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-2B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-2B-AWQ>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-8B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-8B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-8B>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (awq, 8 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-8B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-8B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-8B-AWQ>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (pytorch, 9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-9B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-9B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-9B>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (awq, 9 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 9
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-9B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-9B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-9B-AWQ>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (pytorch, 14 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-14B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-14B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-14B>`__
 
@@ -164,7 +164,7 @@ Model Spec 10 (awq, 14 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 14
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-14B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-14B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-14B-AWQ>`__
 
@@ -180,7 +180,7 @@ Model Spec 11 (pytorch, 38 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 38
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-38B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-38B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-38B>`__
 
@@ -196,7 +196,7 @@ Model Spec 12 (awq, 38 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 38
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-38B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-38B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-38B-AWQ>`__
 
@@ -212,7 +212,7 @@ Model Spec 13 (pytorch, 78 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 78
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-78B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-78B>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-78B>`__
 
@@ -228,7 +228,7 @@ Model Spec 14 (awq, 78 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 78
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, LMDEPLOY
 - **Model ID:** OpenGVLab/InternVL3-78B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OpenGVLab/InternVL3-78B-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenGVLab/InternVL3-78B-AWQ>`__
 

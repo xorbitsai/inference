@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 32 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 32
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Tongyi-Zhiwen/QwenLong-L1-32B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Tongyi-Zhiwen/QwenLong-L1-32B>`__, `ModelScope <https://modelscope.cn/models/iic/QwenLong-L1-32B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 32 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 32
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Tongyi-Zhiwen/QwenLong-L1-32B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Tongyi-Zhiwen/QwenLong-L1-32B-AWQ>`__, `ModelScope <https://modelscope.cn/models/iic/QwenLong-L1-32B-AWQ>`__
 

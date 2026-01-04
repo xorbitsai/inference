@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 22 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 22
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** mistralai/Codestral-22B-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Codestral-22B-v0.1>`__
 

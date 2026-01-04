@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_5 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** zai-org/glm-edge-1.5b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-1.5b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 4 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** zai-org/glm-edge-4b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-4b-chat>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 1_5 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1_5
 - **Quantizations:** Q4_0, Q4_1, Q4_K, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** zai-org/glm-edge-1.5b-chat-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-1.5b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (ggufv2, 1_5 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1_5
 - **Quantizations:** F16
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** zai-org/glm-edge-1.5b-chat-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-1.5b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (ggufv2, 4 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 4
 - **Quantizations:** Q4_0, Q4_1, Q4_K, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** zai-org/glm-edge-4b-chat-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-4b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (ggufv2, 4 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 4
 - **Quantizations:** F16
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** zai-org/glm-edge-4b-chat-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/glm-edge-4b-chat-gguf>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf>`__
 

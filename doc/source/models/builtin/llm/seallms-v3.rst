@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_5 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** SeaLLMs/SeaLLMs-v3-1.5B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLMs-v3-1.5B-Chat>`__, `ModelScope <https://modelscope.cn/models/SeaLLMs/SeaLLMs-v3-1.5B-Chat>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** SeaLLMs/SeaLLMs-v3-7B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLMs-v3-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/SeaLLMs/SeaLLMs-v3-7B-Chat>`__
 
