@@ -218,12 +218,29 @@ def get_nvidia_gpu_info() -> Dict:
         for i in range(device_count):
             res[f"gpu-{i}"] = _get_nvidia_gpu_mem_info(i)
         return res
-    except:
+    except Exception:
+        # Fall back to torch-based detection when NVML lacks support.
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                res = {}
+                for i in range(torch.cuda.device_count()):
+                    res[f"gpu-{i}"] = {
+                        "name": torch.cuda.get_device_name(i),
+                        "total": 0,
+                        "used": 0,
+                        "free": 0,
+                        "util": 0,
+                    }
+                return res
+        except Exception:
+            pass
         # TODO: add log here
         # logger.debug(f"Cannot init nvml. Maybe due to lack of NVIDIA GPUs or incorrect installation of CUDA.")
         return {}
     finally:
         try:
             nvmlShutdown()
-        except:
+        except Exception:
             pass

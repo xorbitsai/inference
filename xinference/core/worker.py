@@ -562,12 +562,6 @@ class WorkerActor(xo.StatelessActor):
             existing_model_uids = []
             if idx in self._gpu_to_model_uids:
                 for rep_uid in self._gpu_to_model_uids[idx]:
-                    is_vllm_model = await self.is_model_vllm_backend(rep_uid)
-                    if is_vllm_model:
-                        raise RuntimeError(
-                            f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
-                            f"therefore cannot allocate GPU memory for a new model."
-                        )
                     existing_model_uids.append(rep_uid)
             if not self._allow_multi_replica_per_gpu and (
                 existing_model_uids
