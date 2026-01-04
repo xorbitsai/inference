@@ -128,50 +128,37 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-3.2-vision``, ``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1-instruct``, ``llama-3.3-instruct``
-- ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-instruct``
-- ``codestral-v0.1``
-- ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
-- ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-v3-0324``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-prover-v2``, ``deepseek-r1-0528-qwen3``, ``deepseek-r1-distill-llama``
-- ``yi-coder``, ``yi-coder-chat``
-- ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
-- ``baichuan-2-chat``
-- ``internlm2-chat``
-- ``internlm2.5-chat``, ``internlm2.5-chat-1m``
-- ``qwen-chat``
-- ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
-- ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
-- ``glm4-chat``, ``glm4-chat-1m``, ``glm4-0414``
-- ``codegeex4``
-- ``qwen1.5-chat``, ``qwen1.5-moe-chat``
-- ``qwen2-instruct``, ``qwen2-moe-instruct``
-- ``XiYanSQL-QwenCoder-2504``
-- ``QwQ-32B-Preview``, ``QwQ-32B``
-- ``marco-o1``
-- ``fin-r1``
-- ``seallms-v3``
-- ``skywork-or1-preview``, ``skywork-or1``
-- ``HuatuoGPT-o1-Qwen2.5``, ``HuatuoGPT-o1-LLaMA-3.1``
-- ``DianJin-R1``
-- ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
-- ``orion-chat``, ``orion-chat-rag``
-- ``c4ai-command-r-v01``
-- ``minicpm3-4b``
-- ``internlm3-instruct``
-- ``moonlight-16b-a3b-instruct``
-- ``qwenLong-l1``
-- ``qwen3``
-- ``Baichuan-M2``
-- ``minicpm4``
-- ``Ernie4.5``
-- ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``, ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
-- ``Deepseek-V3.1``
-- ``glm-4.5``
-- ``KAT-V1``
-- ``gpt-oss``
-- ``seed-oss``
+- ``LlamaForCausalLM``, ``LlamaForCausalLM``
+- ``MistralForCausalLM``, ``MistralForCausalLM``
+- ``Qwen2ForCausalLM``, ``Qwen2ForCausalLM``
+- ``MllamaForConditionalGeneration``
+- ``BaichuanForCausalLM``
+- ``InternLM2ForCausalLM``
+- ``QWenLMHeadModel``
+- ``MixtralForCausalLM``
+- ``ChatGLMForConditionalGeneration``
+- ``GlmForCausalLM``
+- ``ChatGLMModel``
+- ``GemmaForCausalLM``
+- ``OrionForCausalLM``
+- ``Qwen2MoeForCausalLM``
+- ``CohereForCausalLM``
+- ``DeepseekV2ForCausalLM``
+- ``DeepseekV3ForCausalLM``
+- ``Qwen3ForCausalLM``
+- ``MiniCPM3ForCausalLM``
+- ``InternLM3ForCausalLM``
+- ``Gemma3ForCausalLM``
+- ``Glm4ForCausalLM``
+- ``MiniCPMForCausalLM``
+- ``Ernie4_5ForCausalLM``
+- ``Qwen3MoeForCausalLM``
+- ``Glm4MoeForCausalLM``
+- ``GptOssForCausalLM``
+- ``SeedOssForCausalLM``
+- ``Qwen3NextForCausalLM``
+- ``DeepseekV32ForCausalLM``
+- ``MiniMaxM2ForCausalLM``
 .. vllm_end
 
 .. _sglang_backend:

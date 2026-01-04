@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-7B-Instruct-1M
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-1M>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen2.5-7B-Instruct-1M>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 14 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2.5-14B-Instruct-1M
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-1M>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen2.5-14B-Instruct-1M>`__
 
