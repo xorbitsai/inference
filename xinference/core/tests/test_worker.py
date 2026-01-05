@@ -43,6 +43,9 @@ class MockWorkerActor(WorkerActor):
     def get_user_specified_gpu_to_model_uids(self):
         return self._user_specified_gpu_to_model_uids
 
+    def set_allow_multi_replica_per_gpu(self, allow: bool):
+        self._allow_multi_replica_per_gpu = allow
+
     async def is_model_vllm_backend(self, model_uid):
         if model_uid.startswith("embedding") or model_uid.startswith("rerank"):
             return False
@@ -300,10 +303,13 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     assert 0 in llm_info
     assert 1 in llm_info
 
+    # Force single-replica mode to verify conflict handling on occupied GPU.
+    await worker.set_allow_multi_replica_per_gpu(False)
     with pytest.raises(RuntimeError):
         await worker.launch_builtin_model(
             "model_model_4", "mock_model_name", None, None, None, "LLM", gpu_idx=[1]
         )
+    await worker.set_allow_multi_replica_per_gpu(True)
 
     await worker.launch_builtin_model(
         "model_model_4", "mock_model_name", None, None, None, "LLM", gpu_idx=[2]
