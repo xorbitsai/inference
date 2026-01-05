@@ -77,6 +77,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "Qwen3-Next-Thinking",
     "Qwen3-Omni-Instruct",
     "Qwen3-Omni-Thinking",
+    "MiniMax-M2",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
