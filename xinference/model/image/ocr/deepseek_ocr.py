@@ -416,7 +416,8 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
 class DeepSeekOCRModel(OCRModel):
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_name == "DeepSeek-OCR"
+        model_format = getattr(model_family, "model_format", None)
+        return model_family.model_name == "DeepSeek-OCR" and model_format != "mlx"
 
     def __init__(
         self,

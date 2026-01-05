@@ -756,9 +756,28 @@ def merge_cached_files(
 
 def flatten_model_src(input_json: dict):
     flattened = []
-    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+    base_info = {
+        key: value
+        for key, value in input_json.items()
+        if key not in ("model_src", "model_specs")
+    }
+
+    if "model_specs" in input_json:
+        for spec in input_json["model_specs"]:
+            spec_base = base_info.copy()
+            spec_base.update({k: v for k, v in spec.items() if k != "model_src"})
+            for model_hub, hub_info in spec["model_src"].items():
+                record = spec_base.copy()
+                hub_info = hub_info.copy()
+                hub_info.pop("model_hub", None)
+                record.update(hub_info)
+                record["model_hub"] = model_hub
+                flattened.append(record)
+        return flattened
+
     for model_hub, hub_info in input_json["model_src"].items():
         record = base_info.copy()
+        hub_info = hub_info.copy()
         hub_info.pop("model_hub", None)
         record.update(hub_info)
         record["model_hub"] = model_hub

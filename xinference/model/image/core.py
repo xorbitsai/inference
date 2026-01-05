@@ -167,13 +167,6 @@ def create_ocr_model_instance(
     from .cache_manager import ImageCacheManager
     from .ocr.ocr_family import check_engine_by_model_name_and_engine
 
-    if (
-        model_engine
-        and model_engine.lower() == "mlx"
-        and model_spec.model_name == "DeepSeek-OCR"
-    ):
-        model_spec = _override_deepseek_ocr_mlx_spec(model_spec)
-
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         model_path = cache_manager.cache()
@@ -191,16 +184,6 @@ def create_ocr_model_instance(
         model_path,
         model_spec=model_spec,
         **kwargs,
-    )
-
-
-def _override_deepseek_ocr_mlx_spec(
-    model_spec: ImageModelFamilyV2,
-) -> ImageModelFamilyV2:
-    model_id = "mlx-community/DeepSeek-OCR-8bit"
-    model_revision = "master" if model_spec.model_hub == "modelscope" else "main"
-    return model_spec.copy(
-        update={"model_id": model_id, "model_revision": model_revision}
     )
 
 
@@ -230,6 +213,9 @@ def create_image_model_instance(
 
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
+        model_spec = _select_ocr_model_family(
+            model_name, model_engine or "transformers", download_hub
+        )
         return create_ocr_model_instance(
             model_uid=model_uid,
             model_spec=model_spec,
@@ -312,3 +298,53 @@ def create_image_model_instance(
         **kwargs,
     )
     return model
+
+
+def _select_ocr_model_family(
+    model_name: str,
+    model_engine: str,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ],
+) -> ImageModelFamilyV2:
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_IMAGE_MODELS
+    from .custom import get_user_defined_images
+
+    candidates: List[ImageModelFamilyV2] = []
+    for model_spec in get_user_defined_images():
+        if model_spec.model_name == model_name:
+            candidates.append(model_spec)
+
+    if not candidates and model_name in BUILTIN_IMAGE_MODELS:
+        candidates = BUILTIN_IMAGE_MODELS[model_name]
+
+    if not candidates:
+        raise ValueError(
+            f"Image model {model_name} not found, available"
+            f"model list: {BUILTIN_IMAGE_MODELS.keys()}"
+        )
+
+    prefer_modelscope = download_hub == "modelscope" or download_from_modelscope()
+    preferred_hubs = (
+        ["modelscope", "huggingface"]
+        if prefer_modelscope
+        else ["huggingface", "modelscope"]
+    )
+
+    def _hub_rank(spec: ImageModelFamilyV2) -> int:
+        try:
+            return preferred_hubs.index(spec.model_hub)
+        except ValueError:
+            return len(preferred_hubs)
+
+    engine = model_engine.lower()
+    if engine == "mlx":
+        filtered = [c for c in candidates if getattr(c, "model_format", None) == "mlx"]
+    else:
+        filtered = [c for c in candidates if getattr(c, "model_format", None) != "mlx"]
+        if not filtered:
+            filtered = candidates
+
+    filtered.sort(key=_hub_rank)
+    return filtered[0]

@@ -5,6 +5,15 @@ from ..cache_manager import CacheManager
 
 
 class ImageCacheManager(CacheManager):
+    def __init__(self, model_family):
+        super().__init__(model_family)
+        model_format = getattr(model_family, "model_format", None)
+        if model_format:
+            self._cache_dir = os.path.join(
+                self._v2_cache_dir_prefix,
+                f"{self._model_family.model_name.replace('.', '_')}-{model_format}",
+            )
+
     def cache_gguf(self, quantization: Optional[str] = None):
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
         from .core import ImageModelFamilyV2
