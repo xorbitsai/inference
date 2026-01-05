@@ -50,25 +50,25 @@ class _ModelWrapper(nn.Module):
     def n_tokens(self):
         return getattr(self._local_data, "n_tokens", 0)
 
+    @n_tokens.setter
+    def n_tokens(self, value):
+        self._local_data.n_tokens = value
+
     @property
     def input_tokens(self):
         if not hasattr(self._local_data, "input_tokens"):
             self._local_data.input_tokens = []
         return self._local_data.input_tokens
 
+    @input_tokens.setter
+    def input_tokens(self, value):
+        self._local_data.input_tokens = value
+
     @property
     def input_ids(self):
         if not hasattr(self._local_data, "input_ids"):
             self._local_data.input_ids = []
         return self._local_data.input_ids
-
-    @n_tokens.setter
-    def n_tokens(self, value):
-        self._local_data.n_tokens = value
-
-    @input_tokens.setter
-    def input_tokens(self, value):
-        self._local_data.input_tokens = value
 
     @input_ids.setter
     def input_ids(self, value):
@@ -593,7 +593,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         """
         try:
             a_start = prompt.index("A: ") + len("A: ")
-            b_start = prompt.index("B: ") + len("B: ")
         except ValueError:
             return False
 
@@ -602,15 +601,21 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         if a_slice != query:
             return False
 
-        remain_prompt = prompt[a_start + len(query) :]
+        doc_prompt = prompt[a_start + len(query) :]
         try:
-            b_start = remain_prompt.index("B: ") + len("B: ")
+            b_start = doc_prompt.index("B: ") + len("B: ")
         except ValueError:
             return False
 
         # from B: after exact match doc
-        b_slice = remain_prompt[b_start : b_start + len(doc)]
+        b_slice = doc_prompt[b_start : b_start + len(doc)]
         if b_slice != doc:
+            return False
+        sep = "\n"
+        default_prompt = "Given a query A and a passage B, determine whether the passage contains an answer to the query by providing a prediction of either 'Yes' or 'No'."
+
+        remain_prompt = doc_prompt[b_start + len(doc) :]
+        if remain_prompt != f" {sep} {default_prompt}":
             return False
 
         return True
