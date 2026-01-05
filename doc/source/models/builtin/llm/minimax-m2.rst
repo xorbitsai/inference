@@ -46,7 +46,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name MiniMax-M2 --size-in-billions 230 --model-format awq --quantization ${quantization}
 
 
-Model Spec 3 (mlx, 230 Billion)
+Model Spec 3 (awq, 162 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 162
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/MiniMax-M2-REAP-162B-A10B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/MiniMax-M2-REAP-162B-A10B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/MiniMax-M2-REAP-162B-A10B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name MiniMax-M2 --size-in-billions 162 --model-format awq --quantization ${quantization}
+
+
+Model Spec 4 (mlx, 230 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
