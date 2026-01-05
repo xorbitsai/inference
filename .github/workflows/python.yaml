@@ -197,7 +197,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "transformers==4.53.2"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr==1.2.7"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr==1.3.0"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing<1.1.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing<1.0.4

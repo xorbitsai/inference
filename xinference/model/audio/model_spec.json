@@ -1096,7 +1096,9 @@
         "max_single_segment_time": 30000
       }
     },
-    "default_transcription_config": {},
+    "default_transcription_config": {
+      "batch_size": 1
+    },
     "version": 2,
     "virtualenv": {
       "packages": []
@@ -1128,7 +1130,9 @@
         "max_single_segment_time": 30000
       }
     },
-    "default_transcription_config": {},
+    "default_transcription_config": {
+      "batch_size": 1
+    },
     "version": 2,
     "virtualenv": {
       "packages": []
