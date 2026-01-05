@@ -209,14 +209,15 @@ for family in BUILTIN_LLM_FAMILIES:
 
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
 MODEL_HUB_MODELSCOPE = "ModelScope"
+_LEGACY_TRANSFORMERS_FORMATS = {"pytorch", "gptq", "awq", "bnb"}
 
 
-def gen_vllm_models():
-    prefix_to_models = defaultdict(list)
-    for model in VLLM_SUPPORTED_MODELS + VLLM_SUPPORTED_CHAT_MODELS:
-        prefix = model.split('-', 1)[0]
-        prefix_to_models[prefix].append(model)
-    return [list(v) for _, v in prefix_to_models.items()]
+def build_architecture_to_models(models):
+    architecture_to_models = defaultdict(list)
+    for model in models:
+        for architecture in model.get("architectures", []) or []:
+            architecture_to_models[architecture].append(model["model_name"])
+    return architecture_to_models
 
 
 def get_metrics_from_url(metrics_url):
@@ -232,6 +233,13 @@ def get_metrics_from_url(metrics_url):
             "help": family.documentation,
         })
     return result
+
+
+def _can_use_transformers_legacy(model, model_spec):
+    if model_spec.get("model_format") not in _LEGACY_TRANSFORMERS_FORMATS:
+        return False
+    abilities = set(model.get("model_ability", []))
+    return "chat" in abilities or "generate" in abilities
 
 def main():
     template_dir = '../templates' 
@@ -301,6 +309,10 @@ def main():
                             check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
                                                             size, quantization)
                         except ValueError:
+                            if engine == "Transformers" and _can_use_transformers_legacy(
+                                model, model_spec
+                            ):
+                                engines.append(engine)
                             continue
                         else:
                             engines.append(engine)
@@ -324,6 +336,7 @@ def main():
         with open(index_file_path, "w") as file:
             rendered_index = env.get_template('llm_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
+        llm_sorted_models = sorted_models
 
 
     with open('../../xinference/model/embedding/model_spec.json', 'r') as file:
@@ -532,8 +545,19 @@ def main():
             file.write(rendered_index)
 
     if VLLM_INSTALLED:
-        vllm_models = gen_vllm_models()
-        groups = [', '.join("``%s``" % m for m in group) for group in vllm_models]
+        architecture_to_models = build_architecture_to_models(llm_sorted_models)
+        supported_architectures = []
+        for architecture in VLLM_SUPPORTED_MODELS + VLLM_SUPPORTED_CHAT_MODELS:
+            if architecture not in supported_architectures:
+                supported_architectures.append(architecture)
+        groups = []
+        for architecture in supported_architectures:
+            if architecture in architecture_to_models:
+                model_names = sorted(set(architecture_to_models[architecture]), key=str.lower)
+                groups.append(model_names)
+            else:
+                groups.append([architecture])
+        groups = [', '.join("``%s``" % m for m in group) for group in groups]
         vllm_model_str = '\n'.join('- %s' % group for group in groups)
         for fn in ['getting_started/installation.rst', 'user_guide/backends.rst']:
             with open(fn) as f:

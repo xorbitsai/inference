@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 27 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 27
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/deepseek-vl2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-vl2>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-vl2>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 16 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 16
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/deepseek-vl2-small
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-vl2-small>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-vl2-small>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 3 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 3
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/deepseek-vl2-tiny
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-vl2-tiny>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-vl2-tiny>`__
 

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** openbmb/MiniCPM-V-4_5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4_5>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4_5>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** openbmb/MiniCPM-V-4_5-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4_5-int4>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4_5-int4>`__
 

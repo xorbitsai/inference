@@ -59,50 +59,37 @@ Currently, supported models include:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-3.2-vision``, ``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1-instruct``, ``llama-3.3-instruct``
-- ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-instruct``
-- ``codestral-v0.1``
-- ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``
-- ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, ``deepseek-v3-0324``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-prover-v2``, ``deepseek-r1-0528-qwen3``, ``deepseek-r1-distill-llama``
-- ``yi-coder``, ``yi-coder-chat``
-- ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct-1m``
-- ``baichuan-2-chat``
-- ``internlm2-chat``
-- ``internlm2.5-chat``, ``internlm2.5-chat-1m``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
+- ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``
+- ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
+- ``baichuan-2``, ``baichuan-2-chat``
+- ``InternLM2ForCausalLM``
 - ``qwen-chat``
-- ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
-- ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
-- ``glm4-chat``, ``glm4-chat-1m``, ``glm4-0414``
-- ``codegeex4``
-- ``qwen1.5-chat``, ``qwen1.5-moe-chat``
-- ``qwen2-instruct``, ``qwen2-moe-instruct``
-- ``XiYanSQL-QwenCoder-2504``
-- ``QwQ-32B-Preview``, ``QwQ-32B``
-- ``marco-o1``
-- ``fin-r1``
-- ``seallms-v3``
-- ``skywork-or1-preview``, ``skywork-or1``
-- ``HuatuoGPT-o1-Qwen2.5``, ``HuatuoGPT-o1-LLaMA-3.1``
-- ``DianJin-R1``
-- ``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``
-- ``orion-chat``, ``orion-chat-rag``
-- ``c4ai-command-r-v01``
+- ``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``
+- ``cogagent``
+- ``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``
+- ``codegeex4``, ``glm-4v``
+- ``seallm_v2.5``
+- ``orion-chat``
+- ``qwen1.5-moe-chat``, ``qwen2-moe-instruct``
+- ``CohereForCausalLM``
+- ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-vl2``
+- ``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-16b-a3b-instruct``
+- ``deepseek-r1-0528-qwen3``, ``qwen3``
 - ``minicpm3-4b``
 - ``internlm3-instruct``
-- ``moonlight-16b-a3b-instruct``
-- ``qwenLong-l1``
-- ``qwen3``
-- ``Baichuan-M2``
-- ``minicpm4``
+- ``gemma-3-1b-it``
+- ``glm4-0414``
+- ``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``
 - ``Ernie4.5``
-- ``Qwen3-Instruct``, ``Qwen3-Thinking``, ``Qwen3-Coder``, ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
-- ``Deepseek-V3.1``
+- ``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``
 - ``glm-4.5``
-- ``KAT-V1``
 - ``gpt-oss``
 - ``seed-oss``
+- ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
+- ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
+- ``MiniMax-M2``
 .. vllm_end
 
 To install Xinference and vLLM::

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 671 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** deepseek-ai/DeepSeek-V3.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V3.1>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.1>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 671 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 671
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** cpatonn/DeepSeek-V3.1-GPTQ-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/cpatonn/DeepSeek-V3.1-GPTQ-4bit>`__, `ModelScope <https://modelscope.cn/models/cpatonn/DeepSeek-V3.1-GPTQ-4bit>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 671 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 671
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** QuantTrio/DeepSeek-V3.1-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-V3.1-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/DeepSeek-V3.1-AWQ>`__
 

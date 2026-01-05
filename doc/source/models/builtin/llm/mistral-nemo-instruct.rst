@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 12 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** mistralai/Mistral-Nemo-Instruct-2407
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 12 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 12 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 12
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (gptq, 12 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 12
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Nemo-Instruct-2407-gptq-4bit>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (awq, 12 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 12
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** casperhansen/mistral-nemo-instruct-2407-awq
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/casperhansen/mistral-nemo-instruct-2407-awq>`__
 
