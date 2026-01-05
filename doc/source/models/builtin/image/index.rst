@@ -33,11 +33,15 @@ The following is a list of built-in image models in Xinference:
   
    kolors
   
+   paddleocr-vl
+  
    qwen-image
   
    qwen-image-edit
   
    qwen-image-edit-2509
+  
+   qwen-image-layered
   
    sd-turbo
   

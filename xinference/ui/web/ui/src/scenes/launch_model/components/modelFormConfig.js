@@ -747,6 +747,32 @@ export default function getModelFormConfig({
           },
         ],
       },
+      {
+        name: 'nested_section_env',
+        label: t('launchModel.envVariableConfig'),
+        type: 'collapse',
+        visible: true,
+        children: [
+          {
+            name: 'envs',
+            label: t('launchModel.envVariable'),
+            type: 'dynamicField',
+            mode: 'key-value',
+            keyPlaceholder: 'key',
+            valuePlaceholder: 'value',
+            visible: true,
+          },
+        ],
+      },
+      {
+        name: 'custom',
+        label: t('launchModel.additionalParametersForInferenceEngine'),
+        type: 'dynamicField',
+        mode: 'key-value',
+        keyPlaceholder: 'key',
+        valuePlaceholder: 'value',
+        visible: true,
+      },
     ],
     audio: [
       {

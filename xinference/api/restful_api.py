@@ -20,7 +20,6 @@ import logging
 import multiprocessing
 import os
 import pprint
-import sys
 import time
 import uuid
 import warnings
@@ -1421,18 +1420,6 @@ class RESTfulAPI(CancelMixin):
         assert self._app is not None
         assert body.model_type == "LLM"
 
-        # asyncio.Lock() behaves differently in 3.9 than 3.10+
-        # A event loop is required in 3.9 but not 3.10+
-        if sys.version_info < (3, 10):
-            try:
-                asyncio.get_event_loop()
-            except RuntimeError:
-                warnings.warn(
-                    "asyncio.Lock() requires an event loop in Python 3.9"
-                    + "a placeholder event loop has been created"
-                )
-                asyncio.set_event_loop(asyncio.new_event_loop())
-
         from ..ui.gradio.chat_interface import GradioInterface
 
         try:
@@ -1473,18 +1460,6 @@ class RESTfulAPI(CancelMixin):
         body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
         assert self._app is not None
         assert body.model_type in ("image", "video", "audio")
-
-        # asyncio.Lock() behaves differently in 3.9 than 3.10+
-        # A event loop is required in 3.9 but not 3.10+
-        if sys.version_info < (3, 10):
-            try:
-                asyncio.get_event_loop()
-            except RuntimeError:
-                warnings.warn(
-                    "asyncio.Lock() requires an event loop in Python 3.9"
-                    + "a placeholder event loop has been created"
-                )
-                asyncio.set_event_loop(asyncio.new_event_loop())
 
         from ..ui.gradio.media_interface import MediaInterface
 
@@ -3006,6 +2981,27 @@ class RESTfulAPI(CancelMixin):
 
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        enable_thinking = raw_body.get("enable_thinking")
+        if enable_thinking is None:
+            extra_body = raw_body.get("extra_body")
+            if isinstance(extra_body, dict):
+                enable_thinking = extra_body.get("enable_thinking")
+        if isinstance(enable_thinking, bool):
+            raw_kwargs.pop("enable_thinking", None)
+            chat_template_kwargs = raw_kwargs.get("chat_template_kwargs") or {}
+            if isinstance(chat_template_kwargs, str):
+                try:
+                    chat_template_kwargs = json.loads(chat_template_kwargs)
+                except json.JSONDecodeError:
+                    chat_template_kwargs = {}
+            if not isinstance(chat_template_kwargs, dict):
+                chat_template_kwargs = {}
+            chat_template_kwargs = dict(chat_template_kwargs)
+            chat_template_kwargs["enable_thinking"] = enable_thinking
+            chat_template_kwargs["thinking"] = enable_thinking
+            raw_kwargs["chat_template_kwargs"] = chat_template_kwargs
+            kwargs["chat_template_kwargs"] = chat_template_kwargs
 
         # guided_decoding params
         kwargs.update(self.extract_guided_params(raw_body=raw_body))

@@ -51,3 +51,4 @@ xgrammar>=0.1.10
 cuda-python
 sgl-kernel>=0.0.3.post3,<=0.1.4
 IPython
+numpy==1.26.4

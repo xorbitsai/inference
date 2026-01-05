@@ -30,6 +30,25 @@ from ..restful.restful_client import (
 )
 
 
+class _DummyResponse:
+    status_code = 200
+
+    def json(self):
+        return {"choices": [{"message": {"content": "ok"}}]}
+
+
+class _DummySession:
+    def __init__(self):
+        self.last_json = None
+
+    def post(self, url, json=None, stream=None, headers=None):
+        self.last_json = json
+        return _DummyResponse()
+
+    def close(self):
+        return None
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_RESTful_client(setup):
     endpoint, _ = setup
@@ -524,3 +543,18 @@ def test_model_error(set_test_oom_error, setup_cluster):
 
     with pytest.raises(RuntimeError, match="Model actor is out of memory"):
         model.generate("Once upon a time, there was a very old computer")
+
+
+def test_restful_chat_enable_thinking_injected():
+    handle = RESTfulChatModelHandle("test-model", "http://localhost", {})
+    dummy_session = _DummySession()
+    handle.session = dummy_session
+
+    messages = [{"role": "user", "content": "hi"}]
+    handle.chat(messages, enable_thinking=False)
+
+    assert dummy_session.last_json["chat_template_kwargs"] == {
+        "enable_thinking": False,
+        "thinking": False,
+    }
+    handle.session = None

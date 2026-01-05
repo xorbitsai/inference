@@ -36,10 +36,15 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("qwen2.5-omni")
-@register_non_default_model("Qwen3-Omni-Thinking")
-@register_non_default_model("Qwen3-Omni-Instruct")
+@register_non_default_model(
+    "Qwen2_5OmniModel",
+    "Qwen3OmniMoeForConditionalGeneration",
+)
 class QwenOmniChatModel(PytorchMultiModalModel):
+    QWEN_OMNI_ARCHITECTURES = {
+        "Qwen2_5OmniModel",
+        "Qwen3OmniMoeForConditionalGeneration",
+    }
     DEFAULT_SYSTEM_PROMPT = (
         "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
         "capable of perceiving auditory and visual inputs, as well as generating text and speech."
@@ -48,8 +53,10 @@ class QwenOmniChatModel(PytorchMultiModalModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 2.5 or 3
-        model_family = self.model_family.model_family or self.model_family.model_name
-        self._omni_version = "2.5" if "2.5" in model_family else "3"
+        if self.model_family.has_architecture("Qwen2_5OmniModel"):
+            self._omni_version = "2.5"
+        else:
+            self._omni_version = "3"
 
     @classmethod
     def match_json(
@@ -60,12 +67,11 @@ class QwenOmniChatModel(PytorchMultiModalModel):
                 False,
                 "Qwen Omni transformer supports pytorch/gptq/awq/bnb formats only",
             )
-        llm_family = model_family.model_family or model_family.model_name
-        if not (
-            "qwen2.5-omni".lower() in llm_family.lower()
-            or "qwen3-omni".lower() in llm_family.lower()
-        ):
-            return False, f"Model family {llm_family} is not Qwen Omni"
+        if not model_family.has_architecture(*cls.QWEN_OMNI_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not Qwen Omni",
+            )
         abilities = model_family.model_ability
         if (
             "omni" not in abilities

@@ -35,13 +35,17 @@ logger = logging.getLogger(__name__)
 )
 @register_transformer
 @register_non_default_model(
-    "qwen2-vl-instruct",
-    "qwen2.5-vl-instruct",
-    "QvQ-72B-Preview",
-    "Qwen3-VL-Instruct",
-    "Qwen3-VL-Thinking",
+    "Qwen2VLForConditionalGeneration",
+    "Qwen2_5_VLForConditionalGeneration",
+    "Qwen3VLMoeForConditionalGeneration",
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
+    QWEN2_VL_ARCHITECTURES = {
+        "Qwen2VLForConditionalGeneration",
+        "Qwen2_5_VLForConditionalGeneration",
+        "Qwen3VLMoeForConditionalGeneration",
+    }
+
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
     ) -> PytorchModelConfig:
@@ -60,17 +64,10 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 False,
                 "Qwen2 VL transformer supports pytorch/gptq/awq/bnb/fp8 formats only",
             )
-        llm_family = model_family.model_family or model_family.model_name
-        supported = [
-            "qwen2-vl-instruct",
-            "qwen2.5-vl-instruct",
-            "qvq-72b-preview",
-            "qwen3-vl",
-        ]
-        if not any(name in llm_family.lower() for name in supported):
+        if not model_family.has_architecture(*cls.QWEN2_VL_ARCHITECTURES):
             return (
                 False,
-                f"Model family {llm_family} is not a supported Qwen2/3 VL variant",
+                f"Model architectures {model_family.architectures} are not a supported Qwen2/3 VL variant",
             )
         if "vision" not in model_family.model_ability:
             return False, "Qwen2 VL transformer requires vision ability"
@@ -109,10 +106,9 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             AutoModelForImageTextToText = None
 
         kwargs = self.apply_bnb_quantization()
-        llm_family = self.model_family.model_family or self.model_family.model_name
-        if "qwen2.5" in llm_family.lower():
+        if self.model_family.has_architecture("Qwen2_5_VLForConditionalGeneration"):
             model_cls = Qwen2_5_VLForConditionalGeneration
-        elif "qwen3" in llm_family.lower():
+        elif self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):
             model_cls = AutoModelForImageTextToText
         else:
             model_cls = Qwen2VLForConditionalGeneration

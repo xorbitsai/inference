@@ -29,8 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("gpt-oss")
+@register_non_default_model("GptOssForCausalLM")
 class GPTOSSPytorchChatModel(PytorchChatModel):
+    GPT_OSS_ARCHITECTURES = {"GptOssForCausalLM"}
+
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
     ) -> PytorchModelConfig:
@@ -47,9 +49,11 @@ class GPTOSSPytorchChatModel(PytorchChatModel):
                 False,
                 "GPT-OSS transformer supports pytorch/gptq/awq/bnb formats only",
             )
-        model_family = llm_family.model_family or llm_family.model_name
-        if "gpt" not in model_family and "oss" not in model_family:
-            return False, f"Model family {model_family} is not GPT-OSS"
+        if not llm_family.has_architecture(*cls.GPT_OSS_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not GPT-OSS",
+            )
         if "chat" not in llm_family.model_ability:
             return False, "GPT-OSS transformer requires chat ability"
         return True

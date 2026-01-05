@@ -27,6 +27,14 @@ from packaging import version
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
 
+class _DummyRequest:
+    def __init__(self, payload):
+        self._payload = payload
+
+    async def json(self):
+        return self._payload
+
+
 @pytest.mark.asyncio
 async def test_restful_api(setup):
     endpoint, _ = setup
@@ -1230,6 +1238,54 @@ def test_lang_chain(setup):
     )
     assert type(r) == AIMessage
     assert r.content
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload, expected",
+    [
+        (
+            {
+                "model": "test",
+                "messages": [{"role": "user", "content": "hi"}],
+                "enable_thinking": False,
+            },
+            False,
+        ),
+        (
+            {
+                "model": "test",
+                "messages": [{"role": "user", "content": "hi"}],
+                "extra_body": {"enable_thinking": True},
+            },
+            True,
+        ),
+    ],
+)
+async def test_chat_completion_enable_thinking_injected(payload, expected):
+    from ...api.restful_api import RESTfulAPI
+
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(return_value="{}")
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3"})
+
+    response = await api.create_chat_completion(_DummyRequest(payload))
+    assert response.status_code == 200
+
+    called_args, called_kwargs = model.chat.call_args
+    chat_kwargs = called_args[1]["chat_template_kwargs"]
+    assert chat_kwargs["enable_thinking"] is expected
+    assert chat_kwargs["thinking"] is expected
+
+    raw_chat_kwargs = called_kwargs["raw_params"]["chat_template_kwargs"]
+    assert raw_chat_kwargs["enable_thinking"] is expected
+    assert raw_chat_kwargs["thinking"] is expected
 
 
 def test_launch_model_async(setup):

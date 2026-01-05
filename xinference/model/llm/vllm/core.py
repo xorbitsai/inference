@@ -36,6 +36,7 @@ from typing import (
     Type,
     TypedDict,
     Union,
+    cast,
 )
 
 import xoscar as xo
@@ -43,6 +44,7 @@ from packaging import version
 from typing_extensions import NotRequired
 
 from ....constants import XINFERENCE_MAX_TOKENS
+from ....device_utils import is_vacc_available
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -55,7 +57,7 @@ from ....types import (
 )
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
-from ..llm_family import CustomLLMFamilyV2, cache_model_tokenizer_and_config
+from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -87,6 +89,10 @@ class VLLMModelConfig(TypedDict, total=False):
     tokenizer_mode: Optional[str]
     trust_remote_code: bool
     tensor_parallel_size: int
+    pipeline_parallel_size: int
+    nnodes: int
+    node_rank: int
+    distributed_executor_backend: str
     block_size: int
     swap_space: int  # GiB
     gpu_memory_utilization: float
@@ -132,6 +138,9 @@ class VLLMGenerateConfig(TypedDict, total=False):
 
 
 try:
+    if is_vacc_available():
+        import vllm_vacc  # noqa: F401
+
     import vllm  # noqa: F401
 
     if not getattr(vllm, "__version__", None):
@@ -145,174 +154,121 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
+
+def _append_unique(target: List[str], *items: str) -> None:
+    for item in items:
+        if item not in target:
+            target.append(item)
+
+
 VLLM_SUPPORTED_MULTI_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
-    "llama-2",
-    "llama-3",
-    "mistral-v0.1",
-    "codestral-v0.1",
-    "Yi",
-    "Yi-1.5",
-    "code-llama",
-    "code-llama-python",
-    "deepseek",
-    "deepseek-coder",
-    "yi-coder",
+    "LlamaForCausalLM",
+    "MistralForCausalLM",
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
-    "llama-2-chat",
-    "llama-3-instruct",
-    "baichuan-2-chat",
-    "internlm2-chat",
-    "internlm2.5-chat",
-    "internlm2.5-chat-1m",
-    "qwen-chat",
-    "Yi-chat",
-    "Yi-1.5-chat",
-    "Yi-1.5-chat-16k",
-    "code-llama-instruct",
-    "mistral-instruct-v0.1",
-    "mistral-instruct-v0.2",
-    "mistral-instruct-v0.3",
-    "mixtral-instruct-v0.1",
-    "mixtral-8x22B-instruct-v0.1",
-    "chatglm3",
-    "chatglm3-32k",
-    "chatglm3-128k",
-    "glm4-chat",
-    "glm4-chat-1m",
-    "codegeex4",
-    "deepseek-chat",
-    "deepseek-coder-instruct",
-    "yi-coder-chat",
+    "LlamaForCausalLM",
+    "BaichuanForCausalLM",
+    "InternLM2ForCausalLM",
+    "QWenLMHeadModel",
+    "MistralForCausalLM",
+    "MixtralForCausalLM",
+    "ChatGLMForConditionalGeneration",
+    "GlmForCausalLM",
+    "ChatGLMModel",
 ]
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
-    VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
-    VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-instruct")
-    VLLM_SUPPORTED_MODELS.append("qwen2.5")
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct")
-    VLLM_SUPPORTED_MODELS.append("qwen2.5-coder")
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-coder-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("XiYanSQL-QwenCoder-2504")
-    VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B-Preview")
-    VLLM_SUPPORTED_CHAT_MODELS.append("QwQ-32B")
-    VLLM_SUPPORTED_CHAT_MODELS.append("marco-o1")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-qwen")
-    VLLM_SUPPORTED_CHAT_MODELS.append("fin-r1")
-    VLLM_SUPPORTED_CHAT_MODELS.append("seallms-v3")
-    VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1-preview")
-    VLLM_SUPPORTED_CHAT_MODELS.append("skywork-or1")
-    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-Qwen2.5")
-    VLLM_SUPPORTED_CHAT_MODELS.append("DianJin-R1")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Qwen2ForCausalLM")
+    _append_unique(VLLM_SUPPORTED_MODELS, "Qwen2ForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.2"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GemmaForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat")
-    VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat-rag")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "OrionForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.4.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
+    _append_unique(
+        VLLM_SUPPORTED_CHAT_MODELS, "Qwen2MoeForCausalLM", "CohereForCausalLM"
+    )
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.1"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2-chat-0628")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v2.5")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v3")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-v3-0324")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-prover-v2")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-0528-qwen3")
-
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.3"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
-    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
-
-if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.5.3"):
-    VLLM_SUPPORTED_MODELS.append("llama-3.1")
-    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.3-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("deepseek-r1-distill-llama")
-    VLLM_SUPPORTED_CHAT_MODELS.append("HuatuoGPT-o1-LLaMA-3.1")
+    _append_unique(
+        VLLM_SUPPORTED_CHAT_MODELS,
+        "DeepseekV2ForCausalLM",
+        "DeepseekV3ForCausalLM",
+        "Qwen3ForCausalLM",
+    )
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("internvl2")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL2.5")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL2.5-MPO")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("InternVL3")
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "InternVLChatModel")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("minicpm3-4b")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPM3ForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
-    VLLM_SUPPORTED_MODELS.append("llama-3.2-vision")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("llama-3.2-vision-instruct")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-vl-instruct")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("QvQ-72B-Preview")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-audio")
+    _append_unique(VLLM_SUPPORTED_MODELS, "MllamaForConditionalGeneration")
+    _append_unique(
+        VLLM_SUPPORTED_MULTI_MODEL_LIST,
+        "MllamaForConditionalGeneration",
+        "Qwen2VLForConditionalGeneration",
+        "Qwen2AudioForConditionalGeneration",
+    )
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("internlm3-instruct")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "InternLM3ForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2.5-vl-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("moonlight-16b-a3b-instruct")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2-audio-instruct")
+    _append_unique(
+        VLLM_SUPPORTED_MULTI_MODEL_LIST,
+        "Qwen2_5_VLForConditionalGeneration",
+        "Qwen2AudioForConditionalGeneration",
+    )
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2.5-instruct-1m")
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwenLong-l1")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("qwen2.5-omni")
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen2_5OmniModel")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-3-1b-it")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("gemma-3-it")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Gemma3ForCausalLM")
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma3ForConditionalGeneration")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("glm4-0414")
-
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.5"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("qwen3")
-
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("Baichuan-M2")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4ForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("minicpm4")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPMForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("Ernie4.5")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("glm-4.1v-thinking")
-    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Thinking")
-    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Coder")
-    VLLM_SUPPORTED_CHAT_MODELS.append("Deepseek-V3.1")
+    _append_unique(
+        VLLM_SUPPORTED_CHAT_MODELS,
+        "Ernie4_5ForCausalLM",
+        "Qwen3MoeForCausalLM",
+    )
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vForConditionalGeneration")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("glm-4.5")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("glm-4.5v")
-    VLLM_SUPPORTED_CHAT_MODELS.append("KAT-V1")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeForCausalLM")
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vMoeForConditionalGeneration")
 
 if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("gpt-oss")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GptOssForCausalLM")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
-    VLLM_SUPPORTED_CHAT_MODELS.append("seed-oss")
-    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("Qwen3-Next-Thinking")
+    _append_unique(
+        VLLM_SUPPORTED_CHAT_MODELS, "SeedOssForCausalLM", "Qwen3NextForCausalLM"
+    )
+    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV")
 
 if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Thinking")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-VL-Instruct")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Thinking")
-    VLLM_SUPPORTED_MULTI_MODEL_LIST.append("Qwen3-Omni-Instruct")
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV32ForCausalLM")
+    _append_unique(
+        VLLM_SUPPORTED_MULTI_MODEL_LIST,
+        "Qwen3VLMoeForConditionalGeneration",
+        "Qwen3OmniMoeForConditionalGeneration",
+    )
+
+if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
+    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniMaxM2ForCausalLM")
 
 
 class VLLMModel(LLM):
@@ -783,6 +739,16 @@ class VLLMModel(LLM):
         model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
         model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
+        if (
+            self._n_worker > 1
+            and VLLM_VERSION
+            and VLLM_VERSION >= version.parse("0.11.0")
+        ):
+            # vLLM v1 requires nnodes/node_rank for multi-node world sizes.
+            model_config.setdefault("nnodes", self._n_worker)  # type: ignore
+            model_config.setdefault("node_rank", self._shard)  # type: ignore
+            # Use mp backend to satisfy vLLM validation; executor is patched later.
+            model_config.setdefault("distributed_executor_backend", "mp")
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
@@ -921,8 +887,13 @@ class VLLMModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False, "vLLM requires CUDA or MLU GPUs"
+        if (
+            not cls._has_cuda_device()
+            and not cls._has_mlu_device()
+            and not cls._has_vacc_device()
+            and not cls._has_musa_device()
+        ):
+            return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs or MUSA GPUs"
         if not cls._is_linux():
             return False, "vLLM backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
@@ -943,18 +914,11 @@ class VLLMModel(LLM):
             else:
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
-                return (
-                    False,
-                    f"Custom family {llm_family.model_family} not in vLLM supported list",
-                )
-        else:
-            if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
-                return (
-                    False,
-                    f"Model {llm_family.model_name} is not supported by vLLM",
-                )
+        if not llm_family.matches_supported_architectures(VLLM_SUPPORTED_MODELS):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not supported by vLLM",
+            )
         if "generate" not in llm_family.model_ability:
             return False, "vLLM base engine requires generate ability"
         if not VLLM_INSTALLED:
@@ -1119,7 +1083,38 @@ class VLLMModel(LLM):
 
         if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
             # guided decoding only available for vllm >= 0.6.3
-            from vllm.sampling_params import GuidedDecodingParams
+            GuidedDecodingParams = None
+            StructuredOutputsParams = None
+            supports_guided = VLLM_VERSION < version.parse("1.12.0")
+            try:
+                import vllm.sampling_params as _sampling_params
+            except ImportError:
+                if supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
+            else:
+                if supports_guided and hasattr(
+                    _sampling_params, "GuidedDecodingParams"
+                ):
+                    GuidedDecodingParams = _sampling_params.GuidedDecodingParams
+                elif supports_guided:
+                    logger.info(
+                        "GuidedDecodingParams not found in vLLM %s, "
+                        "trying StructuredOutputsParams fallback.",
+                        VLLM_VERSION,
+                    )
+
+                if hasattr(_sampling_params, "StructuredOutputsParams"):
+                    StructuredOutputsParams = _sampling_params.StructuredOutputsParams
+                elif GuidedDecodingParams is None:
+                    logger.warning(
+                        "No guided decoding support found in vLLM %s "
+                        "(GuidedDecodingParams / StructuredOutputsParams).",
+                        VLLM_VERSION,
+                    )
 
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
@@ -1157,19 +1152,39 @@ class VLLMModel(LLM):
             if guided_whitespace_pattern:
                 guided_params["whitespace_pattern"] = guided_whitespace_pattern
 
-            # Create GuidedDecodingParams if we have any guided parameters
+            # Create GuidedDecodingParams / StructuredOutputsParams if we have any guided parameters
             guided_options = None
-            if guided_params:
+            if guided_params and GuidedDecodingParams:
                 try:
                     guided_options = GuidedDecodingParams(**guided_params)
                 except Exception as e:
                     logger.warning(f"Failed to create GuidedDecodingParams: {e}")
+                    guided_options = None
+            elif guided_params and StructuredOutputsParams:
+                try:
+                    guided_options = StructuredOutputsParams(**guided_params)
+                except Exception as e:
+                    logger.warning(f"Failed to create StructuredOutputsParams: {e}")
                     guided_options = None
 
             try:
                 import inspect
 
                 sp_sig = inspect.signature(SamplingParams)
+                unsupported_keys = [
+                    key
+                    for key in list(sanitized_generate_config.keys())
+                    if key not in sp_sig.parameters
+                ]
+                config_dict = cast(Dict[str, Any], sanitized_generate_config)
+                for key in unsupported_keys:
+                    config_dict.pop(key, None)
+                if unsupported_keys:
+                    logger.warning(
+                        "Dropping unsupported sampling params for vLLM %s: %s",
+                        VLLM_VERSION,
+                        unsupported_keys,
+                    )
                 # For v0.9.2 and similar versions, prioritize guided_decoding over structured_outputs
                 # structured_outputs was introduced later (around v0.11.0) and may not accept
                 # GuidedDecodingParams in earlier versions even if the parameter exists
@@ -1212,6 +1227,23 @@ class VLLMModel(LLM):
             sanitized_generate_config.pop("guided_json_object", None)
             sanitized_generate_config.pop("guided_decoding_backend", None)
             sanitized_generate_config.pop("guided_whitespace_pattern", None)
+            import inspect
+
+            sp_sig = inspect.signature(SamplingParams)
+            unsupported_keys = [
+                key
+                for key in list(sanitized_generate_config.keys())
+                if key not in sp_sig.parameters
+            ]
+            config_dict = cast(Dict[str, Any], sanitized_generate_config)
+            for key in unsupported_keys:
+                config_dict.pop(key, None)
+            if unsupported_keys:
+                logger.warning(
+                    "Dropping unsupported sampling params for vLLM %s: %s",
+                    VLLM_VERSION,
+                    unsupported_keys,
+                )
             sampling_params = SamplingParams(**sanitized_generate_config)
 
         prompt_or_token_ids: Union[str, Dict[str, Any], List[int]] = prompt
@@ -1233,6 +1265,14 @@ class VLLMModel(LLM):
             request_id = str(uuid.uuid1())
 
         assert self._engine is not None
+        start_wall_time = time.time()
+        start_perf = time.perf_counter()
+        logger.debug(
+            "Generate start, request_id: %s, stream: %s, start_time: %s",
+            request_id,
+            stream,
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_wall_time)),
+        )
         results_generator = self._engine.generate(
             prompt_or_token_ids,
             sampling_params,
@@ -1313,14 +1353,23 @@ class VLLMModel(LLM):
                 assert chunk is not None
                 yield chunk
 
-            logger.info(
+            elapsed = time.perf_counter() - start_perf
+            completion_tps = (
+                completion_tokens / elapsed if elapsed > 0 else completion_tokens
+            )
+            total_tps = total_tokens / elapsed if elapsed > 0 else total_tokens
+            logger.debug(
                 "Generate finished, request_id: %s, stop reason: %s, prompt tokens: %s, "
-                "completion tokens: %s, all tokens: %s",
+                "completion tokens: %s, all tokens: %s, elapsed: %.3fs, "
+                "throughput: completion %.2f tok/s, total %.2f tok/s",
                 request_id,
                 finish_reason,
                 prompt_tokens,
                 completion_tokens,
                 total_tokens,
+                elapsed,
+                completion_tps,
+                total_tps,
             )
 
             # match OpenAI API stream
@@ -1398,18 +1447,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False, "ggufv2 support requires vLLM >= 0.8.2"
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
-                return (
-                    False,
-                    f"Custom family {llm_family.model_family} not supported by vLLM chat",
-                )
-        else:
-            if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:
-                return (
-                    False,
-                    f"Model {llm_family.model_name} is not supported by vLLM chat",
-                )
+        if not llm_family.matches_supported_architectures(VLLM_SUPPORTED_CHAT_MODELS):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not supported by vLLM chat",
+            )
         if "chat" not in llm_family.model_ability:
             return False, "vLLM chat engine requires chat ability"
         if not VLLM_INSTALLED:
@@ -1559,8 +1601,16 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if not cls._has_cuda_device() and not cls._has_mlu_device():
-            return False, "vLLM multimodal engine requires CUDA or MLU GPUs"
+        if (
+            not cls._has_cuda_device()
+            and not cls._has_mlu_device()
+            and not cls._has_vacc_device()
+            and not cls._has_musa_device()
+        ):
+            return (
+                False,
+                "vLLM multimodal engine requires CUDA or MLU GPUs or VACC GPUs or MUSA GPUs",
+            )
         if not cls._is_linux():
             return False, "vLLM multimodal engine is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
@@ -1584,18 +1634,13 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return (
-                    False,
-                    f"Custom family {llm_family.model_family} not supported by vLLM multimodal engine",
-                )
-        else:
-            if llm_family.model_name not in VLLM_SUPPORTED_MULTI_MODEL_LIST:
-                return (
-                    False,
-                    f"Model {llm_family.model_name} is not supported by vLLM multimodal engine",
-                )
+        if not llm_family.matches_supported_architectures(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST
+        ):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not supported by vLLM multimodal engine",
+            )
         if (
             "vision" not in llm_family.model_ability
             and "audio" not in llm_family.model_ability

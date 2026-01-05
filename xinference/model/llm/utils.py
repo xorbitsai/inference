@@ -82,6 +82,8 @@ QWEN_TOOL_CALL_FAMILY = [
 GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat",
     "glm4-chat-1m",
+    "glm-4.5",
+    "glm-4.5v",
 ]
 
 LLAMA3_TOOL_CALL_FAMILY = [
@@ -1233,6 +1235,32 @@ def get_stop_token_ids_from_config_file(model_path: str) -> Optional[List[int]]:
         )
         return stop_token_ids
     return None
+
+
+def normalize_response_format(
+    response_format: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """
+    Normalize OpenAI-style response_format into a simple dict.
+    Returns:
+        None if missing/unsupported, or a dict with keys:
+            - type: "json_schema" | "json_object"
+            - schema_dict: dict (only for json_schema)
+    """
+    if not response_format or not isinstance(response_format, dict):
+        return None
+
+    fmt_type = response_format.get("type")
+    if fmt_type not in ("json_schema", "json_object"):
+        return None
+
+    normalized: Dict[str, Any] = {"type": fmt_type}
+    if fmt_type == "json_schema":
+        schema_block = response_format.get("json_schema") or {}
+        schema_dict = schema_block.get("schema_") or schema_block.get("schema")
+        if schema_dict:
+            normalized["schema_dict"] = schema_dict
+    return normalized
 
 
 def parse_messages(messages: List[Dict]) -> Tuple:

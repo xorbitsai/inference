@@ -21,8 +21,10 @@ from .core import PytorchModel, PytorchModelConfig, register_non_default_model
 
 
 @register_transformer
-@register_non_default_model("opt")
+@register_non_default_model("OPTForCausalLM")
 class OptPytorchModel(PytorchModel):
+    OPT_ARCHITECTURES = {"OPTForCausalLM"}
+
     def __init__(
         self,
         model_uid: str,
@@ -45,9 +47,11 @@ class OptPytorchModel(PytorchModel):
     ) -> Union[bool, Tuple[bool, str]]:
         if llm_spec.model_format != "pytorch":
             return False, "OPT transformer only supports pytorch format"
-        model_family = llm_family.model_family or llm_family.model_name
-        if model_family != "opt":
-            return False, f"Model family {model_family} is not OPT"
+        if not llm_family.has_architecture(*cls.OPT_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not OPT",
+            )
         return True
 
     def build_prefill_position_ids(

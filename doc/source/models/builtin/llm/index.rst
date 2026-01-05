@@ -161,6 +161,16 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - DeepSeek-V3.1 is a hybrid model that supports both thinking mode and non-thinking mode.
 
+   * - :ref:`deepseek-v3.2 <models_llm_deepseek-v3.2>`
+     - chat, reasoning, hybrid, tools
+     - 163840
+     - We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance
+
+   * - :ref:`deepseek-v3.2-exp <models_llm_deepseek-v3.2-exp>`
+     - chat, reasoning, hybrid, tools
+     - 163840
+     - We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -192,17 +202,17 @@ The following is a list of built-in LLM in Xinference:
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
    * - :ref:`glm-4.1v-thinking <models_llm_glm-4.1v-thinking>`
-     - chat, vision, reasoning
+     - chat, vision, reasoning, tools
      - 65536
      - GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.
 
    * - :ref:`glm-4.5 <models_llm_glm-4.5>`
-     - chat, reasoning, hybrid
+     - chat, reasoning, hybrid, tools
      - 131072
      - The GLM-4.5 series models are foundation models designed for intelligent agents. 
 
    * - :ref:`glm-4.5v <models_llm_glm-4.5v>`
-     - chat, vision, reasoning
+     - chat, vision, reasoning, tools
      - 131072
      - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
@@ -768,6 +778,10 @@ The following is a list of built-in LLM in Xinference:
    deepseek-v3-0324
   
    deepseek-v3.1
+  
+   deepseek-v3.2
+  
+   deepseek-v3.2-exp
   
    deepseek-vl2
   

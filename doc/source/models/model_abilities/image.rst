@@ -326,6 +326,7 @@ We can try OCR API out either via cURL, or Xinference's python client:
     curl -X 'POST' \
       'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
       -F model=<MODEL_UID> \
+      -F 'kwargs={"model_size":"large"}' \
       -F image=@xxx.jpg
 
 
@@ -335,7 +336,7 @@ We can try OCR API out either via cURL, or Xinference's python client:
 
     client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
 
-    model = client.get_model("<MODEL_UID>")
+    model = client.get_model("<MODEL_UID>", model_size="large")
     with open("xxx.jpg", "rb") as f:
         model.ocr(f.read())
 

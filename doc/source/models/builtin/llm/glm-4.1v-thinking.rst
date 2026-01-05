@@ -7,7 +7,7 @@ glm-4.1v-thinking
 - **Context Length:** 65536
 - **Model Name:** glm-4.1v-thinking
 - **Languages:** en, zh
-- **Abilities:** chat, vision, reasoning
+- **Abilities:** chat, vision, reasoning, tools
 - **Description:** GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.
 
 Specifications
