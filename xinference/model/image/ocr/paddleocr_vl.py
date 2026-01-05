@@ -21,11 +21,17 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from .ocr_family import OCRModel
+
 logger = logging.getLogger(__name__)
 
 
-class PaddleOCRVLModel:
+class PaddleOCRVLModel(OCRModel):
     """PaddleOCR-VL model for OCR, table recognition, formula recognition, and chart recognition."""
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_name == "PaddleOCR-VL"
 
     def __init__(
         self,

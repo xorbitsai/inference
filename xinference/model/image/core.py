@@ -160,45 +160,48 @@ def match_diffusion(
 def create_ocr_model_instance(
     model_uid: str,
     model_spec: ImageModelFamilyV2,
+    model_engine: Optional[str] = None,
     model_path: Optional[str] = None,
     **kwargs,
 ) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel, PaddleOCRVLModel]:
     from .cache_manager import ImageCacheManager
+    from .ocr.ocr_family import check_engine_by_model_name_and_engine
+
+    if (
+        model_engine
+        and model_engine.lower() == "mlx"
+        and model_spec.model_name == "DeepSeek-OCR"
+    ):
+        model_spec = _override_deepseek_ocr_mlx_spec(model_spec)
 
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         model_path = cache_manager.cache()
 
-    # Choose OCR model based on model_name
-    if model_spec.model_name == "DeepSeek-OCR":
-        return DeepSeekOCRModel(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
-    if model_spec.model_name == "HunyuanOCR":
-        return HunyuanOCRModel(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
-    elif model_spec.model_name == "PaddleOCR-VL":
-        return PaddleOCRVLModel(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
-    else:
-        # Default to GOT-OCR2 for other OCR models
-        return GotOCR2Model(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
+    if model_engine is None:
+        model_engine = "transformers"
+
+    model_format = getattr(model_spec, "model_format", None)
+    quantization = getattr(model_spec, "quantization", None)
+    ocr_cls = check_engine_by_model_name_and_engine(
+        model_engine, model_spec.model_name, model_format, quantization
+    )
+    return ocr_cls(
+        model_uid,
+        model_path,
+        model_spec=model_spec,
+        **kwargs,
+    )
+
+
+def _override_deepseek_ocr_mlx_spec(
+    model_spec: ImageModelFamilyV2,
+) -> ImageModelFamilyV2:
+    model_id = "mlx-community/DeepSeek-OCR-8bit"
+    model_revision = "master" if model_spec.model_hub == "modelscope" else "main"
+    return model_spec.copy(
+        update={"model_id": model_id, "model_revision": model_revision}
+    )
 
 
 def create_image_model_instance(
@@ -209,6 +212,7 @@ def create_image_model_instance(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
+    model_engine: Optional[str] = None,
     gguf_quantization: Optional[str] = None,
     gguf_model_path: Optional[str] = None,
     lightning_version: Optional[str] = None,
@@ -229,6 +233,7 @@ def create_image_model_instance(
         return create_ocr_model_instance(
             model_uid=model_uid,
             model_spec=model_spec,
+            model_engine=model_engine,
             model_path=model_path,
             **kwargs,
         )

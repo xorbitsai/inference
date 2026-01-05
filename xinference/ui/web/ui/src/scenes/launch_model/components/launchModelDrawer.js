@@ -39,7 +39,7 @@ import Progress from './progress'
 import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
-const modelEngineType = ['LLM', 'embedding', 'rerank']
+const modelEngineType = ['LLM', 'embedding', 'rerank', 'image']
 
 const LaunchModelDrawer = ({
   modelData,
@@ -298,6 +298,11 @@ const LaunchModelDrawer = ({
           : `/v1/engines/${model_type}/${model_name}`
       )
       .then((data) => {
+        if (!data) {
+          setEnginesObj({})
+          setEngineOptions([])
+          return
+        }
         setEnginesObj(data)
         setEngineOptions(Object.keys(data))
       })
@@ -396,7 +401,11 @@ const LaunchModelDrawer = ({
       return
     }
 
-    if (formData.model_engine && modelEngineType.includes(modelType)) {
+    if (
+      formData.model_engine &&
+      modelEngineType.includes(modelType) &&
+      modelType !== 'image'
+    ) {
       const format = [
         ...new Set(
           enginesObj[formData.model_engine]?.map((item) => item.model_format)

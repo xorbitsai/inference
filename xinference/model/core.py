@@ -78,6 +78,7 @@ def create_model_instance(
             peft_model_config,
             download_hub,
             model_path,
+            model_engine,
             **kwargs,
         )
     elif model_type == "rerank":
