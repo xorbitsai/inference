@@ -59,37 +59,37 @@ Currently, supported models include:
 
 .. vllm_start
 
-- ``LlamaForCausalLM``, ``LlamaForCausalLM``
-- ``MistralForCausalLM``, ``MistralForCausalLM``
-- ``Qwen2ForCausalLM``, ``Qwen2ForCausalLM``
-- ``MllamaForConditionalGeneration``
-- ``BaichuanForCausalLM``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
+- ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``
+- ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
+- ``baichuan-2``, ``baichuan-2-chat``
 - ``InternLM2ForCausalLM``
-- ``QWenLMHeadModel``
-- ``MixtralForCausalLM``
-- ``ChatGLMForConditionalGeneration``
-- ``GlmForCausalLM``
-- ``ChatGLMModel``
-- ``GemmaForCausalLM``
-- ``OrionForCausalLM``
-- ``Qwen2MoeForCausalLM``
+- ``qwen-chat``
+- ``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``
+- ``cogagent``
+- ``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``
+- ``codegeex4``, ``glm-4v``
+- ``seallm_v2.5``
+- ``orion-chat``
+- ``qwen1.5-moe-chat``, ``qwen2-moe-instruct``
 - ``CohereForCausalLM``
-- ``DeepseekV2ForCausalLM``
-- ``DeepseekV3ForCausalLM``
-- ``Qwen3ForCausalLM``
-- ``MiniCPM3ForCausalLM``
-- ``InternLM3ForCausalLM``
-- ``Gemma3ForCausalLM``
-- ``Glm4ForCausalLM``
-- ``MiniCPMForCausalLM``
-- ``Ernie4_5ForCausalLM``
-- ``Qwen3MoeForCausalLM``
-- ``Glm4MoeForCausalLM``
-- ``GptOssForCausalLM``
-- ``SeedOssForCausalLM``
-- ``Qwen3NextForCausalLM``
-- ``DeepseekV32ForCausalLM``
-- ``MiniMaxM2ForCausalLM``
+- ``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-vl2``
+- ``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-16b-a3b-instruct``
+- ``deepseek-r1-0528-qwen3``, ``qwen3``
+- ``minicpm3-4b``
+- ``internlm3-instruct``
+- ``gemma-3-1b-it``
+- ``glm4-0414``
+- ``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``
+- ``Ernie4.5``
+- ``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``
+- ``glm-4.5``
+- ``gpt-oss``
+- ``seed-oss``
+- ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
+- ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
+- ``MiniMax-M2``
 .. vllm_end
 
 To install Xinference and vLLM::
