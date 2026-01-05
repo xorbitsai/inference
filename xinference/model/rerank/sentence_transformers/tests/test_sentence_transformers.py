@@ -20,7 +20,7 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
 )
 
 
-def test_model():
+async def test_model():
     model_path = None
     try:
         model_path = RerankCacheManager(TEST_MODEL_SPEC).cache()
@@ -42,7 +42,7 @@ def test_model():
             "A cheetah is running behind its prey.",
         ]
         model.load()
-        scores = model.rerank(corpus, query, None, None, True, True)
+        scores = await model.rerank(corpus, query, None, None, True, True)
         assert scores["results"][0]["index"] == 0
         assert scores["results"][0]["document"]["text"] == corpus[0]
 
