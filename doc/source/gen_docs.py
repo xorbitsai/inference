@@ -209,6 +209,7 @@ for family in BUILTIN_LLM_FAMILIES:
 
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
 MODEL_HUB_MODELSCOPE = "ModelScope"
+_LEGACY_TRANSFORMERS_FORMATS = {"pytorch", "gptq", "awq", "bnb"}
 
 
 def build_architecture_to_models(models):
@@ -232,6 +233,13 @@ def get_metrics_from_url(metrics_url):
             "help": family.documentation,
         })
     return result
+
+
+def _can_use_transformers_legacy(model, model_spec):
+    if model_spec.get("model_format") not in _LEGACY_TRANSFORMERS_FORMATS:
+        return False
+    abilities = set(model.get("model_ability", []))
+    return "chat" in abilities or "generate" in abilities
 
 def main():
     template_dir = '../templates' 
@@ -301,6 +309,10 @@ def main():
                             check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
                                                             size, quantization)
                         except ValueError:
+                            if engine == "Transformers" and _can_use_transformers_legacy(
+                                model, model_spec
+                            ):
+                                engines.append(engine)
                             continue
                         else:
                             engines.append(engine)
