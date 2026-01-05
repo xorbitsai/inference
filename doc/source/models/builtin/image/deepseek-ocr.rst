@@ -12,7 +12,7 @@ DeepSeek-OCR
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** deepseek-ai/DeepSeek-OCR
+- **Model ID:** 
 
 Execute the following command to launch the model::
 
