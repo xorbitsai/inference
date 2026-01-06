@@ -22350,8 +22350,8 @@
         "transformers==4.53.0"
       ]
     },
-    "updated_at": 1766473653,
-    "featured": true,
+    "updated_at": 1767693616,
+    "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ]
