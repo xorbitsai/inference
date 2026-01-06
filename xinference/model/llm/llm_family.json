@@ -5553,8 +5553,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1766473462,
-    "featured": true,
+    "updated_at": 1767693933,
+    "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ]
