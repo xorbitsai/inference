@@ -23278,8 +23278,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1766473659,
-    "featured": false,
+    "updated_at": 1767693994,
+    "featured": true,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ]
