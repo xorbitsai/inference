@@ -401,11 +401,7 @@ const LaunchModelDrawer = ({
       return
     }
 
-    if (
-      formData.model_engine &&
-      modelEngineType.includes(modelType) &&
-      modelType !== 'image'
-    ) {
+    if (formData.model_engine && modelEngineType.includes(modelType)) {
       const format = [
         ...new Set(
           enginesObj[formData.model_engine]?.map((item) => item.model_format)
@@ -449,6 +445,11 @@ const LaunchModelDrawer = ({
         optionSetter: setQuantizationOptions,
         extractor: (item) => item.quantization,
       },
+      image: {
+        field: 'quantization',
+        optionSetter: setQuantizationOptions,
+        extractor: (item) => item.quantization,
+      },
     }
 
     const config = configMap[modelType]
@@ -460,7 +461,7 @@ const LaunchModelDrawer = ({
           ?.filter((item) => item.model_format === formData.model_format)
           ?.map(config.extractor)
       ),
-    ]
+    ].filter((option) => option !== undefined && option !== null && option !== '')
 
     config.optionSetter(options)
     if (!options.includes(formData[config.field])) {
@@ -604,11 +605,12 @@ const LaunchModelDrawer = ({
         )
 
       const spec = specs.find((s) => {
-        return s.quantizations === quant
+        return modelType === 'LLM' ? s.quantizations === quant : s.quantization === quant
       })
-      const cached = Array.isArray(spec?.cache_status)
-        ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
-        : spec?.cache_status
+      const cached =
+        modelType === 'LLM' && Array.isArray(spec?.cache_status)
+          ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
+          : spec?.cache_status
 
       return {
         value: quant,

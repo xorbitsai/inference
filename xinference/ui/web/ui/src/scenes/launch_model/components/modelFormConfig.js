@@ -599,6 +599,22 @@ export default function getModelFormConfig({
         required: false,
       },
       {
+        name: 'model_format',
+        label: t('launchModel.modelFormat'),
+        type: 'select',
+        options: formatItems,
+        visible: !!formatItems?.length,
+        disabled: !formData.model_engine,
+      },
+      {
+        name: 'quantization',
+        label: t('launchModel.quantization'),
+        type: 'select',
+        options: quantizationItems,
+        visible: !!quantizationItems?.length,
+        disabled: !formData.model_format,
+      },
+      {
         name: 'replica',
         label: t('launchModel.replica'),
         type: 'number',

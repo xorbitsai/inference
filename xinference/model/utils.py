@@ -800,6 +800,11 @@ def flatten_quantizations(input_json: dict):
 
             for key, value in hub_info.items():
                 if key != "quantizations":
+                    if isinstance(value, str) and "{quantization}" in value:
+                        try:
+                            value = value.format(quantization=quant)
+                        except Exception:
+                            pass
                     record[key] = value
 
             flattened.append(record)

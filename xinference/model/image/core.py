@@ -16,7 +16,7 @@ import collections.abc
 import logging
 import platform
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
@@ -196,6 +196,8 @@ def create_image_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     model_engine: Optional[str] = None,
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
     gguf_quantization: Optional[str] = None,
     gguf_model_path: Optional[str] = None,
     lightning_version: Optional[str] = None,
@@ -214,7 +216,11 @@ def create_image_model_instance(
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         model_spec = _select_ocr_model_family(
-            model_name, model_engine or "transformers", download_hub
+            model_name,
+            model_engine or "transformers",
+            download_hub,
+            model_format=model_format,
+            quantization=quantization,
         )
         return create_ocr_model_instance(
             model_uid=model_uid,
@@ -306,6 +312,8 @@ def _select_ocr_model_family(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ],
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
 ) -> ImageModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS
@@ -345,6 +353,31 @@ def _select_ocr_model_family(
         filtered = [c for c in candidates if getattr(c, "model_format", None) != "mlx"]
         if not filtered:
             filtered = candidates
+
+    if model_format:
+        requested_format = model_format.lower()
+        filtered = [
+            c
+            for c in filtered
+            if isinstance(getattr(c, "model_format", None), str)
+            and cast(str, getattr(c, "model_format", None)).lower() == requested_format
+        ]
+
+    if quantization:
+        requested_quant = quantization.lower()
+        filtered = [
+            c
+            for c in filtered
+            if isinstance(getattr(c, "quantization", None), str)
+            and cast(str, getattr(c, "quantization", None)).lower() == requested_quant
+        ]
+
+    if not filtered:
+        raise ValueError(
+            "Image OCR model not found for "
+            f"name={model_name}, engine={model_engine}, "
+            f"format={model_format}, quantization={quantization}."
+        )
 
     filtered.sort(key=_hub_rank)
     return filtered[0]

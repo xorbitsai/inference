@@ -18,7 +18,7 @@ import os
 import warnings
 
 from ...constants import XINFERENCE_MODEL_DIR
-from ..utils import flatten_model_src
+from ..utils import flatten_model_src, flatten_quantizations
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
@@ -126,7 +126,31 @@ def load_model_family_from_json(json_filename, target_families):
 
     flattened_model_specs = []
     for spec in json.load(codecs.open(json_path, "r", encoding="utf-8")):
-        flattened_model_specs.extend(flatten_model_src(spec))
+        base_info = {
+            key: value
+            for key, value in spec.items()
+            if key not in ("model_src", "model_specs")
+        }
+        if "model_specs" in spec:
+            for model_spec in spec["model_specs"]:
+                spec_base = base_info.copy()
+                spec_base.update(
+                    {k: v for k, v in model_spec.items() if k != "model_src"}
+                )
+                if "model_src" in model_spec:
+                    spec_entry = spec_base.copy()
+                    spec_entry["model_src"] = model_spec["model_src"]
+                    if any(
+                        "quantizations" in hub_info
+                        for hub_info in model_spec["model_src"].values()
+                    ):
+                        flattened_model_specs.extend(flatten_quantizations(spec_entry))
+                    else:
+                        flattened_model_specs.extend(flatten_model_src(spec_entry))
+                else:
+                    flattened_model_specs.append(spec_base)
+        else:
+            flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:
         if spec["model_name"] not in target_families:

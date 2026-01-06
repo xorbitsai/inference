@@ -79,6 +79,8 @@ def create_model_instance(
             download_hub,
             model_path,
             model_engine,
+            model_format,
+            quantization,
             **kwargs,
         )
     elif model_type == "rerank":
