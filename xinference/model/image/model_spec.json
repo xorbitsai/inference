@@ -998,7 +998,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1767689456,
+    "updated_at": 1767691154,
     "featured": false,
     "model_specs": [
       {
@@ -1016,57 +1016,26 @@
       },
       {
         "model_format": "mlx",
-        "quantization": "8bit",
         "model_src": {
           "huggingface": {
-            "model_id": "mlx-community/DeepSeek-OCR-8bit",
-            "model_revision": "main"
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "main",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
           },
           "modelscope": {
-            "model_id": "mlx-community/DeepSeek-OCR-8bit",
-            "model_revision": "master"
-          }
-        }
-      },
-      {
-        "model_format": "mlx",
-        "quantization": "6bit",
-        "model_src": {
-          "huggingface": {
-            "model_id": "mlx-community/DeepSeek-OCR-6bit",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "mlx-community/DeepSeek-OCR-6bit",
-            "model_revision": "master"
-          }
-        }
-      },
-      {
-        "model_format": "mlx",
-        "quantization": "5bit",
-        "model_src": {
-          "huggingface": {
-            "model_id": "mlx-community/DeepSeek-OCR-5bit",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "mlx-community/DeepSeek-OCR-5bit",
-            "model_revision": "master"
-          }
-        }
-      },
-      {
-        "model_format": "mlx",
-        "quantization": "4bit",
-        "model_src": {
-          "huggingface": {
-            "model_id": "mlx-community/DeepSeek-OCR-4bit",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "mlx-community/DeepSeek-OCR-4bit",
-            "model_revision": "master"
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "master",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
           }
         }
       }
