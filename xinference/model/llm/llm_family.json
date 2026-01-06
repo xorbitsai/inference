@@ -5639,8 +5639,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1766473466,
-    "featured": true,
+    "updated_at": 1767693949,
+    "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
     ]
