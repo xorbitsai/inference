@@ -1421,6 +1421,7 @@ class SupervisorActor(xo.StatelessActor):
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
+                    remaining_workers = list(available_workers)
                     replica_gpu_idx = assign_replica_gpu(
                         rep_model_uid, replica, gpu_idx
                     )
@@ -1428,7 +1429,9 @@ class SupervisorActor(xo.StatelessActor):
                     worker_refs = []
                     driver_info = None
                     for i_worker in range(n_worker):
-                        worker_ref = await self._choose_worker(available_workers)
+                        worker_ref = await self._choose_worker(remaining_workers)
+                        if worker_ref.address in remaining_workers:
+                            remaining_workers.remove(worker_ref.address)
                         self._model_uid_to_replica_info[
                             model_uid
                         ].replica_to_worker_refs[_idx].append(worker_ref)

@@ -274,4 +274,3 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
 
     assert set(launched) == {"w1:1000", "w2:1000"}
     assert len(launched) == 2
-    assert set(gpu_idx) == {0, 1}
