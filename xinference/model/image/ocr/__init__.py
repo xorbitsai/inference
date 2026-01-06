@@ -48,9 +48,7 @@ def register_builtin_ocr_engines() -> None:
     ]
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,
-        VLLMGotOCR2Model,
         VLLMHunyuanOCRModel,
-        VLLMPaddleOCRVLModel,
     ]
     SUPPORTED_ENGINES["sglang"] = [
         SGLangDeepSeekOCRModel,
