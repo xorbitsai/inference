@@ -16353,8 +16353,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1766473589,
-    "featured": true,
+    "updated_at": 1767693979,
+    "featured": false,
     "architectures": [
       "Qwen2_5_VLForConditionalGeneration"
     ]
