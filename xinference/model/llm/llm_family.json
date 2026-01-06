@@ -24328,11 +24328,11 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1766473675,
     "featured": false,
     "architectures": [
       "MiniMaxM2ForCausalLM"
-    ]
+    ],
+    "updated_at": 1767667287
   },
   {
     "model_name": "DeepSeek-V3.2",
