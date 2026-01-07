@@ -115,8 +115,8 @@
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
     },
-    "featured": true,
-    "updated_at": 1766387548
+    "featured": false,
+    "updated_at": 1767694123
   },
   {
     "version": 2,
@@ -277,8 +277,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387556,
-    "featured": true
+    "updated_at": 1767694045,
+    "featured": false
   },
   {
     "version": 2,
@@ -974,8 +974,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387622,
-    "featured": true
+    "updated_at": 1767694066,
+    "featured": false
   },
   {
     "version": 2,

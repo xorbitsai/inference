@@ -5553,8 +5553,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1766473462,
-    "featured": true,
+    "updated_at": 1767693933,
+    "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ]
@@ -5639,8 +5639,8 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1766473466,
-    "featured": true,
+    "updated_at": 1767693949,
+    "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
     ]
@@ -16353,8 +16353,8 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1766473589,
-    "featured": true,
+    "updated_at": 1767693979,
+    "featured": false,
     "architectures": [
       "Qwen2_5_VLForConditionalGeneration"
     ]
@@ -22350,8 +22350,8 @@
         "transformers==4.53.0"
       ]
     },
-    "updated_at": 1766473653,
-    "featured": true,
+    "updated_at": 1767693616,
+    "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ]
@@ -23278,8 +23278,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1766473659,
-    "featured": false,
+    "updated_at": 1767693994,
+    "featured": true,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ]
