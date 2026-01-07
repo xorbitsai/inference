@@ -461,7 +461,9 @@ const LaunchModelDrawer = ({
           ?.filter((item) => item.model_format === formData.model_format)
           ?.map(config.extractor)
       ),
-    ].filter((option) => option !== undefined && option !== null && option !== '')
+    ].filter(
+      (option) => option !== undefined && option !== null && option !== ''
+    )
 
     config.optionSetter(options)
     if (!options.includes(formData[config.field])) {
@@ -605,7 +607,9 @@ const LaunchModelDrawer = ({
         )
 
       const spec = specs.find((s) => {
-        return modelType === 'LLM' ? s.quantizations === quant : s.quantization === quant
+        return modelType === 'LLM'
+          ? s.quantizations === quant
+          : s.quantization === quant
       })
       const cached =
         modelType === 'LLM' && Array.isArray(spec?.cache_status)
