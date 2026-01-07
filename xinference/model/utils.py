@@ -685,14 +685,21 @@ def get_engine_params_by_name(
         return engine_params
 
     elif model_type == "image":
+        from .image.engine_family import IMAGE_ENGINES
         from .image.ocr.ocr_family import OCR_ENGINES
 
-        if model_name not in OCR_ENGINES:
+        if model_name in OCR_ENGINES:
+            available_engines = deepcopy(OCR_ENGINES[model_name])
+            for engine, params in available_engines.items():
+                _append_available_engine(engine, params, "ocr_class")
+            return engine_params
+
+        if model_name not in IMAGE_ENGINES:
             return None
 
-        available_engines = deepcopy(OCR_ENGINES[model_name])
+        available_engines = deepcopy(IMAGE_ENGINES[model_name])
         for engine, params in available_engines.items():
-            _append_available_engine(engine, params, "ocr_class")
+            _append_available_engine(engine, params, "image_class")
 
         return engine_params
 

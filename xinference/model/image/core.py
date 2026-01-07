@@ -14,16 +14,14 @@
 
 import collections.abc
 import logging
-import platform
 from collections import defaultdict
 from typing import Dict, List, Literal, Optional, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .engine_family import ImageEngineModel
 from .ocr.ocr_family import OCRModel
-from .stable_diffusion.core import DiffusionModel
-from .stable_diffusion.mlx import MLXDiffusionModel
 
 logger = logging.getLogger(__name__)
 
@@ -201,8 +199,7 @@ def create_image_model_instance(
     lightning_model_path: Optional[str] = None,
     **kwargs,
 ) -> Union[
-    DiffusionModel,
-    MLXDiffusionModel,
+    ImageEngineModel,
     OCRModel,
 ]:
     from .cache_manager import ImageCacheManager
@@ -276,15 +273,14 @@ def create_image_model_instance(
         lora_load_kwargs = None
         lora_fuse_kwargs = None
 
-    if (
-        platform.system() == "Darwin"
-        and "arm" in platform.machine().lower()
-        and MLXDiffusionModel.support_model(model_name)
-    ):
-        # Mac with M series silicon chips
-        model_cls = MLXDiffusionModel
-    else:
-        model_cls = DiffusionModel  # type: ignore
+    from .engine_family import check_engine_by_model_name_and_engine
+
+    if model_engine is None:
+        model_engine = "diffusers"
+
+    model_cls = check_engine_by_model_name_and_engine(
+        model_engine, model_spec.model_name, model_format, quantization
+    )
 
     model = model_cls(
         model_uid,
