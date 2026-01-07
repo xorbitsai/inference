@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-10 12:40+0800\n"
+"POT-Creation-Date: 2026-01-07 15:50+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -335,10 +335,11 @@ msgid ""
 "and uv prioritizing **higher versions for direct dependencies** over "
 "**indirect dependencies**."
 msgstr ""
-"**注意：** 这是一个临时性问题，原因在于当前的软件包生态系统以及 uv 的依赖解析策略——"
-"它会优先选择 **直接依赖的高版本**，而不是 **间接依赖的版本**。"
+"**注意：** 这是一个临时性问题，原因在于当前的软件包生态系统以及 uv 的依赖"
+"解析策略——它会优先选择 **直接依赖的高版本**，而不是 **间接依赖的版本**。"
 
 #: ../../source/getting_started/troubleshooting.rst:193
+#: ../../source/getting_started/troubleshooting.rst:250
 msgid "Symptom"
 msgstr "症状"
 
@@ -348,8 +349,8 @@ msgid ""
 "install xinference``, you may encounter an issue where very old package "
 "versions are installed, particularly:"
 msgstr ""
-"在 2025 年 11 月使用 ``uv pip install xinference`` 安装 xinference 1.12.0 时，"
-"你可能会遇到安装到非常旧版本依赖包的问题，尤其是："
+"在 2025 年 11 月使用 ``uv pip install xinference`` 安装 xinference 1.12.0"
+" 时，你可能会遇到安装到非常旧版本依赖包的问题，尤其是："
 
 #: ../../source/getting_started/troubleshooting.rst:197
 msgid "``transformers==4.12.2`` (from 2021)"
@@ -365,9 +366,12 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:201
 msgid "Then uv fails with \"Failed to build `tokenizers==0.10.3`\""
-msgstr "随后 uv 报错：\"Failed to build `tokenizers==0.10.3`\"（构建 `tokenizers==0.10.3` 失败）"
+msgstr ""
+"随后 uv 报错：\"Failed to build `tokenizers==0.10.3`\"（构建 `tokenizers="
+"=0.10.3` 失败）"
 
 #: ../../source/getting_started/troubleshooting.rst:204
+#: ../../source/getting_started/troubleshooting.rst:261
 msgid "Root Cause"
 msgstr "根本原因"
 
@@ -375,13 +379,17 @@ msgstr "根本原因"
 msgid ""
 "This occurs because uv prioritizes **higher versions for direct "
 "dependencies** over **indirect dependencies**:"
-msgstr "出现该问题的原因是 uv 会优先选择 **直接依赖的高版本**，而忽略 **间接依赖** 中的版本要求："
+msgstr ""
+"出现该问题的原因是 uv 会优先选择 **直接依赖的高版本**，而忽略 **间接依赖*"
+"* 中的版本要求："
 
 #: ../../source/getting_started/troubleshooting.rst:208
 msgid ""
 "xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct "
 "dependency** (no upper bound)"
-msgstr "xinference 1.12.0 将 ``huggingface-hub>=0.19.4`` 指定为 **直接依赖** （没有上限约束）"
+msgstr ""
+"xinference 1.12.0 将 ``huggingface-hub>=0.19.4`` 指定为 **直接依赖** （"
+"没有上限约束）"
 
 #: ../../source/getting_started/troubleshooting.rst:209
 msgid "uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025"
@@ -389,9 +397,11 @@ msgstr "截至 2025 年 11 月 6 日，uv 会选择最新版本：``huggingface-
 
 #: ../../source/getting_started/troubleshooting.rst:210
 msgid ""
-"However, ``transformers`` (an **indirect dependency** via ``peft``) "
-"requires ``huggingface-hub<1.0``"
-msgstr "然而，``transformers`` （通过 ``peft`` 引入的 **间接依赖** ）要求 ``huggingface-hub<1.0``"
+"However, ``transformers<=4.57.3`` (an **indirect dependency** via "
+"``peft``) requires ``huggingface-hub<1.0``"
+msgstr ""
+"然而，``transformers<=4.57.3`` （通过 ``peft`` 引入的 **间接依赖** ）要求 ``"
+"huggingface-hub<1.0``"
 
 #: ../../source/getting_started/troubleshooting.rst:211
 msgid ""
@@ -399,8 +409,8 @@ msgid ""
 "downgrades the indirect dependency ``transformers`` to ancient version "
 "4.12.2"
 msgstr ""
-"为了解决依赖冲突，uv 保留了直接依赖 ``huggingface-hub==1.0.1``，并将间接依赖 "
-"``transformers`` 降级到了非常旧的版本 4.12.2。"
+"为了解决依赖冲突，uv 保留了直接依赖 ``huggingface-hub==1.0.1``，并将间接"
+"依赖 ``transformers`` 降级到了非常旧的版本 4.12.2。"
 
 #: ../../source/getting_started/troubleshooting.rst:213
 msgid ""
@@ -408,56 +418,147 @@ msgid ""
 "(direct dependencies) over transitive dependencies. Refer to "
 "https://github.com/astral-sh/uv/issues/16601"
 msgstr ""
-"**这属于 uv 的设计特性**：它会优先满足你显式指定的依赖（直接依赖），而非传递依赖。"
-"参考链接：https://github.com/astral-sh/uv/issues/16601"
+"**这属于 uv 的设计特性**：它会优先满足你显式指定的依赖（直接依赖），而非"
+"传递依赖。参考链接：https://github.com/astral-sh/uv/issues/16601"
 
-#: ../../source/getting_started/troubleshooting.rst:216
+#: ../../source/getting_started/troubleshooting.rst:215
+msgid ""
+"**Update:** The latest transformers 4.57.3 (as in 2026.01.05) still "
+"requires ``huggingface-hub<1.0``."
+msgstr ""
+msgstr ""
+"**更新：** 截至 2026.01.05，transformers 最新版本 4.57.3 依然 "
+"依赖 ``huggingface-hub<1.0``。"
+
+#: ../../source/getting_started/troubleshooting.rst:218
 msgid "Solutions"
 msgstr "解决方案"
 
-#: ../../source/getting_started/troubleshooting.rst:218
+#: ../../source/getting_started/troubleshooting.rst:220
 msgid "**Solution 1: Pre-constrain huggingface-hub (Recommended)**"
 msgstr "**解决方案 1：预先限定 huggingface-hub 版本（推荐）**"
 
-#: ../../source/getting_started/troubleshooting.rst:220
+#: ../../source/getting_started/troubleshooting.rst:222
 msgid "Explicitly constrain ``huggingface-hub`` to a compatible version range:"
 msgstr "显式地将 ``huggingface-hub`` 限定在一个兼容的版本范围内："
 
-#: ../../source/getting_started/troubleshooting.rst:226
+#: ../../source/getting_started/troubleshooting.rst:228
 msgid ""
 "This forces uv to select a ``huggingface-hub`` version that's compatible "
 "with modern ``transformers``."
-msgstr "这样可以强制 uv 选择与现代版本 ``transformers`` 兼容的 ``huggingface-hub`` 版本。"
+msgstr ""
+"这样可以强制 uv 选择与现代版本 ``transformers`` 兼容的 ``huggingface-hub`"
+"` 版本。"
 
-#: ../../source/getting_started/troubleshooting.rst:228
+#: ../../source/getting_started/troubleshooting.rst:230
 msgid "**Solution 2: Make transformers a direct dependency**"
 msgstr "**解决方案 2：将 transformers 设为直接依赖**"
 
-#: ../../source/getting_started/troubleshooting.rst:230
+#: ../../source/getting_started/troubleshooting.rst:232
 msgid ""
 "By specifying ``transformers`` explicitly, it becomes a direct dependency"
 " and uv will prefer higher versions:"
 msgstr "通过显式指定 ``transformers``，它会成为直接依赖，uv 将优先选择更高版本："
 
-#: ../../source/getting_started/troubleshooting.rst:236
+#: ../../source/getting_started/troubleshooting.rst:238
 msgid "**Solution 3: Use pip**"
 msgstr "**解决方案 3：使用 pip**"
 
-#: ../../source/getting_started/troubleshooting.rst:238
+#: ../../source/getting_started/troubleshooting.rst:240
 msgid ""
 "Or just resort to using ``pip install xinference`` which will resolve to "
 "the following versions"
 msgstr "或者直接使用 ``pip install xinference``，它会自动解析到以下版本组合："
 
-#: ../../source/getting_started/troubleshooting.rst:240
+#: ../../source/getting_started/troubleshooting.rst:242
 msgid "``transformers==4.57.1``"
 msgstr ""
 
-#: ../../source/getting_started/troubleshooting.rst:241
+#: ../../source/getting_started/troubleshooting.rst:243
 msgid "``huggingface-hub==0.36.0``"
 msgstr ""
 
-#: ../../source/getting_started/troubleshooting.rst:242
+#: ../../source/getting_started/troubleshooting.rst:244
 msgid "``tokenizers==0.22.1``"
 msgstr ""
 
+#: ../../source/getting_started/troubleshooting.rst:247
+msgid "vLLM + Torch + Xinference Compatibility Issue (Segmentation Fault)"
+msgstr "vLLM + Torch + Xinference 兼容性问题（段错误）"
+
+#: ../../source/getting_started/troubleshooting.rst:252
+msgid ""
+"If you have **vLLM < 0.12.0** installed and upgrade xinference "
+"(particularly using ``uv pip install -U xinference``), xinference may "
+"fail to start with a segmentation fault:"
+msgstr ""
+"如果你安装的是 **vLLM < 0.12.0**，并且升级了 xinference "
+"（尤其是使用 ``uv pip install -U xinference`` 时），"
+"xinference 可能会在启动时因为段错误而失败："
+
+#: ../../source/getting_started/troubleshooting.rst:263
+msgid "This issue has three contributing factors:"
+msgstr "该问题由三个因素共同导致："
+
+#: ../../source/getting_started/troubleshooting.rst:265
+msgid ""
+"**Binary Incompatibility**: vLLM versions before 0.12.0 were compiled "
+"against PyTorch 2.8.0. These versions are incompatible with PyTorch 2.9. "
+"Reference: `vLLM v0.12.0 Release Notes <https://github.com/vllm-"
+"project/vllm/releases/tag/v0.12.0>`_"
+msgstr ""
+"**二进制不兼容**：vLLM 在 0.12.0 之前的版本是基于 PyTorch 2.8.0 编译的，"
+"这些版本与 PyTorch 2.9 不兼容。"
+"参考：`vLLM v0.12.0 发布说明 <https://github.com/vllm-"
+"project/vllm/releases/tag/v0.12.0>`_"
+
+#: ../../source/getting_started/troubleshooting.rst:267
+msgid ""
+"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` "
+"does not specify an upper bound for PyTorch:"
+msgstr ""
+"**Xinference 对 Torch 依赖未设置上限**：Xinference 的 ``setup.cfg`` "
+"中没有为 PyTorch 指定版本上限："
+
+#: ../../source/getting_started/troubleshooting.rst:275
+msgid "This allows package managers to upgrade PyTorch to incompatible versions."
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:277
+msgid "**Different Package Manager Behaviors**:"
+msgstr "**不同包管理器的行为差异**："
+
+#: ../../source/getting_started/troubleshooting.rst:279
+msgid ""
+"**pip**: Conservative - only upgrades the specified package unless "
+"dependencies are incompatible"
+msgstr ""
+"**pip**：较为保守 —— 仅在依赖不兼容时，才会升级相关依赖，否则只升级指定的包"
+
+#: ../../source/getting_started/troubleshooting.rst:280
+msgid ""
+"**uv with -U flag**: Aggressive - re-resolves ALL dependencies and picks "
+"latest versions"
+msgstr ""
+"**使用 -U 参数的 uv**：策略较为激进 —— 会重新解析**所有**依赖，并选择最新版本"
+
+#: ../../source/getting_started/troubleshooting.rst:283
+msgid ""
+"Therefore before you're ready to upgrade your entire stack and just want "
+"to upgrade xinference, use either:"
+msgstr ""
+"因此，在你尚未准备好升级整个技术栈、而只是想升级 xinference 时，可以选择使用："
+
+#: ../../source/getting_started/troubleshooting.rst:285
+msgid ""
+"``pip install -U xinference`` (keeps PyTorch unchanged, only upgrades "
+"xinference)"
+msgstr "``pip install -U xinference`` （保持 PyTorch 版本不变，仅升级 xinference）"
+
+#: ../../source/getting_started/troubleshooting.rst:286
+msgid ""
+"``uv pip install \"xinference==1.16.0\"`` (without -U flag, only upgrades"
+" xinference too)"
+msgstr ""
+"``uv pip install \"xinference==1.16.0\"`` （不使用 -U 参数，同样只会升级"
+" xinference）"
