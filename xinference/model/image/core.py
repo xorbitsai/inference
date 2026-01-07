@@ -21,10 +21,7 @@ from typing import Dict, List, Literal, Optional, Union, cast
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .ocr.deepseek_ocr import DeepSeekOCRModel
-from .ocr.got_ocr2 import GotOCR2Model
-from .ocr.hunyuan_ocr import HunyuanOCRModel
-from .ocr.paddleocr_vl import PaddleOCRVLModel
+from .ocr.ocr_family import OCRModel
 from .stable_diffusion.core import DiffusionModel
 from .stable_diffusion.mlx import MLXDiffusionModel
 
@@ -163,7 +160,7 @@ def create_ocr_model_instance(
     model_engine: Optional[str] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel, PaddleOCRVLModel]:
+) -> OCRModel:
     from .cache_manager import ImageCacheManager
     from .ocr.ocr_family import check_engine_by_model_name_and_engine
 
@@ -206,10 +203,7 @@ def create_image_model_instance(
 ) -> Union[
     DiffusionModel,
     MLXDiffusionModel,
-    GotOCR2Model,
-    DeepSeekOCRModel,
-    HunyuanOCRModel,
-    PaddleOCRVLModel,
+    OCRModel,
 ]:
     from .cache_manager import ImageCacheManager
 

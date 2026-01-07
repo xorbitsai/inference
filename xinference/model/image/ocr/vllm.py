@@ -135,6 +135,7 @@ class VLLMDeepSeekOCRModel(DeepSeekOCRModel):
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         if self._model is None:
             self.load()
+        assert self._model is not None
 
         prompt = kwargs.pop("prompt", "<image>\nFree OCR.")
         kwargs.pop("model_size", None)
@@ -164,8 +165,13 @@ class VLLMDeepSeekOCRModel(DeepSeekOCRModel):
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
         prompt: str = "<image>\n<|grounding|>Convert the document to markdown.",
+        model_size: str = "gundam",
+        save_results: bool = False,
+        save_dir: Optional[str] = None,
+        eval_mode: bool = False,
         **kwargs,
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        _ = (model_size, save_results, save_dir, eval_mode)
         response = self.ocr(image=image, prompt=prompt, **kwargs)
         if isinstance(response, list):
             return [
@@ -227,6 +233,7 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
     ) -> Union[str, List[str]]:
         if self._model is None or self._processor is None:
             self.load()
+        assert self._model is not None
 
         if prompt is None:
             prompt = (

@@ -15,7 +15,7 @@
 import logging
 import platform
 import sys
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import PIL.Image
 
@@ -23,8 +23,22 @@ from .deepseek_ocr import DeepSeekOCRModel
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from ..core import ImageModelFamilyV2
+
 
 class MLXDeepSeekOCRModel(DeepSeekOCRModel):
+    def __init__(
+        self,
+        model_uid: str,
+        model_path: Optional[str] = None,
+        device: Optional[str] = None,
+        model_spec: Optional["ImageModelFamilyV2"] = None,
+        **kwargs,
+    ):
+        super().__init__(model_uid, model_path, device, model_spec, **kwargs)
+        self._processor: Optional[Any] = None
+
     @classmethod
     def match(cls, model_family) -> bool:
         model_format = getattr(model_family, "model_format", None)
@@ -291,8 +305,10 @@ class MLXDeepSeekOCRModel(DeepSeekOCRModel):
         gen_kwargs.update(extra)
         gen_kwargs.update(kwargs)
 
-        detokenizer = self._processor.detokenizer
-        tokenizer = self._processor.tokenizer
+        processor = self._processor
+        assert processor is not None
+        detokenizer = processor.detokenizer
+        tokenizer = processor.tokenizer
         detokenizer.reset()
         text_parts = []
 

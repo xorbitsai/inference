@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 
 
 class OCRModel:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         raise NotImplementedError
