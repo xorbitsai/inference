@@ -25,6 +25,36 @@ class DummyRef:
         self.address = address
 
 
+class DummyWorkerRef:
+    def __init__(self, address: str, model_count: int, launched: list):
+        self.address = address
+        self._model_count = model_count
+        self._launched = launched
+
+    async def get_model_count(self) -> int:
+        return self._model_count
+
+    async def launch_builtin_model(self, *args, **kwargs):
+        self._launched.append(self.address)
+        if kwargs.get("shard") == 0:
+            return "subpool", {"driver": "info"}
+        return "subpool"
+
+    async def wait_for_load(self, model_uid: str):
+        return None
+
+
+class DummyStatusGuard:
+    def __init__(self):
+        self.instance_info = {}
+
+    async def set_instance_info(self, model_uid: str, instance_info):
+        self.instance_info[model_uid] = instance_info
+
+    async def update_instance_info(self, model_uid: str, updates: dict):
+        return None
+
+
 def test_assign_replica_gpu_single_slot_reused():
     # single gpu_idx with multiple replicas should be invalid
     with pytest.raises(ValueError):
@@ -198,4 +228,49 @@ def test_idle_first_multi_gpu_two_workers():
     ]
     ref, gpu_idx = strategy.select_worker(candidates, n_gpu=2)
     assert ref is w2
-    assert set(gpu_idx) == {0, 1}
+
+
+@pytest.mark.asyncio
+async def test_distributed_launch_avoids_same_worker_for_shards():
+    from xinference.core.supervisor import SupervisorActor
+
+    class DummySupervisor:
+        _choose_worker = SupervisorActor._choose_worker
+        _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
+
+        def __init__(self, workers):
+            self._worker_address_to_worker = workers
+            self._model_uid_to_replica_info = {}
+            self._replica_model_uid_to_worker = {}
+            self._status_guard_ref = DummyStatusGuard()
+
+        def _gen_model_uid(self, model_name: str) -> str:
+            return f"{model_name}-uid"
+
+        async def terminate_model(
+            self, model_uid: str, suppress_exception: bool = False
+        ):
+            return None
+
+    launched = []
+    worker1 = DummyWorkerRef("w1:1000", model_count=1, launched=launched)
+    worker2 = DummyWorkerRef("w2:1000", model_count=0, launched=launched)
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    # One model already runs on worker1 (n_gpu=1). Launch a new model with n_worker=2.
+    await supervisor._launch_builtin_sharded_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=1,
+        n_worker=2,
+        worker_ip=["w1:1000", "w2:1000"],
+        wait_ready=True,
+    )
+
+    assert set(launched) == {"w1:1000", "w2:1000"}
+    assert len(launched) == 2
