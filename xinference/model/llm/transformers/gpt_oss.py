@@ -44,10 +44,10 @@ class GPTOSSPytorchChatModel(PytorchChatModel):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "GPT-OSS transformer supports pytorch/gptq/awq/bnb formats only",
+                "GPT-OSS transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
         if not llm_family.has_architecture(*cls.GPT_OSS_ARCHITECTURES):
             return (

@@ -63,6 +63,8 @@ QUANT_NORMALIZE = {
     "int4": "4-bit",
     "int8": "8-bit",
     "fp4": "4-bit",
+    "mxfp4": "4-bit",
+    "nvfp4": "4-bit",
     "fp8": "8-bit",
     "4-bit": "4-bit",
     "8-bit": "8-bit",

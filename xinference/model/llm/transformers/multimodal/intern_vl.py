@@ -96,7 +96,7 @@ class InternVLChatModel(PytorchMultiModalModel):
         }
         if self._device:
             kwargs["device_map"] = self._device
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
 
         self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
 

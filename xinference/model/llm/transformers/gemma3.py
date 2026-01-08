@@ -30,10 +30,10 @@ class Gemma3TextChatModel(PytorchChatModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Gemma3 transformer supports pytorch/gptq/awq/bnb formats only",
+                "Gemma3 transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
         if not model_family.has_architecture(*cls.GEMMA3_ARCHITECTURES):
             return (

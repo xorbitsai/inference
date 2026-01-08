@@ -65,7 +65,7 @@ class Glm4_1VModel(PytorchMultiModalModel):
         from transformers import Glm4vForConditionalGeneration
 
         kwargs = {"device_map": "auto"}
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
 
         model = Glm4vForConditionalGeneration.from_pretrained(
             self.model_path,

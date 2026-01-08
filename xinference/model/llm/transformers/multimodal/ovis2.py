@@ -39,8 +39,11 @@ class Ovis2ChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False, "Ovis2 transformer supports pytorch/gptq/awq/bnb formats only"
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
+            return (
+                False,
+                "Ovis2 transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
+            )
         if not model_family.has_architecture(*cls.OVIS_ARCHITECTURES):
             return (
                 False,
@@ -59,7 +62,7 @@ class Ovis2ChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import AutoModelForCausalLM
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,

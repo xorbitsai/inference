@@ -90,7 +90,7 @@ class MiniCPMV26Model(PytorchMultiModalModel):
         if "int4" in self.model_path:
             model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
         else:
-            kwargs = self.apply_bnb_quantization()
+            kwargs = self.apply_quantization_config()
             model = AutoModel.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,
