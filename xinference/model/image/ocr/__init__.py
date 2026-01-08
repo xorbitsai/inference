@@ -15,6 +15,33 @@
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .mlx import MLXDeepSeekOCRModel
+from .ocr_family import SUPPORTED_ENGINES
 from .paddleocr_vl import PaddleOCRVLModel
+from .vllm import (
+    VLLMDeepSeekOCRModel,
+    VLLMGotOCR2Model,
+    VLLMHunyuanOCRModel,
+    VLLMPaddleOCRVLModel,
+)
 
-__all__ = ["DeepSeekOCRModel", "GotOCR2Model", "HunyuanOCRModel", "PaddleOCRVLModel"]
+__all__ = [
+    "DeepSeekOCRModel",
+    "GotOCR2Model",
+    "HunyuanOCRModel",
+    "PaddleOCRVLModel",
+]
+
+
+def register_builtin_ocr_engines() -> None:
+    SUPPORTED_ENGINES["transformers"] = [
+        DeepSeekOCRModel,
+        GotOCR2Model,
+        HunyuanOCRModel,
+        PaddleOCRVLModel,
+    ]
+    SUPPORTED_ENGINES["vllm"] = [
+        VLLMDeepSeekOCRModel,
+        VLLMHunyuanOCRModel,
+    ]
+    SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]

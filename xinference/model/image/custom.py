@@ -55,6 +55,10 @@ def register_image(model_spec: CustomImageModelFamilyV2, persist: bool):
 
     registry = RegistryManager.get_registry("image")
     registry.register(model_spec, persist)
+    if model_spec.model_ability and "ocr" in model_spec.model_ability:
+        from .ocr.ocr_family import generate_engine_config_by_model_name
+
+        generate_engine_config_by_model_name(model_spec)
 
 
 def unregister_image(model_name: str, raise_error: bool = True):
@@ -62,3 +66,7 @@ def unregister_image(model_name: str, raise_error: bool = True):
 
     registry = RegistryManager.get_registry("image")
     registry.unregister(model_name, raise_error)
+    from .ocr.ocr_family import OCR_ENGINES
+
+    if model_name in OCR_ENGINES:
+        del OCR_ENGINES[model_name]

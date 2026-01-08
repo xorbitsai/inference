@@ -684,8 +684,21 @@ def get_engine_params_by_name(
 
         return engine_params
 
+    elif model_type == "image":
+        from .image.ocr.ocr_family import OCR_ENGINES
+
+        if model_name not in OCR_ENGINES:
+            return None
+
+        available_engines = deepcopy(OCR_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "ocr_class")
+
+        return engine_params
+
     raise ValueError(
-        f"Cannot support model_engine for {model_type}, only available for LLM, embedding, rerank"
+        "Cannot support model_engine for "
+        f"{model_type}, only available for LLM, embedding, rerank, image"
     )
 
 
@@ -746,9 +759,28 @@ def merge_cached_files(
 
 def flatten_model_src(input_json: dict):
     flattened = []
-    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+    base_info = {
+        key: value
+        for key, value in input_json.items()
+        if key not in ("model_src", "model_specs")
+    }
+
+    if "model_specs" in input_json:
+        for spec in input_json["model_specs"]:
+            spec_base = base_info.copy()
+            spec_base.update({k: v for k, v in spec.items() if k != "model_src"})
+            for model_hub, hub_info in spec["model_src"].items():
+                record = spec_base.copy()
+                hub_info = hub_info.copy()
+                hub_info.pop("model_hub", None)
+                record.update(hub_info)
+                record["model_hub"] = model_hub
+                flattened.append(record)
+        return flattened
+
     for model_hub, hub_info in input_json["model_src"].items():
         record = base_info.copy()
+        hub_info = hub_info.copy()
         hub_info.pop("model_hub", None)
         record.update(hub_info)
         record["model_hub"] = model_hub
@@ -771,6 +803,11 @@ def flatten_quantizations(input_json: dict):
 
             for key, value in hub_info.items():
                 if key != "quantizations":
+                    if isinstance(value, str) and "{quantization}" in value:
+                        try:
+                            value = value.format(quantization=quant)
+                        except Exception:
+                            pass
                     record[key] = value
 
             flattened.append(record)

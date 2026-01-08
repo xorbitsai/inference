@@ -27,6 +27,8 @@ from torchvision import transforms
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from .ocr_family import OCRModel
+
 logger = logging.getLogger(__name__)
 
 
@@ -411,7 +413,12 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
     return blocks
 
 
-class DeepSeekOCRModel:
+class DeepSeekOCRModel(OCRModel):
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        model_format = getattr(model_family, "model_format", None)
+        return model_family.model_name == "DeepSeek-OCR" and model_format != "mlx"
+
     def __init__(
         self,
         model_uid: str,

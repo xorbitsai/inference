@@ -39,7 +39,7 @@ import Progress from './progress'
 import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
-const modelEngineType = ['LLM', 'embedding', 'rerank']
+const modelEngineType = ['LLM', 'embedding', 'rerank', 'image']
 
 const LaunchModelDrawer = ({
   modelData,
@@ -298,6 +298,11 @@ const LaunchModelDrawer = ({
           : `/v1/engines/${model_type}/${model_name}`
       )
       .then((data) => {
+        if (!data) {
+          setEnginesObj({})
+          setEngineOptions([])
+          return
+        }
         setEnginesObj(data)
         setEngineOptions(Object.keys(data))
       })
@@ -440,6 +445,11 @@ const LaunchModelDrawer = ({
         optionSetter: setQuantizationOptions,
         extractor: (item) => item.quantization,
       },
+      image: {
+        field: 'quantization',
+        optionSetter: setQuantizationOptions,
+        extractor: (item) => item.quantization,
+      },
     }
 
     const config = configMap[modelType]
@@ -451,7 +461,9 @@ const LaunchModelDrawer = ({
           ?.filter((item) => item.model_format === formData.model_format)
           ?.map(config.extractor)
       ),
-    ]
+    ].filter(
+      (option) => option !== undefined && option !== null && option !== ''
+    )
 
     config.optionSetter(options)
     if (!options.includes(formData[config.field])) {
@@ -595,11 +607,14 @@ const LaunchModelDrawer = ({
         )
 
       const spec = specs.find((s) => {
-        return s.quantizations === quant
+        return modelType === 'LLM'
+          ? s.quantizations === quant
+          : s.quantization === quant
       })
-      const cached = Array.isArray(spec?.cache_status)
-        ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
-        : spec?.cache_status
+      const cached =
+        modelType === 'LLM' && Array.isArray(spec?.cache_status)
+          ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
+          : spec?.cache_status
 
       return {
         value: quant,
