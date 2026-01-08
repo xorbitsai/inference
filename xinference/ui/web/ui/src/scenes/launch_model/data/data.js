@@ -53,8 +53,6 @@ export const additionalParameterTipList = {
     'mm_processor_kwargs',
     'min_pixels',
     'max_pixels',
-    'speculative_config',
-    'rope_scaling'
   ],
   'sglang': [
     'mem_fraction_static',
