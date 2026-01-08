@@ -59,7 +59,14 @@ class ModelMemInfo:
     total: int
 
 
-QUANT_NORMALIZE = {"int4": "4-bit", "int8": "8-bit", "4-bit": "4-bit", "8-bit": "8-bit"}
+QUANT_NORMALIZE = {
+    "int4": "4-bit",
+    "int8": "8-bit",
+    "fp4": "4-bit",
+    "fp8": "8-bit",
+    "4-bit": "4-bit",
+    "8-bit": "8-bit",
+}
 
 GGUF_MULTI_FACTOR_DICT = {
     "q4_0": 18,
