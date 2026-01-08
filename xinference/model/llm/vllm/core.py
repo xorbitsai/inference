@@ -109,6 +109,8 @@ class VLLMModelConfig(TypedDict, total=False):
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
     enable_expert_parallel: bool
+    rope_scaling: Optional[Dict[str, Union[str, float, int]]]
+    speculative_config: Optional[Dict[str, Union[str, int]]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -729,6 +731,58 @@ class VLLMModel(LLM):
             else:
                 await asyncio.sleep(interval)
 
+    def extract_values_from_json(self, config_fragments):
+        """
+        when user launch from webui,  when vllm config input json, extract all pairs
+        Args:
+            config_fragments: vllm model config json segments
+            example: when user wants to use mtp mode:
+            input dict into webui would be like this
+                [
+                    '{  "method": "deepseek_mtp"',
+                    '     "num_speculative_tokens": 1 }'
+                ]
+            but we want:
+                {
+                "method": "deepseek_mtp",
+                "num_speculative_tokens": 1
+                }
+            another example, when user wants to use rope_scaling:
+            input dict into webui would be like this
+                [
+                '{ "rope_type": "yarn"',
+                ' "factor": 4.0',
+                ' "original_max_position_embeddings": 32768'
+                ]
+            but we want:
+                {'rope_type': 'yarn', 'factor': 4.0, 'original_max_position_embeddings': 32768}
+        Returns:
+            dict: contains all pairs
+        """
+        import re
+
+        result = {}
+
+        # find possible str: "key": "value"
+        str_pattern = r'"([^"]+)"\s*:\s*"([^"]*)"'
+        # find possible number, int or float: "key": 123 或 "key": 123.45
+        num_pattern = r'"([^"]+)"\s*:\s*(\d+(\.\d+)?)'
+
+        for fragment in config_fragments:
+            str_matches = re.findall(str_pattern, fragment)
+            for key, value in str_matches:
+                result[key.strip()] = value.strip()
+
+            num_matches = re.findall(num_pattern, fragment)
+            for key, value, _ in num_matches:
+                # we try convert int, if error then convert to float
+                try:
+                    result[key.strip()] = int(value)
+                except ValueError:
+                    result[key.strip()] = float(value)
+
+        return result
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -753,6 +807,14 @@ class VLLMModel(LLM):
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
+        if "speculative_config" in model_config:
+            model_config["speculative_config"] = self.extract_values_from_json(
+                model_config["speculative_config"]
+            )
+        if "rope_scaling" in model_config:
+            model_config["rope_scaling"] = self.extract_values_from_json(
+                model_config["rope_scaling"]
+            )
         if "model_quantization" in model_config:
             model_config["quantization"] = model_config.pop("model_quantization")
         else:
