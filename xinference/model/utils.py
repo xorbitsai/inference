@@ -337,7 +337,8 @@ def set_all_random_seed(seed: int):
 class CancellableDownloader:
     _global_lock = threading.Lock()
     _active_instances = 0
-    _original_update = None  # Class-level original update method
+    _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
+    _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
     _patch_lock = threading.Lock()  # Additional lock for patching operations
 
     def __init__(
@@ -420,54 +421,65 @@ class CancellableDownloader:
     def patch_tqdm(self):
         # Use class-level patching to avoid conflicts
         with self._patch_lock:
+            import tqdm as tqdm_module
+
             if self._original_update is None:
-                self._original_update = original_update = tqdm.update
+                self._original_update = tqdm.update
+            if self._original_update_plain is None:
+                self._original_update_plain = tqdm_module.tqdm.update
 
-                # Thread-safe patched update
-                def patched_update(tqdm_instance, n):
-                    import gc
+            if self._original_update is None or self._original_update_plain is None:
+                return
 
-                    # Get all CancellableDownloader instances and check for cancellation
-                    downloaders = [
-                        obj
-                        for obj in gc.get_objects()
-                        if isinstance(obj, CancellableDownloader)
-                    ]
+            original_update_plain = self._original_update_plain
 
-                    for downloader in downloaders:
-                        # if download cancelled, throw error
-                        if getattr(downloader, "cancelled", False):
-                            downloader.raise_error()
+            # Thread-safe patched update
+            def patched_update(tqdm_instance, n):
+                import gc
 
-                        progresses = None
-                        if not getattr(tqdm_instance, "disable", False):
-                            unit = getattr(tqdm_instance, "unit", "it")
-                            if unit == "it":
-                                progresses = getattr(
-                                    downloader, "_main_progresses", None
-                                )
-                            else:
-                                progresses = getattr(
-                                    downloader, "_download_progresses", None
-                                )
+                # Get all CancellableDownloader instances and check for cancellation
+                downloaders = [
+                    obj
+                    for obj in gc.get_objects()
+                    if isinstance(obj, CancellableDownloader)
+                ]
 
-                        if progresses is not None:
-                            progresses.add(tqdm_instance)
+                for downloader in downloaders:
+                    # if download cancelled, throw error
+                    if getattr(downloader, "cancelled", False):
+                        downloader.raise_error()
+
+                    progresses = None
+                    if not getattr(tqdm_instance, "disable", False):
+                        unit = getattr(tqdm_instance, "unit", "it")
+                        if unit == "it":
+                            progresses = getattr(downloader, "_main_progresses", None)
                         else:
-                            logger.debug(
-                                f"No progresses found for downloader {downloader}"
+                            progresses = getattr(
+                                downloader, "_download_progresses", None
                             )
 
-                    # Call original update with safety check
-                    return original_update(tqdm_instance, n)
+                    if progresses is not None:
+                        progresses.add(tqdm_instance)
+                    else:
+                        logger.debug(f"No progresses found for downloader {downloader}")
 
-                tqdm.update = patched_update
+                # Call original update with safety check
+                return original_update_plain(tqdm_instance, n)
+
+            tqdm.update = patched_update
+            tqdm_module.tqdm.update = patched_update
 
     def unpatch_tqdm(self):
         with self._patch_lock:
             if self._original_update is not None and self._active_instances == 0:
+                import tqdm as tqdm_module
+
                 tqdm.update = self._original_update
                 self._original_update = None
+                if self._original_update_plain is not None:
+                    tqdm_module.tqdm.update = self._original_update_plain
+                    self._original_update_plain = None
 
     def __enter__(self):
         # Use global lock to prevent concurrent patching
