@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import base64
+import importlib
+import json
 import logging
 import operator
 import os
@@ -61,6 +63,7 @@ class DiffusersVideoModel:
         model_uid: str,
         model_path: str,
         model_spec: "VideoModelFamilyV2",
+        gguf_model_path: Optional[str] = None,
         **kwargs,
     ):
         self.model_family = model_spec
@@ -70,6 +73,7 @@ class DiffusersVideoModel:
         self._abilities = model_spec.model_ability or []  # type: ignore
         self._model = None
         self._kwargs = kwargs
+        self._gguf_model_path = gguf_model_path
 
     @property
     def model_spec(self):
@@ -78,6 +82,34 @@ class DiffusersVideoModel:
     @property
     def model_ability(self):
         return self._abilities
+
+    def _get_layer_cls(self, layer: str):
+        with open(os.path.join(self._model_path, "model_index.json")) as f:
+            model_index = json.load(f)
+            layer_info = model_index[layer]
+            module_name, class_name = layer_info
+            module = importlib.import_module(module_name)
+            return getattr(module, class_name)
+
+    def _load_transformer_gguf(self, torch_dtype):
+        from diffusers import GGUFQuantizationConfig
+
+        logger.debug("Loading gguf transformer from %s", self._gguf_model_path)
+        return self._get_layer_cls("transformer").from_single_file(
+            self._gguf_model_path,
+            quantization_config=GGUFQuantizationConfig(compute_dtype=torch_dtype),
+            torch_dtype=torch_dtype,
+            config=os.path.join(self._model_path, "transformer"),
+        )
+
+    @staticmethod
+    def _register_transformer(pipeline, transformer):
+        if transformer is None:
+            return
+        if hasattr(pipeline, "register_modules"):
+            pipeline.register_modules(transformer=transformer)
+        else:
+            pipeline.transformer = transformer
 
     def load(self):
         import torch
@@ -90,7 +122,12 @@ class DiffusersVideoModel:
         torch_dtype = kwargs.get("torch_dtype")
         if isinstance(torch_dtype, str):
             kwargs["torch_dtype"] = getattr(torch, torch_dtype)
+            torch_dtype = kwargs["torch_dtype"]
         logger.debug("Loading video model with kwargs: %s", kwargs)
+
+        transformer = None
+        if self._gguf_model_path and self._model_spec.model_family != "HunyuanVideo":
+            transformer = self._load_transformer_gguf(torch_dtype)
 
         if self._model_spec.model_family == "CogVideoX":
             import diffusers
@@ -99,17 +136,23 @@ class DiffusersVideoModel:
             pipeline = self._model = CogVideoXPipeline.from_pretrained(
                 self._model_path, **kwargs
             )
+            self._register_transformer(pipeline, transformer)
         elif self._model_spec.model_family == "HunyuanVideo":
             from diffusers import HunyuanVideoPipeline, HunyuanVideoTransformer3DModel
 
-            transformer_torch_dtype = kwargs.pop("transformer_torch_dtype")
+            transformer_torch_dtype = kwargs.pop("transformer_torch_dtype", None)
             if isinstance(transformer_torch_dtype, str):
                 transformer_torch_dtype = getattr(torch, transformer_torch_dtype)
-            transformer = HunyuanVideoTransformer3DModel.from_pretrained(
-                self._model_path,
-                subfolder="transformer",
-                torch_dtype=transformer_torch_dtype,
-            )
+            if transformer_torch_dtype is None:
+                transformer_torch_dtype = torch_dtype
+            if self._gguf_model_path:
+                transformer = self._load_transformer_gguf(transformer_torch_dtype)
+            else:
+                transformer = HunyuanVideoTransformer3DModel.from_pretrained(
+                    self._model_path,
+                    subfolder="transformer",
+                    torch_dtype=transformer_torch_dtype,
+                )
             pipeline = self._model = HunyuanVideoPipeline.from_pretrained(
                 self._model_path, transformer=transformer, **kwargs
             )
@@ -121,6 +164,7 @@ class DiffusersVideoModel:
                 pipeline = self._model = WanPipeline.from_pretrained(
                     self._model_path, **kwargs
                 )
+                self._register_transformer(pipeline, transformer)
             else:
                 assert (
                     "image2video" in self.model_spec.model_ability
@@ -138,6 +182,7 @@ class DiffusersVideoModel:
                 pipeline = self._model = WanImageToVideoPipeline.from_pretrained(
                     self._model_path, vae=vae, image_encoder=image_encoder, **kwargs
                 )
+                self._register_transformer(pipeline, transformer)
         else:
             raise Exception(
                 f"Unsupported model family: {self._model_spec.model_family}"

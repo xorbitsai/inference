@@ -1038,6 +1038,11 @@ class WorkerActor(xo.StatelessActor):
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
                                 "cache_status": video_cache_manager.get_cache_status(),
+                                "gguf_model_id": family.gguf_model_id,
+                                "gguf_quantizations": family.gguf_quantizations,
+                                "gguf_model_file_name_template": (
+                                    family.gguf_model_file_name_template
+                                ),
                             }
                         ]
                         ret.append(

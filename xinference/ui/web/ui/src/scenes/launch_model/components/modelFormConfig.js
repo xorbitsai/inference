@@ -17,6 +17,10 @@ export default function getModelFormConfig({
   enginesWithNWorker,
   multimodalProjectorOptions,
 }) {
+  const ggufQuantizations =
+    modelData?.gguf_quantizations ??
+    modelData?.model_specs?.find((spec) => spec.gguf_quantizations)
+      ?.gguf_quantizations
   const config = {
     LLM: [
       {
@@ -514,6 +518,19 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
+      },
+      {
         name: 'request_limits',
         label: t('launchModel.requestLimits.optional'),
         type: 'number',
@@ -667,14 +684,14 @@ export default function getModelFormConfig({
         name: 'gguf_quantization',
         label: t('launchModel.GGUFQuantization.optional'),
         type: 'select',
-        options: ['none', ...(modelData.gguf_quantizations || [])],
-        visible: !!modelData.gguf_quantizations,
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
       },
       {
         name: 'gguf_model_path',
         label: t('launchModel.GGUFModelPath.optional'),
         type: 'input',
-        visible: !!modelData.gguf_quantizations,
+        visible: !!ggufQuantizations,
       },
       {
         name: 'lightning_version',
@@ -855,6 +872,19 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
+      },
+      {
         name: 'request_limits',
         label: t('launchModel.requestLimits.optional'),
         type: 'number',
@@ -979,6 +1009,19 @@ export default function getModelFormConfig({
         label: t('launchModel.modelPath.optional'),
         type: 'input',
         visible: true,
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
       },
       {
         name: 'request_limits',
