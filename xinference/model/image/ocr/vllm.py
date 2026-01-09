@@ -114,11 +114,45 @@ def _extract_text(outputs: List[Any]) -> List[str]:
     return texts
 
 
+def _shutdown_vllm_model(model: Any) -> None:
+    if model is None:
+        return
+    try:
+        shutdown = getattr(model, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+            return
+    except Exception:
+        logger.debug("Failed to call vLLM model.shutdown()", exc_info=True)
+
+    engine = getattr(model, "llm_engine", None) or getattr(model, "engine", None)
+    if engine is None:
+        return
+    try:
+        engine_shutdown = getattr(engine, "shutdown", None)
+        if callable(engine_shutdown):
+            engine_shutdown()
+    except Exception:
+        logger.debug("Failed to call vLLM engine.shutdown()", exc_info=True)
+    try:
+        model_executor = getattr(engine, "model_executor", None)
+        executor_shutdown = getattr(model_executor, "shutdown", None)
+        if callable(executor_shutdown):
+            executor_shutdown()
+    except Exception:
+        logger.debug("Failed to call vLLM executor.shutdown()", exc_info=True)
+
+
 class VLLMDeepSeekOCRModel(DeepSeekOCRModel):
     def load(self):
         vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
         self._model = _load_vllm_model(self._model_path, vllm_kwargs)
         self._tokenizer = self._model.get_tokenizer()
+
+    def stop(self):
+        _shutdown_vllm_model(self._model)
+        self._model = None
+        self._tokenizer = None
 
     def _prepare_inputs(
         self, prompt: str, image: Union[PIL.Image.Image, List[PIL.Image.Image]]
@@ -207,6 +241,12 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
         self._processor = AutoProcessor.from_pretrained(
             self._model_path, use_fast=False, trust_remote_code=True
         )
+
+    def stop(self):
+        _shutdown_vllm_model(self._model)
+        self._model = None
+        self._tokenizer = None
+        self._processor = None
 
     def _build_prompt(self, image: PIL.Image.Image, prompt: str) -> str:
         processor = self._processor

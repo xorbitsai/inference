@@ -77,6 +77,8 @@ const LaunchModelDrawer = ({
   const [progress, setProgress] = useState(0)
   const [checkDynamicFieldComplete, setCheckDynamicFieldComplete] = useState([])
   const [replicaStatuses, setReplicaStatuses] = useState([])
+  const [pendingHistory, setPendingHistory] = useState(null)
+  const [hasFetchedEngines, setHasFetchedEngines] = useState(false)
 
   const intervalRef = useRef(null)
 
@@ -239,6 +241,17 @@ const LaunchModelDrawer = ({
     return result
   }
 
+  const applyHistory = (data) => {
+    const restoredData = restoreFormDataFormat(data)
+    setFormData(
+      modelEngineType.includes(modelType)
+        ? { ...restoredData, __isInitializing: true }
+        : restoredData
+    )
+    const collapseFromData = getCollapseStateFromData(restoredData)
+    setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
+  }
+
   const getCollapseStateFromData = (result) => {
     const newState = {}
 
@@ -291,6 +304,7 @@ const LaunchModelDrawer = ({
   }
 
   const fetchModelEngine = (model_name, model_type) => {
+    setHasFetchedEngines(false)
     fetchWrapper
       .get(
         model_type === 'LLM'
@@ -314,6 +328,7 @@ const LaunchModelDrawer = ({
       })
       .finally(() => {
         setIsCallingApi(false)
+        setHasFetchedEngines(true)
       })
   }
 
@@ -375,16 +390,41 @@ const LaunchModelDrawer = ({
     const data = handleGetHistory()
     if (data) {
       setHasHistory(true)
-      const restoredData = restoreFormDataFormat(data)
-      setFormData(
-        modelEngineType.includes(modelType)
-          ? { ...restoredData, __isInitializing: true }
-          : restoredData
-      )
-      const collapseFromData = getCollapseStateFromData(restoredData)
-      setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
+      if (modelEngineType.includes(modelType)) {
+        setPendingHistory(data)
+      } else {
+        applyHistory(data)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (!pendingHistory || !modelEngineType.includes(modelType)) return
+    if (!open || !hasFetchedEngines) return
+
+    if (!pendingHistory.model_engine) {
+      setHasHistory(false)
+      setFormData({})
+      setCollapseState({})
+      setPendingHistory(null)
+      return
+    }
+
+    const engineData = enginesObj[pendingHistory.model_engine]
+    const isValidEngine =
+      engineOptions.includes(pendingHistory.model_engine) &&
+      Array.isArray(engineData) &&
+      engineData.length > 0
+
+    if (isValidEngine) {
+      applyHistory(pendingHistory)
+    } else {
+      setHasHistory(false)
+      setFormData({})
+      setCollapseState({})
+    }
+    setPendingHistory(null)
+  }, [pendingHistory, open, hasFetchedEngines, engineOptions, modelType])
 
   useEffect(() => {
     if (open && modelEngineType.includes(modelType))
