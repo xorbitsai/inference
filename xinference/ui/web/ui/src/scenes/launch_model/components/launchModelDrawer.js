@@ -82,6 +82,8 @@ const LaunchModelDrawer = ({
 
   const intervalRef = useRef(null)
 
+  const modelSpecs = modelData.model_specs || []
+
   const downloadHubOptions = useMemo(
     () => ['none', ...(modelData?.download_hubs || [])],
     [modelData?.download_hubs]
@@ -446,7 +448,7 @@ const LaunchModelDrawer = ({
         ...new Set(
           enginesObj[formData.model_engine]?.map((item) => item.model_format)
         ),
-      ]
+      ].filter((value) => value !== undefined && value !== null && value !== '')
       setFormatOptions(format)
 
       if (!format.includes(formData.model_format)) {
@@ -586,7 +588,7 @@ const LaunchModelDrawer = ({
           new Set(engineData.map((item) => item.model_format))
         )
 
-        const relevantSpecs = modelData.model_specs.filter((spec) =>
+        const relevantSpecs = modelSpecs.filter((spec) =>
           modelFormats.includes(spec.model_format)
         )
 
@@ -607,23 +609,25 @@ const LaunchModelDrawer = ({
   }, [engineOptions, enginesObj, modelData])
 
   const formatItems = useMemo(() => {
-    return formatOptions.map((format) => {
-      const specs = modelData.model_specs.filter(
-        (spec) => spec.model_format === format
+    return formatOptions
+      .filter(
+        (format) => format !== undefined && format !== null && format !== ''
       )
+      .map((format) => {
+        const specs = modelSpecs.filter((spec) => spec.model_format === format)
 
-      const cached = specs.some((spec) => isCached(spec))
+        const cached = specs.some((spec) => isCached(spec))
 
-      return {
-        value: format,
-        label: cached ? `${format} ${t('launchModel.cached')}` : format,
-      }
-    })
+        return {
+          value: format,
+          label: cached ? `${format} ${t('launchModel.cached')}` : format,
+        }
+      })
   }, [formatOptions, modelData])
 
   const sizeItems = useMemo(() => {
     return sizeOptions.map((size) => {
-      const specs = modelData.model_specs
+      const specs = modelSpecs
         .filter((spec) => spec.model_format === formData.model_format)
         .filter((spec) => spec.model_size_in_billions === size)
       const cached = specs.some((spec) => isCached(spec))
@@ -637,7 +641,7 @@ const LaunchModelDrawer = ({
 
   const quantizationItems = useMemo(() => {
     return quantizationOptions.map((quant) => {
-      const specs = modelData.model_specs
+      const specs = modelSpecs
         .filter((spec) => spec.model_format === formData.model_format)
         .filter((spec) =>
           modelType === 'LLM'

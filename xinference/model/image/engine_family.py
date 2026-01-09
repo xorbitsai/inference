@@ -16,10 +16,10 @@ import importlib.util
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 if TYPE_CHECKING:
-    from ..core import ImageModelFamilyV2
+    from .core import ImageModelFamilyV2
 
 
-class OCRModel:
+class ImageEngineModel:
     required_libs: Tuple[str, ...] = ()
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -37,9 +37,9 @@ class OCRModel:
         return True
 
 
-# { ocr model name -> { engine name -> engine params } }
-OCR_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-SUPPORTED_ENGINES: Dict[str, List[Type[OCRModel]]] = {}
+# { image model name -> { engine name -> engine params } }
+IMAGE_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+SUPPORTED_ENGINES: Dict[str, List[Type[ImageEngineModel]]] = {}
 
 
 def check_engine_by_model_name_and_engine(
@@ -47,19 +47,21 @@ def check_engine_by_model_name_and_engine(
     model_name: str,
     model_format: Optional[str],
     quantization: Optional[str],
-) -> Type[OCRModel]:
+) -> Type[ImageEngineModel]:
     def get_model_engine_from_spell(engine_str: str) -> str:
-        for engine in OCR_ENGINES[model_name].keys():
+        for engine in IMAGE_ENGINES[model_name].keys():
             if engine.lower() == engine_str.lower():
                 return engine
         return engine_str
 
-    if model_name not in OCR_ENGINES:
-        raise ValueError(f"Model {model_name} not found.")
+    if model_name not in IMAGE_ENGINES:
+        raise ValueError(f"Image model {model_name} not found.")
     model_engine = get_model_engine_from_spell(model_engine)
-    if model_engine not in OCR_ENGINES[model_name]:
-        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
-    match_params = OCR_ENGINES[model_name][model_engine]
+    if model_engine not in IMAGE_ENGINES[model_name]:
+        raise ValueError(
+            f"Image model {model_name} cannot be run on engine {model_engine}."
+        )
+    match_params = IMAGE_ENGINES[model_name][model_engine]
     for param in match_params:
         if model_name != param["model_name"]:
             continue
@@ -67,28 +69,34 @@ def check_engine_by_model_name_and_engine(
             quantization and quantization != param["quantization"]
         ):
             continue
-        return param["ocr_class"]
-    raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+        return param["image_class"]
+    raise ValueError(
+        f"Image model {model_name} cannot be run on engine {model_engine}."
+    )
 
 
 def generate_engine_config_by_model_name(model_family: "ImageModelFamilyV2") -> None:
     model_name = model_family.model_name
     model_format = getattr(model_family, "model_format", None)
     quantization = getattr(model_family, "quantization", None)
-    engines: Dict[str, List[Dict[str, Any]]] = OCR_ENGINES.get(model_name, {})
+    engines: Dict[str, List[Dict[str, Any]]] = IMAGE_ENGINES.get(model_name, {})
     for engine, classes in SUPPORTED_ENGINES.items():
         for cls in classes:
             if cls.match(model_family):
+                engine_model_format = getattr(cls, "engine_model_format", model_format)
+                engine_quantization = quantization
+                if engine_quantization is None:
+                    engine_quantization = getattr(cls, "engine_quantization", None)
                 engine_params = engines.get(engine, [])
                 engine_params.append(
                     {
                         "model_name": model_name,
-                        "model_format": model_format,
-                        "quantization": quantization,
-                        "ocr_class": cls,
+                        "model_format": engine_model_format,
+                        "quantization": engine_quantization,
+                        "image_class": cls,
                     }
                 )
                 engines[engine] = engine_params
                 break
     if engines:
-        OCR_ENGINES[model_name] = engines
+        IMAGE_ENGINES[model_name] = engines
