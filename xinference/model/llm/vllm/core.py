@@ -807,11 +807,15 @@ class VLLMModel(LLM):
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
-        if "speculative_config" in model_config:
+        if "speculative_config" in model_config and isinstance(
+            model_config["speculative_config"], list
+        ):
             model_config["speculative_config"] = self.extract_values_from_json(
                 model_config["speculative_config"]
             )
-        if "rope_scaling" in model_config:
+        if "rope_scaling" in model_config and isinstance(
+            model_config["speculative_config"], list
+        ):
             model_config["rope_scaling"] = self.extract_values_from_json(
                 model_config["rope_scaling"]
             )
